@@ -34,9 +34,15 @@ class _StubClient:
             metadata = dict(chunk.get("metadata") or {})
             if session_id and metadata.get("session_id") != session_id:
                 continue
-            if filters.get("file_ids") and metadata.get("upload_id") not in filters["file_ids"]:
+            if (
+                filters.get("file_ids")
+                and metadata.get("upload_id") not in filters["file_ids"]
+            ):
                 continue
-            if filters.get("file_types") and metadata.get("source_type") not in filters["file_types"]:
+            if (
+                filters.get("file_types")
+                and metadata.get("source_type") not in filters["file_types"]
+            ):
                 continue
             results.append(
                 {
@@ -250,10 +256,14 @@ class TestScoreThreshold:
 
     @pytest.mark.asyncio
     async def test_threshold_zero_returns_all(self, indexed_svc):
-        results = await indexed_svc.search("proj-thr", "内容", top_k=5, score_threshold=0.0)
+        results = await indexed_svc.search(
+            "proj-thr", "内容", top_k=5, score_threshold=0.0
+        )
         assert len(results) == 5
 
     @pytest.mark.asyncio
     async def test_threshold_filters_low_scores(self, indexed_svc):
-        results = await indexed_svc.search("proj-thr", "内容", top_k=5, score_threshold=0.95)
+        results = await indexed_svc.search(
+            "proj-thr", "内容", top_k=5, score_threshold=0.95
+        )
         assert results == []

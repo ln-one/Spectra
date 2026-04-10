@@ -142,8 +142,12 @@ services:
     )
     assert any("worker stays internal-only" in message for message in messages)
     assert any("shadow override declares postgres" in message for message in messages)
-    assert any("base compose declares `stratumind` service" in message for message in messages)
-    assert any("base compose declares `qdrant` service" in message for message in messages)
+    assert any(
+        "base compose declares `stratumind` service" in message for message in messages
+    )
+    assert any(
+        "base compose declares `qdrant` service" in message for message in messages
+    )
     assert any(
         "shadow `backend` DATABASE_URL points at postgres service" in message
         for message in messages

@@ -49,5 +49,7 @@ async def delete_project_index(service, project_id: str) -> bool:
 
 
 async def delete_upload_index(service, project_id: str, upload_id: str) -> int:
-    await service._client.delete_upload_index(project_id=project_id, upload_id=upload_id)
+    await service._client.delete_upload_index(
+        project_id=project_id, upload_id=upload_id
+    )
     return 0

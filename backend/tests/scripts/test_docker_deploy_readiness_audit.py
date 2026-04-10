@@ -27,7 +27,8 @@ def test_docker_readiness_flags_local_only_defaults():
         for message in messages
     )
     assert any(
-        "QDRANT_URL host still points to local-only host" in message for message in messages
+        "QDRANT_URL host still points to local-only host" in message
+        for message in messages
     )
     assert any(
         "NEXT_PUBLIC_API_URL still points at local backend placeholder" in message

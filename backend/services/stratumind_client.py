@@ -71,7 +71,9 @@ async def _request(
     def _run() -> tuple[int, str]:
         request = urllib_request.Request(url, data=data, headers=headers, method=method)
         try:
-            with urllib_request.urlopen(request, timeout=_timeout_seconds()) as response:
+            with urllib_request.urlopen(
+                request, timeout=_timeout_seconds()
+            ) as response:
                 return response.getcode(), response.read().decode("utf-8")
         except urllib_error.HTTPError as exc:
             return exc.code, exc.read().decode("utf-8", errors="replace")
@@ -106,10 +108,17 @@ async def _request(
             )
         error_payload = payload_obj.get("error") or {}
         raise StratumindClientError(
-            message=str(error_payload.get("message") or f"stratumind_request_failed status={status_code}"),
+            message=str(
+                error_payload.get("message")
+                or f"stratumind_request_failed status={status_code}"
+            ),
             code=str(error_payload.get("code") or "UNKNOWN"),
             status_code=status_code,
-            details=error_payload.get("details") if isinstance(error_payload.get("details"), dict) else None,
+            details=(
+                error_payload.get("details")
+                if isinstance(error_payload.get("details"), dict)
+                else None
+            ),
             retryable=error_payload.get("retryable"),
         )
 
@@ -119,7 +128,9 @@ async def _request(
 
 
 class StratumindClient:
-    async def index_chunks(self, *, project_id: str, chunks: list[dict[str, Any]]) -> dict[str, Any]:
+    async def index_chunks(
+        self, *, project_id: str, chunks: list[dict[str, Any]]
+    ) -> dict[str, Any]:
         return await _request(
             "POST",
             "/indexes/chunks",
@@ -150,7 +161,9 @@ class StratumindClient:
             },
         )
 
-    async def get_source_detail(self, *, project_id: str, chunk_id: str) -> dict[str, Any]:
+    async def get_source_detail(
+        self, *, project_id: str, chunk_id: str
+    ) -> dict[str, Any]:
         return await _request(
             "GET",
             f"/sources/{chunk_id}",
@@ -160,8 +173,12 @@ class StratumindClient:
     async def delete_project_index(self, *, project_id: str) -> dict[str, Any]:
         return await _request("DELETE", f"/indexes/projects/{project_id}")
 
-    async def delete_upload_index(self, *, project_id: str, upload_id: str) -> dict[str, Any]:
-        return await _request("DELETE", f"/indexes/projects/{project_id}/uploads/{upload_id}")
+    async def delete_upload_index(
+        self, *, project_id: str, upload_id: str
+    ) -> dict[str, Any]:
+        return await _request(
+            "DELETE", f"/indexes/projects/{project_id}/uploads/{upload_id}"
+        )
 
 
 stratumind_client = StratumindClient()

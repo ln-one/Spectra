@@ -1,6 +1,10 @@
 """RAG service facade backed by Stratumind."""
 
-from services.rag_service.indexing import delete_project_index, delete_upload_index, index_chunks
+from services.rag_service.indexing import (
+    delete_project_index,
+    delete_upload_index,
+    index_chunks,
+)
 from services.rag_service.retrieval import get_chunk_detail, search
 from services.stratumind_client import stratumind_client
 

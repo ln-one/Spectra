@@ -46,8 +46,18 @@ def test_summarize_scenario_tracks_rerank_coverage():
             _case_result("b", latency=20.0, stages=["", "rerank"]),
         ],
         [
-            {"id": "a", "query": "qa", "expected_keywords": [], "relevant_chunk_ids": []},
-            {"id": "b", "query": "qb", "expected_keywords": [], "relevant_chunk_ids": []},
+            {
+                "id": "a",
+                "query": "qa",
+                "expected_keywords": [],
+                "relevant_chunk_ids": [],
+            },
+            {
+                "id": "b",
+                "query": "qb",
+                "expected_keywords": [],
+                "relevant_chunk_ids": [],
+            },
         ],
     )
     assert summary.name == "rerank"

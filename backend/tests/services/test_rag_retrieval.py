@@ -105,7 +105,13 @@ async def test_search_combines_selected_file_filter_with_session_overlay(monkeyp
         filters={"file_ids": ["file-1"]},
     )
 
-    assert client.calls[0] == ("p-001", "生成课件", 5, "s-001", {"file_ids": ["file-1"]})
+    assert client.calls[0] == (
+        "p-001",
+        "生成课件",
+        5,
+        "s-001",
+        {"file_ids": ["file-1"]},
+    )
     assert client.calls[1] == ("p-001", "生成课件", 5, None, {"file_ids": ["file-1"]})
 
 

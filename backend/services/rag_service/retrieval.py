@@ -3,7 +3,10 @@ from typing import Optional
 
 from schemas.rag import ChunkContext, RAGResult, SourceDetail, SourceReference
 from services.database import db_service
-from services.rag_service.retrieval_helpers import list_active_reference_targets, sort_key
+from services.rag_service.retrieval_helpers import (
+    list_active_reference_targets,
+    sort_key,
+)
 from services.stratumind_client import StratumindClientError
 
 logger = logging.getLogger(__name__)
@@ -36,7 +39,9 @@ def _normalize_result(
         score=float(payload.get("score") or 0.0),
         source=SourceReference(
             chunk_id=str(payload.get("chunk_id") or ""),
-            source_type=payload.get("source_type") or metadata.get("source_type") or "document",
+            source_type=payload.get("source_type")
+            or metadata.get("source_type")
+            or "document",
             filename=str(payload.get("filename") or ""),
             page_number=payload.get("page_number"),
         ),
@@ -67,7 +72,10 @@ async def search(
                 result_sets.append(
                     (
                         local_session_result["results"],
-                        {"source_project_id": project_id, "source_scope": "local_session"},
+                        {
+                            "source_project_id": project_id,
+                            "source_scope": "local_session",
+                        },
                     )
                 )
         except StratumindClientError as exc:
@@ -154,8 +162,14 @@ async def get_chunk_detail(service, chunk_id: str, project_id: Optional[str] = N
                 ),
                 context=(
                     ChunkContext(
-                        previous_chunk=str((detail_payload.get("context") or {}).get("previous_chunk") or ""),
-                        next_chunk=str((detail_payload.get("context") or {}).get("next_chunk") or ""),
+                        previous_chunk=str(
+                            (detail_payload.get("context") or {}).get("previous_chunk")
+                            or ""
+                        ),
+                        next_chunk=str(
+                            (detail_payload.get("context") or {}).get("next_chunk")
+                            or ""
+                        ),
                     )
                     if detail_payload.get("context")
                     else None
@@ -183,8 +197,16 @@ async def get_chunk_detail(service, chunk_id: str, project_id: Optional[str] = N
                     ),
                     context=(
                         ChunkContext(
-                            previous_chunk=str((detail_payload.get("context") or {}).get("previous_chunk") or ""),
-                            next_chunk=str((detail_payload.get("context") or {}).get("next_chunk") or ""),
+                            previous_chunk=str(
+                                (detail_payload.get("context") or {}).get(
+                                    "previous_chunk"
+                                )
+                                or ""
+                            ),
+                            next_chunk=str(
+                                (detail_payload.get("context") or {}).get("next_chunk")
+                                or ""
+                            ),
                         )
                         if detail_payload.get("context")
                         else None

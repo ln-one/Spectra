@@ -86,7 +86,9 @@ def latency_summary(results: list[EvalResult]) -> dict[str, float]:
     }
 
 
-def summarize_scenario(name: str, case_results: list[SearchCaseResult], cases: list[dict[str, Any]]) -> ScenarioSummary:
+def summarize_scenario(
+    name: str, case_results: list[SearchCaseResult], cases: list[dict[str, Any]]
+) -> ScenarioSummary:
     eval_results = [item.eval_result for item in case_results]
     metrics = compute_metrics(eval_results, cases)
     rerank_coverage_rate = 0.0
@@ -134,11 +136,23 @@ async def run_stratumind_case(
         response.raise_for_status()
         payload = response.json()
         raw_results = payload.get("results") or []
-        chunk_ids = [str(item.get("chunk_id") or "") for item in raw_results if str(item.get("chunk_id") or "")]
-        contents = [str(item.get("content") or "") for item in raw_results if str(item.get("content") or "")]
+        chunk_ids = [
+            str(item.get("chunk_id") or "")
+            for item in raw_results
+            if str(item.get("chunk_id") or "")
+        ]
+        contents = [
+            str(item.get("content") or "")
+            for item in raw_results
+            if str(item.get("content") or "")
+        ]
         ranking_stages = [str(item.get("ranking_stage") or "") for item in raw_results]
-        rerank_score_count = sum(1 for item in raw_results if item.get("rerank_score") is not None)
-        base_score_count = sum(1 for item in raw_results if item.get("base_score") is not None)
+        rerank_score_count = sum(
+            1 for item in raw_results if item.get("rerank_score") is not None
+        )
+        base_score_count = sum(
+            1 for item in raw_results if item.get("base_score") is not None
+        )
         return SearchCaseResult(
             eval_result=EvalResult(
                 case_id=case["id"],
@@ -303,24 +317,32 @@ async def run_eval(
         },
         "comparison": {
             "keyword_hit_rate_delta": round(
-                rerank_summary.metrics["keyword_hit_rate"] - baseline_summary.metrics["keyword_hit_rate"],
+                rerank_summary.metrics["keyword_hit_rate"]
+                - baseline_summary.metrics["keyword_hit_rate"],
                 4,
             ),
             "hit_rate_at_1_delta": round(
-                rerank_summary.metrics["hit_rate_at_k"].get(1, 0.0) - baseline_summary.metrics["hit_rate_at_k"].get(1, 0.0),
+                rerank_summary.metrics["hit_rate_at_k"].get(1, 0.0)
+                - baseline_summary.metrics["hit_rate_at_k"].get(1, 0.0),
                 4,
             ),
             "mrr_at_5_delta": round(
-                rerank_summary.metrics["mrr_at_k"].get(5, 0.0) - baseline_summary.metrics["mrr_at_k"].get(5, 0.0),
+                rerank_summary.metrics["mrr_at_k"].get(5, 0.0)
+                - baseline_summary.metrics["mrr_at_k"].get(5, 0.0),
                 4,
             ),
             "avg_latency_ms_delta": round(
-                rerank_summary.metrics["avg_latency_ms"] - baseline_summary.metrics["avg_latency_ms"],
+                rerank_summary.metrics["avg_latency_ms"]
+                - baseline_summary.metrics["avg_latency_ms"],
                 2,
             ),
             "top1_changed_cases": [row for row in top1_changes if row["changed"]],
             "top1_change_rate": round(
-                sum(1 for row in top1_changes if row["changed"]) / len(top1_changes) if top1_changes else 0.0,
+                (
+                    sum(1 for row in top1_changes if row["changed"]) / len(top1_changes)
+                    if top1_changes
+                    else 0.0
+                ),
                 4,
             ),
         },
@@ -330,12 +352,20 @@ async def run_eval(
                 "query": baseline.eval_result.query,
                 "baseline": {
                     "latency_ms": round(baseline.eval_result.latency_ms, 2),
-                    "top1_chunk_id": baseline.eval_result.retrieved_chunk_ids[0] if baseline.eval_result.retrieved_chunk_ids else None,
+                    "top1_chunk_id": (
+                        baseline.eval_result.retrieved_chunk_ids[0]
+                        if baseline.eval_result.retrieved_chunk_ids
+                        else None
+                    ),
                     "error": baseline.eval_result.error,
                 },
                 "rerank": {
                     "latency_ms": round(rerank.eval_result.latency_ms, 2),
-                    "top1_chunk_id": rerank.eval_result.retrieved_chunk_ids[0] if rerank.eval_result.retrieved_chunk_ids else None,
+                    "top1_chunk_id": (
+                        rerank.eval_result.retrieved_chunk_ids[0]
+                        if rerank.eval_result.retrieved_chunk_ids
+                        else None
+                    ),
                     "error": rerank.eval_result.error,
                     "rerank_score_count": rerank.rerank_score_count,
                     "base_score_count": rerank.base_score_count,
@@ -350,14 +380,28 @@ async def run_eval(
         dualweave_latencies = [item["latency_ms"] for item in dualweave_results]
         dualweave_failures = [item for item in dualweave_results if item["error"]]
         output["dualweave_direct"] = {
-            "avg_latency_ms": round(statistics.mean(dualweave_latencies), 2) if dualweave_latencies else 0.0,
-            "p95_latency_ms": round(percentile(dualweave_latencies, 0.95), 2) if dualweave_latencies else 0.0,
-            "failure_rate": round(len(dualweave_failures) / len(dualweave_results), 4) if dualweave_results else 0.0,
+            "avg_latency_ms": (
+                round(statistics.mean(dualweave_latencies), 2)
+                if dualweave_latencies
+                else 0.0
+            ),
+            "p95_latency_ms": (
+                round(percentile(dualweave_latencies, 0.95), 2)
+                if dualweave_latencies
+                else 0.0
+            ),
+            "failure_rate": (
+                round(len(dualweave_failures) / len(dualweave_results), 4)
+                if dualweave_results
+                else 0.0
+            ),
             "sample_count": len(dualweave_results),
         }
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(json.dumps(output, ensure_ascii=False, indent=2), encoding="utf-8")
+    output_path.write_text(
+        json.dumps(output, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
 
     print("\n=== Baseline ===")
     print_summary(baseline_summary)
@@ -379,11 +423,23 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Stratumind rerank comparison eval")
     parser.add_argument("--project-id", required=True, help="目标项目 ID")
     parser.add_argument("--dataset", default="eval/dataset.json", help="评测数据集路径")
-    parser.add_argument("--output", default="eval/results/stratumind_rerank_eval.json", help="结果输出路径")
+    parser.add_argument(
+        "--output",
+        default="eval/results/stratumind_rerank_eval.json",
+        help="结果输出路径",
+    )
     parser.add_argument("--top-k", type=int, default=5, help="检索 top_k")
-    parser.add_argument("--baseline-stratumind-base-url", required=True, help="baseline Stratumind base URL")
-    parser.add_argument("--rerank-stratumind-base-url", required=True, help="rerank Stratumind base URL")
-    parser.add_argument("--dualweave-base-url", default=None, help="可选，Dualweave base URL")
+    parser.add_argument(
+        "--baseline-stratumind-base-url",
+        required=True,
+        help="baseline Stratumind base URL",
+    )
+    parser.add_argument(
+        "--rerank-stratumind-base-url", required=True, help="rerank Stratumind base URL"
+    )
+    parser.add_argument(
+        "--dualweave-base-url", default=None, help="可选，Dualweave base URL"
+    )
     args = parser.parse_args()
 
     asyncio.run(

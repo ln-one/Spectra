@@ -23,7 +23,14 @@ def test_build_shadow_compose_command_defaults_to_infra_services() -> None:
 def test_build_shadow_compose_command_can_include_app_services() -> None:
     command = build_shadow_compose_command(with_app=True)
 
-    assert command[-6:] == ["postgres", "redis", "qdrant", "stratumind", "backend", "worker"]
+    assert command[-6:] == [
+        "postgres",
+        "redis",
+        "qdrant",
+        "stratumind",
+        "backend",
+        "worker",
+    ]
 
 
 def test_build_shadow_compose_command_supports_down() -> None:
