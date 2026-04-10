@@ -30,22 +30,18 @@ services:
       timeout: 3s
       retries: 5
 
-  chromadb:
-    image: chromadb/chroma:0.5.2
+  qdrant:
+    image: qdrant/qdrant:v1.13.2
     restart: unless-stopped
-    environment:
-      IS_PERSISTENT: "TRUE"
-      PERSIST_DIRECTORY: /chroma/chroma
-      ANONYMIZED_TELEMETRY: "FALSE"
     volumes:
-      - /var/lib/spectra/chroma:/chroma/chroma
+      - /var/lib/spectra/qdrant:/qdrant/storage
     ports:
-      - "127.0.0.1:8001:8000"
+      - "127.0.0.1:6333:6333"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
+      test: ["CMD-SHELL", "bash -lc 'exec 3<>/dev/tcp/127.0.0.1/6333'"]
       interval: 10s
       timeout: 5s
-      retries: 3
+      retries: 5
 
   ourograph_db_init:
     image: postgres:16-alpine
@@ -75,15 +71,18 @@ services:
       DATABASE_URL: postgresql://spectra:spectra@postgres:5432/spectra
       REDIS_HOST: redis
       REDIS_PORT: "6379"
-      CHROMA_HOST: chromadb
-      CHROMA_PORT: "8000"
-      CHROMA_PERSIST_DIR: /var/lib/spectra/chroma
+      STRATUMIND_BASE_URL: http://stratumind:8110
+      STRATUMIND_TIMEOUT_SECONDS: "15"
+      QDRANT_URL: http://qdrant:6333
       UPLOAD_DIR: /var/lib/spectra/uploads
       ARTIFACT_STORAGE_DIR: /var/lib/spectra/artifacts
       GENERATED_DIR: /var/lib/spectra/generated
       PAGEVRA_ENABLED: "true"
       PAGEVRA_BASE_URL: http://pagevra:8090
       PAGEVRA_TIMEOUT_SECONDS: "180"
+      STRATUMIND_ENABLED: "true"
+      STRATUMIND_BASE_URL: http://stratumind:8110
+      STRATUMIND_TIMEOUT_SECONDS: "15"
       OUROGRAPH_ENABLED: "true"
       OUROGRAPH_BASE_URL: http://ourograph:8101
       OUROGRAPH_TIMEOUT_SECONDS: "30"
@@ -107,9 +106,9 @@ services:
     depends_on:
       redis:
         condition: service_healthy
-      chromadb:
-        condition: service_started
       postgres:
+        condition: service_healthy
+      stratumind:
         condition: service_healthy
       pagevra:
         condition: service_healthy
@@ -131,15 +130,18 @@ services:
       DATABASE_URL: postgresql://spectra:spectra@postgres:5432/spectra
       REDIS_HOST: redis
       REDIS_PORT: "6379"
-      CHROMA_HOST: chromadb
-      CHROMA_PORT: "8000"
-      CHROMA_PERSIST_DIR: /var/lib/spectra/chroma
+      STRATUMIND_BASE_URL: http://stratumind:8110
+      STRATUMIND_TIMEOUT_SECONDS: "15"
+      QDRANT_URL: http://qdrant:6333
       UPLOAD_DIR: /var/lib/spectra/uploads
       ARTIFACT_STORAGE_DIR: /var/lib/spectra/artifacts
       GENERATED_DIR: /var/lib/spectra/generated
       PAGEVRA_ENABLED: "true"
       PAGEVRA_BASE_URL: http://pagevra:8090
       PAGEVRA_TIMEOUT_SECONDS: "180"
+      STRATUMIND_ENABLED: "true"
+      STRATUMIND_BASE_URL: http://stratumind:8110
+      STRATUMIND_TIMEOUT_SECONDS: "15"
       OUROGRAPH_ENABLED: "true"
       OUROGRAPH_BASE_URL: http://ourograph:8101
       OUROGRAPH_TIMEOUT_SECONDS: "30"
@@ -160,9 +162,9 @@ services:
     depends_on:
       redis:
         condition: service_healthy
-      chromadb:
-        condition: service_started
       postgres:
+        condition: service_healthy
+      stratumind:
         condition: service_healthy
       pagevra:
         condition: service_healthy
@@ -176,9 +178,9 @@ services:
       DATABASE_URL: postgresql://spectra:spectra@postgres:5432/ourograph
       REDIS_HOST: redis
       REDIS_PORT: "6379"
-      CHROMA_HOST: chromadb
-      CHROMA_PORT: "8000"
-      CHROMA_PERSIST_DIR: /var/lib/spectra/chroma
+      STRATUMIND_BASE_URL: http://stratumind:8110
+      STRATUMIND_TIMEOUT_SECONDS: "15"
+      QDRANT_URL: http://qdrant:6333
       UPLOAD_DIR: /var/lib/spectra/uploads
       ARTIFACT_STORAGE_DIR: /var/lib/spectra/artifacts
       GENERATED_DIR: /var/lib/spectra/generated
@@ -196,8 +198,6 @@ services:
         condition: service_completed_successfully
       redis:
         condition: service_healthy
-      chromadb:
-        condition: service_started
       postgres:
         condition: service_healthy
 
@@ -214,6 +214,34 @@ services:
       - "127.0.0.1:8090:8090"
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8090/health/ready').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+  stratumind:
+    image: ${STRATUMIND_IMAGE:?Run python3 ./scripts/compose_smart.py sync --channel main}
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env
+    environment:
+      PORT: "8110"
+      QDRANT_URL: http://qdrant:6333
+      QDRANT_COLLECTION_TEXT: stratumind_text_chunks
+      STRATUMIND_EMBEDDING_MODEL: text-embedding-v4
+      STRATUMIND_EMBEDDING_DIMENSION: "1024"
+      STRATUMIND_RERANK_ENABLED: "true"
+      STRATUMIND_RERANK_BASE_URL: http://dualweave:8080
+      STRATUMIND_RERANK_CANDIDATE_K: "20"
+      STRATUMIND_RERANK_TIMEOUT_SECONDS: "10"
+    ports:
+      - "127.0.0.1:8110:8110"
+    depends_on:
+      dualweave:
+        condition: service_started
+      qdrant:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O-", "http://127.0.0.1:8110/health/ready"]
       interval: 10s
       timeout: 5s
       retries: 6
@@ -235,3 +263,18 @@ services:
     depends_on:
       backend:
         condition: service_healthy
+
+  dualweave:
+    image: ${DUALWEAVE_IMAGE:?Run python3 ./scripts/compose_smart.py sync --channel main}
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env
+    environment:
+      DUALWEAVE_ADDR: ":8080"
+      DUALWEAVE_LOCAL_DIR: /var/lib/dualweave/uploads
+      DUALWEAVE_TEXT_RERANK_PROVIDER: dashscope
+      DASHSCOPE_TEXT_RERANK_MODEL: qwen3-vl-rerank
+    volumes:
+      - /var/lib/spectra/dualweave:/var/lib/dualweave/uploads
+    ports:
+      - "127.0.0.1:8080:8080"

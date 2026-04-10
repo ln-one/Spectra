@@ -1,0 +1,8 @@
+FROM golang:1.23-alpine
+
+WORKDIR /app
+COPY . .
+RUN go build -o /usr/local/bin/stratumind ./cmd/stratumind
+ENV PORT=8110
+EXPOSE 8110
+ENTRYPOINT ["/usr/local/bin/stratumind"]
