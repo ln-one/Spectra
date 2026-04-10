@@ -7,7 +7,8 @@ import type {
 import type { components } from "@/lib/sdk/types";
 
 type CandidateChangeRequest = components["schemas"]["CandidateChangeRequest"];
-type CandidateChangeReviewRequest = components["schemas"]["CandidateChangeReviewRequest"];
+type CandidateChangeReviewRequest =
+  components["schemas"]["CandidateChangeReviewRequest"];
 
 export async function getCandidateChanges(
   projectId: string,

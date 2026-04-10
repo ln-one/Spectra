@@ -8,7 +8,8 @@ import type {
 import type { components } from "@/lib/sdk/types";
 
 type ProjectReferenceRequest = components["schemas"]["ProjectReferenceRequest"];
-type ProjectReferenceUpdateRequest = components["schemas"]["ProjectReferenceUpdateRequest"];
+type ProjectReferenceUpdateRequest =
+  components["schemas"]["ProjectReferenceUpdateRequest"];
 
 export async function getReferences(
   projectId: string

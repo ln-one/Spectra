@@ -272,22 +272,57 @@ export function SlideCard({
                   <div
                     className="max-w-none text-zinc-900"
                     dangerouslySetInnerHTML={{
-                      __html: DOMPurify.sanitize(slide.rendered_html_preview ?? "", {
-                        ALLOWED_TAGS: [
-                          "p", "br", "strong", "b", "em", "i", "u", "s", "del",
-                          "h1", "h2", "h3", "h4", "h5", "h6",
-                          "ul", "ol", "li",
-                          "blockquote", "code", "pre",
-                          "a", "span", "div",
-                          "table", "thead", "tbody", "tr", "th", "td",
-                          "img"
-                        ],
-                        ALLOWED_ATTR: [
-                          "href", "title", "target", "rel",
-                          "src", "alt", "width", "height",
-                          "class", "id", "style"
-                        ]
-                      }),
+                      __html: DOMPurify.sanitize(
+                        slide.rendered_html_preview ?? "",
+                        {
+                          ALLOWED_TAGS: [
+                            "p",
+                            "br",
+                            "strong",
+                            "b",
+                            "em",
+                            "i",
+                            "u",
+                            "s",
+                            "del",
+                            "h1",
+                            "h2",
+                            "h3",
+                            "h4",
+                            "h5",
+                            "h6",
+                            "ul",
+                            "ol",
+                            "li",
+                            "blockquote",
+                            "code",
+                            "pre",
+                            "a",
+                            "span",
+                            "div",
+                            "table",
+                            "thead",
+                            "tbody",
+                            "tr",
+                            "th",
+                            "td",
+                            "img",
+                          ],
+                          ALLOWED_ATTR: [
+                            "href",
+                            "title",
+                            "target",
+                            "rel",
+                            "src",
+                            "alt",
+                            "width",
+                            "height",
+                            "class",
+                            "id",
+                            "style",
+                          ],
+                        }
+                      ),
                     }}
                   />
                 </div>

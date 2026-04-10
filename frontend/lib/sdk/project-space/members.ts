@@ -15,7 +15,8 @@ import type {
 import type { components } from "@/lib/sdk/types";
 
 type ProjectMemberRequest = components["schemas"]["ProjectMemberRequest"];
-type ProjectMemberUpdateRequest = components["schemas"]["ProjectMemberUpdateRequest"];
+type ProjectMemberUpdateRequest =
+  components["schemas"]["ProjectMemberUpdateRequest"];
 
 export async function getMembers(
   projectId: string

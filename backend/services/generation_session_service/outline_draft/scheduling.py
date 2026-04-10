@@ -106,7 +106,10 @@ async def schedule_outline_draft_task(
             )
             return
         except Exception as enqueue_err:
-            error_msg = f"Failed to enqueue outline draft task: {type(enqueue_err).__name__}: {enqueue_err}"
+            error_msg = (
+                f"Failed to enqueue outline draft task: "
+                f"{type(enqueue_err).__name__}: {enqueue_err}"
+            )
             await _safe_append_dispatch_event(
                 append_event,
                 session_id=session_id,
