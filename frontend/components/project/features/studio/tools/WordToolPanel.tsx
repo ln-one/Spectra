@@ -57,6 +57,11 @@ export function WordToolPanel({
   const [backendPreviewError, setBackendPreviewError] = useState<string | null>(
     null
   );
+  const autoLoadSources = flowContext?.onLoadSources;
+  const requiresSourceArtifact = Boolean(flowContext?.requiresSourceArtifact);
+  const sourceOptionCount = flowContext?.sourceOptions?.length ?? 0;
+  const isProtocolLoading = Boolean(flowContext?.isLoadingProtocol);
+  const isActionRunning = Boolean(flowContext?.isActionRunning);
 
   const { suggestions, summary, isLoading } = useStudioRagRecommendations({
     query:
@@ -154,6 +159,21 @@ export function WordToolPanel({
     flowContext?.resolvedArtifact?.artifactId,
   ]);
 
+  useEffect(() => {
+    if (activeStep !== "generate") return;
+    if (!requiresSourceArtifact) return;
+    if (sourceOptionCount > 0) return;
+    if (isProtocolLoading || isActionRunning) return;
+    void autoLoadSources?.();
+  }, [
+    activeStep,
+    autoLoadSources,
+    isActionRunning,
+    isProtocolLoading,
+    requiresSourceArtifact,
+    sourceOptionCount,
+  ]);
+
   const handleGenerate = async () => {
     setBackendMarkdown("");
     setBackendPreviewError(null);
@@ -177,13 +197,7 @@ export function WordToolPanel({
     }
   };
 
-  const handlePrepareGenerate = async () => {
-    if (!flowContext?.onPrepareGenerate) {
-      setActiveStep("generate");
-      return;
-    }
-    const prepared = await flowContext.onPrepareGenerate();
-    if (!prepared) return;
+  const handlePrepareGenerate = () => {
     setActiveStep("generate");
   };
 
