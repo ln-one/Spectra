@@ -1,12 +1,13 @@
 ﻿import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { authService, TokenStorage } from "@/lib/auth";
-import { generateApi } from "@/lib/sdk";
+import { generateApi, projectSpaceApi } from "@/lib/sdk";
 import { getErrorMessage } from "@/lib/sdk/errors";
 import { toast } from "@/hooks/use-toast";
 import { useProjectStore, type GenerationTool } from "@/stores/projectStore";
 import { useShallow } from "zustand/react/shallow";
 import type { SessionSwitcherItem, ThemePresetId } from "@/components/project";
+import type { ProjectReference } from "@/components/project/features/library/types";
 import { formatSessionTime } from "./constants";
 import {
   DEFAULT_PROJECT_THEME_PRESET,
@@ -119,8 +120,32 @@ export function useProjectDetailController() {
   const [selectedThemePreset, setSelectedThemePreset] = useState<ThemePresetId>(
     DEFAULT_PROJECT_THEME_PRESET
   );
+  const [activeReferences, setActiveReferences] = useState<ProjectReference[]>(
+    []
+  );
 
   const panelLayout = useProjectPanelLayout({ layoutMode, isLoading });
+
+  const loadActiveReferences = useCallback(async () => {
+    try {
+      const response = await projectSpaceApi.getReferences(projectId);
+      const references = (response.data.references ?? [])
+        .filter((reference) => reference.status === "active")
+        .sort((a, b) => {
+          if (a.relation_type !== b.relation_type) {
+            return a.relation_type === "base" ? -1 : 1;
+          }
+          return (a.priority ?? 999) - (b.priority ?? 999);
+        });
+      setActiveReferences(references);
+    } catch {
+      setActiveReferences([]);
+    }
+  }, [projectId]);
+
+  const handleReferencesChanged = useCallback(() => {
+    void loadActiveReferences();
+  }, [loadActiveReferences]);
 
   const visibleGenerationHistory = useMemo(
     () => generationHistory.filter((item) => !hiddenSessionIds[item.id]),
@@ -284,6 +309,7 @@ export function useProjectDetailController() {
         fetchProject(projectId),
         fetchFiles(projectId),
         fetchGenerationHistory(projectId),
+        loadActiveReferences(),
       ]);
 
       if (cancelled) return;
@@ -318,6 +344,7 @@ export function useProjectDetailController() {
     fetchGenerationHistory,
     fetchMessages,
     fetchArtifactHistory,
+    loadActiveReferences,
     reset,
     setActiveSessionId,
     updateSessionInUrl,
@@ -590,6 +617,8 @@ export function useProjectDetailController() {
     isCreatingSession,
     isLibraryOpen,
     setIsLibraryOpen,
+    activeReferences,
+    handleReferencesChanged,
     selectedThemePreset,
     setSelectedThemePreset,
     panelAreaRef: panelLayout.panelAreaRef,

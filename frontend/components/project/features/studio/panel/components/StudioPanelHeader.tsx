@@ -69,8 +69,18 @@ export function StudioPanelHeader({
           layout
           transition={{ type: "spring", stiffness: 400, damping: 30 }}
         >
-          <CardTitle className="text-sm font-semibold leading-tight">
-            <span className="relative block h-5 overflow-hidden">
+          <CardTitle
+            className={cn(
+              "leading-tight",
+              isExpanded ? "text-sm font-semibold" : "text-lg font-bold"
+            )}
+          >
+            <span
+              className={cn(
+                "relative block overflow-hidden",
+                isExpanded ? "h-5" : "h-6"
+              )}
+            >
               <AnimatePresence initial={false} mode="sync">
                 <motion.span
                   key={isExpanded ? "expanded-title" : "collapsed-title"}

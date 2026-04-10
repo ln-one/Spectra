@@ -50,6 +50,7 @@ export interface ToolArtifactPreviewItem {
   title: string;
   status: "completed" | "failed" | "processing" | "pending";
   createdAt: string;
+  sourceArtifactId?: string | null;
   runId?: string | null;
   runNo?: number | null;
 }

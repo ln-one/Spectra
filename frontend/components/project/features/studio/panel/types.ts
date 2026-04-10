@@ -10,6 +10,7 @@ import type { StudioToolKey, ToolDraftState } from "../tools";
 
 export interface StudioPanelProps extends HTMLAttributes<HTMLDivElement> {
   onToolClick?: (tool: StudioTool) => void;
+  onPptStep2LayoutChange?: (isStep2: boolean) => void;
 }
 
 export interface StudioExecutionResult {

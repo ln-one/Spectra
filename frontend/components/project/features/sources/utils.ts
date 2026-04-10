@@ -2,6 +2,7 @@ import type { UploadedFile } from "./types";
 
 export function getFileTypeFromExtension(filename: string): string {
   const ext = filename.split(".").pop()?.toLowerCase() || "";
+  if (ext === "library") return "library";
   if (ext === "pdf") return "pdf";
   if (["doc", "docx"].includes(ext)) return "word";
   if (["mp4", "mov", "avi", "mkv", "webm", "flv", "wmv"].includes(ext))

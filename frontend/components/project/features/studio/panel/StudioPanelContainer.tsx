@@ -19,6 +19,7 @@ import { useStudioHistoryHandlers } from "./useStudioHistoryHandlers";
 import type { StudioPanelProps } from "./types";
 import {
   isDraftStateEqual,
+  isPptStep2Stage,
   normalizeHistoryStep,
   toStudioManagedTool,
 } from "./utils";
@@ -97,6 +98,7 @@ function extractRunIdFromExecutionResult(
 
 export function StudioPanelContainer({
   onToolClick,
+  onPptStep2LayoutChange,
   className,
   style,
   ...props
@@ -199,6 +201,13 @@ export function StudioPanelContainer({
   useEffect(() => {
     trackStep("ppt", "config");
   }, [trackStep]);
+
+  useEffect(() => {
+    if (!onPptStep2LayoutChange) return;
+    if (!isExpanded || expandedTool !== "ppt") {
+      onPptStep2LayoutChange(false);
+    }
+  }, [expandedTool, isExpanded, onPptStep2LayoutChange]);
 
   useEffect(() => {
     const handleOpenArchiveHistory = () => {
@@ -507,6 +516,7 @@ export function StudioPanelContainer({
       title: item.title,
       status: item.status,
       createdAt: item.createdAt,
+      sourceArtifactId: item.sourceArtifactId ?? null,
       runId: item.runId ?? null,
       runNo: item.runNo ?? null,
     })),
@@ -655,6 +665,7 @@ export function StudioPanelContainer({
               pptResumeStage={pptResumeStage}
               pptResumeSignal={pptResumeSignal}
               onPptWorkflowStageChange={(stage, payload) => {
+                onPptStep2LayoutChange?.(isPptStep2Stage(stage));
                 if (stage === "config") {
                   trackStep("ppt", "config");
                   acknowledgeStep("ppt");

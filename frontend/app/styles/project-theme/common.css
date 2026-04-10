@@ -92,23 +92,45 @@
 
 [data-project-theme] .project-library-drawer {
   border-radius: calc(var(--project-panel-radius) + 0.5rem);
-  border-color: var(--project-menu-border);
+  border-color: color-mix(
+    in srgb,
+    var(--project-control-border) 78%,
+    var(--project-border-strong)
+  );
   background: color-mix(
     in srgb,
-    var(--project-menu-bg) 94%,
+    var(--project-menu-bg) 88%,
+    var(--project-surface-elevated) 12%,
     var(--project-bg-base)
   );
-  box-shadow: var(--project-menu-shadow);
+  box-shadow:
+    0 34px 90px -58px rgba(11, 27, 47, 0.58),
+    0 8px 24px -18px rgba(11, 27, 47, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.56);
 }
 
 [data-project-theme] .project-library-header {
-  background: color-mix(in srgb, var(--project-control-bg) 90%, transparent);
+  border-bottom-color: color-mix(
+    in srgb,
+    var(--project-control-border) 70%,
+    var(--project-bg-base)
+  );
+  background: color-mix(
+    in srgb,
+    var(--project-control-bg-hover) 58%,
+    var(--project-surface-elevated) 42%
+  );
 }
 
 [data-project-theme] .project-library-tabs {
   background: color-mix(
     in srgb,
-    var(--project-control-bg-hover) 68%,
+    var(--project-surface-elevated) 76%,
+    var(--project-control-bg-hover) 24%
+  );
+  border-color: color-mix(
+    in srgb,
+    var(--project-control-border) 64%,
     transparent
   );
 }
@@ -189,6 +211,7 @@
 [data-project-theme] .project-session-overlay,
 [data-project-theme] .project-library-overlay {
   transition: opacity 180ms ease;
+  backdrop-filter: blur(calc(var(--project-panel-blur) * 1.15));
 }
 
 [data-project-theme] .project-session-menu-content {
@@ -211,7 +234,13 @@
 }
 
 [data-project-theme] .project-library-close-btn {
-  border: 1px solid transparent;
+  border: 1px solid
+    color-mix(in srgb, var(--project-control-border) 76%, transparent);
+  background: color-mix(
+    in srgb,
+    var(--project-surface-elevated) 85%,
+    transparent
+  );
 }
 
 [data-project-style="mist-zinc"] .project-panel-header {

@@ -105,6 +105,7 @@ def to_project_reference_model(
     reference,
     *,
     upstream_current_version_id: str | None = None,
+    target_project_name: str | None = None,
 ) -> ProjectReference:
     effective_target_version_id = (
         reference.pinnedVersionId
@@ -121,6 +122,7 @@ def to_project_reference_model(
         id=reference.id,
         project_id=reference.projectId,
         target_project_id=reference.targetProjectId,
+        target_project_name=target_project_name,
         relation_type=reference.relationType,
         mode=reference.mode,
         pinned_version_id=reference.pinnedVersionId,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { WorkflowStepper } from "@/components/project/shared";
 import { previewApi } from "@/lib/sdk";
@@ -29,6 +29,7 @@ export function WordToolPanel({
   onDraftChange,
   flowContext,
 }: ToolPanelProps) {
+  const hasRequestedInitialSourcesRef = useRef(false);
   const { activeSessionId } = useProjectStore(
     useShallow((state) => ({
       activeSessionId: state.activeSessionId,
@@ -108,6 +109,23 @@ export function WordToolPanel({
     teachingContext,
     teachingModel,
     topic,
+  ]);
+
+  useEffect(() => {
+    hasRequestedInitialSourcesRef.current = false;
+  }, [activeSessionId]);
+
+  useEffect(() => {
+    if (hasRequestedInitialSourcesRef.current) return;
+    if (!flowContext?.requiresSourceArtifact) return;
+    if (!flowContext.onLoadSources) return;
+    if ((flowContext.sourceOptions ?? []).length > 0) return;
+    hasRequestedInitialSourcesRef.current = true;
+    void flowContext.onLoadSources();
+  }, [
+    flowContext?.onLoadSources,
+    flowContext?.requiresSourceArtifact,
+    flowContext?.sourceOptions,
   ]);
 
   useEffect(() => {

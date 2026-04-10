@@ -628,6 +628,8 @@ export function useStudioExecutionHandlers({
               toolType: expandedTool,
               artifactType,
               artifactKind: undefined,
+              sourceArtifactId:
+                selectedSourceId || draftSourceArtifactId || null,
               title:
                 (artifactPayload.title as string | undefined) ||
                 TOOL_LABELS[expandedTool] + " - Generating",
@@ -689,6 +691,7 @@ export function useStudioExecutionHandlers({
       buildStudioExecutionRequest,
       currentCardId,
       currentToolDraft,
+      draftSourceArtifactId,
       endCardAction,
       ensureActiveSession,
       expandedTool,
@@ -698,6 +701,7 @@ export function useStudioExecutionHandlers({
       project,
       requiresSourceArtifact,
       scheduleArtifactRefresh,
+      selectedSourceId,
       setActiveSessionId,
       startCardAction,
     ]);
