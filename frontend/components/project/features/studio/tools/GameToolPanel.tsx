@@ -10,33 +10,73 @@ import { ConfigStep } from "./game/ConfigStep";
 import { GAME_STEPS, getReadinessLabel } from "./game/constants";
 import { GenerateStep } from "./game/GenerateStep";
 import { PreviewStep } from "./game/PreviewStep";
-import type { GameStep } from "./game/types";
+import type { GameMode, GameStep } from "./game/types";
 import { useStudioRagRecommendations } from "./useStudioRagRecommendations";
 import { useWorkflowStepSync } from "./useWorkflowStepSync";
 
-function inferGamePattern(
-  creativeDirection: string,
-  mechanicsNotes: string
-):
-  | "timeline_sort"
-  | "concept_match"
-  | "quiz_challenge"
-  | "fill_in_blank"
-  | "freeform" {
-  const text = `${creativeDirection} ${mechanicsNotes}`.toLowerCase();
-  if (/(时间轴|排序|顺序|timeline|sort)/i.test(text)) {
-    return "timeline_sort";
+interface GamePatternOption {
+  value: GameMode;
+  label: string;
+}
+
+const GAME_PATTERN_LABELS: Record<GameMode, string> = {
+  timeline_sort: "时间轴排序",
+  concept_match: "概念连线",
+  quiz_challenge: "知识闯关",
+  fill_in_blank: "填空挑战",
+  freeform: "自由发挥",
+};
+
+const DEFAULT_GAME_PATTERN_OPTIONS: GamePatternOption[] = [
+  { value: "timeline_sort", label: GAME_PATTERN_LABELS.timeline_sort },
+  { value: "concept_match", label: GAME_PATTERN_LABELS.concept_match },
+  { value: "quiz_challenge", label: GAME_PATTERN_LABELS.quiz_challenge },
+  { value: "fill_in_blank", label: GAME_PATTERN_LABELS.fill_in_blank },
+  { value: "freeform", label: GAME_PATTERN_LABELS.freeform },
+];
+
+function toGameMode(value: string): GameMode | null {
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "timeline_sort") return "timeline_sort";
+  if (normalized === "concept_match") return "concept_match";
+  if (normalized === "quiz_challenge") return "quiz_challenge";
+  if (normalized === "fill_in_blank") return "fill_in_blank";
+  if (normalized === "freeform") return "freeform";
+  return null;
+}
+
+function parseGamePatternOptions(
+  cardConfigFields?: Array<Record<string, unknown>>
+): GamePatternOption[] {
+  if (!Array.isArray(cardConfigFields)) return DEFAULT_GAME_PATTERN_OPTIONS;
+  const patternField = cardConfigFields.find(
+    (field) =>
+      typeof field?.key === "string" && field.key.toLowerCase() === "game_pattern"
+  );
+  if (!patternField || !Array.isArray(patternField.options)) {
+    return DEFAULT_GAME_PATTERN_OPTIONS;
   }
-  if (/(连线|匹配|配对|match|connect)/i.test(text)) {
-    return "concept_match";
-  }
-  if (/(闯关|答题|选择题|quiz|challenge)/i.test(text)) {
-    return "quiz_challenge";
-  }
-  if (/(填空|完形|blank|cloze)/i.test(text)) {
-    return "fill_in_blank";
-  }
-  return "freeform";
+
+  const parsed = patternField.options
+    .map((option) => {
+      if (!option || typeof option !== "object") return null;
+      const rawValue = String(
+        (option as Record<string, unknown>).value ?? ""
+      ).trim();
+      const mode = toGameMode(rawValue);
+      if (!mode) return null;
+      const rawLabel = String(
+        (option as Record<string, unknown>).label ?? ""
+      ).trim();
+      return {
+        value: mode,
+        label: rawLabel || GAME_PATTERN_LABELS[mode],
+      };
+    })
+    .filter((item): item is GamePatternOption => Boolean(item));
+
+  if (!parsed.length) return DEFAULT_GAME_PATTERN_OPTIONS;
+  return parsed;
 }
 
 function buildIdeaTags(playerGoal: string, mechanicsNotes: string): string[] {
@@ -56,11 +96,15 @@ export function GameToolPanel({
   const [activeStep, setActiveStep] = useState<GameStep>("config");
   useWorkflowStepSync(activeStep, setActiveStep, flowContext);
   const [topic, setTopic] = useState("");
-  const [creativeDirection, setCreativeDirection] = useState("");
+  const [gamePattern, setGamePattern] = useState<GameMode>("timeline_sort");
   const [playerGoal, setPlayerGoal] = useState("");
   const [mechanicsNotes, setMechanicsNotes] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [lastGeneratedAt, setLastGeneratedAt] = useState<string | null>(null);
+  const gamePatternOptions = parseGamePatternOptions(flowContext?.cardConfigFields);
+  const selectedGamePatternLabel =
+    gamePatternOptions.find((item) => item.value === gamePattern)?.label ??
+    GAME_PATTERN_LABELS[gamePattern];
 
   const { suggestions, summary, isLoading } = useStudioRagRecommendations({
     query: "为当前项目推荐适合生成课堂互动游戏的主题、玩法方向和闯关目标",
@@ -74,37 +118,39 @@ export function GameToolPanel({
   }, [suggestions, topic]);
 
   useEffect(() => {
-    if (!creativeDirection.trim() && summary) {
-      setCreativeDirection(summary);
-    }
-  }, [creativeDirection, summary]);
+    if (!gamePatternOptions.length) return;
+    const exists = gamePatternOptions.some((item) => item.value === gamePattern);
+    if (exists) return;
+    setGamePattern(gamePatternOptions[0].value);
+  }, [gamePattern, gamePatternOptions]);
 
   useEffect(() => {
-    const gamePattern = inferGamePattern(creativeDirection, mechanicsNotes);
-    const creativeBrief = [creativeDirection, playerGoal, mechanicsNotes]
+    const creativeBrief = [selectedGamePatternLabel, summary, playerGoal, mechanicsNotes]
       .map((item) => item.trim())
       .filter(Boolean)
       .join("\n");
     const ideaTags = buildIdeaTags(playerGoal, mechanicsNotes);
     onDraftChange?.({
       topic,
-      creative_direction: creativeDirection,
+      creative_direction: selectedGamePatternLabel,
       player_goal: playerGoal,
       mechanics_notes: mechanicsNotes,
       game_pattern: gamePattern,
       mode: gamePattern,
-      creative_brief: creativeBrief || creativeDirection,
+      creative_brief: creativeBrief || selectedGamePatternLabel,
       countdown: 60,
       life: 3,
       idea_tags: ideaTags,
       source_artifact_id: flowContext?.selectedSourceId ?? null,
     });
   }, [
-    creativeDirection,
     flowContext?.selectedSourceId,
+    gamePattern,
     mechanicsNotes,
     onDraftChange,
     playerGoal,
+    selectedGamePatternLabel,
+    summary,
     topic,
   ]);
 
@@ -205,14 +251,14 @@ export function GameToolPanel({
               {activeStep === "config" ? (
                 <ConfigStep
                   topic={topic}
-                  creativeDirection={creativeDirection}
+                  gamePattern={gamePattern}
+                  gamePatternOptions={gamePatternOptions}
                   playerGoal={playerGoal}
                   mechanicsNotes={mechanicsNotes}
                   topicSuggestions={suggestions}
-                  ideaSuggestion={summary}
                   isRecommendationsLoading={isLoading}
                   onTopicChange={setTopic}
-                  onCreativeDirectionChange={setCreativeDirection}
+                  onGamePatternChange={setGamePattern}
                   onPlayerGoalChange={setPlayerGoal}
                   onMechanicsNotesChange={setMechanicsNotes}
                   onNext={() => {
@@ -224,7 +270,7 @@ export function GameToolPanel({
               {activeStep === "generate" ? (
                 <GenerateStep
                   topic={topic}
-                  creativeDirection={creativeDirection}
+                  creativeDirection={selectedGamePatternLabel}
                   playerGoal={playerGoal}
                   mechanicsNotes={mechanicsNotes}
                   flowContext={flowContext}

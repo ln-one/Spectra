@@ -510,6 +510,7 @@ export function StudioPanelContainer({
       runId: item.runId ?? null,
       runNo: item.runNo ?? null,
     })),
+    cardConfigFields: capability.currentCapability?.config_fields,
     onStepChange: historyHandlers.handleManagedToolStepChange,
     onSelectedSourceChange: (sourceId) => {
       capability.setSelectedSourceForCurrentCard(sourceId);

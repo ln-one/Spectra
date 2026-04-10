@@ -213,7 +213,6 @@ def _timeline_sort_template() -> str:
     .event { background: #eef2ff; border: 1px dashed #93c5fd; border-radius: 12px; padding: 10px; cursor: move; }
     .event.dragging { opacity: 0.5; }
     .event-title { font-weight: 700; }
-    .event-year { color: #2563eb; font-size: 13px; margin-top: 4px; }
     .actions { display: flex; gap: 10px; flex-wrap: wrap; }
     button { border: none; border-radius: 10px; padding: 10px 14px; cursor: pointer; font-weight: 700; }
     .check-btn { background: #2563eb; color: #fff; }
@@ -261,7 +260,7 @@ def _timeline_sort_template() -> str:
         li.className = "event";
         li.draggable = true;
         li.dataset.id = event.id;
-        li.innerHTML = "<div class='event-title'>" + event.label + "</div><div class='event-year'>" + event.year + "</div>";
+        li.innerHTML = "<div class='event-title'>" + event.label + "</div>";
         li.addEventListener("dragstart", (e) => {
           draggingId = event.id;
           li.classList.add("dragging");
@@ -321,7 +320,7 @@ def _concept_match_template() -> str:
     .col { background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 12px; padding: 12px; }
     .item { display: block; width: 100%; text-align: left; border: 1px solid #94a3b8; background: #fff; border-radius: 10px; padding: 10px; margin-bottom: 8px; cursor: pointer; }
     .item.selected { border-color: #0284c7; box-shadow: 0 0 0 3px rgba(14, 116, 144, 0.18); }
-    .item.matched { background: #dcfce7; border-color: #16a34a; }
+    .item.matched { background: #f8fafc; }
     .actions { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
     button { border: none; border-radius: 10px; padding: 10px 14px; cursor: pointer; font-weight: 700; }
     .check-btn { background: #0284c7; color: #fff; }
@@ -361,6 +360,18 @@ def _concept_match_template() -> str:
     titleEl.textContent = gameData.game_title;
     instructionEl.textContent = gameData.instruction;
     const mappings = {};
+    const assignedColorByConcept = {};
+    const colorPalette = [
+      "#2563eb",
+      "#16a34a",
+      "#d97706",
+      "#db2777",
+      "#7c3aed",
+      "#0d9488",
+      "#dc2626",
+      "#4f46e5",
+    ];
+    let colorCursor = 0;
     let selectedConceptId = null;
     let selectedDefinitionId = null;
     const definitionById = {};
@@ -369,6 +380,11 @@ def _concept_match_template() -> str:
       conceptById[pair.id] = pair.concept;
       definitionById[pair.id] = pair.definition;
     });
+    const definitionOrder = Object.keys(definitionById);
+    for (let i = definitionOrder.length - 1; i > 0; i -= 1) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [definitionOrder[i], definitionOrder[j]] = [definitionOrder[j], definitionOrder[i]];
+    }
     function render() {
       conceptsEl.innerHTML = "";
       definitionsEl.innerHTML = "";
@@ -378,11 +394,30 @@ def _concept_match_template() -> str:
         btn.textContent = concept;
         btn.dataset.id = id;
         if (selectedConceptId === id) btn.classList.add("selected");
-        if (mappings[id]) btn.classList.add("matched");
+        if (mappings[id]) {
+          btn.classList.add("matched");
+          const color = assignedColorByConcept[id] || "#16a34a";
+          btn.style.borderColor = color;
+          btn.style.boxShadow = "0 0 0 2px " + color + "33";
+          btn.style.background = color + "14";
+        } else {
+          btn.style.borderColor = "";
+          btn.style.boxShadow = "";
+          btn.style.background = "";
+        }
         btn.addEventListener("click", () => {
           selectedConceptId = id;
           if (selectedDefinitionId) {
+            Object.keys(mappings).forEach((conceptId) => {
+              if (mappings[conceptId] === selectedDefinitionId && conceptId !== id) {
+                delete mappings[conceptId];
+              }
+            });
             mappings[id] = selectedDefinitionId;
+            if (!assignedColorByConcept[id]) {
+              assignedColorByConcept[id] = colorPalette[colorCursor % colorPalette.length];
+              colorCursor += 1;
+            }
             selectedConceptId = null;
             selectedDefinitionId = null;
           }
@@ -390,17 +425,38 @@ def _concept_match_template() -> str:
         });
         conceptsEl.appendChild(btn);
       });
-      Object.entries(definitionById).forEach(([id, definition]) => {
+      definitionOrder.forEach((id) => {
+        const definition = definitionById[id];
         const btn = document.createElement("button");
         btn.className = "item";
         btn.textContent = definition;
         btn.dataset.id = id;
         if (selectedDefinitionId === id) btn.classList.add("selected");
-        if (Object.values(mappings).includes(id)) btn.classList.add("matched");
+        const linkedConceptId = Object.keys(mappings).find((conceptId) => mappings[conceptId] === id);
+        if (linkedConceptId) {
+          btn.classList.add("matched");
+          const color = assignedColorByConcept[linkedConceptId] || "#16a34a";
+          btn.style.borderColor = color;
+          btn.style.boxShadow = "0 0 0 2px " + color + "33";
+          btn.style.background = color + "14";
+        } else {
+          btn.style.borderColor = "";
+          btn.style.boxShadow = "";
+          btn.style.background = "";
+        }
         btn.addEventListener("click", () => {
           selectedDefinitionId = id;
           if (selectedConceptId) {
+            Object.keys(mappings).forEach((conceptId) => {
+              if (mappings[conceptId] === id && conceptId !== selectedConceptId) {
+                delete mappings[conceptId];
+              }
+            });
             mappings[selectedConceptId] = id;
+            if (!assignedColorByConcept[selectedConceptId]) {
+              assignedColorByConcept[selectedConceptId] = colorPalette[colorCursor % colorPalette.length];
+              colorCursor += 1;
+            }
             selectedConceptId = null;
             selectedDefinitionId = null;
           }
@@ -416,6 +472,8 @@ def _concept_match_template() -> str:
     });
     document.getElementById("clearBtn").addEventListener("click", () => {
       Object.keys(mappings).forEach((id) => delete mappings[id]);
+      Object.keys(assignedColorByConcept).forEach((id) => delete assignedColorByConcept[id]);
+      colorCursor = 0;
       selectedConceptId = null;
       selectedDefinitionId = null;
       resultEl.textContent = "";

@@ -1,19 +1,32 @@
-﻿import { Loader2, Sparkles } from "lucide-react";
+﻿import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import type { GameMode } from "./types";
+
+interface GamePatternOption {
+  value: GameMode;
+  label: string;
+}
 
 interface ConfigStepProps {
   topic: string;
-  creativeDirection: string;
+  gamePattern: GameMode;
+  gamePatternOptions: GamePatternOption[];
   playerGoal: string;
   mechanicsNotes: string;
   topicSuggestions: string[];
-  ideaSuggestion: string;
   isRecommendationsLoading: boolean;
   onTopicChange: (value: string) => void;
-  onCreativeDirectionChange: (value: string) => void;
+  onGamePatternChange: (value: GameMode) => void;
   onPlayerGoalChange: (value: string) => void;
   onMechanicsNotesChange: (value: string) => void;
   onNext: () => void;
@@ -21,14 +34,14 @@ interface ConfigStepProps {
 
 export function ConfigStep({
   topic,
-  creativeDirection,
+  gamePattern,
+  gamePatternOptions,
   playerGoal,
   mechanicsNotes,
   topicSuggestions,
-  ideaSuggestion,
   isRecommendationsLoading,
   onTopicChange,
-  onCreativeDirectionChange,
+  onGamePatternChange,
   onPlayerGoalChange,
   onMechanicsNotesChange,
   onNext,
@@ -40,7 +53,7 @@ export function ConfigStep({
           <div>
             <p className="text-xs font-semibold text-zinc-800">游戏主题</p>
             <p className="mt-1 text-[11px] text-zinc-500">
-              不再限制固定模板，直接描述你想让大模型生成什么样的互动体验。
+              先确定训练主题，再从项目内预置玩法方向中选择一种交互模板。
             </p>
           </div>
           {isRecommendationsLoading ? (
@@ -78,22 +91,21 @@ export function ConfigStep({
       <section className="rounded-xl border border-zinc-200 bg-white p-4 space-y-4">
         <div className="space-y-1.5">
           <Label className="text-xs text-zinc-600">玩法方向</Label>
-          <Textarea
-            value={creativeDirection}
-            onChange={(event) => onCreativeDirectionChange(event.target.value)}
-            placeholder="描述你希望的交互方式，例如拖拽排序、线索推理、选择分支、连线配对、限时闯关等"
-            className="min-h-[88px] text-xs"
-          />
-          {ideaSuggestion ? (
-            <button
-              type="button"
-              onClick={() => onCreativeDirectionChange(ideaSuggestion)}
-              className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] text-amber-700"
-            >
-              <Sparkles className="h-3.5 w-3.5" />
-              使用 RAG 推荐玩法方向
-            </button>
-          ) : null}
+          <Select
+            value={gamePattern}
+            onValueChange={(value) => onGamePatternChange(value as GameMode)}
+          >
+            <SelectTrigger className="h-9 text-xs">
+              <SelectValue placeholder="请选择玩法方向" />
+            </SelectTrigger>
+            <SelectContent>
+              {gamePatternOptions.map((item) => (
+                <SelectItem key={item.value} value={item.value}>
+                  {item.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -123,7 +135,7 @@ export function ConfigStep({
           size="sm"
           className="h-9 rounded-lg bg-blue-600 text-xs hover:bg-blue-500"
           onClick={onNext}
-          disabled={!topic.trim() || !creativeDirection.trim()}
+          disabled={!topic.trim()}
         >
           下一步：确认生成
         </Button>

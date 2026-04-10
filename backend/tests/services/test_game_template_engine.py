@@ -68,3 +68,26 @@ def test_validate_game_data_rejects_invalid_timeline_payload() -> None:
                 "retry_message": "重试",
             },
         )
+
+
+def test_timeline_sort_template_hides_year_text_in_card_ui() -> None:
+    payload = build_game_fallback_data(
+        pattern="timeline_sort",
+        config={"topic": "操作系统"},
+        rag_snippets=[],
+    )
+    html = render_game_html("timeline_sort", payload)
+    assert "event-year" not in html
+    assert "event.label + \"</div><div class='event-year'>\"" not in html
+
+
+def test_concept_match_template_randomizes_definitions_and_uses_color_links() -> None:
+    payload = build_game_fallback_data(
+        pattern="concept_match",
+        config={"topic": "操作系统"},
+        rag_snippets=[],
+    )
+    html = render_game_html("concept_match", payload)
+    assert "definitionOrder" in html
+    assert "colorPalette" in html
+    assert "assignedColorByConcept" in html

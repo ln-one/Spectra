@@ -130,6 +130,9 @@ async def resolve_preview_task(
         return await resolve_task_by_run(db_service, session_id, run_id)
 
     task = await resolve_task_by_artifact(db_service, session_id, artifact_id)
+    if artifact_id:
+        return task
+
     if task is None and task_id:
         task = await find_unique_with_select_fallback(
             model=db_service.db.generationtask,

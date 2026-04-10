@@ -9,6 +9,7 @@ from services.preview_helpers.content import (
     get_or_generate_content,
     load_preview_material,
 )
+from services.preview_helpers.material_lookup import resolve_preview_task
 
 
 @pytest.mark.asyncio
@@ -321,3 +322,87 @@ async def test_load_preview_material_fallbacks_when_task_select_not_supported(
     assert len(calls) == 2
     assert "select" in calls[0]
     assert "select" not in calls[1]
+
+
+@pytest.mark.asyncio
+async def test_resolve_preview_task_does_not_fallback_when_artifact_is_explicit(
+    monkeypatch,
+):
+    generationtask_model = SimpleNamespace(find_first=AsyncMock(return_value=None))
+    artifact_model = SimpleNamespace()
+    db_service_stub = SimpleNamespace(
+        db=SimpleNamespace(
+            generationtask=generationtask_model,
+            artifact=artifact_model,
+        )
+    )
+
+    async def _find_unique_with_select_fallback(*, model, where, select):
+        if model is artifact_model:
+            return SimpleNamespace(
+                sessionId="session-001",
+                metadata=None,
+                storagePath="uploads/artifacts/project/docx/11111111-1111-1111-1111-111111111111.docx",
+            )
+        if model is generationtask_model:
+            return None
+        raise AssertionError("unexpected model")
+
+    monkeypatch.setattr(
+        "services.preview_helpers.material_lookup.find_unique_with_select_fallback",
+        _find_unique_with_select_fallback,
+    )
+
+    task = await resolve_preview_task(
+        db_service_stub,
+        session_id="session-001",
+        artifact_id="artifact-001",
+        task_id="task-should-not-be-used",
+        run_id=None,
+    )
+
+    assert task is None
+    generationtask_model.find_first.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_load_preview_material_extracts_docx_preview_when_no_task(monkeypatch):
+    monkeypatch.setattr(
+        "services.preview_helpers.content.resolve_preview_task",
+        AsyncMock(return_value=None),
+    )
+    monkeypatch.setattr(
+        "services.preview_helpers.content.db_service",
+        SimpleNamespace(
+            get_artifact=AsyncMock(
+                return_value=SimpleNamespace(
+                    id="artifact-001",
+                    projectId="project-001",
+                    type="docx",
+                    storagePath="uploads/artifacts/project/docx/artifact-001.docx",
+                    metadata=json.dumps({"title": "测试教案"}),
+                )
+            )
+        ),
+    )
+    monkeypatch.setattr(
+        "services.preview_helpers.content.extract_text_for_rag",
+        lambda *_args, **_kwargs: ("测试教案\n第一段\n第二段", {"text_length": 12}),
+    )
+    monkeypatch.setattr(
+        "services.preview_helpers.content.get_or_generate_content",
+        AsyncMock(),
+    )
+
+    task, slides, lesson_plan, content = await load_preview_material(
+        session_id="session-001",
+        project_id="project-001",
+        artifact_id="artifact-001",
+        task_id="task-001",
+    )
+
+    assert task is None
+    assert slides == []
+    assert lesson_plan is None
+    assert content["title"] == "测试教案"
+    assert content["markdown_content"] == "# 测试教案\n\n第一段\n\n第二段"

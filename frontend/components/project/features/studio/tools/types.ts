@@ -71,6 +71,7 @@ export interface ToolFlowContext {
   selectedSourceId?: string | null;
   requestedStep?: string | null;
   latestArtifacts?: ToolArtifactPreviewItem[];
+  cardConfigFields?: Array<Record<string, unknown>>;
   onStepChange?: (stepId: string) => void;
   onSelectedSourceChange?: (sourceId: string | null) => void;
   onLoadSources?: () => Promise<void> | void;
