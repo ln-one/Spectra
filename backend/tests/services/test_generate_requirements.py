@@ -104,7 +104,7 @@ async def test_build_user_requirements_missing_project_returns_default():
 
 
 @pytest.mark.asyncio
-async def test_build_user_requirements_loads_selected_uploads_without_select():
+async def test_build_user_requirements_loads_selected_uploads_with_select():
     project = MockProject(name="项目名", description="基础描述")
     db_service = AsyncMock()
     db_service.get_project.return_value = project
@@ -125,5 +125,6 @@ async def test_build_user_requirements_loads_selected_uploads_without_select():
     assert "chapter-1.pdf（状态：ready）" in requirement
     assert "chapter-2.pdf（状态：processing）" in requirement
     db_service.db.upload.find_many.assert_awaited_once_with(
-        where={"projectId": "proj_1", "id": {"in": ["u-1", "u-2"]}}
+        where={"projectId": "proj_1", "id": {"in": ["u-1", "u-2"]}},
+        select={"filename": True, "status": True},
     )
