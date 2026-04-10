@@ -27,12 +27,65 @@ jobs:
   smoke:
     runs-on: ubuntu-latest
     timeout-minutes: 45
-    env:
-      STACK_CHANNEL: ${{ inputs.channel || 'develop' }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Resolve stack channel
+        id: stack_channel
+        shell: bash
+        run: |
+          channel="${{ inputs.channel }}"
+          if [ -z "$channel" ]; then
+            if [ "${{ github.base_ref }}" = "main" ]; then
+              channel="main"
+            else
+              channel="develop"
+            fi
+          fi
+          echo "channel=$channel" >> "$GITHUB_OUTPUT"
+
+      - name: Evaluate smoke readiness
+        id: stack_ready
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          channel = os.environ["STACK_CHANNEL"]
+          payload = json.loads(
+              Path(f"infra/stack-lock.{channel}.json").read_text(encoding="utf-8")
+          )
+          problems = []
+          for service_name, service in payload["services"].items():
+              digest = (service.get("digest") or "").strip()
+              if digest:
+                  continue
+              image = service["image"]
+              tag = service["tag"]
+              notes = (service.get("notes") or "").strip()
+              detail = f"{service_name}: {image}:{tag}"
+              if notes:
+                  detail = f"{detail} - {notes}"
+              problems.append(detail)
+
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as fh:
+              fh.write(f"ready={'true' if not problems else 'false'}\n")
+              if problems:
+                  joined = "%0A".join(problems)
+                  fh.write(f"reason={joined}\n")
+          PY
+        env:
+          STACK_CHANNEL: ${{ steps.stack_channel.outputs.channel }}
+
+      - name: Report skipped smoke
+        if: steps.stack_ready.outputs.ready != 'true'
+        run: |
+          echo "Skipping stack smoke because the selected lock is not fully published."
+          echo "${{ steps.stack_ready.outputs.reason }}"
 
       - name: Prepare backend env
         run: cp backend/.env.example backend/.env
@@ -42,22 +95,41 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Status
+        run: python3 ./scripts/compose_smart.py --channel $STACK_CHANNEL status
+        env:
+          STACK_CHANNEL: ${{ steps.stack_channel.outputs.channel }}
+
       - name: Sync locked images
+        if: steps.stack_ready.outputs.ready == 'true'
         run: python3 ./scripts/compose_smart.py sync --channel $STACK_CHANNEL
+        env:
+          STACK_CHANNEL: ${{ steps.stack_channel.outputs.channel }}
 
       - name: Doctor
+        if: steps.stack_ready.outputs.ready == 'true'
         run: python3 ./scripts/compose_smart.py doctor --channel $STACK_CHANNEL
+        env:
+          STACK_CHANNEL: ${{ steps.stack_channel.outputs.channel }}
 
       - name: Start stack
+        if: steps.stack_ready.outputs.ready == 'true'
         run: python3 ./scripts/compose_smart.py --channel $STACK_CHANNEL up -d
+        env:
+          STACK_CHANNEL: ${{ steps.stack_channel.outputs.channel }}
 
       - name: Wait for backend smoke
+        if: steps.stack_ready.outputs.ready == 'true'
         run: python3 ./backend/scripts/deploy_smoke_check.py --base-url http://127.0.0.1:8000
 
       - name: Dump logs on failure
-        if: failure()
+        if: failure() && steps.stack_ready.outputs.ready == 'true'
         run: python3 ./scripts/compose_smart.py --channel $STACK_CHANNEL logs --no-color
+        env:
+          STACK_CHANNEL: ${{ steps.stack_channel.outputs.channel }}
 
       - name: Tear down stack
-        if: always()
+        if: always() && steps.stack_ready.outputs.ready == 'true'
         run: python3 ./scripts/compose_smart.py --channel $STACK_CHANNEL down -v
+        env:
+          STACK_CHANNEL: ${{ steps.stack_channel.outputs.channel }}

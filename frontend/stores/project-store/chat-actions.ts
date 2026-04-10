@@ -294,7 +294,9 @@ export function createChatActions({
           session_id: effectiveSessionId,
           content,
           rag_source_ids:
-            effectiveRagSourceIds.length > 0 ? effectiveRagSourceIds : undefined,
+            effectiveRagSourceIds.length > 0
+              ? effectiveRagSourceIds
+              : undefined,
         });
 
         if (
