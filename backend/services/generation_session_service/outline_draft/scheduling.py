@@ -8,10 +8,6 @@ from typing import Awaitable, Callable, Optional
 from services.generation_session_service.capability_helpers import (
     _resolve_queue_worker_availability,
 )
-from services.generation_session_service.constants import (
-    DispatchFallbackReason,
-    DispatchMode,
-)
 from services.platform.generation_event_constants import GenerationEventType
 from services.platform.state_transition_guard import GenerationState
 from services.task_queue.status_constants import (
@@ -71,14 +67,6 @@ async def schedule_outline_draft_task(
 ) -> None:
     session_state_reason = await _load_session_state_reason(db, session_id)
     availability = await _resolve_queue_worker_availability(task_queue_service)
-    dispatch_payload = {
-        "dispatch": DispatchMode.LOCAL_ASYNC.value,
-        "queue_health": availability["status"],
-        "queue_worker_count": availability.get("worker_count", 0),
-        "stale_worker_count": availability.get("stale_worker_count", 0),
-        "queue_error": availability.get("error"),
-    }
-
     if task_queue_service and availability["status"] == "available":
         try:
             job = task_queue_service.enqueue_outline_draft_task(
@@ -118,63 +106,16 @@ async def schedule_outline_draft_task(
             )
             return
         except Exception as enqueue_err:
-            logger.warning(
-                "Failed to enqueue outline draft task, fallback to local async: %s",
-                enqueue_err,
-                exc_info=True,
-            )
-            dispatch_payload["enqueue_error"] = str(enqueue_err)
-            fallback_reason = DispatchFallbackReason.TASK_ENQUEUE_FAILED.value
-            await _safe_append_dispatch_event(
-                append_event,
-                session_id=session_id,
-                event_type=GenerationEventType.STATE_CHANGED.value,
-                state=GenerationState.DRAFTING_OUTLINE.value,
-                state_reason=fallback_reason,
-                payload={**dispatch_payload, "reason": fallback_reason},
-            )
-    elif task_queue_service:
-        fallback_reason = (
-            DispatchFallbackReason.QUEUE_HEALTH_UNKNOWN.value
-            if availability["status"] == "unknown"
-            else DispatchFallbackReason.TASK_QUEUE_NO_WORKER.value
-        )
-        logger.warning(
-            "Outline draft queue unavailable, fallback to local async: "
-            "session=%s status=%s workers=%s stale=%s error=%s",
-            session_id,
-            availability["status"],
-            availability.get("worker_count", 0),
-            availability.get("stale_worker_count", 0),
-            availability.get("error"),
-        )
-        await _safe_append_dispatch_event(
-            append_event,
-            session_id=session_id,
-            event_type=GenerationEventType.STATE_CHANGED.value,
-            state=GenerationState.DRAFTING_OUTLINE.value,
-            state_reason=session_state_reason,
-            payload={**dispatch_payload, "reason": fallback_reason},
-        )
-    else:
-        fallback_reason = DispatchFallbackReason.TASK_QUEUE_UNAVAILABLE.value
-        await _safe_append_dispatch_event(
-            append_event,
-            session_id=session_id,
-            event_type=GenerationEventType.STATE_CHANGED.value,
-            state=GenerationState.DRAFTING_OUTLINE.value,
-            state_reason=session_state_reason,
-            payload={**dispatch_payload, "reason": fallback_reason},
-        )
+            raise RuntimeError(
+                "Failed to enqueue outline draft task: "
+                f"{type(enqueue_err).__name__}: {enqueue_err}"
+            ) from enqueue_err
 
-    asyncio.create_task(
-        execute_outline_draft_local(
-            session_id=session_id,
-            project_id=project_id,
-            options=options,
-        )
+    raise RuntimeError(
+        "Outline draft task queue unavailable"
+        if task_queue_service is None
+        else f"Outline draft queue unavailable: {availability['status']}"
     )
-    logger.info("Outline draft task scheduled locally: session=%s", session_id)
 
 
 def schedule_outline_draft_watchdog(
@@ -239,18 +180,24 @@ def schedule_outline_draft_watchdog(
             return
 
         logger.warning(
-            "Outline draft watchdog fallback to local async execution: "
+            "Outline draft watchdog marked stale queued draft as failed: "
             "session=%s job=%s status=%s",
             session_id,
             rq_job_id,
             status or "unknown",
         )
-        asyncio.create_task(
-            execute_outline_draft_local(
-                session_id=session_id,
-                project_id=project_id,
-                options=options,
-            )
+        await db.generationsession.update(
+            where={"id": session_id},
+            data={
+                "state": GenerationState.FAILED.value,
+                "stateReason": "outline_draft_dispatch_failed",
+                "errorCode": "OUTLINE_DRAFT_DISPATCH_FAILED",
+                "errorMessage": (
+                    "Queued outline draft job stalled: " f"{status or 'unknown'}"
+                ),
+                "errorRetryable": True,
+                "resumable": True,
+            },
         )
 
     asyncio.create_task(_watch())

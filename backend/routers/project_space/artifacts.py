@@ -54,6 +54,7 @@ async def get_project_artifacts(
         )
         artifacts = await project_space_service.get_project_artifacts(
             project_id,
+            user_id=user_id,
             type_filter=type.value if type else None,
             visibility_filter=visibility.value if visibility else None,
             owner_user_id_filter=owner_user_id,

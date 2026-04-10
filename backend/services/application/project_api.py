@@ -3,9 +3,14 @@ from typing import Optional
 
 from fastapi.encoders import jsonable_encoder
 
+from schemas.project_semantics import normalize_project_reference_mode
+from schemas.project_space import ReferenceRelationType
+from schemas.project_vocabulary import ProjectReferenceMode
 from services.application.access import get_owned_project
 from services.database import db_service
 from services.file_upload_service import serialize_upload
+from services.project_space_service import project_space_service
+from utils.exceptions import ValidationException
 from utils.responses import success_response
 
 logger = logging.getLogger(__name__)
@@ -27,6 +32,52 @@ async def _bootstrap_default_session(project_id: str, user_id: str) -> None:
     )
 
 
+async def _create_formal_project(project, user_id: str) -> None:
+    await project_space_service.create_managed_project(
+        project_id=project.id,
+        user_id=user_id,
+        name=project.name,
+        description=getattr(project, "description", None),
+        visibility=getattr(project, "visibility", None) or "private",
+        is_referenceable=bool(getattr(project, "isReferenceable", False)),
+    )
+
+
+async def _delete_formal_project(project_id: str, user_id: str) -> None:
+    await project_space_service.delete_project(project_id=project_id, user_id=user_id)
+
+
+async def _create_base_reference_if_needed(project, body, user_id: str) -> None:
+    base_project_id = getattr(body, "base_project_id", None)
+    if not base_project_id:
+        return
+
+    base_project = await db_service.get_project(base_project_id)
+    if not base_project:
+        raise ValidationException(message=f"基底项目不存在: {base_project_id}")
+
+    reference_mode = normalize_project_reference_mode(
+        getattr(body, "reference_mode", ProjectReferenceMode.FOLLOW)
+    )
+    pinned_version_id = None
+    if reference_mode.value == ProjectReferenceMode.PINNED.value:
+        pinned_version_id = getattr(base_project, "currentVersionId", None)
+        if not pinned_version_id:
+            raise ValidationException(
+                message="reference_mode=pinned 时，基底项目必须存在 current_version_id"
+            )
+
+    await project_space_service.create_project_reference(
+        project_id=project.id,
+        target_project_id=base_project_id,
+        relation_type=ReferenceRelationType.BASE.value,
+        mode=reference_mode.value,
+        pinned_version_id=pinned_version_id,
+        priority=0,
+        user_id=user_id,
+    )
+
+
 async def create_project_response(
     project, user_id: str, idempotency_key: Optional[str]
 ):
@@ -43,12 +94,25 @@ async def create_project_response(
             return cached_response
 
     new_project = await db_service.create_project(project, user_id=user_id)
+    formal_project_created = False
     try:
+        await _create_formal_project(new_project, user_id)
+        formal_project_created = True
+        await _create_base_reference_if_needed(new_project, project, user_id)
         await _bootstrap_default_session(new_project.id, user_id)
     except Exception:
+        if formal_project_created:
+            try:
+                await _delete_formal_project(new_project.id, user_id)
+            except Exception:
+                logger.error(
+                    "project_formal_state_rollback_failed",
+                    extra={"user_id": user_id, "project_id": new_project.id},
+                    exc_info=True,
+                )
         await db_service.delete_project(new_project.id)
         logger.error(
-            "project_bootstrap_session_failed",
+            "project_create_orchestration_failed",
             extra={"user_id": user_id, "project_id": new_project.id},
             exc_info=True,
         )

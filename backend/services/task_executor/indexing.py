@@ -4,6 +4,10 @@ import asyncio
 import logging
 from typing import Optional
 
+from services.file_upload_service.remote_parse import (
+    enqueue_remote_parse_reconcile_from_env,
+    is_deferred_parse_result,
+)
 from utils.upstream_failures import describe_upstream_failure
 
 from .common import run_async_entrypoint
@@ -75,6 +79,23 @@ async def execute_rag_indexing_task(
             parse_provider_override=parse_provider_override,
             fallback_triggered=fallback_triggered,
         )
+        if is_deferred_parse_result(parse_result):
+            await db.update_upload_status(
+                upload.id,
+                status=UploadStatus.UPLOADING.value,
+                parse_result=parse_result,
+                error_message=None,
+            )
+            await enqueue_remote_parse_reconcile_from_env(
+                file_id=file_id,
+                project_id=project_id,
+                session_id=session_id,
+            )
+            logger.info(
+                "rag_indexing_task_deferred_remote_parse",
+                extra={"file_id": file_id, "project_id": project_id},
+            )
+            return
         await db.update_upload_status(
             upload.id,
             status=UploadStatus.READY.value,

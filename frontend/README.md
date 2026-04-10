@@ -58,6 +58,7 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 ```bash
 # API Configuration
+# Next.js forwards browser /api/v1 requests to this target
 NEXT_PUBLIC_API_URL="http://localhost:8000"
 NEXT_PUBLIC_API_TIMEOUT_MS=180000
 NEXT_PUBLIC_CHAT_TIMEOUT_MS=90000
@@ -138,7 +139,11 @@ This project uses [`next/font`](https://nextjs.org/docs/app/building-your-applic
 
 ## API Integration
 
-The frontend communicates with the backend API at `/api/v1`:
+Browser requests go to the frontend origin at `/api/v1` and are forwarded by
+Next.js to the configured backend target. Server-side requests use
+`INTERNAL_API_URL` when present, otherwise `NEXT_PUBLIC_API_URL`.
+
+The backend API surface remains `/api/v1`:
 
 - Authentication: `/api/v1/auth/*`
 - Projects: `/api/v1/projects`

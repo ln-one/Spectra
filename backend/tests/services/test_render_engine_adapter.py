@@ -29,8 +29,10 @@ def test_build_render_engine_input_maps_courseware_content_to_structured_payload
     assert payload["output_targets"] == ["pptx", "preview"]
     assert payload["document"]["title"] == "测试课件"
     assert len(payload["document"]["pages"]) == 3
-    assert payload["document"]["pages"][0]["kind"] == "cover"
-    assert payload["document"]["pages"][1]["kind"] == "toc"
+    assert payload["document"]["pages"][0]["kind"] == "chapter_cover"
+    assert payload["document"]["pages"][0]["layout"] == "chapter_cover"
+    assert payload["document"]["pages"][1]["kind"] == "chapter_agenda"
+    assert payload["document"]["pages"][1]["layout"] == "chapter_agenda"
     assert payload["render"]["theme"]["theme_id"] == "gaia"
     assert payload["render"]["theme"]["template_id"] == "document-teaching"
     assert payload["render"]["template"]["template_id"] == "document-teaching"
@@ -64,8 +66,15 @@ def test_build_render_engine_page_input_maps_page_payload():
         page_index=0,
         page_payload={
             "title": "封面",
-            "kind": "cover",
+            "kind": "chapter_cover",
+            "layout": "chapter_cover",
             "density": "density-medium",
+            "structure": {
+                "chapter_cover": {
+                    "course_title": "封面",
+                    "subtitle": "副标题",
+                }
+            },
             "blocks": [{"type": "heading", "text": "封面", "level": 1}],
         },
         document_title="测试课件",
@@ -89,7 +98,9 @@ def test_build_render_engine_page_input_maps_page_payload():
     assert payload["render_job_id"] == "job-1"
     assert payload["page_id"] == "job-1-slide-0"
     assert payload["theme"] == "gaia"
-    assert payload["page"]["kind"] == "cover"
+    assert payload["page"]["kind"] == "chapter_cover"
+    assert payload["page"]["layout"] == "chapter_cover"
+    assert payload["page"]["structure"]["chapter_cover"]["subtitle"] == "副标题"
     assert payload["page_marp_markdown"] is None
     assert payload["render"]["theme"]["theme_id"] == "gaia"
     assert payload["render"]["theme"]["template_id"] == "document-teaching"
@@ -109,6 +120,52 @@ def test_build_render_engine_input_allows_explicit_template_override():
 
     assert payload["render"]["theme"]["template_id"] == "document-default"
     assert payload["render"]["template"]["template_id"] == "document-default"
+
+
+def test_build_render_engine_input_infers_teaching_summary_and_diagram_pages():
+    payload = build_render_engine_input(
+        {
+            "title": "测试课件",
+            "render_markdown": (
+                "---\nmarp: true\n---\n\n"
+                "<!-- _class: content density-medium -->\n\n"
+                "# 学习目标\n\n"
+                "## 本章重点\n\n"
+                "- 理解协议分层\n- 掌握封装过程\n\n---\n\n"
+                "<!-- _class: content density-medium -->\n\n"
+                "# 协议流程\n\n"
+                "```mermaid\ngraph TD\nA-->B\n```\n\n"
+                "- 第一步\n- 第二步\n\n---\n\n"
+                "<!-- _class: content density-medium -->\n\n"
+                "# 本章总结\n\n"
+                "- 要点一\n- 要点二\n- 要点三\n- 要点四\n- 要点五\n"
+            ),
+            "lesson_plan_markdown": "# 教案",
+        },
+        {"style": "teach", "template_id": "document-teaching"},
+        ["preview"],
+        render_job_id="job-teach",
+    )
+
+    pages = payload["document"]["pages"]
+    assert pages[0]["layout"] == "learning_objectives"
+    assert pages[0]["structure"]["learning_objectives"]["objectives"] == [
+        "理解协议分层",
+        "掌握封装过程",
+    ]
+    assert pages[1]["layout"] == "process_walkthrough"
+    assert pages[1]["structure"]["process_walkthrough"]["steps"] == [
+        "第一步",
+        "第二步",
+    ]
+    assert pages[2]["layout"] == "summary_page"
+    assert pages[2]["structure"]["summary_page"]["key_points"] == [
+        "要点一",
+        "要点二",
+        "要点三",
+        "要点四",
+        "要点五",
+    ]
 
 
 def test_normalize_render_engine_page_result_extracts_html_preview():

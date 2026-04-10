@@ -139,6 +139,39 @@ async def test_index_upload_file_for_rag_parse_error_fallback(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_index_upload_file_for_rag_short_circuits_deferred_parse(monkeypatch):
+    upload = _fake_upload(filename="remote.pdf", fileType="pdf")
+    monkeypatch.setattr(
+        rag_indexing_service,
+        "extract_text_for_rag",
+        lambda filepath, filename, file_type, parser_override=None: (
+            "",
+            {
+                "deferred_parse": True,
+                "provider_used": "dualweave_mineru",
+                "dualweave": {"upload_id": "upl-123", "status": "pending_remote"},
+            },
+        ),
+    )
+    create_chunks_mock = AsyncMock()
+    monkeypatch.setattr(
+        rag_indexing_service.db_service,
+        "create_parsed_chunks",
+        create_chunks_mock,
+    )
+    index_mock = AsyncMock()
+    monkeypatch.setattr(rag_indexing_service.rag_service, "index_chunks", index_mock)
+
+    result = await rag_indexing_service.index_upload_file_for_rag(upload, "p-001")
+
+    assert result["deferred_parse"] is True
+    assert result["chunk_count"] == 0
+    assert result["indexed_count"] == 0
+    create_chunks_mock.assert_not_called()
+    index_mock.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_index_upload_file_for_rag_reindex_deletes_old_data(monkeypatch):
     upload = _fake_upload()
     monkeypatch.setattr(

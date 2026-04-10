@@ -1,8 +1,25 @@
 import createClient, { type FetchOptions } from "openapi-fetch";
 import { TokenStorage } from "../auth";
 
-export const API_BASE_URL =
+const PUBLIC_API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const INTERNAL_API_BASE_URL = process.env.INTERNAL_API_URL || "";
+
+function trimTrailingSlash(value: string): string {
+  return value.replace(/\/+$/, "");
+}
+
+function resolveApiBaseUrl(): string {
+  if (typeof window !== "undefined") {
+    return trimTrailingSlash(window.location.origin);
+  }
+  if (INTERNAL_API_BASE_URL) {
+    return trimTrailingSlash(INTERNAL_API_BASE_URL);
+  }
+  return trimTrailingSlash(PUBLIC_API_BASE_URL);
+}
+
+export const API_BASE_URL = resolveApiBaseUrl();
 export const API_VERSION = "/api/v1";
 export const DEFAULT_CONTRACT_VERSION = "2026-03";
 const REQUEST_TIMEOUT_MS = Number(
@@ -148,6 +165,14 @@ function normalizePath(input: string): string {
   }
 }
 
+export function buildApiUrl(path: string): string {
+  if (/^https?:\/\//i.test(path)) {
+    return path;
+  }
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  return `${API_BASE_URL}${normalizedPath}`;
+}
+
 export function shouldSkipAuth(path: string): boolean {
   const pathname = normalizePath(path);
   return (
@@ -185,7 +210,7 @@ async function refreshAccessToken(): Promise<boolean> {
   let refreshSuccess = false;
 
   try {
-    const refreshRequest = new Request(`${API_BASE_URL}/api/v1/auth/refresh`, {
+    const refreshRequest = new Request(buildApiUrl("/api/v1/auth/refresh"), {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -339,9 +364,7 @@ export async function apiFetch(
   path: string,
   init?: RequestInit
 ): Promise<Response> {
-  const url = path.startsWith("http")
-    ? path
-    : `${API_BASE_URL}${path.startsWith("/") ? path : `/${path}`}`;
+  const url = buildApiUrl(path);
   return fetchWithAuth(url, init);
 }
 

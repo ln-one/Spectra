@@ -68,6 +68,14 @@ class ProjectSpaceService:
         self._ensure_remote_configured()
         return await ourograph_client.get_project_members(**kwargs)
 
+    async def create_managed_project(self, *args, **kwargs):
+        self._ensure_remote_configured()
+        return await ourograph_client.create_managed_project(**kwargs)
+
+    async def delete_project(self, *args, **kwargs):
+        self._ensure_remote_configured()
+        return await ourograph_client.delete_project(**kwargs)
+
     async def create_project_member(self, *args, **kwargs):
         self._ensure_remote_configured()
         return await ourograph_client.create_project_member(**kwargs)
@@ -200,6 +208,7 @@ class ProjectSpaceService:
     async def get_project_artifacts(
         self,
         project_id: str,
+        user_id: str,
         type_filter=None,
         visibility_filter=None,
         owner_user_id_filter=None,
@@ -209,6 +218,7 @@ class ProjectSpaceService:
         self._ensure_remote_configured()
         return await ourograph_client.get_project_artifacts(
             project_id,
+            user_id=user_id,
             type_filter=type_filter,
             visibility_filter=visibility_filter,
             owner_user_id_filter=owner_user_id_filter,

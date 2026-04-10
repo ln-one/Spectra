@@ -5,8 +5,257 @@ from typing import Any, Optional
 
 _PAGE_SPLIT_RE = re.compile(r"\n\s*---\s*\n")
 _CLASS_COMMENT_RE = re.compile(r"<!--\s*_class:\s*([^>]+?)\s*-->", re.IGNORECASE)
-_HEADING_RE = re.compile(r"^(#{1,6})\s+(.+?)\s*$")
+_HEADING_RE = re.compile(r"(?m)^\s*(#{1,6})\s+(.+?)\s*$")
 _IMAGE_RE = re.compile(r"!\[(.*?)\]\((.+?)\)")
+_SUMMARY_KEYWORDS = ("总结", "小结", "回顾", "结语", "结论", "summary", "recap")
+_OBJECTIVE_KEYWORDS = ("目标", "learning objective", "teaching objective")
+_PROCESS_KEYWORDS = ("流程", "步骤", "过程", "链路", "工作流", "walkthrough")
+_EXAMPLE_KEYWORDS = ("案例", "示例", "例题", "应用", "练习", "实验")
+_CONCEPT_KEYWORDS = ("概念", "定义", "原理", "模型", "作用", "特点")
+
+
+def _clean_inline_markdown(text: str) -> str:
+    normalized = str(text or "").strip()
+    normalized = re.sub(r"\*\*(.*?)\*\*", r"\1", normalized)
+    normalized = re.sub(r"__(.*?)__", r"\1", normalized)
+    normalized = re.sub(r"`([^`]+)`", r"\1", normalized)
+    normalized = re.sub(r"^\s*>\s*", "", normalized)
+    normalized = re.sub(r"\s+", " ", normalized)
+    return normalized.strip()
+
+
+def _title_from_blocks(blocks: list[dict[str, Any]]) -> str:
+    for block in blocks:
+        if block.get("type") == "heading":
+            return _clean_inline_markdown(str(block.get("text") or ""))
+    return ""
+
+
+def _secondary_headings(blocks: list[dict[str, Any]]) -> list[str]:
+    headings: list[str] = []
+    for block in blocks:
+        if block.get("type") != "heading":
+            continue
+        level = block.get("level")
+        try:
+            heading_level = int(level or 2)
+        except (TypeError, ValueError):
+            heading_level = 2
+        if heading_level >= 2:
+            text = _clean_inline_markdown(str(block.get("text") or ""))
+            if text:
+                headings.append(text)
+    return headings
+
+
+def _paragraphs(blocks: list[dict[str, Any]]) -> list[str]:
+    return [
+        _clean_inline_markdown(str(block.get("text") or ""))
+        for block in blocks
+        if block.get("type") == "paragraph"
+        and _clean_inline_markdown(str(block.get("text") or ""))
+    ]
+
+
+def _bullet_items(blocks: list[dict[str, Any]]) -> list[str]:
+    items: list[str] = []
+    for block in blocks:
+        if block.get("type") != "bullet_list":
+            continue
+        for item in block.get("items") or []:
+            cleaned = _clean_inline_markdown(re.sub(r"^\d+\.\s*", "", str(item or "")))
+            if cleaned:
+                items.append(cleaned)
+    return items
+
+
+def _first_visual_block(blocks: list[dict[str, Any]]) -> Optional[dict[str, Any]]:
+    for block in blocks:
+        if block.get("type") in {"image", "mermaid"}:
+            return block
+    return None
+
+
+def _contains_any(text: str, keywords: tuple[str, ...]) -> bool:
+    normalized = str(text or "").strip().lower()
+    return any(keyword in normalized for keyword in keywords)
+
+
+def infer_page_semantics(
+    *,
+    page_text: str,
+    index: int,
+    base_kind: str,
+    blocks: list[dict[str, Any]],
+    title: str,
+) -> dict[str, Any]:
+    cleaned_title = _clean_inline_markdown(title or _title_from_blocks(blocks))
+    secondary_headings = _secondary_headings(blocks)
+    paragraphs = _paragraphs(blocks)
+    bullet_items = _bullet_items(blocks)
+    visual_block = _first_visual_block(blocks)
+    lowered_title = cleaned_title.lower()
+
+    if base_kind == "cover":
+        subtitle_candidates = [
+            item
+            for item in [*secondary_headings, *paragraphs]
+            if item
+            and "授课教师" not in item
+            and "讲师" not in item
+            and "主讲" not in item
+        ]
+        instructor = next(
+            (
+                item
+                for item in [*secondary_headings, *paragraphs]
+                if any(token in item for token in ("授课教师", "讲师", "主讲", "教师"))
+            ),
+            None,
+        )
+        return {
+            "title": cleaned_title or None,
+            "kind": "chapter_cover",
+            "layout": "chapter_cover",
+            "blocks": blocks,
+            "layout_hints": {"emphasis_level": "high"},
+            "structure": {
+                "chapter_cover": {
+                    "course_title": cleaned_title or None,
+                    "subtitle": subtitle_candidates[0] if subtitle_candidates else None,
+                    "instructor": instructor,
+                }
+            },
+        }
+
+    if base_kind == "toc":
+        return {
+            "title": cleaned_title or None,
+            "kind": "chapter_agenda",
+            "layout": "chapter_agenda",
+            "blocks": blocks,
+            "structure": {
+                "chapter_agenda": {
+                    "sections": bullet_items or secondary_headings,
+                    "current_section": (
+                        (bullet_items or secondary_headings)[0]
+                        if (bullet_items or secondary_headings)
+                        else None
+                    ),
+                }
+            },
+        }
+
+    if _contains_any(lowered_title, _SUMMARY_KEYWORDS) and bullet_items:
+        return {
+            "title": cleaned_title or None,
+            "kind": "summary_page",
+            "layout": "summary_page",
+            "blocks": blocks,
+            "structure": {
+                "summary_page": {
+                    "key_points": bullet_items,
+                    "closing_note": paragraphs[0] if paragraphs else None,
+                }
+            },
+        }
+
+    if _contains_any(lowered_title, _OBJECTIVE_KEYWORDS) and bullet_items:
+        return {
+            "title": cleaned_title or None,
+            "kind": "learning_objectives",
+            "layout": "learning_objectives",
+            "blocks": blocks,
+            "structure": {
+                "learning_objectives": {
+                    "objectives": bullet_items,
+                    "focus_label": (
+                        secondary_headings[0] if secondary_headings else None
+                    ),
+                }
+            },
+        }
+
+    if (
+        _contains_any(lowered_title, _PROCESS_KEYWORDS)
+        or any(block.get("ordered") for block in blocks)
+    ) and bullet_items:
+        return {
+            "title": cleaned_title or None,
+            "kind": "process_walkthrough",
+            "layout": "process_walkthrough",
+            "blocks": blocks,
+            "layout_hints": {
+                "visual_priority": "balanced" if visual_block else "text",
+            },
+            "structure": {
+                "process_walkthrough": {
+                    "steps": bullet_items,
+                    "lead": (
+                        paragraphs[0]
+                        if paragraphs
+                        else (secondary_headings[0] if secondary_headings else None)
+                    ),
+                }
+            },
+        }
+
+    if visual_block is not None:
+        return {
+            "title": cleaned_title or None,
+            "kind": "diagram_explainer",
+            "layout": "diagram_explainer",
+            "blocks": blocks,
+            "layout_hints": {"visual_priority": "visual"},
+            "structure": {
+                "diagram_explainer": {
+                    "notes": bullet_items,
+                    "caption": (
+                        paragraphs[0]
+                        if paragraphs
+                        else (secondary_headings[0] if secondary_headings else None)
+                    ),
+                }
+            },
+        }
+
+    if _contains_any(lowered_title, _EXAMPLE_KEYWORDS) and (paragraphs or bullet_items):
+        return {
+            "title": cleaned_title or None,
+            "kind": "example_page",
+            "layout": "example_page",
+            "blocks": blocks,
+            "structure": {
+                "example_page": {
+                    "scenario": paragraphs[0] if paragraphs else None,
+                    "analysis_points": bullet_items,
+                }
+            },
+        }
+
+    if _contains_any(lowered_title, _CONCEPT_KEYWORDS) and (paragraphs or bullet_items):
+        return {
+            "title": cleaned_title or None,
+            "kind": "concept_page",
+            "layout": "concept_page",
+            "blocks": blocks,
+            "structure": {
+                "concept_page": {
+                    "definition": paragraphs[0] if paragraphs else None,
+                    "takeaway": (
+                        paragraphs[-1]
+                        if len(paragraphs) > 1
+                        else (bullet_items[0] if bullet_items else None)
+                    ),
+                }
+            },
+        }
+
+    return {
+        "title": cleaned_title or None,
+        "kind": base_kind,
+        "blocks": blocks,
+    }
 
 
 def strip_marp_frontmatter(markdown: str) -> str:
@@ -202,18 +451,23 @@ def parse_document_pages(markdown: str) -> list[dict[str, Any]]:
     ]
     pages: list[dict[str, Any]] = []
     for index, page_text in enumerate(raw_pages):
-        title = ""
+        blocks = parse_page_blocks(page_text)
         heading_match = _HEADING_RE.search(page_text)
-        if heading_match:
-            title = heading_match.group(2).strip()
-        pages.append(
-            {
-                "title": title or None,
-                "kind": infer_page_kind(page_text, index),
-                "density": page_density(page_text),
-                "blocks": parse_page_blocks(page_text),
-            }
+        title = (
+            _clean_inline_markdown(heading_match.group(2))
+            if heading_match
+            else _title_from_blocks(blocks)
         )
+        base_kind = infer_page_kind(page_text, index)
+        page_payload = infer_page_semantics(
+            page_text=page_text,
+            index=index,
+            base_kind=base_kind,
+            blocks=blocks,
+            title=title,
+        )
+        page_payload["density"] = page_density(page_text)
+        pages.append(page_payload)
     return pages or [
         {
             "title": None,

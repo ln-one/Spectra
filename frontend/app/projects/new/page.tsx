@@ -195,14 +195,15 @@ export default function NewProjectPage() {
       if (projectId) {
         if (pendingFiles.length > 0) {
           setIsUploadingFiles(true);
-          // Sequential upload to avoid overwhelming
-          for (const file of pendingFiles) {
-            try {
-              await uploadFile(file, projectId);
-            } catch (err) {
-              console.error(`Failed to upload ${file.name}:`, err);
-            }
-          }
+          await Promise.allSettled(
+            pendingFiles.map(async (file) => {
+              try {
+                await uploadFile(file, projectId);
+              } catch (err) {
+                console.error(`Failed to upload ${file.name}:`, err);
+              }
+            })
+          );
         }
         router.push(`/projects/${projectId}`);
         return;

@@ -12,6 +12,7 @@ from schemas.common import normalize_source_type
 from services.chunking import split_text
 from services.database import db_service
 from services.file_parser import extract_text_for_rag
+from services.file_upload_service.remote_parse import is_deferred_parse_result
 from services.rag_service import ParsedChunkData, rag_service
 
 logger = logging.getLogger(__name__)
@@ -95,6 +96,24 @@ async def index_upload_file_for_rag(
         or bool(capability_status.get("fallback_chain"))
         or bool(capability_status.get("fallback_target"))
     )
+    if is_deferred_parse_result(parse_details):
+        result = {
+            "chunk_count": 0,
+            "indexed_count": 0,
+            "provider": provider,
+            "fallback_used": fallback_used,
+            "stage_timings_ms": stage_timings_ms,
+            **parse_details,
+        }
+        logger.info(
+            "rag_upload_parse_deferred",
+            extra={
+                "upload_id": upload.id,
+                "project_id": project_id,
+                "provider": provider,
+            },
+        )
+        return result
     if fallback_triggered:
         fallback_used = True
         parse_details["fallback"] = True

@@ -33,7 +33,9 @@ def test_normalize_markdown_image_path_supports_common_upload_formats():
 
 @pytest.mark.asyncio
 async def test_inject_rag_images_into_courseware_content_appends_image_blocks():
-    db_service = SimpleNamespace(db=SimpleNamespace(upload=SimpleNamespace()))
+    db_service = SimpleNamespace(
+        db=SimpleNamespace(upload=SimpleNamespace(find_many=AsyncMock()))
+    )
     courseware = SimpleNamespace(
         markdown_content=(
             "# 封面\n\n- 引入\n\n---\n\n# 核心概念\n\n- 要点一\n\n---\n\n# 总结\n\n- 回顾"
@@ -55,19 +57,16 @@ async def test_inject_rag_images_into_courseware_content_appends_image_blocks():
                 ]
             ),
         ),
-        patch(
-            "services.task_executor.ppt_image_insertion.find_many_with_select_fallback",
-            new=AsyncMock(
-                return_value=[
-                    {
-                        "id": "u-image-1",
-                        "filename": "network-topology.png",
-                        "filepath": "/app/uploads/network-topology.png",
-                    }
-                ]
-            ),
-        ),
     ):
+        db_service.db.upload.find_many = AsyncMock(
+            return_value=[
+                {
+                    "id": "u-image-1",
+                    "filename": "network-topology.png",
+                    "filepath": "/app/uploads/network-topology.png",
+                }
+            ]
+        )
         await inject_rag_images_into_courseware_content(
             db_service=db_service,
             project_id="p-001",
@@ -80,11 +79,17 @@ async def test_inject_rag_images_into_courseware_content_appends_image_blocks():
 
     assert "![w:520](<../uploads/network-topology.png>)" in courseware.markdown_content
     assert "配图来源" not in courseware.markdown_content
+    assert all(
+        "select" not in call.kwargs
+        for call in db_service.db.upload.find_many.await_args_list
+    )
 
 
 @pytest.mark.asyncio
 async def test_inject_rag_images_into_courseware_content_skips_when_no_image_hit():
-    db_service = SimpleNamespace(db=SimpleNamespace(upload=SimpleNamespace()))
+    db_service = SimpleNamespace(
+        db=SimpleNamespace(upload=SimpleNamespace(find_many=AsyncMock()))
+    )
     original_markdown = "# 标题\n\n- 内容"
     courseware = SimpleNamespace(markdown_content=original_markdown)
 
@@ -103,11 +108,9 @@ async def test_inject_rag_images_into_courseware_content_skips_when_no_image_hit
                 ]
             ),
         ),
-        patch(
-            "services.task_executor.ppt_image_insertion.find_many_with_select_fallback",
-            new=AsyncMock(return_value=[]),
-        ) as find_many_mock,
     ):
+        find_many_mock = AsyncMock(return_value=[])
+        db_service.db.upload.find_many = find_many_mock
         await inject_rag_images_into_courseware_content(
             db_service=db_service,
             project_id="p-001",
@@ -120,11 +123,14 @@ async def test_inject_rag_images_into_courseware_content_skips_when_no_image_hit
 
     assert courseware.markdown_content == original_markdown
     assert find_many_mock.await_count == 2
+    assert all("select" not in call.kwargs for call in find_many_mock.await_args_list)
 
 
 @pytest.mark.asyncio
 async def test_inject_rag_images_into_courseware_content_uses_project_ready_images_in_strict_mode():
-    db_service = SimpleNamespace(db=SimpleNamespace(upload=SimpleNamespace()))
+    db_service = SimpleNamespace(
+        db=SimpleNamespace(upload=SimpleNamespace(find_many=AsyncMock()))
+    )
     courseware = SimpleNamespace(
         markdown_content=(
             "# 封面\n\n- 引入\n\n---\n\n# 核心概念\n\n- 要点一\n\n---\n\n# 总结\n\n- 回顾"
@@ -146,19 +152,16 @@ async def test_inject_rag_images_into_courseware_content_uses_project_ready_imag
                 ]
             ),
         ),
-        patch(
-            "services.task_executor.ppt_image_insertion.find_many_with_select_fallback",
-            new=AsyncMock(
-                return_value=[
-                    {
-                        "id": "u-image-2",
-                        "filename": "project-ready.png",
-                        "filepath": "/app/uploads/project-ready.png",
-                    }
-                ]
-            ),
-        ),
     ):
+        db_service.db.upload.find_many = AsyncMock(
+            return_value=[
+                {
+                    "id": "u-image-2",
+                    "filename": "project-ready.png",
+                    "filepath": "/app/uploads/project-ready.png",
+                }
+            ]
+        )
         await inject_rag_images_into_courseware_content(
             db_service=db_service,
             project_id="p-001",
@@ -175,7 +178,9 @@ async def test_inject_rag_images_into_courseware_content_uses_project_ready_imag
 
 @pytest.mark.asyncio
 async def test_inject_rag_images_scans_next_slide_when_current_is_skipped():
-    db_service = SimpleNamespace(db=SimpleNamespace(upload=SimpleNamespace()))
+    db_service = SimpleNamespace(
+        db=SimpleNamespace(upload=SimpleNamespace(find_many=AsyncMock()))
+    )
     courseware = SimpleNamespace(
         markdown_content=(
             "# Cover\n\n- intro\n\n---\n\n# Definition\n\n- 概念说明\n\n---\n\n# Process\n\n- 步骤讲解\n\n---\n\n# End\n\n- 总结"
@@ -197,19 +202,16 @@ async def test_inject_rag_images_scans_next_slide_when_current_is_skipped():
                 ]
             ),
         ),
-        patch(
-            "services.task_executor.ppt_image_insertion.find_many_with_select_fallback",
-            new=AsyncMock(
-                return_value=[
-                    {
-                        "id": "u-image-1",
-                        "filename": "flow.png",
-                        "filepath": "/app/uploads/flow.png",
-                    }
-                ]
-            ),
-        ),
     ):
+        db_service.db.upload.find_many = AsyncMock(
+            return_value=[
+                {
+                    "id": "u-image-1",
+                    "filename": "flow.png",
+                    "filepath": "/app/uploads/flow.png",
+                }
+            ]
+        )
         await inject_rag_images_into_courseware_content(
             db_service=db_service,
             project_id="p-001",
@@ -228,7 +230,9 @@ async def test_inject_rag_images_scans_next_slide_when_current_is_skipped():
 
 @pytest.mark.asyncio
 async def test_inject_rag_images_for_selected_sources_appends_image_slide_when_needed():
-    db_service = SimpleNamespace(db=SimpleNamespace(upload=SimpleNamespace()))
+    db_service = SimpleNamespace(
+        db=SimpleNamespace(upload=SimpleNamespace(find_many=AsyncMock()))
+    )
     courseware = SimpleNamespace(
         markdown_content=(
             "# Cover\n\n- intro\n\n---\n\n# Summary\n\n- 结论回顾\n\n---\n\n# End\n\n- 收尾"
@@ -255,11 +259,8 @@ async def test_inject_rag_images_for_selected_sources_appends_image_slide_when_n
                 ]
             ),
         ),
-        patch(
-            "services.task_executor.ppt_image_insertion.find_many_with_select_fallback",
-            new=AsyncMock(side_effect=[[row], [row]]),
-        ),
     ):
+        db_service.db.upload.find_many = AsyncMock(side_effect=[[row], [row]])
         await inject_rag_images_into_courseware_content(
             db_service=db_service,
             project_id="p-001",

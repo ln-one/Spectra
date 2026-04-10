@@ -177,6 +177,25 @@ export function useStudioHistoryHandlers({
       }
 
       if (item.toolType === "ppt") {
+        const hasPinnedPreviewAnchor = Boolean(item.artifactId || item.runId);
+        const shouldPreferPinnedPreview =
+          sessionId &&
+          hasPinnedPreviewAnchor &&
+          (item.origin === "artifact" ||
+            item.step === "preview" ||
+            item.status === "previewing" ||
+            item.status === "completed");
+        if (shouldPreferPinnedPreview) {
+          const previewHref = openPptPreviewPage(
+            sessionId,
+            item.artifactId,
+            item.runId || undefined
+          );
+          if (previewHref) {
+            router.push(previewHref);
+            return;
+          }
+        }
         const canOpenPreviewDirectly =
           Boolean(item.artifactId) ||
           item.status === "previewing" ||

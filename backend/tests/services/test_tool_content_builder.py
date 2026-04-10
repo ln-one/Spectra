@@ -4,7 +4,10 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from services.generation_session_service import tool_content_builder
+from services.generation_session_service import (
+    tool_content_builder,
+    tool_content_builder_generation,
+)
 from utils.exceptions import APIException, ErrorCode
 
 
@@ -37,7 +40,7 @@ async def test_build_studio_tool_artifact_content_strict_validates_minimum_field
         AsyncMock(return_value=None),
     )
     monkeypatch.setattr(
-        tool_content_builder.ai_service,
+        tool_content_builder_generation.ai_service,
         "generate",
         AsyncMock(
             return_value={
@@ -79,7 +82,7 @@ async def test_build_studio_tool_artifact_content_strict_rejects_non_json(
         AsyncMock(return_value=None),
     )
     monkeypatch.setattr(
-        tool_content_builder.ai_service,
+        tool_content_builder_generation.ai_service,
         "generate",
         AsyncMock(return_value={"content": "not-json", "model": "openai/gpt-4o-mini"}),
     )
@@ -116,7 +119,7 @@ async def test_build_studio_tool_artifact_content_strict_rejects_invalid_schema(
         AsyncMock(return_value=None),
     )
     monkeypatch.setattr(
-        tool_content_builder.ai_service,
+        tool_content_builder_generation.ai_service,
         "generate",
         AsyncMock(
             return_value={
@@ -157,21 +160,97 @@ async def test_build_studio_tool_artifact_content_allow_mode_uses_fallback(
         AsyncMock(return_value=None),
     )
     monkeypatch.setattr(
-        tool_content_builder.ai_service,
+        tool_content_builder_generation.ai_service,
         "generate",
         AsyncMock(side_effect=RuntimeError("provider down")),
     )
 
-    payload = await tool_content_builder.build_studio_tool_artifact_content(
-        card_id="knowledge_mindmap",
-        project_id="p-001",
-        config={"topic": "Newton laws"},
+    with pytest.raises(APIException) as exc_info:
+        await tool_content_builder.build_studio_tool_artifact_content(
+            card_id="knowledge_mindmap",
+            project_id="p-001",
+            config={"topic": "Newton laws"},
+        )
+
+    exc = exc_info.value
+    assert exc.status_code == 502
+    assert exc.error_code == ErrorCode.EXTERNAL_SERVICE_ERROR
+    assert exc.details["phase"] == "generate"
+
+
+@pytest.mark.asyncio
+async def test_build_studio_tool_artifact_content_allow_mode_rejects_non_json(
+    monkeypatch,
+):
+    monkeypatch.setenv("STUDIO_TOOL_FALLBACK_MODE", "allow")
+    monkeypatch.setenv("STUDIO_TOOL_ENABLE_AI_GENERATION", "true")
+    monkeypatch.setattr(
+        tool_content_builder,
+        "_load_rag_snippets",
+        AsyncMock(return_value=["rag snippet"]),
+    )
+    monkeypatch.setattr(
+        tool_content_builder,
+        "_load_source_artifact_hint",
+        AsyncMock(return_value=None),
+    )
+    monkeypatch.setattr(
+        tool_content_builder_generation.ai_service,
+        "generate",
+        AsyncMock(return_value={"content": "not-json", "model": "openai/gpt-4o-mini"}),
     )
 
-    assert payload is not None
-    assert payload["kind"] == "mindmap"
-    assert isinstance(payload["nodes"], list)
-    assert payload["nodes"]
+    with pytest.raises(APIException) as exc_info:
+        await tool_content_builder.build_studio_tool_artifact_content(
+            card_id="knowledge_mindmap",
+            project_id="p-001",
+            config={"topic": "Newton laws"},
+        )
+
+    exc = exc_info.value
+    assert exc.status_code == 502
+    assert exc.error_code == ErrorCode.EXTERNAL_SERVICE_ERROR
+    assert exc.details["phase"] == "parse"
+
+
+@pytest.mark.asyncio
+async def test_build_studio_tool_artifact_content_allow_mode_rejects_invalid_schema(
+    monkeypatch,
+):
+    monkeypatch.setenv("STUDIO_TOOL_FALLBACK_MODE", "allow")
+    monkeypatch.setenv("STUDIO_TOOL_ENABLE_AI_GENERATION", "true")
+    monkeypatch.setattr(
+        tool_content_builder,
+        "_load_rag_snippets",
+        AsyncMock(return_value=["rag snippet"]),
+    )
+    monkeypatch.setattr(
+        tool_content_builder,
+        "_load_source_artifact_hint",
+        AsyncMock(return_value=None),
+    )
+    monkeypatch.setattr(
+        tool_content_builder_generation.ai_service,
+        "generate",
+        AsyncMock(
+            return_value={
+                "content": '{"title":"Mindmap", "nodes":[]}',
+                "model": "openai/gpt-4o-mini",
+            }
+        ),
+    )
+
+    with pytest.raises(APIException) as exc_info:
+        await tool_content_builder.build_studio_tool_artifact_content(
+            card_id="knowledge_mindmap",
+            project_id="p-001",
+            config={"topic": "Newton laws"},
+        )
+
+    exc = exc_info.value
+    assert exc.status_code == 400
+    assert exc.error_code == ErrorCode.INVALID_INPUT
+    assert exc.details["phase"] == "validate"
 
 
 @pytest.mark.asyncio
@@ -186,7 +265,7 @@ async def test_build_studio_simulator_turn_update_strict_requires_valid_payload(
         AsyncMock(return_value=["rag snippet"]),
     )
     monkeypatch.setattr(
-        tool_content_builder.ai_service,
+        tool_content_builder_generation.ai_service,
         "generate",
         AsyncMock(
             return_value={
@@ -211,3 +290,34 @@ async def test_build_studio_simulator_turn_update_strict_requires_valid_payload(
     assert exc.status_code == 400
     assert exc.error_code == ErrorCode.INVALID_INPUT
     assert exc.details["phase"] == "validate_turn"
+
+
+@pytest.mark.asyncio
+async def test_build_studio_simulator_turn_update_allow_mode_fails_instead_of_fallback(
+    monkeypatch,
+):
+    monkeypatch.setenv("STUDIO_TOOL_FALLBACK_MODE", "allow")
+    monkeypatch.setenv("STUDIO_TOOL_ENABLE_AI_GENERATION", "true")
+    monkeypatch.setattr(
+        tool_content_builder,
+        "_load_rag_snippets",
+        AsyncMock(return_value=["rag snippet"]),
+    )
+    monkeypatch.setattr(
+        tool_content_builder_generation.ai_service,
+        "generate",
+        AsyncMock(side_effect=RuntimeError("provider down")),
+    )
+
+    with pytest.raises(APIException) as exc_info:
+        await tool_content_builder.build_studio_simulator_turn_update(
+            current_content={"title": "QA", "turns": [{"id": 1}]},
+            teacher_answer="Teacher answer",
+            config={"topic": "forces"},
+            project_id="p-001",
+        )
+
+    exc = exc_info.value
+    assert exc.status_code == 502
+    assert exc.error_code == ErrorCode.EXTERNAL_SERVICE_ERROR
+    assert exc.details["phase"] == "generate_turn"

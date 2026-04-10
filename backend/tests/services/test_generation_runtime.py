@@ -107,12 +107,7 @@ async def test_persist_generation_artifacts_returns_download_urls():
         "docx": "/api/v1/projects/p-1/artifacts/artifact-doc/download",
     }
     db_service.db.generationsession.find_unique.assert_awaited_once_with(
-        where={"id": "s-1"},
-        select={
-            "userId": True,
-            "baseVersionId": True,
-            "projectId": True,
-        },
+        where={"id": "s-1"}
     )
     create_calls = mock_create_artifact.await_args_list
     assert create_calls[0].kwargs["metadata"]["retrieval_mode"] == "strict_sources"
@@ -124,7 +119,7 @@ async def test_persist_generation_artifacts_returns_download_urls():
 
 
 @pytest.mark.asyncio
-async def test_persist_generation_artifacts_partial_failure_keeps_success_outputs():
+async def test_persist_generation_artifacts_partial_failure_raises_real_error():
     db_service = SimpleNamespace(
         db=SimpleNamespace(
             generationsession=SimpleNamespace(
@@ -162,18 +157,18 @@ async def test_persist_generation_artifacts_partial_failure_keeps_success_output
             ),
         ),
     ):
-        output_urls = await persist_generation_artifacts(
-            db_service=db_service,
-            context=context,
-            artifact_paths={
-                "pptx": "/tmp/a.pptx",
-                "docx": "/tmp/a.docx",
-            },
-        )
-
-    assert output_urls == {
-        "docx": "/api/v1/projects/p-1/artifacts/artifact-doc/download",
-    }
+        with pytest.raises(
+            RuntimeError,
+            match="Failed to persist generated artifacts: pptx: pptx persist failed",
+        ):
+            await persist_generation_artifacts(
+                db_service=db_service,
+                context=context,
+                artifact_paths={
+                    "pptx": "/tmp/a.pptx",
+                    "docx": "/tmp/a.docx",
+                },
+            )
 
 
 @pytest.mark.asyncio
@@ -429,10 +424,7 @@ async def test_persist_preview_payload_merges_existing_input_data():
         },
     )
 
-    find_unique.assert_awaited_once_with(
-        where={"id": "task-100"},
-        select={"inputData": True},
-    )
+    find_unique.assert_awaited_once_with(where={"id": "task-100"})
     update.assert_awaited_once()
     payload = update.await_args.kwargs["data"]["inputData"]
     assert '"template_config"' in payload

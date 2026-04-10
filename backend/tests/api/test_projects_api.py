@@ -142,6 +142,16 @@ def test_create_project_with_project_space_fields_success(
     _mock(monkeypatch, db_service, "create_project", created)
     monkeypatch.setattr(
         project_api,
+        "_create_formal_project",
+        AsyncMock(return_value=None),
+    )
+    monkeypatch.setattr(
+        project_api,
+        "_create_base_reference_if_needed",
+        AsyncMock(return_value=None),
+    )
+    monkeypatch.setattr(
+        project_api,
         "_bootstrap_default_session",
         AsyncMock(return_value=None),
     )
@@ -167,6 +177,16 @@ def test_create_project_with_project_space_fields_success(
 def test_create_project_bootstraps_default_session(client, monkeypatch, _as_user):
     created = _fake_project()
     _mock(monkeypatch, db_service, "create_project", created)
+    monkeypatch.setattr(
+        project_api,
+        "_create_formal_project",
+        AsyncMock(return_value=None),
+    )
+    monkeypatch.setattr(
+        project_api,
+        "_create_base_reference_if_needed",
+        AsyncMock(return_value=None),
+    )
     bootstrap_mock = AsyncMock(return_value=None)
     monkeypatch.setattr(project_api, "_bootstrap_default_session", bootstrap_mock)
 

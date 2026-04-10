@@ -15,7 +15,7 @@ from services.generation_session_service.session_history import (
 from services.platform.generation_event_constants import GenerationEventType
 from services.platform.state_transition_guard import GenerationState
 
-from .helpers import _to_session_ref
+from .serialization_helpers import _to_session_ref
 
 _REUSABLE_SESSION_STATES = {
     GenerationState.IDLE.value,

@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import json
 
+from services.generation_session_service.capability_helpers import (
+    resolve_template_config_from_options_dict,
+)
 from services.generation_session_service.session_history import (
     RUN_STATUS_COMPLETED,
     RUN_STEP_COMPLETED,
@@ -72,12 +75,14 @@ def extract_template_config(*, session, task) -> dict | None:
         return parsed if isinstance(parsed, dict) else {}
 
     session_options = _load_json(getattr(session, "options", None))
-    if isinstance(session_options.get("template_config"), dict):
-        return session_options.get("template_config")
+    session_template_config = resolve_template_config_from_options_dict(session_options)
+    if session_template_config:
+        return session_template_config
 
     task_input = _load_json(getattr(task, "inputData", None))
-    if isinstance(task_input.get("template_config"), dict):
-        return task_input.get("template_config")
+    task_input_template_config = resolve_template_config_from_options_dict(task_input)
+    if task_input_template_config:
+        return task_input_template_config
 
     task_template = _load_json(getattr(task, "templateConfig", None))
     return task_template or None

@@ -243,17 +243,14 @@ async def test_get_or_generate_content_failed_task_uses_outline_preview(monkeypa
 
 
 @pytest.mark.asyncio
-async def test_load_preview_material_fallbacks_when_task_select_not_supported(
+async def test_load_preview_material_fetches_task_without_select(
     monkeypatch,
 ):
     calls = []
 
     async def _find_unique(**kwargs):
         calls.append(kwargs)
-        if "select" in kwargs:
-            raise TypeError(
-                "GenerationTaskActions.find_unique() got an unexpected keyword argument 'select'"
-            )
+        assert "select" not in kwargs
         return SimpleNamespace(
             id="task-001",
             sessionId="session-001",
@@ -314,9 +311,7 @@ async def test_load_preview_material_fallbacks_when_task_select_not_supported(
     assert slides == [{"id": "slide-1", "title": "S1"}]
     assert lesson_plan == {"summary": "ok", "steps": []}
     assert content["title"] == "测试课程"
-    assert len(calls) == 2
-    assert "select" in calls[0]
-    assert "select" not in calls[1]
+    assert calls == [{"where": {"id": "task-001"}}]
 
 
 @pytest.mark.asyncio

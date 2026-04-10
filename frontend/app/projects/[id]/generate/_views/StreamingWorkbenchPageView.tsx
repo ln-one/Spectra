@@ -13,6 +13,7 @@ import { useGeneratePreviewState } from "./useGeneratePreviewState";
 import { PreviewHeader } from "./components/PreviewHeader";
 import { PreviewSlideStrip } from "./components/PreviewSlideStrip";
 import { PreviewFloatingTools } from "./components/PreviewFloatingTools";
+import { PptArtifactRenderer } from "./components/PptArtifactRenderer";
 
 export default function StreamingWorkbenchPageView() {
   const router = useRouter();
@@ -59,6 +60,7 @@ export default function StreamingWorkbenchPageView() {
     outlineSections,
     slidesContentMarkdown,
     activeSessionId,
+    currentArtifactId,
     handleExport,
     handleResume,
     handleRegenerateSlide,
@@ -127,6 +129,12 @@ export default function StreamingWorkbenchPageView() {
   );
   const hasRenderableContent =
     renderedSlides.length > 0 || Boolean(pendingSlide);
+  const shouldRenderArtifactOnly =
+    !isLoading &&
+    !previewBlockedReason &&
+    !hasRenderableContent &&
+    !isSessionGenerating &&
+    Boolean(projectId && currentArtifactId);
 
   useEffect(() => {
     if (!leftScrollRef.current) return;
@@ -262,12 +270,20 @@ export default function StreamingWorkbenchPageView() {
                     </p>
                   </div>
                 ) : !hasRenderableContent ? (
-                  <div className="flex min-h-[260px] flex-col items-center justify-center opacity-80">
-                    <Loader2 className="mb-4 h-10 w-10 animate-spin text-primary" />
-                    <p className="text-sm text-muted-foreground">
-                      Waiting for the first rendered slide...
-                    </p>
-                  </div>
+                  shouldRenderArtifactOnly && currentArtifactId ? (
+                    <PptArtifactRenderer
+                      projectId={projectId}
+                      artifactId={currentArtifactId}
+                      className="min-h-[260px]"
+                    />
+                  ) : (
+                    <div className="flex min-h-[260px] flex-col items-center justify-center opacity-80">
+                      <Loader2 className="mb-4 h-10 w-10 animate-spin text-primary" />
+                      <p className="text-sm text-muted-foreground">
+                        Waiting for the first rendered slide...
+                      </p>
+                    </div>
+                  )
                 ) : (
                   <AnimatePresence>
                     {renderedSlides.map((slide, i) => (

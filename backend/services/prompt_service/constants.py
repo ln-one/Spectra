@@ -4,6 +4,7 @@ _RAG_CHUNK_MAX_CHARS = 600
 
 STYLE_REQUIREMENTS = {
     "default": "清晰易读的教学风格。",
+    "teach": "教学导向模板风格，强调章节封面、学习目标、知识推进、例题讲解与总结收束。",
     "gaia": "现代简洁风格，强调视觉层级。",
     "uncover": "节奏感强的演示风格，强调循序展开。",
     "academic": "学术风格，结构严谨、表述规范。",

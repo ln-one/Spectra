@@ -143,6 +143,18 @@
 - Meaning: courseware generation and render flows must not silently substitute user-visible junk output such as raw filenames, OCR residue, source dumps, or generic filler sentences just to keep the pipeline returning “success”.
 - Why it matters: this creates semantic corruption that is harder to detect than an explicit failure, and it makes render/debug work look broken when the real problem is degraded upstream content.
 
+### 2.21 Studio card content generation must fail explicitly
+
+- Status: `confirmed`
+- Meaning: `generation_session_service` studio card content generation must not fabricate artifact content or simulator turns from fallback templates when AI generation, JSON parsing, or schema validation fails. `STUDIO_TOOL_FALLBACK_MODE=allow` may relax logging posture, but it must not redefine failure into synthetic success.
+- Why it matters: fake quiz/game/mindmap/animation/speaker-notes/simulator payloads make Studio look healthy while hiding the real provider or contract failure, which is worse for debugging than an explicit structured error.
+
+### 2.22 Python Prisma runtime does not reliably support JS-style `select`
+
+- Status: `confirmed`
+- Meaning: Docker/backend runtime uses the Python Prisma client, and `find_unique()` / `find_many()` calls in hot paths must not assume JS-style `select=` support unless the generated client signature explicitly supports it.
+- Why it matters: preview/runtime queries have already failed in Docker with `unexpected keyword argument 'select'`, which surfaced to users as generic `INVALID_INPUT` instead of the real query incompatibility.
+
 ## 3. Watch List
 
 ### 3.1 Large-file warnings are shrinking but not eliminated

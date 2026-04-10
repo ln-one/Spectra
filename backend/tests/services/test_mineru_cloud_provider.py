@@ -200,35 +200,26 @@ def test_mineru_cloud_provider_uses_dualweave_when_enabled(monkeypatch, tmp_path
     assert details["dualweave_status"] == "completed"
     assert details["dualweave_stage"] == "workflow_completed"
     assert details["dualweave_result_url"] == "https://example.invalid/result.zip"
-    assert fake_dualweave.wait_calls == 1
+    assert fake_dualweave.wait_calls == 0
     assert fake_dualweave.calls[0]["mime_type"] == "application/pdf"
     assert fake_dualweave.calls[0]["source_provider"] == "mineru_cloud"
 
 
-def test_mineru_cloud_provider_waits_for_latest_dualweave_result(monkeypatch, tmp_path):
+def test_mineru_cloud_provider_defers_when_dualweave_result_is_pending(
+    monkeypatch, tmp_path
+):
     monkeypatch.setenv("DUALWEAVE_ENABLED", "true")
     fake_dualweave = _FakeDualweaveClient(
         result={
             "upload_id": "upl-123",
             "status": "pending_remote",
             "stage": "remote_sending",
+            "remote_next_action": "retry_remote_later",
         }
     )
-    fake_dualweave.wait_for_result_url_sync = lambda result: {
-        **result,
-        "status": "completed",
-        "stage": "workflow_completed",
-        "result_source": "service_replay",
-        "replay_status": "succeeded",
-        "processing_artifact": {"result_url": "https://example.invalid/result.zip"},
-    }
     monkeypatch.setattr(
         "services.parsers.mineru_cloud_provider.build_dualweave_client",
         lambda: fake_dualweave,
-    )
-    monkeypatch.setattr(
-        "services.parsers.mineru_cloud_provider.httpx.Client",
-        _FakeZipDownloadClient,
     )
 
     file_path = tmp_path / "demo.pdf"
@@ -237,9 +228,12 @@ def test_mineru_cloud_provider_waits_for_latest_dualweave_result(monkeypatch, tm
     provider = MineruCloudProvider()
     text, details = provider.extract_text(str(file_path), "demo.pdf", "pdf")
 
-    assert "dualweave result" in text
-    assert details["dualweave_result_source"] == "service_replay"
-    assert details["dualweave_replay_status"] == "succeeded"
+    assert text == ""
+    assert details["deferred_parse"] is True
+    assert details["provider_used"] == "dualweave_mineru"
+    assert details["dualweave"]["upload_id"] == "upl-123"
+    assert details["dualweave"]["status"] == "pending_remote"
+    assert fake_dualweave.wait_calls == 0
 
 
 def test_mineru_cloud_provider_returns_empty_text_when_dualweave_lacks_result_url(

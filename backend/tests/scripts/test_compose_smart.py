@@ -17,7 +17,13 @@ def _make_file(path: Path, content: str) -> None:
     path.write_text(content, encoding="utf-8")
 
 
-def _lock_payload(*, channel: str, pagevra_digest: str | None, dualweave_digest: str | None, ourograph_digest: str | None) -> str:
+def _lock_payload(
+    *,
+    channel: str,
+    pagevra_digest: str | None,
+    dualweave_digest: str | None,
+    ourograph_digest: str | None,
+) -> str:
     return json.dumps(
         {
             "channel": channel,
@@ -217,7 +223,9 @@ def test_sync_fails_when_image_mode_service_is_unpublished(tmp_path: Path) -> No
     assert "Ourograph lock for channel 'develop' is not published yet" in combined
 
 
-def test_sync_allows_unpublished_service_when_local_source_exists(tmp_path: Path) -> None:
+def test_sync_allows_unpublished_service_when_local_source_exists(
+    tmp_path: Path,
+) -> None:
     result = _run_compose_smart(
         tmp_path,
         pagevra=False,

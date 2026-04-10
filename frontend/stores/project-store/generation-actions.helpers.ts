@@ -10,7 +10,7 @@ export function normalizeGenerationOptions(
   options?: GenerationOptions
 ): GenerationOptions {
   return {
-    template: options?.template || "default",
+    template: options?.template || "teach",
     show_page_number: options?.show_page_number ?? true,
     include_animations: options?.include_animations ?? false,
     include_games: options?.include_games ?? false,

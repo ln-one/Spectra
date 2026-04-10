@@ -30,11 +30,12 @@ CARD_CAPABILITIES: tuple[StudioCardCapability, ...] = (
                 label="课件模板",
                 type=StudioCardFieldType.SELECT,
                 options=[
+                    StudioCardConfigOption(value="teach", label="Teach 教学模板"),
                     StudioCardConfigOption(value="default", label="默认模板"),
                     StudioCardConfigOption(value="gaia", label="GAIA"),
                     StudioCardConfigOption(value="uncover", label="UNCOVER"),
                 ],
-                default_value="default",
+                default_value="teach",
             ),
             StudioCardConfigField(
                 key="pages",

@@ -28,6 +28,12 @@ from .constants import TaskFailureStateReason
 logger = logging.getLogger(__name__)
 
 
+def _read_field(record, field_name: str):
+    if isinstance(record, dict):
+        return record.get(field_name)
+    return getattr(record, field_name, None)
+
+
 def _run_context_payload(context) -> dict:
     run_id = getattr(context, "run_id", None)
     retrieval_mode = getattr(context, "retrieval_mode", None)
@@ -116,12 +122,11 @@ async def _resolve_course_name(db_service, context, project_id: str) -> str:
         try:
             uploads = await upload_model.find_many(
                 where={"projectId": project_id, "id": {"in": rag_source_ids}},
-                select={"filename": True},
             )
         except Exception:
             uploads = []
         if uploads:
-            filename = str(getattr(uploads[0], "filename", "") or "").strip()
+            filename = str(_read_field(uploads[0], "filename") or "").strip()
             upload_course = _resolve_upload_course_name(filename)
             if upload_course:
                 return upload_course
@@ -131,12 +136,11 @@ async def _resolve_course_name(db_service, context, project_id: str) -> str:
             upload = await upload_model.find_first(
                 where={"projectId": project_id},
                 order={"createdAt": "desc"},
-                select={"filename": True},
             )
         except Exception:
             upload = None
         if upload:
-            filename = str(getattr(upload, "filename", "") or "").strip()
+            filename = str(_read_field(upload, "filename") or "").strip()
             upload_course = _resolve_upload_course_name(filename)
             if upload_course:
                 return upload_course
@@ -303,16 +307,8 @@ async def persist_generation_artifacts(
         return {}
 
     try:
-        from services.database.prisma_compat import find_unique_with_select_fallback
-
-        session = await find_unique_with_select_fallback(
-            model=db_service.db.generationsession,
-            where={"id": context.session_id},
-            select={
-                "userId": True,
-                "baseVersionId": True,
-                "projectId": True,
-            },
+        session = await db_service.db.generationsession.find_unique(
+            where={"id": context.session_id}
         )
     except Exception as exc:
         logger.warning(
@@ -324,10 +320,11 @@ async def persist_generation_artifacts(
     if not session:
         return {}
 
-    user_id = getattr(session, "userId", None)
-    base_version_id = getattr(session, "baseVersionId", None)
-    project_id = getattr(session, "projectId", None) or context.project_id
+    user_id = _read_field(session, "userId")
+    base_version_id = _read_field(session, "baseVersionId")
+    project_id = _read_field(session, "projectId") or context.project_id
     output_urls: dict[str, str] = {}
+    persistence_errors: dict[str, str] = {}
     run_payload = _run_context_payload(context)
     ppt_title = await _resolve_ppt_artifact_title(
         db_service=db_service,
@@ -381,6 +378,7 @@ async def persist_generation_artifacts(
                 artifact_id=artifact.id,
             )
         except Exception as exc:
+            persistence_errors[artifact_type] = str(exc)
             logger.warning(
                 "persist_generation_artifact_failed task_id=%s session_id=%s "
                 "artifact_type=%s error=%s",
@@ -402,6 +400,12 @@ async def persist_generation_artifacts(
             continue
         artifact_type, url = item
         output_urls[artifact_type] = url
+    if persistence_errors:
+        detail = "; ".join(
+            f"{artifact_type}: {message}"
+            for artifact_type, message in sorted(persistence_errors.items())
+        )
+        raise RuntimeError(f"Failed to persist generated artifacts: {detail}")
     return output_urls
 
 

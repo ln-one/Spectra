@@ -6,13 +6,8 @@ import logging
 from typing import Awaitable, Callable, Optional
 
 from schemas.generation import TaskStatus
-from services.generation_session_service.constants import (
-    DispatchFallbackReason,
-    DispatchMode,
-)
 from services.generation_session_service.session_history import (
     RUN_STATUS_FAILED,
-    RUN_STATUS_PROCESSING,
     RUN_STEP_GENERATE,
     build_run_trace_payload,
     update_session_run,
@@ -25,33 +20,6 @@ from services.task_executor.constants import (
 )
 
 logger = logging.getLogger(__name__)
-
-
-async def _load_session_state_reason(db, session_id: str) -> Optional[str]:
-    session_model = getattr(db, "generationsession", None)
-    if session_model is None or not hasattr(session_model, "find_unique"):
-        return None
-    try:
-        session = await session_model.find_unique(where={"id": session_id})
-    except Exception as exc:  # pragma: no cover - observability safeguard
-        logger.debug(
-            (
-                "Failed to load session stateReason for local dispatch event: "
-                "session=%s error=%s"
-            ),
-            session_id,
-            exc,
-        )
-        return None
-    if not session:
-        return None
-    reason = (
-        session.get("stateReason") if isinstance(session, dict) else session.stateReason
-    )
-    if reason is None:
-        return None
-    text = str(reason).strip()
-    return text or None
 
 
 async def _load_task_run_payload(db, task_id: str) -> dict | None:
@@ -96,7 +64,6 @@ def schedule_enqueued_task_watchdog(
     template_config: Optional[dict],
     rq_job_id: str,
     task_queue_service,
-    schedule_local_execution: Callable[..., Awaitable[bool]],
     mark_dispatch_failed: Callable[..., Awaitable[None]],
 ) -> None:
     async def _watch() -> None:
@@ -124,98 +91,15 @@ def schedule_enqueued_task_watchdog(
 
         exc_info = job_status.get("exc_info")
         enqueue_error = exc_info if isinstance(exc_info, str) else str(exc_info)
-        scheduled = await schedule_local_execution(
+        await mark_dispatch_failed(
             session_id=session_id,
             task_id=task_id,
-            project_id=project_id,
-            task_type=task_type,
-            template_config=template_config,
-            fallback_reason=DispatchFallbackReason.RQ_JOB_FAILED.value,
-            enqueue_error=(enqueue_error or "")[:400],
+            error_message=(
+                "RQ job failed before execution: " f"{(enqueue_error or '')[:400]}"
+            ),
         )
-        if not scheduled:
-            await mark_dispatch_failed(
-                session_id=session_id,
-                task_id=task_id,
-                error_message="RQ job failed and local fallback scheduling failed",
-            )
 
     asyncio.create_task(_watch())
-
-
-async def schedule_local_execution(
-    *,
-    db,
-    session_id: str,
-    task_id: str,
-    project_id: str,
-    task_type: str,
-    template_config: Optional[dict],
-    fallback_reason: str,
-    append_event: Callable[..., Awaitable[None]],
-    enqueue_error: Optional[str] = None,
-    dispatch_context: Optional[dict] = None,
-) -> bool:
-    try:
-        from services.task_executor import execute_generation_task
-
-        run_payload = await _load_task_run_payload(db, task_id)
-        asyncio.create_task(
-            execute_generation_task(
-                task_id=task_id,
-                project_id=project_id,
-                task_type=task_type,
-                template_config=template_config,
-            )
-        )
-        logger.warning(
-            "Session task fallback to local async execution:"
-            " session=%s task=%s reason=%s",
-            session_id,
-            task_id,
-            fallback_reason,
-        )
-        session_state_reason = await _load_session_state_reason(db, session_id)
-        try:
-            if run_payload and run_payload.get("run_id"):
-                await update_session_run(
-                    db=db,
-                    run_id=run_payload["run_id"],
-                    status=RUN_STATUS_PROCESSING,
-                    step=RUN_STEP_GENERATE,
-                )
-            await append_event(
-                session_id=session_id,
-                event_type=GenerationEventType.STATE_CHANGED.value,
-                state=GenerationState.GENERATING_CONTENT.value,
-                state_reason=session_state_reason,
-                payload=build_run_trace_payload(
-                    run_payload,
-                    task_id=task_id,
-                    dispatch=DispatchMode.LOCAL_ASYNC.value,
-                    reason=fallback_reason,
-                    enqueue_error=enqueue_error,
-                    run_status=RUN_STATUS_PROCESSING if run_payload else None,
-                    run_step=RUN_STEP_GENERATE if run_payload else None,
-                    **(dispatch_context or {}),
-                ),
-            )
-        except Exception as event_err:
-            logger.warning(
-                "Failed to append fallback dispatch event: session=%s error=%s",
-                session_id,
-                event_err,
-            )
-        return True
-    except Exception as local_err:
-        logger.error(
-            "Failed to schedule local fallback execution:"
-            " session=%s task=%s error=%s",
-            session_id,
-            task_id,
-            local_err,
-        )
-        return False
 
 
 async def mark_dispatch_failed(

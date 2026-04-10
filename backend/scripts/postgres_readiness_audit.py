@@ -42,8 +42,8 @@ HOTSPOT_PATTERNS = {
     ],
     "project_space_review": [
         ROOT / "backend/services/project_space_service/service.py",
-        ROOT / "backend/services/database/project_space_changes.py",
-        ROOT / "backend/services/database/project_space_references.py",
+        ROOT / "backend/services/project_space_service/references.py",
+        ROOT / "backend/services/project_space_service/candidate_change_semantics.py",
     ],
     "generation_session": [
         ROOT / "backend/services/generation_session_service/task_dispatch.py",
@@ -142,6 +142,8 @@ def analyze_hotspots() -> dict[str, HotspotRisk]:
     for name, files in HOTSPOT_PATTERNS.items():
         risk = HotspotRisk(name=name)
         for path in files:
+            if not path.exists():
+                continue
             text = path.read_text(encoding="utf-8")
             risk.composite_operations += (
                 text.count("find_")

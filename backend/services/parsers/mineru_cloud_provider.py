@@ -20,6 +20,10 @@ from urllib.parse import urljoin
 
 import httpx
 
+from services.file_upload_service.dualweave_bridge import (
+    build_dualweave_parse_result,
+    extract_dualweave_result_url,
+)
 from services.platform.dualweave_client import build_dualweave_client
 
 from .base import BaseParseProvider, ProviderNotAvailableError
@@ -222,9 +226,7 @@ class MineruCloudProvider(BaseParseProvider):
                 mime_type=_mime_type_for_file_type(file_type),
                 metadata={"source_provider": "mineru_cloud"},
             )
-            result = self.dualweave_client.wait_for_result_url_sync(result)
-            processing_artifact = result.get("processing_artifact") or {}
-            result_url = str(processing_artifact.get("result_url") or "").strip()
+            result_url = extract_dualweave_result_url(result) or ""
             logger.info(
                 (
                     "dualweave_upload_completed: filename=%s upload_id=%s "
@@ -238,6 +240,27 @@ class MineruCloudProvider(BaseParseProvider):
                 bool(result_url),
             )
             if not result_url:
+                status = str(result.get("status") or "").strip()
+                remote_next_action = str(result.get("remote_next_action") or "").strip()
+                if (
+                    status == "pending_remote"
+                    or remote_next_action == "retry_remote_later"
+                ):
+                    deferred = build_dualweave_parse_result(
+                        result,
+                        provider="dualweave_mineru",
+                    )
+                    logger.info(
+                        (
+                            "dualweave_parse_deferred: filename=%s upload_id=%s "
+                            "status=%s stage=%s"
+                        ),
+                        filename,
+                        result.get("upload_id"),
+                        result.get("status"),
+                        result.get("stage"),
+                    )
+                    return "", deferred
                 raise RuntimeError("dualweave_missing_result_url")
 
             text = self._download_markdown_from_result_url(result_url)

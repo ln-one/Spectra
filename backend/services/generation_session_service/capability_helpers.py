@@ -20,6 +20,9 @@ from .constants import SessionOutputType
 
 logger = logging.getLogger(__name__)
 
+_CANONICAL_TEMPLATE_STYLES = {"default", "teach", "gaia", "uncover", "academic"}
+_TEACH_TEMPLATE_ID = "document-teaching"
+
 _SESSION_TO_TASK_TYPE = {
     SessionOutputType.PPT.value: GenerationType.PPTX.value,
     SessionOutputType.WORD.value: GenerationType.DOCX.value,
@@ -37,6 +40,20 @@ def _parse_json_object(raw: Optional[str]) -> dict:
     except json.JSONDecodeError:
         return {}
     return parsed if isinstance(parsed, dict) else {}
+
+
+def resolve_template_config_from_options_dict(options: dict) -> dict:
+    template_config = (
+        dict(options.get("template_config"))
+        if isinstance(options.get("template_config"), dict)
+        else {}
+    )
+    template = str(options.get("template") or "").strip().lower()
+    if template in _CANONICAL_TEMPLATE_STYLES and "style" not in template_config:
+        template_config["style"] = template
+    if template in _CANONICAL_TEMPLATE_STYLES and "template_id" not in template_config:
+        template_config["template_id"] = _TEACH_TEMPLATE_ID
+    return template_config
 
 
 def _resolve_capability_from_artifact(artifact_type: str, metadata: dict) -> str:
@@ -182,7 +199,7 @@ def _extract_template_config(options_raw: Optional[str]) -> Optional[dict]:
         return None
     if not isinstance(options, dict):
         return None
-    template_config = dict(options.get("template_config") or {})
+    template_config = resolve_template_config_from_options_dict(options)
     rag_source_ids = resolve_effective_rag_source_ids(
         rag_source_ids=options.get("rag_source_ids"),
         metadata=options,

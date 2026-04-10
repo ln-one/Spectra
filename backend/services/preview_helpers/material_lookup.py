@@ -4,25 +4,15 @@ from pathlib import Path
 from typing import Optional
 from uuid import UUID
 
-from services.database.prisma_compat import (
-    find_first_with_select_fallback,
-    find_many_with_select_fallback,
-    find_unique_with_select_fallback,
-)
-
 logger = logging.getLogger(__name__)
 
-TASK_PREVIEW_SELECT = {
-    "id": True,
-    "status": True,
-    "sessionId": True,
-    "templateConfig": True,
-    "inputData": True,
-}
-TASK_RUN_LOOKUP_SELECT = {
-    "id": True,
-    "sessionId": True,
-}
+TASK_PREVIEW_FIELDS = (
+    "id",
+    "status",
+    "sessionId",
+    "templateConfig",
+    "inputData",
+)
 
 
 def extract_task_id_from_artifact(artifact) -> Optional[str]:
@@ -64,29 +54,57 @@ def _parse_task_input(raw: object) -> dict:
     return parsed if isinstance(parsed, dict) else {}
 
 
+def _read_field(record, field_name: str):
+    if isinstance(record, dict):
+        return record.get(field_name)
+    return getattr(record, field_name, None)
+
+
+def _has_field(record, field_name: str) -> bool:
+    if isinstance(record, dict):
+        return field_name in record
+    return hasattr(record, field_name)
+
+
+def _has_fields(record, field_names: tuple[str, ...]) -> bool:
+    return all(_has_field(record, field_name) for field_name in field_names)
+
+
+async def _load_task_by_id(db_service, task_id: Optional[str]):
+    if not task_id:
+        return None
+    task_model = getattr(db_service.db, "generationtask", None)
+    if task_model is None or not hasattr(task_model, "find_unique"):
+        return None
+    return await task_model.find_unique(where={"id": task_id})
+
+
+async def _ensure_preview_task_shape(db_service, task):
+    if task is None:
+        return None
+    if _has_fields(task, TASK_PREVIEW_FIELDS):
+        return task
+    return await _load_task_by_id(db_service, _read_field(task, "id"))
+
+
 async def resolve_task_by_artifact(
     db_service, session_id: str, artifact_id: Optional[str]
 ):
     if not artifact_id:
         return None
-    artifact = await find_unique_with_select_fallback(
-        model=db_service.db.artifact,
-        where={"id": artifact_id},
-        select={"sessionId": True, "metadata": True, "storagePath": True},
-    )
+    artifact_model = getattr(db_service.db, "artifact", None)
+    if artifact_model is None or not hasattr(artifact_model, "find_unique"):
+        return None
+    artifact = await artifact_model.find_unique(where={"id": artifact_id})
     if not artifact:
         return None
-    if getattr(artifact, "sessionId", None) != session_id:
+    if _read_field(artifact, "sessionId") != session_id:
         return None
 
     task_id = extract_task_id_from_artifact(artifact)
     if task_id:
-        task = await find_unique_with_select_fallback(
-            model=db_service.db.generationtask,
-            where={"id": task_id},
-            select=TASK_PREVIEW_SELECT,
-        )
-        if task and getattr(task, "sessionId", None) == session_id:
+        task = await _load_task_by_id(db_service, task_id)
+        if task and _read_field(task, "sessionId") == session_id:
             return task
     return None
 
@@ -109,25 +127,19 @@ async def resolve_task_by_run(db_service, session_id: str, run_id: Optional[str]
         if task is not None:
             return task
 
-    candidate_tasks = await find_many_with_select_fallback(
-        model=db_service.db.generationtask,
+    candidate_tasks = await db_service.db.generationtask.find_many(
         where={"sessionId": session_id},
         order={"createdAt": "desc"},
         take=50,
-        select=TASK_RUN_LOOKUP_SELECT,
     )
     for candidate in candidate_tasks:
-        task_id = getattr(candidate, "id", None)
+        task_id = _read_field(candidate, "id")
         if not task_id:
             continue
-        task = await find_unique_with_select_fallback(
-            model=db_service.db.generationtask,
-            where={"id": task_id},
-            select=TASK_PREVIEW_SELECT,
-        )
-        if task is None or getattr(task, "sessionId", None) != session_id:
+        task = await _ensure_preview_task_shape(db_service, candidate)
+        if task is None or _read_field(task, "sessionId") != session_id:
             continue
-        input_data = _parse_task_input(getattr(task, "inputData", None))
+        input_data = _parse_task_input(_read_field(task, "inputData"))
         if str(input_data.get("run_id") or "").strip() == run_id:
             return task
     return None
@@ -145,30 +157,17 @@ async def resolve_preview_task(
 
     task = await resolve_task_by_artifact(db_service, session_id, artifact_id)
     if task is None and task_id:
-        task = await find_unique_with_select_fallback(
-            model=db_service.db.generationtask,
-            where={"id": task_id},
-            select=TASK_PREVIEW_SELECT,
-        )
-        if task and getattr(task, "sessionId", None) != session_id:
+        task = await _load_task_by_id(db_service, task_id)
+        if task and _read_field(task, "sessionId") != session_id:
             task = None
     if task is not None:
         return task
 
-    task_model = db_service.db.generationtask
-    if hasattr(task_model, "find_first"):
-        return await find_first_with_select_fallback(
-            model=task_model,
-            where={"sessionId": session_id},
-            order={"createdAt": "desc"},
-            select=TASK_PREVIEW_SELECT,
-        )
-
-    tasks = await find_many_with_select_fallback(
-        model=task_model,
+    tasks = await db_service.db.generationtask.find_many(
         where={"sessionId": session_id},
         order={"createdAt": "desc"},
         take=1,
-        select=TASK_PREVIEW_SELECT,
     )
-    return tasks[0] if tasks else None
+    if not tasks:
+        return None
+    return await _ensure_preview_task_shape(db_service, tasks[0])

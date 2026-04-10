@@ -1,4 +1,5 @@
 import logging
+from datetime import timedelta
 from typing import Optional
 
 from rq import Retry
@@ -98,6 +99,56 @@ def enqueue_rag_indexing_task(
         file_id,
         project_id,
         job.id,
+    )
+    return job
+
+
+def enqueue_remote_parse_reconcile_task(
+    service,
+    file_id: str,
+    project_id: str,
+    session_id: Optional[str] = None,
+    priority: str = "default",
+    delay_seconds: int = 5,
+    timeout: int = DEFAULT_RAG_INDEX_TIMEOUT,
+) -> Job:
+    if timeout < 30:
+        raise ValueError("Timeout must be at least 30 seconds")
+    if timeout > MAX_RAG_INDEX_TIMEOUT:
+        raise ValueError(f"Timeout cannot exceed {MAX_RAG_INDEX_TIMEOUT} seconds")
+
+    from services.task_executor import run_remote_parse_reconcile_task
+
+    queue = _resolve_queue(service, priority)
+    enqueue_kwargs = dict(
+        file_id=file_id,
+        project_id=project_id,
+        session_id=session_id,
+        job_timeout=timeout,
+        retry=Retry(max=2, interval=[30, 120]),
+        result_ttl=RESULT_TTL,
+        failure_ttl=FAILURE_TTL,
+    )
+    if delay_seconds > 0:
+        job = queue.enqueue_in(
+            timedelta(seconds=delay_seconds),
+            run_remote_parse_reconcile_task,
+            **enqueue_kwargs,
+        )
+    else:
+        job = queue.enqueue(
+            run_remote_parse_reconcile_task,
+            **enqueue_kwargs,
+        )
+    logger.info(
+        (
+            "Enqueued remote parse reconcile task: file_id=%s project_id=%s "
+            "job_id=%s delay=%ss"
+        ),
+        file_id,
+        project_id,
+        job.id,
+        delay_seconds,
     )
     return job
 

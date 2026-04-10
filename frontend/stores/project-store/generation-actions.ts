@@ -13,6 +13,7 @@ import {
   resolveOutputType,
   resolveReusableGenerationSessionId,
 } from "./generation-actions.helpers";
+import { resolveReadySelectedFileIds } from "./source-scope";
 import type {
   Artifact,
   GenerationHistory,
@@ -89,7 +90,8 @@ export function createGenerationActions({
       options?: GenerationOptions
     ) => {
       try {
-        const { selectedFileIds, activeSessionId, generationSession } = get();
+        const { selectedFileIds, files, activeSessionId, generationSession } =
+          get();
         if (!activeSessionId) {
           toast({
             title: "请先创建会话",
@@ -102,6 +104,10 @@ export function createGenerationActions({
           activeSessionId,
           generationSession
         );
+        const effectiveRagSourceIds = resolveReadySelectedFileIds(
+          files,
+          selectedFileIds
+        );
         const normalizedOptions = normalizeGenerationOptions(options);
         const response = await generateApi.createSession({
           project_id: projectId,
@@ -109,7 +115,9 @@ export function createGenerationActions({
           options: {
             ...normalizedOptions,
             rag_source_ids:
-              selectedFileIds.length > 0 ? selectedFileIds : undefined,
+              effectiveRagSourceIds.length > 0
+                ? effectiveRagSourceIds
+                : undefined,
           },
           client_session_id: currentSessionId,
           bootstrap_only: false,

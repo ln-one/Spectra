@@ -59,6 +59,7 @@ export interface StudioCardExecutionPlan {
 export interface StudioCardExecutionPreviewRequest {
   project_id: string;
   config?: Record<string, unknown>;
+  template_config?: Record<string, unknown>;
   visibility?: "private" | "project-visible" | "shared";
   source_artifact_id?: string;
   rag_source_ids?: string[];

@@ -747,8 +747,12 @@ export function StudioPanelContainer({
                     run_id: liveRunId,
                     rag_source_ids:
                       selectedFileIds.length > 0 ? selectedFileIds : undefined,
+                    template_config: {
+                      style: "teach",
+                      template_id: "document-teaching",
+                    },
                     config: {
-                      template: "default",
+                      template: "teach",
                       pages: Number(config.pageCount) || 15,
                       audience: "intermediate",
                       include_animations: false,

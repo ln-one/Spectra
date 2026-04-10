@@ -12,7 +12,6 @@ from services.generation_session_service.outline_draft import (
 from services.generation_session_service.task_dispatch import (
     mark_dispatch_failed,
     schedule_enqueued_task_watchdog,
-    schedule_local_execution,
 )
 
 
@@ -113,32 +112,7 @@ class SessionTaskRuntimeMixin:
             template_config=template_config,
             rq_job_id=rq_job_id,
             task_queue_service=task_queue_service,
-            schedule_local_execution=self._schedule_local_execution,
             mark_dispatch_failed=self._mark_dispatch_failed,
-        )
-
-    async def _schedule_local_execution(
-        self,
-        session_id: str,
-        task_id: str,
-        project_id: str,
-        task_type: str,
-        template_config: Optional[dict],
-        fallback_reason: str,
-        enqueue_error: Optional[str] = None,
-        dispatch_context: Optional[dict] = None,
-    ) -> bool:
-        return await schedule_local_execution(
-            db=self._db,
-            session_id=session_id,
-            task_id=task_id,
-            project_id=project_id,
-            task_type=task_type,
-            template_config=template_config,
-            fallback_reason=fallback_reason,
-            append_event=self._append_event,
-            enqueue_error=enqueue_error,
-            dispatch_context=dispatch_context,
         )
 
     async def _mark_dispatch_failed(

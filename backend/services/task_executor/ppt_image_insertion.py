@@ -6,7 +6,6 @@ import logging
 from pathlib import Path
 from typing import Any
 
-from services.database.prisma_compat import find_many_with_select_fallback
 from services.task_executor.ppt_image_insertion_helpers import (
     append_image_appendix_slides,
     extract_rag_image_upload_ids,
@@ -93,15 +92,13 @@ async def inject_rag_images_into_courseware_content(
     required_candidate_ids: list[str] = []
 
     if normalized_source_ids:
-        selected_ready_rows = await find_many_with_select_fallback(
-            model=db_service.db.upload,
+        selected_ready_rows = await db_service.db.upload.find_many(
             where={
                 "projectId": project_id,
                 "id": {"in": normalized_source_ids},
                 "fileType": "image",
                 "status": "ready",
             },
-            select={"id": True, "filename": True, "filepath": True},
         )
         selected_by_id: dict[str, dict[str, Any]] = {}
         for row in selected_ready_rows or []:
@@ -123,15 +120,13 @@ async def inject_rag_images_into_courseware_content(
             required_candidate_ids.append(source_id)
 
     if image_upload_ids:
-        rag_hit_rows = await find_many_with_select_fallback(
-            model=db_service.db.upload,
+        rag_hit_rows = await db_service.db.upload.find_many(
             where={
                 "projectId": project_id,
                 "id": {"in": image_upload_ids},
                 "fileType": "image",
                 "status": "ready",
             },
-            select={"id": True, "filename": True, "filepath": True},
         )
         rag_hits_by_id: dict[str, dict[str, str]] = {}
         for row in rag_hit_rows or []:
@@ -152,14 +147,12 @@ async def inject_rag_images_into_courseware_content(
             ordered_candidate_ids.append(upload_id)
 
     if normalized_source_ids:
-        project_ready_rows = await find_many_with_select_fallback(
-            model=db_service.db.upload,
+        project_ready_rows = await db_service.db.upload.find_many(
             where={
                 "projectId": project_id,
                 "fileType": "image",
                 "status": "ready",
             },
-            select={"id": True, "filename": True, "filepath": True},
         )
         for row in project_ready_rows or []:
             parsed = _to_image_upload_candidate(

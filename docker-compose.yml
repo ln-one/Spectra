@@ -53,6 +53,7 @@ services:
     environment:
       - NODE_ENV=development
       - NEXT_PUBLIC_API_URL=http://localhost:8000
+      - INTERNAL_API_URL=http://backend:8000
       - NEXT_PUBLIC_API_TIMEOUT_MS=30000
       - NEXT_PUBLIC_CHAT_TIMEOUT_MS=90000
     command: npm run dev
@@ -255,9 +256,10 @@ services:
       - DUALWEAVE_ENABLED=true
       - DUALWEAVE_BASE_URL=http://dualweave:8080
       - WORKER_NAME=worker-1
+      - RQ_WORKER_COUNT=3
       - WORKER_RECOVERY_SCAN=true
       - RQ_WORKER_HEARTBEAT_FRESHNESS_SECONDS=420
-    command: sh -c "prisma migrate deploy && prisma generate && python worker.py"
+    command: sh -c "prisma migrate deploy && prisma generate && count=$${RQ_WORKER_COUNT:-1}; i=1; while [ $$i -le $$count ]; do WORKER_NAME=worker-$$i python worker.py & i=$$((i+1)); done; wait"
     depends_on:
       redis:
         condition: service_healthy

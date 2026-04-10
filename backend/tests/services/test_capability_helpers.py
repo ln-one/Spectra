@@ -50,6 +50,14 @@ def test_extract_template_config_without_rag_source_ids():
     assert "rag_source_ids" not in result
 
 
+def test_extract_template_config_uses_template_when_template_config_missing():
+    options = {"template": "teach"}
+    result = _extract_template_config(json.dumps(options))
+    assert result is not None
+    assert result["style"] == "teach"
+    assert result["template_id"] == "document-teaching"
+
+
 def test_extract_template_config_empty_rag_source_ids():
     """验证空 rag_source_ids 不会被添加"""
     options = {"template_config": {"style": "default"}, "rag_source_ids": []}

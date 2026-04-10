@@ -5,75 +5,61 @@ import pytest
 
 from schemas.projects import ProjectCreate
 from services.database import DatabaseService
-from utils.exceptions import ValidationException
 
 
 @pytest.mark.asyncio
-async def test_create_project_with_base_reference_follow_uses_project_space_service(
-    monkeypatch,
-):
+async def test_create_project_persists_validated_project_fields():
     service = DatabaseService()
-    project = SimpleNamespace(id="p-new")
-    base_project = SimpleNamespace(id="p-base", currentVersionId="v-current")
-
-    service.db = SimpleNamespace(
-        project=SimpleNamespace(create=AsyncMock(return_value=project))
+    created_project = SimpleNamespace(
+        id="p-new", visibility="shared", isReferenceable=True
     )
-    monkeypatch.setattr(service, "get_project", AsyncMock(return_value=base_project))
-    delete_project = AsyncMock(return_value=None)
-    monkeypatch.setattr(service, "delete_project", delete_project)
-    create_reference = AsyncMock(return_value=SimpleNamespace(id="r-1"))
-    monkeypatch.setattr(
-        "services.project_space_service.project_space_service.create_project_reference",
-        create_reference,
-    )
+    create_mock = AsyncMock(return_value=created_project)
+    service.db = SimpleNamespace(project=SimpleNamespace(create=create_mock))
 
     body = ProjectCreate(
         name="new project",
         description="desc",
+        visibility="shared",
+        is_referenceable=True,
         base_project_id="p-base",
         reference_mode="follow",
-        visibility="private",
-        is_referenceable=False,
     )
+
     result = await service.create_project(body, user_id="u-1")
 
-    assert result.id == "p-new"
-    create_reference.assert_awaited_once_with(
-        project_id="p-new",
-        target_project_id="p-base",
-        relation_type="base",
-        mode="follow",
-        pinned_version_id=None,
-        priority=0,
-        user_id="u-1",
+    assert result is created_project
+    create_mock.assert_awaited_once_with(
+        data={
+            "name": "new project",
+            "description": "desc",
+            "userId": "u-1",
+            "visibility": "shared",
+            "isReferenceable": True,
+        }
     )
-    delete_project.assert_not_awaited()
 
 
 @pytest.mark.asyncio
-async def test_create_project_with_pinned_base_reference_requires_current_version(
-    monkeypatch,
-):
+async def test_create_project_includes_grade_level_when_present():
     service = DatabaseService()
-    project = SimpleNamespace(id="p-new")
-    base_project = SimpleNamespace(id="p-base", currentVersionId=None)
-
-    service.db = SimpleNamespace(
-        project=SimpleNamespace(create=AsyncMock(return_value=project))
-    )
-    monkeypatch.setattr(service, "get_project", AsyncMock(return_value=base_project))
-    delete_project = AsyncMock(return_value=None)
-    monkeypatch.setattr(service, "delete_project", delete_project)
+    create_mock = AsyncMock(return_value=SimpleNamespace(id="p-new"))
+    service.db = SimpleNamespace(project=SimpleNamespace(create=create_mock))
 
     body = ProjectCreate(
         name="new project",
         description="desc",
-        base_project_id="p-base",
-        reference_mode="pinned",
+        grade_level="高中",
     )
 
-    with pytest.raises(ValidationException):
-        await service.create_project(body, user_id="u-1")
+    await service.create_project(body, user_id="u-1")
 
-    delete_project.assert_awaited_once_with("p-new")
+    create_mock.assert_awaited_once_with(
+        data={
+            "name": "new project",
+            "description": "desc",
+            "userId": "u-1",
+            "gradeLevel": "高中",
+            "visibility": "private",
+            "isReferenceable": False,
+        }
+    )

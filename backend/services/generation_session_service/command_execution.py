@@ -11,10 +11,7 @@ from services.generation_session_service.capability_helpers import (
     _normalize_task_type,
     _resolve_queue_worker_availability,
 )
-from services.generation_session_service.constants import (
-    DispatchFallbackReason,
-    SessionLifecycleReason,
-)
+from services.generation_session_service.constants import SessionLifecycleReason
 from services.generation_session_service.serialization_helpers import _to_session_ref
 from services.generation_session_service.session_history import (
     build_run_trace_payload,
@@ -123,7 +120,6 @@ async def dispatch_created_task(
     session,
     created_task_id: Optional[str],
     task_queue_service,
-    schedule_local_execution: Callable[..., Awaitable[bool]],
     mark_dispatch_failed: Callable[..., Awaitable[None]],
     schedule_enqueued_task_watchdog: Callable[..., None],
     append_event: Callable[..., Awaitable[None]],
@@ -143,32 +139,14 @@ async def dispatch_created_task(
     }
 
     if task_queue_service is None or availability["status"] != "available":
-        fallback_reason = (
-            DispatchFallbackReason.TASK_QUEUE_UNAVAILABLE.value
-            if task_queue_service is None
-            else (
-                DispatchFallbackReason.QUEUE_HEALTH_UNKNOWN.value
-                if availability["status"] == "unknown"
-                else DispatchFallbackReason.TASK_QUEUE_NO_WORKER.value
-            )
-        )
-        scheduled = await schedule_local_execution(
-            session_id=session_id,
-            task_id=created_task_id,
-            project_id=session.projectId,
-            task_type=task_type,
-            template_config=template_config,
-            fallback_reason=fallback_reason,
-            dispatch_context=dispatch_context,
-        )
-        if scheduled:
-            warnings.append(fallback_reason)
-            return warnings
-
         await mark_dispatch_failed(
             session_id=session_id,
             task_id=created_task_id,
-            error_message="Task queue unavailable and local fallback scheduling failed",
+            error_message=(
+                "Task queue unavailable for session dispatch"
+                if task_queue_service is None
+                else f"Task queue unavailable: {availability['status']}"
+            ),
         )
         raise conflict_error_cls("任务分发失败，请稍后重试")
 
@@ -215,30 +193,12 @@ async def dispatch_created_task(
         )
         return warnings
     except Exception as enqueue_err:
-        logger.warning(
-            "Failed to enqueue session task, fallback to local async execution: %s",
-            enqueue_err,
-        )
-        scheduled = await schedule_local_execution(
-            session_id=session_id,
-            task_id=created_task_id,
-            project_id=session.projectId,
-            task_type=task_type,
-            template_config=template_config,
-            fallback_reason=DispatchFallbackReason.TASK_ENQUEUE_FAILED.value,
-            enqueue_error=str(enqueue_err),
-            dispatch_context=dispatch_context,
-        )
-        if scheduled:
-            warnings.append(DispatchFallbackReason.TASK_ENQUEUE_FAILED.value)
-            return warnings
-
+        logger.warning("Failed to enqueue session task: %s", enqueue_err)
         await mark_dispatch_failed(
             session_id=session_id,
             task_id=created_task_id,
             error_message=(
-                "Task enqueue failed and local fallback scheduling failed: "
-                f"{type(enqueue_err).__name__}: {enqueue_err}"
+                f"Task enqueue failed: {type(enqueue_err).__name__}: {enqueue_err}"
             ),
         )
         raise conflict_error_cls("任务分发失败，请稍后重试")

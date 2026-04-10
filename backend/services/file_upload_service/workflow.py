@@ -103,6 +103,7 @@ async def _prepare_uploaded_file(
     defer_parse: bool = False,
 ) -> dict:
     upload = await save_and_record_upload(file, project_id)
+    task_queue_service = getattr(request.app.state, "task_queue_service", None)
     if defer_parse:
         await db_service.update_upload_status(
             upload.id,
@@ -119,7 +120,12 @@ async def _prepare_uploaded_file(
             upload.id, status=UploadStatus.PARSING.value
         )
         if _SYNC_RAG_INDEXING:
-            await index_upload_for_rag(upload, project_id, session_id)
+            await index_upload_for_rag(
+                upload,
+                project_id,
+                session_id,
+                task_queue_service=task_queue_service,
+            )
         else:
             dispatch_rag_indexing(
                 request, background_tasks, upload, project_id, session_id

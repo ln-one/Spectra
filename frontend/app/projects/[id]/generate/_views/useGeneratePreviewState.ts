@@ -216,6 +216,7 @@ export function useGeneratePreviewState({
     storeActiveRunId: activeRunIdInStore,
     generationSession: generationSession as SessionStatePayloadWithRun | null,
   });
+  const hasPinnedPreviewAnchor = Boolean(runIdFromQuery || artifactIdFromQuery);
 
   useEffect(() => {
     if (!sessionIdFromQuery) return;
@@ -329,6 +330,7 @@ export function useGeneratePreviewState({
         if (typeof incomingSessionState === "string" && incomingSessionState) {
           setPreviewSessionState(incomingSessionState);
         }
+        setPreviewBlockedReason(null);
         setSlides(nextSlides);
         setSlidesContentMarkdown(markdown);
         setCurrentArtifactId(response.data.artifact_id ?? null);
@@ -360,6 +362,7 @@ export function useGeneratePreviewState({
       const applied = applyPreviewResponse(response);
 
       const shouldFallbackToSessionAnchor =
+        !hasPinnedPreviewAnchor &&
         Boolean(activeRunId || currentArtifactId) &&
         applied.renderedCount === 0 &&
         !applied.markdownReady;
@@ -370,6 +373,12 @@ export function useGeneratePreviewState({
         setActiveRunId(null);
         setCurrentArtifactId(fallbackResponse.data?.artifact_id ?? null);
         applyPreviewResponse(fallbackResponse);
+      } else if (
+        hasPinnedPreviewAnchor &&
+        applied.renderedCount === 0 &&
+        !applied.markdownReady
+      ) {
+        setPreviewBlockedReason("该历史记录关联的预览内容不存在或已失效。");
       }
     } catch (error) {
       if (
@@ -448,6 +457,7 @@ export function useGeneratePreviewState({
   }, [
     activeRunId,
     activeSessionId,
+    hasPinnedPreviewAnchor,
     currentArtifactId,
     runIdFromQuery,
     setActiveRunId,
@@ -707,6 +717,15 @@ export function useGeneratePreviewState({
             description: `${cardLabel}, ${runLabel}: ${studioFailedMessage}`,
             variant: "destructive",
           });
+          void Promise.all([loadSlides(), loadSessionRuns()]);
+          continue;
+        }
+
+        const failedRunMatchesActive =
+          !runId || !activeRunId || runId === activeRunId;
+        if (artifactId) setCurrentArtifactId(artifactId);
+        if (runId) setActiveRunId(runId);
+        if (failedRunMatchesActive) {
           void Promise.all([loadSlides(), loadSessionRuns()]);
           continue;
         }

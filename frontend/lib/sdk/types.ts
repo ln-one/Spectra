@@ -1659,7 +1659,7 @@ export interface components {
        * @default default
        * @enum {string}
        */
-      template: "default" | "gaia" | "uncover" | "academic";
+      template: "default" | "teach" | "gaia" | "uncover" | "academic";
       style_preset?: components["schemas"]["CoursewareStylePreset"];
       /**
        * @description 主题色（十六进制颜色代码）
@@ -2338,11 +2338,15 @@ export interface components {
       config?: {
         [key: string]: unknown;
       };
+      template_config?: {
+        [key: string]: unknown;
+      };
       /** @enum {string} */
       visibility?: "private" | "project-visible" | "shared";
       source_artifact_id?: string;
       rag_source_ids?: string[];
       client_session_id?: string;
+      run_id?: string;
     };
     StudioCardResolvedRequest: {
       method: string;

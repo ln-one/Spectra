@@ -9,6 +9,7 @@ from services.task_queue.enqueue import (
     enqueue_generation_task,
     enqueue_outline_draft_task,
     enqueue_rag_indexing_task,
+    enqueue_remote_parse_reconcile_task,
 )
 from services.task_queue.status import (
     cancel_job,
@@ -84,6 +85,25 @@ class TaskQueueService:
             project_id=project_id,
             options=options,
             priority=priority,
+            timeout=timeout,
+        )
+
+    def enqueue_remote_parse_reconcile_task(
+        self,
+        file_id: str,
+        project_id: str,
+        session_id=None,
+        priority: str = "default",
+        delay_seconds: int = 5,
+        timeout: int = 1800,
+    ):
+        return enqueue_remote_parse_reconcile_task(
+            self,
+            file_id=file_id,
+            project_id=project_id,
+            session_id=session_id,
+            priority=priority,
+            delay_seconds=delay_seconds,
             timeout=timeout,
         )
 

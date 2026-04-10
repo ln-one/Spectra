@@ -10,6 +10,7 @@ import {
   readStudioLocalPayload,
   writeStudioLocalPayload,
 } from "./studio-chat.helpers";
+import { resolveReadySelectedFileIds } from "./source-scope";
 import type {
   Message,
   ProjectStoreContext,
@@ -283,13 +284,17 @@ export function createChatActions({
         };
         set((state) => ({ messages: [...state.messages, userMessage] }));
 
-        const { selectedFileIds } = get();
+        const { selectedFileIds, files } = get();
+        const effectiveRagSourceIds = resolveReadySelectedFileIds(
+          files,
+          selectedFileIds
+        );
         const response = await chatApi.sendMessage({
           project_id: projectId,
           session_id: effectiveSessionId,
           content,
           rag_source_ids:
-            selectedFileIds.length > 0 ? selectedFileIds : undefined,
+            effectiveRagSourceIds.length > 0 ? effectiveRagSourceIds : undefined,
         });
 
         if (
@@ -422,7 +427,11 @@ export function createChatActions({
       appendLocalMessage(projectId, effectiveSessionId, userRefineMessage);
       appendLocalMessage(projectId, effectiveSessionId, refineStatusMessage);
 
-      const selectedFileIds = get().selectedFileIds;
+      const { selectedFileIds, files } = get();
+      const effectiveRagSourceIds = resolveReadySelectedFileIds(
+        files,
+        selectedFileIds
+      );
 
       await enqueueRefineTask(async () => {
         try {
@@ -434,7 +443,9 @@ export function createChatActions({
             source_artifact_id: context.sourceArtifactId || undefined,
             config: context.configSnapshot,
             rag_source_ids:
-              selectedFileIds.length > 0 ? selectedFileIds : undefined,
+              effectiveRagSourceIds.length > 0
+                ? effectiveRagSourceIds
+                : undefined,
           });
           const executionResult =
             (response?.data as { execution_result?: Record<string, unknown> })

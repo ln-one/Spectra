@@ -42,17 +42,20 @@ def render_theme_config(
     extra_css: Optional[str] = None,
 ) -> dict[str, Any]:
     style = "default"
+    theme_id = "default"
     template_id = "document-teaching"
     if isinstance(template_config, dict):
         style = str(template_config.get("style") or "default").strip() or "default"
         explicit_template_id = str(template_config.get("template_id") or "").strip()
         if explicit_template_id:
             template_id = explicit_template_id
+    if style and style != "teach":
+        theme_id = style
     overrides: dict[str, Any] = {}
     if extra_css and str(extra_css).strip():
         overrides["custom_css"] = str(extra_css).strip()
     return {
-        "theme_id": style,
+        "theme_id": theme_id,
         "template_id": template_id,
         "overrides": overrides or None,
     }
@@ -185,6 +188,9 @@ def build_render_engine_page_input(
             "page_index": int(page_index),
             "title": page_payload.get("title"),
             "kind": str(page_payload.get("kind") or "content"),
+            "layout": page_payload.get("layout"),
+            "structure": page_payload.get("structure"),
+            "layout_hints": page_payload.get("layout_hints"),
             "density": page_payload.get("density"),
             "blocks": list(page_payload.get("blocks") or []),
             "metadata": {

@@ -36,6 +36,7 @@ def build_dualweave_parse_result(
 
     if processing_artifact:
         normalized["result_url"] = processing_artifact.get("result_url")
+        normalized["dualweave_result_url"] = processing_artifact.get("result_url")
         normalized["processing_artifact"] = processing_artifact
     if delivery_artifact:
         normalized["delivery_artifact"] = delivery_artifact

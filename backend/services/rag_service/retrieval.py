@@ -2,6 +2,7 @@ import logging
 from typing import Optional
 
 from schemas.rag import RAGResult
+from services.rag_service import retrieval_helpers as _retrieval_helpers
 from services.rag_service.retrieval_helpers import (
     build_rag_results,
     build_where_clause,
@@ -12,6 +13,7 @@ from services.rag_service.retrieval_helpers import (
 )
 
 logger = logging.getLogger(__name__)
+db_service = _retrieval_helpers.db_service
 
 
 async def search(

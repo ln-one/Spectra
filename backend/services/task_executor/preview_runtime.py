@@ -8,7 +8,6 @@ import logging
 import time
 from typing import Awaitable, Callable, Optional
 
-from services.database.prisma_compat import find_unique_with_select_fallback
 from services.preview_helpers import save_preview_content
 from services.preview_helpers.rendered_preview import build_rendered_preview_payload
 from services.preview_helpers.rendering import build_slides
@@ -224,11 +223,7 @@ async def persist_preview_payload(
     preview_payload: dict,
 ) -> None:
     try:
-        task = await find_unique_with_select_fallback(
-            model=db_service.db.generationtask,
-            where={"id": task_id},
-            select={"inputData": True},
-        )
+        task = await db_service.db.generationtask.find_unique(where={"id": task_id})
     except Exception as exc:
         logger.warning(
             "Failed to load generation task inputData for preview persistence: %s",

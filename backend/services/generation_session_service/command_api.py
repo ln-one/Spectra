@@ -76,7 +76,6 @@ class SessionCommandMixin:
             session=session,
             created_task_id=created_task_id,
             task_queue_service=task_queue_service,
-            schedule_local_execution=self._schedule_local_execution,
             mark_dispatch_failed=self._mark_dispatch_failed,
             schedule_enqueued_task_watchdog=self._schedule_enqueued_task_watchdog,
             append_event=self._append_event,

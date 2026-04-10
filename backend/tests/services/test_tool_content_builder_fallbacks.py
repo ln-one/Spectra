@@ -1,6 +1,6 @@
 from services.generation_session_service.tool_content_builder_fallbacks import (
     SUPPORTED_CARD_IDS,
-    fallback_content,
+    card_query_text,
 )
 
 
@@ -10,24 +10,22 @@ def test_supported_card_ids_cover_courseware_and_word_cards() -> None:
     assert len(SUPPORTED_CARD_IDS) >= 8
 
 
-def test_fallback_content_supports_courseware_ppt() -> None:
-    payload = fallback_content(
-        card_id="courseware_ppt",
-        config={"topic": "网络分层", "pages": 10, "template": "gaia"},
-        rag_snippets=["参考片段"],
+def test_card_query_text_prefers_topic_and_document_variant() -> None:
+    assert (
+        card_query_text(
+            "word_document",
+            {"topic": "网络分层", "document_variant": "student_handout"},
+        )
+        == "网络分层"
+    )
+    assert (
+        card_query_text("word_document", {"document_variant": "student_handout"})
+        == "student_handout"
     )
 
-    assert payload["kind"] == "courseware_ppt"
-    assert payload["pages"] == 10
-    assert payload["template"] == "gaia"
 
-
-def test_fallback_content_supports_word_document() -> None:
-    payload = fallback_content(
-        card_id="word_document",
-        config={"topic": "网络分层", "document_variant": "student_handout"},
-        rag_snippets=["参考片段"],
+def test_card_query_text_supports_simulator_focus() -> None:
+    assert (
+        card_query_text("classroom_qa_simulator", {"question_focus": "边界条件"})
+        == "边界条件"
     )
-
-    assert payload["kind"] == "word_document"
-    assert payload["document_variant"] == "student_handout"

@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
@@ -5,6 +6,7 @@ import pytest
 
 import routers.generate_sessions.preview as generate_sessions_preview_router
 from main import app
+from services.generation_session_service import GenerationSessionService
 from services.platform.state_transition_guard import GenerationState
 from utils.dependencies import get_current_user
 
@@ -32,6 +34,32 @@ def _snapshot(render_version: int = 3, state: str = GenerationState.SUCCESS.valu
             "version": render_version,
         },
     }
+
+
+def _preview_session_model(
+    *,
+    session_id: str = "s-preview-001",
+    user_id: str = _USER_ID,
+    state: str = GenerationState.FAILED.value,
+):
+    return SimpleNamespace(
+        id=session_id,
+        projectId="p-preview-001",
+        userId=user_id,
+        baseVersionId=None,
+        state=state,
+        stateReason="task_failed_permanent_error",
+        progress=0,
+        resumable=True,
+        updatedAt=datetime.now(timezone.utc),
+        renderVersion=1,
+        options=None,
+        pptUrl=None,
+        wordUrl=None,
+        displayTitle=None,
+        displayTitleSource=None,
+        displayTitleUpdatedAt=None,
+    )
 
 
 def test_get_preview_includes_artifact_binding(client, monkeypatch, _as_user):
@@ -181,6 +209,61 @@ def test_get_preview_with_run_id_returns_run_not_ready_when_no_task(
     assert body["error"]["code"] == "RESOURCE_CONFLICT"
     assert body["error"]["details"]["reason"] == "run_not_ready"
     assert body["error"]["details"]["run_id"] == "run-001"
+
+
+def test_get_preview_with_run_id_supports_prisma_without_select(
+    client, monkeypatch, _as_user
+):
+    async def _find_unique(**kwargs):
+        assert kwargs == {"where": {"id": "s-preview-001"}}
+        return _preview_session_model()
+
+    service = GenerationSessionService(
+        db=SimpleNamespace(
+            generationsession=SimpleNamespace(
+                find_unique=AsyncMock(side_effect=_find_unique)
+            ),
+            generationtask=SimpleNamespace(find_first=AsyncMock(return_value=None)),
+            artifact=SimpleNamespace(find_first=AsyncMock(return_value=None)),
+        )
+    )
+    monkeypatch.setattr(
+        generate_sessions_preview_router,
+        "_get_session_service",
+        lambda: service,
+    )
+    monkeypatch.setattr(
+        generate_sessions_preview_router,
+        "_resolve_session_artifact_binding",
+        AsyncMock(return_value=SimpleNamespace(id="a-010", basedOnVersionId=None)),
+    )
+    monkeypatch.setattr(
+        generate_sessions_preview_router,
+        "_load_preview_material",
+        AsyncMock(
+            return_value=(
+                SimpleNamespace(id="t-010"),
+                [
+                    {
+                        "id": "slide-1",
+                        "index": 0,
+                        "title": "S1",
+                        "content": "C1",
+                        "sources": [],
+                    }
+                ],
+                None,
+                {},
+            )
+        ),
+    )
+
+    resp = client.get("/api/v1/generate/sessions/s-preview-001/preview?run_id=run-010")
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["data"]["artifact_id"] == "a-010"
+    assert body["data"]["artifact_anchor"]["run_id"] == "run-010"
 
 
 def test_modify_preview_returns_contract_fields(client, monkeypatch, _as_user):
@@ -481,6 +564,65 @@ def test_get_slide_preview_returns_slide_shape(client, monkeypatch, _as_user):
     assert body["data"]["artifact_anchor"]["run_id"] == "run-003"
     assert body["data"]["rendered_page"]["slide_id"] == "slide-2"
     assert load_preview_material.await_args.args[4] == "run-003"
+
+
+def test_get_slide_preview_with_run_id_supports_prisma_without_select(
+    client, monkeypatch, _as_user
+):
+    async def _find_unique(**kwargs):
+        assert kwargs == {"where": {"id": "s-preview-001"}}
+        return _preview_session_model()
+
+    service = GenerationSessionService(
+        db=SimpleNamespace(
+            generationsession=SimpleNamespace(
+                find_unique=AsyncMock(side_effect=_find_unique)
+            ),
+            generationtask=SimpleNamespace(find_first=AsyncMock(return_value=None)),
+            artifact=SimpleNamespace(find_first=AsyncMock(return_value=None)),
+        )
+    )
+    monkeypatch.setattr(
+        generate_sessions_preview_router,
+        "_get_session_service",
+        lambda: service,
+    )
+    monkeypatch.setattr(
+        generate_sessions_preview_router,
+        "_resolve_session_artifact_binding",
+        AsyncMock(return_value=SimpleNamespace(id="a-011", basedOnVersionId=None)),
+    )
+    load_preview_material = AsyncMock(
+        return_value=(
+            SimpleNamespace(id="t-011"),
+            [
+                {
+                    "id": "slide-1",
+                    "index": 0,
+                    "title": "S1",
+                    "content": "C1",
+                    "sources": [],
+                }
+            ],
+            None,
+            {},
+        )
+    )
+    monkeypatch.setattr(
+        generate_sessions_preview_router,
+        "_load_preview_material",
+        load_preview_material,
+    )
+
+    resp = client.get(
+        "/api/v1/generate/sessions/s-preview-001/preview/slides/slide-1?run_id=run-011"
+    )
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["data"]["artifact_id"] == "a-011"
+    assert body["data"]["artifact_anchor"]["run_id"] == "run-011"
+    assert load_preview_material.await_args.args[4] == "run-011"
 
 
 def test_export_preview_expected_render_version_conflict(client, monkeypatch, _as_user):

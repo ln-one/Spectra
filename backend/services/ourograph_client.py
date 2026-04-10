@@ -150,6 +150,34 @@ class OurographClient:
         response = await _request("GET", f"/projects/{project_id}/exists")
         return bool(response.get("exists"))
 
+    async def create_managed_project(self, **kwargs):
+        response = await _request(
+            "POST",
+            "/commands/create-managed-project",
+            payload={
+                "project_id": kwargs["project_id"],
+                "user_id": kwargs["user_id"],
+                "body": {
+                    "name": kwargs["name"],
+                    "description": kwargs.get("description"),
+                    "visibility": kwargs["visibility"],
+                    "is_referenceable": kwargs["is_referenceable"],
+                },
+            },
+        )
+        return _namespace(response["project"])
+
+    async def delete_project(self, **kwargs):
+        await _request(
+            "POST",
+            "/commands/delete-project",
+            payload={
+                "project_id": kwargs["project_id"],
+                "user_id": kwargs["user_id"],
+            },
+        )
+        return None
+
     async def create_project_reference(self, **kwargs):
         response = await _request(
             "POST",
@@ -344,6 +372,7 @@ class OurographClient:
     async def get_project_artifacts(
         self,
         project_id: str,
+        user_id: str,
         type_filter: Optional[str] = None,
         visibility_filter: Optional[str] = None,
         owner_user_id_filter: Optional[str] = None,
@@ -354,6 +383,7 @@ class OurographClient:
             "GET",
             f"/projects/{project_id}/artifacts",
             query={
+                "user_id": user_id,
                 "type": type_filter,
                 "visibility": visibility_filter,
                 "owner_user_id": owner_user_id_filter,

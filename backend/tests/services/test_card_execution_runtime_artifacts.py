@@ -7,9 +7,15 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from services.generation_session_service.card_execution_runtime_artifacts import (
-    _create_artifact_run,
-    _resolve_word_document_title,
+from services.database import db_service
+from services.generation_session_service.card_execution_runtime_run_helpers import (
+    create_artifact_run,
+)
+from services.generation_session_service.card_execution_runtime_simulator import (
+    normalize_simulator_turn_result,
+)
+from services.generation_session_service.card_execution_runtime_word import (
+    resolve_word_document_title,
 )
 from services.project_space_service import project_space_service
 
@@ -74,11 +80,12 @@ async def test_create_artifact_run_appends_task_completed_event_for_bound_sessio
         ),
         sessionevent=SimpleNamespace(create=AsyncMock()),
     )
-    service_db = SimpleNamespace(
-        db=db_handle,
-        update_artifact_metadata=AsyncMock(),
+    monkeypatch.setattr(db_service, "db", db_handle)
+    monkeypatch.setattr(
+        project_space_service,
+        "update_artifact_metadata",
+        AsyncMock(),
     )
-    monkeypatch.setattr(project_space_service, "db", service_db)
 
     monkeypatch.setattr(
         "services.generation_session_service.session_history.create_session_run",
@@ -102,7 +109,7 @@ async def test_create_artifact_run_appends_task_completed_event_for_bound_sessio
         _drop_background_task,
     )
 
-    run_payload = await _create_artifact_run(
+    run_payload = await create_artifact_run(
         card_id="interactive_quick_quiz",
         body=body,
         artifact=artifact,
@@ -132,10 +139,28 @@ async def test_resolve_word_document_title_prefers_source_ppt_title(monkeypatch)
         AsyncMock(return_value=source_artifact),
     )
 
-    title = await _resolve_word_document_title(
+    title = await resolve_word_document_title(
         source_artifact_id="ppt-art-001",
         config={"topic": "不会被采用"},
         existing_title="",
     )
 
     assert title == "计算机图形学教案"
+
+
+def test_normalize_simulator_turn_result_backfills_required_fields() -> None:
+    result = normalize_simulator_turn_result(
+        turn_result={
+            "turn_anchor": "turn-2",
+            "student_question": "边界条件什么时候失效？",
+            "analysis": "建议先补条件再给反例。",
+            "quality_score": "88",
+        },
+        teacher_answer="先解释条件，再给反例。",
+        config={"profile": "detail_oriented"},
+    )
+
+    assert result.student_profile == "detail_oriented"
+    assert result.feedback == "建议先补条件再给反例。"
+    assert result.teacher_answer == "先解释条件，再给反例。"
+    assert result.score == 88

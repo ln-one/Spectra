@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-import re
 
 from schemas.project_space import ProjectPermission
 from schemas.studio_cards import (
@@ -16,7 +15,6 @@ from schemas.studio_cards import (
 from services.project_space_service import project_space_service
 
 from .card_execution_runtime_helpers import (
-    artifact_metadata_dict,
     artifact_result_payload,
     create_replacement_artifact,
     load_artifact_content,
@@ -29,60 +27,16 @@ from .card_execution_runtime_run_helpers import (
     promote_requested_run_to_generating,
     resolve_execution_session_id,
 )
+from .card_execution_runtime_simulator import normalize_simulator_turn_result
+from .card_execution_runtime_word import (
+    resolve_word_document_title,
+    sync_word_source_metadata,
+)
 from .tool_content_builder import (
     build_studio_simulator_turn_update,
     build_studio_tool_artifact_content,
 )
 from .tool_refine_builder import build_structured_refine_artifact_content
-
-
-def _normalize_word_base_title(value: str) -> str:
-    text = str(value or "").strip()
-    if not text:
-        return ""
-    text = re.sub(r"\.(pptx?|docx?)$", "", text, flags=re.IGNORECASE).strip()
-    text = re.sub(r"(课件|PPT)\s*$", "", text, flags=re.IGNORECASE).strip()
-    return text[:120]
-
-
-def _compose_word_title(base: str) -> str:
-    normalized = _normalize_word_base_title(base)
-    if not normalized:
-        return "教学教案"
-    if any(token in normalized for token in ("教案", "讲义", "文档", "逐字稿")):
-        return normalized
-    return f"{normalized}教案"
-
-
-async def _resolve_word_document_title(
-    *,
-    source_artifact_id: str,
-    config: dict | None,
-    existing_title: str,
-) -> str:
-    if existing_title:
-        return _compose_word_title(existing_title)
-
-    source_id = str(source_artifact_id or "").strip()
-    if source_id:
-        try:
-            source_artifact = await project_space_service.get_artifact(source_id)
-            if source_artifact:
-                source_metadata = artifact_metadata_dict(source_artifact)
-                source_title = str(source_metadata.get("title") or "").strip()
-                if source_title:
-                    return _compose_word_title(source_title)
-        except Exception as exc:
-            logger.warning(
-                "Resolve word title from source artifact failed: source=%s error=%s",
-                source_id,
-                exc,
-            )
-
-    topic = ""
-    if isinstance(config, dict):
-        topic = str(config.get("topic") or config.get("title") or "").strip()
-    return _compose_word_title(topic)
 
 
 async def execute_studio_card_artifact_request(
@@ -130,7 +84,7 @@ async def execute_studio_card_artifact_request(
         or ""
     ).strip()
     if card_id == "word_document":
-        artifact_content["title"] = await _resolve_word_document_title(
+        artifact_content["title"] = await resolve_word_document_title(
             source_artifact_id=source_artifact_id,
             config=(body.config if isinstance(body.config, dict) else {}),
             existing_title=str(artifact_content.get("title") or "").strip(),
@@ -147,20 +101,10 @@ async def execute_studio_card_artifact_request(
         artifact_mode="replace",
     )
     if card_id == "word_document" and source_artifact_id:
-        try:
-            current_metadata = artifact_metadata_dict(artifact)
-            await project_space_service.update_artifact_metadata(
-                artifact.id,
-                {
-                    **current_metadata,
-                    "source_artifact_id": source_artifact_id,
-                    "source_artifact_type": "pptx",
-                },
-            )
-        except Exception as exc:
-            logger.warning(
-                "Skip word_document source metadata sync due to db error: %s", exc
-            )
+        await sync_word_source_metadata(
+            artifact=artifact,
+            source_artifact_id=source_artifact_id,
+        )
     run = await create_artifact_run(
         card_id=card_id,
         body=body,
@@ -269,32 +213,11 @@ async def execute_classroom_simulator_turn_artifact(
         user_id=user_id,
         content=updated_content,
     )
-    normalized_turn_result = dict(turn_result or {})
-    if not normalized_turn_result.get("student_profile"):
-        normalized_turn_result["student_profile"] = str(
-            normalized_turn_result.get("student_intent")
-            or (body.config or {}).get("profile")
-            or "detail_oriented"
-        )
-    if not normalized_turn_result.get("feedback"):
-        normalized_turn_result["feedback"] = str(
-            normalized_turn_result.get("assistant_feedback")
-            or normalized_turn_result.get("analysis")
-            or "建议继续追问边界条件与关键步骤。"
-        )
-    if not normalized_turn_result.get("teacher_answer"):
-        normalized_turn_result["teacher_answer"] = body.teacher_answer
-    if "score" not in normalized_turn_result:
-        raw_score = normalized_turn_result.get("quality_score")
-        try:
-            normalized_turn_result["score"] = int(raw_score)
-        except (TypeError, ValueError):
-            normalized_turn_result["score"] = 80
-
     return (
         artifact_result_payload(new_artifact),
-        StudioCardTurnResult(**normalized_turn_result),
+        normalize_simulator_turn_result(
+            turn_result=turn_result,
+            teacher_answer=body.teacher_answer,
+            config=body.config,
+        ),
     )
-
-
-_create_artifact_run = create_artifact_run

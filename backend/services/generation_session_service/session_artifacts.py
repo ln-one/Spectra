@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
 from typing import Optional
 
-from services.database.prisma_compat import find_many_with_select_fallback
 from services.generation_session_service.capability_helpers import (
     _resolve_capability_from_artifact,
 )
@@ -20,6 +20,21 @@ _ARTIFACT_HISTORY_SELECT = {
     "createdAt": True,
     "updatedAt": True,
 }
+
+
+def _project_artifact_fields(artifact, select: dict | None = None):
+    if not select:
+        return artifact
+
+    projected: dict = {}
+    for field_name, enabled in select.items():
+        if not enabled:
+            continue
+        if isinstance(artifact, dict):
+            projected[field_name] = artifact.get(field_name)
+        else:
+            projected[field_name] = getattr(artifact, field_name, None)
+    return SimpleNamespace(**projected)
 
 
 def _resolve_session_artifact_title(
@@ -95,13 +110,14 @@ async def get_session_artifact_history(
             "artifact_anchor": build_artifact_anchor(session_id, None),
         }
 
-    artifact_query = find_many_with_select_fallback(
-        model=artifact_model,
+    artifact_query = artifact_model.find_many(
         where={"projectId": project_id, "sessionId": session_id},
         order={"updatedAt": "desc"},
-        select=_ARTIFACT_HISTORY_SELECT,
     )
-    artifacts = await artifact_query
+    artifacts = [
+        _project_artifact_fields(artifact, _ARTIFACT_HISTORY_SELECT)
+        for artifact in await artifact_query
+    ]
 
     history_items: list[dict] = []
     grouped: dict[str, list[dict]] = {}

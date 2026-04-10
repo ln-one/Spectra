@@ -1,6 +1,7 @@
 ﻿import { filesApi, ragApi } from "@/lib/sdk";
 import { createApiError, getErrorMessage } from "@/lib/sdk/errors";
 import { toast } from "@/hooks/use-toast";
+import { resolveReadySelectedFileIds } from "./source-scope";
 import type { ProjectStoreContext, ProjectState } from "./types";
 
 export function createFileActions({
@@ -30,10 +31,17 @@ export function createFileActions({
       try {
         const response = await filesApi.getProjectFiles(projectId);
         if (response?.data?.files) {
-          set({ files: response.data.files });
+          const nextFiles = response.data.files;
+          set((state) => ({
+            files: nextFiles,
+            selectedFileIds: resolveReadySelectedFileIds(
+              nextFiles,
+              state.selectedFileIds
+            ),
+          }));
 
           let hasPending = false;
-          response.data.files.forEach((file) => {
+          nextFiles.forEach((file) => {
             if (file.status === "parsing" || file.status === "uploading") {
               hasPending = true;
             }
