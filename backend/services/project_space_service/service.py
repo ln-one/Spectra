@@ -226,9 +226,9 @@ class ProjectSpaceService:
             session_id_filter=session_id_filter,
         )
 
-    async def get_artifact(self, artifact_id: str):
+    async def get_artifact(self, artifact_id: str, user_id: Optional[str] = None):
         self._ensure_remote_configured()
-        return await ourograph_client.get_artifact(artifact_id)
+        return await ourograph_client.get_artifact(artifact_id, user_id=user_id)
 
     async def get_idempotency_response(self, key: str):
         return await db_service.get_idempotency_response(key)

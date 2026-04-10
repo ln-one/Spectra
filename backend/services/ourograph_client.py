@@ -393,8 +393,12 @@ class OurographClient:
         )
         return _namespace(response["artifacts"])
 
-    async def get_artifact(self, artifact_id: str):
-        response = await _request("GET", f"/artifacts/{artifact_id}")
+    async def get_artifact(self, artifact_id: str, user_id: Optional[str] = None):
+        response = await _request(
+            "GET",
+            f"/artifacts/{artifact_id}",
+            query={"user_id": user_id} if user_id else None,
+        )
         artifact = response.get("artifact")
         return _namespace(artifact) if artifact is not None else None
 

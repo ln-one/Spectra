@@ -83,7 +83,9 @@ async def get_artifact(
         await project_space_service.check_project_permission(
             project_id, user_id, ProjectPermission.VIEW
         )
-        artifact = await project_space_service.get_artifact(artifact_id)
+        artifact = await project_space_service.get_artifact(
+            artifact_id, user_id=user_id
+        )
         if not artifact or artifact.projectId != project_id:
             raise NotFoundException(
                 f"Artifact {artifact_id} not found in project {project_id}"
@@ -153,7 +155,9 @@ async def download_artifact(
         await project_space_service.check_project_permission(
             project_id, user_id, ProjectPermission.VIEW
         )
-        artifact = await project_space_service.get_artifact(artifact_id)
+        artifact = await project_space_service.get_artifact(
+            artifact_id, user_id=user_id
+        )
         if not artifact or artifact.projectId != project_id:
             raise NotFoundException(
                 f"Artifact {artifact_id} not found in project {project_id}"

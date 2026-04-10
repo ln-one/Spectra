@@ -1,5 +1,6 @@
 ﻿from __future__ import annotations
 
+import json
 import logging
 from typing import Optional
 
@@ -32,9 +33,41 @@ def _artifact_timestamp_value(artifact) -> str:
     )
 
 
+def _artifact_metadata_payload(artifact) -> dict:
+    raw = getattr(artifact, "metadata", None)
+    if isinstance(raw, dict):
+        return raw
+    if isinstance(raw, str) and raw.strip():
+        try:
+            parsed = json.loads(raw)
+        except json.JSONDecodeError:
+            return {}
+        return parsed if isinstance(parsed, dict) else {}
+    return {}
+
+
+def _select_latest_artifact(artifacts):
+    if not artifacts:
+        return None
+    return sorted(artifacts, key=_artifact_timestamp_value, reverse=True)[0]
+
+
+def _select_run_bound_artifact(artifacts, run_id: str):
+    if not run_id or not artifacts:
+        return None
+    matched = []
+    for artifact in artifacts:
+        metadata = _artifact_metadata_payload(artifact)
+        metadata_run_id = str(metadata.get("run_id") or "").strip()
+        if metadata_run_id == run_id:
+            matched.append(artifact)
+    return _select_latest_artifact(matched)
+
+
 async def resolve_session_artifact_binding(
     project_id: str,
     session_id: str,
+    user_id: Optional[str] = None,
     artifact_id: Optional[str] = None,
     run_id: Optional[str] = None,
 ):
@@ -60,17 +93,37 @@ async def resolve_session_artifact_binding(
                 error_code=ErrorCode.NOT_FOUND,
             )
         run_artifact_id = getattr(run, "artifactId", None)
-        if not run_artifact_id:
+        if run_artifact_id:
+            artifact = await project_space_service.get_artifact(
+                run_artifact_id,
+                user_id=user_id,
+            )
+            if (
+                artifact
+                and artifact.projectId == project_id
+                and (not artifact.sessionId or artifact.sessionId == session_id)
+            ):
+                return artifact
+        if not user_id:
             return None
-        artifact = await project_space_service.get_artifact(run_artifact_id)
-        if not artifact or artifact.projectId != project_id:
+        artifacts = await project_space_service.get_project_artifacts(
+            project_id=project_id,
+            user_id=user_id,
+            session_id_filter=session_id,
+        )
+        artifact_list = list(artifacts or [])
+        if not artifact_list:
             return None
-        if artifact.sessionId and artifact.sessionId != session_id:
-            return None
-        return artifact
+        run_bound = _select_run_bound_artifact(artifact_list, run_id)
+        if run_bound is not None:
+            return run_bound
+        return _select_latest_artifact(artifact_list)
 
     if artifact_id:
-        artifact = await project_space_service.get_artifact(artifact_id)
+        artifact = await project_space_service.get_artifact(
+            artifact_id,
+            user_id=user_id,
+        )
         if not artifact or artifact.projectId != project_id:
             raise NotFoundException(
                 message=f"成果不存在: {artifact_id}",
@@ -83,17 +136,14 @@ async def resolve_session_artifact_binding(
             )
         return artifact
 
+    if not user_id:
+        return None
     artifacts = await project_space_service.get_project_artifacts(
         project_id=project_id,
+        user_id=user_id,
         session_id_filter=session_id,
     )
-    if not artifacts:
-        return None
-    return sorted(
-        artifacts,
-        key=_artifact_timestamp_value,
-        reverse=True,
-    )[0]
+    return _select_latest_artifact(list(artifacts or []))
 
 
 def parse_candidate_change_payload(value, field_name: str) -> Optional[dict]:
@@ -146,6 +196,7 @@ async def create_session_candidate_change(
         bound_artifact = await resolve_session_artifact_binding(
             project_id=project_id,
             session_id=session_id,
+            user_id=user_id,
             artifact_id=requested_artifact_id,
         )
         anchor = build_session_artifact_anchor(session_id, bound_artifact)

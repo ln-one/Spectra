@@ -63,10 +63,12 @@ async def _resolve_preview_anchor(
     snapshot: dict,
     artifact_id: Optional[str],
     run_id: Optional[str],
+    user_id: Optional[str] = None,
 ) -> dict:
     bound_artifact = await _resolve_session_artifact_binding(
         project_id=snapshot["session"]["project_id"],
         session_id=session_id,
+        user_id=user_id,
         artifact_id=artifact_id,
         run_id=run_id,
     )
@@ -74,6 +76,24 @@ async def _resolve_preview_anchor(
     if run_id:
         anchor["run_id"] = run_id
     return anchor
+
+
+def _make_preview_anchor_resolver(user_id: str):
+    async def _resolver(
+        session_id: str,
+        snapshot: dict,
+        artifact_id: Optional[str],
+        run_id: Optional[str],
+    ) -> dict:
+        return await _resolve_preview_anchor(
+            session_id=session_id,
+            snapshot=snapshot,
+            artifact_id=artifact_id,
+            run_id=run_id,
+            user_id=user_id,
+        )
+
+    return _resolver
 
 
 @router.get("/sessions/{session_id}/preview")
@@ -90,7 +110,7 @@ async def get_session_preview(
         run_id=run_id,
         user_id=user_id,
         get_preview_snapshot_or_raise=_get_preview_snapshot_or_raise,
-        resolve_preview_anchor=_resolve_preview_anchor,
+        resolve_preview_anchor=_make_preview_anchor_resolver(user_id),
         load_preview_material=_load_preview_material,
     )
 
@@ -115,7 +135,7 @@ async def modify_session_preview(
         execute_session_command_or_raise=execute_session_command_or_raise,
         get_preview_snapshot_or_raise=_get_preview_snapshot_or_raise,
         resolve_modify_expected_render_version=resolve_modify_expected_render_version,
-        resolve_preview_anchor=_resolve_preview_anchor,
+        resolve_preview_anchor=_make_preview_anchor_resolver(user_id),
         load_preview_material=_load_preview_material,
         attach_auto_candidate_change=attach_auto_candidate_change,
     )
@@ -137,7 +157,7 @@ async def get_session_slide_preview(
         run_id=run_id,
         user_id=user_id,
         get_preview_snapshot_or_raise=_get_preview_snapshot_or_raise,
-        resolve_preview_anchor=_resolve_preview_anchor,
+        resolve_preview_anchor=_make_preview_anchor_resolver(user_id),
         load_preview_material=_load_preview_material,
     )
 
@@ -163,7 +183,7 @@ async def export_session(
         raise_conflict=_raise_conflict,
         normalize_export_format=normalize_export_format,
         get_preview_snapshot_or_raise=_get_preview_snapshot_or_raise,
-        resolve_preview_anchor=_resolve_preview_anchor,
+        resolve_preview_anchor=_make_preview_anchor_resolver(user_id),
         load_preview_material=_load_preview_material,
         attach_auto_candidate_change=attach_auto_candidate_change,
     )
