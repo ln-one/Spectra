@@ -1,5 +1,4 @@
 import logging
-from typing import Optional
 
 try:
     from prisma.errors import ClientNotConnectedError
@@ -9,7 +8,6 @@ except Exception:  # pragma: no cover - prisma may be unavailable in some test e
         pass
 
 
-from schemas.common import normalize_source_type
 from schemas.rag import RAGResult
 from services.database import db_service
 

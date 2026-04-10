@@ -2,7 +2,6 @@ import logging
 from typing import Optional
 
 from schemas.rag import ChunkContext, RAGResult, SourceDetail, SourceReference
-from services.database import db_service
 from services.rag_service.retrieval_helpers import (
     list_active_reference_targets,
     sort_key,
