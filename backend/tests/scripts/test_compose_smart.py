@@ -23,6 +23,7 @@ def _lock_payload(
     pagevra_digest: str | None,
     dualweave_digest: str | None,
     ourograph_digest: str | None,
+    stratumind_digest: str | None,
 ) -> str:
     return json.dumps(
         {
@@ -52,6 +53,14 @@ def _lock_payload(
                     "published": ourograph_digest is not None,
                     "notes": "ourograph lock",
                 },
+                "stratumind": {
+                    "image": "ghcr.io/example/stratumind",
+                    "tag": "dev" if channel == "develop" else "latest",
+                    "digest": stratumind_digest,
+                    "source_branch": channel,
+                    "published": stratumind_digest is not None,
+                    "notes": "stratumind lock",
+                },
             },
         },
         indent=2,
@@ -64,16 +73,19 @@ def _run_compose_smart(
     pagevra: bool,
     dualweave: bool,
     ourograph: bool,
+    stratumind: bool,
     args: list[str],
-    develop_lock: tuple[str | None, str | None, str | None] = (
+    develop_lock: tuple[str | None, str | None, str | None, str | None] = (
         "sha256:" + "1" * 64,
         "sha256:" + "2" * 64,
         "sha256:" + "3" * 64,
-    ),
-    main_lock: tuple[str | None, str | None, str | None] = (
         "sha256:" + "4" * 64,
+    ),
+    main_lock: tuple[str | None, str | None, str | None, str | None] = (
         "sha256:" + "5" * 64,
         "sha256:" + "6" * 64,
+        "sha256:" + "7" * 64,
+        "sha256:" + "8" * 64,
     ),
 ) -> subprocess.CompletedProcess[str]:
     root = tmp_path / "repo"
@@ -85,6 +97,7 @@ def _run_compose_smart(
     _make_file(root / "docker-compose.pagevra.dev.yml", "services: {}\n")
     _make_file(root / "docker-compose.dualweave.dev.yml", "services: {}\n")
     _make_file(root / "docker-compose.ourograph.dev.yml", "services: {}\n")
+    _make_file(root / "docker-compose.stratumind.dev.yml", "services: {}\n")
     _make_file(
         root / "infra/stack-lock.develop.json",
         _lock_payload(
@@ -92,6 +105,7 @@ def _run_compose_smart(
             pagevra_digest=develop_lock[0],
             dualweave_digest=develop_lock[1],
             ourograph_digest=develop_lock[2],
+            stratumind_digest=develop_lock[3],
         ),
     )
     _make_file(
@@ -101,6 +115,7 @@ def _run_compose_smart(
             pagevra_digest=main_lock[0],
             dualweave_digest=main_lock[1],
             ourograph_digest=main_lock[2],
+            stratumind_digest=main_lock[3],
         ),
     )
 
@@ -151,12 +166,17 @@ def _run_compose_smart(
         _make_file(root / "ourograph/Dockerfile", "FROM eclipse-temurin:21\n")
         _make_file(root / "ourograph/README.md", "# Ourograph\n")
         _make_file(root / "ourograph/.git", "gitdir: ../.git/modules/ourograph\n")
+    if stratumind:
+        _make_file(root / "stratumind/Dockerfile", "FROM golang:1.23-alpine\n")
+        _make_file(root / "stratumind/README.md", "# Stratumind\n")
+        _make_file(root / "stratumind/.git", "gitdir: ../.git/modules/stratumind\n")
 
     env = os.environ | {
         "PATH": f"{root / 'bin'}:{os.environ['PATH']}",
         "TEST_SUBMODULE_PAGEVRA": "1" if pagevra else "0",
         "TEST_SUBMODULE_DUALWEAVE": "1" if dualweave else "0",
         "TEST_SUBMODULE_OUROGRAPH": "1" if ourograph else "0",
+        "TEST_SUBMODULE_STRATUMIND": "1" if stratumind else "0",
         "TEST_BRANCH": "develop",
     }
     return subprocess.run(
@@ -175,6 +195,7 @@ def test_status_reports_lock_and_source_modes(tmp_path: Path) -> None:
         pagevra=True,
         dualweave=False,
         ourograph=True,
+        stratumind=True,
         args=["status"],
     )
 
@@ -183,6 +204,7 @@ def test_status_reports_lock_and_source_modes(tmp_path: Path) -> None:
     assert "Pagevra: using local source" in result.stdout
     assert "Dualweave: using locked image" in result.stdout
     assert "Ourograph: using local source" in result.stdout
+    assert "Stratumind: using local source" in result.stdout
     assert "Synced env: missing" in result.stdout
 
 
@@ -192,6 +214,7 @@ def test_sync_writes_env_and_pulls_only_image_mode_services(tmp_path: Path) -> N
         pagevra=True,
         dualweave=False,
         ourograph=True,
+        stratumind=True,
         args=["sync", "--channel", "develop"],
     )
 
@@ -205,6 +228,7 @@ def test_sync_writes_env_and_pulls_only_image_mode_services(tmp_path: Path) -> N
     assert "DUALWEAVE_IMAGE=ghcr.io/example/dualweave@sha256:" in content
     assert "PAGEVRA_IMAGE=ghcr.io/example/pagevra@sha256:" in content
     assert "OUROGRAPH_IMAGE=ghcr.io/example/ourograph@sha256:" in content
+    assert "STRATUMIND_IMAGE=ghcr.io/example/stratumind@sha256:" in content
 
 
 def test_sync_fails_when_image_mode_service_is_unpublished(tmp_path: Path) -> None:
@@ -213,14 +237,16 @@ def test_sync_fails_when_image_mode_service_is_unpublished(tmp_path: Path) -> No
         pagevra=False,
         dualweave=False,
         ourograph=False,
+        stratumind=False,
         args=["sync", "--channel", "develop"],
-        develop_lock=("sha256:" + "1" * 64, None, None),
+        develop_lock=("sha256:" + "1" * 64, None, None, None),
     )
 
     combined = result.stdout + result.stderr
     assert result.returncode == 1
     assert "Dualweave lock for channel 'develop' is not published yet" in combined
     assert "Ourograph lock for channel 'develop' is not published yet" in combined
+    assert "Stratumind lock for channel 'develop' is not published yet" in combined
 
 
 def test_sync_allows_unpublished_service_when_local_source_exists(
@@ -231,8 +257,9 @@ def test_sync_allows_unpublished_service_when_local_source_exists(
         pagevra=False,
         dualweave=True,
         ourograph=True,
+        stratumind=True,
         args=["sync", "--channel", "develop"],
-        develop_lock=("sha256:" + "1" * 64, None, None),
+        develop_lock=("sha256:" + "1" * 64, None, None, None),
     )
 
     env_file = tmp_path / "repo/.env.compose.lock"
@@ -240,6 +267,7 @@ def test_sync_allows_unpublished_service_when_local_source_exists(
     content = env_file.read_text(encoding="utf-8")
     assert "DUALWEAVE_IMAGE=ghcr.io/example/dualweave:dev" in content
     assert "OUROGRAPH_IMAGE=ghcr.io/example/ourograph:dev" in content
+    assert "STRATUMIND_IMAGE=ghcr.io/example/stratumind:dev" in content
 
 
 def test_doctor_fails_when_sync_missing_for_image_mode(tmp_path: Path) -> None:
@@ -248,6 +276,7 @@ def test_doctor_fails_when_sync_missing_for_image_mode(tmp_path: Path) -> None:
         pagevra=False,
         dualweave=False,
         ourograph=False,
+        stratumind=False,
         args=["doctor", "--channel", "develop"],
     )
 
@@ -263,6 +292,7 @@ def test_compose_command_uses_synced_env_and_overrides(tmp_path: Path) -> None:
         pagevra=True,
         dualweave=True,
         ourograph=True,
+        stratumind=True,
         args=["sync", "--channel", "develop"],
     )
     assert sync_result.returncode == 0
@@ -272,6 +302,7 @@ def test_compose_command_uses_synced_env_and_overrides(tmp_path: Path) -> None:
         pagevra=True,
         dualweave=True,
         ourograph=True,
+        stratumind=True,
         args=["config"],
     )
 
@@ -280,3 +311,4 @@ def test_compose_command_uses_synced_env_and_overrides(tmp_path: Path) -> None:
     assert "docker-compose.pagevra.dev.yml" in result.stdout
     assert "docker-compose.dualweave.dev.yml" in result.stdout
     assert "docker-compose.ourograph.dev.yml" in result.stdout
+    assert "docker-compose.stratumind.dev.yml" in result.stdout
