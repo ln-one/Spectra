@@ -1,5 +1,5 @@
-from eval.stratumind_rerank_eval import latency_summary, percentile, summarize_scenario
 from eval.metrics import EvalResult
+from eval.stratumind_rerank_eval import latency_summary, percentile, summarize_scenario
 
 
 def _case_result(case_id: str, *, latency: float, failed: bool = False, stages=None):
