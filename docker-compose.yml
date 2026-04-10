@@ -53,7 +53,7 @@ services:
     environment:
       - NODE_ENV=development
       - NEXT_PUBLIC_API_URL=http://localhost:8000
-      - NEXT_PUBLIC_API_TIMEOUT_MS=30000
+      - NEXT_PUBLIC_API_TIMEOUT_MS=180000
       - NEXT_PUBLIC_CHAT_TIMEOUT_MS=90000
     command: npm run dev
     depends_on:
@@ -88,6 +88,8 @@ services:
       - CHROMA_MODE=persistent
       - CHROMA_HOST=chromadb
       - CHROMA_PORT=8000
+      - DOCUMENT_PARSER=${DOCUMENT_PARSER:-auto}
+      - LLAMAPARSE_API_KEY=${LLAMAPARSE_API_KEY}
       - CHROMA_PERSIST_DIR=/var/lib/spectra/chroma
       - UPLOAD_DIR=/var/lib/spectra/uploads
       - ARTIFACT_STORAGE_DIR=/var/lib/spectra/artifacts
@@ -101,7 +103,23 @@ services:
       - DB_REQUIRED=true
       - REDIS_REQUIRED=false
       - UVICORN_RELOAD=false
-    command: sh -c "prisma migrate deploy && prisma generate && if [ \"$${UVICORN_RELOAD:-false}\" = \"true\" ]; then uvicorn main:app --host 0.0.0.0 --port 8000 --reload; else uvicorn main:app --host 0.0.0.0 --port 8000; fi"
+    command: >-
+      sh -c "attempt=0;
+      until prisma migrate deploy; do
+        attempt=$$((attempt+1));
+        if [ $$attempt -ge $${PRISMA_MIGRATE_MAX_RETRIES:-20} ]; then
+          echo 'prisma migrate deploy failed after retries';
+          exit 1;
+        fi;
+        echo \"prisma migrate deploy failed; retry in $${PRISMA_MIGRATE_RETRY_SECONDS:-3}s ($$attempt/$${PRISMA_MIGRATE_MAX_RETRIES:-20})\";
+        sleep $${PRISMA_MIGRATE_RETRY_SECONDS:-3};
+      done;
+      prisma generate &&
+      if [ \"$${UVICORN_RELOAD:-false}\" = \"true\" ]; then
+        uvicorn main:app --host 0.0.0.0 --port 8000 --reload;
+      else
+        uvicorn main:app --host 0.0.0.0 --port 8000;
+      fi"
     depends_on:
       redis:
         condition: service_healthy
@@ -150,6 +168,8 @@ services:
       - CHROMA_MODE=persistent
       - CHROMA_HOST=chromadb
       - CHROMA_PORT=8000
+      - DOCUMENT_PARSER=${DOCUMENT_PARSER:-auto}
+      - LLAMAPARSE_API_KEY=${LLAMAPARSE_API_KEY}
       - CHROMA_PERSIST_DIR=/var/lib/spectra/chroma
       - UPLOAD_DIR=/var/lib/spectra/uploads
       - ARTIFACT_STORAGE_DIR=/var/lib/spectra/artifacts
@@ -163,7 +183,19 @@ services:
       - WORKER_NAME=worker-1
       - WORKER_RECOVERY_SCAN=true
       - RQ_WORKER_HEARTBEAT_FRESHNESS_SECONDS=420
-    command: sh -c "prisma migrate deploy && prisma generate && python worker.py"
+    command: >-
+      sh -c "attempt=0;
+      until prisma migrate deploy; do
+        attempt=$$((attempt+1));
+        if [ $$attempt -ge $${PRISMA_MIGRATE_MAX_RETRIES:-20} ]; then
+          echo 'prisma migrate deploy failed after retries';
+          exit 1;
+        fi;
+        echo \"prisma migrate deploy failed; retry in $${PRISMA_MIGRATE_RETRY_SECONDS:-3}s ($$attempt/$${PRISMA_MIGRATE_MAX_RETRIES:-20})\";
+        sleep $${PRISMA_MIGRATE_RETRY_SECONDS:-3};
+      done;
+      prisma generate &&
+      python worker.py"
     depends_on:
       redis:
         condition: service_healthy

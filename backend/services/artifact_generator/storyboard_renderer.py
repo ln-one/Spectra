@@ -16,6 +16,20 @@ from services.artifact_generator.html_animation_renderer import (
     render_animation_frames,
 )
 
+_FONT_CANDIDATE_PATHS = (
+    "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+    "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc",
+)
+
+
+def _load_storyboard_font(size: int) -> ImageFont.ImageFont:
+    for path in _FONT_CANDIDATE_PATHS:
+        try:
+            return ImageFont.truetype(path, size=size)
+        except OSError:
+            continue
+    return ImageFont.load_default()
+
 
 def _render_animation_frames_with_browser(spec: dict[str, Any]) -> list[Image.Image]:
     with ThreadPoolExecutor(max_workers=1) as executor:
@@ -71,7 +85,7 @@ def _render_process_frame(
     text = _coerce_color(spec["theme"].get("text"), (16, 35, 26))
     muted = _coerce_color(spec["theme"].get("muted"), (95, 118, 104))
     panel_alt = _coerce_color(spec["theme"].get("panel_alt"), (232, 246, 238))
-    font = ImageFont.load_default()
+    font = _load_storyboard_font(20)
 
     scenes = spec.get("scenes") or [scene]
     count = len(scenes)
@@ -138,7 +152,7 @@ def _render_relationship_frame(
     highlight = _coerce_color(spec["theme"].get("highlight"), (245, 158, 11))
     text = _coerce_color(spec["theme"].get("text"), (16, 35, 26))
     muted = _coerce_color(spec["theme"].get("muted"), (95, 118, 104))
-    font = ImageFont.load_default()
+    font = _load_storyboard_font(20)
 
     draw.rounded_rectangle(
         (64, 176, 624, height - 80),
@@ -188,7 +202,7 @@ def _render_structure_frame(
     accent = _coerce_color(spec["theme"].get("accent"), (22, 163, 74))
     accent_soft = _coerce_color(spec["theme"].get("accent_soft"), (134, 239, 172))
     text = _coerce_color(spec["theme"].get("text"), (16, 35, 26))
-    font = ImageFont.load_default()
+    font = _load_storyboard_font(20)
     scenes = (spec.get("scenes") or [scene])[:3]
     draw.rounded_rectangle(
         (64, 176, width - 64, height - 80),
@@ -236,7 +250,7 @@ def render_storyboard_frames(
     text = _coerce_color(theme.get("text"), (16, 35, 26))
     muted = _coerce_color(theme.get("muted"), (95, 118, 104))
     accent = _coerce_color(theme.get("accent"), (22, 163, 74))
-    font = ImageFont.load_default()
+    font = _load_storyboard_font(24)
     frames: list[Image.Image] = []
 
     for item in frame_plan:

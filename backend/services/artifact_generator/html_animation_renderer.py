@@ -11,6 +11,10 @@ from PIL import Image
 
 FRAME_WIDTH = 960
 FRAME_HEIGHT = 540
+FONT_FAMILY_STACK = (
+    "'Noto Sans CJK SC', 'WenQuanYi Zen Hei', "
+    "'Microsoft YaHei', 'PingFang SC', sans-serif"
+)
 
 _HTML_TEMPLATE = """<!doctype html>
 <html lang="zh-CN">
@@ -214,7 +218,7 @@ _HTML_TEMPLATE = """<!doctype html>
         return "";
       }
       return `
-        <text x="${x}" y="${y}" font-family="PingFang SC, Microsoft YaHei, sans-serif"
+        <text x="${x}" y="${y}" font-family="__FONT_FAMILY_STACK__"
           font-size="${fontSize}" font-weight="${fontWeight}" fill="${fill}">
           ${lines.map((line, index) => `
             <tspan x="${x}" dy="${index === 0 ? 0 : lineHeight}">${escapeHtml(line)}</tspan>
@@ -230,7 +234,7 @@ _HTML_TEMPLATE = """<!doctype html>
         <g transform="translate(${x}, ${y})">
           <rect width="${width}" height="36" rx="18" fill="${fill}" stroke="${stroke}" />
           <text x="${width / 2}" y="23" text-anchor="middle"
-            font-family="PingFang SC, Microsoft YaHei, sans-serif"
+            font-family="__FONT_FAMILY_STACK__"
             font-size="15" font-weight="700" fill="${textColor}">
             ${escapeHtml(chipText)}
           </text>
@@ -465,13 +469,13 @@ _HTML_TEMPLATE = """<!doctype html>
             <rect x="32" y="146" width="896" height="364" rx="36" fill="${withAlpha(theme.accent_deep, 0.9)}" stroke="${withAlpha(theme.panel, 0.25)}" />
             <rect x="96" y="206" width="248" height="228" rx="24" fill="${withAlpha(theme.panel, 0.12)}" stroke="${withAlpha(theme.panel, 0.45)}" />
             <rect x="616" y="206" width="248" height="228" rx="24" fill="${withAlpha(theme.panel, 0.12)}" stroke="${withAlpha(theme.panel, 0.45)}" />
-            <text x="220" y="286" text-anchor="middle" font-family="PingFang SC, Microsoft YaHei, sans-serif" font-size="32" font-weight="800" fill="${withAlpha(theme.panel, 0.96)}">
+            <text x="220" y="286" text-anchor="middle" font-family="__FONT_FAMILY_STACK__" font-size="32" font-weight="800" fill="${withAlpha(theme.panel, 0.96)}">
               客户端
             </text>
-            <text x="740" y="286" text-anchor="middle" font-family="PingFang SC, Microsoft YaHei, sans-serif" font-size="32" font-weight="800" fill="${withAlpha(theme.panel, 0.96)}">
+            <text x="740" y="286" text-anchor="middle" font-family="__FONT_FAMILY_STACK__" font-size="32" font-weight="800" fill="${withAlpha(theme.panel, 0.96)}">
               服务器
             </text>
-            <text x="96" y="186" font-family="PingFang SC, Microsoft YaHei, sans-serif" font-size="28" font-weight="800" fill="${withAlpha(theme.panel, 0.96)}">
+            <text x="96" y="186" font-family="__FONT_FAMILY_STACK__" font-size="28" font-weight="800" fill="${withAlpha(theme.panel, 0.96)}">
               TCP 三次握手动态预览
             </text>
             ${renderTextBlock(96, 454, scene.description || spec.summary || "", {
@@ -501,7 +505,7 @@ _HTML_TEMPLATE = """<!doctype html>
           <rect x="32" y="146" width="896" height="364" rx="36" fill="${withAlpha(theme.accent_deep, 0.88)}" stroke="${withAlpha(theme.panel, 0.22)}" />
           <circle cx="${198 + progress * 28}" cy="${262 + progress * 10}" r="84" fill="${withAlpha(theme.highlight, 0.24)}" />
           <circle cx="${786 - progress * 24}" cy="${352 - progress * 8}" r="76" fill="${withAlpha(theme.accent, 0.28)}" />
-          <text x="92" y="224" font-family="PingFang SC, Microsoft YaHei, sans-serif" font-size="30" font-weight="800" fill="${withAlpha(theme.panel, 0.98)}">
+          <text x="92" y="224" font-family="__FONT_FAMILY_STACK__" font-size="30" font-weight="800" fill="${withAlpha(theme.panel, 0.98)}">
             镜头开场：先看整体流程
           </text>
           ${renderTextBlock(92, 268, scene.description || spec.summary || "", {
@@ -550,10 +554,10 @@ _HTML_TEMPLATE = """<!doctype html>
             ${stepChips}
             <rect x="90" y="206" width="264" height="228" rx="24" fill="${withAlpha(theme.panel_alt, 0.94)}" stroke="${withAlpha(theme.accent, 0.28)}" />
             <rect x="606" y="206" width="264" height="228" rx="24" fill="${withAlpha(theme.highlight, 0.10)}" stroke="${withAlpha(theme.highlight, 0.30)}" />
-            <text x="222" y="278" text-anchor="middle" font-family="PingFang SC, Microsoft YaHei, sans-serif" font-size="34" font-weight="800" fill="${theme.accent_deep}">
+            <text x="222" y="278" text-anchor="middle" font-family="__FONT_FAMILY_STACK__" font-size="34" font-weight="800" fill="${theme.accent_deep}">
               客户端
             </text>
-            <text x="738" y="278" text-anchor="middle" font-family="PingFang SC, Microsoft YaHei, sans-serif" font-size="34" font-weight="800" fill="${theme.text}">
+            <text x="738" y="278" text-anchor="middle" font-family="__FONT_FAMILY_STACK__" font-size="34" font-weight="800" fill="${theme.text}">
               服务器
             </text>
             <line x1="244" y1="${laneY}" x2="716" y2="${laneY}" stroke="${withAlpha(theme.accent, 0.45)}" stroke-width="6" stroke-linecap="round" />
@@ -607,16 +611,16 @@ _HTML_TEMPLATE = """<!doctype html>
           <rect x="32" y="146" width="896" height="364" rx="36" fill="${withAlpha(theme.panel, 0.94)}" stroke="${withAlpha(theme.accent, 0.28)}" />
           <rect x="90" y="204" width="264" height="232" rx="24" fill="${withAlpha(theme.panel_alt, 0.9)}" stroke="${withAlpha(theme.accent, 0.22)}" />
           <rect x="606" y="204" width="264" height="232" rx="24" fill="${withAlpha(theme.highlight, 0.12)}" stroke="${withAlpha(theme.highlight, 0.28)}" />
-          <text x="222" y="268" text-anchor="middle" font-family="PingFang SC, Microsoft YaHei, sans-serif" font-size="28" font-weight="800" fill="${theme.accent_deep}">
+          <text x="222" y="268" text-anchor="middle" font-family="__FONT_FAMILY_STACK__" font-size="28" font-weight="800" fill="${theme.accent_deep}">
             ${escapeHtml(leftActor)}
           </text>
-          <text x="738" y="268" text-anchor="middle" font-family="PingFang SC, Microsoft YaHei, sans-serif" font-size="28" font-weight="800" fill="${theme.text}">
+          <text x="738" y="268" text-anchor="middle" font-family="__FONT_FAMILY_STACK__" font-size="28" font-weight="800" fill="${theme.text}">
             ${escapeHtml(rightActor)}
           </text>
           <line x1="244" y1="${laneY}" x2="716" y2="${laneY}" stroke="${withAlpha(theme.accent, 0.42)}" stroke-width="6" stroke-linecap="round" />
           <circle cx="${packetX}" cy="${laneY}" r="12" fill="${theme.highlight}" stroke="${withAlpha(theme.accent_deep, 0.72)}" stroke-width="3" />
           <path d="${directionLeftToRight ? "M 686 318 L 716 328 L 686 338" : "M 274 318 L 244 328 L 274 338"}" fill="none" stroke="${theme.accent_deep}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" />
-          <text x="480" y="298" text-anchor="middle" font-family="PingFang SC, Microsoft YaHei, sans-serif" font-size="24" font-weight="800" fill="${theme.text}">
+          <text x="480" y="298" text-anchor="middle" font-family="__FONT_FAMILY_STACK__" font-size="24" font-weight="800" fill="${theme.text}">
             ${escapeHtml(scene.title || `步骤 ${sceneIndex + 1}`)}
           </text>
           ${renderTextBlock(356, 388, scene.description || "", {
@@ -671,7 +675,7 @@ _HTML_TEMPLATE = """<!doctype html>
             <rect x="32" y="146" width="896" height="364" rx="36" fill="${withAlpha(theme.panel, 0.95)}" stroke="${withAlpha(theme.accent, 0.2)}" />
             <rect x="84" y="188" width="500" height="276" rx="24" fill="${withAlpha(theme.panel_alt, 0.95)}" stroke="${withAlpha(theme.accent, 0.22)}" />
             <rect x="602" y="188" width="286" height="276" rx="24" fill="${withAlpha(theme.highlight, 0.10)}" stroke="${withAlpha(theme.highlight, 0.26)}" />
-            <text x="116" y="220" font-family="PingFang SC, Microsoft YaHei, sans-serif" font-size="26" font-weight="800" fill="${theme.accent_deep}">
+            <text x="116" y="220" font-family="__FONT_FAMILY_STACK__" font-size="26" font-weight="800" fill="${theme.accent_deep}">
               连接建立完成：进入传输阶段
             </text>
             ${checklist}
@@ -680,7 +684,7 @@ _HTML_TEMPLATE = """<!doctype html>
             <circle cx="${packetB}" cy="430" r="8" fill="${theme.accent}" stroke="${withAlpha(theme.accent_deep, 0.68)}" stroke-width="2" />
             ${renderChip(180, 438, "状态：ESTABLISHED", withAlpha(theme.accent, 0.14), withAlpha(theme.accent, 0.32), theme.accent_deep)}
             ${renderChip(416, 438, "已进入双向数据传输", withAlpha(theme.highlight, 0.12), withAlpha(theme.highlight, 0.28), theme.text)}
-            <text x="630" y="226" font-family="PingFang SC, Microsoft YaHei, sans-serif" font-size="22" font-weight="800" fill="${theme.text}">
+            <text x="630" y="226" font-family="__FONT_FAMILY_STACK__" font-size="22" font-weight="800" fill="${theme.text}">
               核心知识
             </text>
             ${renderTextBlock(630, 256, scene.description || spec.summary || "", {
@@ -713,11 +717,11 @@ _HTML_TEMPLATE = """<!doctype html>
           <rect x="32" y="146" width="896" height="364" rx="36" fill="${withAlpha(theme.panel, 0.95)}" stroke="${withAlpha(theme.accent, 0.2)}" />
           <rect x="84" y="188" width="500" height="276" rx="24" fill="${withAlpha(theme.panel_alt, 0.95)}" stroke="${withAlpha(theme.accent, 0.22)}" />
           <rect x="602" y="188" width="286" height="276" rx="24" fill="${withAlpha(theme.highlight, 0.10)}" stroke="${withAlpha(theme.highlight, 0.26)}" />
-          <text x="116" y="220" font-family="PingFang SC, Microsoft YaHei, sans-serif" font-size="26" font-weight="800" fill="${theme.accent_deep}">
+          <text x="116" y="220" font-family="__FONT_FAMILY_STACK__" font-size="26" font-weight="800" fill="${theme.accent_deep}">
             镜头总结：回顾完整链路
           </text>
           ${checklist}
-          <text x="630" y="226" font-family="PingFang SC, Microsoft YaHei, sans-serif" font-size="22" font-weight="800" fill="${theme.text}">
+          <text x="630" y="226" font-family="__FONT_FAMILY_STACK__" font-size="22" font-weight="800" fill="${theme.text}">
             核心知识
           </text>
           ${renderTextBlock(630, 256 + Math.sin(progress * Math.PI * 2) * 2, scene.description || spec.summary || "", {
@@ -767,7 +771,7 @@ _HTML_TEMPLATE = """<!doctype html>
         return `
           <g>
             <circle cx="${x}" cy="${y}" r="${index === 2 ? 14 : 10}" fill="${index === 2 ? theme.highlight : theme.accent}" />
-            <text x="${x}" y="428" text-anchor="middle" font-family="PingFang SC, Microsoft YaHei, sans-serif" font-size="14" fill="${theme.muted}">
+            <text x="${x}" y="428" text-anchor="middle" font-family="__FONT_FAMILY_STACK__" font-size="14" fill="${theme.muted}">
               ${index + 1}
             </text>
           </g>
@@ -790,7 +794,7 @@ _HTML_TEMPLATE = """<!doctype html>
           <path d="${path}" fill="none" stroke="${theme.accent}" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" />
           ${dots}
           <rect x="648" y="176" width="248" height="284" rx="32" fill="${withAlpha(theme.highlight, 0.10)}" stroke="${withAlpha(theme.highlight, 0.25)}" />
-          <text x="690" y="218" font-family="PingFang SC, Microsoft YaHei, sans-serif" font-size="22" font-weight="700" fill="${theme.text}">
+          <text x="690" y="218" font-family="__FONT_FAMILY_STACK__" font-size="22" font-weight="700" fill="${theme.text}">
             变化解读
           </text>
           ${renderTextBlock(690, 252, scene.description || "", {
@@ -903,7 +907,7 @@ _HTML_TEMPLATE = """<!doctype html>
           <g>
             <rect x="64" y="176" width="832" height="284" rx="32" fill="${withAlpha(theme.panel, 0.94)}" stroke="${withAlpha(theme.accent, 0.18)}" />
             <rect x="458" y="206" width="402" height="174" rx="28" fill="${withAlpha(theme.highlight, 0.10)}" stroke="${withAlpha(theme.highlight, 0.28)}" />
-            <text x="486" y="228" font-family="PingFang SC, Microsoft YaHei, sans-serif" font-size="22" font-weight="800" fill="${theme.accent_deep}">
+            <text x="486" y="228" font-family="__FONT_FAMILY_STACK__" font-size="22" font-weight="800" fill="${theme.accent_deep}">
               镜头一：整体全景
             </text>
             ${sceneText}
@@ -955,7 +959,7 @@ _HTML_TEMPLATE = """<!doctype html>
           return `
             <g>
               <rect x="120" y="${y}" width="330" height="22" rx="11" fill="${active ? withAlpha(theme.accent, 0.2) : withAlpha(theme.panel, 0.88)}" stroke="${active ? theme.accent : withAlpha(theme.accent, 0.2)}" stroke-width="${active ? 2.8 : 1.8}" />
-              <text x="138" y="${y + 15}" font-family="PingFang SC, Microsoft YaHei, sans-serif" font-size="13.5" font-weight="700" fill="${active ? theme.accent_deep : theme.text}">
+              <text x="138" y="${y + 15}" font-family="__FONT_FAMILY_STACK__" font-size="13.5" font-weight="700" fill="${active ? theme.accent_deep : theme.text}">
                 ${escapeHtml(item || `层级 ${index + 1}`)}
               </text>
             </g>
@@ -969,10 +973,10 @@ _HTML_TEMPLATE = """<!doctype html>
             <circle cx="468" cy="${easedPacketY}" r="8" fill="${theme.highlight}" stroke="${withAlpha(theme.accent_deep, 0.7)}" stroke-width="2" />
             <path d="M 476 ${easedPacketY} C 512 ${easedPacketY}, 536 ${easedPacketY - 8}, 564 ${easedPacketY - 8}" stroke="${withAlpha(theme.accent, 0.35)}" stroke-width="3" fill="none" stroke-linecap="round" />
             <rect x="564" y="204" width="296" height="220" rx="24" fill="${withAlpha(theme.highlight, 0.08)}" stroke="${withAlpha(theme.highlight, 0.24)}" />
-            <text x="606" y="236" font-family="PingFang SC, Microsoft YaHei, sans-serif" font-size="20" font-weight="800" fill="${theme.text}">
+            <text x="606" y="236" font-family="__FONT_FAMILY_STACK__" font-size="20" font-weight="800" fill="${theme.text}">
               当前高亮
             </text>
-            <text x="606" y="266" font-family="PingFang SC, Microsoft YaHei, sans-serif" font-size="20" font-weight="800" fill="${theme.accent_deep}">
+            <text x="606" y="266" font-family="__FONT_FAMILY_STACK__" font-size="20" font-weight="800" fill="${theme.accent_deep}">
               ${escapeHtml(panelTitle)}
             </text>
             ${renderTextBlock(606, 294, focusSummary, {
@@ -1001,7 +1005,7 @@ _HTML_TEMPLATE = """<!doctype html>
           <rect x="64" y="176" width="832" height="284" rx="32" fill="${withAlpha(theme.panel, 0.94)}" stroke="${withAlpha(theme.accent, 0.2)}" />
           <rect x="110" y="210" width="520" height="192" rx="16" fill="${withAlpha(theme.accent, 0.82)}" />
           <rect x="126" y="226" width="488" height="160" rx="12" fill="${withAlpha(theme.accent, 0.26)}" />
-          <text x="142" y="258" font-family="PingFang SC, Microsoft YaHei, sans-serif" font-size="22" font-weight="800" fill="${withAlpha(theme.panel, 0.96)}">
+          <text x="142" y="258" font-family="__FONT_FAMILY_STACK__" font-size="22" font-weight="800" fill="${withAlpha(theme.panel, 0.96)}">
             镜头三：课堂总结
           </text>
           ${renderTextBlock(142, summaryY, panelDescription, {
@@ -1121,7 +1125,7 @@ _HTML_TEMPLATE = """<!doctype html>
   </script>
 </body>
 </html>
-"""
+""".replace("__FONT_FAMILY_STACK__", FONT_FAMILY_STACK)
 
 
 class AnimationBrowserRenderError(RuntimeError):
