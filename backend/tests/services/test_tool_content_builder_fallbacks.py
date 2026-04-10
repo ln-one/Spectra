@@ -31,3 +31,21 @@ def test_fallback_content_supports_word_document() -> None:
 
     assert payload["kind"] == "word_document"
     assert payload["document_variant"] == "student_handout"
+    assert isinstance(payload["sections"], list)
+    assert payload["sections"]
+    assert isinstance(payload["lesson_plan_markdown"], str)
+    assert payload["lesson_plan_markdown"].startswith("# ")
+
+
+def test_fallback_content_supports_interactive_games_template_patterns() -> None:
+    payload = fallback_content(
+        card_id="interactive_games",
+        config={"topic": "进程管理", "game_pattern": "quiz_challenge"},
+        rag_snippets=["进程状态转换与调度策略"],
+    )
+
+    assert payload["kind"] == "interactive_game"
+    assert payload["game_pattern"] == "quiz_challenge"
+    assert isinstance(payload["game_data"], dict)
+    assert payload["game_data"]["game_title"]
+    assert "<html" in payload["html"]

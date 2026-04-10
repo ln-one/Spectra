@@ -8,6 +8,13 @@ from typing import Any
 
 from services.ai import ai_service
 from services.ai.model_router import ModelRouteTask
+from services.generation_session_service.game_template_engine import (
+    build_game_prompt,
+    is_template_game_pattern,
+    render_game_html,
+    resolve_game_pattern,
+    validate_game_data,
+)
 from services.generation_session_service.tool_content_builder_fallbacks import (
     SUPPORTED_CARD_IDS,
     card_query_text,
@@ -59,6 +66,44 @@ def _should_attempt_ai_generation() -> bool:
     if raw is None:
         return True
     return raw.strip().lower() not in {"0", "false", "no"}
+
+
+def _hydrate_structured_payload(
+    *,
+    card_id: str,
+    payload: dict[str, Any],
+    config: dict[str, Any],
+    rag_snippets: list[str],
+    source_hint: str | None,
+    source_artifact_id: str | None,
+) -> dict[str, Any]:
+    if card_id != "word_document":
+        return payload
+
+    base_payload = fallback_content(
+        card_id=card_id,
+        config=config,
+        rag_snippets=rag_snippets,
+        source_hint=source_hint,
+        source_artifact_id=source_artifact_id,
+    )
+    merged = dict(base_payload)
+    for key, value in (payload or {}).items():
+        if value not in (None, "", [], {}):
+            merged[key] = value
+
+    sections = merged.get("sections")
+    if not isinstance(sections, list) or not sections:
+        merged["sections"] = base_payload.get("sections", [])
+
+    lesson_plan_markdown = str(merged.get("lesson_plan_markdown") or "").strip()
+    if not lesson_plan_markdown:
+        merged["lesson_plan_markdown"] = str(
+            base_payload.get("lesson_plan_markdown") or ""
+        ).strip()
+
+    merged["kind"] = "word_document"
+    return merged
 
 
 async def _load_rag_snippets(
@@ -126,6 +171,109 @@ async def _load_source_artifact_hint(
     return f"{artifact.type}:{artifact.id}"
 
 
+async def _generate_interactive_game_template_content(
+    *,
+    config: dict[str, Any],
+    rag_snippets: list[str],
+) -> dict[str, Any]:
+    pattern = resolve_game_pattern(config)
+    prompt = build_game_prompt(
+        pattern=pattern,
+        config=config,
+        rag_snippets=rag_snippets,
+    )
+
+    try:
+        response = await ai_service.generate(
+            prompt=prompt,
+            route_task=ModelRouteTask.LESSON_PLAN_REASONING,
+            has_rag_context=bool(rag_snippets),
+            max_tokens=2400,
+        )
+    except APIException as exc:
+        details = dict(exc.details or {})
+        model_name = str(
+            details.get("resolved_model")
+            or details.get("requested_model")
+            or ai_service.large_model
+            or ""
+        )
+        details.update(
+            _build_error_details(
+                card_id="interactive_games",
+                model=model_name,
+                phase="generate_game_data",
+                failure_reason=str(details.get("failure_type") or "upstream_error"),
+                retryable=bool(exc.retryable),
+                extra={"game_pattern": pattern},
+            )
+        )
+        raise APIException(
+            status_code=exc.status_code,
+            error_code=exc.error_code,
+            message=exc.message,
+            details=details,
+            retryable=exc.retryable,
+        ) from exc
+    except Exception as exc:
+        _raise_generation_error(
+            status_code=502,
+            error_code=ErrorCode.EXTERNAL_SERVICE_ERROR,
+            message="Interactive game data generation failed unexpectedly.",
+            card_id="interactive_games",
+            model=ai_service.large_model,
+            phase="generate_game_data",
+            failure_reason="unexpected_runtime_error",
+            retryable=True,
+            extra={
+                "raw_error": str(exc)[:300],
+                "game_pattern": pattern,
+            },
+        )
+
+    model_name = str(response.get("model") or ai_service.large_model or "")
+    parsed_payload = _parse_ai_object_payload(
+        card_id="interactive_games",
+        ai_raw=str(response.get("content") or ""),
+        model=model_name,
+        phase="parse_game_data",
+    )
+
+    game_data = parsed_payload
+    maybe_nested = parsed_payload.get("game_data")
+    if isinstance(maybe_nested, dict):
+        game_data = maybe_nested
+
+    try:
+        validate_game_data(pattern, game_data)
+    except ValueError as exc:
+        _raise_generation_error(
+            status_code=400,
+            error_code=ErrorCode.INVALID_INPUT,
+            message="Interactive game data failed schema validation.",
+            card_id="interactive_games",
+            model=model_name,
+            phase="validate_game_data",
+            failure_reason=str(exc),
+            retryable=False,
+            extra={"game_pattern": pattern},
+        )
+
+    html = render_game_html(pattern, game_data)
+    title = str(
+        game_data.get("game_title") or config.get("topic") or "互动游戏"
+    ).strip()
+    summary = str(game_data.get("instruction") or "").strip()
+    return {
+        "kind": "interactive_game",
+        "title": title,
+        "summary": summary,
+        "game_pattern": pattern,
+        "game_data": game_data,
+        "html": html,
+    }
+
+
 async def _generate_structured_content(
     *,
     card_id: str,
@@ -145,7 +293,15 @@ async def _generate_structured_content(
             retryable=False,
         )
 
-    schema_hint = _build_schema_hint(card_id)
+    if card_id == "interactive_games":
+        pattern = resolve_game_pattern(config)
+        if is_template_game_pattern(pattern):
+            return await _generate_interactive_game_template_content(
+                config=config,
+                rag_snippets=rag_snippets,
+            )
+
+    schema_hint = _build_schema_hint(card_id, config)
     if not schema_hint:
         _raise_generation_error(
             status_code=400,
@@ -236,7 +392,14 @@ async def _generate_structured_content(
             failure_reason=str(exc),
             retryable=False,
         )
-    return payload
+    return _hydrate_structured_payload(
+        card_id=card_id,
+        payload=payload,
+        config=config,
+        rag_snippets=rag_snippets,
+        source_hint=source_hint,
+        source_artifact_id=None,
+    )
 
 
 async def build_studio_tool_artifact_content(
@@ -297,11 +460,14 @@ async def build_studio_tool_artifact_content(
     )
     if not ai_payload:
         return fallback_payload
-    merged = dict(fallback_payload)
-    for key, value in ai_payload.items():
-        if value not in (None, "", [], {}):
-            merged[key] = value
-    return merged
+    return _hydrate_structured_payload(
+        card_id=card_id,
+        payload=ai_payload,
+        config=cfg,
+        rag_snippets=rag_snippets,
+        source_hint=source_hint,
+        source_artifact_id=source_artifact_id,
+    )
 
 
 async def build_studio_simulator_turn_update(

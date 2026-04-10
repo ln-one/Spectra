@@ -2,6 +2,13 @@ from __future__ import annotations
 
 from typing import Any
 
+from services.generation_session_service.game_template_engine import (
+    build_game_fallback_data,
+    is_template_game_pattern,
+    render_game_html,
+    resolve_game_pattern,
+)
+
 SUPPORTED_CARD_IDS = {
     "courseware_ppt",
     "word_document",
@@ -112,14 +119,100 @@ def fallback_word_document_content(
 ) -> dict[str, Any]:
     topic = str(config.get("topic") or "教学主题")
     variant = str(config.get("document_variant") or "layered_lesson_plan")
-    snippet = rag_snippets[0][:120] if rag_snippets else ""
+    teaching_model = str(config.get("teaching_model") or "scaffolded")
+    grade_band = str(config.get("grade_band") or "high")
+    difficulty_layer = str(config.get("difficulty_layer") or "B")
+    learning_goal = str(config.get("learning_goal") or "帮助学生掌握核心知识点")
+    teaching_context = str(config.get("teaching_context") or "").strip()
+    student_needs = str(config.get("student_needs") or "").strip()
+    output_requirements = str(config.get("output_requirements") or "").strip()
+
+    def _pick_snippet(index: int) -> str:
+        if index >= len(rag_snippets):
+            return ""
+        return str(rag_snippets[index] or "").strip()[:220]
+
+    title = f"{topic}教学设计教案"
+    summary = (
+        f"基于 {teaching_model} 教学模式，围绕“{topic}”组织 {difficulty_layer} 层次教学，"
+        f"面向 {grade_band} 学段聚焦“{learning_goal}”。"
+    ).strip()
+
+    sections = [
+        {
+            "title": "一、教学定位与目标",
+            "content": "\n".join(
+                [
+                    f"课题主题：{topic}",
+                    f"文档类型：{variant}",
+                    f"教学模型：{teaching_model}",
+                    f"适用学段：{grade_band}",
+                    f"分层档位：{difficulty_layer}",
+                    f"学习目标：{learning_goal}",
+                ]
+                + ([f"教学场景：{teaching_context}"] if teaching_context else [])
+            ).strip(),
+        },
+        {
+            "title": "二、核心知识结构",
+            "content": (
+                _pick_snippet(0)
+                or f"围绕“{topic}”梳理概念基础、关键机制、典型问题与实践应用，形成完整知识主线。"
+            ).strip(),
+        },
+        {
+            "title": "三、教学实施设计",
+            "content": "\n".join(
+                [
+                    "1. 导入：通过真实场景或问题驱动激活已有知识。",
+                    "2. 新授：分层讲解核心概念、运行机制与典型流程。",
+                    "3. 互动：设置追问、例题或讨论，检查理解深度。",
+                    "4. 归纳：回收关键结论，形成板书或结构化总结。",
+                ]
+            ),
+        },
+        {
+            "title": "四、学情与难点应对",
+            "content": "\n".join(
+                ([f"学生特点：{student_needs}"] if student_needs else [])
+                + [
+                    (
+                        _pick_snippet(1)
+                        or "重点关注学生对关键概念边界、状态变化条件及典型误区的辨析能力。"
+                    )
+                ]
+            ).strip(),
+        },
+        {
+            "title": "五、输出与作业建议",
+            "content": "\n".join(
+                ([f"输出要求：{output_requirements}"] if output_requirements else [])
+                + [
+                    (
+                        _pick_snippet(2)
+                        or "建议布置结构图绘制、概念辨析题和案例分析题，强化迁移应用。"
+                    )
+                ]
+            ).strip(),
+        },
+    ]
+
+    markdown_lines = [f"# {title}", "", summary]
+    for section in sections:
+        section_title = str(section.get("title") or "").strip()
+        section_content = str(section.get("content") or "").strip()
+        if section_title:
+            markdown_lines.extend(["", f"## {section_title}"])
+        if section_content:
+            markdown_lines.extend(["", section_content])
+
     return {
         "kind": "word_document",
-        "title": f"{topic}文档",
-        "summary": (
-            f"生成文档类型：{variant}。" + (f" 参考资料：{snippet}" if snippet else "")
-        ).strip(),
+        "title": title,
+        "summary": summary,
         "document_variant": variant,
+        "sections": sections,
+        "lesson_plan_markdown": "\n".join(markdown_lines).strip(),
     }
 
 
@@ -178,7 +271,24 @@ def fallback_game_content(
     config: dict[str, Any], rag_snippets: list[str]
 ) -> dict[str, Any]:
     topic = str(config.get("topic") or "课堂互动主题")
-    mode = str(config.get("mode") or config.get("game_pattern") or "freeform")
+    mode = resolve_game_pattern(config)
+    if is_template_game_pattern(mode):
+        game_data = build_game_fallback_data(
+            pattern=mode,
+            config=config,
+            rag_snippets=rag_snippets,
+        )
+        return {
+            "kind": "interactive_game",
+            "title": str(game_data.get("game_title") or f"{topic}互动游戏"),
+            "summary": str(game_data.get("instruction") or ""),
+            "game_pattern": mode,
+            "game_data": game_data,
+            "countdown": int(config.get("countdown") or 60),
+            "life": int(config.get("life") or 3),
+            "html": render_game_html(mode, game_data),
+        }
+
     countdown = int(config.get("countdown") or 60)
     life = int(config.get("life") or 3)
     idea_tags = [str(tag) for tag in (config.get("idea_tags") or [])]

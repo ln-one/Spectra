@@ -183,6 +183,8 @@ CARD_CAPABILITIES: tuple[StudioCardCapability, ...] = (
                 options=[
                     StudioCardConfigOption(value="timeline_sort", label="时间轴排序"),
                     StudioCardConfigOption(value="concept_match", label="概念连线"),
+                    StudioCardConfigOption(value="quiz_challenge", label="知识闯关"),
+                    StudioCardConfigOption(value="fill_in_blank", label="填空挑战"),
                     StudioCardConfigOption(value="freeform", label="自由发挥"),
                 ],
                 default_value="freeform",

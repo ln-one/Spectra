@@ -3,6 +3,11 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from services.generation_session_service.game_template_engine import (
+    build_game_schema_hint,
+    is_template_game_pattern,
+    resolve_game_pattern,
+)
 from utils.exceptions import APIException, ErrorCode
 
 _PAYLOAD_REQUIREMENTS: dict[str, tuple[str, ...]] = {
@@ -178,13 +183,20 @@ def parse_ai_object_payload(
     return parsed
 
 
-def build_schema_hint(card_id: str) -> str | None:
+def build_schema_hint(card_id: str, config: dict[str, Any] | None = None) -> str | None:
+    if card_id == "interactive_games":
+        pattern = resolve_game_pattern(config)
+        if is_template_game_pattern(pattern):
+            return build_game_schema_hint(pattern)
+        return '{"title":"", "html":""}'
+
     return {
         "courseware_ppt": (
             '{"title":"", "summary":"", "pages":12, "template":"default"}'
         ),
         "word_document": (
-            '{"title":"", "summary":"", "document_variant":"layered_lesson_plan"}'
+            '{"title":"", "summary":"", "document_variant":"layered_lesson_plan", '
+            '"sections":[{"title":"","content":""}], "lesson_plan_markdown":""}'
         ),
         "knowledge_mindmap": (
             '{"title":"",'
@@ -195,7 +207,6 @@ def build_schema_hint(card_id: str) -> str | None:
             ' "questions":[{"id":"","question":"","options":[""],'
             '"answer":"","explanation":""}]}'
         ),
-        "interactive_games": '{"title":"", "html":""}',
         "classroom_qa_simulator": (
             '{"title":"", "summary":"", "key_points":[""], '
             '"turns":[{"student":"","question":"","teacher_hint":"",'
