@@ -1,0 +1,63 @@
+name: Stack Lock Smoke
+
+on:
+  workflow_dispatch:
+    inputs:
+      channel:
+        description: "Stack lock channel"
+        required: true
+        default: develop
+        type: choice
+        options:
+          - develop
+          - main
+  pull_request:
+    branches:
+      - main
+      - develop
+    paths:
+      - "infra/stack-lock.*.json"
+      - "scripts/compose_smart.py"
+      - "docker-compose.yml"
+      - "docker-compose.single.yml"
+      - "docker-compose.*.dev.yml"
+      - ".github/workflows/stack-lock-smoke.yml"
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      STACK_CHANNEL: ${{ inputs.channel || 'develop' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare backend env
+        run: cp backend/.env.example backend/.env
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Sync locked images
+        run: python3 ./scripts/compose_smart.py sync --channel $STACK_CHANNEL
+
+      - name: Doctor
+        run: python3 ./scripts/compose_smart.py doctor --channel $STACK_CHANNEL
+
+      - name: Start stack
+        run: python3 ./scripts/compose_smart.py --channel $STACK_CHANNEL up -d
+
+      - name: Wait for backend smoke
+        run: python3 ./backend/scripts/deploy_smoke_check.py --base-url http://127.0.0.1:8000
+
+      - name: Dump logs on failure
+        if: failure()
+        run: python3 ./scripts/compose_smart.py --channel $STACK_CHANNEL logs --no-color
+
+      - name: Tear down stack
+        if: always()
+        run: python3 ./scripts/compose_smart.py --channel $STACK_CHANNEL down -v

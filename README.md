@@ -46,6 +46,9 @@ The repository has completed its first major structural convergence:
 ### Docker
 
 ```bash
+python3 ./scripts/compose_smart.py status
+python3 ./scripts/compose_smart.py sync --channel develop
+python3 ./scripts/compose_smart.py doctor
 python3 ./scripts/compose_smart.py up --build
 ```
 
@@ -85,6 +88,27 @@ the boundary stays at the artifact reference layer.
 Pagevra follows the same private-source pattern: normal users consume the image,
 while authorized maintainers can initialize the private submodule and keep using
 the same smart compose entrypoint for local builds.
+
+`compose_smart.py` is now the only entrypoint for private-service image orchestration.
+The core commands are:
+
+- `status`: show the current channel, local-source overrides, and the locked image refs
+- `sync --channel develop|main`: pull the currently approved locked images and write `.env.compose.lock`
+- `doctor`: validate Docker, lock-file completeness, and compose readiness
+- `up --build`: start the stack with local-source overrides when present
+
+`compose_smart.py status` will print the current mode for each private service:
+
+- `Pagevra`: local source or docker image
+- `Dualweave`: local source or docker image
+- `Ourograph`: local source or docker image
+
+Current default behavior:
+
+- Spectra reads `infra/stack-lock.develop.json` on non-`main` branches and `infra/stack-lock.main.json` on `main`
+- base compose consumes `.env.compose.lock`, not floating tags directly
+- if a local `pagevra/`, `dualweave/`, or `ourograph/` source checkout exists, `compose_smart.py` adds the matching override file and uses local source mode for that service
+- if a lock entry is still unpublished, `sync` and `doctor` fail explicitly instead of drifting to a floating tag
 
 The legacy shell wrapper `/Users/ln1/Projects/Spectra/scripts/compose-smart.sh`
 now forwards to the Python entrypoint for compatibility.

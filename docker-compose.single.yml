@@ -162,10 +162,7 @@ services:
         condition: service_healthy
 
   ourograph:
-    image: spectra-ourograph:deploy
-    build:
-      context: .
-      dockerfile: ourograph/Dockerfile
+    image: ${OUROGRAPH_IMAGE:?Run python3 ./scripts/compose_smart.py --channel main sync}
     restart: unless-stopped
     environment:
       DATABASE_URL: postgresql://spectra:spectra@postgres:5432/ourograph
@@ -197,7 +194,7 @@ services:
         condition: service_healthy
 
   pagevra:
-    image: ghcr.io/ln-one/pagevra:latest
+    image: ${PAGEVRA_IMAGE:?Run python3 ./scripts/compose_smart.py --channel main sync}
     restart: unless-stopped
     environment:
       PORT: "8090"

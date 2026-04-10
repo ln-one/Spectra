@@ -1,6 +1,6 @@
 services:
   dualweave:
-    image: ghcr.io/ln-one/dualweave-service:latest
+    image: ${DUALWEAVE_IMAGE:?Run python3 ./scripts/compose_smart.py sync --channel develop}
     env_file:
       - ./backend/.env
     ports:
@@ -60,7 +60,7 @@ services:
       - backend
 
   pagevra:
-    image: ghcr.io/ln-one/pagevra:dev
+    image: ${PAGEVRA_IMAGE:?Run python3 ./scripts/compose_smart.py sync --channel develop}
     ports:
       - "127.0.0.1:8090:8090"
     volumes:
@@ -96,10 +96,7 @@ services:
         condition: service_healthy
 
   ourograph:
-    image: spectra-ourograph:dev
-    build:
-      context: .
-      dockerfile: ourograph/Dockerfile
+    image: ${OUROGRAPH_IMAGE:?Run python3 ./scripts/compose_smart.py sync --channel develop}
     ports:
       - "127.0.0.1:8101:8101"
     volumes:

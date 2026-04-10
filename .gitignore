@@ -12,6 +12,7 @@ __pycache__/
 .env
 .env.local
 .env.*.local
+.env.compose.lock
 *.env
 
 # Build outputs

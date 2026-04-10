@@ -17,6 +17,9 @@ brew install --cask docker
 
 ### 1. 启动所有服务
 ```bash
+python3 ./scripts/compose_smart.py status
+python3 ./scripts/compose_smart.py sync --channel develop
+python3 ./scripts/compose_smart.py doctor
 python3 ./scripts/compose_smart.py up
 ```
 
@@ -44,14 +47,40 @@ python3 ./scripts/compose_smart.py down
 
 `Spectra` 默认使用镜像启动 `Dualweave` 和 `Pagevra`。如果你拥有对应私有仓库权限，
 可以初始化 submodule，`python3 ./scripts/compose_smart.py` 会自动切换到本地源码构建。
-这时本地 submodule 是优先真源，远端镜像只作为未初始化场景的 fallback。
+
+现在推荐先跑：
+
+```bash
+python3 ./scripts/compose_smart.py status
+```
+
+它会明确告诉你每个私有服务当前是：
+
+- `using locked image`
+- `using local source`
+
+然后显式同步当前通道的锁定镜像：
+
+```bash
+python3 ./scripts/compose_smart.py sync --channel develop
+python3 ./scripts/compose_smart.py doctor
+```
 
 ```bash
 git submodule update --init --recursive
 python3 ./scripts/compose_smart.py up --build
 ```
 
-如果没有这些私有仓库权限，也不需要额外处理；脚本会自动回退到镜像模式。
+如果没有 `Pagevra` / `Dualweave` / `Ourograph` 私有仓库权限，也不需要改 compose；只要对应镜像已经发布，`sync` 就会把锁定组合写入 `.env.compose.lock`。
+
+如果某个服务的共享镜像还没发布，`sync` / `doctor` 会直接失败并指出具体服务，而不会偷偷退回到浮动 tag。
+
+当前默认策略：
+
+- `Pagevra`: `develop -> dev`，`main -> latest`
+- `Dualweave`: `develop -> dev`，`main -> latest`
+- `Ourograph`: `develop -> dev`，`main -> latest`
+- Spectra 自己通过 `infra/stack-lock.<channel>.json` 决定“当前兼容的整套私有服务组合”
 
 ## 常用命令
 

@@ -1,0 +1,31 @@
+{
+  "channel": "develop",
+  "generated_at": "2026-04-10T00:00:00Z",
+  "updated_by": "codex",
+  "services": {
+    "pagevra": {
+      "image": "ghcr.io/ln-one/pagevra",
+      "tag": "dev",
+      "digest": "sha256:c9a847bc5a645ba399e5f0e1c4758753e297cebf469a2caa9df03e0ede24f327",
+      "source_branch": "develop",
+      "published": true,
+      "notes": "Pinned from GHCR public manifest on 2026-04-10."
+    },
+    "dualweave": {
+      "image": "ghcr.io/ln-one/dualweave-service",
+      "tag": "dev",
+      "digest": null,
+      "source_branch": "develop",
+      "published": false,
+      "notes": "The shared dev image is not published yet; run the new Dualweave publish workflow or use local source."
+    },
+    "ourograph": {
+      "image": "ghcr.io/ln-one/ourograph",
+      "tag": "dev",
+      "digest": null,
+      "source_branch": "develop",
+      "published": false,
+      "notes": "The shared dev image is not published yet; run the Ourograph publish workflow or use local source."
+    }
+  }
+}
