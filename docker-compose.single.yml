@@ -81,12 +81,16 @@ services:
       UPLOAD_DIR: /var/lib/spectra/uploads
       ARTIFACT_STORAGE_DIR: /var/lib/spectra/artifacts
       GENERATED_DIR: /var/lib/spectra/generated
+      PAGEVRA_ENABLED: "true"
       PAGEVRA_BASE_URL: http://pagevra:8090
       PAGEVRA_TIMEOUT_SECONDS: "180"
+      OUROGRAPH_ENABLED: "true"
       OUROGRAPH_BASE_URL: http://ourograph:8101
       OUROGRAPH_TIMEOUT_SECONDS: "30"
+      STRUCTRA_ENABLED: "true"
       STRUCTRA_BASE_URL: http://pagevra:8090
       STRUCTRA_TIMEOUT_SECONDS: "180"
+      RENDER_ENGINE_ENABLED: "true"
       RENDER_ENGINE_BASE_URL: http://pagevra:8090
       RENDER_ENGINE_TIMEOUT_SECONDS: "180"
       POSTGRES_BACKUP_DIR: /var/lib/spectra/backups
@@ -133,12 +137,16 @@ services:
       UPLOAD_DIR: /var/lib/spectra/uploads
       ARTIFACT_STORAGE_DIR: /var/lib/spectra/artifacts
       GENERATED_DIR: /var/lib/spectra/generated
+      PAGEVRA_ENABLED: "true"
       PAGEVRA_BASE_URL: http://pagevra:8090
       PAGEVRA_TIMEOUT_SECONDS: "180"
+      OUROGRAPH_ENABLED: "true"
       OUROGRAPH_BASE_URL: http://ourograph:8101
       OUROGRAPH_TIMEOUT_SECONDS: "30"
+      STRUCTRA_ENABLED: "true"
       STRUCTRA_BASE_URL: http://pagevra:8090
       STRUCTRA_TIMEOUT_SECONDS: "180"
+      RENDER_ENGINE_ENABLED: "true"
       RENDER_ENGINE_BASE_URL: http://pagevra:8090
       RENDER_ENGINE_TIMEOUT_SECONDS: "180"
       POSTGRES_BACKUP_DIR: /var/lib/spectra/backups
@@ -162,7 +170,7 @@ services:
         condition: service_healthy
 
   ourograph:
-    image: ${OUROGRAPH_IMAGE:?Run python3 ./scripts/compose_smart.py --channel main sync}
+    image: ${OUROGRAPH_IMAGE:?Run python3 ./scripts/compose_smart.py sync --channel main}
     restart: unless-stopped
     environment:
       DATABASE_URL: postgresql://spectra:spectra@postgres:5432/ourograph
@@ -194,7 +202,7 @@ services:
         condition: service_healthy
 
   pagevra:
-    image: ${PAGEVRA_IMAGE:?Run python3 ./scripts/compose_smart.py --channel main sync}
+    image: ${PAGEVRA_IMAGE:?Run python3 ./scripts/compose_smart.py sync --channel main}
     restart: unless-stopped
     environment:
       PORT: "8090"

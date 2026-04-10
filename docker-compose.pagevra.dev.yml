@@ -1,0 +1,29 @@
+# Pagevra local source development override
+# This file is used when ./pagevra directory exists (submodule initialized)
+services:
+  pagevra:
+    build:
+      context: ./pagevra
+      dockerfile: Dockerfile
+    ports:
+      - "127.0.0.1:8090:8090"
+    volumes:
+      - runtime_data:/var/lib/spectra
+    environment:
+      - PORT=8090
+      - CHROME_PATH=/usr/bin/chromium
+      - PAGEVRA_DISTRIBUTION=image
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:8090/health/ready').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+volumes:
+  runtime_data:

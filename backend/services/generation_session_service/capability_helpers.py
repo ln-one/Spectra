@@ -51,7 +51,8 @@ def resolve_template_config_from_options_dict(options: dict) -> dict:
     template = str(options.get("template") or "").strip().lower()
     if template in _CANONICAL_TEMPLATE_STYLES and "style" not in template_config:
         template_config["style"] = template
-    if template in _CANONICAL_TEMPLATE_STYLES and "template_id" not in template_config:
+    # Only set template_id for the 'teach' template style
+    if template == "teach" and "template_id" not in template_config:
         template_config["template_id"] = _TEACH_TEMPLATE_ID
     return template_config
 

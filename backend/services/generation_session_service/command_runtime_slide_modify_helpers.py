@@ -159,7 +159,7 @@ async def persist_modified_pptx_artifact(
     render_task_id = f"{task.id}-rv{render_version}"
     render_input = build_render_engine_input(
         {
-            "title": str(preview_payload.get("title") or "璇句欢棰勮"),
+            "title": str(preview_payload.get("title") or "课件预览"),
             "markdown_content": markdown_content,
             "lesson_plan_markdown": str(
                 preview_payload.get("lesson_plan_markdown") or ""

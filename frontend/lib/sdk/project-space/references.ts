@@ -1,12 +1,14 @@
 import { MOCK_MODE, sdkClient, unwrap, withIdempotency } from "./base";
 import { createMockReference } from "./mocks";
 import type {
-  ProjectReferenceRequest,
   ProjectReferenceResponse,
-  ProjectReferenceUpdateRequest,
   ProjectReferencesResponse,
   SimpleSuccessResponse,
 } from "./types";
+import type { components } from "@/lib/sdk/types";
+
+type ProjectReferenceRequest = components["schemas"]["ProjectReferenceRequest"];
+type ProjectReferenceUpdateRequest = components["schemas"]["ProjectReferenceUpdateRequest"];
 
 export async function getReferences(
   projectId: string
@@ -45,7 +47,7 @@ export async function createReference(
     "/api/v1/projects/{project_id}/references",
     {
       params: { path: { project_id: projectId } },
-      body: data as never,
+      body: data,
       headers,
     }
   );
@@ -75,7 +77,7 @@ export async function updateReference(
       params: {
         path: { project_id: projectId, reference_id: referenceId },
       },
-      body: data as never,
+      body: data,
     }
   );
   return await unwrap<ProjectReferenceResponse>(result);

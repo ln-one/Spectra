@@ -105,12 +105,23 @@ async def load_rag_context(
 
         selected_uploads_task = None
         if requested_source_ids:
-            selected_uploads_task = db_service.db.upload.find_many(
-                where={
-                    "projectId": project_id,
-                    "id": {"in": requested_source_ids},
-                },
-            )
+            # Try to select only required fields for performance
+            try:
+                selected_uploads_task = db_service.db.upload.find_many(
+                    where={
+                        "projectId": project_id,
+                        "id": {"in": requested_source_ids},
+                    },
+                    select={"id": True, "filename": True, "status": True},
+                )
+            except TypeError:
+                # Fallback if select is not supported
+                selected_uploads_task = db_service.db.upload.find_many(
+                    where={
+                        "projectId": project_id,
+                        "id": {"in": requested_source_ids},
+                    },
+                )
 
         rag_search_task = _search_rag_with_timeout(
             rag_service=_rag,

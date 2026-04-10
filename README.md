@@ -6,11 +6,11 @@ Spectra is a multimodal AI teaching workspace for real instructional workflows: 
 
 The repository has completed its first major structural convergence:
 
-- frontend APIs are unified in `/Users/ln1/Projects/Spectra/frontend/lib/sdk`
+- frontend APIs are unified in `frontend/lib/sdk`
 - large backend routers and services have been refactored into folder-as-module packages
-- FastAPI application assembly has moved into `/Users/ln1/Projects/Spectra/backend/app_setup/`
+- FastAPI application assembly has moved into `backend/app_setup/`
 - `services/` now follows clearer partitions such as `application`, `generation`, `media`, and `platform`
-- the architecture guard is active at `/Users/ln1/Projects/Spectra/backend/scripts/architecture_guard.py`
+- the architecture guard is active at `backend/scripts/architecture_guard.py`
 
 ## Quick Entry Points
 
@@ -28,18 +28,18 @@ The repository has completed its first major structural convergence:
 
 ### Frontend
 
-- `/Users/ln1/Projects/Spectra/frontend/app/`: page entrypoints
-- `/Users/ln1/Projects/Spectra/frontend/components/`: UI components
-- `/Users/ln1/Projects/Spectra/frontend/lib/sdk/`: unified API SDK
-- `/Users/ln1/Projects/Spectra/frontend/stores/`: state management
+- `frontend/app/`: page entrypoints
+- `frontend/components/`: UI components
+- `frontend/lib/sdk/`: unified API SDK
+- `frontend/stores/`: state management
 
 ### Backend
 
-- `/Users/ln1/Projects/Spectra/backend/routers/`: HTTP entry layer
-- `/Users/ln1/Projects/Spectra/backend/services/`: business and infrastructure capabilities
-- `/Users/ln1/Projects/Spectra/backend/app_setup/`: FastAPI application assembly
-- `/Users/ln1/Projects/Spectra/backend/schemas/`: request/response models
-- `/Users/ln1/Projects/Spectra/backend/tests/`: backend tests
+- `backend/routers/`: HTTP entry layer
+- `backend/services/`: business and infrastructure capabilities
+- `backend/app_setup/`: FastAPI application assembly
+- `backend/schemas/`: request/response models
+- `backend/tests/`: backend tests
 
 ## Local Development
 
@@ -52,12 +52,12 @@ python3 ./scripts/compose_smart.py doctor
 python3 ./scripts/compose_smart.py up --build
 ```
 
-For more detail, see `/Users/ln1/Projects/Spectra/docs/guides/docker-setup.md`.
-Runtime configuration should come from `/Users/ln1/Projects/Spectra/backend/.env`, using `/Users/ln1/Projects/Spectra/backend/.env.example` as the template.
+For more detail, see `docs/guides/docker-setup.md`.
+Runtime configuration should come from `backend/.env`, using `backend/.env.example` as the template.
 
 Dualweave is consumed as a Docker service in two modes:
 
-- default/team mode: `/Users/ln1/Projects/Spectra/docker-compose.yml` pulls `ghcr.io/ln-one/dualweave-service:latest`
+- default/team mode: `docker-compose.yml` pulls `ghcr.io/ln-one/dualweave-service:latest`
 - authorized maintainer mode: initialize the `dualweave` submodule and let `python3 ./scripts/compose_smart.py` switch Dualweave to a local source build automatically
 
 ```bash
@@ -110,7 +110,7 @@ Current default behavior:
 - if a local `pagevra/`, `dualweave/`, or `ourograph/` source checkout exists, `compose_smart.py` adds the matching override file and uses local source mode for that service
 - if a lock entry is still unpublished, `sync` and `doctor` fail explicitly instead of drifting to a floating tag
 
-The legacy shell wrapper `/Users/ln1/Projects/Spectra/scripts/compose-smart.sh`
+The legacy shell wrapper `scripts/compose-smart.sh`
 now forwards to the Python entrypoint for compatibility.
 
 ### Backend
@@ -133,9 +133,9 @@ npm run dev
 
 ## Read These First
 
-1. `/Users/ln1/Projects/Spectra/docs/project/SYSTEM_PHILOSOPHY_2026-03-19.md`
-2. `/Users/ln1/Projects/Spectra/docs/standards/backend.md`
-3. `/Users/ln1/Projects/Spectra/docs/standards/frontend.md`
-4. `/Users/ln1/Projects/Spectra/AGENTS.md`
-5. `/Users/ln1/Projects/Spectra/backend/scripts/architecture_guard.py`
-6. `/Users/ln1/Projects/Spectra/docs/remaining-work-battle-plan.md`
+1. `docs/project/SYSTEM_PHILOSOPHY_2026-03-19.md`
+2. `docs/standards/backend.md`
+3. `docs/standards/frontend.md`
+4. `AGENTS.md`
+5. `backend/scripts/architecture_guard.py`
+6. `docs/remaining-work-battle-plan.md`

@@ -292,7 +292,6 @@ async def execute_generation_task(
                         stage="slide_generated",
                         slide_id=slide_id,
                         slide_index=index,
-                        slide_payload=page_payload,
                         partial=True,
                         final=False,
                     ),

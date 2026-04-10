@@ -157,7 +157,7 @@ python3 ./scripts/compose_smart.py build backend
 
 兼容说明：
 
-- `/Users/ln1/Projects/Spectra/scripts/compose-smart.sh` 仍然保留，但现在只是转发到 Python 入口
+- `scripts/compose-smart.sh` 仍然保留，但现在只是转发到 Python 入口
 - Windows 用户可以直接运行 `python scripts/compose_smart.py ...`
 
 ## 优势

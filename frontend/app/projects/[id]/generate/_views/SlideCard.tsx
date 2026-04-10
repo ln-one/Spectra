@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { Edit3, Loader2 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import DOMPurify from "isomorphic-dompurify";
 import { cn } from "@/lib/utils";
 import type { components } from "@/lib/sdk/types";
 
@@ -271,7 +272,22 @@ export function SlideCard({
                   <div
                     className="max-w-none text-zinc-900"
                     dangerouslySetInnerHTML={{
-                      __html: slide.rendered_html_preview ?? "",
+                      __html: DOMPurify.sanitize(slide.rendered_html_preview ?? "", {
+                        ALLOWED_TAGS: [
+                          "p", "br", "strong", "b", "em", "i", "u", "s", "del",
+                          "h1", "h2", "h3", "h4", "h5", "h6",
+                          "ul", "ol", "li",
+                          "blockquote", "code", "pre",
+                          "a", "span", "div",
+                          "table", "thead", "tbody", "tr", "th", "td",
+                          "img"
+                        ],
+                        ALLOWED_ATTR: [
+                          "href", "title", "target", "rel",
+                          "src", "alt", "width", "height",
+                          "class", "id", "style"
+                        ]
+                      }),
                     }}
                   />
                 </div>

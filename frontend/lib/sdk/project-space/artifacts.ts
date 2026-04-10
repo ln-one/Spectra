@@ -1,10 +1,9 @@
 import { MOCK_MODE, apiFetch, sdkClient, toApiError, unwrap } from "./base";
 import { createMockArtifacts } from "./mocks";
-import type {
-  ArtifactCreateRequest,
-  ArtifactResponse,
-  ArtifactsResponse,
-} from "./types";
+import type { ArtifactResponse, ArtifactsResponse } from "./types";
+import type { components } from "@/lib/sdk/types";
+
+type ArtifactCreateRequest = components["schemas"]["ArtifactCreateRequest"];
 
 export async function getArtifacts(
   projectId: string,
@@ -76,7 +75,7 @@ export async function createArtifact(
     "/api/v1/projects/{project_id}/artifacts",
     {
       params: { path: { project_id: projectId } },
-      body: data as never,
+      body: data,
     }
   );
   return await unwrap<ArtifactResponse>(result);

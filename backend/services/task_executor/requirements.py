@@ -43,9 +43,17 @@ async def build_user_requirements(
 
     if rag_source_ids:
         try:
-            selected_uploads = await db_service.db.upload.find_many(
-                where={"projectId": project_id, "id": {"in": rag_source_ids}},
-            )
+            # Try to select only required fields for performance
+            try:
+                selected_uploads = await db_service.db.upload.find_many(
+                    where={"projectId": project_id, "id": {"in": rag_source_ids}},
+                    select={"filename": True, "status": True},
+                )
+            except TypeError:
+                # Fallback if select is not supported
+                selected_uploads = await db_service.db.upload.find_many(
+                    where={"projectId": project_id, "id": {"in": rag_source_ids}},
+                )
         except Exception as exc:
             logger.warning(
                 "Failed to resolve selected uploads for requirements: %s",

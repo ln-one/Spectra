@@ -1,11 +1,13 @@
 import { MOCK_MODE, sdkClient, unwrap } from "./base";
 import { createMockCandidateChange } from "./mocks";
 import type {
-  CandidateChangeRequest,
   CandidateChangeResponse,
-  CandidateChangeReviewRequest,
   CandidateChangesResponse,
 } from "./types";
+import type { components } from "@/lib/sdk/types";
+
+type CandidateChangeRequest = components["schemas"]["CandidateChangeRequest"];
+type CandidateChangeReviewRequest = components["schemas"]["CandidateChangeReviewRequest"];
 
 export async function getCandidateChanges(
   projectId: string,
@@ -46,7 +48,7 @@ export async function createCandidateChange(
     "/api/v1/projects/{project_id}/candidate-changes",
     {
       params: { path: { project_id: projectId } },
-      body: data as never,
+      body: data,
     }
   );
   return await unwrap<CandidateChangeResponse>(result);
@@ -71,7 +73,7 @@ export async function reviewCandidateChange(
     "/api/v1/projects/{project_id}/candidate-changes/{change_id}/review",
     {
       params: { path: { project_id: projectId, change_id: changeId } },
-      body: data as never,
+      body: data,
     }
   );
   return await unwrap<CandidateChangeResponse>(result);

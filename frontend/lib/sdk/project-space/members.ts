@@ -8,12 +8,14 @@ import {
 } from "./base";
 import { createMockMember } from "./mocks";
 import type {
-  ProjectMemberRequest,
   ProjectMemberResponse,
-  ProjectMemberUpdateRequest,
   ProjectMembersResponse,
   SimpleSuccessResponse,
 } from "./types";
+import type { components } from "@/lib/sdk/types";
+
+type ProjectMemberRequest = components["schemas"]["ProjectMemberRequest"];
+type ProjectMemberUpdateRequest = components["schemas"]["ProjectMemberUpdateRequest"];
 
 export async function getMembers(
   projectId: string
@@ -47,7 +49,7 @@ export async function addMember(
   const headers = withIdempotency({}, true);
   const result = await sdkClient.POST("/api/v1/projects/{project_id}/members", {
     params: { path: { project_id: projectId } },
-    body: data as never,
+    body: data,
     headers,
   });
   return await unwrap<ProjectMemberResponse>(result);
@@ -73,7 +75,7 @@ export async function updateMember(
     "/api/v1/projects/{project_id}/members/{member_id}",
     {
       params: { path: { project_id: projectId, member_id: memberId } },
-      body: data as never,
+      body: data,
       headers,
     }
   );

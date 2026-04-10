@@ -106,11 +106,34 @@ async def schedule_outline_draft_task(
             )
             return
         except Exception as enqueue_err:
-            raise RuntimeError(
-                "Failed to enqueue outline draft task: "
-                f"{type(enqueue_err).__name__}: {enqueue_err}"
-            ) from enqueue_err
+            error_msg = f"Failed to enqueue outline draft task: {type(enqueue_err).__name__}: {enqueue_err}"
+            await _safe_append_dispatch_event(
+                append_event,
+                session_id=session_id,
+                event_type=GenerationEventType.STATE_CHANGED.value,
+                state=GenerationState.FAILED.value,
+                state_reason="outline_draft_dispatch_failed",
+                payload={
+                    "dispatch": "rq",
+                    "error": error_msg,
+                    "queue_health": availability["status"],
+                },
+            )
+            raise RuntimeError(error_msg) from enqueue_err
 
+    # Queue unavailable - emit failure event before raising
+    await _safe_append_dispatch_event(
+        append_event,
+        session_id=session_id,
+        event_type=GenerationEventType.STATE_CHANGED.value,
+        state=GenerationState.FAILED.value,
+        state_reason="outline_draft_queue_unavailable",
+        payload={
+            "dispatch": "rq",
+            "error": "Queue unavailable",
+            "queue_health": availability.get("status", "unknown"),
+        },
+    )
     raise RuntimeError(
         "Outline draft task queue unavailable"
         if task_queue_service is None
