@@ -3,7 +3,6 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from services.rag_service import retrieval
 from services.rag_service.retrieval import search
 from services.stratumind_client import StratumindClientError
 
@@ -118,28 +117,20 @@ async def test_search_combines_selected_file_filter_with_session_overlay(monkeyp
 @pytest.mark.asyncio
 async def test_search_includes_base_reference_after_local_content(monkeypatch):
     service = SimpleNamespace(_client=_StubClient())
-
-    async def _fake_get_project_references(*, project_id, user_id):
-        assert project_id == "p-001"
-        assert user_id == "u-1"
-        return [
-            SimpleNamespace(
-                targetProjectId="p-base",
-                relationType="base",
-                mode="follow",
-                priority=0,
-                pinnedVersionId=None,
-            )
-        ]
-
     monkeypatch.setattr(
-        retrieval.db_service,
-        "get_project",
-        AsyncMock(return_value=SimpleNamespace(userId="u-1")),
-    )
-    monkeypatch.setattr(
-        "services.project_space_service.project_space_service.get_project_references",
-        _fake_get_project_references,
+        "services.rag_service.retrieval.list_active_reference_targets",
+        AsyncMock(
+            return_value=[
+                {
+                    "source_project_id": "p-base",
+                    "source_scope": "reference_base",
+                    "relation_type": "base",
+                    "reference_mode": "follow",
+                    "reference_priority": 0,
+                    "pinned_version_id": None,
+                }
+            ]
+        ),
     )
 
     results = await search(service, project_id="p-001", query="生成课件", top_k=5)
@@ -155,21 +146,17 @@ async def test_search_skips_missing_reference_indexes(monkeypatch):
     service = SimpleNamespace(_client=client)
 
     monkeypatch.setattr(
-        retrieval.db_service,
-        "get_project",
-        AsyncMock(return_value=SimpleNamespace(userId="u-1")),
-    )
-    monkeypatch.setattr(
-        "services.project_space_service.project_space_service.get_project_references",
+        "services.rag_service.retrieval.list_active_reference_targets",
         AsyncMock(
             return_value=[
-                SimpleNamespace(
-                    targetProjectId="p-missing",
-                    relationType="auxiliary",
-                    mode="follow",
-                    priority=1,
-                    pinnedVersionId=None,
-                )
+                {
+                    "source_project_id": "p-missing",
+                    "source_scope": "reference_auxiliary",
+                    "relation_type": "auxiliary",
+                    "reference_mode": "follow",
+                    "reference_priority": 1,
+                    "pinned_version_id": None,
+                }
             ]
         ),
     )
