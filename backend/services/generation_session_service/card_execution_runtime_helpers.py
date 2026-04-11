@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import json
 
@@ -109,6 +109,27 @@ async def load_artifact_content(artifact) -> dict:
         snapshot = metadata.get("content_snapshot")
         if isinstance(snapshot, dict):
             return snapshot
+        render_spec = metadata.get("render_spec")
+        scenes = []
+        if isinstance(render_spec, dict):
+            raw_scenes = render_spec.get("scenes")
+            if isinstance(raw_scenes, list):
+                scenes = [dict(item) for item in raw_scenes if isinstance(item, dict)]
+        return {
+            "kind": "animation_storyboard",
+            "format": str(metadata.get("format") or "gif").strip().lower() or "gif",
+            "title": str(metadata.get("title") or "教学动画").strip(),
+            "summary": str(metadata.get("summary") or "").strip(),
+            "topic": str(metadata.get("topic") or "").strip(),
+            "scene": str(metadata.get("scene") or "").strip(),
+            "duration_seconds": metadata.get("duration_seconds") or 6,
+            "rhythm": str(metadata.get("rhythm") or "balanced").strip() or "balanced",
+            "focus": str(metadata.get("focus") or "").strip(),
+            "visual_type": str(metadata.get("visual_type") or "").strip(),
+            "scenes": scenes,
+            "render_spec": render_spec if isinstance(render_spec, dict) else {},
+            "placements": list(metadata.get("placements") or []),
+        }
     storage_path = getattr(artifact, "storagePath", None)
     if not storage_path:
         return {}
@@ -200,3 +221,4 @@ async def validate_simulator_turn_artifact(
             message="当前成果不是 classroom_qa_simulator 类型",
         )
     return artifact
+
