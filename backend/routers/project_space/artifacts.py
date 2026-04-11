@@ -234,7 +234,14 @@ async def download_artifact(
             },
         )
         return FileResponse(
-            path=str(file_path), media_type=media_type, filename=filename
+            path=str(file_path),
+            media_type=media_type,
+            filename=filename,
+            headers={
+                "Cache-Control": "no-store, no-cache, must-revalidate",
+                "Pragma": "no-cache",
+                "Expires": "0",
+            },
         )
     except (NotFoundException, Exception) as exc:
         logger.error(f"download_artifact error: {exc}")

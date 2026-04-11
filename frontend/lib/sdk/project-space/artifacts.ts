@@ -104,8 +104,16 @@ export async function downloadArtifact(
       { type: "application/json;charset=utf-8" }
     );
   }
+  const cacheBust = `t=${Date.now()}`;
   const response = await apiFetch(
-    `/api/v1/projects/${encodeURIComponent(projectId)}/artifacts/${encodeURIComponent(artifactId)}/download`
+    `/api/v1/projects/${encodeURIComponent(projectId)}/artifacts/${encodeURIComponent(artifactId)}/download?${cacheBust}`,
+    {
+      cache: "no-store",
+      headers: {
+        "Cache-Control": "no-cache",
+        Pragma: "no-cache",
+      },
+    }
   );
   if (!response.ok) {
     let payload: unknown = { message: "下载工件失败" };

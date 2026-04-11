@@ -11,6 +11,12 @@ const REQUEST_TIMEOUT_MS = Number(
 const CHAT_REQUEST_TIMEOUT_MS = Number(
   process.env.NEXT_PUBLIC_CHAT_TIMEOUT_MS ?? 90000
 );
+const PREVIEW_REQUEST_TIMEOUT_MS = Number(
+  process.env.NEXT_PUBLIC_PREVIEW_TIMEOUT_MS ?? 90000
+);
+const STUDIO_EXECUTE_REQUEST_TIMEOUT_MS = Number(
+  process.env.NEXT_PUBLIC_STUDIO_EXECUTE_TIMEOUT_MS ?? 180000
+);
 
 function generateUuidFallback(): string {
   const template = "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx";
@@ -136,6 +142,18 @@ function resolveTimeoutMs(request: Request): number {
   const pathname = normalizePath(request.url);
   if (request.method === "POST" && pathname === "/api/v1/chat/messages") {
     return CHAT_REQUEST_TIMEOUT_MS;
+  }
+  if (
+    request.method === "POST" &&
+    /^\/api\/v1\/generate\/studio-cards\/[^/]+\/execute$/.test(pathname)
+  ) {
+    return STUDIO_EXECUTE_REQUEST_TIMEOUT_MS;
+  }
+  if (
+    request.method === "GET" &&
+    /^\/api\/v1\/generate\/sessions\/[^/]+\/preview$/.test(pathname)
+  ) {
+    return PREVIEW_REQUEST_TIMEOUT_MS;
   }
   return REQUEST_TIMEOUT_MS;
 }
