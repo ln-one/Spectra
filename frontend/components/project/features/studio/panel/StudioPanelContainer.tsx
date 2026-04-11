@@ -696,16 +696,26 @@ export function StudioPanelContainer({
           page_numbers: payload.pageNumbers,
           slot: payload.slot,
         });
-        if (activeSessionId) {
-          await fetchArtifactHistory(project.id, activeSessionId);
+        const responseData =
+          (response?.data as Record<string, unknown> | undefined) ?? null;
+        const pptArtifact =
+          responseData &&
+          typeof responseData.ppt_artifact === "object" &&
+          responseData.ppt_artifact
+            ? (responseData.ppt_artifact as Record<string, unknown>)
+            : null;
+        const refreshSessionId =
+          (typeof pptArtifact?.session_id === "string" &&
+            pptArtifact.session_id.trim()) ||
+          activeSessionId;
+        if (refreshSessionId) {
+          await fetchArtifactHistory(project.id, refreshSessionId);
         }
         toast({
           title: "已记录插入关系",
           description: "动画仍保持独立 artifact，不会自动回写已插入页面。",
         });
-        return (
-          (response?.data as Record<string, unknown> | undefined) ?? null
-        );
+        return responseData;
       } catch (error) {
         toast({
           title: "记录插入关系失败",

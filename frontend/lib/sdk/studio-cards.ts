@@ -265,9 +265,13 @@ export const studioCardsApi = {
 
   async getSources(
     cardId: string,
-    projectId: string
+    projectId: string,
+    sessionId?: string | null
   ): Promise<ApiEnvelope<{ sources: StudioCardSourceArtifact[] }>> {
     const params = new URLSearchParams({ project_id: projectId });
+    if (sessionId?.trim()) {
+      params.set("session_id", sessionId.trim());
+    }
     const response = await apiFetch(
       `/api/v1/generate/studio-cards/${encodeURIComponent(cardId)}/sources?${params.toString()}`
     );
@@ -344,6 +348,7 @@ export const studioCardsApi = {
       ApiEnvelope<{
         placements: Record<string, unknown>[];
         artifact: Record<string, unknown>;
+        ppt_artifact?: Record<string, unknown>;
       }>
     >(response, "记录动画插入关系失败");
   },
