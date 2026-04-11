@@ -230,6 +230,8 @@ _HTML_TEMPLATE = """<!doctype html>
     function renderChip(x, y, text, fill, stroke, textColor) {
       const chipText = splitTextLines(text, 12, 1)[0] || "";
       const width = Math.max(120, Math.min(240, chipText.length * 14 + 32));
+      const revealTrack = 124 + progress * 560;
+      const reviewProgress = 132 + progress * 332;
       return `
         <g transform="translate(${x}, ${y})">
           <rect width="${width}" height="36" rx="18" fill="${fill}" stroke="${stroke}" />
@@ -243,23 +245,26 @@ _HTML_TEMPLATE = """<!doctype html>
     }
 
     function getSceneMotion(scene, sceneProgress, phase = "steady") {
-      const transition = String(scene?.transition || "fade");
-      const enter = easeOutCubic(clamp(sceneProgress / 0.22, 0, 1));
-      const leave = easeOutCubic(clamp((1 - sceneProgress) / 0.22, 0, 1));
+      const transition = resolveTransitionStyle(scene);
+      const enter = easeOutCubic(clamp(sceneProgress / 0.18, 0, 1));
+      const leave = easeOutCubic(clamp((1 - sceneProgress) / 0.18, 0, 1));
       const blend = phase === "enter" ? enter : (phase === "exit" ? leave : 1);
-      const opacity = phase === "steady" ? 1 : (0.7 + 0.3 * blend);
-      if (transition === "slide") {
-        const shiftDistance = 72;
+      const opacity = phase === "steady" ? 1 : (0.72 + 0.28 * blend);
+      if (transition === "cut") {
+        return { opacity: phase === "steady" ? 1 : (blend > 0.92 ? 1 : 0), offsetX: 0, scale: 1 };
+      }
+      if (transition === "soft_wipe") {
+        const shiftDistance = 22;
         const shift = phase === "enter"
           ? (1 - blend) * shiftDistance
           : (phase === "exit" ? -(1 - blend) * shiftDistance : 0);
         return { opacity, offsetX: shift, scale: 1 };
       }
-      if (transition === "zoom") {
-        const scale = phase === "steady" ? 1 : 0.985 + 0.015 * blend;
+      if (transition === "dissolve") {
+        const scale = phase === "steady" ? 1 : 0.996 + 0.004 * blend;
         const subtleShift = phase === "enter"
-          ? (1 - blend) * 28
-          : (phase === "exit" ? -(1 - blend) * 28 : 0);
+          ? (1 - blend) * 10
+          : (phase === "exit" ? -(1 - blend) * 10 : 0);
         return { opacity, offsetX: subtleShift, scale };
       }
       if (transition === "shutter" || transition === "blinds") {
@@ -267,13 +272,13 @@ _HTML_TEMPLATE = """<!doctype html>
       }
       if (transition === "wipe") {
         const shift = phase === "enter"
-          ? (1 - blend) * 48
-          : (phase === "exit" ? -(1 - blend) * 48 : 0);
+          ? (1 - blend) * 14
+          : (phase === "exit" ? -(1 - blend) * 14 : 0);
         return { opacity, offsetX: shift, scale: 1 };
       }
       const fadeShift = phase === "enter"
-        ? (1 - blend) * 24
-        : (phase === "exit" ? -(1 - blend) * 24 : 0);
+        ? (1 - blend) * 8
+        : (phase === "exit" ? -(1 - blend) * 8 : 0);
       return { opacity, offsetX: fadeShift, scale: 1 };
     }
 
@@ -359,40 +364,48 @@ _HTML_TEMPLATE = """<!doctype html>
           ? easeOutCubic(clamp(1 - sceneProgress, 0, 1))
           : easeInOutCubic(clamp(sceneProgress, 0, 1)));
       const target = resolveSceneTarget(spec, scene, sceneIndex, sceneCount, sceneProgress);
-      const drift = Math.sin((sceneProgress + sceneIndex * 0.17) * Math.PI) * 10;
       const lockStrength = {
-        wide: 0.18,
-        medium: 0.34,
-        close: 0.62,
-        track_left: 0.52,
-        track_right: 0.52,
-        zoom_in: 0.58,
-        zoom_out: 0.22,
+        wide: 0.16,
+        medium: 0.3,
+        close: 0.56,
+        track_left: 0.46,
+        track_right: 0.46,
+        zoom_in: 0.54,
+        zoom_out: 0.2,
       }[camera] || 0.3;
       const lockX = (480 - target.x) * lockStrength;
       const lockY = (318 - target.y) * lockStrength;
+      const travel = easeInOutCubic(clamp(sceneProgress, 0, 1));
       if (camera === "wide") {
-        return { offsetX: lockX, offsetY: lockY - 6 + drift * 0.16, scale: 0.9 + blend * 0.04 };
+        return { offsetX: lockX * 0.88, offsetY: lockY * 0.82 - 4, scale: 0.84 + blend * 0.03 };
       }
       if (camera === "medium") {
-        return { offsetX: lockX, offsetY: lockY - 8 + drift * 0.2, scale: 0.98 + blend * 0.05 };
+        return { offsetX: lockX, offsetY: lockY - 6, scale: 0.97 + blend * 0.04 };
       }
       if (camera === "close") {
-        return { offsetX: lockX, offsetY: lockY - 10 + drift * 0.22, scale: 1.06 + blend * 0.08 };
+        return { offsetX: lockX * 1.06, offsetY: lockY - 8, scale: 1.12 + blend * 0.06 };
       }
       if (camera === "track_left") {
-        return { offsetX: lockX + 42 - blend * 56, offsetY: lockY - 5 + drift * 0.18, scale: 1.02 + blend * 0.05 };
+        return {
+          offsetX: lockX + 28 - travel * 42,
+          offsetY: lockY - 5,
+          scale: 1.06 + blend * 0.04,
+        };
       }
       if (camera === "track_right") {
-        return { offsetX: lockX - 42 + blend * 56, offsetY: lockY - 5 + drift * 0.18, scale: 1.02 + blend * 0.05 };
+        return {
+          offsetX: lockX - 28 + travel * 42,
+          offsetY: lockY - 5,
+          scale: 1.06 + blend * 0.04,
+        };
       }
       if (camera === "zoom_in") {
-        return { offsetX: lockX, offsetY: lockY - 8 + drift * 0.22, scale: 1.02 + blend * 0.1 };
+        return { offsetX: lockX, offsetY: lockY - 6, scale: 1.04 + blend * 0.1 };
       }
       if (camera === "zoom_out") {
-        return { offsetX: lockX, offsetY: lockY - 6 + drift * 0.16, scale: 1.08 - blend * 0.12 };
+        return { offsetX: lockX * 0.82, offsetY: lockY * 0.86 - 4, scale: 1.08 - blend * 0.18 };
       }
-      return { offsetX: lockX, offsetY: lockY - 6 + drift * 0.18, scale: 1 + blend * 0.05 };
+      return { offsetX: lockX, offsetY: lockY - 5, scale: 1 + blend * 0.04 };
     }
 
     function wrapSceneBody(body, spec, scene, sceneIndex, sceneCount, sceneProgress, options = {}) {
@@ -685,7 +698,7 @@ _HTML_TEMPLATE = """<!doctype html>
       const nodeChips = sceneNodes.slice(0, 4).map((item, index) =>
         renderChip(
           118 + index * 186,
-          404,
+          404 + (index % 2 === 0 ? Math.sin((progress + index * 0.12) * Math.PI) * 8 : 0),
           item.title || `步骤 ${index + 1}`,
           withAlpha(theme.panel, 0.22),
           withAlpha(theme.panel, 0.58),
@@ -708,6 +721,9 @@ _HTML_TEMPLATE = """<!doctype html>
             maxLines: 2,
             fontWeight: 600,
           })}
+          <line x1="124" y1="384" x2="808" y2="384" stroke="${withAlpha(theme.panel, 0.28)}" stroke-width="4" stroke-linecap="round" />
+          <line x1="124" y1="384" x2="${revealTrack}" y2="384" stroke="${withAlpha(theme.highlight, 0.72)}" stroke-width="6" stroke-linecap="round" />
+          <circle cx="${revealTrack}" cy="384" r="10" fill="${theme.highlight}" stroke="${withAlpha(theme.panel, 0.85)}" stroke-width="2.5" />
           ${nodeChips}
         </g>
       `;
@@ -813,7 +829,8 @@ _HTML_TEMPLATE = """<!doctype html>
       const directionLeftToRight = sceneIndex % 2 === 0;
       const laneStartX = directionLeftToRight ? 250 : 710;
       const laneEndX = directionLeftToRight ? 710 : 250;
-      const packetX = lerp(laneStartX, laneEndX, easeInOutCubic(progress));
+      const travel = easeInOutCubic(progress);
+      const packetX = lerp(laneStartX, laneEndX, travel);
       const laneY = 328;
       const bullets = resolveBullets(scene, spec, 1);
       if (focusVariant === "storyboard") {
@@ -887,8 +904,12 @@ _HTML_TEMPLATE = """<!doctype html>
           </text>
           <line x1="244" y1="${laneY}" x2="716" y2="${laneY}" stroke="${withAlpha(theme.accent, 0.42)}" stroke-width="6" stroke-linecap="round" />
           <line x1="244" y1="${laneY}" x2="716" y2="${laneY}" stroke="${withAlpha(theme.highlight, 0.55)}" stroke-width="2.8" stroke-linecap="round" stroke-dasharray="18 14" stroke-dashoffset="${(1 - progress) * 42}" />
+          ${renderMotionTrail(laneStartX, laneEndX, laneY, travel, theme.highlight, 4)}
+          <rect x="${directionLeftToRight ? 90 : 606}" y="204" width="264" height="232" rx="24" fill="${withAlpha(directionLeftToRight ? theme.panel_alt : theme.highlight, 0.06 + travel * 0.12)}" />
+          <rect x="${directionLeftToRight ? 606 : 90}" y="204" width="264" height="232" rx="24" fill="${withAlpha(directionLeftToRight ? theme.highlight : theme.panel_alt, 0.04 + travel * 0.08)}" />
           <circle cx="${packetX}" cy="${laneY}" r="34" fill="${withAlpha(theme.highlight, 0.12)}" />
           <circle cx="${packetX}" cy="${laneY}" r="12" fill="${theme.highlight}" stroke="${withAlpha(theme.accent_deep, 0.72)}" stroke-width="3" />
+          <circle cx="${packetX}" cy="${laneY}" r="${18 + Math.sin(progress * Math.PI * 2) * 3}" fill="none" stroke="${withAlpha(theme.highlight, 0.26)}" stroke-width="3" />
           <path d="${directionLeftToRight ? "M 686 318 L 716 328 L 686 338" : "M 274 318 L 244 328 L 274 338"}" fill="none" stroke="${theme.accent_deep}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" />
           <text x="480" y="298" text-anchor="middle" font-family="__FONT_FAMILY_STACK__" font-size="24" font-weight="800" fill="${theme.text}">
             ${escapeHtml(scene.title || `步骤 ${sceneIndex + 1}`)}
@@ -1066,6 +1087,7 @@ _HTML_TEMPLATE = """<!doctype html>
         const y = 388 - value * 182;
         return `${index === 0 ? "M" : "L"} ${x} ${y}`;
       }).join(" ");
+      const activeSweepX = 128 + clamp(progress, 0, 1) * 390;
       const dots = points.map((value, index) => {
         const x = 128 + index * 130;
         const y = 388 - value * 182;
@@ -1102,6 +1124,7 @@ _HTML_TEMPLATE = """<!doctype html>
             <rect x="96" y="206" width="468" height="208" rx="24" fill="${withAlpha(theme.panel_alt, 0.72)}" />
             <line x1="128" y1="238" x2="128" y2="392" stroke="${theme.grid}" stroke-width="4" />
             <line x1="128" y1="392" x2="532" y2="392" stroke="${theme.grid}" stroke-width="4" />
+            <rect x="${activeSweepX - 26}" y="220" width="52" height="176" rx="20" fill="${withAlpha(theme.highlight, 0.08)}" />
             <path d="${path}" fill="none" stroke="${theme.accent}" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" />
             ${dots}
             <rect x="602" y="206" width="258" height="208" rx="28" fill="${withAlpha(theme.highlight, 0.10)}" stroke="${withAlpha(theme.highlight, 0.25)}" />
@@ -1126,6 +1149,7 @@ _HTML_TEMPLATE = """<!doctype html>
         const activeIndex = Math.min(points.length - 1, Math.floor(progress * points.length));
         const zoomX = 128 + activeIndex * 130;
         const zoomY = 388 - points[activeIndex] * 182;
+        const scanX = 124 + progress * 330;
         return `
           <g>
             <rect x="64" y="176" width="832" height="284" rx="32" fill="${theme.panel}" stroke="${withAlpha(theme.accent, 0.20)}" />
@@ -1137,6 +1161,7 @@ _HTML_TEMPLATE = """<!doctype html>
               ${dots}
               <circle cx="${zoomX}" cy="${zoomY}" r="42" fill="${withAlpha(theme.highlight, 0.18)}" />
               <circle cx="${zoomX}" cy="${zoomY}" r="24" fill="none" stroke="${withAlpha(theme.highlight, 0.9)}" stroke-width="4" />
+              <rect x="${scanX}" y="220" width="26" height="176" rx="12" fill="${withAlpha(theme.highlight, 0.1)}" />
             </g>
             <rect x="520" y="200" width="340" height="232" rx="28" fill="${withAlpha(theme.highlight, 0.10)}" stroke="${withAlpha(theme.highlight, 0.26)}" />
             <text x="556" y="236" font-family="__FONT_FAMILY_STACK__" font-size="22" font-weight="800" fill="${theme.text}">
@@ -1164,6 +1189,8 @@ _HTML_TEMPLATE = """<!doctype html>
           <rect x="98" y="208" width="436" height="220" rx="28" fill="${withAlpha(theme.accent, 0.86)}" />
           <path d="${path}" fill="none" stroke="${withAlpha(theme.panel, 0.92)}" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" />
           ${dots}
+          <line x1="132" y1="404" x2="492" y2="404" stroke="${withAlpha(theme.panel, 0.24)}" stroke-width="4" stroke-linecap="round" />
+          <line x1="132" y1="404" x2="${reviewProgress}" y2="404" stroke="${withAlpha(theme.highlight, 0.72)}" stroke-width="6" stroke-linecap="round" />
           <text x="132" y="244" font-family="__FONT_FAMILY_STACK__" font-size="22" font-weight="800" fill="${withAlpha(theme.panel, 0.96)}">
             镜头三：规律结论
           </text>
@@ -1183,6 +1210,46 @@ _HTML_TEMPLATE = """<!doctype html>
           ${renderTeacherFigure(804 - progress * 8, 314, 1.24, theme, "wave")}
         </g>
       `;
+    }
+
+    function resolveTransitionStyle(scene) {
+      const raw = String(scene?.transition || "dissolve").trim().toLowerCase();
+      const aliases = {
+        fade: "dissolve",
+        zoom: "dissolve",
+        slide: "soft_wipe",
+        wipe: "soft_wipe",
+        softwipe: "soft_wipe",
+      };
+      return aliases[raw] || raw;
+    }
+
+    function renderMotionTrail(startX, endX, y, progress, color, count = 4) {
+      return Array.from({ length: count }).map((_, index) => {
+        const offset = 0.08 + index * 0.07;
+        const ratio = clamp(progress - offset, 0, 1);
+        const x = lerp(startX, endX, ratio);
+        const alpha = Math.max(0.08, 0.28 - index * 0.05);
+        const radius = Math.max(3, 10 - index * 1.6);
+        return `<circle cx="${x}" cy="${y}" r="${radius}" fill="${withAlpha(color, alpha)}" />`;
+      }).join("");
+    }
+
+    function renderStepRibbon(sceneNodes, activeSceneId, startX, y, gap, theme, progress = 0) {
+      return sceneNodes.slice(0, 5).map((item, index) => {
+        const active = item.id === activeSceneId;
+        const pulse = active ? Math.sin(progress * Math.PI * 2) * 2 : 0;
+        const x = startX + index * gap;
+        return `
+          <g transform="translate(${x}, ${y + (index % 2 === 0 ? 0 : 42)})">
+            <circle cx="18" cy="18" r="${active ? 20 + pulse : 15}" fill="${active ? theme.highlight : withAlpha(theme.panel, 0.22)}" stroke="${active ? withAlpha(theme.panel, 0.9) : withAlpha(theme.panel, 0.45)}" stroke-width="2.4" />
+            <text x="18" y="23" text-anchor="middle" font-family="__FONT_FAMILY_STACK__" font-size="13" font-weight="800" fill="${active ? theme.text : withAlpha(theme.panel, 0.96)}">
+              ${index + 1}
+            </text>
+            <line x1="38" y1="18" x2="70" y2="18" stroke="${withAlpha(theme.panel, active ? 0.58 : 0.35)}" stroke-width="${active ? 4 : 3}" stroke-linecap="round" />
+          </g>
+        `;
+      }).join("");
     }
 
     function renderTeacherFigure(x, y, scale, theme, posture = "point") {
@@ -1426,24 +1493,17 @@ _HTML_TEMPLATE = """<!doctype html>
     function renderCinematicOverlay(spec, scene, sceneProgress, phase = "steady", globalProgress = 0) {
       const theme = spec.theme || {};
       const shot = String(scene?.shot_type || "").toLowerCase();
-      const sweep = phase === "enter"
-        ? easeOutCubic(clamp(sceneProgress, 0, 1))
-        : (phase === "exit"
-          ? easeOutCubic(clamp(1 - sceneProgress, 0, 1))
-          : easeInOutCubic(clamp(sceneProgress, 0, 1)));
-      const bandX = lerp(-180, WIDTH + 180, sweep);
-      const bandOpacity = phase === "steady" ? 0.035 : 0.07;
-      const vignetteOpacity = shot === "summary" ? 0.045 : 0.03;
-      const cropInset = shot === "focus" ? 18 : 10;
-      const parallax = (globalProgress - 0.5) * 42;
+      const vignetteOpacity = shot === "summary" ? 0.042 : 0.028;
+      const cropInset = shot === "focus" ? 14 : 8;
+      const parallax = (globalProgress - 0.5) * 18;
+      const foregroundOpacity = phase === "steady" ? 0.028 : 0.045;
       return `
         <g pointer-events="none">
-          <rect width="${WIDTH}" height="${HEIGHT}" fill="${withAlpha(theme.accent_deep, vignetteOpacity)}" opacity="0.12" />
-          <rect x="0" y="0" width="${cropInset}" height="${HEIGHT}" fill="${withAlpha(theme.panel, 0.06)}" />
-          <rect x="${WIDTH - cropInset}" y="0" width="${cropInset}" height="${HEIGHT}" fill="${withAlpha(theme.panel, 0.06)}" />
-          <rect x="${bandX}" y="-20" width="108" height="${HEIGHT + 40}" fill="${withAlpha(theme.highlight, bandOpacity)}" transform="rotate(9 ${bandX} 0)" />
-          <ellipse cx="${144 + parallax}" cy="${126 + Math.sin(globalProgress * Math.PI * 2) * 8}" rx="52" ry="26" fill="${withAlpha(theme.panel, 0.045)}" />
-          <ellipse cx="${WIDTH - 156 - parallax}" cy="${HEIGHT - 104}" rx="64" ry="30" fill="${withAlpha(theme.highlight, 0.035)}" />
+          <rect width="${WIDTH}" height="${HEIGHT}" fill="${withAlpha(theme.accent_deep, vignetteOpacity)}" opacity="0.1" />
+          <rect x="0" y="0" width="${cropInset}" height="${HEIGHT}" fill="${withAlpha(theme.panel, 0.05)}" />
+          <rect x="${WIDTH - cropInset}" y="0" width="${cropInset}" height="${HEIGHT}" fill="${withAlpha(theme.panel, 0.05)}" />
+          <ellipse cx="${128 + parallax}" cy="${112}" rx="48" ry="18" fill="${withAlpha(theme.panel, foregroundOpacity)}" />
+          <ellipse cx="${WIDTH - 142 - parallax}" cy="${HEIGHT - 96}" rx="58" ry="24" fill="${withAlpha(theme.highlight, foregroundOpacity)}" />
         </g>
       `;
     }
@@ -1453,47 +1513,50 @@ _HTML_TEMPLATE = """<!doctype html>
         return "";
       }
       const theme = spec.theme || {};
-      const transition = String(scene?.transition || "fade");
+      const transition = resolveTransitionStyle(scene);
       const blend = phase === "enter"
-        ? easeOutCubic(clamp(sceneProgress / 0.22, 0, 1))
-        : easeOutCubic(clamp((1 - sceneProgress) / 0.22, 0, 1));
-      const veilOpacity = (1 - blend) * 0.22;
+        ? easeOutCubic(clamp(sceneProgress / 0.18, 0, 1))
+        : easeOutCubic(clamp((1 - sceneProgress) / 0.18, 0, 1));
+      const veilOpacity = (1 - blend) * 0.16;
+      if (transition === "cut") {
+        return "";
+      }
       if (transition === "blinds") {
         const slatCount = 6;
         const slatHeight = HEIGHT / slatCount;
         return `
-          <g pointer-events="none" opacity="${clamp((1 - blend) * 0.82, 0, 1).toFixed(3)}">
+          <g pointer-events="none" opacity="${clamp((1 - blend) * 0.52, 0, 1).toFixed(3)}">
             ${Array.from({ length: slatCount }).map((_, index) => {
               const width = Math.round(WIDTH * (phase === "enter" ? 1 - blend : blend));
               const x = phase === "enter" ? 0 : WIDTH - width;
               const y = Math.round(index * slatHeight);
-              return `<rect x="${x}" y="${y}" width="${width}" height="${Math.ceil(slatHeight - 2)}" fill="${withAlpha(theme.panel, 0.16)}" />`;
+              return `<rect x="${x}" y="${y}" width="${width}" height="${Math.ceil(slatHeight - 2)}" fill="${withAlpha(theme.panel, 0.11)}" />`;
             }).join("")}
           </g>
         `;
       }
       if (transition === "shutter") {
-        const curtain = Math.round((1 - blend) * WIDTH * 0.26);
+        const curtain = Math.round((1 - blend) * WIDTH * 0.16);
         return `
           <g pointer-events="none">
-            <rect x="0" y="0" width="${curtain}" height="${HEIGHT}" fill="${withAlpha(theme.panel, 0.18)}" />
-            <rect x="${WIDTH - curtain}" y="0" width="${curtain}" height="${HEIGHT}" fill="${withAlpha(theme.panel, 0.18)}" />
-            <rect x="${Math.round(WIDTH * 0.5 - 1)}" y="0" width="2" height="${HEIGHT}" fill="${withAlpha(theme.panel, 0.12)}" opacity="${clamp(1 - blend, 0, 1).toFixed(3)}" />
+            <rect x="0" y="0" width="${curtain}" height="${HEIGHT}" fill="${withAlpha(theme.panel, 0.12)}" />
+            <rect x="${WIDTH - curtain}" y="0" width="${curtain}" height="${HEIGHT}" fill="${withAlpha(theme.panel, 0.12)}" />
+            <rect x="${Math.round(WIDTH * 0.5 - 1)}" y="0" width="2" height="${HEIGHT}" fill="${withAlpha(theme.panel, 0.08)}" opacity="${clamp(1 - blend, 0, 1).toFixed(3)}" />
           </g>
         `;
       }
-      if (transition === "wipe") {
-        const wipeWidth = Math.round((1 - blend) * 140);
+      if (transition === "soft_wipe") {
+        const wipeWidth = Math.round((1 - blend) * 64);
         const x = phase === "enter" ? Math.round((1 - blend) * WIDTH) : Math.round(blend * WIDTH);
         return `
           <g pointer-events="none">
-            <rect x="${x - wipeWidth}" y="0" width="${wipeWidth}" height="${HEIGHT}" fill="${withAlpha(theme.highlight, 0.12)}" />
+            <rect x="${x - wipeWidth}" y="0" width="${wipeWidth}" height="${HEIGHT}" fill="${withAlpha(theme.highlight, 0.08)}" />
           </g>
         `;
       }
       return `
         <g pointer-events="none">
-          <rect width="${WIDTH}" height="${HEIGHT}" fill="${withAlpha(theme.panel, 0.14)}" opacity="${veilOpacity.toFixed(3)}" />
+          <rect width="${WIDTH}" height="${HEIGHT}" fill="${withAlpha(theme.panel, 0.1)}" opacity="${veilOpacity.toFixed(3)}" />
         </g>
       `;
     }
@@ -1504,15 +1567,15 @@ _HTML_TEMPLATE = """<!doctype html>
       const safeSceneIndex = clamp(sceneIndex, 0, scenes.length - 1);
       const scene = scenes[safeSceneIndex];
       let body = "";
-      const transitionWindow = 0.16;
+      const transitionWindow = 0.1;
       const disableCrossSceneBlend = scenes.length <= 1;
       const shouldBlendFromPrevious =
         !disableCrossSceneBlend && safeSceneIndex > 0 && sceneProgress < transitionWindow;
 
       if (shouldBlendFromPrevious) {
         const blend = easeInOutCubic(clamp(sceneProgress / transitionWindow, 0, 1));
-        const prevOpacity = clamp((0.48 - blend) / 0.48, 0, 1);
-        const nextOpacity = clamp((blend - 0.34) / 0.66, 0, 1);
+        const prevOpacity = clamp((0.4 - blend) / 0.4, 0, 1);
+        const nextOpacity = clamp((blend - 0.18) / 0.82, 0, 1);
         const previousScene = scenes[safeSceneIndex - 1];
           const previousBody = renderSceneBodyByType(
             spec,

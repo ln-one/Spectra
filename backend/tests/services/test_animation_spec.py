@@ -23,9 +23,9 @@ def test_normalize_animation_spec_prefers_structure_breakdown_for_network_layers
     assert spec["scenes"][0]["title"] == "先看整体结构"
     assert "应用层" in spec["scenes"][0]["description"]
     assert spec["scenes"][1]["focus_sequence"][0] == "应用层"
-    assert spec["scenes"][0]["transition"] == "fade"
-    assert spec["scenes"][1]["transition"] == "slide"
-    assert spec["scenes"][2]["transition"] == "zoom"
+    assert spec["scenes"][0]["transition"] == "dissolve"
+    assert spec["scenes"][1]["transition"] == "soft_wipe"
+    assert spec["scenes"][2]["transition"] == "dissolve"
 
 
 def test_normalize_animation_spec_uses_relationship_template_for_change_topics():
@@ -38,7 +38,7 @@ def test_normalize_animation_spec_uses_relationship_template_for_change_topics()
     )
 
     assert spec["visual_type"] == "relationship_change"
-    assert spec["scenes"][0]["transition"] == "fade"
+    assert spec["scenes"][0]["transition"] == "dissolve"
 
 
 def test_normalize_animation_spec_supports_osi_layers_and_encapsulation():

@@ -66,8 +66,25 @@ _NETWORK_LAYER_DETAILS = {
     "数据链路层": "负责相邻节点间成帧、差错检测与介质访问控制。",
     "物理层": "负责把比特转换成电信号、光信号等实际介质上传输的形式。",
 }
-_SCENE_TRANSITIONS = {"fade", "slide", "zoom"}
-_DEFAULT_SCENE_TRANSITION_ORDER = ("fade", "slide", "zoom")
+_SCENE_TRANSITIONS = {
+    "cut",
+    "dissolve",
+    "soft_wipe",
+    "blinds",
+    "shutter",
+    "fade",
+    "slide",
+    "zoom",
+    "wipe",
+}
+_SCENE_TRANSITION_ALIASES = {
+    "fade": "dissolve",
+    "slide": "soft_wipe",
+    "zoom": "dissolve",
+    "wipe": "soft_wipe",
+    "softwipe": "soft_wipe",
+}
+_DEFAULT_SCENE_TRANSITION_ORDER = ("cut", "dissolve", "soft_wipe", "blinds")
 _SHOT_TYPES = {"intro", "focus", "summary"}
 _CAMERA_TYPES = {
     "wide",
@@ -161,6 +178,7 @@ def _clip_text(text: str, *, maximum: int) -> str:
 
 def _normalize_transition(value: Any, *, index: int) -> str:
     candidate = _clean_text(value).lower()
+    candidate = _SCENE_TRANSITION_ALIASES.get(candidate, candidate)
     if candidate in _SCENE_TRANSITIONS:
         return candidate
     return _DEFAULT_SCENE_TRANSITION_ORDER[
@@ -580,7 +598,7 @@ def _default_scenes(
                 "title": "第一步：客户端发送 SYN",
                 "description": "客户端发起连接请求，进入 SYN-SENT。",
                 "emphasis": "主动发起连接",
-                "transition": "fade",
+                "transition": "cut",
                 "shot_type": "intro",
                 "camera": "wide",
             },
@@ -588,7 +606,7 @@ def _default_scenes(
                 "title": "第二步：服务端返回 SYN+ACK",
                 "description": "服务端确认并同步发送 SYN，进入 SYN-RECEIVED。",
                 "emphasis": "确认与同步进行",
-                "transition": "slide",
+                "transition": "soft_wipe",
                 "shot_type": "focus",
                 "camera": "close",
             },
@@ -596,7 +614,7 @@ def _default_scenes(
                 "title": "第三步：客户端返回 ACK",
                 "description": "客户端确认后双方进入 ESTABLISHED。",
                 "emphasis": "三次报文完成建连",
-                "transition": "zoom",
+                "transition": "dissolve",
                 "shot_type": "summary",
                 "camera": "zoom_out",
             },
@@ -691,7 +709,11 @@ def _default_scenes(
                     "description": (
                         focus_points[index % len(focus_points)]
                         if focus_points
-                        else (summary_points[index % len(summary_points)] if summary_points else "补充展开关键步骤与状态变化。")
+                        else (
+                            summary_points[index % len(summary_points)]
+                            if summary_points
+                            else "补充展开关键步骤与状态变化。"
+                        )
                     ),
                     "emphasis": "按用户要求细化段落，不压缩步骤",
                     "transition": "slide",
@@ -806,9 +828,8 @@ def _enforce_scene_progression(scenes: list[dict[str, Any]]) -> list[dict[str, A
             current["shot_type"] = "summary"
         else:
             current["shot_type"] = "focus"
-        if (
-            current.get("shot_type") != original_shot
-            or not _clean_text(current.get("camera"))
+        if current.get("shot_type") != original_shot or not _clean_text(
+            current.get("camera")
         ):
             current["camera"] = _resolve_scene_camera(
                 None,
