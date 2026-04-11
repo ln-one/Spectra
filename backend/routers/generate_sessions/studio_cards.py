@@ -267,6 +267,7 @@ async def advance_classroom_simulator_turn(
 async def get_studio_card_sources(
     card_id: str,
     project_id: str = Query(..., description="Project ID"),
+    session_id: str | None = Query(None, description="Session ID filter"),
     user_id: str = Depends(get_current_user),
 ):
     artifact_types = get_card_source_artifact_types(card_id)
@@ -289,6 +290,7 @@ async def get_studio_card_sources(
             await project_space_service.get_project_artifacts(
                 project_id,
                 type_filter=artifact_type,
+                session_id_filter=session_id,
             )
         )
 

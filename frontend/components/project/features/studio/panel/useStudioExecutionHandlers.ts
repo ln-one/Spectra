@@ -219,7 +219,11 @@ export function useStudioExecutionHandlers({
     if (!project || !cardId || isStudioActionRunning) return;
     try {
       startCardAction(cardId);
-      const response = await studioCardsApi.getSources(cardId, project.id);
+      const response = await studioCardsApi.getSources(
+        cardId,
+        project.id,
+        activeSessionId
+      );
       const normalizedSources = (response?.data?.sources ?? []).map((item) => ({
         id: item.id,
         projectId: item.project_id ?? project.id,
@@ -232,7 +236,8 @@ export function useStudioExecutionHandlers({
           ? normalizedSources.filter(
               (item) =>
                 item.projectId === project.id &&
-                String(item.type || "").toLowerCase() === "pptx"
+                String(item.type || "").toLowerCase() === "pptx" &&
+                (!activeSessionId || item.sessionId === activeSessionId)
             )
           : normalizedSources;
       upsertCurrentCardSources(sources);

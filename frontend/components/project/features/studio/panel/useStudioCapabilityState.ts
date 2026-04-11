@@ -118,6 +118,7 @@ export function useStudioCapabilityState({
     for (const item of pptHistory) {
       if (item.status !== "completed") continue;
       if (!item.artifactId || seen.has(item.artifactId)) continue;
+      if (activeSessionId && item.sessionId !== activeSessionId) continue;
       seen.add(item.artifactId);
       normalized.push({
         id: item.artifactId,
@@ -127,7 +128,7 @@ export function useStudioCapabilityState({
       });
     }
     return normalized;
-  }, [artifactHistoryByTool.ppt, expandedToolKey]);
+  }, [activeSessionId, artifactHistoryByTool.ppt, expandedToolKey]);
 
   const currentCapabilityState = currentCardId
     ? capabilityStateByCardId[currentCardId]
@@ -342,7 +343,20 @@ export function useStudioCapabilityState({
       [currentCardId]: sources,
     }));
     setSelectedSourceByCard((prev) => {
-      if (prev[currentCardId] || sources.length === 0) return prev;
+      const currentSelectedId = prev[currentCardId] ?? null;
+      if (sources.length === 0) {
+        if (!currentSelectedId) return prev;
+        return {
+          ...prev,
+          [currentCardId]: null,
+        };
+      }
+      if (
+        currentSelectedId &&
+        sources.some((item) => item.id === currentSelectedId)
+      ) {
+        return prev;
+      }
       return {
         ...prev,
         [currentCardId]: sources[0]?.id ?? null,

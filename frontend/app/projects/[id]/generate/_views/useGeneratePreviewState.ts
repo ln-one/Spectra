@@ -100,6 +100,16 @@ function readRunIdFromTrace(payload: Record<string, unknown>): string | null {
   return null;
 }
 
+export function shouldAdoptStudioArtifactForPptPreview(
+  payload: Record<string, unknown>
+): boolean {
+  const cardId = readStringField(payload, "card_id");
+  const artifactType = readStringField(payload, "artifact_type");
+  if (cardId === "courseware_ppt") return true;
+  if (artifactType === "pptx") return true;
+  return false;
+}
+
 function readBooleanField(
   payload: Record<string, unknown>,
   key: string
@@ -699,7 +709,9 @@ export function useGeneratePreviewState({
         }
 
         if (stage === "studio_card_execute") {
-          if (artifactId) setCurrentArtifactId(artifactId);
+          if (artifactId && shouldAdoptStudioArtifactForPptPreview(payload)) {
+            setCurrentArtifactId(artifactId);
+          }
           if (runId) setActiveRunId(runId);
 
           const studioFailedMessage =
@@ -723,7 +735,9 @@ export function useGeneratePreviewState({
         const runId = readRunIdFromTrace(payload);
 
         if (stage === "studio_card_execute") {
-          if (artifactId) setCurrentArtifactId(artifactId);
+          if (artifactId && shouldAdoptStudioArtifactForPptPreview(payload)) {
+            setCurrentArtifactId(artifactId);
+          }
           if (runId) setActiveRunId(runId);
 
           const runLabel = runId ? `run ${runId}` : "unknown run";

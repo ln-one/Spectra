@@ -1,4 +1,7 @@
-import { resolveActivePreviewRunId } from "@/app/projects/[id]/generate/_views/useGeneratePreviewState";
+import {
+  resolveActivePreviewRunId,
+  shouldAdoptStudioArtifactForPptPreview,
+} from "@/app/projects/[id]/generate/_views/useGeneratePreviewState";
 
 describe("resolveActivePreviewRunId", () => {
   it("does not reuse a store run from another session", () => {
@@ -38,5 +41,34 @@ describe("resolveActivePreviewRunId", () => {
         generationSession: null,
       })
     ).toBe("run-from-url");
+  });
+});
+
+describe("shouldAdoptStudioArtifactForPptPreview", () => {
+  it("accepts courseware_ppt card events", () => {
+    expect(
+      shouldAdoptStudioArtifactForPptPreview({
+        card_id: "courseware_ppt",
+        artifact_type: "gif",
+      })
+    ).toBe(true);
+  });
+
+  it("accepts pptx artifact events", () => {
+    expect(
+      shouldAdoptStudioArtifactForPptPreview({
+        card_id: "demonstration_animations",
+        artifact_type: "pptx",
+      })
+    ).toBe(true);
+  });
+
+  it("ignores non-ppt studio events", () => {
+    expect(
+      shouldAdoptStudioArtifactForPptPreview({
+        card_id: "demonstration_animations",
+        artifact_type: "gif",
+      })
+    ).toBe(false);
   });
 });
