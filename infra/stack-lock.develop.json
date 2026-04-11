@@ -14,7 +14,7 @@
     "dualweave": {
       "image": "ghcr.io/ln-one/dualweave-service",
       "tag": "latest",
-      "digest": "sha256:57693b21a7101c0ae243be80c3db6029fac6b06c2b605752dcf2713fb913363f",
+      "digest": "sha256:c93167b605d0ff8fa06e1d0b1416889142a9a61520497635a09be8da013c1e00",
       "source_branch": "develop",
       "published": true,
       "notes": "Pinned from GHCR public latest manifest on 2026-04-11."
