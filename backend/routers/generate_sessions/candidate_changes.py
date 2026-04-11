@@ -12,10 +12,10 @@ from services.preview_helpers import (
     load_preview_material,
     strip_sources,
 )
-from services.project_space_service.service import project_space_service
 from services.project_space_service.candidate_change_semantics import (
     serialize_candidate_change as serialize_candidate_change_payload,
 )
+from services.project_space_service.service import project_space_service
 from utils.exceptions import (
     APIException,
     ErrorCode,

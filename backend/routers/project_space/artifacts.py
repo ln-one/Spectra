@@ -16,11 +16,11 @@ from schemas.project_space import (
     ArtifactVisibility,
     ProjectPermission,
 )
-from services.project_space_service.service import project_space_service
 from services.project_space_service.artifact_semantics import (
     build_artifact_download_filename,
     get_artifact_media_type,
 )
+from services.project_space_service.service import project_space_service
 from utils.dependencies import get_current_user
 from utils.exceptions import NotFoundException
 

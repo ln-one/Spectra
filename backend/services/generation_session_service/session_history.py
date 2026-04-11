@@ -27,21 +27,15 @@ from .run_constants import (
     build_run_scope_key,
     resolve_tool_label,
 )
-from .run_lifecycle import (
-    create_session_run,
-    get_latest_session_run,
-    supports_session_run as _supports_session_run,
-    update_session_run,
-)
+from .run_lifecycle import create_session_run, get_latest_session_run
+from .run_lifecycle import supports_session_run as _supports_session_run
+from .run_lifecycle import update_session_run
 from .run_serialization import (
     build_run_prompt_trace_payload,
     build_run_trace_payload,
     serialize_session_run,
 )
-from .session_titles import (
-    generate_semantic_run_title,
-    generate_semantic_session_title,
-)
+from .session_titles import generate_semantic_run_title, generate_semantic_session_title
 
 __all__ = [
     "ai_service",

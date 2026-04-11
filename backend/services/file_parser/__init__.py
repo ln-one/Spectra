@@ -13,8 +13,8 @@ import os
 import uuid
 from typing import Any
 
-from services.file_upload_service.remote_parse import is_deferred_parse_result
 from services.file_upload_service.access import FileType, normalize_file_type
+from services.file_upload_service.remote_parse import is_deferred_parse_result
 from services.parsers import get_parser
 
 from .constants import AUTO_PARSER_MODE
