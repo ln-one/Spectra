@@ -133,3 +133,83 @@ def test_normalize_animation_spec_drops_request_sentence_summary():
     )
 
     assert spec["summary"] == ""
+
+
+def test_normalize_animation_spec_uses_protocol_step_scenes_for_tcp_handshake():
+    spec = normalize_animation_spec(
+        {
+            "title": "TCP three-way handshake demo",
+            "summary": "show SYN SYN-ACK ACK transitions",
+            "focus": "highlight SYN and ACK state transitions",
+        }
+    )
+
+    assert spec["visual_type"] == "process_flow"
+    assert len(spec["scenes"]) == 3
+    assert [scene["shot_type"] for scene in spec["scenes"]] == [
+        "intro",
+        "focus",
+        "summary",
+    ]
+    assert [scene["camera"] for scene in spec["scenes"]] == [
+        "wide",
+        "close",
+        "zoom_out",
+    ]
+    assert "SYN" in spec["scenes"][0]["title"]
+    assert "SYN" in spec["scenes"][1]["title"]
+    assert "ACK" in spec["scenes"][2]["title"]
+
+
+def test_normalize_animation_spec_assigns_camera_language_to_generic_process_scenes():
+    spec = normalize_animation_spec(
+        {
+            "title": "缓存一致性流程动画",
+            "summary": "展示写入、失效、广播与回读流程",
+            "focus": "强调总览、关键步骤和结论回收",
+            "duration_seconds": 8,
+        }
+    )
+
+    assert spec["visual_type"] == "process_flow"
+    assert spec["scenes"][0]["camera"] == "wide"
+    assert spec["scenes"][-1]["camera"] == "zoom_out"
+    assert all(scene.get("camera") for scene in spec["scenes"])
+
+
+def test_normalize_animation_spec_respects_requested_scene_count_constraint():
+    spec = normalize_animation_spec(
+        {
+            "title": "缓存一致性流程演示",
+            "summary": "展示写入、失效、广播与回读流程",
+            "focus": "至少5段，分步骤讲清楚每一段",
+            "duration_seconds": 6,
+        }
+    )
+
+    assert spec["visual_type"] == "process_flow"
+    assert len(spec["scenes"]) >= 5
+
+
+def test_normalize_animation_spec_enforces_intro_and_summary_for_custom_scenes():
+    spec = normalize_animation_spec(
+        {
+            "title": "数据库事务：提交与回滚流程演示",
+            "summary": "展示事务从初始化、执行、校验、提交到回滚的过程",
+            "scenes": [
+                {"title": "事务初始化", "description": "创建事务上下文"},
+                {"title": "执行数据变更", "description": "写入变更集"},
+                {"title": "完整性校验", "description": "检查约束条件"},
+                {"title": "持久化提交", "description": "刷盘并提交"},
+            ],
+        }
+    )
+
+    assert [scene["shot_type"] for scene in spec["scenes"]] == [
+        "intro",
+        "focus",
+        "focus",
+        "summary",
+    ]
+    assert spec["scenes"][0]["camera"] == "wide"
+    assert spec["scenes"][-1]["camera"] == "zoom_out"

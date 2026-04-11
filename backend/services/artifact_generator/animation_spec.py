@@ -69,6 +69,15 @@ _NETWORK_LAYER_DETAILS = {
 _SCENE_TRANSITIONS = {"fade", "slide", "zoom"}
 _DEFAULT_SCENE_TRANSITION_ORDER = ("fade", "slide", "zoom")
 _SHOT_TYPES = {"intro", "focus", "summary"}
+_CAMERA_TYPES = {
+    "wide",
+    "medium",
+    "close",
+    "track_left",
+    "track_right",
+    "zoom_in",
+    "zoom_out",
+}
 _REQUEST_PREFIXES = (
     "请给我制作一个",
     "请给我制作",
@@ -176,6 +185,59 @@ def _resolve_scene_budget(
     return 5 if complexity >= 4 else 4
 
 
+def _parse_scene_count_token(token: str) -> int | None:
+    raw = _clean_text(token)
+    if not raw:
+        return None
+    try:
+        return int(raw)
+    except ValueError:
+        pass
+    chinese_map = {
+        "一": 1,
+        "二": 2,
+        "两": 2,
+        "三": 3,
+        "四": 4,
+        "五": 5,
+        "六": 6,
+        "七": 7,
+        "八": 8,
+        "九": 9,
+        "十": 10,
+    }
+    if raw == "十":
+        return 10
+    if raw.startswith("十"):
+        tail = chinese_map.get(raw[1:], 0)
+        return 10 + tail
+    if "十" in raw:
+        left, _, right = raw.partition("十")
+        left_num = chinese_map.get(left, 1)
+        right_num = chinese_map.get(right, 0)
+        return left_num * 10 + right_num
+    return chinese_map.get(raw)
+
+
+def _extract_scene_count_constraint(*texts: str) -> int | None:
+    combined = " ".join(_clean_text(item) for item in texts if _clean_text(item))
+    if not combined:
+        return None
+    patterns = (
+        r"(?:至少|最少|不少于|不低于)\s*([0-9一二三四五六七八九十两]{1,3})\s*段",
+        r"(?:分成|拆成|做成|共|一共)\s*([0-9一二三四五六七八九十两]{1,3})\s*段",
+        r"([0-9一二三四五六七八九十两]{1,3})\s*段(?:动画|镜头|流程|展示)",
+    )
+    for pattern in patterns:
+        matched = re.search(pattern, combined)
+        if not matched:
+            continue
+        parsed = _parse_scene_count_token(matched.group(1))
+        if parsed is not None:
+            return _clamp_int(parsed, default=3, minimum=1, maximum=12)
+    return None
+
+
 def _resolve_style_pack(value: Any) -> str:
     raw = _clean_text(value).lower()
     if raw in _STYLE_PACK_THEMES:
@@ -185,6 +247,18 @@ def _resolve_style_pack(value: Any) -> str:
         if mapped in _STYLE_PACK_THEMES:
             return mapped
     return _DEFAULT_STYLE_PACK
+
+
+def _resolve_scene_camera(value: Any, *, shot_type: str, index: int) -> str:
+    candidate = _clean_text(value).lower()
+    if candidate in _CAMERA_TYPES:
+        return candidate
+    if shot_type == "intro":
+        return "wide"
+    if shot_type == "summary":
+        return "zoom_out"
+    focus_cameras = ("medium", "close", "track_left", "track_right", "zoom_in")
+    return focus_cameras[(index - 1) % len(focus_cameras)]
 
 
 def _resolve_theme(style_pack: str, custom_theme: Any) -> dict[str, str]:
@@ -301,11 +375,14 @@ def _default_scenes(
     focus_points = _split_key_points(focus) or _split_key_points(summary)
     summary_points = _split_key_points(summary)
     complexity_hint = len(focus_points) + len(summary_points)
+    requested_scene_count = _extract_scene_count_constraint(title, summary, focus)
     scene_budget = _resolve_scene_budget(
         duration_seconds=duration_seconds,
         visual_type=visual_type,
         complexity=complexity_hint,
     )
+    if requested_scene_count:
+        scene_budget = max(scene_budget, requested_scene_count)
     if visual_type == "relationship_change":
         scenes = [
             {
@@ -481,6 +558,87 @@ def _default_scenes(
                 "shot_type": "summary",
             },
         ]
+    combined_text = " ".join(item for item in (title, summary, focus) if item)
+    upper_text = combined_text.upper()
+    is_tcp_handshake = (
+        ("TCP" in upper_text)
+        and any(
+            token in combined_text
+            for token in ("三次握手", "握手", "建立连接", "连接建立")
+        )
+    ) or ("SYN" in upper_text and "ACK" in upper_text)
+    is_tcp_teardown = (
+        ("TCP" in upper_text)
+        and any(
+            token in combined_text
+            for token in ("四次挥手", "挥手", "断开", "连接终止", "关闭连接")
+        )
+    ) or any(token in upper_text for token in ("FIN", "TIME_WAIT", "CLOSE_WAIT"))
+    if is_tcp_handshake and not is_tcp_teardown:
+        handshake_scenes = [
+            {
+                "title": "第一步：客户端发送 SYN",
+                "description": "客户端发起连接请求，进入 SYN-SENT。",
+                "emphasis": "主动发起连接",
+                "transition": "fade",
+                "shot_type": "intro",
+                "camera": "wide",
+            },
+            {
+                "title": "第二步：服务端返回 SYN+ACK",
+                "description": "服务端确认并同步发送 SYN，进入 SYN-RECEIVED。",
+                "emphasis": "确认与同步进行",
+                "transition": "slide",
+                "shot_type": "focus",
+                "camera": "close",
+            },
+            {
+                "title": "第三步：客户端返回 ACK",
+                "description": "客户端确认后双方进入 ESTABLISHED。",
+                "emphasis": "三次报文完成建连",
+                "transition": "zoom",
+                "shot_type": "summary",
+                "camera": "zoom_out",
+            },
+        ]
+        return handshake_scenes
+    if is_tcp_teardown:
+        teardown_scenes = [
+            {
+                "title": "第一步：客户端发送 FIN",
+                "description": "主动关闭方发送 FIN，进入 FIN-WAIT-1。",
+                "emphasis": "请求关闭连接",
+                "transition": "fade",
+                "shot_type": "intro",
+                "camera": "wide",
+            },
+            {
+                "title": "第二步：服务端返回 ACK",
+                "description": "被动关闭方确认 FIN，客户端进入 FIN-WAIT-2。",
+                "emphasis": "先确认、后关闭",
+                "transition": "slide",
+                "shot_type": "focus",
+                "camera": "close",
+            },
+            {
+                "title": "第三步：服务端发送 FIN",
+                "description": "服务端准备完成后发送 FIN，进入 LAST-ACK。",
+                "emphasis": "关闭方向反转",
+                "transition": "slide",
+                "shot_type": "focus",
+                "camera": "track_right",
+            },
+            {
+                "title": "第四步：客户端返回 ACK",
+                "description": "客户端确认后进入 TIME-WAIT，等待 2MSL 后彻底关闭。",
+                "emphasis": "TIME-WAIT 保障可靠终止",
+                "transition": "zoom",
+                "shot_type": "summary",
+                "camera": "zoom_out",
+            },
+        ]
+        return teardown_scenes
+
     scenes = [
         {
             "title": "引入主题",
@@ -523,6 +681,23 @@ def _default_scenes(
                 "shot_type": "focus",
             },
         )
+    if scene_budget > len(scenes):
+        extra_count = scene_budget - len(scenes)
+        for index in range(extra_count):
+            scenes.insert(
+                min(len(scenes), 2 + index),
+                {
+                    "title": f"补充讲解 {index + 1}",
+                    "description": (
+                        focus_points[index % len(focus_points)]
+                        if focus_points
+                        else (summary_points[index % len(summary_points)] if summary_points else "补充展开关键步骤与状态变化。")
+                    ),
+                    "emphasis": "按用户要求细化段落，不压缩步骤",
+                    "transition": "slide",
+                    "shot_type": "focus",
+                },
+            )
     return scenes[:scene_budget]
 
 
@@ -532,14 +707,23 @@ def _normalize_scene(
     index: int,
     title: str,
     focus: str,
+    visual_type: str,
 ) -> dict[str, Any]:
     if not isinstance(raw_scene, dict):
+        shot_type = "intro" if index == 1 else "focus"
         return {
             "id": f"scene-{index}",
             "title": f"镜头 {index}",
             "description": _clean_text(raw_scene) or f"{title} 的第 {index} 个镜头",
             "emphasis": _clean_text(focus),
             "key_points": [],
+            "shot_type": shot_type,
+            "transition": _normalize_transition(None, index=index),
+            "camera": _resolve_scene_camera(
+                None,
+                shot_type=shot_type,
+                index=index,
+            ),
         }
 
     scene_title = (
@@ -590,12 +774,49 @@ def _normalize_scene(
         "emphasis": clipped_emphasis,
         "key_points": clipped_key_points[:3],
         "transition": _normalize_transition(raw_scene.get("transition"), index=index),
+        "camera": _resolve_scene_camera(
+            raw_scene.get("camera"),
+            shot_type=shot_type,
+            index=index,
+        ),
         "focus_sequence": [
             _clean_text(item)
             for item in (raw_scene.get("focus_sequence") or [])
             if _clean_text(item)
         ],
     }
+
+
+def _enforce_scene_progression(scenes: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    if not scenes:
+        return scenes
+    if len(scenes) == 1:
+        only = dict(scenes[0])
+        only["shot_type"] = "focus"
+        only["camera"] = _resolve_scene_camera(None, shot_type="focus", index=1)
+        return [only]
+
+    normalized: list[dict[str, Any]] = []
+    for index, scene in enumerate(scenes, start=1):
+        current = dict(scene)
+        original_shot = _clean_text(current.get("shot_type")).lower()
+        if index == 1:
+            current["shot_type"] = "intro"
+        elif index == len(scenes):
+            current["shot_type"] = "summary"
+        else:
+            current["shot_type"] = "focus"
+        if (
+            current.get("shot_type") != original_shot
+            or not _clean_text(current.get("camera"))
+        ):
+            current["camera"] = _resolve_scene_camera(
+                None,
+                shot_type=str(current["shot_type"]),
+                index=index,
+            )
+        normalized.append(current)
+    return normalized
 
 
 def normalize_animation_spec(content: dict[str, Any]) -> dict[str, Any]:
@@ -618,12 +839,24 @@ def normalize_animation_spec(content: dict[str, Any]) -> dict[str, Any]:
     style_pack = _resolve_style_pack(content.get("style_pack"))
     raw_scenes = content.get("scenes")
     normalized_scenes = [
-        _normalize_scene(scene, index=index, title=title, focus=focus)
+        _normalize_scene(
+            scene,
+            index=index,
+            title=title,
+            focus=focus,
+            visual_type=visual_type,
+        )
         for index, scene in enumerate(raw_scenes or [], start=1)
     ]
     if not normalized_scenes:
         normalized_scenes = [
-            _normalize_scene(scene, index=index, title=title, focus=focus)
+            _normalize_scene(
+                scene,
+                index=index,
+                title=title,
+                focus=focus,
+                visual_type=visual_type,
+            )
             for index, scene in enumerate(
                 _default_scenes(
                     title=title,
@@ -635,6 +868,7 @@ def normalize_animation_spec(content: dict[str, Any]) -> dict[str, Any]:
                 start=1,
             )
         ]
+    normalized_scenes = _enforce_scene_progression(normalized_scenes)
 
     teaching_goal = (
         _sanitize_display_copy(_clean_text(content.get("teaching_goal")))

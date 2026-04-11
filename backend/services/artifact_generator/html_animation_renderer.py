@@ -247,28 +247,155 @@ _HTML_TEMPLATE = """<!doctype html>
       const enter = easeOutCubic(clamp(sceneProgress / 0.22, 0, 1));
       const leave = easeOutCubic(clamp((1 - sceneProgress) / 0.22, 0, 1));
       const blend = phase === "enter" ? enter : (phase === "exit" ? leave : 1);
-      const opacity = phase === "steady" ? 1 : (0.82 + 0.18 * blend);
+      const opacity = phase === "steady" ? 1 : (0.7 + 0.3 * blend);
       if (transition === "slide") {
-        const shiftDistance = 220;
+        const shiftDistance = 72;
         const shift = phase === "enter"
           ? (1 - blend) * shiftDistance
           : (phase === "exit" ? -(1 - blend) * shiftDistance : 0);
         return { opacity, offsetX: shift, scale: 1 };
       }
       if (transition === "zoom") {
-        const scale = phase === "steady" ? 1 : 0.96 + 0.04 * blend;
+        const scale = phase === "steady" ? 1 : 0.985 + 0.015 * blend;
         const subtleShift = phase === "enter"
-          ? (1 - blend) * 96
-          : (phase === "exit" ? -(1 - blend) * 96 : 0);
+          ? (1 - blend) * 28
+          : (phase === "exit" ? -(1 - blend) * 28 : 0);
         return { opacity, offsetX: subtleShift, scale };
       }
+      if (transition === "shutter" || transition === "blinds") {
+        return { opacity, offsetX: 0, scale: 1 };
+      }
+      if (transition === "wipe") {
+        const shift = phase === "enter"
+          ? (1 - blend) * 48
+          : (phase === "exit" ? -(1 - blend) * 48 : 0);
+        return { opacity, offsetX: shift, scale: 1 };
+      }
       const fadeShift = phase === "enter"
-        ? (1 - blend) * 128
-        : (phase === "exit" ? -(1 - blend) * 128 : 0);
+        ? (1 - blend) * 24
+        : (phase === "exit" ? -(1 - blend) * 24 : 0);
       return { opacity, offsetX: fadeShift, scale: 1 };
     }
 
-    function wrapSceneBody(body, scene, sceneProgress, options = {}) {
+    function resolveSceneCamera(scene, sceneIndex = 0, sceneCount = 1) {
+      const explicit = String(scene?.camera || "").trim().toLowerCase();
+      if (explicit) {
+        return explicit;
+      }
+      const shot = String(scene?.shot_type || "").trim().toLowerCase();
+      if (shot === "intro") {
+        return "wide";
+      }
+      if (shot === "summary") {
+        return "zoom_out";
+      }
+      const focusCameras = ["medium", "close", "track_left", "track_right", "zoom_in"];
+      return focusCameras[sceneIndex % focusCameras.length] || "medium";
+    }
+
+    function resolveSceneTarget(spec, scene, sceneIndex, sceneCount, sceneProgress) {
+      const visualType = String(spec?.visual_type || "process_flow");
+      const shot = String(scene?.shot_type || "").trim().toLowerCase();
+      if (visualType === "relationship_change") {
+        const pointIndex = shot === "summary"
+          ? 3
+          : (shot === "intro" ? 1 : Math.min(3, Math.floor(sceneProgress * 4)));
+        return {
+          x: 128 + pointIndex * 130,
+          y: 388 - [0.18, 0.34, 0.52, 0.76][pointIndex] * 182,
+        };
+      }
+      if (visualType === "structure_breakdown") {
+        if (shot === "intro") {
+          return { x: 604, y: 274 };
+        }
+        if (shot === "summary") {
+          return { x: 332, y: 312 };
+        }
+        const sequence = Array.isArray(scene?.focus_sequence) ? scene.focus_sequence : [];
+        const activeIndex = Math.min(
+          Math.max(sequence.length - 1, 0),
+          Math.floor(sceneProgress * Math.max(sequence.length, 1))
+        );
+        return {
+          x: 292,
+          y: 258 + activeIndex * 32,
+        };
+      }
+      const scenes = Array.isArray(spec?.scenes) && spec.scenes.length > 0
+        ? spec.scenes
+        : [scene || {}];
+      const protocol = resolveProcessProtocol(spec, scenes);
+      if (protocol.kind === "tcp_handshake" || protocol.kind === "tcp_teardown") {
+        const stepIndex = resolveTcpProtocolStepIndex(scene, sceneIndex, protocol);
+        const step = protocol.steps[Math.max(0, Math.min(protocol.steps.length - 1, stepIndex))];
+        if (shot === "summary") {
+          return { x: 480, y: 294 };
+        }
+        return {
+          x: step?.from === "left" ? 620 : 340,
+          y: 334,
+        };
+      }
+      if (shot === "intro") {
+        return { x: 484, y: 304 };
+      }
+      if (shot === "summary") {
+        return { x: 486, y: 272 };
+      }
+      return {
+        x: sceneIndex % 2 === 0 ? 560 : 402,
+        y: 320,
+      };
+    }
+
+    function getCameraMotion(scene, sceneIndex, sceneCount, sceneProgress, options = {}) {
+      const spec = options.spec || {};
+      const camera = resolveSceneCamera(scene, sceneIndex, sceneCount);
+      const phase = String(options.phase || "steady");
+      const blend = phase === "enter"
+        ? easeOutCubic(clamp(sceneProgress, 0, 1))
+        : (phase === "exit"
+          ? easeOutCubic(clamp(1 - sceneProgress, 0, 1))
+          : easeInOutCubic(clamp(sceneProgress, 0, 1)));
+      const target = resolveSceneTarget(spec, scene, sceneIndex, sceneCount, sceneProgress);
+      const drift = Math.sin((sceneProgress + sceneIndex * 0.17) * Math.PI) * 10;
+      const lockStrength = {
+        wide: 0.18,
+        medium: 0.34,
+        close: 0.62,
+        track_left: 0.52,
+        track_right: 0.52,
+        zoom_in: 0.58,
+        zoom_out: 0.22,
+      }[camera] || 0.3;
+      const lockX = (480 - target.x) * lockStrength;
+      const lockY = (318 - target.y) * lockStrength;
+      if (camera === "wide") {
+        return { offsetX: lockX, offsetY: lockY - 6 + drift * 0.16, scale: 0.9 + blend * 0.04 };
+      }
+      if (camera === "medium") {
+        return { offsetX: lockX, offsetY: lockY - 8 + drift * 0.2, scale: 0.98 + blend * 0.05 };
+      }
+      if (camera === "close") {
+        return { offsetX: lockX, offsetY: lockY - 10 + drift * 0.22, scale: 1.06 + blend * 0.08 };
+      }
+      if (camera === "track_left") {
+        return { offsetX: lockX + 42 - blend * 56, offsetY: lockY - 5 + drift * 0.18, scale: 1.02 + blend * 0.05 };
+      }
+      if (camera === "track_right") {
+        return { offsetX: lockX - 42 + blend * 56, offsetY: lockY - 5 + drift * 0.18, scale: 1.02 + blend * 0.05 };
+      }
+      if (camera === "zoom_in") {
+        return { offsetX: lockX, offsetY: lockY - 8 + drift * 0.22, scale: 1.02 + blend * 0.1 };
+      }
+      if (camera === "zoom_out") {
+        return { offsetX: lockX, offsetY: lockY - 6 + drift * 0.16, scale: 1.08 - blend * 0.12 };
+      }
+      return { offsetX: lockX, offsetY: lockY - 6 + drift * 0.18, scale: 1 + blend * 0.05 };
+    }
+
+    function wrapSceneBody(body, spec, scene, sceneIndex, sceneCount, sceneProgress, options = {}) {
       const phase = String(options.phase || "steady");
       const extraOpacity = clamp(
         Number.isFinite(options.opacity) ? Number(options.opacity) : 1,
@@ -276,11 +403,15 @@ _HTML_TEMPLATE = """<!doctype html>
         1
       );
       const motion = getSceneMotion(scene, sceneProgress, phase);
+      const camera = getCameraMotion(scene, sceneIndex, sceneCount, sceneProgress, {
+        ...options,
+        spec,
+      });
       const cx = 480;
       const cy = 318;
       return `
         <g opacity="${(motion.opacity * extraOpacity).toFixed(3)}"
-           transform="translate(${motion.offsetX.toFixed(2)}, 0) translate(${cx}, ${cy}) scale(${motion.scale.toFixed(4)}) translate(${-cx}, ${-cy})">
+           transform="translate(${(motion.offsetX + camera.offsetX).toFixed(2)}, ${camera.offsetY.toFixed(2)}) translate(${cx}, ${cy}) scale(${(motion.scale * camera.scale).toFixed(4)}) translate(${-cx}, ${-cy})">
           ${body}
         </g>
       `;
@@ -369,6 +500,52 @@ _HTML_TEMPLATE = """<!doctype html>
     function resolveProcessProtocol(spec, sceneNodes) {
       const content = `${spec?.title || ""} ${spec?.topic || ""} ${spec?.summary || ""} ${(sceneNodes || []).map((item) => item?.title || "").join(" ")}`;
       const upper = content.toUpperCase();
+      const isTcpTeardown =
+        (upper.includes("TCP") && (content.includes("四次挥手") || upper.includes("FIN") || upper.includes("TIME_WAIT") || upper.includes("CLOSE_WAIT")))
+        || content.includes("四次挥手");
+      if (isTcpTeardown) {
+        return {
+          kind: "tcp_teardown",
+          steps: [
+            {
+              id: "fin_1",
+              title: "第一步：发送 FIN",
+              packet: "FIN",
+              from: "left",
+              to: "right",
+              left_state: "FIN-WAIT-1",
+              right_state: "ESTABLISHED",
+            },
+            {
+              id: "ack_1",
+              title: "第二步：返回 ACK",
+              packet: "ACK",
+              from: "right",
+              to: "left",
+              left_state: "FIN-WAIT-2",
+              right_state: "CLOSE-WAIT",
+            },
+            {
+              id: "fin_2",
+              title: "第三步：发送 FIN",
+              packet: "FIN",
+              from: "right",
+              to: "left",
+              left_state: "FIN-WAIT-2",
+              right_state: "LAST-ACK",
+            },
+            {
+              id: "ack_2",
+              title: "第四步：确认 ACK",
+              packet: "ACK",
+              from: "left",
+              to: "right",
+              left_state: "TIME-WAIT",
+              right_state: "CLOSED",
+            },
+          ],
+        };
+      }
       const isTcpHandshake =
         (upper.includes("TCP") && (content.includes("握手") || upper.includes("SYN") || upper.includes("ACK")))
         || content.includes("三次握手");
@@ -412,8 +589,23 @@ _HTML_TEMPLATE = """<!doctype html>
       };
     }
 
-    function resolveTcpHandshakeStepIndex(scene, sceneIndex = 0) {
+    function resolveTcpProtocolStepIndex(scene, sceneIndex = 0, protocol = null) {
       const text = `${scene?.title || ""} ${scene?.description || ""}`.toUpperCase();
+      if (protocol?.kind === "tcp_teardown") {
+        if (text.includes("第四步") || text.includes("TIME-WAIT") || text.includes("TIME_WAIT")) {
+          return 3;
+        }
+        if (text.includes("第三步") || (text.includes("FIN") && (text.includes("服务端") || text.includes("被动关闭")))) {
+          return 2;
+        }
+        if (text.includes("第二步") || (text.includes("ACK") && !text.includes("FIN"))) {
+          return 1;
+        }
+        if (text.includes("第一步") || text.includes("FIN")) {
+          return 0;
+        }
+        return Math.max(0, Math.min(3, sceneIndex));
+      }
       if (text.includes("SYN-ACK") || text.includes("SYN+ACK") || text.includes("第二步")) {
         return 1;
       }
@@ -429,7 +621,7 @@ _HTML_TEMPLATE = """<!doctype html>
     function renderProcessIntroScene(spec, scene, progress, sceneNodes) {
       const theme = spec.theme || {};
       const protocol = resolveProcessProtocol(spec, sceneNodes);
-      if (protocol.kind === "tcp_handshake") {
+      if (protocol.kind === "tcp_handshake" || protocol.kind === "tcp_teardown") {
         const steps = protocol.steps;
         const laneStartX = 236;
         const laneEndX = 724;
@@ -476,7 +668,7 @@ _HTML_TEMPLATE = """<!doctype html>
               服务器
             </text>
             <text x="96" y="186" font-family="__FONT_FAMILY_STACK__" font-size="28" font-weight="800" fill="${withAlpha(theme.panel, 0.96)}">
-              TCP 三次握手动态预览
+              ${protocol.kind === "tcp_teardown" ? "TCP 四次挥手动态预览" : "TCP 三次握手动态预览"}
             </text>
             ${renderTextBlock(96, 454, scene.description || spec.summary || "", {
               fontSize: 16,
@@ -524,23 +716,38 @@ _HTML_TEMPLATE = """<!doctype html>
     function renderProcessFocusScene(spec, scene, progress, sceneIndex, sceneNodes) {
       const theme = spec.theme || {};
       const protocol = resolveProcessProtocol(spec, sceneNodes);
-      if (protocol.kind === "tcp_handshake") {
+      if (protocol.kind === "tcp_handshake" || protocol.kind === "tcp_teardown") {
         const steps = protocol.steps;
-        const stepIndex = resolveTcpHandshakeStepIndex(scene, sceneIndex);
+        const stepIndex = resolveTcpProtocolStepIndex(scene, sceneIndex, protocol);
         const step = steps[Math.max(0, Math.min(steps.length - 1, stepIndex))];
         const fromLeft = step.from === "left";
         const fromX = fromLeft ? 244 : 716;
         const toX = fromLeft ? 716 : 244;
         const laneY = 334;
-        const packetX = lerp(fromX, toX, easeInOutCubic(progress));
+        const travel = easeInOutCubic(progress);
+        const packetX = lerp(fromX, toX, travel);
         const pulse = 16 + 10 * Math.abs(Math.sin(progress * Math.PI * 2));
+        const sourcePanelPulse = 0.08 + 0.08 * Math.abs(Math.sin(progress * Math.PI * 2));
+        const sinkPanelPulse = 0.06 + 0.05 * Math.abs(Math.sin((progress + 0.3) * Math.PI * 2));
+        const dashOffset = (1 - progress) * 42;
+        const trail = [0.08, 0.16, 0.24].map((offset, index) => {
+          const ratio = clamp(travel - offset, 0, 1);
+          const x = lerp(fromX, toX, ratio);
+          const alpha = 0.28 - index * 0.07;
+          const radius = 9 - index * 1.5;
+          return `
+            <circle cx="${x}" cy="${laneY}" r="${radius}" fill="${withAlpha(theme.highlight, alpha)}" />
+          `;
+        }).join("");
         const bullets = resolveBullets(scene, spec, 1);
         const markerArrow = fromLeft
           ? "M 682 332 L 716 344 L 682 356"
           : "M 278 332 L 244 344 L 278 356";
+        const chipStartX = 54;
+        const chipGap = steps.length > 1 ? Math.floor(660 / (steps.length - 1)) : 0;
         const stepChips = steps.map((item, index) =>
           renderChip(
-            86 + index * 286,
+            chipStartX + index * chipGap,
             160,
             item.title,
             index === stepIndex ? withAlpha(theme.accent, 0.16) : withAlpha(theme.panel, 0.12),
@@ -552,8 +759,8 @@ _HTML_TEMPLATE = """<!doctype html>
           <g>
             <rect x="32" y="146" width="896" height="364" rx="36" fill="${withAlpha(theme.panel, 0.95)}" stroke="${withAlpha(theme.accent, 0.28)}" />
             ${stepChips}
-            <rect x="90" y="206" width="264" height="228" rx="24" fill="${withAlpha(theme.panel_alt, 0.94)}" stroke="${withAlpha(theme.accent, 0.28)}" />
-            <rect x="606" y="206" width="264" height="228" rx="24" fill="${withAlpha(theme.highlight, 0.10)}" stroke="${withAlpha(theme.highlight, 0.30)}" />
+            <rect x="90" y="206" width="264" height="228" rx="24" fill="${withAlpha(theme.panel_alt, fromLeft ? 0.86 + sourcePanelPulse : 0.90)}" stroke="${withAlpha(theme.accent, fromLeft ? 0.34 + sourcePanelPulse : 0.24)}" />
+            <rect x="606" y="206" width="264" height="228" rx="24" fill="${withAlpha(theme.highlight, fromLeft ? 0.10 + sinkPanelPulse : 0.14 + sourcePanelPulse)}" stroke="${withAlpha(theme.highlight, fromLeft ? 0.26 + sinkPanelPulse : 0.36 + sourcePanelPulse)}" />
             <text x="222" y="278" text-anchor="middle" font-family="__FONT_FAMILY_STACK__" font-size="34" font-weight="800" fill="${theme.accent_deep}">
               客户端
             </text>
@@ -561,7 +768,9 @@ _HTML_TEMPLATE = """<!doctype html>
               服务器
             </text>
             <line x1="244" y1="${laneY}" x2="716" y2="${laneY}" stroke="${withAlpha(theme.accent, 0.45)}" stroke-width="6" stroke-linecap="round" />
+            <line x1="244" y1="${laneY}" x2="716" y2="${laneY}" stroke="${withAlpha(theme.highlight, 0.58)}" stroke-width="2.8" stroke-linecap="round" stroke-dasharray="18 14" stroke-dashoffset="${dashOffset}" />
             <path d="${markerArrow}" fill="none" stroke="${theme.accent_deep}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" />
+            ${trail}
             <circle cx="${packetX}" cy="${laneY}" r="${pulse}" fill="${withAlpha(theme.highlight, 0.18)}" />
             <circle cx="${packetX}" cy="${laneY}" r="12" fill="${theme.highlight}" stroke="${withAlpha(theme.accent_deep, 0.75)}" stroke-width="3" />
             ${renderChip(packetX - 74, laneY - 56, step.packet, withAlpha(theme.highlight, 0.2), withAlpha(theme.highlight, 0.6), theme.text)}
@@ -600,12 +809,71 @@ _HTML_TEMPLATE = """<!doctype html>
         `;
       }
       const [leftActor, rightActor] = resolveProcessActors(spec);
+      const focusVariant = sceneIndex % 2 === 0 ? "spotlight" : "storyboard";
       const directionLeftToRight = sceneIndex % 2 === 0;
       const laneStartX = directionLeftToRight ? 250 : 710;
       const laneEndX = directionLeftToRight ? 710 : 250;
       const packetX = lerp(laneStartX, laneEndX, easeInOutCubic(progress));
       const laneY = 328;
       const bullets = resolveBullets(scene, spec, 1);
+      if (focusVariant === "storyboard") {
+        const activeCardX = 114 + Math.sin(progress * Math.PI) * 10;
+        const detailWidth = 332 + Math.sin(progress * Math.PI) * 8;
+        return `
+          <g>
+            <rect x="32" y="146" width="896" height="364" rx="36" fill="${withAlpha(theme.accent_deep, 0.92)}" stroke="${withAlpha(theme.panel, 0.22)}" />
+            <rect x="88" y="188" width="300" height="274" rx="26" fill="${withAlpha(theme.panel, 0.96)}" stroke="${withAlpha(theme.accent, 0.24)}" />
+            <rect x="430" y="188" width="${detailWidth}" height="274" rx="28" fill="${withAlpha(theme.highlight, 0.10)}" stroke="${withAlpha(theme.highlight, 0.26)}" />
+            <rect x="${activeCardX}" y="220" width="248" height="184" rx="22" fill="${withAlpha(theme.panel_alt, 0.92)}" stroke="${withAlpha(theme.accent, 0.28)}" />
+            <text x="138" y="252" font-family="__FONT_FAMILY_STACK__" font-size="18" font-weight="700" fill="${theme.muted}">
+              当前镜头
+            </text>
+            ${renderTextBlock(138, 286, scene.title || `步骤 ${sceneIndex + 1}`, {
+              fontSize: 24,
+              fill: theme.accent_deep,
+              lineHeight: 28,
+              maxChars: 12,
+              maxLines: 2,
+              fontWeight: 800,
+            })}
+            ${renderTextBlock(138, 356, scene.description || "", {
+              fontSize: 15,
+              fill: theme.text,
+              lineHeight: 20,
+              maxChars: 14,
+              maxLines: 3,
+              fontWeight: 500,
+            })}
+            <g transform="translate(460, 222)">
+              ${sceneNodes.slice(0, 5).map((item, index) => `
+                <g transform="translate(${index * 78}, ${index % 2 === 0 ? 0 : 42})">
+                  <circle cx="18" cy="18" r="${item.id === scene.id ? 20 : 15}" fill="${item.id === scene.id ? theme.highlight : withAlpha(theme.panel, 0.22)}" stroke="${item.id === scene.id ? withAlpha(theme.panel, 0.9) : withAlpha(theme.panel, 0.45)}" stroke-width="2.4" />
+                  <text x="18" y="23" text-anchor="middle" font-family="__FONT_FAMILY_STACK__" font-size="13" font-weight="800" fill="${item.id === scene.id ? theme.text : withAlpha(theme.panel, 0.96)}">
+                    ${index + 1}
+                  </text>
+                  <line x1="38" y1="18" x2="70" y2="18" stroke="${withAlpha(theme.panel, 0.35)}" stroke-width="3" stroke-linecap="round" />
+                </g>
+              `).join("")}
+            </g>
+            <text x="460" y="330" font-family="__FONT_FAMILY_STACK__" font-size="21" font-weight="800" fill="${withAlpha(theme.panel, 0.96)}">
+              分镜细节页
+            </text>
+            ${bullets.map((point, index) => `
+              <g transform="translate(462, ${360 + index * 28})">
+                <circle cx="0" cy="0" r="4.5" fill="${theme.highlight}" />
+                ${renderTextBlock(14, 6, point, {
+                  fontSize: 14,
+                  fill: withAlpha(theme.panel, 0.95),
+                  lineHeight: 18,
+                  maxChars: 22,
+                  maxLines: 1,
+                  fontWeight: 600,
+                })}
+              </g>
+            `).join("")}
+          </g>
+        `;
+      }
       return `
         <g>
           <rect x="32" y="146" width="896" height="364" rx="36" fill="${withAlpha(theme.panel, 0.94)}" stroke="${withAlpha(theme.accent, 0.28)}" />
@@ -618,6 +886,8 @@ _HTML_TEMPLATE = """<!doctype html>
             ${escapeHtml(rightActor)}
           </text>
           <line x1="244" y1="${laneY}" x2="716" y2="${laneY}" stroke="${withAlpha(theme.accent, 0.42)}" stroke-width="6" stroke-linecap="round" />
+          <line x1="244" y1="${laneY}" x2="716" y2="${laneY}" stroke="${withAlpha(theme.highlight, 0.55)}" stroke-width="2.8" stroke-linecap="round" stroke-dasharray="18 14" stroke-dashoffset="${(1 - progress) * 42}" />
+          <circle cx="${packetX}" cy="${laneY}" r="34" fill="${withAlpha(theme.highlight, 0.12)}" />
           <circle cx="${packetX}" cy="${laneY}" r="12" fill="${theme.highlight}" stroke="${withAlpha(theme.accent_deep, 0.72)}" stroke-width="3" />
           <path d="${directionLeftToRight ? "M 686 318 L 716 328 L 686 338" : "M 274 318 L 244 328 L 274 338"}" fill="none" stroke="${theme.accent_deep}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" />
           <text x="480" y="298" text-anchor="middle" font-family="__FONT_FAMILY_STACK__" font-size="24" font-weight="800" fill="${theme.text}">
@@ -750,8 +1020,30 @@ _HTML_TEMPLATE = """<!doctype html>
       return renderProcessFocusScene(spec, scene, progress, sceneIndex, scenes);
     }
 
-    function renderRelationshipChange(spec, scene, progress) {
+    function resolveRelationshipShot(scene, sceneIndex, sceneCount) {
+      const explicit = String(scene?.shot_type || "").toLowerCase();
+      if (explicit === "intro" || explicit === "focus" || explicit === "summary") {
+        return explicit;
+      }
+      const title = String(scene?.title || "");
+      if (title.includes("总结") || title.includes("结论")) {
+        return "summary";
+      }
+      if (sceneIndex <= 0 || title.includes("先看") || title.includes("引入")) {
+        return "intro";
+      }
+      if (sceneIndex >= sceneCount - 1) {
+        return "summary";
+      }
+      return "focus";
+    }
+
+    function renderRelationshipChange(spec, scene, progress, sceneIndex = 0) {
       const theme = spec.theme || {};
+      const scenes = Array.isArray(spec.scenes) && spec.scenes.length > 0
+        ? spec.scenes
+        : [scene || { title: "镜头 1", description: spec.summary || "" }];
+      const shot = resolveRelationshipShot(scene, sceneIndex, scenes.length);
       const descriptionHeight = getTextBlockHeight(scene.description || "", {
         fontSize: 16,
         lineHeight: 22,
@@ -759,24 +1051,41 @@ _HTML_TEMPLATE = """<!doctype html>
         maxLines: 3,
       });
       const bulletBaseY = 252 + descriptionHeight + 18;
-      const points = [0.18, 0.34, 0.52, 0.76];
+      const basePoints = [0.18, 0.34, 0.52, 0.76];
+      const points = basePoints.map((value, index) => {
+        if (shot === "intro") {
+          return value - 0.03 + progress * 0.04 * index;
+        }
+        if (shot === "summary") {
+          return value + 0.03 * index - progress * 0.02;
+        }
+        return value + (index === 2 ? progress * 0.16 : Math.sin((progress + index * 0.12) * Math.PI) * 0.03);
+      });
       const path = points.map((value, index) => {
         const x = 128 + index * 130;
-        const y = 382 - value * 180 - (index === 2 ? progress * 28 : 0);
+        const y = 388 - value * 182;
         return `${index === 0 ? "M" : "L"} ${x} ${y}`;
       }).join(" ");
       const dots = points.map((value, index) => {
         const x = 128 + index * 130;
-        const y = 382 - value * 180 - (index === 2 ? progress * 28 : 0);
+        const y = 388 - value * 182;
+        const activeIndex = shot === "focus"
+          ? Math.min(points.length - 1, Math.floor(progress * points.length))
+          : (shot === "summary" ? points.length - 1 : 0);
+        const active = index === activeIndex;
         return `
           <g>
-            <circle cx="${x}" cy="${y}" r="${index === 2 ? 14 : 10}" fill="${index === 2 ? theme.highlight : theme.accent}" />
+            <circle cx="${x}" cy="${y}" r="${active ? 16 : 10}" fill="${active ? theme.highlight : theme.accent}" />
+            <circle cx="${x}" cy="${y}" r="${active ? 26 + Math.sin(progress * Math.PI * 2) * 3 : 0}" fill="${withAlpha(theme.highlight, active ? 0.16 : 0)}" />
             <text x="${x}" y="428" text-anchor="middle" font-family="__FONT_FAMILY_STACK__" font-size="14" fill="${theme.muted}">
               ${index + 1}
             </text>
           </g>
         `;
       }).join("");
+      const trendLabel = shot === "intro"
+        ? "先建立整体趋势"
+        : (shot === "summary" ? "回收到教学结论" : "放大关键转折");
       const bullets = resolveBullets(scene, spec, 3).map((point, index) => `
         ${renderTextBlock(690, bulletBaseY + index * 34, `• ${point}`, {
           fontSize: 16,
@@ -786,26 +1095,92 @@ _HTML_TEMPLATE = """<!doctype html>
           maxLines: 1,
         })}
       `).join("");
+      if (shot === "intro") {
+        return `
+          <g>
+            <rect x="64" y="176" width="832" height="284" rx="32" fill="${theme.panel}" stroke="${withAlpha(theme.accent, 0.20)}" />
+            <rect x="96" y="206" width="468" height="208" rx="24" fill="${withAlpha(theme.panel_alt, 0.72)}" />
+            <line x1="128" y1="238" x2="128" y2="392" stroke="${theme.grid}" stroke-width="4" />
+            <line x1="128" y1="392" x2="532" y2="392" stroke="${theme.grid}" stroke-width="4" />
+            <path d="${path}" fill="none" stroke="${theme.accent}" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" />
+            ${dots}
+            <rect x="602" y="206" width="258" height="208" rx="28" fill="${withAlpha(theme.highlight, 0.10)}" stroke="${withAlpha(theme.highlight, 0.25)}" />
+            <text x="636" y="242" font-family="__FONT_FAMILY_STACK__" font-size="22" font-weight="800" fill="${theme.accent_deep}">
+              镜头一：趋势全景
+            </text>
+            ${renderTextBlock(636, 278, scene.description || "", {
+              fontSize: 16,
+              fill: theme.text,
+              lineHeight: 22,
+              maxChars: 14,
+              maxLines: 3,
+              fontWeight: 600,
+            })}
+            ${renderChip(636, 356, trendLabel, withAlpha(theme.accent, 0.12), withAlpha(theme.accent, 0.26), theme.accent_deep)}
+            ${renderTeacherFigure(796 - progress * 10, 314, 1.18, theme, "point")}
+          </g>
+        `;
+      }
+
+      if (shot === "focus") {
+        const activeIndex = Math.min(points.length - 1, Math.floor(progress * points.length));
+        const zoomX = 128 + activeIndex * 130;
+        const zoomY = 388 - points[activeIndex] * 182;
+        return `
+          <g>
+            <rect x="64" y="176" width="832" height="284" rx="32" fill="${theme.panel}" stroke="${withAlpha(theme.accent, 0.20)}" />
+            <rect x="86" y="196" width="396" height="244" rx="26" fill="${withAlpha(theme.panel_alt, 0.54)}" />
+            <g transform="translate(${(0.5 - progress) * 24}, ${(0.5 - progress) * 6})">
+              <line x1="120" y1="230" x2="120" y2="392" stroke="${theme.grid}" stroke-width="4" />
+              <line x1="120" y1="392" x2="450" y2="392" stroke="${theme.grid}" stroke-width="4" />
+              <path d="${path}" fill="none" stroke="${theme.accent}" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" />
+              ${dots}
+              <circle cx="${zoomX}" cy="${zoomY}" r="42" fill="${withAlpha(theme.highlight, 0.18)}" />
+              <circle cx="${zoomX}" cy="${zoomY}" r="24" fill="none" stroke="${withAlpha(theme.highlight, 0.9)}" stroke-width="4" />
+            </g>
+            <rect x="520" y="200" width="340" height="232" rx="28" fill="${withAlpha(theme.highlight, 0.10)}" stroke="${withAlpha(theme.highlight, 0.26)}" />
+            <text x="556" y="236" font-family="__FONT_FAMILY_STACK__" font-size="22" font-weight="800" fill="${theme.text}">
+              镜头二：关键转折
+            </text>
+            ${renderTextBlock(556, 272, scene.description || "", {
+              fontSize: 16,
+              fill: theme.accent_deep,
+              lineHeight: 22,
+              maxChars: 16,
+              maxLines: 3,
+              fontWeight: 700,
+            })}
+            ${bullets}
+            <g transform="translate(560, 376)">
+              ${renderChip(0, 0, "放大局部波峰/波谷", withAlpha(theme.highlight, 0.14), withAlpha(theme.highlight, 0.26), theme.text)}
+            </g>
+          </g>
+        `;
+      }
+
       return `
         <g>
-          <rect x="64" y="176" width="560" height="284" rx="32" fill="${theme.panel}" stroke="${withAlpha(theme.accent, 0.20)}" />
-          <line x1="118" y1="220" x2="118" y2="392" stroke="${theme.grid}" stroke-width="4" />
-          <line x1="118" y1="392" x2="560" y2="392" stroke="${theme.grid}" stroke-width="4" />
-          <path d="${path}" fill="none" stroke="${theme.accent}" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" />
+          <rect x="64" y="176" width="832" height="284" rx="32" fill="${theme.panel}" stroke="${withAlpha(theme.accent, 0.20)}" />
+          <rect x="98" y="208" width="436" height="220" rx="28" fill="${withAlpha(theme.accent, 0.86)}" />
+          <path d="${path}" fill="none" stroke="${withAlpha(theme.panel, 0.92)}" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" />
           ${dots}
-          <rect x="648" y="176" width="248" height="284" rx="32" fill="${withAlpha(theme.highlight, 0.10)}" stroke="${withAlpha(theme.highlight, 0.25)}" />
-          <text x="690" y="218" font-family="__FONT_FAMILY_STACK__" font-size="22" font-weight="700" fill="${theme.text}">
-            变化解读
+          <text x="132" y="244" font-family="__FONT_FAMILY_STACK__" font-size="22" font-weight="800" fill="${withAlpha(theme.panel, 0.96)}">
+            镜头三：规律结论
           </text>
-          ${renderTextBlock(690, 252, scene.description || "", {
-            fontSize: 16,
-            fill: theme.accent_deep,
-            lineHeight: 22,
-            maxChars: 14,
+          ${renderTextBlock(132, 282, scene.description || "", {
+            fontSize: 17,
+            fill: withAlpha(theme.panel, 0.94),
+            lineHeight: 24,
+            maxChars: 20,
             maxLines: 3,
-            fontWeight: 600,
+            fontWeight: 700,
           })}
+          <rect x="568" y="208" width="292" height="220" rx="28" fill="${withAlpha(theme.highlight, 0.10)}" stroke="${withAlpha(theme.highlight, 0.25)}" />
+          <text x="604" y="244" font-family="__FONT_FAMILY_STACK__" font-size="22" font-weight="800" fill="${theme.text}">
+            教学收束
+          </text>
           ${bullets}
+          ${renderTeacherFigure(804 - progress * 8, 314, 1.24, theme, "wave")}
         </g>
       `;
     }
@@ -1040,12 +1415,87 @@ _HTML_TEMPLATE = """<!doctype html>
 
     function renderSceneBodyByType(spec, scene, sceneProgress, globalProgress, sceneIndex) {
       if (spec.visual_type === "relationship_change") {
-        return renderRelationshipChange(spec, scene, sceneProgress);
+        return renderRelationshipChange(spec, scene, sceneProgress, sceneIndex);
       }
       if (spec.visual_type === "structure_breakdown") {
         return renderStructureBreakdown(spec, scene, sceneProgress, sceneIndex);
       }
       return renderProcessFlow(spec, scene, sceneProgress, globalProgress, sceneIndex);
+    }
+
+    function renderCinematicOverlay(spec, scene, sceneProgress, phase = "steady", globalProgress = 0) {
+      const theme = spec.theme || {};
+      const shot = String(scene?.shot_type || "").toLowerCase();
+      const sweep = phase === "enter"
+        ? easeOutCubic(clamp(sceneProgress, 0, 1))
+        : (phase === "exit"
+          ? easeOutCubic(clamp(1 - sceneProgress, 0, 1))
+          : easeInOutCubic(clamp(sceneProgress, 0, 1)));
+      const bandX = lerp(-180, WIDTH + 180, sweep);
+      const bandOpacity = phase === "steady" ? 0.035 : 0.07;
+      const vignetteOpacity = shot === "summary" ? 0.045 : 0.03;
+      const cropInset = shot === "focus" ? 18 : 10;
+      const parallax = (globalProgress - 0.5) * 42;
+      return `
+        <g pointer-events="none">
+          <rect width="${WIDTH}" height="${HEIGHT}" fill="${withAlpha(theme.accent_deep, vignetteOpacity)}" opacity="0.12" />
+          <rect x="0" y="0" width="${cropInset}" height="${HEIGHT}" fill="${withAlpha(theme.panel, 0.06)}" />
+          <rect x="${WIDTH - cropInset}" y="0" width="${cropInset}" height="${HEIGHT}" fill="${withAlpha(theme.panel, 0.06)}" />
+          <rect x="${bandX}" y="-20" width="108" height="${HEIGHT + 40}" fill="${withAlpha(theme.highlight, bandOpacity)}" transform="rotate(9 ${bandX} 0)" />
+          <ellipse cx="${144 + parallax}" cy="${126 + Math.sin(globalProgress * Math.PI * 2) * 8}" rx="52" ry="26" fill="${withAlpha(theme.panel, 0.045)}" />
+          <ellipse cx="${WIDTH - 156 - parallax}" cy="${HEIGHT - 104}" rx="64" ry="30" fill="${withAlpha(theme.highlight, 0.035)}" />
+        </g>
+      `;
+    }
+
+    function renderTransitionOverlay(spec, scene, sceneProgress, phase = "steady") {
+      if (phase === "steady") {
+        return "";
+      }
+      const theme = spec.theme || {};
+      const transition = String(scene?.transition || "fade");
+      const blend = phase === "enter"
+        ? easeOutCubic(clamp(sceneProgress / 0.22, 0, 1))
+        : easeOutCubic(clamp((1 - sceneProgress) / 0.22, 0, 1));
+      const veilOpacity = (1 - blend) * 0.22;
+      if (transition === "blinds") {
+        const slatCount = 6;
+        const slatHeight = HEIGHT / slatCount;
+        return `
+          <g pointer-events="none" opacity="${clamp((1 - blend) * 0.82, 0, 1).toFixed(3)}">
+            ${Array.from({ length: slatCount }).map((_, index) => {
+              const width = Math.round(WIDTH * (phase === "enter" ? 1 - blend : blend));
+              const x = phase === "enter" ? 0 : WIDTH - width;
+              const y = Math.round(index * slatHeight);
+              return `<rect x="${x}" y="${y}" width="${width}" height="${Math.ceil(slatHeight - 2)}" fill="${withAlpha(theme.panel, 0.16)}" />`;
+            }).join("")}
+          </g>
+        `;
+      }
+      if (transition === "shutter") {
+        const curtain = Math.round((1 - blend) * WIDTH * 0.26);
+        return `
+          <g pointer-events="none">
+            <rect x="0" y="0" width="${curtain}" height="${HEIGHT}" fill="${withAlpha(theme.panel, 0.18)}" />
+            <rect x="${WIDTH - curtain}" y="0" width="${curtain}" height="${HEIGHT}" fill="${withAlpha(theme.panel, 0.18)}" />
+            <rect x="${Math.round(WIDTH * 0.5 - 1)}" y="0" width="2" height="${HEIGHT}" fill="${withAlpha(theme.panel, 0.12)}" opacity="${clamp(1 - blend, 0, 1).toFixed(3)}" />
+          </g>
+        `;
+      }
+      if (transition === "wipe") {
+        const wipeWidth = Math.round((1 - blend) * 140);
+        const x = phase === "enter" ? Math.round((1 - blend) * WIDTH) : Math.round(blend * WIDTH);
+        return `
+          <g pointer-events="none">
+            <rect x="${x - wipeWidth}" y="0" width="${wipeWidth}" height="${HEIGHT}" fill="${withAlpha(theme.highlight, 0.12)}" />
+          </g>
+        `;
+      }
+      return `
+        <g pointer-events="none">
+          <rect width="${WIDTH}" height="${HEIGHT}" fill="${withAlpha(theme.panel, 0.14)}" opacity="${veilOpacity.toFixed(3)}" />
+        </g>
+      `;
     }
 
     function renderFrame(spec, sceneIndex, sceneProgress, globalProgress) {
@@ -1054,8 +1504,8 @@ _HTML_TEMPLATE = """<!doctype html>
       const safeSceneIndex = clamp(sceneIndex, 0, scenes.length - 1);
       const scene = scenes[safeSceneIndex];
       let body = "";
-      const transitionWindow = 0.10;
-      const disableCrossSceneBlend = spec.visual_type === "process_flow";
+      const transitionWindow = 0.16;
+      const disableCrossSceneBlend = scenes.length <= 1;
       const shouldBlendFromPrevious =
         !disableCrossSceneBlend && safeSceneIndex > 0 && sceneProgress < transitionWindow;
 
@@ -1064,10 +1514,10 @@ _HTML_TEMPLATE = """<!doctype html>
         const prevOpacity = clamp((0.48 - blend) / 0.48, 0, 1);
         const nextOpacity = clamp((blend - 0.34) / 0.66, 0, 1);
         const previousScene = scenes[safeSceneIndex - 1];
-        const previousBody = renderSceneBodyByType(
-          spec,
-          previousScene,
-          1 - blend,
+          const previousBody = renderSceneBodyByType(
+            spec,
+            previousScene,
+            1 - blend,
           globalProgress,
           safeSceneIndex - 1
         );
@@ -1077,18 +1527,19 @@ _HTML_TEMPLATE = """<!doctype html>
           blend,
           globalProgress,
           safeSceneIndex
-        );
-        body = `
-          ${wrapSceneBody(previousBody, previousScene, 1 - blend, {
-            phase: "exit",
-            opacity: prevOpacity,
-          })}
-          ${wrapSceneBody(currentBody, scene, blend, {
-            phase: "enter",
-            opacity: nextOpacity,
-          })}
-        `;
-      } else {
+          );
+          body = `
+            ${wrapSceneBody(previousBody, spec, previousScene, safeSceneIndex - 1, scenes.length, 1 - blend, {
+              phase: "exit",
+              opacity: prevOpacity,
+            })}
+            ${wrapSceneBody(currentBody, spec, scene, safeSceneIndex, scenes.length, blend, {
+              phase: "enter",
+              opacity: nextOpacity,
+            })}
+            ${renderTransitionOverlay(spec, scene, sceneProgress, "enter")}
+          `;
+        } else {
         const steadyBody = renderSceneBodyByType(
           spec,
           scene,
@@ -1096,7 +1547,7 @@ _HTML_TEMPLATE = """<!doctype html>
           globalProgress,
           safeSceneIndex
         );
-        body = wrapSceneBody(steadyBody, scene, sceneProgress, {
+        body = wrapSceneBody(steadyBody, spec, scene, safeSceneIndex, scenes.length, sceneProgress, {
           phase: "steady",
           opacity: 1,
         });
@@ -1111,12 +1562,15 @@ _HTML_TEMPLATE = """<!doctype html>
             </linearGradient>
           </defs>
           <rect width="${WIDTH}" height="${HEIGHT}" fill="url(#bg)" />
-          <circle cx="816" cy="104" r="${32 + sceneProgress * 18}" fill="${withAlpha(theme.highlight, 0.16)}" />
-          <circle cx="748" cy="436" r="${54 - sceneProgress * 10}" fill="${withAlpha(theme.accent, 0.08)}" />
-          ${renderHeader(spec, scene, globalProgress)}
-          ${body}
-        </svg>
-      `;
+          <circle cx="${816 - sceneProgress * 18}" cy="${104 + sceneProgress * 8}" r="${32 + sceneProgress * 18}" fill="${withAlpha(theme.highlight, 0.16)}" />
+          <circle cx="${748 + sceneProgress * 12}" cy="${436 - sceneProgress * 10}" r="${54 - sceneProgress * 10}" fill="${withAlpha(theme.accent, 0.08)}" />
+          <ellipse cx="${138 + globalProgress * 68}" cy="${428 - globalProgress * 24}" rx="94" ry="34" fill="${withAlpha(theme.panel, 0.10)}" />
+            ${renderHeader(spec, scene, globalProgress)}
+            ${body}
+            ${renderCinematicOverlay(spec, scene, sceneProgress, shouldBlendFromPrevious ? "enter" : "steady", globalProgress)}
+            ${renderTransitionOverlay(spec, scene, sceneProgress, shouldBlendFromPrevious ? "enter" : "steady")}
+          </svg>
+        `;
       return true;
     }
 
@@ -1137,7 +1591,7 @@ def build_frame_plan(spec: dict[str, Any]) -> list[dict[str, float | int]]:
     rhythm = str(spec.get("rhythm") or "balanced").strip().lower()
     fps = {"slow": 6, "balanced": 8, "fast": 10}.get(rhythm, 8)
     scenes = spec.get("scenes") or [{}]
-    total_frames = max(len(scenes) * 6, min(duration_seconds * fps, 120))
+    total_frames = max(len(scenes) * 10, min(duration_seconds * fps, 160))
     plan: list[dict[str, float | int]] = []
     for frame_index in range(total_frames):
         global_progress = frame_index / max(total_frames - 1, 1)
