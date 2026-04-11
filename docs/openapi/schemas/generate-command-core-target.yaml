@@ -91,6 +91,13 @@ GenerationCommandEnvelopeTarget:
     - $ref: '#/SetSessionTitleCommandTarget'
   discriminator:
     propertyName: command_type
+    mapping:
+      UPDATE_OUTLINE: '#/UpdateOutlineCommandTarget'
+      REDRAFT_OUTLINE: '#/RedraftOutlineCommandTarget'
+      CONFIRM_OUTLINE: '#/ConfirmOutlineCommandTarget'
+      REGENERATE_SLIDE: '#/RegenerateSlideCommandTarget'
+      RESUME_SESSION: '#/ResumeSessionCommandTarget'
+      SET_SESSION_TITLE: '#/SetSessionTitleCommandTarget'
 
 GenerationSessionCommandRequestTarget:
   type: object

@@ -47,16 +47,11 @@ SessionRef:
       type: string
     project_id:
       type: string
-    task_id:
-      type: string
-      description: 兼容旧任务模型时可返回
     state:
       $ref: './generate-core.yaml#/GenerationState'
     state_reason:
       type: string
       description: 状态附加语义（用于未知状态或灰度状态说明）
-    status:
-      $ref: './generate-core.yaml#/GenerateTaskStatus'
     contract_version:
       type: string
       example: '2026-03'
@@ -136,8 +131,6 @@ RunTracePayload:
       $ref: '#/RunStatus'
     run_step:
       $ref: '#/RunStep'
-    task_id:
-      type: string
     error:
       type: string
 

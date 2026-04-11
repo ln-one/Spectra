@@ -13,7 +13,7 @@ jest.mock("remark-gfm", () => ({
 }));
 
 describe("SlideCard rendered preview", () => {
-  it("prefers rendered page image when thumbnail_url is available", () => {
+  it("prefers rendered html preview over thumbnail image when both are available", () => {
     render(
       <SlideCard
         slide={{
@@ -23,14 +23,17 @@ describe("SlideCard rendered preview", () => {
           content: "# markdown fallback",
           sources: [],
           thumbnail_url: "data:image/png;base64,abc",
+          rendered_html_preview:
+            "<section><h1>真实预览</h1><p>HTML 优先展示</p></section>",
         }}
         isActive
       />
     );
 
-    const image = screen.getByRole("img", { name: "真实预览" });
-    expect(image).toBeInTheDocument();
-    expect(image).toHaveAttribute("src", "data:image/png;base64,abc");
+    const iframe = screen.getByTitle("真实预览");
+    expect(iframe).toBeInTheDocument();
+    expect(iframe).toHaveAttribute("srcdoc", expect.stringContaining("HTML 优先展示"));
+    expect(screen.queryByRole("img", { name: "真实预览" })).not.toBeInTheDocument();
     expect(screen.queryByText("markdown fallback")).not.toBeInTheDocument();
   });
 
@@ -74,7 +77,9 @@ describe("SlideCard rendered preview", () => {
       />
     );
 
-    expect(screen.getByText("HTML preview body")).toBeInTheDocument();
+    const iframe = screen.getByTitle("结构预览");
+    expect(iframe).toBeInTheDocument();
+    expect(iframe).toHaveAttribute("srcdoc", expect.stringContaining("HTML preview body"));
     expect(screen.queryByText("markdown fallback")).not.toBeInTheDocument();
   });
 });

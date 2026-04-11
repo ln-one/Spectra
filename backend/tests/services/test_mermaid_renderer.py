@@ -11,7 +11,7 @@ from services.mermaid_renderer import (
 
 
 @pytest.mark.asyncio
-async def test_preprocess_mermaid_blocks_non_strict_fallback_to_placeholder(tmp_path):
+async def test_preprocess_mermaid_blocks_non_strict_preserves_original_block(tmp_path):
     markdown = "```mermaid\ngraph TD\nA-->B\n```"
     with patch(
         "services.mermaid_renderer.render_mermaid_to_svg",
@@ -24,9 +24,9 @@ async def test_preprocess_mermaid_blocks_non_strict_fallback_to_placeholder(tmp_
             asset_prefix="case",
         )
 
-    assert "```mermaid" not in rendered
-    assert "![Mermaid Diagram](" in rendered
-    assert any(Path(path).suffix == ".svg" for path in tmp_path.glob("case_*.svg"))
+    assert "```mermaid" in rendered
+    assert "graph TD" in rendered
+    assert list(tmp_path.glob("case_*.svg")) == []
 
 
 @pytest.mark.asyncio
@@ -53,7 +53,7 @@ def test_normalize_svg_markup_fixes_br_and_validates_xml():
 
 
 @pytest.mark.asyncio
-async def test_preprocess_mermaid_blocks_non_strict_fallback_on_invalid_svg(tmp_path):
+async def test_preprocess_mermaid_blocks_non_strict_preserves_original_block_on_invalid_svg(tmp_path):
     markdown = "```mermaid\ngraph TD\nA-->B\n```"
     with patch(
         "services.mermaid_renderer.render_mermaid_to_svg",
@@ -66,5 +66,5 @@ async def test_preprocess_mermaid_blocks_non_strict_fallback_on_invalid_svg(tmp_
             asset_prefix="invalid",
         )
 
-    assert "```mermaid" not in rendered
-    assert "![Mermaid Diagram](" in rendered
+    assert "```mermaid" in rendered
+    assert "graph TD" in rendered

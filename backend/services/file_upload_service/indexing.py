@@ -58,7 +58,7 @@ async def index_upload_for_rag(
         if is_deferred_parse_result(parse_result):
             await db_service.update_upload_status(
                 upload.id,
-                status=UploadStatus.UPLOADING.value,
+                status=UploadStatus.PARSING.value,
                 parse_result=parse_result,
                 error_message=None,
             )

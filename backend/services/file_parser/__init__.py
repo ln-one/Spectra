@@ -13,6 +13,7 @@ import os
 import uuid
 from typing import Any
 
+from services.file_upload_service.remote_parse import is_deferred_parse_result
 from services.file_upload_service.access import FileType, normalize_file_type
 from services.parsers import get_parser
 
@@ -99,6 +100,11 @@ def extract_text_for_rag(
             filepath, filename, normalized_file_type.value
         )
         details.update(parse_details)
+        if is_deferred_parse_result(parse_details):
+            details["provider_used"] = (
+                parse_details.get("provider_used") or parser.name
+            )
+            return "", details
         if text and len(text.strip()) > 0:
             details["provider_used"] = parser.name
             details["capability_status"] = build_available_status(parser.name, trace_id)

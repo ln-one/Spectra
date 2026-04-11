@@ -23,14 +23,9 @@ class MineruParseResultRequest(BaseModel):
     session_id: str | None = None
 
 
-class TriggerFallbackParseRequest(BaseModel):
-    session_id: str | None = None
-
-
 __all__ = [
     "BatchDeleteRequest",
     "MineruParseResultRequest",
-    "TriggerFallbackParseRequest",
     "UpdateFileIntentRequest",
     "cleanup_file",
     "logger",

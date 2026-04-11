@@ -17,7 +17,7 @@ from services.generation_session_service.card_execution_runtime_simulator import
 from services.generation_session_service.card_execution_runtime_word import (
     resolve_word_document_title,
 )
-from services.project_space_service import project_space_service
+from services.project_space_service.service import project_space_service
 
 
 @pytest.mark.anyio

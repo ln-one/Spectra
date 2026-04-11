@@ -305,28 +305,6 @@ def test_apply_mineru_parse_result_success(client, monkeypatch, _as_user):
     assert apply_mock.await_args.kwargs["file_id"] == _FILE_ID
 
 
-def test_trigger_fallback_parse_success(client, monkeypatch, _as_user):
-    response_payload = {
-        "success": True,
-        "data": {"file": {"id": _FILE_ID, "status": "parsing"}},
-        "message": "已触发后端降级解析",
-    }
-    trigger_mock = AsyncMock(return_value=response_payload)
-    monkeypatch.setattr(
-        "routers.files.uploads.trigger_fallback_parse_response",
-        trigger_mock,
-    )
-
-    resp = client.post(
-        f"/api/v1/files/{_FILE_ID}/parse/fallback",
-        json={"session_id": "s-001"},
-    )
-
-    assert resp.status_code == 200
-    assert resp.json()["message"] == "已触发后端降级解析"
-    assert trigger_mock.await_args.kwargs["file_id"] == _FILE_ID
-
-
 def test_update_file_intent_success(client, monkeypatch, _as_user):
     _mock(monkeypatch, db_service, "get_file", _fake_upload())
     _mock(monkeypatch, db_service, "get_project", _fake_project())

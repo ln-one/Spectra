@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import json
 import logging
-import time
 from typing import Awaitable, Callable
 
 from schemas.generation import build_session_output_fields
@@ -22,6 +20,15 @@ from services.generation_session_service.command_runtime_slide_modify_helpers im
 from services.generation_session_service.command_runtime_slide_modify_helpers import (
     resolve_target_slide_index as _resolve_target_slide_index,
 )
+from services.generation_session_service.preview_mutation_context import (
+    load_preview_content_for_context as _load_preview_content_for_context,
+)
+from services.generation_session_service.preview_mutation_context import (
+    load_session_preview_material_context as _load_session_preview_material_context,
+)
+from services.generation_session_service.preview_mutation_context import (
+    persist_preview_content_for_context as _persist_preview_content_for_context,
+)
 from services.generation_session_service.session_history import (
     RUN_STATUS_PROCESSING,
     RUN_STEP_MODIFY_SLIDE,
@@ -32,58 +39,12 @@ from services.generation_session_service.session_history import (
 )
 from services.platform.generation_event_constants import GenerationEventType
 from services.platform.state_transition_guard import GenerationState
-from services.preview_helpers import load_preview_content, save_preview_content
-from services.preview_helpers.content_generation import (
-    parse_preview_content_from_input_data,
+from services.generation_session_service.session_state_runtime import (
+    handle_resume_session,
 )
 from services.task_executor.constants import TaskFailureStateReason
 
 logger = logging.getLogger(__name__)
-
-
-async def _load_latest_session_task(db, session_id: str):
-    task_model = getattr(db, "generationtask", None)
-    if task_model is None or not hasattr(task_model, "find_first"):
-        return None
-    return await task_model.find_first(
-        where={"sessionId": session_id},
-        order={"createdAt": "desc"},
-    )
-
-
-async def _load_task_preview_content(task) -> dict | None:
-    if not task:
-        return None
-    task_id = str(getattr(task, "id", "") or "").strip()
-    if task_id:
-        cached = await load_preview_content(task_id)
-        if isinstance(cached, dict):
-            return cached
-    return parse_preview_content_from_input_data(getattr(task, "inputData", None))
-
-
-async def _persist_task_preview_content(db, task, preview_payload: dict) -> None:
-    if not task:
-        return
-    task_id = str(getattr(task, "id", "") or "").strip()
-    if task_id:
-        await save_preview_content(task_id, preview_payload)
-
-    raw_input_data = getattr(task, "inputData", None)
-    merged_input: dict = {}
-    if isinstance(raw_input_data, str) and raw_input_data.strip():
-        try:
-            parsed = json.loads(raw_input_data)
-        except (TypeError, json.JSONDecodeError):
-            parsed = None
-        if isinstance(parsed, dict):
-            merged_input.update(parsed)
-    merged_input["preview_content"] = preview_payload
-    merged_input["preview_cached_at"] = int(time.time())
-    await db.generationtask.update(
-        where={"id": task.id},
-        data={"inputData": json.dumps(merged_input, ensure_ascii=False)},
-    )
 
 
 async def handle_regenerate_slide(
@@ -119,8 +80,8 @@ async def handle_regenerate_slide(
                 )
             )
 
-        latest_task = await _load_latest_session_task(db, session.id)
-        preview_content = await _load_task_preview_content(latest_task)
+        material_context = await _load_session_preview_material_context(db, session)
+        preview_content = await _load_preview_content_for_context(material_context)
         if not preview_content:
             raise conflict_error_cls("preview content is missing for this session")
 
@@ -135,7 +96,7 @@ async def handle_regenerate_slide(
         target_slide_index = _resolve_target_slide_index(
             command,
             preview_payload=preview_content,
-            task_id=str(getattr(latest_task, "id", "") or "preview"),
+            render_job_id=str(material_context.get("render_job_id") or "preview"),
         )
         if target_slide_index is None:
             raise conflict_error_cls("failed to resolve target slide index")
@@ -154,7 +115,15 @@ async def handle_regenerate_slide(
         )
         session_state_mutated = True
 
-        rag_source_ids = _extract_rag_source_ids(session=session, task=latest_task)
+        artifact_metadata = (
+            material_context.get("artifact_metadata")
+            if isinstance(material_context.get("artifact_metadata"), dict)
+            else {}
+        )
+        rag_source_ids = _extract_rag_source_ids(
+            session=session,
+            artifact_metadata=artifact_metadata,
+        )
         rag_context = None
         source_scope = "no_source_constraint"
         if rag_source_ids:
@@ -202,7 +171,10 @@ async def handle_regenerate_slide(
         except Exception as rewrite_exc:
             logger.warning(f"Render rewrite after modify failed: {rewrite_exc}")
 
-        template_config = _extract_template_config(session=session, task=latest_task)
+        template_config = _extract_template_config(
+            session=session,
+            artifact_metadata=artifact_metadata,
+        )
         next_render_version = int(getattr(session, "renderVersion", 0) or 0) + 1
         updated_preview = {
             "title": str(
@@ -221,17 +193,19 @@ async def handle_regenerate_slide(
             "style_manifest": preview_content.get("style_manifest"),
             "extra_css": preview_content.get("extra_css"),
             "page_class_plan": preview_content.get("page_class_plan"),
+            "render_job_id": material_context.get("render_job_id"),
         }
         updated_preview = await _refresh_rendered_preview(
-            task=latest_task,
+            render_job_id=str(material_context.get("render_job_id") or "preview"),
             preview_payload=updated_preview,
             template_config=template_config,
         )
-        await _persist_task_preview_content(db, latest_task, updated_preview)
+        await _persist_preview_content_for_context(db, material_context, updated_preview)
         artifact_id, output_urls = await _persist_modified_pptx_artifact(
             db=db,
             session=session,
-            task=latest_task,
+            render_job_id=str(material_context.get("render_job_id") or "preview"),
+            source_artifact_id=material_context.get("artifact_id"),
             run=run,
             preview_payload=updated_preview,
             template_config=template_config,
@@ -359,37 +333,3 @@ async def handle_regenerate_slide(
             payload=failure_payload,
         )
         raise
-
-
-async def handle_resume_session(
-    *,
-    db,
-    session,
-    command: dict,
-    new_state: str,
-    append_event: Callable[..., Awaitable[None]],
-) -> None:
-    cursor = command.get("cursor")
-    await db.generationsession.update(
-        where={"id": session.id},
-        data={
-            "state": new_state,
-            "resumable": True,
-            "lastCursor": cursor,
-            "errorCode": None,
-            "errorMessage": None,
-        },
-    )
-    await append_event(
-        session_id=session.id,
-        event_type=GenerationEventType.STATE_CHANGED.value,
-        state=new_state,
-        state_reason=getattr(session, "stateReason", None),
-        payload={"resumed_from_cursor": cursor},
-    )
-    await append_event(
-        session_id=session.id,
-        event_type=GenerationEventType.SESSION_RECOVERED.value,
-        state=new_state,
-        payload={"resumed_from_cursor": cursor},
-    )

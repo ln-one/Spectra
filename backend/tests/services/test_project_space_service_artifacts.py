@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from services.project_space_service import ProjectSpaceService
+from services.project_space_service.service import ProjectSpaceService
 
 
 @pytest.mark.asyncio

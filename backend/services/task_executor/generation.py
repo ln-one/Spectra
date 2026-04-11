@@ -56,6 +56,14 @@ def _build_initial_stream_preview_payload(
     return preview_payload
 
 
+def _preview_cache_keys_for_context(context: GenerationExecutionContext) -> list[str]:
+    keys: list[str] = []
+    run_id = str(getattr(context, "run_id", "") or "").strip()
+    if run_id:
+        keys.append(run_id)
+    return keys
+
+
 def _validate_required_output_urls(
     *,
     task_type: str,
@@ -219,7 +227,8 @@ async def execute_generation_task(
         )
         if initial_preview_payload:
             try:
-                await save_preview_content(task_id, initial_preview_payload)
+                for cache_key in [task_id, *_preview_cache_keys_for_context(context)]:
+                    await save_preview_content(cache_key, initial_preview_payload)
             except Exception as cache_err:
                 logger.warning(
                     "Failed to save initial outline preview cache for task %s: %s",
@@ -348,6 +357,7 @@ async def execute_generation_task(
             on_preview_payload_updated=(
                 _on_preview_payload_updated if context.session_id else None
             ),
+            cache_keys=_preview_cache_keys_for_context(context),
         )
         await _append_stream_event(
             event_type=GenerationEventType.PPT_COMPLETED.value,
@@ -374,7 +384,7 @@ async def execute_generation_task(
         )
 
         render_started_at = time.perf_counter()
-        output_urls, artifact_paths, render_timings_ms = (
+        output_urls, artifact_paths, render_timings_ms, render_metadata = (
             await render_generation_outputs(
                 db_service=db_service,
                 context=context,
@@ -386,6 +396,33 @@ async def execute_generation_task(
             (time.perf_counter() - render_started_at) * 1000,
             2,
         )
+        resolved_markdown_content = render_metadata.get("resolved_markdown_content")
+        if (
+            isinstance(preview_payload, dict)
+            and isinstance(resolved_markdown_content, str)
+            and resolved_markdown_content.strip()
+        ):
+            preview_payload["resolved_markdown_content"] = resolved_markdown_content
+            resolved_markdown_path = render_metadata.get("resolved_markdown_path")
+            if (
+                isinstance(resolved_markdown_path, str)
+                and resolved_markdown_path.strip()
+            ):
+                preview_payload["resolved_markdown_path"] = resolved_markdown_path
+            try:
+                for cache_key in [task_id, *_preview_cache_keys_for_context(context)]:
+                    await save_preview_content(cache_key, preview_payload)
+            except Exception as cache_err:
+                logger.warning(
+                    "Failed to refresh resolved markdown preview cache for task %s: %s",
+                    task_id,
+                    cache_err,
+                )
+            await persist_preview_payload(
+                db_service,
+                task_id=task_id,
+                preview_payload=preview_payload,
+            )
 
         persist_started_at = time.perf_counter()
         persisted_output_urls = await persist_generation_artifacts(

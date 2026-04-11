@@ -68,7 +68,7 @@ class TestPreviewSchemas:
             ModifyRequest(instruction="")
 
     def test_modify_response(self):
-        resp = ModifyResponse(modify_task_id="m1", status=TaskStatus.COMPLETED)
+        resp = ModifyResponse(status=TaskStatus.COMPLETED)
         assert resp.status == TaskStatus.COMPLETED
 
     def test_export_request_defaults(self):
@@ -182,53 +182,6 @@ class TestMarpParsing:
         slides = CoursewareAIMixin.parse_marp_slides(SAMPLE_MARP)
         indices = [s["index"] for s in slides]
         assert indices == [0, 1, 2, 3]
-
-
-# ============================================================
-# Modify Intent Parsing (keyword fallback)
-# ============================================================
-
-
-class TestModifyIntentKeywords:
-    """_parse_modify_intent_by_keywords 测试"""
-
-    def test_content_modify(self):
-        result = AIService._parse_modify_intent_by_keywords("把标题改成xxx")
-        assert result.modify_type == ModifyType.CONTENT
-
-    def test_style_modify(self):
-        result = AIService._parse_modify_intent_by_keywords("换一个模板风格")
-        assert result.modify_type == ModifyType.STYLE
-
-    def test_style_theme_color_not_global(self):
-        result = AIService._parse_modify_intent_by_keywords("把主题色改成蓝色")
-        assert result.modify_type == ModifyType.STYLE
-
-    def test_structure_modify(self):
-        result = AIService._parse_modify_intent_by_keywords("添加一页关于总结的内容")
-        assert result.modify_type == ModifyType.STRUCTURE
-
-    def test_global_modify(self):
-        result = AIService._parse_modify_intent_by_keywords("整体改成学术风格")
-        assert result.modify_type == ModifyType.GLOBAL
-
-    def test_extract_page_number(self):
-        result = AIService._parse_modify_intent_by_keywords("把第3页的标题改成xxx")
-        assert result.target_slides == [3]
-        assert result.modify_type == ModifyType.CONTENT
-
-    def test_extract_multiple_pages(self):
-        result = AIService._parse_modify_intent_by_keywords("修改第2页和第5页的内容")
-        assert result.target_slides == [2, 5]
-
-    def test_no_page_number(self):
-        result = AIService._parse_modify_intent_by_keywords("改一下标题")
-        assert result.target_slides is None
-
-    def test_instruction_preserved(self):
-        instruction = "把第1页标题改成Python入门"
-        result = AIService._parse_modify_intent_by_keywords(instruction)
-        assert result.instruction == instruction
 
 
 # ============================================================
@@ -464,62 +417,3 @@ class TestModifyCourseware:
                 target_slides=None,
             )
         assert result.markdown_content is not None
-
-
-# ============================================================
-# Parse Modify Intent (mock LLM)
-# ============================================================
-
-
-class TestParseModifyIntent:
-    """parse_modify_intent LLM 路径测试"""
-
-    @pytest.mark.asyncio
-    async def test_llm_parse_success(self):
-        ai = AIService()
-        mock_response = json.dumps({"modify_type": "content", "target_slides": [3]})
-        with patch.object(
-            ai,
-            "generate",
-            new_callable=AsyncMock,
-            return_value={"content": mock_response},
-        ) as mock_generate:
-            result = await ai.parse_modify_intent("把第3页标题改成xxx")
-        assert isinstance(result, ModifyIntent)
-        assert result.modify_type == ModifyType.CONTENT
-        assert result.target_slides == [3]
-        prompt_arg = mock_generate.call_args.kwargs["prompt"]
-        assert "<modify_intent_task>" in prompt_arg
-        assert "<decision_rules>" in prompt_arg
-
-    @pytest.mark.asyncio
-    async def test_llm_parse_fallback(self):
-        ai = AIService()
-        with patch.object(
-            ai,
-            "generate",
-            new_callable=AsyncMock,
-            side_effect=Exception("LLM error"),
-        ):
-            result = await ai.parse_modify_intent("把第3页标题改成xxx")
-        assert isinstance(result, ModifyIntent)
-        assert result.target_slides == [3]
-
-    @pytest.mark.asyncio
-    async def test_llm_parse_and_keyword_fallback_both_fail_returns_safe_default(self):
-        ai = AIService()
-        with patch.object(
-            ai,
-            "generate",
-            new_callable=AsyncMock,
-            side_effect=Exception("LLM error"),
-        ):
-            with patch.object(
-                AIService,
-                "_parse_modify_intent_by_keywords",
-                side_effect=Exception("fallback error"),
-            ):
-                result = await ai.parse_modify_intent("把第3页标题改成xxx")
-        assert isinstance(result, ModifyIntent)
-        assert result.modify_type == ModifyType.CONTENT
-        assert result.target_slides is None

@@ -59,11 +59,11 @@
   - Word generation depends on Pandoc
 - Why it matters: generation debugging must distinguish AI/content failure from render-toolchain failure.
 
-### 2.7 Office placeholder artifacts must stay explicit
+### 2.7 Office and media rendering must fail explicitly
 
 - Status: `confirmed`
-- Meaning: placeholder PPTX/DOCX output is a development-only degradation path and should not be the default production behavior.
-- Why it matters: fake Office files hide render-toolchain failures and make success semantics misleading.
+- Meaning: placeholder PPTX/DOCX/MP4 output is no longer an accepted recovery path; render failures should surface as explicit failures.
+- Why it matters: fake artifacts hide render-toolchain failures and make success semantics misleading.
 
 ### 2.8 Project owner is implicit, not a managed member concept
 
@@ -154,6 +154,12 @@
 - Status: `confirmed`
 - Meaning: Docker/backend runtime uses the Python Prisma client, and `find_unique()` / `find_many()` calls in hot paths must not assume JS-style `select=` support unless the generated client signature explicitly supports it.
 - Why it matters: preview/runtime queries have already failed in Docker with `unexpected keyword argument 'select'`, which surfaced to users as generic `INVALID_INPUT` instead of the real query incompatibility.
+
+### 2.23 The four external services are the only capability authorities
+
+- Status: `confirmed`
+- Meaning: Spectra runtime should treat `dualweave`, `stratumind`, `pagevra`, and `ourograph` as the only formal capability authorities for upload/parse, retrieval, render/preview/export, and formal project-space state.
+- Why it matters: once backend keeps alternate local paths, duplicate env names, or second render/state semantics alive, product behavior drifts and debugging turns into tracing which compatibility layer actually answered the request.
 
 ## 3. Watch List
 

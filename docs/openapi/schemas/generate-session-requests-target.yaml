@@ -9,10 +9,12 @@ CreateGenerationSessionResponseTarget:
       type: boolean
     data:
       type: object
-      required: [session]
+      required: [session, run]
       properties:
         session:
           $ref: './generate-session-models-target.yaml#/SessionRefTarget'
+        run:
+          $ref: './generate-session-models-target.yaml#/SessionRun'
     message:
       type: string
 

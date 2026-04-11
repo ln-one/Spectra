@@ -82,7 +82,7 @@ async def create_artifact_run(
         tool_type = getattr(run_for_response, "toolType", None) or getattr(
             run, "toolType", None
         )
-        from services.project_space_service import project_space_service
+        from services.project_space_service.service import project_space_service
 
         await project_space_service.update_artifact_metadata(
             artifact.id,

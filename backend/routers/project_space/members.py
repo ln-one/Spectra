@@ -14,7 +14,7 @@ from schemas.project_space import (
     ProjectMemberUpdate,
     SimpleSuccessResponse,
 )
-from services.project_space_service import project_space_service
+from services.project_space_service.service import project_space_service
 from utils.dependencies import get_current_user
 
 from .shared import COMMON_ERROR_RESPONSES, to_project_member_model

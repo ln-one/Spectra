@@ -9,9 +9,6 @@
 /api/v1/generate/sessions/{session_id}/events:
   $ref: './generate-session-core.yaml#/~1api~1v1~1generate~1sessions~1{session_id}~1events'
 
-/api/v1/generate/sessions/{session_id}/resume:
-  $ref: './generate-session-core.yaml#/~1api~1v1~1generate~1sessions~1{session_id}~1resume'
-
 /api/v1/generate/capabilities:
   $ref: './generate-session-core.yaml#/~1api~1v1~1generate~1capabilities'
 
@@ -42,20 +39,8 @@
 /api/v1/generate/studio-cards/{card_id}/sources:
   $ref: './generate-session-core.yaml#/~1api~1v1~1generate~1studio-cards~1{card_id}~1sources'
 
-/api/v1/generate/sessions/{session_id}/outline:
-  $ref: './generate-session-edit.yaml#/~1api~1v1~1generate~1sessions~1{session_id}~1outline'
-
 /api/v1/generate/sessions/{session_id}/commands:
   $ref: './generate-session-edit.yaml#/~1api~1v1~1generate~1sessions~1{session_id}~1commands'
 
-/api/v1/generate/sessions/{session_id}/confirm:
-  $ref: './generate-session-edit.yaml#/~1api~1v1~1generate~1sessions~1{session_id}~1confirm'
-
 /api/v1/generate/sessions/{session_id}/candidate-change:
   $ref: './generate-session-edit.yaml#/~1api~1v1~1generate~1sessions~1{session_id}~1candidate-change'
-
-/api/v1/generate/sessions/{session_id}/outline/redraft:
-  $ref: './generate-session-edit.yaml#/~1api~1v1~1generate~1sessions~1{session_id}~1outline~1redraft'
-
-/api/v1/generate/sessions/{session_id}/slides/{slide_id}/regenerate:
-  $ref: './generate-session-edit.yaml#/~1api~1v1~1generate~1sessions~1{session_id}~1slides~1{slide_id}~1regenerate'

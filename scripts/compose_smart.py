@@ -7,6 +7,9 @@ import os
 import shutil
 import subprocess
 import sys
+import urllib.error
+import urllib.parse
+import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 from typing import NamedTuple
@@ -346,9 +349,85 @@ def run_docker_pull(image_ref: str) -> None:
         raise ValueError(f"Failed to pull locked image: {image_ref}")
 
 
+def _ghcr_manifest_url(image: str, reference: str) -> tuple[str, str] | None:
+    prefix = "ghcr.io/"
+    if not image.startswith(prefix):
+        return None
+    repo = image[len(prefix) :]
+    return repo, f"https://ghcr.io/v2/{repo}/manifests/{reference}"
+
+
+def verify_ghcr_public_access(image: str, reference: str) -> str | None:
+    resolved = _ghcr_manifest_url(image, reference)
+    if resolved is None:
+        return None
+
+    repo, manifest_url = resolved
+    token_url = (
+        "https://ghcr.io/token?"
+        + urllib.parse.urlencode(
+            {
+                "scope": f"repository:{repo}:pull",
+                "service": "ghcr.io",
+            }
+        )
+    )
+    try:
+        with urllib.request.urlopen(token_url, timeout=10) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        return f"anonymous GHCR token request failed for {image}: {exc.code}"
+    except Exception as exc:  # pragma: no cover - network/runtime guard
+        return f"anonymous GHCR token request failed for {image}: {exc}"
+
+    token = str(payload.get("token") or "").strip()
+    if not token:
+        return f"anonymous GHCR token response for {image} did not include a token"
+
+    request = urllib.request.Request(
+        manifest_url,
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Accept": "application/vnd.oci.image.index.v1+json, application/vnd.oci.image.manifest.v1+json, application/vnd.docker.distribution.manifest.list.v2+json, application/vnd.docker.distribution.manifest.v2+json",
+        },
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=15):
+            return None
+    except urllib.error.HTTPError as exc:
+        return f"anonymous GHCR manifest request failed for {image}:{reference}: {exc.code}"
+    except Exception as exc:  # pragma: no cover - network/runtime guard
+        return f"anonymous GHCR manifest request failed for {image}:{reference}: {exc}"
+
+
+def public_access_failures(
+    *,
+    modes: list[tuple[ServiceSource, str]],
+    locks: dict[str, ServiceLock],
+) -> list[str]:
+    failures: list[str] = []
+    for source, mode in modes:
+        if mode != "image":
+            continue
+        service_lock = locks[source.name]
+        reference = service_lock.digest or service_lock.tag
+        failure = verify_ghcr_public_access(service_lock.image, reference)
+        if failure:
+            failures.append(f"{source.display_name}: {failure}")
+    return failures
+
+
 def handle_sync(channel: str) -> int:
     modes = resolve_service_modes()
     refs, locks = ensure_sync_ready(channel, modes)
+    access_failures = public_access_failures(modes=modes, locks=locks)
+    if access_failures:
+        joined = "\n".join(f"  - {message}" for message in access_failures)
+        raise ValueError(
+            "[compose-smart] Cannot continue because locked images are not anonymously pullable:\n"
+            + joined
+            + "\n[compose-smart] Publish the package publicly or switch that service to local source mode."
+        )
     print(f"[compose-smart] Syncing stack lock for channel '{channel}'")
     for source, mode in modes:
         if mode == "image":
@@ -451,6 +530,8 @@ def handle_doctor(channel: str) -> int:
             if refs:
                 mismatches = env_matches_refs(env_values, refs)
                 failures.extend(mismatches)
+        if locks:
+            failures.extend(public_access_failures(modes=modes, locks=locks))
 
     if not failures and shutil.which("docker") is not None:
         try:

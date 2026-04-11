@@ -43,6 +43,20 @@ def _raise_run_not_ready(run_id: str) -> None:
     )
 
 
+def _run_material_ready(material_context, slides: list[dict], content: dict) -> bool:
+    if material_context and not isinstance(material_context, dict):
+        return True
+    if not isinstance(material_context, dict):
+        return False
+    if material_context.get("artifact_id"):
+        return True
+    if slides:
+        return True
+    markdown_content = str((content or {}).get("markdown_content") or "").strip()
+    rendered_preview = (content or {}).get("rendered_preview")
+    return bool(markdown_content or isinstance(rendered_preview, dict))
+
+
 def _resolve_modify_instruction(body: dict) -> str:
     instruction = str(body.get("instruction") or "").strip()
     if not instruction:
@@ -150,7 +164,7 @@ async def get_session_preview_response(
             error_code=ErrorCode.INVALID_INPUT,
             message=str(exc),
         )
-    anchor, task, slides, lesson_plan, content = (
+    anchor, material_context, slides, lesson_plan, content = (
         await load_preview_material_for_snapshot(
             session_id=session_id,
             snapshot=snapshot,
@@ -160,14 +174,13 @@ async def get_session_preview_response(
             load_preview_material=load_preview_material,
         )
     )
-    if run_id and task is None:
+    if run_id and not _run_material_ready(material_context, slides, content):
         _raise_run_not_ready(run_id)
 
     response = success_response(
         data=build_preview_payload(
             session_id=session_id,
             snapshot=snapshot,
-            task=task,
             slides=slides,
             lesson_plan=lesson_plan,
             anchor=anchor,
@@ -227,12 +240,10 @@ async def modify_session_preview_response(
         body.get("artifact_id"),
         body.get("run_id"),
     )
-    task_id = snapshot["session"].get("task_id")
     _, slides, _, _ = await load_preview_material(
         session_id,
         snapshot["session"]["project_id"],
         anchor.get("artifact_id"),
-        task_id,
         anchor.get("run_id"),
     )
     slide_id, slide_index = _resolve_target_slide_id(body, slides)
@@ -273,7 +284,7 @@ async def modify_session_preview_response(
         parsed_idempotency_key=parsed_idempotency_key,
         cache_scope="preview_modify_candidate_change",
         generation_command=generation_command,
-        generation_result=result if isinstance(result, dict) else payload,
+        generation_result=payload,
         trigger="preview_modify",
         payload=payload,
         attach_auto_candidate_change=attach_auto_candidate_change,
@@ -293,7 +304,7 @@ async def get_session_slide_preview_response(
     load_preview_material: PreviewMaterialLoader,
 ):
     snapshot = await get_preview_snapshot_or_raise(session_id, user_id)
-    anchor, task, slides, lesson_plan, content = (
+    anchor, material_context, slides, lesson_plan, content = (
         await load_preview_material_for_snapshot(
             session_id=session_id,
             snapshot=snapshot,
@@ -303,7 +314,7 @@ async def get_session_slide_preview_response(
             load_preview_material=load_preview_material,
         )
     )
-    if run_id and task is None:
+    if run_id and not _run_material_ready(material_context, slides, content):
         _raise_run_not_ready(run_id)
 
     try:
@@ -373,7 +384,7 @@ async def export_session_response(
         )
     except RuntimeError as exc:
         raise_conflict(str(exc))
-    anchor, task, slides, lesson_plan, content = (
+    anchor, material_context, slides, lesson_plan, content = (
         await load_preview_material_for_snapshot(
             session_id=session_id,
             snapshot=snapshot,
@@ -383,13 +394,12 @@ async def export_session_response(
             load_preview_material=load_preview_material,
         )
     )
-    if resolved_run_id and task is None:
+    if resolved_run_id and not _run_material_ready(material_context, slides, content):
         _raise_run_not_ready(resolved_run_id)
 
     payload = build_export_payload(
         session_id=session_id,
         snapshot=snapshot,
-        task=task,
         slides=slides,
         lesson_plan=lesson_plan,
         content=content,

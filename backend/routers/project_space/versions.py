@@ -9,7 +9,7 @@ from schemas.project_space import (
     ProjectVersionResponse,
     ProjectVersionsResponse,
 )
-from services.project_space_service import project_space_service
+from services.project_space_service.service import project_space_service
 from utils.dependencies import get_current_user
 from utils.exceptions import ConflictException, NotFoundException
 

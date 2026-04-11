@@ -1,4 +1,4 @@
-"""Compatibility exports for legacy service imports.
+"""Tests-only compatibility exports for legacy service imports.
 
 New production code should prefer explicit module imports instead of
 ``from services import ...`` to keep dependency boundaries visible.

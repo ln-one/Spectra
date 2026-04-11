@@ -15,7 +15,6 @@ from .workflow import (
     apply_mineru_parse_result_response,
     batch_upload_files_response,
     save_and_record_upload,
-    trigger_fallback_parse_response,
     upload_file_response,
 )
 
@@ -32,7 +31,6 @@ __all__ = [
     "resolve_file_type",
     "save_and_record_upload",
     "serialize_upload",
-    "trigger_fallback_parse_response",
     "upload_file_response",
     "validate_upload_file",
     "verify_project_access",

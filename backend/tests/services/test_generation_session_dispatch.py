@@ -123,7 +123,7 @@ async def test_confirm_outline_normalizes_task_type_for_enqueue(monkeypatch):
     )
 
     assert result["warnings"] == []
-    assert result["task_id"] == "task-101"
+    assert "task_id" not in result
     enqueue_kwargs = queue.enqueue_generation_task.call_args.kwargs
     assert enqueue_kwargs["task_type"] == "docx"
     assert enqueue_kwargs["template_config"] == {"style": "gaia"}

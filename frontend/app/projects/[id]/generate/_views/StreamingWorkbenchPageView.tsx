@@ -13,7 +13,34 @@ import { useGeneratePreviewState } from "./useGeneratePreviewState";
 import { PreviewHeader } from "./components/PreviewHeader";
 import { PreviewSlideStrip } from "./components/PreviewSlideStrip";
 import { PreviewFloatingTools } from "./components/PreviewFloatingTools";
-import { PptArtifactRenderer } from "./components/PptArtifactRenderer";
+import { HtmlPreviewFrame } from "./components/HtmlPreviewFrame";
+
+function hasRenderablePreview(slide: {
+  thumbnail_url?: string | null;
+  rendered_html_preview?: string | null;
+  rendered_previews?: Array<{
+    image_url?: string | null;
+    html_preview?: string | null;
+  }>;
+}): boolean {
+  const frames = Array.isArray(slide.rendered_previews) ? slide.rendered_previews : [];
+  if (
+    frames.some(
+      (frame) =>
+        Boolean(frame?.image_url) ||
+        (typeof frame?.html_preview === "string" && frame.html_preview.trim())
+    )
+  ) {
+    return true;
+  }
+  if (
+    typeof slide.rendered_html_preview === "string" &&
+    slide.rendered_html_preview.trim()
+  ) {
+    return true;
+  }
+  return Boolean(slide.thumbnail_url);
+}
 
 export default function StreamingWorkbenchPageView() {
   const router = useRouter();
@@ -60,7 +87,6 @@ export default function StreamingWorkbenchPageView() {
     outlineSections,
     slidesContentMarkdown,
     activeSessionId,
-    currentArtifactId,
     handleExport,
     handleResume,
     handleRegenerateSlide,
@@ -113,28 +139,15 @@ export default function StreamingWorkbenchPageView() {
   }, [activeSlideIndex]);
 
   const renderedSlides = useMemo(
-    () =>
-      orderedSlides.filter(
-        (slide) =>
-          Boolean(slide.thumbnail_url) || Boolean(slide.rendered_html_preview)
-      ),
+    () => orderedSlides.filter((slide) => hasRenderablePreview(slide)),
     [orderedSlides]
   );
   const pendingSlide = useMemo(
-    () =>
-      orderedSlides.find(
-        (slide) => !slide.thumbnail_url && !slide.rendered_html_preview
-      ) ?? null,
+    () => orderedSlides.find((slide) => !hasRenderablePreview(slide)) ?? null,
     [orderedSlides]
   );
   const hasRenderableContent =
     renderedSlides.length > 0 || Boolean(pendingSlide);
-  const shouldRenderArtifactOnly =
-    !isLoading &&
-    !previewBlockedReason &&
-    !hasRenderableContent &&
-    !isSessionGenerating &&
-    Boolean(projectId && currentArtifactId);
 
   useEffect(() => {
     if (!leftScrollRef.current) return;
@@ -199,6 +212,33 @@ export default function StreamingWorkbenchPageView() {
     if (fullscreenSlideIndex === null) return null;
     return renderedSlides.find((slide) => slide.index === fullscreenSlideIndex);
   }, [fullscreenSlideIndex, renderedSlides]);
+  const fullscreenPreviews = useMemo(() => {
+    if (!fullscreenSlide) return [];
+    if (
+      Array.isArray((fullscreenSlide as { rendered_previews?: unknown }).rendered_previews)
+    ) {
+      return (
+        (fullscreenSlide as {
+          rendered_previews?: Array<{
+            image_url?: string | null;
+            html_preview?: string | null;
+            split_index?: number;
+          }>;
+        }).rendered_previews ?? []
+      ).slice();
+    }
+    if (fullscreenSlide.thumbnail_url) {
+      return [
+        {
+          image_url: fullscreenSlide.thumbnail_url,
+          html_preview: (fullscreenSlide as { rendered_html_preview?: string | null })
+            .rendered_html_preview,
+          split_index: 0,
+        },
+      ];
+    }
+    return [];
+  }, [fullscreenSlide]);
 
   return (
     <TooltipProvider delayDuration={300}>
@@ -270,20 +310,12 @@ export default function StreamingWorkbenchPageView() {
                     </p>
                   </div>
                 ) : !hasRenderableContent ? (
-                  shouldRenderArtifactOnly && currentArtifactId ? (
-                    <PptArtifactRenderer
-                      projectId={projectId}
-                      artifactId={currentArtifactId}
-                      className="min-h-[260px]"
-                    />
-                  ) : (
-                    <div className="flex min-h-[260px] flex-col items-center justify-center opacity-80">
-                      <Loader2 className="mb-4 h-10 w-10 animate-spin text-primary" />
-                      <p className="text-sm text-muted-foreground">
-                        Waiting for the first rendered slide...
-                      </p>
-                    </div>
-                  )
+                  <div className="flex min-h-[260px] flex-col items-center justify-center opacity-80">
+                    <Loader2 className="mb-4 h-10 w-10 animate-spin text-primary" />
+                    <p className="text-sm text-muted-foreground">
+                      Waiting for the first rendered slide...
+                    </p>
+                  </div>
                 ) : (
                   <AnimatePresence>
                     {renderedSlides.map((slide, i) => (
@@ -375,17 +407,21 @@ export default function StreamingWorkbenchPageView() {
                   key={slide.id || `thumb-${slide.index}`}
                   type="button"
                   onClick={() => setFullscreenSlideIndex(slide.index)}
-                  className={`mb-3 overflow-hidden rounded-lg border text-left ${
+                    className={`mb-3 overflow-hidden rounded-lg border text-left ${
                     slide.index === fullscreenSlide.index
                       ? "border-blue-400"
                       : "border-transparent"
                   }`}
                 >
-                  <img
-                    src={slide.thumbnail_url || undefined}
-                    alt={slide.title || `Slide ${slide.index + 1}`}
-                    className="h-auto w-full object-cover"
-                  />
+                  {slide.thumbnail_url ? (
+                    <img
+                      src={slide.thumbnail_url || undefined}
+                      alt={slide.title || `Slide ${slide.index + 1}`}
+                      className="h-auto w-full object-cover"
+                    />
+                  ) : (
+                    <div className="aspect-[16/9] w-full bg-gradient-to-br from-zinc-100 via-white to-zinc-200" />
+                  )}
                 </button>
               ))}
             </aside>
@@ -397,13 +433,46 @@ export default function StreamingWorkbenchPageView() {
               >
                 <X className="h-5 w-5" />
               </button>
-              <img
-                src={fullscreenSlide.thumbnail_url || undefined}
-                alt={
-                  fullscreenSlide.title || `Slide ${fullscreenSlide.index + 1}`
-                }
-                className="max-h-full max-w-full rounded-lg bg-white object-contain shadow-2xl"
-              />
+              <div className="flex max-h-full w-full max-w-6xl flex-col gap-6 overflow-auto">
+                {fullscreenPreviews.map((preview, previewIndex) => (
+                  <div
+                    key={`${fullscreenSlide.id || fullscreenSlide.index}-fullscreen-${preview.split_index ?? previewIndex}`}
+                    className="relative"
+                  >
+                    {fullscreenPreviews.length > 1 ? (
+                      <div className="mb-3 text-sm font-medium text-white/80">
+                        分页 {previewIndex + 1} / {fullscreenPreviews.length}
+                      </div>
+                    ) : null}
+                    {preview.html_preview ? (
+                      <div className="overflow-hidden rounded-lg bg-white shadow-2xl">
+                        <HtmlPreviewFrame
+                          title={
+                            fullscreenPreviews.length > 1
+                              ? `${fullscreenSlide.title || `Slide ${fullscreenSlide.index + 1}`} - 分页 ${previewIndex + 1}`
+                              : fullscreenSlide.title ||
+                                `Slide ${fullscreenSlide.index + 1}`
+                          }
+                          html={preview.html_preview}
+                          interactive
+                          className="min-h-[70vh]"
+                        />
+                      </div>
+                    ) : (
+                      <img
+                        src={preview.image_url || undefined}
+                        alt={
+                          fullscreenPreviews.length > 1
+                            ? `${fullscreenSlide.title || `Slide ${fullscreenSlide.index + 1}`} - page ${previewIndex + 1}`
+                            : fullscreenSlide.title ||
+                              `Slide ${fullscreenSlide.index + 1}`
+                        }
+                        className="max-h-full max-w-full rounded-lg bg-white object-contain shadow-2xl"
+                      />
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         ) : null}

@@ -1,4 +1,4 @@
-"""Adapter for invoking the Pagevra render service."""
+"""Adapter for invoking Pagevra as the only render service."""
 
 from __future__ import annotations
 
@@ -38,59 +38,33 @@ def _is_truthy(value: str) -> bool:
 
 
 def render_engine_enabled() -> bool:
-    raw = (
-        os.getenv("PAGEVRA_ENABLED", "").strip()
-        or os.getenv("STRUCTRA_ENABLED", "").strip()
-    )
-    if raw:
-        return _is_truthy(raw)
-    return _is_truthy(os.getenv("RENDER_ENGINE_ENABLED", "false"))
+    return _is_truthy(os.getenv("PAGEVRA_ENABLED", "false"))
 
 
 def _render_engine_node_bin() -> str:
-    return (
-        os.getenv("PAGEVRA_NODE_BIN", "").strip()
-        or os.getenv("STRUCTRA_NODE_BIN", "").strip()
-        or os.getenv("RENDER_ENGINE_NODE_BIN", "node").strip()
-        or "node"
-    )
+    return os.getenv("PAGEVRA_NODE_BIN", "node").strip() or "node"
 
 
 def _render_engine_base_url() -> str:
-    return (
-        os.getenv("PAGEVRA_BASE_URL", "").strip().rstrip("/")
-        or os.getenv("STRUCTRA_BASE_URL", "").strip().rstrip("/")
-        or os.getenv("RENDER_ENGINE_BASE_URL", "").strip().rstrip("/")
-    )
+    return os.getenv("PAGEVRA_BASE_URL", "").strip().rstrip("/")
 
 
 def _render_engine_timeout_seconds() -> float:
-    raw = (
-        os.getenv("PAGEVRA_TIMEOUT_SECONDS", "").strip()
-        or os.getenv("STRUCTRA_TIMEOUT_SECONDS", "").strip()
-        or os.getenv("RENDER_ENGINE_TIMEOUT_SECONDS", "").strip()
-    )
+    raw = os.getenv("PAGEVRA_TIMEOUT_SECONDS", "").strip()
     if not raw:
         return 180.0
     try:
         return max(1.0, float(raw))
     except ValueError:
         logger.warning(
-            (
-                "Invalid PAGEVRA_TIMEOUT_SECONDS/STRUCTRA_TIMEOUT_SECONDS/"
-                "RENDER_ENGINE_TIMEOUT_SECONDS=%r, falling back to 180s"
-            ),
+            "Invalid PAGEVRA_TIMEOUT_SECONDS=%r, falling back to 180s",
             raw,
         )
         return 180.0
 
 
 def _render_engine_output_dir() -> Path:
-    raw = (
-        os.getenv("PAGEVRA_OUTPUT_DIR", "").strip()
-        or os.getenv("STRUCTRA_OUTPUT_DIR", "").strip()
-        or os.getenv("RENDER_ENGINE_OUTPUT_DIR", "").strip()
-    )
+    raw = os.getenv("PAGEVRA_OUTPUT_DIR", "").strip()
     if raw:
         return Path(raw)
     return get_generated_dir()

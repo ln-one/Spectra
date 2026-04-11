@@ -13,12 +13,14 @@ def run_remote_parse_reconcile_task(
     file_id: str,
     project_id: str,
     session_id: Optional[str] = None,
+    initial_delay_seconds: int = 0,
 ):
     run_async_entrypoint(
         lambda: execute_remote_parse_reconcile_task(
             file_id=file_id,
             project_id=project_id,
             session_id=session_id,
+            initial_delay_seconds=initial_delay_seconds,
         )
     )
 
@@ -27,11 +29,11 @@ async def execute_remote_parse_reconcile_task(
     file_id: str,
     project_id: str,
     session_id: Optional[str] = None,
+    initial_delay_seconds: int = 0,
 ):
     from services.database import DatabaseService
     from services.file_upload_service.remote_parse import (
-        enqueue_remote_parse_reconcile_from_env,
-        reconcile_remote_parse_once,
+        reconcile_remote_parse_until_terminal,
     )
 
     db = DatabaseService()
@@ -40,17 +42,14 @@ async def execute_remote_parse_reconcile_task(
         await asyncio.wait_for(db.connect(), timeout=10)
         db_connected = True
 
-        outcome = await reconcile_remote_parse_once(
+        if initial_delay_seconds > 0:
+            await asyncio.sleep(float(initial_delay_seconds))
+
+        outcome = await reconcile_remote_parse_until_terminal(
             db=db,
             file_id=file_id,
             session_id=session_id,
         )
-        if outcome == "pending":
-            await enqueue_remote_parse_reconcile_from_env(
-                file_id=file_id,
-                project_id=project_id,
-                session_id=session_id,
-            )
         logger.info(
             "remote_parse_reconcile_task_completed",
             extra={

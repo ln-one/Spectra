@@ -243,45 +243,33 @@ async def test_get_or_generate_content_failed_task_uses_outline_preview(monkeypa
 
 
 @pytest.mark.asyncio
-async def test_load_preview_material_fetches_task_without_select(
+async def test_load_preview_material_reads_artifact_preview_content(
     monkeypatch,
 ):
-    calls = []
-
-    async def _find_unique(**kwargs):
-        calls.append(kwargs)
-        assert "select" not in kwargs
-        return SimpleNamespace(
-            id="task-001",
-            sessionId="session-001",
-            status="completed",
-            templateConfig=None,
-            inputData=None,
-        )
-
     monkeypatch.setattr(
         "services.preview_helpers.content.db_service",
         SimpleNamespace(
             db=SimpleNamespace(
-                generationtask=SimpleNamespace(
-                    find_unique=AsyncMock(side_effect=_find_unique),
-                    find_first=AsyncMock(return_value=None),
+                sessionrun=SimpleNamespace(find_unique=AsyncMock(return_value=None)),
+                artifact=SimpleNamespace(
+                    find_unique=AsyncMock(return_value=None),
+                    find_first=AsyncMock(
+                        return_value=SimpleNamespace(
+                            id="artifact-001",
+                            sessionId="session-001",
+                            metadata=json.dumps(
+                                {
+                                    "preview_content": {
+                                        "title": "测试课程",
+                                        "markdown_content": "# Slide",
+                                        "lesson_plan_markdown": "plan",
+                                    }
+                                }
+                            ),
+                        )
+                    ),
                 ),
-                artifact=SimpleNamespace(find_unique=AsyncMock(return_value=None)),
             ),
-            get_project=AsyncMock(
-                return_value=SimpleNamespace(id="project-001", name="测试课程")
-            ),
-        ),
-    )
-    monkeypatch.setattr(
-        "services.preview_helpers.content.get_or_generate_content",
-        AsyncMock(
-            return_value={
-                "title": "测试课程",
-                "markdown_content": "# Slide",
-                "lesson_plan_markdown": "plan",
-            }
         ),
     )
     monkeypatch.setattr(
@@ -301,54 +289,39 @@ async def test_load_preview_material_fetches_task_without_select(
         AsyncMock(),
     )
 
-    task, slides, lesson_plan, content = await load_preview_material(
+    material_context, slides, lesson_plan, content = await load_preview_material(
         session_id="session-001",
         project_id="project-001",
-        task_id="task-001",
     )
 
-    assert task is not None and task.id == "task-001"
+    assert material_context is not None
+    assert material_context["artifact_id"] == "artifact-001"
+    assert material_context["render_job_id"] == "artifact-001"
     assert slides == [{"id": "slide-1", "title": "S1"}]
     assert lesson_plan == {"summary": "ok", "steps": []}
     assert content["title"] == "测试课程"
-    assert calls == [{"where": {"id": "task-001"}}]
 
 
 @pytest.mark.asyncio
-async def test_load_preview_material_does_not_render_preview_on_read_path(
+async def test_load_preview_material_returns_explicitly_missing_without_artifact_preview_content(
     monkeypatch,
 ):
     monkeypatch.setattr(
         "services.preview_helpers.content.db_service",
         SimpleNamespace(
             db=SimpleNamespace(
-                generationtask=SimpleNamespace(
-                    find_unique=AsyncMock(
+                sessionrun=SimpleNamespace(find_unique=AsyncMock(return_value=None)),
+                artifact=SimpleNamespace(
+                    find_unique=AsyncMock(return_value=None),
+                    find_first=AsyncMock(
                         return_value=SimpleNamespace(
-                            id="task-002",
+                            id="artifact-002",
                             sessionId="session-002",
-                            status="completed",
-                            templateConfig=None,
-                            inputData=None,
+                            metadata="{}",
                         )
                     ),
-                    find_first=AsyncMock(return_value=None),
                 ),
-                artifact=SimpleNamespace(find_unique=AsyncMock(return_value=None)),
             ),
-            get_project=AsyncMock(
-                return_value=SimpleNamespace(id="project-002", name="超时测试课程")
-            ),
-        ),
-    )
-    monkeypatch.setattr(
-        "services.preview_helpers.content.get_or_generate_content",
-        AsyncMock(
-            return_value={
-                "title": "超时测试课程",
-                "markdown_content": "# Slide",
-                "lesson_plan_markdown": "plan",
-            }
         ),
     )
     monkeypatch.setattr(
@@ -369,15 +342,16 @@ async def test_load_preview_material_does_not_render_preview_on_read_path(
         save_mock,
     )
 
-    task, slides, lesson_plan, content = await load_preview_material(
+    material_context, slides, lesson_plan, content = await load_preview_material(
         session_id="session-002",
         project_id="project-002",
-        task_id="task-002",
     )
 
-    assert task is not None and task.id == "task-002"
-    assert slides == [{"id": "slide-1", "title": "S1"}]
-    assert lesson_plan == {"summary": "ok", "steps": []}
-    assert content["title"] == "超时测试课程"
+    assert material_context is not None
+    assert material_context["artifact_id"] == "artifact-002"
+    assert material_context["render_job_id"] == "artifact-002"
+    assert slides == []
+    assert lesson_plan is None
+    assert content == {}
     assert "rendered_preview" not in content
     save_mock.assert_not_awaited()

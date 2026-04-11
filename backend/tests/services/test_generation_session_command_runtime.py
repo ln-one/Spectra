@@ -37,15 +37,17 @@ async def test_handle_regenerate_slide_emits_processing_event():
         updatedAt=None,
     )
     db.sessionrun.create.return_value = run
-    db.generationtask.find_first.return_value = SimpleNamespace(
-        id="task-001",
-        inputData='{"preview_content":{"title":"t","markdown_content":"# A\\n\\n---\\n\\n# B","lesson_plan_markdown":"lp"}}',
-    )
 
     with (
         patch(
-            "services.generation_session_service.command_runtime.load_preview_content",
-            new=AsyncMock(return_value=None),
+            "services.generation_session_service.preview_mutation_context.load_preview_content",
+            new=AsyncMock(
+                return_value={
+                    "title": "t",
+                    "markdown_content": "# A\n\n---\n\n# B",
+                    "lesson_plan_markdown": "lp",
+                }
+            ),
         ),
         patch(
             "services.generation_session_service.command_runtime._refresh_rendered_preview",
@@ -61,7 +63,7 @@ async def test_handle_regenerate_slide_emits_processing_event():
             new=AsyncMock(return_value=("artifact-001", {"pptx": "/download/a"})),
         ),
         patch(
-            "services.generation_session_service.command_runtime.save_preview_content",
+            "services.generation_session_service.preview_mutation_context.save_preview_content",
             new=AsyncMock(),
         ),
         patch(
@@ -73,6 +75,10 @@ async def test_handle_regenerate_slide_emits_processing_event():
                     lesson_plan_markdown="lp-new",
                 )
             ),
+        ),
+        patch(
+            "services.courseware_ai.generation._generate_courseware_render_rewrite",
+            new=AsyncMock(return_value="# rewritten"),
         ),
     ):
         result = await handle_regenerate_slide(
@@ -209,15 +215,17 @@ async def test_handle_regenerate_slide_fallbacks_to_project_rag_when_selected_so
         updatedAt=None,
     )
     db.sessionrun.create.return_value = run
-    db.generationtask.find_first.return_value = SimpleNamespace(
-        id="task-001",
-        inputData='{"preview_content":{"title":"t","markdown_content":"# A\\n\\n---\\n\\n# B","lesson_plan_markdown":"lp"}}',
-    )
 
     with (
         patch(
-            "services.generation_session_service.command_runtime.load_preview_content",
-            new=AsyncMock(return_value=None),
+            "services.generation_session_service.preview_mutation_context.load_preview_content",
+            new=AsyncMock(
+                return_value={
+                    "title": "t",
+                    "markdown_content": "# A\n\n---\n\n# B",
+                    "lesson_plan_markdown": "lp",
+                }
+            ),
         ),
         patch(
             "services.generation_session_service.command_runtime._refresh_rendered_preview",
@@ -242,7 +250,7 @@ async def test_handle_regenerate_slide_fallbacks_to_project_rag_when_selected_so
             ),
         ) as mock_retrieve,
         patch(
-            "services.generation_session_service.command_runtime.save_preview_content",
+            "services.generation_session_service.preview_mutation_context.save_preview_content",
             new=AsyncMock(),
         ),
         patch(
@@ -254,6 +262,10 @@ async def test_handle_regenerate_slide_fallbacks_to_project_rag_when_selected_so
                     lesson_plan_markdown="lp-new",
                 )
             ),
+        ),
+        patch(
+            "services.courseware_ai.generation._generate_courseware_render_rewrite",
+            new=AsyncMock(return_value="# rewritten"),
         ),
     ):
         result = await handle_regenerate_slide(
@@ -317,15 +329,17 @@ async def test_handle_regenerate_slide_restores_session_state_on_modify_failure(
         updatedAt=None,
     )
     db.sessionrun.create.return_value = run
-    db.generationtask.find_first.return_value = SimpleNamespace(
-        id="task-001",
-        inputData='{"preview_content":{"title":"t","markdown_content":"# A\\n\\n---\\n\\n# B","lesson_plan_markdown":"lp"}}',
-    )
 
     with (
         patch(
-            "services.generation_session_service.command_runtime.load_preview_content",
-            new=AsyncMock(return_value=None),
+            "services.generation_session_service.preview_mutation_context.load_preview_content",
+            new=AsyncMock(
+                return_value={
+                    "title": "t",
+                    "markdown_content": "# A\n\n---\n\n# B",
+                    "lesson_plan_markdown": "lp",
+                }
+            ),
         ),
         patch(
             "services.ai.ai_service.modify_courseware",
@@ -334,6 +348,10 @@ async def test_handle_regenerate_slide_restores_session_state_on_modify_failure(
                     "slide modify returned placeholder preview content"
                 )
             ),
+        ),
+        patch(
+            "services.courseware_ai.generation._generate_courseware_render_rewrite",
+            new=AsyncMock(return_value="# rewritten"),
         ),
     ):
         with pytest.raises(

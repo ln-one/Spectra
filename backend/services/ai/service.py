@@ -14,9 +14,7 @@ from services.ai.generate_runtime import generate_with_routing
 from services.ai.model_resolution import _resolve_model_name
 from services.ai.model_router import ModelRouter, ModelRouteTask
 from services.ai.service_intents import (
-    classify_intent_by_keywords_only,
     classify_intent_with_service,
-    parse_modify_intent_by_keywords_only,
     parse_modify_intent_with_service,
     retrieve_rag_context_bound,
 )
@@ -43,7 +41,7 @@ class AIService(CoursewareAIMixin):
             os.getenv("AI_REQUEST_TIMEOUT_SECONDS", "240")
         )
         self.chat_request_timeout_seconds = float(
-            os.getenv("CHAT_RESPONSE_TIMEOUT_SECONDS", "90")
+            os.getenv("CHAT_RESPONSE_TIMEOUT_SECONDS", "300")
         )
         self.model_router = ModelRouter(
             heavy_model=self.large_model,
@@ -241,8 +239,4 @@ class AIService(CoursewareAIMixin):
             )
             return {"reason": "vision_completion_error", "model": resolved_model}
 
-    _classify_intent_by_keywords = staticmethod(classify_intent_by_keywords_only)
-    _parse_modify_intent_by_keywords = staticmethod(
-        parse_modify_intent_by_keywords_only
-    )
     _retrieve_rag_context = retrieve_rag_context_bound

@@ -4,13 +4,15 @@ import json
 from typing import Any, Optional
 
 from services.generation_session_service.command_execution import (
-    build_command_response,
     dispatch_created_task,
     load_and_validate_session,
     load_cached_command_response,
     save_cached_command_response,
 )
 from services.generation_session_service.command_handlers import dispatch_command
+from services.generation_session_service.command_response import (
+    build_command_response,
+)
 from services.generation_session_service.session_history import (
     generate_semantic_run_title,
     spawn_background_task,
@@ -85,7 +87,6 @@ class SessionCommandMixin:
             db=self._db,
             session_id=session_id,
             command_type=command_type,
-            created_task_id=created_task_id,
             run_data=run_data,
             result=result,
             warnings=warnings,

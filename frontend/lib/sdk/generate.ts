@@ -21,48 +21,20 @@ export type CreateGenerationSessionRequest =
 type CreateGenerationSessionResponseTarget =
   components["schemas"]["CreateGenerationSessionResponseTarget"];
 export type CreateGenerationSessionResponse =
-  CreateGenerationSessionResponseTarget & {
+  Omit<CreateGenerationSessionResponseTarget, "data"> & {
     data: CreateGenerationSessionResponseTarget["data"] & {
-      /**
-       * Runtime compatibility:
-       * backend currently returns data.run, while openapi-target does not declare it yet.
-       */
-      run?: SessionRun;
+      run: SessionRun;
     };
   };
 export type GenerationSessionResponse =
   components["schemas"]["GenerationSessionResponseTarget"];
 export type GenerationEvent = components["schemas"]["GenerationEventTarget"];
-export type ConfirmOutlineRequest =
-  components["schemas"]["ConfirmOutlineRequest"];
-export type ConfirmOutlineRequestInput = ConfirmOutlineRequest & {
-  run_id?: string;
-};
-export type ConfirmOutlineResponse =
-  components["schemas"]["ConfirmOutlineResponse"];
-export type RedraftOutlineRequest =
-  components["schemas"]["RedraftOutlineRequest"];
-export type RedraftOutlineRequestInput = RedraftOutlineRequest & {
-  run_id?: string | null;
-};
-export type RedraftOutlineResponse =
-  components["schemas"]["RedraftOutlineResponse"];
-export type UpdateOutlineRequest =
-  components["schemas"]["UpdateOutlineRequest"];
-export type UpdateOutlineResponse =
-  components["schemas"]["UpdateOutlineResponse"];
-export type ResumeSessionRequest =
-  components["schemas"]["ResumeSessionRequest"];
-export type ResumeSessionResponse =
-  components["schemas"]["ResumeSessionResponseTarget"];
-export type RegenerateSlideRequest =
-  components["schemas"]["LocalModifySlideRequestTarget"];
-export type RegenerateSlideResponse =
-  components["schemas"]["LocalModifySlideResponseTarget"];
-export type GenerationSessionCommandRequest =
-  components["schemas"]["GenerationSessionCommandRequestTarget"];
 export type GenerationSessionCommandResponse =
   components["schemas"]["GenerationSessionCommandResponseTarget"];
+export type GenerationSessionCommandPayload = {
+  command: Record<string, unknown>;
+  candidate_change?: Record<string, unknown>;
+};
 export type GenerationCapabilitiesResponse =
   components["schemas"]["GenerationCapabilitiesResponse"];
 export type GenerationSessionListResponse =
@@ -131,11 +103,6 @@ function normalizeCreateSessionRequest(
   };
 }
 
-function readOptionalSessionRun(value: unknown): SessionRun | undefined {
-  if (!value || typeof value !== "object") return undefined;
-  return value as SessionRun;
-}
-
 export const generateApi = {
   async createSession(
     data: CreateGenerationSessionRequestInput
@@ -145,22 +112,7 @@ export const generateApi = {
       body: normalizeCreateSessionRequest(data),
       headers,
     });
-    const payload = await unwrap<CreateGenerationSessionResponseTarget>(result);
-    // Runtime compatibility:
-    // backend currently returns data.run, while openapi-target does not declare it yet.
-    const run = readOptionalSessionRun(
-      (payload as { data?: { run?: unknown } })?.data?.run
-    );
-    if (!run) {
-      return payload as CreateGenerationSessionResponse;
-    }
-    return {
-      ...payload,
-      data: {
-        ...payload.data,
-        run,
-      },
-    };
+    return unwrap<CreateGenerationSessionResponse>(result);
   },
 
   async getSession(sessionId: string): Promise<GenerationSessionResponse> {
@@ -270,101 +222,20 @@ export const generateApi = {
     return payload as GenerationEventListResponse;
   },
 
-  async resumeSession(
-    sessionId: string,
-    data?: ResumeSessionRequest
-  ): Promise<ResumeSessionResponse> {
-    const result = await sdkClient.POST(
-      "/api/v1/generate/sessions/{session_id}/resume",
-      {
-        params: { path: { session_id: sessionId } },
-        body: data,
-      }
-    );
-    return unwrap<ResumeSessionResponse>(result);
-  },
-
-  async updateOutline(
-    sessionId: string,
-    data: UpdateOutlineRequest
-  ): Promise<UpdateOutlineResponse> {
-    const headers = withIdempotency({}, true);
-    const result = await sdkClient.PUT(
-      "/api/v1/generate/sessions/{session_id}/outline",
-      {
-        params: { path: { session_id: sessionId } },
-        body: data,
-        headers,
-      }
-    );
-    return unwrap<UpdateOutlineResponse>(result);
-  },
-
-  async confirmOutline(
-    sessionId: string,
-    data?: ConfirmOutlineRequestInput
-  ): Promise<ConfirmOutlineResponse> {
-    const headers = withIdempotency({}, true);
-    const result = await sdkClient.POST(
-      "/api/v1/generate/sessions/{session_id}/confirm",
-      {
-        params: { path: { session_id: sessionId } },
-        body: data,
-        headers,
-      }
-    );
-    return unwrap<ConfirmOutlineResponse>(result);
-  },
-
-  async redraftOutline(
-    sessionId: string,
-    data: RedraftOutlineRequestInput
-  ): Promise<RedraftOutlineResponse> {
-    const headers = withIdempotency({}, true);
-    const result = await sdkClient.POST(
-      "/api/v1/generate/sessions/{session_id}/outline/redraft",
-      {
-        params: { path: { session_id: sessionId } },
-        body: data,
-        headers,
-      }
-    );
-    return unwrap<RedraftOutlineResponse>(result);
-  },
-
   async sendCommand(
     sessionId: string,
-    data: GenerationSessionCommandRequest
+    data: GenerationSessionCommandPayload
   ): Promise<GenerationSessionCommandResponse> {
     const headers = withIdempotency({}, true);
     const result = await sdkClient.POST(
       "/api/v1/generate/sessions/{session_id}/commands",
       {
         params: { path: { session_id: sessionId } },
-        body: data,
+        body: data as never,
         headers,
       }
     );
     return unwrap<GenerationSessionCommandResponse>(result);
-  },
-
-  async regenerateSlide(
-    sessionId: string,
-    slideId: string,
-    data: RegenerateSlideRequest
-  ): Promise<RegenerateSlideResponse> {
-    const headers = withIdempotency({}, true);
-    const result = await sdkClient.POST(
-      "/api/v1/generate/sessions/{session_id}/slides/{slide_id}/regenerate",
-      {
-        params: {
-          path: { session_id: sessionId, slide_id: slideId },
-        },
-        body: data,
-        headers,
-      }
-    );
-    return unwrap<RegenerateSlideResponse>(result);
   },
 
   async getCapabilities(): Promise<GenerationCapabilitiesResponse> {

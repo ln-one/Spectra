@@ -59,13 +59,35 @@ async def _maybe_await(result) -> None:
         await result
 
 
+def _resolved_cache_keys(
+    primary_key: str,
+    cache_keys: list[str] | None = None,
+) -> list[str]:
+    ordered_keys: list[str] = []
+    for candidate in [primary_key, *(cache_keys or [])]:
+        key = str(candidate or "").strip()
+        if key and key not in ordered_keys:
+            ordered_keys.append(key)
+    return ordered_keys
+
+
+async def _save_preview_payload_to_cache_keys(
+    preview_payload: dict,
+    cache_keys: list[str],
+) -> None:
+    for cache_key in cache_keys:
+        await save_preview_content(cache_key, preview_payload)
+
+
 async def cache_preview_content(
     task_id: str,
     courseware_content,
     template_config: dict | None = None,
     on_slide_rendered: Optional[Callable[[dict], Awaitable[None]]] = None,
     on_preview_payload_updated: Optional[Callable[[dict], Awaitable[None]]] = None,
+    cache_keys: list[str] | None = None,
 ) -> dict:
+    resolved_cache_keys = _resolved_cache_keys(task_id, cache_keys)
     markdown_content = extract_courseware_value(courseware_content, "markdown_content")
     render_markdown = extract_courseware_value(courseware_content, "render_markdown")
     slide_models = build_slides(
@@ -91,6 +113,11 @@ async def cache_preview_content(
         ),
         "rendered_preview": None,
     }
+    existing_resolved_markdown = extract_courseware_value(
+        courseware_content, "resolved_markdown_content"
+    )
+    if existing_resolved_markdown:
+        preview_payload["resolved_markdown_content"] = existing_resolved_markdown
     if render_markdown:
         preview_payload["render_markdown"] = render_markdown
     if style_manifest:
@@ -132,9 +159,23 @@ async def cache_preview_content(
             extra_css=extra_css,
             page_class_plan=page_class_plan,
         )
+        if isinstance(rendered_preview, dict):
+            resolved_markdown_content = rendered_preview.pop(
+                "_resolved_markdown_content", None
+            )
+            if (
+                isinstance(resolved_markdown_content, str)
+                and resolved_markdown_content.strip()
+            ):
+                preview_payload["resolved_markdown_content"] = (
+                    resolved_markdown_content
+                )
         preview_payload["rendered_preview"] = rendered_preview
         try:
-            await save_preview_content(task_id, preview_payload)
+            await _save_preview_payload_to_cache_keys(
+                preview_payload,
+                resolved_cache_keys,
+            )
         except Exception as cache_err:
             logger.warning(
                 "Failed to save preview cache for task %s: %s", task_id, cache_err
@@ -147,7 +188,10 @@ async def cache_preview_content(
     rendered_pages: list[dict] = rendered_preview["pages"]
 
     try:
-        await save_preview_content(task_id, preview_payload)
+        await _save_preview_payload_to_cache_keys(
+            preview_payload,
+            resolved_cache_keys,
+        )
     except Exception as cache_err:
         logger.warning(
             "Failed to save initial preview cache for task %s: %s", task_id, cache_err
@@ -155,12 +199,16 @@ async def cache_preview_content(
     await _notify_preview_payload_updated()
 
     async def _handle_page_rendered(payload: dict) -> None:
+        split_index = int(payload.get("split_index") or 0)
+        split_count = max(1, int(payload.get("split_count") or 1))
         page = {
             "index": int(payload.get("slide_index") or 0),
             "slide_id": str(payload.get("slide_id") or ""),
             "image_url": payload.get("image_url"),
             "html_preview": payload.get("html_preview"),
             "status": str(payload.get("status") or "ready"),
+            "split_index": split_index,
+            "split_count": split_count,
         }
         width = payload.get("width")
         height = payload.get("height")
@@ -169,15 +217,26 @@ async def cache_preview_content(
         if isinstance(height, int) and height > 0:
             page["height"] = height
         for idx, existing in enumerate(rendered_pages):
-            if existing.get("index") == page["index"]:
+            if (
+                existing.get("index") == page["index"]
+                and int(existing.get("split_index") or 0) == split_index
+            ):
                 rendered_pages[idx] = {**existing, **page}
                 break
         else:
             rendered_pages.append(page)
-        rendered_pages.sort(key=lambda item: int(item.get("index") or 0))
+        rendered_pages.sort(
+            key=lambda item: (
+                int(item.get("index") or 0),
+                int(item.get("split_index") or 0),
+            )
+        )
         rendered_preview["page_count"] = len(rendered_pages)
         try:
-            await save_preview_content(task_id, preview_payload)
+            await _save_preview_payload_to_cache_keys(
+                preview_payload,
+                resolved_cache_keys,
+            )
         except Exception as cache_err:
             logger.warning(
                 "Failed to update structured preview cache for task %s slide %s: %s",
@@ -203,6 +262,16 @@ async def cache_preview_content(
             on_page_rendered=_handle_page_rendered,
         )
         if built_preview is not None:
+            resolved_markdown_content = built_preview.pop(
+                "_resolved_markdown_content", None
+            )
+            if (
+                isinstance(resolved_markdown_content, str)
+                and resolved_markdown_content.strip()
+            ):
+                preview_payload["resolved_markdown_content"] = (
+                    resolved_markdown_content
+                )
             preview_payload["rendered_preview"] = built_preview
             rendered_preview = built_preview
             rendered_pages = rendered_preview["pages"]

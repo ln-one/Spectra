@@ -44,23 +44,7 @@ async def get_capabilities(
                 ],
                 "transitions": transitions,
             },
-            "deprecations": [
-                {
-                    "api": ep,
-                    "sunset_at": "2026-06-01T00:00:00Z",
-                    "replacement": "/api/v1/generate/sessions/{session_id}/commands",
-                }
-                for ep in [
-                    "/api/v1/generate/sessions/{session_id}/outline",
-                    "/api/v1/generate/sessions/{session_id}/confirm",
-                    "/api/v1/generate/sessions/{session_id}/outline/redraft",
-                    "/api/v1/generate/sessions/{session_id}/resume",
-                    (
-                        "/api/v1/generate/sessions/{session_id}/slides/"
-                        "{slide_id}/regenerate"
-                    ),
-                ]
-            ],
+            "deprecations": [],
         },
         message="能力声明获取成功",
     )

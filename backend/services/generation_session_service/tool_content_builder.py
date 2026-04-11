@@ -21,7 +21,7 @@ from services.generation_session_service.tool_content_builder_policy import (
 from services.generation_session_service.tool_content_builder_support import (
     raise_generation_error as _raise_generation_error,
 )
-from services.project_space_service import project_space_service
+from services.project_space_service.service import project_space_service
 from services.system_settings_service import system_settings_service
 from utils.exceptions import ErrorCode
 

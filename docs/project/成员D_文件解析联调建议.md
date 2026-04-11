@@ -16,11 +16,8 @@ D 需要回答的核心问题：
 当前后端行为已满足：
 
 - 远端解析成功时优先采用远端结果
-- 远端失败时可触发后端 fallback 到 local
-- fallback 场景语义一致：
-  - `provider=local`
-  - `fallback_used=true`
-  - `capability_status.fallback_used=true`
+- 远端失败时返回明确失败，不再触发第二语义本地兜底
+- 质量评测结论应建立在正式主链上，而不是建立在 fallback 幻觉上
 
 D 侧联调无需再验证“是否有接口”，应重点验证“结果质量与策略边界”。
 
@@ -33,10 +30,10 @@ D 侧联调无需再验证“是否有接口”，应重点验证“结果质量
 - 扫描/OCR 压力 PDF
 - 大文件长文档 PDF
 
-每份样本至少对比两条路径：
+每份样本至少验证：
 
-- MinerU 结果
-- local 结果（含 fallback 场景）
+- MinerU 成功结果
+- MinerU 失败时的显式失败质量与可观测性
 
 ## 4. 统一评测指标（D 输出口径）
 
@@ -53,13 +50,11 @@ D 侧联调无需再验证“是否有接口”，应重点验证“结果质量
 联调接口：
 
 - `POST /api/v1/files/{file_id}/parse/mineru`
-- `POST /api/v1/files/{file_id}/parse/fallback`
 - `GET /api/v1/projects/{project_id}/files`
 
 关键字段：
 
 - `parse_result.provider`
-- `parse_result.fallback_used`
 - `parse_result.stage_timings_ms`
 - `parse_result.capability_status`
 - `parse_result.chunk_count` / `indexed_count`
@@ -71,9 +66,9 @@ D 的结论应直接可落地为规则，而非仅研究描述。建议最终给
 - 默认路由策略：
   - 哪些条件优先 MinerU
   - 哪些条件可直接 local
-- 超时与降级策略：
+- 超时与失败策略：
   - 远端等待阈值
-  - 触发 fallback 条件
+  - 何时显式失败、何时允许人工重试
 - 质量优先策略：
   - 高质量模式触发条件（如扫描件/公式密集）
 - 稳定性优先策略：
@@ -93,7 +88,7 @@ D 的结论应直接可落地为规则，而非仅研究描述。建议最终给
 C 负责：
 
 - 接口与执行链路稳定
-- fallback 语义一致
+- 失败语义一致
 - 工程实现与回归修复
 
 D 负责：

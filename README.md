@@ -55,20 +55,19 @@ python3 ./scripts/compose_smart.py up --build
 For more detail, see `docs/guides/docker-setup.md`.
 Runtime configuration should come from `backend/.env`, using `backend/.env.example` as the template.
 
-Dualweave is consumed as a Docker service in two modes:
+The four microservices are consumed in two modes:
 
-- default/team mode: `docker-compose.yml` pulls `ghcr.io/ln-one/dualweave-service:latest`
-- authorized maintainer mode: initialize the `dualweave` submodule and let `python3 ./scripts/compose_smart.py` switch Dualweave to a local source build automatically
+- default/team mode: `docker-compose.yml` pulls the locked GHCR images for `Pagevra`, `Dualweave`, `Ourograph`, and `Stratumind`
+- maintainer mode: initialize the matching submodule and let `python3 ./scripts/compose_smart.py` switch that service to a local source build automatically
 
 ```bash
 git submodule update --init --recursive dualweave
 python3 ./scripts/compose_smart.py up --build
 ```
 
-When the `dualweave` submodule is initialized, the smart compose entrypoint
-prefers the local Dualweave source tree over the remote `latest` image. The
-remote image is only the fallback for environments that do not have submodule
-access.
+When a service submodule is initialized, the smart compose entrypoint prefers
+that local source tree over the locked image. Locked images remain the default
+path for environments that do not have submodule access.
 
 If Dualweave is used as an external upload orchestration service, configure the
 backend with:
@@ -85,11 +84,11 @@ returns a standard upload result plus `processing_artifact.result_url`; Spectra
 still owns downloading that artifact and extracting markdown for indexing, so
 the boundary stays at the artifact reference layer.
 
-Pagevra follows the same private-source pattern: normal users consume the image,
-while authorized maintainers can initialize the private submodule and keep using
-the same smart compose entrypoint for local builds.
+Pagevra, Dualweave, Ourograph, and Stratumind all follow the same pattern:
+normal developers consume the locked image, while maintainers can initialize
+submodules and keep using the same smart compose entrypoint for local builds.
 
-`compose_smart.py` is now the only entrypoint for private-service image orchestration.
+`compose_smart.py` is the only entrypoint for service image orchestration.
 The core commands are:
 
 - `status`: show the current channel, local-source overrides, and the locked image refs
@@ -102,13 +101,27 @@ The core commands are:
 - `Pagevra`: local source or docker image
 - `Dualweave`: local source or docker image
 - `Ourograph`: local source or docker image
+- `Stratumind`: local source or docker image
 
 Current default behavior:
 
 - Spectra reads `infra/stack-lock.develop.json` on non-`main` branches and `infra/stack-lock.main.json` on `main`
 - base compose consumes the lock-generated image refs, and plain `docker compose` works after `sync` because the same refs are mirrored into the root `.env`
-- if a local `pagevra/`, `dualweave/`, or `ourograph/` source checkout exists, `compose_smart.py` adds the matching override file and uses local source mode for that service
+- if a local `pagevra/`, `dualweave/`, `ourograph/`, or `stratumind/` source checkout exists, `compose_smart.py` adds the matching override file and uses local source mode for that service
 - if a lock entry is still unpublished, `sync` and `doctor` fail explicitly instead of drifting to a floating tag
+
+Recommended onboarding for developers without microservice repo access:
+
+```bash
+python3 ./scripts/compose_smart.py sync --channel develop
+python3 ./scripts/compose_smart.py doctor
+python3 ./scripts/compose_smart.py up -d
+```
+
+This path does not require initializing any submodule. The contract is that the
+locked GHCR images must remain anonymously pullable. `sync` and `doctor` now
+verify anonymous GHCR token + manifest access for every image-mode service and
+fail explicitly if a package is still private.
 
 The legacy shell wrapper `scripts/compose-smart.sh`
 now forwards to the Python entrypoint for compatibility.

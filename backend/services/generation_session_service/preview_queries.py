@@ -7,6 +7,10 @@ from typing import Optional
 from schemas.generation import build_generation_result_payload
 from services.generation_session_service.access import get_owned_session
 from services.generation_session_service.serialization_helpers import _to_session_ref
+from services.generation_session_service.session_history import (
+    get_latest_session_run,
+    serialize_session_run,
+)
 from services.platform.state_transition_guard import GenerationState
 from services.preview_helpers import build_artifact_anchor
 
@@ -23,18 +27,6 @@ def _parse_json_object(raw: object) -> Optional[dict]:
     except json.JSONDecodeError:
         return None
     return parsed if isinstance(parsed, dict) else None
-
-
-async def _load_latest_task_id(db, session) -> Optional[str]:
-    task_model = getattr(db, "generationtask", None)
-    if task_model is None or not hasattr(task_model, "find_first"):
-        return None
-
-    latest = await task_model.find_first(
-        where={"sessionId": session.id},
-        order={"createdAt": "desc"},
-    )
-    return getattr(latest, "id", None) if latest else None
 
 
 async def _load_latest_session_artifact(db, project_id: str, session_id: str):
@@ -76,8 +68,8 @@ async def get_session_preview_snapshot(
         },
     )
 
-    latest_task_id, latest_artifact = await asyncio.gather(
-        _load_latest_task_id(db, session),
+    latest_run, latest_artifact = await asyncio.gather(
+        get_latest_session_run(db, session.id),
         _load_latest_session_artifact(db, session.projectId, session.id),
     )
     based_on_version_id = (
@@ -89,9 +81,9 @@ async def get_session_preview_snapshot(
             session,
             contract_version,
             schema_version,
-            task_id=latest_task_id,
         ),
         "options": _parse_json_object(getattr(session, "options", None)),
+        "current_run": serialize_session_run(latest_run),
         "artifact_id": (
             getattr(latest_artifact, "id", None) if latest_artifact else None
         ),

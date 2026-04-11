@@ -10,8 +10,10 @@ from services.rag_service import ParsedChunkData, RAGService
 class _StubClient:
     def __init__(self):
         self.indexed: dict[str, dict[str, dict]] = {}
+        self.index_calls: list[int] = []
 
     async def index_chunks(self, *, project_id: str, chunks: list[dict]):
+        self.index_calls.append(len(chunks))
         project_chunks = self.indexed.setdefault(project_id, {})
         for chunk in chunks:
             project_chunks[chunk["chunk_id"]] = chunk
@@ -125,6 +127,23 @@ class TestIndexChunks:
         count = await rag_svc.index_chunks("proj-idx", chunks)
         assert count == 2
         assert len(rag_svc._client.indexed["proj-idx"]) == 2
+
+    @pytest.mark.asyncio
+    async def test_index_chunks_batches_large_requests(self, rag_svc, monkeypatch):
+        monkeypatch.setenv("STRATUMIND_INDEX_BATCH_SIZE", "64")
+        chunks = [
+            ParsedChunkData(
+                chunk_id=f"c{i}",
+                content=f"content {i}",
+                metadata={"source_type": "pdf", "filename": "large.pdf"},
+            )
+            for i in range(65)
+        ]
+
+        count = await rag_svc.index_chunks("proj-batch", chunks)
+
+        assert count == 65
+        assert rag_svc._client.index_calls == [64, 1]
 
 
 class TestSearch:

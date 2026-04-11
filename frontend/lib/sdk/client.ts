@@ -26,7 +26,7 @@ const REQUEST_TIMEOUT_MS = Number(
   process.env.NEXT_PUBLIC_API_TIMEOUT_MS ?? 180000
 );
 const CHAT_REQUEST_TIMEOUT_MS = Number(
-  process.env.NEXT_PUBLIC_CHAT_TIMEOUT_MS ?? 90000
+  process.env.NEXT_PUBLIC_CHAT_TIMEOUT_MS ?? 300000
 );
 
 function generateUuidFallback(): string {

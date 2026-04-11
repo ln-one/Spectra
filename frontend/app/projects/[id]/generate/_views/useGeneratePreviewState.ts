@@ -16,8 +16,24 @@ import {
 
 type Slide = components["schemas"]["Slide"] & {
   rendered_html_preview?: string | null;
+  rendered_previews?: RenderedPreviewFrame[];
 };
-type RenderedPreview = components["schemas"]["RenderedPreview"];
+type RenderedPreviewFrame = {
+  index: number;
+  slide_id: string;
+  image_url?: string | null;
+  html_preview?: string | null;
+  status?: string | null;
+  split_index: number;
+  split_count: number;
+  width?: number | null;
+  height?: number | null;
+};
+type RenderedPreview = {
+  format?: string;
+  page_count?: number;
+  pages?: RenderedPreviewFrame[];
+};
 type SessionStatePayload = components["schemas"]["SessionStatePayloadTarget"];
 type ArtifactType = components["schemas"]["Artifact"]["type"];
 type OutlineSectionPayload = {
@@ -33,8 +49,10 @@ type SessionStatePayloadWithRun = SessionStatePayload & {
   };
 };
 
+type ModifyTargetSlide = Pick<Slide, "id" | "index">;
+
 type ModifyRetryContext = {
-  slide: Slide;
+  slide: ModifyTargetSlide;
   instruction: string;
 };
 
@@ -101,6 +119,29 @@ function buildSlidesContentMarkdown(slides: Slide[]): string {
       return `## ${title}\n\n${body}`;
     });
   return sections.join("\n\n---\n\n").trim();
+}
+
+function hasRenderablePreviewFrame(page: RenderedPreviewFrame | null | undefined): boolean {
+  if (!page) return false;
+  if (typeof page.html_preview === "string" && page.html_preview.trim()) {
+    return true;
+  }
+  return Boolean(page.image_url);
+}
+
+function hasRenderablePreview(slide: Slide | null | undefined): boolean {
+  if (!slide) return false;
+  const pages = Array.isArray(slide.rendered_previews) ? slide.rendered_previews : [];
+  if (pages.some((page) => hasRenderablePreviewFrame(page))) {
+    return true;
+  }
+  if (
+    typeof slide.rendered_html_preview === "string" &&
+    slide.rendered_html_preview.trim()
+  ) {
+    return true;
+  }
+  return Boolean(slide.thumbnail_url);
 }
 
 function isGeneratingState(state: string | null | undefined): boolean {
@@ -275,51 +316,63 @@ export function useGeneratePreviewState({
       renderedCount: number;
       markdownReady: boolean;
     } => {
-      if (response.success && response.data?.slides) {
-        const renderedPreview = response.data.rendered_preview as
+      const previewData = (response.data ?? null) as
+        | {
+            slides?: Slide[];
+            rendered_preview?: RenderedPreview | null;
+          }
+        | null;
+      if (response.success && previewData?.slides) {
+        const renderedPreview = previewData.rendered_preview as
           | RenderedPreview
           | undefined;
-        const renderedPages = renderedPreview?.pages ?? [];
-        const pageBySlideId = new Map(
-          renderedPages
-            .filter(
-              (
-                page
-              ): page is NonNullable<RenderedPreview["pages"]>[number] & {
-                slide_id: string;
-              } => Boolean(page?.slide_id)
-            )
-            .map((page) => [page.slide_id, page])
-        );
-        const pageByIndex = new Map(
-          renderedPages
-            .filter(
-              (
-                page
-              ): page is NonNullable<RenderedPreview["pages"]>[number] & {
-                index: number;
-              } => typeof page?.index === "number"
-            )
-            .map((page) => [page.index, page])
-        );
-        const nextSlides = response.data.slides
+        const renderedPages = ((renderedPreview?.pages ?? []) as RenderedPreviewFrame[])
+          .filter(
+            (page) =>
+              page &&
+              typeof page.index === "number" &&
+              hasRenderablePreviewFrame(page)
+          )
+          .sort((a, b) => {
+            const indexDiff = a.index - b.index;
+            if (indexDiff !== 0) return indexDiff;
+            return (a.split_index ?? 0) - (b.split_index ?? 0);
+          });
+        const pagesBySlideId = new Map<string, RenderedPreviewFrame[]>();
+        const pagesByIndex = new Map<number, RenderedPreviewFrame[]>();
+        for (const page of renderedPages) {
+          if (page.slide_id) {
+            const existing = pagesBySlideId.get(page.slide_id) ?? [];
+            existing.push(page);
+            pagesBySlideId.set(page.slide_id, existing);
+          }
+          const existingByIndex = pagesByIndex.get(page.index) ?? [];
+          existingByIndex.push(page);
+          pagesByIndex.set(page.index, existingByIndex);
+        }
+        const nextSlides = previewData.slides
           .map((slide) => {
-            const matchedPage =
-              (slide.id ? pageBySlideId.get(slide.id) : undefined) ??
-              pageByIndex.get(slide.index);
+            const matchedPages =
+              (slide.id ? pagesBySlideId.get(slide.id) : undefined) ??
+              pagesByIndex.get(slide.index) ??
+              [];
+            const primaryPage = matchedPages[0];
             return {
               ...slide,
-              ...(matchedPage?.image_url
-                ? { thumbnail_url: matchedPage.image_url }
+              ...(primaryPage?.image_url
+                ? { thumbnail_url: primaryPage.image_url }
                 : {}),
-              ...(typeof matchedPage?.html_preview === "string" &&
-              matchedPage.html_preview.trim()
-                ? { rendered_html_preview: matchedPage.html_preview }
+              ...(typeof primaryPage?.html_preview === "string" &&
+              primaryPage.html_preview.trim()
+                ? { rendered_html_preview: primaryPage.html_preview }
+                : {}),
+              ...(matchedPages.length > 0
+                ? { rendered_previews: matchedPages }
                 : {}),
             };
           })
           .sort((a, b) => a.index - b.index);
-        const payload = response.data as Record<string, unknown>;
+        const payload = previewData as Record<string, unknown>;
         const incomingSlidesContent = payload.slides_content_markdown;
         const markdown =
           typeof incomingSlidesContent === "string" &&
@@ -336,12 +389,7 @@ export function useGeneratePreviewState({
         setCurrentArtifactId(response.data.artifact_id ?? null);
         setCurrentRenderVersion(response.data.render_version ?? null);
         setPreviewMode(
-          renderedPages.some(
-            (page) =>
-              Boolean(page?.image_url) ||
-              (typeof page?.html_preview === "string" &&
-                page.html_preview.trim().length > 0)
-          )
+          previewData.slides.some((slide) => hasRenderablePreview(slide))
             ? "rendered"
             : "markdown"
         );
@@ -505,7 +553,11 @@ export function useGeneratePreviewState({
     if (!activeSessionId || isResuming) return;
     try {
       setIsResuming(true);
-      await generateApi.resumeSession(activeSessionId);
+      await generateApi.sendCommand(activeSessionId, {
+        command: {
+          command_type: "RESUME_SESSION",
+        },
+      });
       await fetchGenerationHistory(projectId);
       await Promise.all([loadSessionRuns(), loadSlides()]);
       toast({
@@ -831,7 +883,7 @@ export function useGeneratePreviewState({
   }, [activeRunId, activeSessionId, currentArtifactId, isExporting, projectId]);
 
   const submitModifyRequest = useCallback(
-    async (slide: Slide, instruction: string) => {
+    async (slide: ModifyTargetSlide, instruction: string) => {
       if (!activeSessionId) return;
       const slideId = slide.id || `slide-${slide.index}`;
       setRegeneratingSlideId(slideId);
@@ -857,7 +909,7 @@ export function useGeneratePreviewState({
   );
 
   const handleRegenerateSlide = useCallback(
-    async (slide: Slide) => {
+    async (slide: ModifyTargetSlide) => {
       if (!activeSessionId || regeneratingSlideId) return;
       const instruction = window.prompt("请输入这一页的修改要求");
       const normalizedInstruction = instruction?.trim() ?? "";

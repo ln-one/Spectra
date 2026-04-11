@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock
 import pytest
 
 from main import app
-from services.project_space_service import project_space_service
+from services.project_space_service.service import project_space_service
 from utils.dependencies import get_current_user
 
 _NOW = datetime.now(timezone.utc)

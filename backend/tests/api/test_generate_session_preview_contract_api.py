@@ -285,7 +285,7 @@ def test_modify_preview_returns_contract_fields(client, monkeypatch, _as_user):
     )
     svc = SimpleNamespace(
         get_session_snapshot=AsyncMock(return_value=_snapshot(render_version=5)),
-        execute_command=AsyncMock(return_value={"task_id": "gt-001"}),
+        execute_command=AsyncMock(return_value={}),
     )
     monkeypatch.setattr(
         generate_sessions_preview_router, "_get_session_service", lambda: svc
@@ -319,7 +319,7 @@ def test_modify_preview_returns_contract_fields(client, monkeypatch, _as_user):
     assert resp.status_code == 200
     data = resp.json()["data"]
     assert data["session_id"] == "s-preview-001"
-    assert data["modify_task_id"] == "gt-001"
+    assert "modify_task_id" not in data
     assert data["artifact_id"] == "a-002"
     assert data["based_on_version_id"] == "v-002"
     assert data["render_version"] == 5
@@ -331,13 +331,13 @@ def test_modify_preview_returns_contract_fields(client, monkeypatch, _as_user):
     assert command["preserve_layout"] is False
     assert command["preserve_deck_consistency"] is False
     assert command["patch"] == {"title": "new title"}
-    assert load_preview_material.await_args.args[4] == "run-002"
+    assert load_preview_material.await_args.args[3] == "run-002"
 
 
 def test_modify_preview_accepts_base_render_version_alias(
     client, monkeypatch, _as_user
 ):
-    execute_command = AsyncMock(return_value={"task_id": "gt-001"})
+    execute_command = AsyncMock(return_value={})
     svc = SimpleNamespace(
         get_session_snapshot=AsyncMock(return_value=_snapshot(render_version=5)),
         execute_command=execute_command,
@@ -389,7 +389,7 @@ def test_modify_preview_accepts_base_render_version_alias(
 def test_modify_preview_defaults_to_current_slide_when_page_not_passed(
     client, monkeypatch, _as_user
 ):
-    execute_command = AsyncMock(return_value={"task_id": "gt-002"})
+    execute_command = AsyncMock(return_value={})
     svc = SimpleNamespace(
         get_session_snapshot=AsyncMock(return_value=_snapshot(render_version=6)),
         execute_command=execute_command,
@@ -465,7 +465,7 @@ def test_modify_preview_rejects_conflicting_render_versions(client, _as_user):
 def test_modify_preview_requires_instruction(client, monkeypatch, _as_user):
     svc = SimpleNamespace(
         get_session_snapshot=AsyncMock(return_value=_snapshot(render_version=5)),
-        execute_command=AsyncMock(return_value={"task_id": "gt-001"}),
+        execute_command=AsyncMock(return_value={}),
     )
     monkeypatch.setattr(
         generate_sessions_preview_router, "_get_session_service", lambda: svc
@@ -563,7 +563,7 @@ def test_get_slide_preview_returns_slide_shape(client, monkeypatch, _as_user):
     assert body["data"]["artifact_id"] == "a-003"
     assert body["data"]["artifact_anchor"]["run_id"] == "run-003"
     assert body["data"]["rendered_page"]["slide_id"] == "slide-2"
-    assert load_preview_material.await_args.args[4] == "run-003"
+    assert load_preview_material.await_args.args[3] == "run-003"
 
 
 def test_get_slide_preview_with_run_id_supports_prisma_without_select(
@@ -622,7 +622,7 @@ def test_get_slide_preview_with_run_id_supports_prisma_without_select(
     body = resp.json()
     assert body["data"]["artifact_id"] == "a-011"
     assert body["data"]["artifact_anchor"]["run_id"] == "run-011"
-    assert load_preview_material.await_args.args[4] == "run-011"
+    assert load_preview_material.await_args.args[3] == "run-011"
 
 
 def test_export_preview_expected_render_version_conflict(client, monkeypatch, _as_user):
@@ -705,8 +705,9 @@ def test_export_preview_returns_binding_and_content(client, monkeypatch, _as_use
     data = resp.json()["data"]
     assert data["artifact_id"] == "a-004"
     assert data["based_on_version_id"] == "v-007"
+    assert "task_id" not in data
     assert data["format"] == "markdown"
     assert data["render_version"] == 7
     assert data["content"] == "# Demo"
     assert data["artifact_anchor"]["run_id"] == "run-007"
-    assert load_preview_material.await_args.args[4] == "run-007"
+    assert load_preview_material.await_args.args[3] == "run-007"

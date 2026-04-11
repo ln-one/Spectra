@@ -6,10 +6,10 @@
     "pagevra": {
       "image": "ghcr.io/ln-one/pagevra",
       "tag": "latest",
-      "digest": "sha256:a56d8db2e08710341cb5673cd97d44d9d112d2c642494a01c90bcaa1d5bebf98",
+      "digest": "sha256:7094cabbc0fdd592fa88309250de9ef2cd0739aafad14665c94112e14caf5178",
       "source_branch": "develop",
       "published": true,
-      "notes": "Pinned from GHCR public latest manifest on 2026-04-11."
+      "notes": "Pinned from GHCR public latest manifest on 2026-04-11 after pagevra commit e1ec732."
     },
     "dualweave": {
       "image": "ghcr.io/ln-one/dualweave-service",
@@ -33,7 +33,7 @@
       "digest": "sha256:9093be5d4bd38cf785715404e9027dd8bb5a8d2343934e5ff309aa2ee6449dc0",
       "source_branch": "develop",
       "published": true,
-      "notes": "Pinned from GHCR public latest manifest on 2026-04-11."
+      "notes": "Pinned from GHCR latest manifest on 2026-04-11. Lock-only mode requires the package to remain anonymously pullable."
     }
   }
 }

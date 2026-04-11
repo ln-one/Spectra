@@ -15,7 +15,6 @@ from fastapi import (
 from services.file_upload_service import (
     apply_mineru_parse_result_response,
     batch_upload_files_response,
-    trigger_fallback_parse_response,
     upload_file_response,
 )
 from utils.dependencies import get_current_user
@@ -23,7 +22,6 @@ from utils.exceptions import APIException, InternalServerException
 
 from .shared import (
     MineruParseResultRequest,
-    TriggerFallbackParseRequest,
     logger,
 )
 
@@ -158,33 +156,3 @@ async def apply_mineru_parse_result(
             details={"file_id": file_id},
         )
 
-
-@router.post("/{file_id}/parse/fallback")
-async def trigger_fallback_parse(
-    request: Request,
-    background_tasks: BackgroundTasks,
-    file_id: str,
-    payload: TriggerFallbackParseRequest,
-    user_id: str = Depends(get_current_user),
-):
-    try:
-        return await trigger_fallback_parse_response(
-            request=request,
-            background_tasks=background_tasks,
-            file_id=file_id,
-            user_id=user_id,
-            session_id=payload.session_id,
-        )
-    except APIException:
-        raise
-    except Exception as exc:
-        logger.error(
-            "Failed to trigger fallback parse: %s",
-            exc,
-            extra={"user_id": user_id, "file_id": file_id},
-            exc_info=True,
-        )
-        raise InternalServerException(
-            message="触发降级解析失败",
-            details={"file_id": file_id},
-        )

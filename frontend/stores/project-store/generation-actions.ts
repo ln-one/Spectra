@@ -433,9 +433,12 @@ export function createGenerationActions({
       const session = get().generationSession;
       const baseVersion = resolveOutlineBaseVersion(session);
       try {
-        await generateApi.updateOutline(sessionId, {
-          base_version: baseVersion,
-          outline,
+        await generateApi.sendCommand(sessionId, {
+          command: {
+            command_type: "UPDATE_OUTLINE",
+            base_version: baseVersion,
+            outline,
+          },
         });
         const preferredRunId = get().activeRunId;
         const sessionResponse = await generateApi.getSessionSnapshot(
@@ -478,10 +481,13 @@ export function createGenerationActions({
           resolveOutlineBaseVersion(
             latestBeforePayload as SessionStatePayload | null
           ) || 1;
-        const redraftResponse = await generateApi.redraftOutline(sessionId, {
-          instruction,
-          base_version: preflightBaseVersion,
-          run_id: currentRunId || undefined,
+        const redraftResponse = await generateApi.sendCommand(sessionId, {
+          command: {
+            command_type: "REDRAFT_OUTLINE",
+            instruction,
+            base_version: preflightBaseVersion,
+            run_id: currentRunId || undefined,
+          },
         });
         const redraftRunId = extractRunId(
           (redraftResponse as { data?: { run?: unknown } }).data?.run
@@ -519,9 +525,12 @@ export function createGenerationActions({
     confirmOutline: async (sessionId: string) => {
       try {
         const requestedRunId = get().activeRunId ?? undefined;
-        const confirmResponse = await generateApi.confirmOutline(sessionId, {
-          continue_from_retrieval: true,
-          run_id: requestedRunId,
+        const confirmResponse = await generateApi.sendCommand(sessionId, {
+          command: {
+            command_type: "CONFIRM_OUTLINE",
+            continue_from_retrieval: true,
+            run_id: requestedRunId,
+          },
         });
         const confirmedRunId = extractRunId(
           (confirmResponse as { data?: { run?: unknown } }).data?.run

@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import re
 
-from services.project_space_service import project_space_service
+from services.project_space_service.service import project_space_service
 
 from .card_execution_runtime_helpers import artifact_metadata_dict
 

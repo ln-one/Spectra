@@ -122,14 +122,14 @@ class TestTaskQueueService:
             assert job is not None
             assert mock_enqueue.called
 
-    def test_enqueue_remote_parse_reconcile_task_uses_delayed_enqueue(
+    def test_enqueue_remote_parse_reconcile_task_uses_direct_enqueue(
         self, task_queue_service
     ):
         with patch("services.task_queue.enqueue._resolve_queue") as mock_resolve_queue:
             mock_job = Mock(spec=Job)
             mock_job.id = "job-remote-1"
             mock_queue = Mock()
-            mock_queue.enqueue_in.return_value = mock_job
+            mock_queue.enqueue.return_value = mock_job
             mock_resolve_queue.return_value = mock_queue
 
             job = task_queue_service.enqueue_remote_parse_reconcile_task(
@@ -140,7 +140,10 @@ class TestTaskQueueService:
             )
 
             assert job is not None
-            assert mock_queue.enqueue_in.called
+            assert mock_queue.enqueue.called
+            assert (
+                mock_queue.enqueue.call_args.kwargs["initial_delay_seconds"] == 5
+            )
 
     @patch("services.task_queue.Job.fetch")
     def test_get_job_status_queued(self, mock_fetch, task_queue_service):

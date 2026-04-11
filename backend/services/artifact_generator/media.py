@@ -1,16 +1,11 @@
 import logging
 
-from services.artifact_generator.policies import allow_media_placeholder_artifacts
 from services.artifact_generator.storyboard_renderer import render_gif, render_mp4
 
 logger = logging.getLogger(__name__)
 
 
 class ArtifactMediaMixin:
-    @staticmethod
-    def _should_emit_placeholder_artifact() -> bool:
-        return allow_media_placeholder_artifacts()
-
     async def generate_animation(
         self, content, project_id: str, artifact_id: str
     ) -> str:
@@ -33,25 +28,3 @@ class ArtifactMediaMixin:
         actual_path = render_mp4(content or {}, storage_path)
         logger.info("Generated MP4 at %s", actual_path)
         return actual_path
-
-    async def generate_video_placeholder(
-        self, project_id: str, artifact_id: str
-    ) -> str:
-        if not self._should_emit_placeholder_artifact():
-            raise RuntimeError(
-                "MP4 rendering is not implemented and media placeholder artifacts "
-                "are disabled. Enable ALLOW_MEDIA_PLACEHOLDER_ARTIFACTS only for "
-                "explicit dev fallback."
-            )
-        storage_path = self.get_storage_path(project_id, "mp4", artifact_id)
-        mp4_bytes = (
-            b"\x00\x00\x00\x18ftypmp42\x00\x00\x00\x00mp42isom" b"\x00\x00\x00\x08free"
-        )
-        with open(storage_path, "wb") as f:
-            f.write(mp4_bytes)
-        logger.warning(
-            "Generated MP4 placeholder at %s because "
-            "ALLOW_MEDIA_PLACEHOLDER_ARTIFACTS=true",
-            storage_path,
-        )
-        return storage_path

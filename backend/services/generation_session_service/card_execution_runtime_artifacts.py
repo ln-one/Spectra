@@ -12,7 +12,7 @@ from schemas.studio_cards import (
     StudioCardTurnRequest,
     StudioCardTurnResult,
 )
-from services.project_space_service import project_space_service
+from services.project_space_service.service import project_space_service
 
 from .card_execution_runtime_helpers import (
     artifact_result_payload,

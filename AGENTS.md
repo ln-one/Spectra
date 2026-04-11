@@ -55,6 +55,7 @@ For product behavior and current surface semantics, also inspect:
 
 - [docs/project/卡片功能.md](/Users/ln1/Projects/Spectra/docs/project/卡片功能.md)
 - [docs/architecture/api-contract.md](/Users/ln1/Projects/Spectra/docs/architecture/api-contract.md)
+- [docs/architecture/service-boundaries.md](/Users/ln1/Projects/Spectra/docs/architecture/service-boundaries.md)
 - `backend/services/ai/model_router.py`
 
 For actual implementation truth, inspect live code and tests.
@@ -120,6 +121,18 @@ These are not optional.
 6. Small, explicit modules are preferred over clever abstractions.
 7. Local fixes must not create hidden semantic forks.
 8. Root-cause fixes are preferred over stacking fallback behavior.
+
+### 4.1 External capability authority
+
+For current product runtime, the only formal external capability authorities are:
+
+- `dualweave`: upload orchestration and remote parse entry
+- `stratumind`: retrieval and vector recall
+- `pagevra`: structured render, preview, and PPT/DOC output
+- `ourograph`: formal project-space / artifact / version / reference semantics
+
+Spectra backend is the orchestrator and contract surface around these services.
+It should not keep growing second implementations of the same product abilities.
 
 ## 5. Current End-to-End Pipelines
 

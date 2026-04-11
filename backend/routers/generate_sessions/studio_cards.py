@@ -23,7 +23,7 @@ from services.generation_session_service.card_source_bindings import (
     get_card_source_permission,
     serialize_card_source_artifact,
 )
-from services.project_space_service import project_space_service
+from services.project_space_service.service import project_space_service
 from utils.dependencies import get_current_user
 from utils.exceptions import APIException, ErrorCode, NotFoundException
 from utils.responses import success_response

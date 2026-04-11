@@ -24,7 +24,7 @@ class SystemSettingsFeatureFlags(BaseModel):
 
 
 class SystemSettingsExperience(BaseModel):
-    chat_timeout_seconds: int = Field(default=90, ge=1)
+    chat_timeout_seconds: int = Field(default=300, ge=1)
     ai_request_timeout_seconds: int = Field(default=60, ge=1)
 
 

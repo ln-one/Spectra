@@ -1,5 +1,6 @@
 from services.platform.state_transition_guard import GenerationState
 from services.preview_helpers.payloads import (
+    build_export_payload,
     build_preview_payload,
     ensure_previewable_state,
 )
@@ -34,7 +35,6 @@ def test_build_preview_payload_includes_markdown_content_when_available():
     payload = build_preview_payload(
         session_id="session-001",
         snapshot={"session": {"render_version": 3}},
-        task=None,
         slides=[],
         lesson_plan=None,
         anchor={"artifact_id": "artifact-001", "based_on_version_id": None},
@@ -44,3 +44,40 @@ def test_build_preview_payload_includes_markdown_content_when_available():
 
     assert payload["slides_content_markdown"] == "# Deck\n\n## Slide 1"
     assert payload["slides_content_ready"] is True
+
+
+def test_build_preview_payload_prefers_resolved_markdown_content():
+    payload = build_preview_payload(
+        session_id="session-001",
+        snapshot={"session": {"render_version": 3}},
+        slides=[],
+        lesson_plan=None,
+        anchor={"artifact_id": "artifact-001", "based_on_version_id": None},
+        content={
+            "markdown_content": "# Raw",
+            "resolved_markdown_content": "# Resolved",
+            "render_markdown": "# Render",
+        },
+        rendered_preview=None,
+    )
+
+    assert payload["slides_content_markdown"] == "# Resolved"
+
+
+def test_build_export_payload_prefers_resolved_markdown_content():
+    payload = build_export_payload(
+        session_id="session-001",
+        snapshot={"session": {"render_version": 3}, "result": {}},
+        slides=[],
+        lesson_plan=None,
+        content={
+            "markdown_content": "# Raw",
+            "resolved_markdown_content": "# Resolved",
+            "render_markdown": "# Render",
+        },
+        anchor={"artifact_id": "artifact-001", "based_on_version_id": None},
+        export_format="markdown",
+        include_sources=True,
+    )
+
+    assert payload["content"] == "# Resolved"

@@ -105,35 +105,6 @@ def _resolve_mermaid_module_url() -> str:
     return configured
 
 
-def _fallback_mermaid_placeholder_svg() -> str:
-    return (
-        '<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" '
-        'viewBox="0 0 1280 720" role="img" aria-label="Mermaid fallback">'
-        '<rect width="1280" height="720" fill="#f5f7fb"/>'
-        '<rect x="80" y="80" width="1120" height="560" rx="24" fill="#ffffff" '
-        'stroke="#cad2e2" stroke-width="4"/>'
-        '<text x="640" y="328" text-anchor="middle" fill="#3a4b6a" '
-        'font-family="Arial, sans-serif" font-size="44" font-weight="700">'
-        "Mermaid Diagram Unavailable</text>"
-        '<text x="640" y="390" text-anchor="middle" fill="#6d7f9c" '
-        'font-family="Arial, sans-serif" font-size="30">'
-        "Rendering fallback applied</text>"
-        "</svg>"
-    )
-
-
-def _fallback_mermaid_placeholder_markdown(
-    *,
-    asset_dir: Optional[Path],
-    asset_prefix: str,
-) -> str:
-    return _svg_to_markdown(
-        _fallback_mermaid_placeholder_svg(),
-        asset_dir=asset_dir,
-        asset_prefix=asset_prefix,
-    )
-
-
 def _repair_mermaid_code(mermaid_code: str) -> str:
     """
     Apply conservative Mermaid syntax repairs for common LLM mistakes.
@@ -324,10 +295,7 @@ async def preprocess_mermaid_blocks(
                 raise MermaidRenderError(
                     "Mermaid rendering failed: block could not be converted to image"
                 )
-            replacement = _fallback_mermaid_placeholder_markdown(
-                asset_dir=normalized_asset_dir,
-                asset_prefix=asset_prefix,
-            )
+            replacement = match.group(0)
 
         rendered_markdown = (
             rendered_markdown[: match.start()]

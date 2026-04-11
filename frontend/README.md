@@ -61,7 +61,7 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 # Next.js forwards browser /api/v1 requests to this target
 NEXT_PUBLIC_API_URL="http://localhost:8000"
 NEXT_PUBLIC_API_TIMEOUT_MS=180000
-NEXT_PUBLIC_CHAT_TIMEOUT_MS=90000
+NEXT_PUBLIC_CHAT_TIMEOUT_MS=300000
 
 # App Configuration
 NEXT_PUBLIC_APP_NAME="Spectra"

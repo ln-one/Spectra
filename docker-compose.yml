@@ -69,7 +69,7 @@ services:
       - NEXT_PUBLIC_API_URL=http://localhost:8000
       - INTERNAL_API_URL=http://backend:8000
       - NEXT_PUBLIC_API_TIMEOUT_MS=30000
-      - NEXT_PUBLIC_CHAT_TIMEOUT_MS=90000
+      - NEXT_PUBLIC_CHAT_TIMEOUT_MS=300000
     command: npm run dev
     depends_on:
       - backend
@@ -199,6 +199,7 @@ services:
       - DATABASE_URL=postgresql://spectra:spectra@postgres:5432/spectra
       - JWT_SECRET_KEY=spectra-local-dev-jwt-secret
       - AI_REQUEST_TIMEOUT_SECONDS=90
+      - CHAT_RESPONSE_TIMEOUT_SECONDS=300
       - CHAT_RAG_TIMEOUT_SECONDS=5
       - OUTLINE_DRAFT_TIMEOUT_SECONDS=90
       - PREVIEW_REBUILD_TIMEOUT_SECONDS=8
@@ -217,12 +218,6 @@ services:
       - OUROGRAPH_ENABLED=true
       - OUROGRAPH_BASE_URL=http://ourograph:8101
       - OUROGRAPH_TIMEOUT_SECONDS=30
-      - STRUCTRA_ENABLED=true
-      - STRUCTRA_BASE_URL=http://pagevra:8090
-      - STRUCTRA_TIMEOUT_SECONDS=180
-      - RENDER_ENGINE_ENABLED=true
-      - RENDER_ENGINE_BASE_URL=http://pagevra:8090
-      - RENDER_ENGINE_TIMEOUT_SECONDS=180
       - POSTGRES_BACKUP_DIR=/var/lib/spectra/backups
       - POSTGRES_RESTORE_STAGING_DIR=/var/lib/spectra/restore-staging
       - POSTGRES_BACKUP_RETENTION_DAYS=14
@@ -277,6 +272,7 @@ services:
       - DATABASE_URL=postgresql://spectra:spectra@postgres:5432/spectra
       - JWT_SECRET_KEY=spectra-local-dev-jwt-secret
       - AI_REQUEST_TIMEOUT_SECONDS=90
+      - CHAT_RESPONSE_TIMEOUT_SECONDS=300
       - CHAT_RAG_TIMEOUT_SECONDS=5
       - OUTLINE_DRAFT_TIMEOUT_SECONDS=90
       - PREVIEW_REBUILD_TIMEOUT_SECONDS=8
@@ -294,12 +290,6 @@ services:
       - OUROGRAPH_ENABLED=true
       - OUROGRAPH_BASE_URL=http://ourograph:8101
       - OUROGRAPH_TIMEOUT_SECONDS=30
-      - STRUCTRA_ENABLED=true
-      - STRUCTRA_BASE_URL=http://pagevra:8090
-      - STRUCTRA_TIMEOUT_SECONDS=180
-      - RENDER_ENGINE_ENABLED=true
-      - RENDER_ENGINE_BASE_URL=http://pagevra:8090
-      - RENDER_ENGINE_TIMEOUT_SECONDS=180
       - POSTGRES_BACKUP_DIR=/var/lib/spectra/backups
       - POSTGRES_RESTORE_STAGING_DIR=/var/lib/spectra/restore-staging
       - POSTGRES_BACKUP_RETENTION_DAYS=14

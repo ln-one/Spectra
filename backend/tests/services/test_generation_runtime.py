@@ -8,6 +8,7 @@ from services.generation.marp_document import (
     normalize_marp_markdown,
     split_marp_document,
 )
+from services.preview_helpers.rendered_preview import build_rendered_preview_payload
 from services.task_executor.generation import (
     _build_initial_stream_preview_payload,
     _validate_required_output_urls,
@@ -277,7 +278,7 @@ async def test_render_generation_outputs_parallel_for_both():
             },
         ),
     ):
-        output_urls, artifact_paths, render_timings = await render_generation_outputs(
+        output_urls, artifact_paths, render_timings, render_metadata = await render_generation_outputs(
             db_service=db_service,
             context=context,
             courseware_content=SimpleNamespace(),
@@ -288,6 +289,7 @@ async def test_render_generation_outputs_parallel_for_both():
         "pptx": "/tmp/task-1.pptx",
         "docx": "/tmp/task-1.docx",
     }
+    assert render_metadata == {}
     assert "render_ppt_ms" in render_timings
     assert "render_word_ms" in render_timings
     db_service.update_generation_task_status.assert_awaited_once_with(
@@ -332,7 +334,7 @@ async def test_render_generation_outputs_pptx_only_keeps_progress_contract():
             },
         ),
     ):
-        output_urls, artifact_paths, render_timings = await render_generation_outputs(
+        output_urls, artifact_paths, render_timings, render_metadata = await render_generation_outputs(
             db_service=db_service,
             context=context,
             courseware_content=SimpleNamespace(),
@@ -340,6 +342,7 @@ async def test_render_generation_outputs_pptx_only_keeps_progress_contract():
 
     assert output_urls == {}
     assert artifact_paths == {"pptx": "/tmp/task-2.pptx"}
+    assert render_metadata == {}
     assert "render_ppt_ms" in render_timings
     db_service.update_generation_task_status.assert_awaited_once_with(
         "task-2", TaskStatus.PROCESSING, 60
@@ -383,7 +386,7 @@ async def test_render_generation_outputs_non_session_still_emits_direct_urls():
             },
         ),
     ):
-        output_urls, artifact_paths, render_timings = await render_generation_outputs(
+        output_urls, artifact_paths, render_timings, render_metadata = await render_generation_outputs(
             db_service=db_service,
             context=context,
             courseware_content=SimpleNamespace(),
@@ -391,10 +394,67 @@ async def test_render_generation_outputs_non_session_still_emits_direct_urls():
 
     assert output_urls == {"docx": "/tmp/task-3.docx"}
     assert artifact_paths == {"docx": "/tmp/task-3.docx"}
+    assert render_metadata == {}
     assert "render_word_ms" in render_timings
     db_service.update_generation_task_status.assert_awaited_once_with(
         "task-3", TaskStatus.PROCESSING, 90
     )
+
+
+@pytest.mark.asyncio
+async def test_render_generation_outputs_returns_resolved_markdown_metadata():
+    db_service = SimpleNamespace(update_generation_task_status=AsyncMock())
+    context = GenerationExecutionContext(
+        task_id="task-4",
+        project_id="p-1",
+        task_type="pptx",
+        template_config=None,
+        session_id="s-4",
+    )
+
+    with (
+        patch(
+            "services.render_engine_adapter.build_render_engine_input",
+            return_value={"render_job_id": "task-4"},
+        ),
+        patch(
+            "services.render_engine_adapter.invoke_render_engine",
+            new=AsyncMock(
+                return_value={
+                    "artifacts": {"pptx_path": "/tmp/task-4.pptx"},
+                    "markdown": "# Resolved",
+                    "markdown_path": "/tmp/task-4.md",
+                    "warnings": [],
+                    "events": [],
+                    "metrics": {"render_ms": 8.0},
+                }
+            ),
+        ),
+        patch(
+            "services.render_engine_adapter.normalize_render_engine_result",
+            return_value={
+                "artifact_paths": {"pptx": "/tmp/task-4.pptx"},
+                "markdown": "# Resolved",
+                "markdown_path": "/tmp/task-4.md",
+                "warnings": [],
+                "events": [],
+                "metrics": {"render_ms": 8.0},
+            },
+        ),
+    ):
+        output_urls, artifact_paths, render_timings, render_metadata = await render_generation_outputs(
+            db_service=db_service,
+            context=context,
+            courseware_content=SimpleNamespace(),
+        )
+
+    assert output_urls == {}
+    assert artifact_paths == {"pptx": "/tmp/task-4.pptx"}
+    assert render_metadata == {
+        "resolved_markdown_content": "# Resolved",
+        "resolved_markdown_path": "/tmp/task-4.md",
+    }
+    assert "render_ppt_ms" in render_timings
 
 
 @pytest.mark.asyncio
@@ -634,6 +694,63 @@ async def test_cache_preview_content_uses_render_markdown_slide_structure():
         "task-202-slide-0",
         "task-202-slide-1",
     ]
+
+
+@pytest.mark.asyncio
+async def test_build_rendered_preview_payload_expands_split_preview_pages(tmp_path):
+    image_a = tmp_path / "slide-a.png"
+    image_b = tmp_path / "slide-b.png"
+    image_bytes = (
+        b"\x89PNG\r\n\x1a\n"
+        b"\x00\x00\x00\rIHDR"
+        b"\x00\x00\x00\x01\x00\x00\x00\x01\x08\x02\x00\x00\x00"
+        b"\x90wS\xde"
+        b"\x00\x00\x00\x0cIDATx\x9cc```\x00\x00\x00\x04\x00\x01"
+        b"\x0b\xe7\x02\x9d"
+        b"\x00\x00\x00\x00IEND\xaeB`\x82"
+    )
+    image_a.write_bytes(image_bytes)
+    image_b.write_bytes(image_bytes)
+
+    async def _fake_invoke_render_engine_page(_payload):
+        return {
+            "page_id": "task-split-slide-0",
+            "page_index": 0,
+            "markdown": (
+                "---\nmarp: true\n---\n\n"
+                "<!-- _class: content -->\n\n"
+                "# Part 1\n\nBody 1\n\n---\n\n# Part 2\n\nBody 2"
+            ),
+            "html_preview": "<section>Part 1</section>",
+            "html_previews": [
+                "<section>Part 1</section>",
+                "<section>Part 2</section>",
+            ],
+            "preview_image_path": str(image_a),
+            "preview_image_paths": [str(image_a), str(image_b)],
+        }
+
+    with patch(
+        "services.preview_helpers.rendered_preview.invoke_render_engine_page",
+        new=AsyncMock(side_effect=_fake_invoke_render_engine_page),
+    ):
+        payload = await build_rendered_preview_payload(
+            task_id="task-split",
+            title="Split demo",
+            markdown_content="# Slide 1",
+            template_config={"style": "default"},
+        )
+
+    assert payload is not None
+    assert payload["page_count"] == 2
+    assert [page["split_index"] for page in payload["pages"]] == [0, 1]
+    assert [page["split_count"] for page in payload["pages"]] == [2, 2]
+    assert all(page["slide_id"] == "task-split-slide-0" for page in payload["pages"])
+    assert payload["_resolved_markdown_content"] == (
+        "---\nmarp: true\n---\n\n"
+        "<!-- _class: content -->\n\n"
+        "# Part 1\n\nBody 1\n\n---\n\n# Part 2\n\nBody 2\n"
+    )
 
 
 def test_split_marp_document_strips_global_style_and_trailing_separator():

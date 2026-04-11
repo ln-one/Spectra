@@ -41,7 +41,7 @@ async def test_index_upload_for_rag_schedules_remote_reconcile_when_parse_is_def
     )
 
     update_status.assert_awaited_once()
-    assert update_status.await_args.kwargs["status"] == "uploading"
+    assert update_status.await_args.kwargs["status"] == "parsing"
     enqueue_remote.assert_called_once()
 
 

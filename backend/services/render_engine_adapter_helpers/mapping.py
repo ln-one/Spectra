@@ -99,23 +99,15 @@ def build_render_engine_input(
 
     source_markdown = render_markdown or markdown_content
     pages = parse_document_pages(source_markdown)
-    if render_markdown.strip():
-        try:
-            from services.courseware_ai.parsing import strip_outer_code_fence
-
-            job_marp_markdown = strip_outer_code_fence(render_markdown)
-        except Exception:
-            job_marp_markdown = render_markdown.strip()
-    else:
-        job_marp_markdown = None
-
     render_theme = render_theme_config(template_config, extra_css=extra_css or None)
     return {
         "render_job_id": render_job_id,
         "output_targets": output_targets,
         "theme": render_theme["theme_id"],
         "output_dir": str(output_dir.resolve()),
-        "job_marp_markdown": job_marp_markdown,
+        # Keep job rendering on the structured path so preview overflow splits and
+        # export pagination are decided by the same canonical layout pipeline.
+        "job_marp_markdown": None,
         "render": {
             "theme": render_theme,
             "template": {

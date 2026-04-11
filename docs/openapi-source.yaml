@@ -37,6 +37,8 @@ paths:
     $ref: './openapi/paths/files.yaml#/~1api~1v1~1files~1{file_id}'
   /api/v1/files/{file_id}/intent:
     $ref: './openapi/paths/files.yaml#/~1api~1v1~1files~1{file_id}~1intent'
+  /api/v1/files/{file_id}/parse/mineru:
+    $ref: './openapi/paths/files.yaml#/~1api~1v1~1files~1{file_id}~1parse~1mineru'
   /api/v1/files/batch:
     $ref: './openapi/paths/files.yaml#/~1api~1v1~1files~1batch'
 
@@ -47,20 +49,10 @@ paths:
     $ref: './openapi/paths/generate-session.yaml#/~1api~1v1~1generate~1sessions~1{session_id}'
   /api/v1/generate/sessions/{session_id}/events:
     $ref: './openapi/paths/generate-session.yaml#/~1api~1v1~1generate~1sessions~1{session_id}~1events'
-  /api/v1/generate/sessions/{session_id}/outline:
-    $ref: './openapi/paths/generate-session.yaml#/~1api~1v1~1generate~1sessions~1{session_id}~1outline'
   /api/v1/generate/sessions/{session_id}/commands:
     $ref: './openapi/paths/generate-session.yaml#/~1api~1v1~1generate~1sessions~1{session_id}~1commands'
-  /api/v1/generate/sessions/{session_id}/confirm:
-    $ref: './openapi/paths/generate-session.yaml#/~1api~1v1~1generate~1sessions~1{session_id}~1confirm'
   /api/v1/generate/sessions/{session_id}/candidate-change:
     $ref: './openapi/paths/generate-session.yaml#/~1api~1v1~1generate~1sessions~1{session_id}~1candidate-change'
-  /api/v1/generate/sessions/{session_id}/outline/redraft:
-    $ref: './openapi/paths/generate-session.yaml#/~1api~1v1~1generate~1sessions~1{session_id}~1outline~1redraft'
-  /api/v1/generate/sessions/{session_id}/resume:
-    $ref: './openapi/paths/generate-session.yaml#/~1api~1v1~1generate~1sessions~1{session_id}~1resume'
-  /api/v1/generate/sessions/{session_id}/slides/{slide_id}/regenerate:
-    $ref: './openapi/paths/generate-session.yaml#/~1api~1v1~1generate~1sessions~1{session_id}~1slides~1{slide_id}~1regenerate'
   /api/v1/generate/capabilities:
     $ref: './openapi/paths/generate-session.yaml#/~1api~1v1~1generate~1capabilities'
   /api/v1/generate/studio-cards:

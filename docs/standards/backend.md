@@ -80,6 +80,7 @@
 - 优先显式导入，例如 `from services.media.audio import transcribe_audio`
 - `services/__init__.py` 仅保留兼容出口，不作为新增代码默认入口
 - 测试中若为了 patch 历史兼容路径，可保留少量兼容导入
+- 微服务能力边界以 [service-boundaries.md](/Users/ln1/Projects/Spectra/docs/architecture/service-boundaries.md) 为准；backend 新代码默认只能做编排、聚合、状态与契约，不应复制 `dualweave / stratumind / pagevra / ourograph` 的正式产品语义
 
 ## 5. 数据与安全
 
@@ -102,7 +103,7 @@ python3 backend/scripts/architecture_guard.py
 - `>500` 行：error
 - `>800` 行：critical
 - 新增根目录平铺 `*_service.py`：warning
-- 生产代码新增 `from services import ...`：warning
+- 生产代码新增 `from services import ...`：error
 
 说明：`300` 不是硬性一刀切阈值，而是提示需要复查单一职责。
 

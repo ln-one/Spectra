@@ -203,7 +203,7 @@ async def reconcile_remote_parse_once(
 
     await db.update_upload_status(
         file_id,
-        status=UploadStatus.UPLOADING.value,
+        status=UploadStatus.PARSING.value,
         parse_result=build_dualweave_parse_result(result, provider="dualweave_mineru"),
         error_message=None,
     )

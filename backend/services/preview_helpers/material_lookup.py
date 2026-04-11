@@ -1,55 +1,24 @@
-﻿import json
+import json
 import logging
-from pathlib import Path
 from typing import Optional
-from uuid import UUID
 
 logger = logging.getLogger(__name__)
 
-TASK_PREVIEW_FIELDS = (
-    "id",
-    "status",
-    "sessionId",
-    "templateConfig",
-    "inputData",
-)
 
-
-def extract_task_id_from_artifact(artifact) -> Optional[str]:
+def _artifact_metadata_payload(artifact) -> dict:
     metadata_raw = getattr(artifact, "metadata", None)
-    if metadata_raw:
-        try:
-            metadata = json.loads(metadata_raw)
-            task_id = metadata.get("task_id")
-            if isinstance(task_id, str) and task_id.strip():
-                return task_id.strip()
-        except (TypeError, json.JSONDecodeError):
-            logger.debug(
-                "artifact_metadata_task_id_parse_failed: artifact_metadata=%s",
-                metadata_raw,
-            )
-
-    storage_path = getattr(artifact, "storagePath", None)
-    if not storage_path:
-        return None
-    stem = Path(storage_path).stem
-    try:
-        UUID(stem)
-    except ValueError:
-        return None
-    return stem
-
-
-def _parse_task_input(raw: object) -> dict:
-    if not raw:
-        return {}
-    if isinstance(raw, dict):
-        return raw
-    if not isinstance(raw, str):
+    if isinstance(metadata_raw, dict):
+        return dict(metadata_raw)
+    if not isinstance(metadata_raw, str) or not metadata_raw.strip():
         return {}
     try:
-        parsed = json.loads(raw)
+        parsed = json.loads(metadata_raw)
     except (TypeError, json.JSONDecodeError):
+        logger.debug(
+            "artifact_metadata_parse_failed: artifact_id=%s metadata=%s",
+            getattr(artifact, "id", None),
+            metadata_raw,
+        )
         return {}
     return parsed if isinstance(parsed, dict) else {}
 
@@ -60,114 +29,71 @@ def _read_field(record, field_name: str):
     return getattr(record, field_name, None)
 
 
-def _has_field(record, field_name: str) -> bool:
-    if isinstance(record, dict):
-        return field_name in record
-    return hasattr(record, field_name)
+def _artifact_belongs_to_session(artifact, session_id: str) -> bool:
+    artifact_session_id = _read_field(artifact, "sessionId")
+    return not artifact_session_id or artifact_session_id == session_id
 
 
-def _has_fields(record, field_names: tuple[str, ...]) -> bool:
-    return all(_has_field(record, field_name) for field_name in field_names)
-
-
-async def _load_task_by_id(db_service, task_id: Optional[str]):
-    if not task_id:
-        return None
-    task_model = getattr(db_service.db, "generationtask", None)
-    if task_model is None or not hasattr(task_model, "find_unique"):
-        return None
-    return await task_model.find_unique(where={"id": task_id})
-
-
-async def _ensure_preview_task_shape(db_service, task):
-    if task is None:
-        return None
-    if _has_fields(task, TASK_PREVIEW_FIELDS):
-        return task
-    return await _load_task_by_id(db_service, _read_field(task, "id"))
-
-
-async def resolve_task_by_artifact(
-    db_service, session_id: str, artifact_id: Optional[str]
-):
+async def _load_artifact_by_id(db_service, artifact_id: Optional[str]):
     if not artifact_id:
         return None
     artifact_model = getattr(db_service.db, "artifact", None)
     if artifact_model is None or not hasattr(artifact_model, "find_unique"):
         return None
-    artifact = await artifact_model.find_unique(where={"id": artifact_id})
-    if not artifact:
+    return await artifact_model.find_unique(where={"id": artifact_id})
+
+
+async def _load_latest_session_artifact(db_service, session_id: str):
+    artifact_model = getattr(db_service.db, "artifact", None)
+    if artifact_model is None or not hasattr(artifact_model, "find_first"):
         return None
-    if _read_field(artifact, "sessionId") != session_id:
-        return None
-
-    task_id = extract_task_id_from_artifact(artifact)
-    if task_id:
-        task = await _load_task_by_id(db_service, task_id)
-        if task and _read_field(task, "sessionId") == session_id:
-            return task
-    return None
+    return await artifact_model.find_first(
+        where={"sessionId": session_id},
+        order={"updatedAt": "desc"},
+    )
 
 
-async def resolve_task_by_run(db_service, session_id: str, run_id: Optional[str]):
+async def _load_run_by_id(db_service, run_id: Optional[str]):
     if not run_id:
         return None
-
     run_model = getattr(db_service.db, "sessionrun", None)
     if run_model is None or not hasattr(run_model, "find_unique"):
         return None
-
-    run = await run_model.find_unique(where={"id": run_id})
-    if not run or getattr(run, "sessionId", None) != session_id:
-        return None
-
-    run_artifact_id = getattr(run, "artifactId", None)
-    if run_artifact_id:
-        task = await resolve_task_by_artifact(db_service, session_id, run_artifact_id)
-        if task is not None:
-            return task
-
-    candidate_tasks = await db_service.db.generationtask.find_many(
-        where={"sessionId": session_id},
-        order={"createdAt": "desc"},
-        take=50,
-    )
-    for candidate in candidate_tasks:
-        task_id = _read_field(candidate, "id")
-        if not task_id:
-            continue
-        task = await _ensure_preview_task_shape(db_service, candidate)
-        if task is None or _read_field(task, "sessionId") != session_id:
-            continue
-        input_data = _parse_task_input(_read_field(task, "inputData"))
-        if str(input_data.get("run_id") or "").strip() == run_id:
-            return task
-    return None
+    return await run_model.find_unique(where={"id": run_id})
 
 
-async def resolve_preview_task(
+async def resolve_preview_material_context(
     db_service,
     session_id: str,
     artifact_id: Optional[str],
-    task_id: Optional[str],
     run_id: Optional[str] = None,
 ):
-    if run_id:
-        return await resolve_task_by_run(db_service, session_id, run_id)
-
-    task = await resolve_task_by_artifact(db_service, session_id, artifact_id)
-    if task is None and task_id:
-        task = await _load_task_by_id(db_service, task_id)
-        if task and _read_field(task, "sessionId") != session_id:
-            task = None
-    if task is not None:
-        return task
-
-    tasks = await db_service.db.generationtask.find_many(
-        where={"sessionId": session_id},
-        order={"createdAt": "desc"},
-        take=1,
-    )
-    if not tasks:
+    run = await _load_run_by_id(db_service, run_id)
+    if run_id and (not run or getattr(run, "sessionId", None) != session_id):
         return None
-    return await _ensure_preview_task_shape(db_service, tasks[0])
+
+    artifact = None
+    if run is not None and getattr(run, "artifactId", None):
+        artifact = await _load_artifact_by_id(db_service, getattr(run, "artifactId"))
+    if artifact is None and artifact_id:
+        artifact = await _load_artifact_by_id(db_service, artifact_id)
+    if artifact is None and not run_id:
+        artifact = await _load_latest_session_artifact(db_service, session_id)
+    if artifact is not None and not _artifact_belongs_to_session(artifact, session_id):
+        artifact = None
+
+    resolved_artifact_id = _read_field(artifact, "id")
+    resolved_run_id = getattr(run, "id", None) if run is not None else run_id
+    render_job_id = (
+        str(resolved_artifact_id or "").strip()
+        or str(resolved_run_id or "").strip()
+        or f"session-{session_id}"
+    )
+    return {
+        "artifact": artifact,
+        "run": run,
+        "artifact_id": resolved_artifact_id,
+        "run_id": resolved_run_id,
+        "render_job_id": render_job_id,
+        "artifact_metadata": _artifact_metadata_payload(artifact) if artifact else {},
+    }

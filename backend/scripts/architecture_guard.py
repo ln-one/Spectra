@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """Lightweight architecture guard for backend code structure.
 
-This script is intentionally advisory-first:
+This script is intentionally strict on hot-path drift:
 - file length > 300 lines => warning
 - file length > 500 lines => error
 - file length > 800 lines => critical error
 - new top-level ``*_service.py`` files under ``backend/services`` => warning
-- production ``from services import ...`` usage => warning
+- production ``from services import ...`` usage => error
 
 The goal is to surface architecture drift without blocking normal iteration on
 healthy medium-sized files.
@@ -135,7 +135,7 @@ def check_implicit_service_imports(paths: list[Path]) -> list[Finding]:
         if marker in text:
             findings.append(
                 Finding(
-                    "warning",
+                    "error",
                     path,
                     (
                         "uses 'from services import ...'; prefer explicit module "

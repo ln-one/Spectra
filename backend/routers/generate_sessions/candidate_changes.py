@@ -12,7 +12,7 @@ from services.preview_helpers import (
     load_preview_material,
     strip_sources,
 )
-from services.project_space_service import project_space_service
+from services.project_space_service.service import project_space_service
 from services.project_space_service.candidate_change_semantics import (
     serialize_candidate_change as serialize_candidate_change_payload,
 )
@@ -326,7 +326,6 @@ async def load_session_preview_material(
     session_id: str,
     project_id: str,
     artifact_id: Optional[str] = None,
-    task_id: Optional[str] = None,
     run_id: Optional[str] = None,
 ):
     """Backward-compatible wrapper for tests and patches."""
@@ -334,6 +333,5 @@ async def load_session_preview_material(
         session_id,
         project_id,
         artifact_id,
-        task_id,
         run_id,
     )

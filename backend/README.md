@@ -68,7 +68,7 @@ cd backend
 ## Development Constraints
 
 - routers should not accumulate complex business orchestration
-- new production code should prefer explicit imports over `from services import ...`
+- new production code must use explicit imports; `from services import ...` is tests-only compatibility
 - files above `300` lines deserve review; above `500` lines should normally be split
 - new modules should prefer the folder-as-module pattern when complexity warrants it
 

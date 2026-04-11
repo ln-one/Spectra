@@ -107,7 +107,7 @@ async def test_reconcile_remote_parse_once_updates_pending_status(monkeypatch):
 
     assert outcome == "pending"
     db.update_upload_status.assert_awaited_once()
-    assert db.update_upload_status.await_args.kwargs["status"] == "uploading"
+    assert db.update_upload_status.await_args.kwargs["status"] == "parsing"
 
 
 @pytest.mark.asyncio

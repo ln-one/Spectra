@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 
 from schemas.project_space import ArtifactType
-from services.project_space_service import project_space_service
+from services.project_space_service.service import project_space_service
 from utils.exceptions import APIException, ErrorCode
 
 from .card_source_bindings import get_card_source_artifact_types

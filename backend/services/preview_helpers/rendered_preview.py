@@ -6,6 +6,7 @@ import struct
 from pathlib import Path
 from typing import Awaitable, Callable, Optional
 
+from services.generation.marp_document import split_marp_document
 from services.preview_helpers.rendering import build_slides
 from services.preview_helpers.slide_mapping import slide_identity
 from services.render_engine_adapter import (
@@ -33,6 +34,49 @@ def _read_png_dimensions(image_path: Path) -> tuple[Optional[int], Optional[int]
 def _to_data_url(image_path: Path) -> str:
     encoded = base64.b64encode(image_path.read_bytes()).decode("ascii")
     return f"data:image/png;base64,{encoded}"
+
+
+def _assemble_resolved_markdown(markdown_fragments: list[tuple[int, str]]) -> str:
+    if not markdown_fragments:
+        return ""
+
+    frontmatter = ""
+    style_blocks = ""
+    slides: list[str] = []
+
+    for _, fragment in sorted(markdown_fragments, key=lambda item: item[0]):
+        raw = str(fragment or "").strip()
+        if not raw:
+            continue
+        current_frontmatter, current_style_blocks, current_slides = split_marp_document(
+            raw
+        )
+        current_slides = [slide.strip() for slide in current_slides if slide.strip()]
+        if not current_slides:
+            continue
+        if not slides:
+            frontmatter = current_frontmatter.strip()
+            style_blocks = current_style_blocks.strip()
+        slides.extend(current_slides)
+
+    if not slides:
+        return ""
+
+    body_parts: list[str] = []
+    first_slide = slides[0]
+    if style_blocks:
+        first_slide = "\n\n".join([style_blocks, first_slide]).strip()
+    body_parts.append(first_slide)
+    body_parts.extend(slides[1:])
+
+    body = "\n\n---\n\n".join(part for part in body_parts if part).strip()
+    if frontmatter and body:
+        return f"{frontmatter}\n\n{body}\n"
+    if frontmatter:
+        return f"{frontmatter}\n"
+    if body:
+        return f"{body}\n"
+    return ""
 
 
 async def build_rendered_preview_payload(
@@ -78,6 +122,7 @@ async def build_rendered_preview_payload(
 
     pages: list[dict] = []
     html_success_count = 0
+    markdown_fragments: list[tuple[int, str]] = []
     for index, page_payload in enumerate(structured_pages):
         if not isinstance(page_payload, dict):
             continue
@@ -104,44 +149,90 @@ async def build_rendered_preview_payload(
             )
             render_result = await invoke_render_engine_page(render_input)
             normalized = normalize_render_engine_page_result(render_result)
-            image_url = None
-            width = None
-            height = None
-            preview_image_path = normalized.get("preview_image_path")
-            if isinstance(preview_image_path, str) and preview_image_path.strip():
-                image_path = Path(preview_image_path)
-                if image_path.exists():
-                    image_url = _to_data_url(image_path)
-                    width, height = _read_png_dimensions(image_path)
-            page = {
-                "index": index,
-                "slide_id": page_id,
-                "image_url": image_url,
-                "html_preview": normalized.get("html_preview"),
-                "status": "ready",
-            }
-            if width is not None:
-                page["width"] = width
-            if height is not None:
-                page["height"] = height
-            pages.append(page)
-            html_success_count += 1
-            if on_page_rendered is not None:
-                await on_page_rendered(
-                    {
-                        "slide_index": index,
-                        "slide_id": page_id,
-                        "preview_ready": True,
-                        "page_count": len(pages),
-                        "total_slides": len(structured_pages),
-                        "image_url": image_url,
-                        "width": width,
-                        "height": height,
-                        "html_preview_ready": bool(normalized.get("html_preview")),
-                        "html_preview": normalized.get("html_preview"),
-                        "status": "ready",
-                    }
+            normalized_markdown = normalized.get("markdown")
+            if isinstance(normalized_markdown, str) and normalized_markdown.strip():
+                markdown_fragments.append((index, normalized_markdown))
+            html_previews = [
+                item
+                for item in (normalized.get("html_previews") or [])
+                if isinstance(item, str) and item.strip()
+            ]
+            preview_image_paths = [
+                item
+                for item in (normalized.get("preview_image_paths") or [])
+                if isinstance(item, str) and item.strip()
+            ]
+            single_html_preview = normalized.get("html_preview")
+            if (
+                isinstance(single_html_preview, str)
+                and single_html_preview.strip()
+                and not html_previews
+            ):
+                html_previews = [single_html_preview]
+            single_preview_image_path = normalized.get("preview_image_path")
+            if (
+                isinstance(single_preview_image_path, str)
+                and single_preview_image_path.strip()
+                and not preview_image_paths
+            ):
+                preview_image_paths = [single_preview_image_path]
+
+            split_count = max(len(html_previews), len(preview_image_paths), 0)
+            if split_count == 0:
+                continue
+
+            html_success_count += split_count
+            for split_index in range(split_count):
+                image_url = None
+                width = None
+                height = None
+                preview_image_path = (
+                    preview_image_paths[split_index]
+                    if split_index < len(preview_image_paths)
+                    else None
                 )
+                if isinstance(preview_image_path, str) and preview_image_path.strip():
+                    image_path = Path(preview_image_path)
+                    if image_path.exists():
+                        image_url = _to_data_url(image_path)
+                        width, height = _read_png_dimensions(image_path)
+                html_preview = (
+                    html_previews[split_index]
+                    if split_index < len(html_previews)
+                    else None
+                )
+                page = {
+                    "index": index,
+                    "slide_id": page_id,
+                    "image_url": image_url,
+                    "html_preview": html_preview,
+                    "status": "ready",
+                    "split_index": split_index,
+                    "split_count": split_count,
+                }
+                if width is not None:
+                    page["width"] = width
+                if height is not None:
+                    page["height"] = height
+                pages.append(page)
+                if on_page_rendered is not None:
+                    await on_page_rendered(
+                        {
+                            "slide_index": index,
+                            "slide_id": page_id,
+                            "preview_ready": True,
+                            "page_count": len(pages),
+                            "total_slides": len(structured_pages),
+                            "image_url": image_url,
+                            "width": width,
+                            "height": height,
+                            "html_preview_ready": bool(html_preview),
+                            "html_preview": html_preview,
+                            "status": "ready",
+                            "split_index": split_index,
+                            "split_count": split_count,
+                        }
+                    )
             continue
         except Exception as exc:
             logger.warning(
@@ -165,5 +256,6 @@ async def build_rendered_preview_payload(
             "format": format_name,
             "pages": pages,
             "page_count": len(pages),
+            "_resolved_markdown_content": _assemble_resolved_markdown(markdown_fragments),
         }
     return None

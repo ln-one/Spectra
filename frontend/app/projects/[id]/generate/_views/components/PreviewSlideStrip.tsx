@@ -7,6 +7,11 @@ type SlideItem = {
   title?: string;
   thumbnail_url?: string;
   rendered_html_preview?: string | null;
+  rendered_previews?: Array<{
+    split_index: number;
+    image_url?: string | null;
+    html_preview?: string | null;
+  }>;
 };
 
 interface PreviewSlideStripProps {
@@ -20,6 +25,14 @@ export function PreviewSlideStrip({
   activeSlideIndex,
   onScrollToSlide,
 }: PreviewSlideStripProps) {
+  const hasStructuredPreview = (slide: SlideItem): boolean =>
+    Array.isArray(slide.rendered_previews) &&
+    slide.rendered_previews.some(
+      (preview) =>
+        Boolean(preview?.image_url) ||
+        (typeof preview?.html_preview === "string" && preview.html_preview.trim())
+    );
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 50 }}
@@ -56,7 +69,7 @@ export function PreviewSlideStrip({
                   className="absolute inset-0 h-full w-full object-cover"
                   loading="lazy"
                 />
-              ) : slide.rendered_html_preview ? (
+              ) : hasStructuredPreview(slide) || slide.rendered_html_preview ? (
                 <div className="absolute inset-0 bg-gradient-to-br from-zinc-50 via-white to-zinc-100" />
               ) : null}
               <div className="absolute inset-0 bg-gradient-to-t from-background/90 via-background/40 to-transparent pointer-events-none" />
@@ -70,6 +83,12 @@ export function PreviewSlideStrip({
               >
                 {slide.index + 1}
               </span>
+              {Array.isArray(slide.rendered_previews) &&
+              slide.rendered_previews.length > 1 ? (
+                <span className="absolute right-1.5 top-1.5 z-10 rounded bg-black/55 px-1.5 py-0.5 text-[9px] font-semibold text-white">
+                  +{slide.rendered_previews.length - 1}
+                </span>
+              ) : null}
               {isActive ? (
                 <motion.span
                   initial={{ opacity: 0, y: 5 }}

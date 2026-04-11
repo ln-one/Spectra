@@ -68,10 +68,25 @@ def strip_sources(
     return slides_clean, lesson_plan_clean
 
 
+def _resolved_export_markdown(content: dict) -> str:
+    resolved = content.get("resolved_markdown_content")
+    if isinstance(resolved, str) and resolved.strip():
+        return resolved
+
+    markdown_content = content.get("markdown_content")
+    if isinstance(markdown_content, str) and markdown_content.strip():
+        return markdown_content
+
+    render_markdown = content.get("render_markdown")
+    if isinstance(render_markdown, str) and render_markdown.strip():
+        return render_markdown
+
+    return ""
+
+
 def build_preview_payload(
     session_id: str,
     snapshot: dict,
-    task,
     slides: list[dict],
     lesson_plan: Optional[dict],
     anchor: dict,
@@ -79,14 +94,11 @@ def build_preview_payload(
     rendered_preview: Optional[dict] = None,
 ) -> dict:
     content = content or {}
-    slides_content_markdown = content.get("markdown_content")
-    if not isinstance(slides_content_markdown, str):
-        slides_content_markdown = ""
+    slides_content_markdown = _resolved_export_markdown(content)
     return {
         "session_id": session_id,
         "session_state": snapshot["session"].get("state"),
         "session_state_reason": snapshot["session"].get("stateReason"),
-        "task_id": task.id if task else None,
         "artifact_id": anchor["artifact_id"],
         "based_on_version_id": anchor["based_on_version_id"],
         "current_version_id": snapshot.get("current_version_id"),
@@ -109,8 +121,6 @@ def build_modify_payload(
 ) -> dict:
     payload = {
         "session_id": session_id,
-        "modify_task_id": (result.get("task_id") if isinstance(result, dict) else None)
-        or f"modify-{session_id}",
         "status": TaskStatus.PENDING,
         "render_version": snapshot["session"].get("render_version") or 1,
         "artifact_id": anchor["artifact_id"],
@@ -120,7 +130,7 @@ def build_modify_payload(
         "artifact_anchor": anchor,
     }
     if isinstance(result, dict):
-        payload.update(result)
+        payload.update({key: value for key, value in result.items() if key != "task_id"})
     return payload
 
 
@@ -150,7 +160,6 @@ def build_slide_preview_payload(
 def build_export_payload(
     session_id: str,
     snapshot: dict,
-    task,
     slides: list[dict],
     lesson_plan: Optional[dict],
     content: dict,
@@ -161,10 +170,7 @@ def build_export_payload(
     if not include_sources:
         slides, lesson_plan = strip_sources(slides, lesson_plan)
 
-    # 优先使用 render_markdown
-    source_content = content.get("render_markdown") or content.get(
-        "markdown_content", ""
-    )
+    source_content = _resolved_export_markdown(content)
 
     normalized_format = export_format.lower()
     if normalized_format == "json":
@@ -194,7 +200,6 @@ def build_export_payload(
     )
     return {
         "session_id": session_id,
-        "task_id": task.id if task else None,
         "artifact_id": anchor["artifact_id"],
         "based_on_version_id": anchor["based_on_version_id"],
         "current_version_id": snapshot.get("current_version_id"),

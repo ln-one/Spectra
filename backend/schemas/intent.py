@@ -23,7 +23,7 @@ class IntentClassification(BaseModel):
 
     intent: IntentType = Field(..., description="识别的意图类型")
     confidence: float = Field(..., ge=0, le=1, description="置信度")
-    method: str = Field(default="llm", description="分类方法 (llm/keyword_fallback)")
+    method: str = Field(default="llm", description="分类方法 (llm/llm_error)")
 
 
 class ModifyType(str, Enum):

@@ -9,7 +9,7 @@ from schemas.project_vocabulary import ProjectReferenceMode
 from services.application.access import get_owned_project
 from services.database import db_service
 from services.file_upload_service import serialize_upload
-from services.project_space_service import project_space_service
+from services.project_space_service.service import project_space_service
 from utils.exceptions import ValidationException
 from utils.responses import success_response
 

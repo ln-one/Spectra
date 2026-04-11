@@ -207,7 +207,7 @@ async def _resolve_ppt_artifact_title(
     )
     existing_titles: set[str] = set()
     try:
-        from services.project_space_service import project_space_service
+        from services.project_space_service.service import project_space_service
 
         existing_artifacts = await project_space_service.get_project_artifacts(
             project_id=project_id,
@@ -226,7 +226,7 @@ async def render_generation_outputs(
     db_service,
     context,
     courseware_content,
-) -> tuple[dict, dict, dict[str, float]]:
+) -> tuple[dict, dict, dict[str, float], dict[str, str]]:
     from services.render_engine_adapter import (
         build_render_engine_input,
         invoke_render_engine,
@@ -236,6 +236,7 @@ async def render_generation_outputs(
     output_urls = {}
     artifact_paths: dict[str, str] = {}
     render_timings_ms: dict[str, float] = {}
+    render_metadata: dict[str, str] = {}
     should_emit_direct_output_urls = not bool(context.session_id)
 
     generation_type = normalize_generation_type(context.task_type)
@@ -246,7 +247,7 @@ async def render_generation_outputs(
         requested_targets.append("docx")
 
     if not requested_targets:
-        return output_urls, artifact_paths, render_timings_ms
+        return output_urls, artifact_paths, render_timings_ms, render_metadata
 
     started_at = time.perf_counter()
     render_input = build_render_engine_input(
@@ -258,6 +259,12 @@ async def render_generation_outputs(
     render_result = await invoke_render_engine(render_input)
     normalized_result = normalize_render_engine_result(render_result)
     artifact_paths.update(normalized_result["artifact_paths"])
+    markdown_content = normalized_result.get("markdown")
+    if isinstance(markdown_content, str) and markdown_content.strip():
+        render_metadata["resolved_markdown_content"] = markdown_content
+    markdown_path = normalized_result.get("markdown_path")
+    if isinstance(markdown_path, str) and markdown_path.strip():
+        render_metadata["resolved_markdown_path"] = markdown_path
     metrics = normalized_result.get("metrics") or {}
     if "pptx" in artifact_paths:
         render_timings_ms["render_ppt_ms"] = round(
@@ -294,7 +301,7 @@ async def render_generation_outputs(
         await db_service.update_generation_task_status(
             context.task_id, TaskStatus.PROCESSING, 90
         )
-    return output_urls, artifact_paths, render_timings_ms
+    return output_urls, artifact_paths, render_timings_ms, render_metadata
 
 
 async def persist_generation_artifacts(
@@ -347,7 +354,7 @@ async def persist_generation_artifacts(
             )
         )
         try:
-            from services.project_space_service import project_space_service
+            from services.project_space_service.service import project_space_service
 
             artifact = await project_space_service.create_artifact(
                 project_id=project_id,

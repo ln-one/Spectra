@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 async def list_active_reference_targets(project_id: str) -> list[dict]:
     try:
-        from services.project_space_service import project_space_service
+        from services.project_space_service.service import project_space_service
 
         project = await db_service.get_project(project_id)
         project_owner_id = getattr(project, "userId", None) if project else None

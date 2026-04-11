@@ -2,7 +2,6 @@ from pathlib import Path
 
 import pytest
 
-from services.artifact_generator import office as office_module
 from services.artifact_generator.office import ArtifactOfficeMixin
 
 
@@ -18,8 +17,15 @@ class _OfficeGenerator(ArtifactOfficeMixin):
 
 
 @pytest.mark.asyncio
-async def test_generate_pptx_creates_openable_file(tmp_path: Path):
+async def test_generate_pptx_uses_marp_renderer(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     generator = _OfficeGenerator(tmp_path)
+
+    async def _render(storage_path: str, markdown: str) -> None:
+        Path(storage_path).write_bytes(b"pptx")
+        assert "# S1" in markdown
+
+    monkeypatch.setattr(generator, "_render_pptx_with_marp", _render)
+
     output = await generator.generate_pptx(
         {"title": "Demo PPTX", "slides": [{"title": "S1", "content": "C1"}]},
         "project-1",
@@ -29,17 +35,19 @@ async def test_generate_pptx_creates_openable_file(tmp_path: Path):
     path = Path(output)
     assert path.exists()
     assert path.suffix == ".pptx"
-    assert path.stat().st_size > 0
-
-    from pptx import Presentation
-
-    presentation = Presentation(str(path))
-    assert len(presentation.slides) >= 1
+    assert path.read_bytes() == b"pptx"
 
 
 @pytest.mark.asyncio
-async def test_generate_docx_creates_openable_file(tmp_path: Path):
+async def test_generate_docx_uses_pandoc_renderer(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     generator = _OfficeGenerator(tmp_path)
+
+    async def _render(storage_path: str, markdown: str) -> None:
+        Path(storage_path).write_bytes(b"docx")
+        assert "# Demo DOCX" in markdown
+
+    monkeypatch.setattr(generator, "_render_docx_with_pandoc", _render)
+
     output = await generator.generate_docx(
         {
             "title": "Demo DOCX",
@@ -52,30 +60,21 @@ async def test_generate_docx_creates_openable_file(tmp_path: Path):
     path = Path(output)
     assert path.exists()
     assert path.suffix == ".docx"
-    assert path.stat().st_size > 0
-
-    from docx import Document
-
-    document = Document(str(path))
-    texts = [paragraph.text for paragraph in document.paragraphs]
-    assert any("Demo DOCX" in text for text in texts)
-    assert any("Intro" in text for text in texts)
+    assert path.read_bytes() == b"docx"
 
 
 @pytest.mark.asyncio
-async def test_generate_pptx_fails_explicitly_when_placeholder_disabled(
+async def test_generate_pptx_fails_explicitly_when_marp_fails(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ):
     generator = _OfficeGenerator(tmp_path)
-    monkeypatch.delenv("ALLOW_OFFICE_PLACEHOLDER_ARTIFACTS", raising=False)
 
-    async def _render_fail(*args, **kwargs):
-        return False
+    async def _render_fail(*args, **kwargs) -> None:
+        raise RuntimeError("marp_render_failed")
 
     monkeypatch.setattr(generator, "_render_pptx_with_marp", _render_fail)
-    monkeypatch.setattr(office_module, "Presentation", None)
 
-    with pytest.raises(RuntimeError, match="placeholder artifacts are disabled"):
+    with pytest.raises(RuntimeError, match="marp_render_failed"):
         await generator.generate_pptx(
             {"title": "Demo PPTX", "slides": [{"title": "S1", "content": "C1"}]},
             "project-1",

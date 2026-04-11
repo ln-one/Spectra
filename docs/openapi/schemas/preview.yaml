@@ -10,10 +10,6 @@ PreviewResponse:
         session_id:
           type: string
           description: 会话级预览上下文 ID（session-first）
-        task_id:
-          type: string
-          description: 兼容旧任务流的执行 ID
-          nullable: true
         artifact_id:
           type: string
           description: 当前预览对应的成果 ID
@@ -35,6 +31,8 @@ PreviewResponse:
           description: 当前可预览渲染版本
         artifact_anchor:
           $ref: "#/ArtifactAnchor"
+        rendered_preview:
+          $ref: '#/RenderedPreview'
         slides:
           type: array
           items:
@@ -63,8 +61,65 @@ Slide:
         $ref: '#/SourceReference'
     thumbnail_url:
       type: string
+    rendered_html_preview:
+      type: string
+      nullable: true
+    rendered_previews:
+      type: array
+      items:
+        $ref: '#/RenderedPreviewPage'
     image_metadata:
       $ref: '#/ImageInsertionMetadata'
+
+RenderedPreviewPage:
+  type: object
+  required: [index, slide_id]
+  properties:
+    index:
+      type: integer
+      minimum: 0
+    slide_id:
+      type: string
+    image_url:
+      type: string
+      nullable: true
+    html_preview:
+      type: string
+      nullable: true
+    status:
+      type: string
+      nullable: true
+    split_index:
+      type: integer
+      minimum: 0
+      default: 0
+    split_count:
+      type: integer
+      minimum: 1
+      default: 1
+    width:
+      type: integer
+      minimum: 1
+      nullable: true
+    height:
+      type: integer
+      minimum: 1
+      nullable: true
+
+RenderedPreview:
+  type: object
+  properties:
+    format:
+      type: string
+      default: png
+    page_count:
+      type: integer
+      minimum: 0
+      default: 0
+    pages:
+      type: array
+      items:
+        $ref: '#/RenderedPreviewPage'
 
 ImageInsertionMetadata:
   type: object
@@ -238,8 +293,6 @@ ModifyResponse:
         session_id:
           type: string
           description: 修改任务实际作用的会话
-        modify_task_id:
-          type: string
         status:
           type: string
           enum: [pending, processing, completed, failed]
@@ -364,10 +417,6 @@ ExportResponse:
         session_id:
           type: string
           description: 导出时绑定的会话 ID
-        task_id:
-          type: string
-          description: 兼容旧任务执行 ID
-          nullable: true
         artifact_id:
           type: string
           description: 导出对应的成果 ID

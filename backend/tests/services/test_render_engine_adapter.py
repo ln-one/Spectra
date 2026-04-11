@@ -59,6 +59,23 @@ def test_normalize_render_engine_result_extracts_artifacts_preview_and_metrics()
     assert result["metrics"]["page_count"] == 2
 
 
+def test_normalize_render_engine_result_preserves_job_markdown_metadata():
+    result = normalize_render_engine_result(
+        {
+            "markdown": "# Resolved",
+            "markdown_path": "/tmp/resolved.md",
+            "artifacts": {"pptx_path": "/tmp/demo.pptx"},
+            "warnings": [],
+            "events": [],
+            "metrics": {"page_count": 1},
+        }
+    )
+
+    assert result["markdown"] == "# Resolved"
+    assert result["markdown_path"] == "/tmp/resolved.md"
+    assert result["artifact_paths"] == {"pptx": "/tmp/demo.pptx"}
+
+
 def test_build_render_engine_page_input_maps_page_payload():
     payload = build_render_engine_page_input(
         render_job_id="job-1",
@@ -168,11 +185,33 @@ def test_build_render_engine_input_infers_teaching_summary_and_diagram_pages():
     ]
 
 
+def test_build_render_engine_input_keeps_export_on_structured_pipeline_when_render_markdown_exists():
+    payload = build_render_engine_input(
+        {
+            "title": "测试课件",
+            "markdown_content": "# 第一页\n\n正文",
+            "render_markdown": (
+                "---\nmarp: true\n---\n\n"
+                "<!-- _class: content density-medium -->\n\n"
+                "# 第一页\n\n正文\n\n---\n\n# 第二页\n\n更多内容"
+            ),
+        },
+        {"style": "teach", "template_id": "document-teaching"},
+        ["pptx"],
+        render_job_id="job-structured-export",
+    )
+
+    assert payload["job_marp_markdown"] is None
+    assert len(payload["document"]["pages"]) == 2
+
+
 def test_normalize_render_engine_page_result_extracts_html_preview():
     result = normalize_render_engine_page_result(
         {
             "page_id": "slide-1",
             "page_index": 0,
+            "markdown": "---\nmarp: true\n---\n\n# Demo",
+            "markdown_path": "/tmp/slide-1.md",
             "html_preview": "<section>demo</section>",
             "preview_image_path": "/tmp/slide-1.png",
             "warnings": [{"code": "w1", "message": "warn"}],
@@ -182,10 +221,41 @@ def test_normalize_render_engine_page_result_extracts_html_preview():
     )
 
     assert result["page_id"] == "slide-1"
+    assert result["markdown"] == "---\nmarp: true\n---\n\n# Demo"
+    assert result["markdown_path"] == "/tmp/slide-1.md"
     assert result["html_preview"] == "<section>demo</section>"
     assert result["preview_image_path"] == "/tmp/slide-1.png"
     assert result["warnings"][0]["code"] == "w1"
     assert result["events"][0]["type"] == "preview_ready"
+
+
+def test_normalize_render_engine_page_result_preserves_split_previews():
+    result = normalize_render_engine_page_result(
+        {
+            "page_id": "slide-2",
+            "page_index": 1,
+            "html_preview": "<section>first</section>",
+            "html_previews": [
+                "<section>first</section>",
+                "<section>second</section>",
+            ],
+            "preview_image_path": "/tmp/slide-2-a.png",
+            "preview_image_paths": [
+                "/tmp/slide-2-a.png",
+                "/tmp/slide-2-b.png",
+            ],
+            "metrics": {"page_index": 1},
+        }
+    )
+
+    assert result["html_previews"] == [
+        "<section>first</section>",
+        "<section>second</section>",
+    ]
+    assert result["preview_image_paths"] == [
+        "/tmp/slide-2-a.png",
+        "/tmp/slide-2-b.png",
+    ]
 
 
 def test_invoke_render_engine_uses_http_api_when_base_url_is_configured(monkeypatch):

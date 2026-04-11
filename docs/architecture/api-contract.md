@@ -171,13 +171,12 @@ FastAPI 自动提供两种 API 文档界面：
 约束：
 - `AWAITING_OUTLINE_CONFIRM` 为唯一人工确认断点。
 - `FAILED` 必须返回 `error.code`、`error.message`、`retryable`。
-- 会话类接口优先返回 `session_id`，`task_id` 作为兼容字段保留。
+- 会话类接口以 `session_id / run / artifact` 为正式主模型，不再向产品契约暴露 `task_id`。
 - `stateReason` 必须描述**当前状态的直接原因**：
   - `SUCCESS -> task_completed`
   - `FAILED ->` 具体失败原因
   - 不允许成功态保留上一阶段的大纲或调度原因。
 - `session` 快照与 `sessionevent.payload` 必须共享同一终态语义：
-  - `task_id`
   - `dispatch`
   - `rq_job_id`
   - `output_urls`
@@ -209,7 +208,7 @@ FastAPI 自动提供两种 API 文档界面：
  - 降级信息至少包含：`capability`、`fallback_used`、`fallback_target`、`user_message`。
 5. **演进策略**：
  - 新能力优先通过可选字段和 `capabilities` 开关引入，不先改破坏性字段。
- - 保持 `session_id` 主模型稳定，`task_id` 仅作为兼容层存在。
+ - 保持 `session_id / run / artifact` 主模型稳定，`GenerationTask` 仅作为执行基础设施存在。
 
 ### NotebookLM 三栏与 Session-First 约束（2026-03-06）
 
