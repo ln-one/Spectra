@@ -36,6 +36,7 @@ RUN --mount=type=cache,target=/root/.cache/pip \
     pip install --index-url ${TORCH_CPU_INDEX_URL} "torch>=2.1,<3"
 RUN --mount=type=cache,target=/root/.cache/pip \
     pip install -r requirements.txt
+RUN python -m playwright install chromium
 
 COPY . .
 RUN prisma generate

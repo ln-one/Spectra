@@ -35,6 +35,7 @@ RUN npm install -g @marp-team/marp-cli
 COPY requirements*.txt ./
 RUN pip install --index-url ${TORCH_CPU_INDEX_URL} "torch>=2.1,<3"
 RUN pip install -r requirements.txt
+RUN python -m playwright install chromium
 
 COPY . .
 RUN prisma generate
