@@ -350,10 +350,10 @@ def run_docker_pull(image_ref: str) -> None:
 
 
 def _ghcr_manifest_url(image: str, reference: str) -> tuple[str, str] | None:
-    prefix = "ghcr.io/"
+    prefix = "ghcr.io/ln-one/"
     if not image.startswith(prefix):
         return None
-    repo = image[len(prefix) :]
+    repo = image[len("ghcr.io/") :]
     return repo, f"https://ghcr.io/v2/{repo}/manifests/{reference}"
 
 

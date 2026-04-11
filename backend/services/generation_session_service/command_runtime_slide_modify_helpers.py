@@ -31,10 +31,12 @@ def resolve_target_slide_index(
     *,
     preview_payload: dict | None = None,
     render_job_id: str | None = None,
+    task_id: str | None = None,
 ) -> int | None:
     payload = preview_payload if isinstance(preview_payload, dict) else {}
     resolved_render_job_id = (
-        str(render_job_id or payload.get("render_job_id") or "").strip() or "preview"
+        str(render_job_id or task_id or payload.get("render_job_id") or "").strip()
+        or "preview"
     )
     markdown_content = str(
         command.get("_preview_markdown_content")
