@@ -10,9 +10,6 @@ from services.generation_session_service.capability_helpers import (
     _normalize_task_type,
     _resolve_queue_worker_availability,
 )
-from services.generation_session_service.command_response import (
-    build_command_response,
-)
 from services.generation_session_service.constants import SessionLifecycleReason
 from services.generation_session_service.run_payloads import load_task_run_payload
 from services.generation_session_service.session_history import (

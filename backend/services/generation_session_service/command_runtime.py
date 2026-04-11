@@ -37,9 +37,6 @@ from services.generation_session_service.session_history import (
     serialize_session_run,
     update_session_run,
 )
-from services.generation_session_service.session_state_runtime import (
-    handle_resume_session,
-)
 from services.platform.generation_event_constants import GenerationEventType
 from services.platform.state_transition_guard import GenerationState
 from services.task_executor.constants import TaskFailureStateReason

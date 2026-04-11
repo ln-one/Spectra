@@ -7,9 +7,6 @@ from services.generation_session_service.access import get_owned_session
 from services.generation_session_service.serialization_helpers import (
     _to_generation_event,
 )
-from services.generation_session_service.session_artifacts import (
-    get_session_artifact_history,
-)
 from services.generation_session_service.snapshot_assembly import (
     build_session_snapshot_payload,
 )
