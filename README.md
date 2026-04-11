@@ -93,7 +93,7 @@ the same smart compose entrypoint for local builds.
 The core commands are:
 
 - `status`: show the current channel, local-source overrides, and the locked image refs
-- `sync --channel develop|main`: pull the currently approved locked images and write `.env.compose.lock`
+- `sync --channel develop|main`: pull the currently approved locked images and write `.env.compose.lock` plus a root `.env` mirror for plain `docker compose`
 - `doctor`: validate Docker, lock-file completeness, and compose readiness
 - `up --build`: start the stack with local-source overrides when present
 
@@ -106,7 +106,7 @@ The core commands are:
 Current default behavior:
 
 - Spectra reads `infra/stack-lock.develop.json` on non-`main` branches and `infra/stack-lock.main.json` on `main`
-- base compose consumes `.env.compose.lock`, not floating tags directly
+- base compose consumes the lock-generated image refs, and plain `docker compose` works after `sync` because the same refs are mirrored into the root `.env`
 - if a local `pagevra/`, `dualweave/`, or `ourograph/` source checkout exists, `compose_smart.py` adds the matching override file and uses local source mode for that service
 - if a lock entry is still unpublished, `sync` and `doctor` fail explicitly instead of drifting to a floating tag
 

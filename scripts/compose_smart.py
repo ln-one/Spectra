@@ -16,6 +16,7 @@ ROOT = Path(__file__).resolve().parent.parent
 BASE_FILES = ["docker-compose.yml"]
 LOCK_DIR = ROOT / "infra"
 ENV_LOCK_FILE = ROOT / ".env.compose.lock"
+ENV_MIRROR_FILE = ROOT / ".env"
 VALID_CHANNELS = {"develop", "main"}
 
 
@@ -258,6 +259,7 @@ def write_env_lock(channel: str, refs: dict[str, str], locks: dict[str, ServiceL
         if service_lock.digest:
             lines.append(f"{source.env_var}_DIGEST={service_lock.digest}")
     ENV_LOCK_FILE.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    ENV_MIRROR_FILE.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
 def format_lock_detail(service_lock: ServiceLock) -> str:

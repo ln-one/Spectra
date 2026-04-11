@@ -219,16 +219,20 @@ def test_sync_writes_env_and_pulls_only_image_mode_services(tmp_path: Path) -> N
     )
 
     env_file = tmp_path / "repo/.env.compose.lock"
+    env_mirror = tmp_path / "repo/.env"
     assert result.returncode == 0
     assert "Pulling Dualweave" in result.stdout
     assert "uses local source" in result.stdout
     assert env_file.exists()
+    assert env_mirror.exists()
     content = env_file.read_text(encoding="utf-8")
+    mirror_content = env_mirror.read_text(encoding="utf-8")
     assert "COMPOSE_LOCK_CHANNEL=develop" in content
     assert "DUALWEAVE_IMAGE=ghcr.io/example/dualweave@sha256:" in content
     assert "PAGEVRA_IMAGE=ghcr.io/example/pagevra@sha256:" in content
     assert "OUROGRAPH_IMAGE=ghcr.io/example/ourograph@sha256:" in content
     assert "STRATUMIND_IMAGE=ghcr.io/example/stratumind@sha256:" in content
+    assert content == mirror_content
 
 
 def test_sync_fails_when_image_mode_service_is_unpublished(tmp_path: Path) -> None:
@@ -263,11 +267,14 @@ def test_sync_allows_unpublished_service_when_local_source_exists(
     )
 
     env_file = tmp_path / "repo/.env.compose.lock"
+    env_mirror = tmp_path / "repo/.env"
     assert result.returncode == 0
     content = env_file.read_text(encoding="utf-8")
+    mirror_content = env_mirror.read_text(encoding="utf-8")
     assert "DUALWEAVE_IMAGE=ghcr.io/example/dualweave:dev" in content
     assert "OUROGRAPH_IMAGE=ghcr.io/example/ourograph:dev" in content
     assert "STRATUMIND_IMAGE=ghcr.io/example/stratumind:dev" in content
+    assert content == mirror_content
 
 
 def test_doctor_fails_when_sync_missing_for_image_mode(tmp_path: Path) -> None:

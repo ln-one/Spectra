@@ -6,10 +6,10 @@
     "pagevra": {
       "image": "ghcr.io/ln-one/pagevra",
       "tag": "latest",
-      "digest": "sha256:c9a847bc5a645ba399e5f0e1c4758753e297cebf469a2caa9df03e0ede24f327",
+      "digest": "sha256:a56d8db2e08710341cb5673cd97d44d9d112d2c642494a01c90bcaa1d5bebf98",
       "source_branch": "main",
       "published": true,
-      "notes": "Pinned from GHCR public manifest on 2026-04-10."
+      "notes": "Pinned from GHCR public latest manifest on 2026-04-11."
     },
     "dualweave": {
       "image": "ghcr.io/ln-one/dualweave-service",
@@ -22,18 +22,18 @@
     "ourograph": {
       "image": "ghcr.io/ln-one/ourograph",
       "tag": "latest",
-      "digest": null,
+      "digest": "sha256:385c48528d37e2733b16e1a0b8b557bd8580fe5d09de4cfaea01c095f2efaa73",
       "source_branch": "main",
-      "published": false,
-      "notes": "The shared stable image is not published yet; run the Ourograph publish workflow or use local source."
+      "published": true,
+      "notes": "Pinned from GHCR public latest manifest on 2026-04-11."
     },
     "stratumind": {
       "image": "ghcr.io/ln-one/stratumind",
       "tag": "latest",
-      "digest": null,
+      "digest": "sha256:9093be5d4bd38cf785715404e9027dd8bb5a8d2343934e5ff309aa2ee6449dc0",
       "source_branch": "main",
-      "published": false,
-      "notes": "The shared stable image is not published yet; use local source until the first publish workflow lands."
+      "published": true,
+      "notes": "Pinned from GHCR public latest manifest on 2026-04-11."
     }
   }
 }
