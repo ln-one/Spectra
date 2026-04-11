@@ -17,7 +17,9 @@ class _OfficeGenerator(ArtifactOfficeMixin):
 
 
 @pytest.mark.asyncio
-async def test_generate_pptx_uses_marp_renderer(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+async def test_generate_pptx_uses_marp_renderer(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
     generator = _OfficeGenerator(tmp_path)
 
     async def _render(storage_path: str, markdown: str) -> None:
@@ -39,7 +41,9 @@ async def test_generate_pptx_uses_marp_renderer(tmp_path: Path, monkeypatch: pyt
 
 
 @pytest.mark.asyncio
-async def test_generate_docx_uses_pandoc_renderer(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+async def test_generate_docx_uses_pandoc_renderer(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
     generator = _OfficeGenerator(tmp_path)
 
     async def _render(storage_path: str, markdown: str) -> None:

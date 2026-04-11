@@ -191,7 +191,7 @@ def test_confirm_outline_can_attach_candidate_change(client, monkeypatch, _as_us
             "candidate_change": {
                 "title": "confirm-change",
                 "summary": "submit after confirm",
-            }
+            },
         },
     )
     assert resp.status_code == 200

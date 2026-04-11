@@ -278,10 +278,12 @@ async def test_render_generation_outputs_parallel_for_both():
             },
         ),
     ):
-        output_urls, artifact_paths, render_timings, render_metadata = await render_generation_outputs(
-            db_service=db_service,
-            context=context,
-            courseware_content=SimpleNamespace(),
+        output_urls, artifact_paths, render_timings, render_metadata = (
+            await render_generation_outputs(
+                db_service=db_service,
+                context=context,
+                courseware_content=SimpleNamespace(),
+            )
         )
 
     assert output_urls == {}
@@ -334,10 +336,12 @@ async def test_render_generation_outputs_pptx_only_keeps_progress_contract():
             },
         ),
     ):
-        output_urls, artifact_paths, render_timings, render_metadata = await render_generation_outputs(
-            db_service=db_service,
-            context=context,
-            courseware_content=SimpleNamespace(),
+        output_urls, artifact_paths, render_timings, render_metadata = (
+            await render_generation_outputs(
+                db_service=db_service,
+                context=context,
+                courseware_content=SimpleNamespace(),
+            )
         )
 
     assert output_urls == {}
@@ -386,10 +390,12 @@ async def test_render_generation_outputs_non_session_still_emits_direct_urls():
             },
         ),
     ):
-        output_urls, artifact_paths, render_timings, render_metadata = await render_generation_outputs(
-            db_service=db_service,
-            context=context,
-            courseware_content=SimpleNamespace(),
+        output_urls, artifact_paths, render_timings, render_metadata = (
+            await render_generation_outputs(
+                db_service=db_service,
+                context=context,
+                courseware_content=SimpleNamespace(),
+            )
         )
 
     assert output_urls == {"docx": "/tmp/task-3.docx"}
@@ -442,10 +448,12 @@ async def test_render_generation_outputs_returns_resolved_markdown_metadata():
             },
         ),
     ):
-        output_urls, artifact_paths, render_timings, render_metadata = await render_generation_outputs(
-            db_service=db_service,
-            context=context,
-            courseware_content=SimpleNamespace(),
+        output_urls, artifact_paths, render_timings, render_metadata = (
+            await render_generation_outputs(
+                db_service=db_service,
+                context=context,
+                courseware_content=SimpleNamespace(),
+            )
         )
 
     assert output_urls == {}

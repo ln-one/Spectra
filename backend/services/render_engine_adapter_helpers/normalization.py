@@ -6,9 +6,7 @@ def normalize_render_engine_result(result: dict[str, object]) -> dict[str, objec
     metrics = result.get("metrics") or {}
     return {
         "markdown": (
-            result.get("markdown")
-            if isinstance(result.get("markdown"), str)
-            else None
+            result.get("markdown") if isinstance(result.get("markdown"), str) else None
         ),
         "markdown_path": (
             result.get("markdown_path")
@@ -67,9 +65,7 @@ def normalize_render_engine_page_result(result: dict[str, object]) -> dict[str, 
         "page_id": str(result.get("page_id") or "").strip(),
         "page_index": int(result.get("page_index") or 0),
         "markdown": (
-            result.get("markdown")
-            if isinstance(result.get("markdown"), str)
-            else None
+            result.get("markdown") if isinstance(result.get("markdown"), str) else None
         ),
         "markdown_path": (
             result.get("markdown_path")

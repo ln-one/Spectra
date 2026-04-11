@@ -117,10 +117,7 @@ def parse_preview_content_from_input_data(raw_input_data: object) -> Optional[di
     if isinstance(render_markdown, str) and render_markdown.strip():
         normalized["render_markdown"] = render_markdown
     resolved_markdown_content = preview_content.get("resolved_markdown_content")
-    if (
-        isinstance(resolved_markdown_content, str)
-        and resolved_markdown_content.strip()
-    ):
+    if isinstance(resolved_markdown_content, str) and resolved_markdown_content.strip():
         normalized["resolved_markdown_content"] = resolved_markdown_content
     style_manifest = preview_content.get("style_manifest")
     if isinstance(style_manifest, dict):

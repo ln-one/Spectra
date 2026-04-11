@@ -95,9 +95,7 @@ def _attach_rendered_preview_to_slides(
 
     slides: list[dict] = []
     for index, slide in enumerate(slide_models):
-        page = page_by_slide_id.get(
-            slide_identity(slide, index, task_id=render_job_id)
-        )
+        page = page_by_slide_id.get(slide_identity(slide, index, task_id=render_job_id))
         if page and page.get("image_url"):
             slide.thumbnail_url = page.get("image_url")
 

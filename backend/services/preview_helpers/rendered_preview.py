@@ -256,6 +256,8 @@ async def build_rendered_preview_payload(
             "format": format_name,
             "pages": pages,
             "page_count": len(pages),
-            "_resolved_markdown_content": _assemble_resolved_markdown(markdown_fragments),
+            "_resolved_markdown_content": _assemble_resolved_markdown(
+                markdown_fragments
+            ),
         }
     return None

@@ -101,9 +101,7 @@ def extract_text_for_rag(
         )
         details.update(parse_details)
         if is_deferred_parse_result(parse_details):
-            details["provider_used"] = (
-                parse_details.get("provider_used") or parser.name
-            )
+            details["provider_used"] = parse_details.get("provider_used") or parser.name
             return "", details
         if text and len(text.strip()) > 0:
             details["provider_used"] = parser.name

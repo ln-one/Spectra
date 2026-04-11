@@ -23,7 +23,9 @@ async def load_session_preview_material_context(db, session) -> dict:
     }
 
 
-async def load_preview_content_for_context(material_context: dict | None) -> dict | None:
+async def load_preview_content_for_context(
+    material_context: dict | None,
+) -> dict | None:
     if not isinstance(material_context, dict):
         return None
     render_job_id = str(material_context.get("render_job_id") or "").strip()

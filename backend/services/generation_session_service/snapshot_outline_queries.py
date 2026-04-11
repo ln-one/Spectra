@@ -56,9 +56,13 @@ async def resolve_outline_version_by_run(
     return None
 
 
-async def load_latest_outline(db, session, run_id: Optional[str] = None) -> Optional[dict]:
+async def load_latest_outline(
+    db, session, run_id: Optional[str] = None
+) -> Optional[dict]:
     if run_id:
-        run_outline_version = await resolve_outline_version_by_run(db, session.id, run_id)
+        run_outline_version = await resolve_outline_version_by_run(
+            db, session.id, run_id
+        )
         if run_outline_version is not None:
             return await load_outline_by_version(db, session.id, run_outline_version)
         return None

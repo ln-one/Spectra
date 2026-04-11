@@ -408,7 +408,9 @@ def test_extract_text_for_rag_preserves_deferred_remote_parse_without_fallback(
 
     monkeypatch.setenv("DOCUMENT_PARSER", "auto")
     monkeypatch.setattr(file_parser_module, "get_parser", _fake_get_parser)
-    monkeypatch.setattr(file_parser_module, "extract_with_fallback", _unexpected_fallback)
+    monkeypatch.setattr(
+        file_parser_module, "extract_with_fallback", _unexpected_fallback
+    )
 
     text, details = extract_text_for_rag(str(pdf_path), "sample.pdf", "pdf")
 

@@ -239,4 +239,3 @@ async def test_apply_mineru_parse_result_response_reindexes_with_remote_text(
     assert response["message"] == "MinerU 解析结果已同步并完成索引"
     assert response["data"]["file"]["id"] == "f-001"
     assert update_status.await_count == 2
-

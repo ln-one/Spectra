@@ -33,4 +33,3 @@ async def load_task_run_payload(*, db, task_id: str) -> dict | None:
         "run_title": parsed.get("run_title"),
         "tool_type": parsed.get("tool_type"),
     }
-

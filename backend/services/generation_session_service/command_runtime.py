@@ -200,7 +200,9 @@ async def handle_regenerate_slide(
             preview_payload=updated_preview,
             template_config=template_config,
         )
-        await _persist_preview_content_for_context(db, material_context, updated_preview)
+        await _persist_preview_content_for_context(
+            db, material_context, updated_preview
+        )
         artifact_id, output_urls = await _persist_modified_pptx_artifact(
             db=db,
             session=session,

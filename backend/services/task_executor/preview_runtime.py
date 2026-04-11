@@ -167,9 +167,7 @@ async def cache_preview_content(
                 isinstance(resolved_markdown_content, str)
                 and resolved_markdown_content.strip()
             ):
-                preview_payload["resolved_markdown_content"] = (
-                    resolved_markdown_content
-                )
+                preview_payload["resolved_markdown_content"] = resolved_markdown_content
         preview_payload["rendered_preview"] = rendered_preview
         try:
             await _save_preview_payload_to_cache_keys(
@@ -269,9 +267,7 @@ async def cache_preview_content(
                 isinstance(resolved_markdown_content, str)
                 and resolved_markdown_content.strip()
             ):
-                preview_payload["resolved_markdown_content"] = (
-                    resolved_markdown_content
-                )
+                preview_payload["resolved_markdown_content"] = resolved_markdown_content
             preview_payload["rendered_preview"] = built_preview
             rendered_preview = built_preview
             rendered_pages = rendered_preview["pages"]

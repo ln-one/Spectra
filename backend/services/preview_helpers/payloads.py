@@ -130,7 +130,9 @@ def build_modify_payload(
         "artifact_anchor": anchor,
     }
     if isinstance(result, dict):
-        payload.update({key: value for key, value in result.items() if key != "task_id"})
+        payload.update(
+            {key: value for key, value in result.items() if key != "task_id"}
+        )
     return payload
 
 

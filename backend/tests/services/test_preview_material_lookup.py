@@ -27,8 +27,12 @@ async def test_resolve_preview_material_context_prefers_run_artifact():
 
     db_service = SimpleNamespace(
         db=SimpleNamespace(
-            sessionrun=SimpleNamespace(find_unique=AsyncMock(side_effect=_run_find_unique)),
-            artifact=SimpleNamespace(find_unique=AsyncMock(side_effect=_artifact_find_unique)),
+            sessionrun=SimpleNamespace(
+                find_unique=AsyncMock(side_effect=_run_find_unique)
+            ),
+            artifact=SimpleNamespace(
+                find_unique=AsyncMock(side_effect=_artifact_find_unique)
+            ),
         )
     )
 
@@ -43,7 +47,9 @@ async def test_resolve_preview_material_context_prefers_run_artifact():
     assert context["artifact_id"] == "art-001"
     assert context["run_id"] == "run-001"
     assert context["render_job_id"] == "art-001"
-    assert context["artifact_metadata"]["preview_content"]["markdown_content"] == "# Slide"
+    assert (
+        context["artifact_metadata"]["preview_content"]["markdown_content"] == "# Slide"
+    )
     assert "legacy_task" not in context
 
 

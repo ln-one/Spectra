@@ -47,4 +47,3 @@ def build_command_response(
         }
 
     return _build()
-

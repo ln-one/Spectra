@@ -141,9 +141,7 @@ class TestTaskQueueService:
 
             assert job is not None
             assert mock_queue.enqueue.called
-            assert (
-                mock_queue.enqueue.call_args.kwargs["initial_delay_seconds"] == 5
-            )
+            assert mock_queue.enqueue.call_args.kwargs["initial_delay_seconds"] == 5
 
     @patch("services.task_queue.Job.fetch")
     def test_get_job_status_queued(self, mock_fetch, task_queue_service):

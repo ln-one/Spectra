@@ -21,6 +21,7 @@ from services.task_executor.constants import (
 
 logger = logging.getLogger(__name__)
 
+
 def schedule_enqueued_task_watchdog(
     *,
     db,
