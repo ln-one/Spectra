@@ -1335,8 +1335,49 @@ async def test_preview_studio_card_execution_returns_animation_spec_preview(
     assert preview["spec_preview"]["visual_label"] == "结构拆解"
     assert isinstance(preview["spec_preview"]["scenes"], list)
     assert len(preview["spec_preview"]["scenes"]) >= 1
+    assert preview["spec_preview"]["scene_count"] >= 1
+    assert preview["spec_preview"]["minimum_duration_seconds"] >= 4
+    assert (
+        preview["spec_preview"]["comfortable_duration_seconds"]
+        >= preview["spec_preview"]["minimum_duration_seconds"] + 1
+    )
+    assert (
+        preview["spec_preview"]["recommended_duration_seconds"]
+        >= preview["spec_preview"]["minimum_duration_seconds"]
+    )
     assert isinstance(preview["spec_confidence"], float)
     assert preview["needs_user_choice"] is False
+
+
+@pytest.mark.anyio
+async def test_preview_studio_card_execution_returns_animation_duration_warning(
+    app, _as_user
+):
+    client = TestClient(app)
+
+    response = client.post(
+        "/api/v1/generate/studio-cards/demonstration_animations/execution-preview",
+        json={
+            "project_id": "p-001",
+            "config": {
+                "topic": "数据库事务提交与回滚流程演示",
+                "motion_brief": "展示事务初始化、执行、校验、提交与回滚的全过程",
+                "focus": "要求多镜头完整讲清每一步",
+                "duration_seconds": 4,
+                "rhythm": "balanced",
+            },
+        },
+    )
+
+    assert response.status_code == 200
+    preview = response.json()["data"]["execution_preview"]
+    assert isinstance(preview["spec_preview"]["duration_warning"], str)
+    assert preview["spec_preview"]["duration_warning"]
+    assert preview["spec_preview"]["recommended_duration_seconds"] > 4
+    assert (
+        preview["spec_preview"]["comfortable_duration_seconds"]
+        == preview["spec_preview"]["recommended_duration_seconds"]
+    )
 
 
 @pytest.mark.anyio
@@ -2088,6 +2129,86 @@ async def test_get_studio_card_sources_returns_word_document_ppt_sources(app, _a
     sources = response.json()["data"]["sources"]
     assert sources[0]["id"] == "a-ppt-020"
     assert sources[0]["type"] == "pptx"
+
+
+@pytest.mark.anyio
+async def test_get_studio_card_sources_applies_session_filter(app, _as_user):
+    client = TestClient(app)
+    artifact = SimpleNamespace(
+        id="a-ppt-021",
+        type="pptx",
+        metadata={"title": "当前会话课件"},
+        visibility="project-visible",
+        basedOnVersionId="v-current",
+        sessionId="s-021",
+        updatedAt=datetime.now(timezone.utc),
+    )
+
+    with (
+        patch(
+            "services.project_space_service.project_space_service.check_project_permission",
+            AsyncMock(),
+        ),
+        patch(
+            "services.project_space_service.project_space_service.get_project_artifacts",
+            AsyncMock(return_value=[artifact]),
+        ) as get_project_artifacts_mock,
+        patch(
+            "services.project_space_service.project_space_service.db.get_project",
+            AsyncMock(return_value=SimpleNamespace(currentVersionId="v-current")),
+        ),
+    ):
+        response = client.get(
+            "/api/v1/generate/studio-cards/demonstration_animations/sources"
+            "?project_id=p-001&session_id=s-021"
+        )
+
+    assert response.status_code == 200
+    get_project_artifacts_mock.assert_awaited_once_with(
+        "p-001",
+        type_filter="pptx",
+        session_id_filter="s-021",
+    )
+
+
+@pytest.mark.anyio
+async def test_get_studio_card_sources_falls_back_to_run_title(app, _as_user):
+    client = TestClient(app)
+    artifact = SimpleNamespace(
+        id="a-ppt-022",
+        type="pptx",
+        metadata={
+            "run_title": "牛顿第二定律课件",
+            "run_title_source": "auto",
+        },
+        visibility="project-visible",
+        basedOnVersionId="v-current",
+        sessionId="s-022",
+        updatedAt=datetime.now(timezone.utc),
+    )
+
+    with (
+        patch(
+            "services.project_space_service.project_space_service.check_project_permission",
+            AsyncMock(),
+        ),
+        patch(
+            "services.project_space_service.project_space_service.get_project_artifacts",
+            AsyncMock(return_value=[artifact]),
+        ),
+        patch(
+            "services.project_space_service.project_space_service.db.get_project",
+            AsyncMock(return_value=SimpleNamespace(currentVersionId="v-current")),
+        ),
+    ):
+        response = client.get(
+            "/api/v1/generate/studio-cards/demonstration_animations/sources"
+            "?project_id=p-001&session_id=s-022"
+        )
+
+    assert response.status_code == 200
+    source = response.json()["data"]["sources"][0]
+    assert source["title"] == "牛顿第二定律课件"
 
 
 @slow_studio_card

@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from schemas.project_space import ArtifactType, ArtifactVisibility
 from schemas.studio_cards import (
@@ -45,6 +45,85 @@ def _build_animation_base_content(cfg: dict) -> dict:
     }
 
 
+def _estimate_animation_duration_guidance(spec: dict, selected_duration: float) -> dict:
+    scenes = [scene for scene in (spec.get("scenes") or []) if isinstance(scene, dict)]
+    minimum_duration = 0.0
+    comfortable_duration = 0.0
+    rich_content_bonus = 0.0
+    semantic_text = " ".join(
+        str(spec.get(key) or "").strip()
+        for key in ("topic", "title", "summary", "teaching_goal")
+    ).lower()
+    for scene in scenes:
+        shot_type = str(scene.get("shot_type") or "focus").strip().lower()
+        minimum_base_seconds = {"intro": 2.2, "focus": 3.0, "summary": 2.4}.get(
+            shot_type, 2.8
+        )
+        comfortable_base_seconds = {
+            "intro": 2.8,
+            "focus": 3.8,
+            "summary": 3.0,
+        }.get(shot_type, 3.4)
+        description_length = len(str(scene.get("description") or "").strip())
+        key_point_count = len(scene.get("key_points") or [])
+        emphasis_length = len(str(scene.get("emphasis") or "").strip())
+        minimum_duration += minimum_base_seconds
+        comfortable_duration += (
+            comfortable_base_seconds
+            + min(1.2, description_length / 55)
+            + min(0.9, key_point_count * 0.24)
+            + min(0.5, emphasis_length / 45)
+        )
+        if description_length > 48:
+            rich_content_bonus += 0.2
+        if key_point_count >= 2:
+            rich_content_bonus += 0.2
+
+    visual_type = str(spec.get("visual_type") or "")
+    if visual_type == "process_flow":
+        comfortable_duration += 1.0
+    elif visual_type == "structure_breakdown":
+        minimum_duration += 0.6
+        comfortable_duration += 1.6
+    elif visual_type == "relationship_change":
+        minimum_duration += 0.4
+        comfortable_duration += 1.4
+
+    if any(
+        keyword in semantic_text
+        for keyword in ("解释", "讲解", "原因", "因果", "完整流程", "全链路", "机制", "推导")
+    ):
+        comfortable_duration += 1.2
+
+    minimum_duration = round(min(max(minimum_duration, 4.0), 18.0), 1)
+    comfortable_duration = round(
+        min(
+            max(comfortable_duration + rich_content_bonus, minimum_duration + 2.0),
+            20.0,
+        ),
+        1,
+    )
+    duration_warning = None
+    if selected_duration < minimum_duration:
+        duration_warning = (
+            f"当前 {int(selected_duration)} 秒不足以清晰展示 {len(scenes)} 个镜头，"
+            f"建议至少 {minimum_duration:.0f} 秒，舒适观看建议 {comfortable_duration:.0f} 秒。"
+        )
+    elif selected_duration < comfortable_duration:
+        duration_warning = (
+            f"当前 {int(selected_duration)} 秒可以生成，但镜头停留会偏短，"
+            f"舒适观看建议调整到 {comfortable_duration:.0f} 秒。"
+        )
+    return {
+        "scenes": scenes,
+        "scene_count": len(scenes),
+        "minimum_duration_seconds": minimum_duration,
+        "comfortable_duration_seconds": comfortable_duration,
+        "recommended_duration_seconds": comfortable_duration,
+        "duration_warning": duration_warning,
+    }
+
+
 def _build_animation_spec_preview(cfg: dict) -> tuple[dict, list[dict], float, bool]:
     base_content = _build_animation_base_content(cfg)
     topic = str(base_content.get("topic") or "").strip()
@@ -64,6 +143,9 @@ def _build_animation_spec_preview(cfg: dict) -> tuple[dict, list[dict], float, b
         reasons.append("未明确表现重点")
     confidence = max(0.25, min(confidence, 0.97))
     spec = normalize_animation_spec(base_content)
+    duration_guidance = _estimate_animation_duration_guidance(
+        spec, float(base_content.get("duration_seconds") or 6)
+    )
     preview = {
         "style_pack": spec.get("style_pack"),
         "visual_type": spec.get("visual_type"),
@@ -78,9 +160,17 @@ def _build_animation_spec_preview(cfg: dict) -> tuple[dict, list[dict], float, b
                 "emphasis": scene.get("emphasis"),
                 "transition": scene.get("transition"),
             }
-            for scene in (spec.get("scenes") or [])
-            if isinstance(scene, dict)
+            for scene in duration_guidance["scenes"]
         ],
+        "scene_count": duration_guidance["scene_count"],
+        "minimum_duration_seconds": duration_guidance["minimum_duration_seconds"],
+        "comfortable_duration_seconds": duration_guidance[
+            "comfortable_duration_seconds"
+        ],
+        "recommended_duration_seconds": duration_guidance[
+            "recommended_duration_seconds"
+        ],
+        "duration_warning": duration_guidance["duration_warning"],
         "screen_text": {
             "标题": spec.get("title"),
             "副标题": spec.get("teaching_goal"),
@@ -170,7 +260,7 @@ def build_studio_card_execution_preview(
                         "pages": cfg.get("pages", 12),
                     },
                 },
-                notes="课件上下文微调通过 chat 路径承托，message 由前端填充。",
+                notes="课件上下文微调通过 chat 路径承托，message 由前端补充。",
             ),
         )
 
@@ -215,7 +305,7 @@ def build_studio_card_execution_preview(
                         ),
                     },
                 },
-                notes="局部改写通过 chat 路径承托，message 由前端在上下文中填充。",
+                notes="局部改写通过 chat 路径承托，message 由前端在上下文中补充。",
             ),
         )
 
@@ -529,3 +619,4 @@ def build_studio_card_execution_preview(
         )
 
     return None
+

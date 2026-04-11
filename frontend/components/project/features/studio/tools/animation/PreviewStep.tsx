@@ -41,6 +41,13 @@ type PlacementRecord = {
   confirmed_at?: string;
 };
 
+function getSourceOptionLabel(item: { id: string; title?: string }): string {
+  const shortId = item.id.slice(0, 8);
+  const title = item.title?.trim();
+  if (title) return `${title} (${shortId})`;
+  return `PPT ${shortId}`;
+}
+
 function normalizeRecommendation(
   value: Record<string, unknown> | null
 ): PlacementRecommendation | null {
@@ -87,6 +94,7 @@ interface PreviewStepProps {
   rhythm: AnimationRhythm;
   visualType: AnimationVisualType | null;
   focus: string;
+  serverSpecPreview?: Record<string, unknown> | null;
   flowContext?: ToolFlowContext;
   recommendation: Record<string, unknown> | null;
   placements: Record<string, unknown>[];
@@ -112,6 +120,7 @@ export function PreviewStep({
   rhythm,
   visualType,
   focus,
+  serverSpecPreview,
   flowContext,
   recommendation,
   placements,
@@ -142,7 +151,10 @@ export function PreviewStep({
       ? flowContext?.resolvedArtifact?.artifactId ?? null
       : null;
   const latestArtifactId = flowContext?.latestArtifacts?.[0]?.artifactId ?? null;
-  const sourceOptions = flowContext?.sourceOptions ?? [];
+  const sourceOptions = (flowContext?.sourceOptions ?? []).map((item) => ({
+    ...item,
+    title: getSourceOptionLabel(item),
+  }));
   const metadata = readMetadataMap(flowContext);
   const metadataRecommendation = normalizeRecommendation(
     metadata?.placement_recommendation as Record<string, unknown> | null
@@ -171,6 +183,24 @@ export function PreviewStep({
   const [slot, setSlot] = useState<AnimationPlacementSlot>(recommendedSlot);
   const [isSlotEdited, setIsSlotEdited] = useState(false);
   const [replayToken, setReplayToken] = useState(0);
+  const recommendedDurationSeconds =
+    typeof serverSpecPreview?.comfortable_duration_seconds === "number"
+      ? serverSpecPreview.comfortable_duration_seconds
+      : typeof serverSpecPreview?.recommended_duration_seconds === "number"
+        ? serverSpecPreview.recommended_duration_seconds
+      : null;
+  const minimumDurationSeconds =
+    typeof serverSpecPreview?.minimum_duration_seconds === "number"
+      ? serverSpecPreview.minimum_duration_seconds
+      : null;
+  const sceneCount =
+    typeof serverSpecPreview?.scene_count === "number"
+      ? serverSpecPreview.scene_count
+      : null;
+  const durationWarning =
+    typeof serverSpecPreview?.duration_warning === "string"
+      ? serverSpecPreview.duration_warning
+      : null;
   const effectivePageNumbersText = isPageNumbersEdited
     ? pageNumbersText
     : recommendedPageText;
@@ -310,6 +340,34 @@ export function PreviewStep({
               step={1}
               onValueChange={(value) => onDurationChange(value[0] ?? 6)}
             />
+            {recommendedDurationSeconds ? (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-800">
+                <p className="font-medium">时长建议</p>
+                <p className="mt-1">
+                  当前分镜 {sceneCount ?? "-"} 个。
+                  {minimumDurationSeconds
+                    ? ` 至少 ${Math.round(minimumDurationSeconds)} 秒`
+                    : ""}
+                  ，推荐 {Math.round(recommendedDurationSeconds)} 秒。
+                </p>
+                {durationWarning ? <p className="mt-1">{durationWarning}</p> : null}
+                {durationSeconds !== Math.round(recommendedDurationSeconds) ? (
+                  <div className="mt-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-[11px]"
+                      onClick={() =>
+                        onDurationChange(Math.round(recommendedDurationSeconds))
+                      }
+                    >
+                      一键采用推荐时长
+                    </Button>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs text-zinc-600">节奏</Label>

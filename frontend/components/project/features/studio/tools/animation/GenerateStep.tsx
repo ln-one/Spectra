@@ -1,5 +1,7 @@
-import { Loader2, RefreshCw, Sparkles } from "lucide-react";
+﻿import { Loader2, RefreshCw, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Slider } from "@/components/ui/slider";
 import {
   Select,
   SelectContent,
@@ -8,6 +10,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  ANIMATION_RHYTHM_OPTIONS,
   ANIMATION_VISUAL_TYPE_OPTIONS,
   getRhythmLabel,
   getVisualTypeLabel,
@@ -28,6 +31,8 @@ interface GenerateStepProps {
   needsUserChoice: boolean;
   flowContext?: ToolFlowContext;
   isGenerating: boolean;
+  onDurationChange: (value: number) => void;
+  onRhythmChange: (value: AnimationRhythm) => void;
   onVisualTypeChange: (value: AnimationVisualType | null) => void;
   onBack: () => void;
   onGenerate: () => void;
@@ -45,6 +50,8 @@ export function GenerateStep({
   needsUserChoice,
   flowContext,
   isGenerating,
+  onDurationChange,
+  onRhythmChange,
   onVisualTypeChange,
   onBack,
   onGenerate,
@@ -68,7 +75,11 @@ export function GenerateStep({
           ? (serverSpecPreview.object_details as Array<{ label: string; role: string }>)
           : fallbackSpecPreview.objectDetails,
         scenes: Array.isArray(serverSpecPreview.scenes)
-          ? (serverSpecPreview.scenes as Array<{ title: string; description: string; transition?: string }>)
+          ? (serverSpecPreview.scenes as Array<{
+              title: string;
+              description: string;
+              transition?: string;
+            }>)
           : fallbackSpecPreview.scenes,
         confidenceReasons: Array.isArray(serverSpecPreview.confidence_reasons)
           ? (serverSpecPreview.confidence_reasons as string[])
@@ -87,7 +98,27 @@ export function GenerateStep({
         confidenceReasons: [],
         visualType: null,
       };
+
   const visualTypeValue = visualType ?? "__auto__";
+  const recommendedDurationSeconds =
+    typeof serverSpecPreview?.comfortable_duration_seconds === "number"
+      ? serverSpecPreview.comfortable_duration_seconds
+      : typeof serverSpecPreview?.recommended_duration_seconds === "number"
+        ? serverSpecPreview.recommended_duration_seconds
+        : null;
+  const minimumDurationSeconds =
+    typeof serverSpecPreview?.minimum_duration_seconds === "number"
+      ? serverSpecPreview.minimum_duration_seconds
+      : null;
+  const sceneCount =
+    typeof serverSpecPreview?.scene_count === "number"
+      ? serverSpecPreview.scene_count
+      : specPreview.scenes.length;
+  const durationWarning =
+    typeof serverSpecPreview?.duration_warning === "string" &&
+    serverSpecPreview.duration_warning.trim()
+      ? serverSpecPreview.duration_warning.trim()
+      : null;
 
   return (
     <div className="space-y-4">
@@ -95,8 +126,8 @@ export function GenerateStep({
         <p className="text-xs font-semibold text-zinc-800">动画规格确认</p>
         <div className="mt-3 grid grid-cols-1 gap-2 text-[11px] text-zinc-600 sm:grid-cols-2">
           <p>教学需求：{topic || "未填写"}</p>
-          <p>时长：{durationSeconds} 秒</p>
-          <p>节奏：{getRhythmLabel(rhythm)}</p>
+          <p>当前时长：{durationSeconds} 秒</p>
+          <p>当前节奏：{getRhythmLabel(rhythm)}</p>
           <p>渲染链路：HTML/SVG/Canvas 模板导出 GIF</p>
         </div>
         <div className="mt-3">
@@ -104,7 +135,9 @@ export function GenerateStep({
           <Select
             value={visualTypeValue}
             onValueChange={(value) =>
-              onVisualTypeChange(value === "__auto__" ? null : (value as AnimationVisualType))
+              onVisualTypeChange(
+                value === "__auto__" ? null : (value as AnimationVisualType)
+              )
             }
           >
             <SelectTrigger className="mt-2 h-9 text-xs">
@@ -140,7 +173,8 @@ export function GenerateStep({
             <div className="mt-1 space-y-1">
               {serverSpecCandidates.map((item, index) => (
                 <p key={`${index}-${String(item.visual_type ?? "")}`}>
-                  候选 {index + 1}：{String(item.visual_label ?? item.visual_type ?? "-")}
+                  候选 {index + 1}：
+                  {String(item.visual_label ?? item.visual_type ?? "-")}
                 </p>
               ))}
             </div>
@@ -197,6 +231,75 @@ export function GenerateStep({
               ))}
             </div>
           ) : null}
+        </div>
+      </section>
+
+      <section className="grid grid-cols-1 gap-3 rounded-xl border border-zinc-200 bg-white p-4 sm:grid-cols-2">
+        <div className="space-y-2 sm:col-span-2">
+          <Label className="text-xs text-zinc-600">
+            动画时长：{durationSeconds} 秒
+          </Label>
+          <Slider
+            value={[durationSeconds]}
+            min={3}
+            max={20}
+            step={1}
+            onValueChange={(value) => onDurationChange(value[0] ?? 6)}
+          />
+          <p className="text-[11px] text-zinc-500">
+            正式推荐基于当前规格卡生成，不再使用需求输入阶段的早期估算。
+          </p>
+          <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] text-emerald-900">
+            <p className="font-medium">智能时长建议</p>
+            {minimumDurationSeconds !== null && recommendedDurationSeconds !== null ? (
+              <p className="mt-1">
+                当前规格预计分镜 {sceneCount} 个，最低可用 {Math.round(minimumDurationSeconds)} 秒，舒适观看推荐 {Math.round(recommendedDurationSeconds)} 秒。
+              </p>
+            ) : (
+              <p className="mt-1">
+                当前已进入规格确认阶段；正式双档时长推荐将以服务端规格结果为准。
+              </p>
+            )}
+            {durationWarning ? <p className="mt-1">{durationWarning}</p> : null}
+            {recommendedDurationSeconds !== null &&
+            durationSeconds !== Math.round(recommendedDurationSeconds) ? (
+              <div className="mt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-[11px]"
+                  onClick={() => onDurationChange(Math.round(recommendedDurationSeconds))}
+                >
+                  一键采用舒适推荐时长
+                </Button>
+              </div>
+            ) : null}
+          </div>
+        </div>
+        <div className="space-y-1.5 sm:col-span-2">
+          <Label className="text-xs text-zinc-600">节奏</Label>
+          <Select
+            value={rhythm}
+            onValueChange={(value) => onRhythmChange(value as AnimationRhythm)}
+          >
+            <SelectTrigger className="h-9 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {ANIMATION_RHYTHM_OPTIONS.map((item) => (
+                <SelectItem key={item.value} value={item.value}>
+                  {item.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-[11px] text-zinc-500">
+            {
+              ANIMATION_RHYTHM_OPTIONS.find((item) => item.value === rhythm)
+                ?.description
+            }
+          </p>
         </div>
       </section>
 
@@ -270,7 +373,7 @@ export function GenerateStep({
           className="h-9 text-xs text-zinc-600"
           onClick={onBack}
         >
-          返回修改配置
+          返回修改需求
         </Button>
         <Button
           type="button"

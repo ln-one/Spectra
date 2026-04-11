@@ -1,43 +1,25 @@
-import { Loader2 } from "lucide-react";
+﻿import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Slider } from "@/components/ui/slider";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { ANIMATION_RHYTHM_OPTIONS } from "./constants";
-import type { AnimationRhythm } from "./types";
 
 interface ConfigStepProps {
   topic: string;
   focus: string;
-  durationSeconds: number;
-  rhythm: AnimationRhythm;
   topicSuggestions: string[];
   isRecommendationsLoading: boolean;
   onTopicChange: (value: string) => void;
   onFocusChange: (value: string) => void;
-  onDurationChange: (value: number) => void;
-  onRhythmChange: (value: AnimationRhythm) => void;
   onNext: () => void;
 }
 
 export function ConfigStep({
   topic,
   focus,
-  durationSeconds,
-  rhythm,
   topicSuggestions,
   isRecommendationsLoading,
   onTopicChange,
   onFocusChange,
-  onDurationChange,
-  onRhythmChange,
   onNext,
 }: ConfigStepProps) {
   return (
@@ -62,7 +44,7 @@ export function ConfigStep({
         <Textarea
           value={topic}
           onChange={(event) => onTopicChange(event.target.value)}
-          placeholder="例如：我想做一段给初中生看的动画，演示电流形成过程，重点解释电子为什么会定向移动，尽量突出电场作用和导体内部变化，控制在 8 秒左右。"
+          placeholder="例如：我想做一段给初中生看的动画，演示电流形成过程，重点解释电子为什么会定向移动，并突出电场作用和导体内部变化。"
           className="mt-3 min-h-[136px] resize-y text-xs leading-6"
         />
         {topicSuggestions.length > 0 ? (
@@ -91,46 +73,11 @@ export function ConfigStep({
         />
       </section>
 
-      <section className="grid grid-cols-1 gap-3 rounded-xl border border-zinc-200 bg-white p-4 sm:grid-cols-2">
-        <div className="space-y-2 sm:col-span-2">
-          <Label className="text-xs text-zinc-600">
-            动画时长：{durationSeconds} 秒
-          </Label>
-          <Slider
-            value={[durationSeconds]}
-            min={3}
-            max={20}
-            step={1}
-            onValueChange={(value) => onDurationChange(value[0] ?? 6)}
-          />
-          <p className="text-[11px] text-zinc-500">
-            第一阶段统一输出 GIF，建议控制在 3 到 20 秒之间。
-          </p>
-        </div>
-        <div className="space-y-1.5 sm:col-span-2">
-          <Label className="text-xs text-zinc-600">节奏</Label>
-          <Select
-            value={rhythm}
-            onValueChange={(value) => onRhythmChange(value as AnimationRhythm)}
-          >
-            <SelectTrigger className="h-9 text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {ANIMATION_RHYTHM_OPTIONS.map((item) => (
-                <SelectItem key={item.value} value={item.value}>
-                  {item.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <p className="text-[11px] text-zinc-500">
-            {
-              ANIMATION_RHYTHM_OPTIONS.find((item) => item.value === rhythm)
-                ?.description
-            }
-          </p>
-        </div>
+      <section className="rounded-xl border border-zinc-200 bg-white p-4">
+        <p className="text-xs font-medium text-zinc-800">下一步会发生什么</p>
+        <p className="mt-2 text-[11px] leading-6 text-zinc-600">
+          系统会先根据你的主题需求生成动画规格卡，判断分镜结构、模板类型和镜头数量，然后再给出更准确的双档时长推荐，由你确认后再开始生成。
+        </p>
       </section>
 
       <div className="flex justify-end">
@@ -140,7 +87,7 @@ export function ConfigStep({
           onClick={onNext}
           disabled={!topic.trim()}
         >
-          下一步：确认动画规格
+          下一步：生成动画规格卡
         </Button>
       </div>
     </div>

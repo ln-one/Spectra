@@ -98,7 +98,7 @@ export function AnimationToolPanel({
     setServerSpecCandidates([]);
     setSpecConfidence(null);
     setNeedsUserChoice(false);
-  }, [topic, focus, durationSeconds, rhythm]);
+  }, [topic, focus]);
 
   const latestExportArtifactId =
     flowContext?.latestArtifacts?.[0]?.artifactId ?? null;
@@ -309,8 +309,6 @@ export function AnimationToolPanel({
                 <ConfigStep
                   topic={topic}
                   focus={focus}
-                  durationSeconds={durationSeconds}
-                  rhythm={rhythm}
                   topicSuggestions={suggestions}
                   isRecommendationsLoading={isLoading}
                   onTopicChange={(value) => {
@@ -318,8 +316,6 @@ export function AnimationToolPanel({
                     setTopic(value);
                   }}
                   onFocusChange={setFocus}
-                  onDurationChange={setDurationSeconds}
-                  onRhythmChange={setRhythm}
                   onNext={() => {
                     void handlePrepareGenerate();
                   }}
@@ -339,6 +335,8 @@ export function AnimationToolPanel({
                   needsUserChoice={needsUserChoice}
                   flowContext={flowContext}
                   isGenerating={isGenerating || isPreparingSpec}
+                  onDurationChange={setDurationSeconds}
+                  onRhythmChange={setRhythm}
                   onVisualTypeChange={setVisualType}
                   onBack={() => setActiveStep("config")}
                   onGenerate={() => void handleGenerate()}
@@ -352,6 +350,7 @@ export function AnimationToolPanel({
                   rhythm={rhythm}
                   visualType={visualType}
                   focus={focus}
+                  serverSpecPreview={serverSpecPreview}
                   flowContext={flowContext}
                   recommendation={placementRecommendation}
                   placements={placementRecords}
