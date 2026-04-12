@@ -92,9 +92,10 @@ def _build_object(obj: dict) -> list[str]:
     pos = obj.get("position", [0, 0])
     size = obj.get("size") or {}
     style = obj.get("style") or {}
-    fill_opacity = style.get("fill_opacity", 0.42)
+    # Enforce minimum fill_opacity and stroke_width for visual clarity
+    fill_opacity = max(style.get("fill_opacity", 0.55), 0.45)
     corner_radius = style.get("corner_radius", 0.2)
-    stroke_width = style.get("stroke_width", 2)
+    stroke_width = max(style.get("stroke_width", 3), 2.5)
 
     lines: list[str] = []
 
@@ -108,7 +109,7 @@ def _build_object(obj: dict) -> list[str]:
         )
         if label:
             lines.append(
-                f'        {oid}_label = Text("{_safe_str(label)}", font_size=32, color=WHITE, font=base_font)'
+                f'        {oid}_label = Text("{_safe_str(label)}", font_size=32, color="#1a1a1a", font=base_font)'
             )
             lines.append(f'        {oid}_label.move_to({oid}_rect)')
             lines.append(f'        {oid} = VGroup({oid}_rect, {oid}_label)')
@@ -124,7 +125,7 @@ def _build_object(obj: dict) -> list[str]:
         )
         if label:
             lines.append(
-                f'        {oid}_label = Text("{_safe_str(label)}", font_size=24, color=WHITE, font=base_font)'
+                f'        {oid}_label = Text("{_safe_str(label)}", font_size=24, color="#1a1a1a", font=base_font)'
             )
             lines.append(f'        {oid}_label.move_to({oid})')
             lines.append(f'        {oid} = VGroup({oid}, {oid}_label)')
@@ -278,10 +279,28 @@ def _build_action(action: dict, all_objects: dict[str, bool]) -> list[str]:
 # Main compiler
 # ============================================================================
 
+def _fix_overlapping_positions(objects: list) -> None:
+    """Auto-fix overlapping object positions in-place."""
+    seen: dict = {}
+    for obj in objects:
+        if obj.type == "arrow":
+            continue
+        pos = obj.position if isinstance(obj.position, list) else [0, 0]
+        key = (round(pos[0], 1), round(pos[1], 1))
+        if key in seen:
+            obj.position = [pos[0] + 1.5, pos[1]]
+        else:
+            seen[key] = obj.id
+
+
 def compile_animation_plan(plan: AnimationPlan) -> str:
     """Compile AnimationPlan (IR) into executable Manim v0.18.1 Python code."""
     meta = plan.scene_meta
     objects = {obj.id: obj for obj in plan.objects}
+
+    # Auto-fix overlapping positions
+    _fix_overlapping_positions(plan.objects)
+
     lines: list[str] = []
     lines.append("from manim import *")
     lines.append("")
@@ -297,6 +316,8 @@ def compile_animation_plan(plan: AnimationPlan) -> str:
     is_light_theme = _is_light_hex(bg_colors[0])
     title_color = "#0b3a5e" if is_light_theme else "WHITE"
     subtitle_color = "#0e7490" if is_light_theme else "GRAY_A"
+    # Label color for objects: dark on light background, light on dark background
+    label_color = "#1a1a1a" if is_light_theme else "WHITE"
     accent_a = "#93d8ff" if is_light_theme else "#3b82f6"
     accent_b = "#7dd3c8" if is_light_theme else "#10b981"
 

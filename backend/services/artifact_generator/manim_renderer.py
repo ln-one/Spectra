@@ -711,6 +711,15 @@ def _build_ir_prompt(spec: dict[str, Any]) -> tuple[str, str]:
     """Build prompt that asks LLM to generate AnimationPlan JSON."""
     scenes = spec.get("scenes") or []
     objects = spec.get("object_details") or spec.get("objects") or []
+    theme = spec.get("theme") or {}
+
+    # Extract theme colors for prompt
+    bg_gradient = theme.get("background", "#f3fbff")
+    panel_color = theme.get("panel", "#ffffff")
+    accent_color = theme.get("accent", "#2f6da5")
+
+    # Build background gradient suggestion
+    bg_suggestion = f'["{bg_gradient}", "{panel_color}"]'
 
     system_prompt = """\
 你是一名动画设计专家。你只输出 AnimationPlan JSON，不输出任何解释。
@@ -752,7 +761,7 @@ AnimationPlan 结构：
   "text_blocks": [{"id": "summary", "content": "三次握手完成，连接建立", "position": "bottom", "color": "MAROON", "font_size": 28, "offset": [0, 0]}]
 }
 
-示例 2 - HTTP 请求响应：
+示例 2 - HTTP 请求响应（带镜头切换）：
 {
   "scene_meta": {"title": "HTTP 请求响应", "subtitle": "客户端与服务器交互", "duration_seconds": 8, "background_gradient": ["#f3fbff", "#d8ecfb"]},
   "objects": [
@@ -762,9 +771,10 @@ AnimationPlan 结构：
     {"id": "response_arrow", "type": "arrow", "label": "", "color": "ORANGE", "position": [0, -0.8], "style": {"start": [1.5, -0.8], "end": [-1.5, -0.8]}}
   ],
   "timeline": [
-    {"description": "显示浏览器和服务器", "actions": [{"type": "fade_in", "target": ["browser", "server"]}], "wait_after": 0.5},
+    {"description": "显示浏览器", "actions": [{"type": "fade_in", "target": "browser"}], "wait_after": 0.5},
+    {"description": "显示服务器", "actions": [{"type": "fade_in", "target": "server"}], "wait_after": 0.5},
     {"description": "发送请求", "actions": [{"type": "create", "target": "request_arrow"}, {"type": "indicate", "target": "browser", "params": {"color": "YELLOW"}}], "wait_after": 1.5},
-    {"description": "返回响应", "actions": [{"type": "create", "target": "response_arrow"}, {"type": "indicate", "target": "server", "params": {"color": "YELLOW"}}], "wait_after": 1.5}
+    {"description": "返回响应", "actions": [{"type": "fade_out", "target": "request_arrow"}, {"type": "create", "target": "response_arrow"}, {"type": "indicate", "target": "server", "params": {"color": "YELLOW"}}], "wait_after": 1.5}
   ],
   "text_blocks": [{"id": "summary", "content": "请求-响应循环完成", "position": "bottom", "color": "MAROON", "font_size": 28, "offset": [0, 0]}]
 }
@@ -791,14 +801,28 @@ AnimationPlan 结构：
 【对象】
 {objects_text}
 【时长】约 {spec.get('duration_seconds') or 8} 秒
+【视觉主题配色】背景渐变必须使用 {bg_suggestion}，强调色为 {accent_color}
 
 设计要求：
-1. 使用浅色课堂风格背景（建议 #f3fbff -> #d8ecfb），避免纯黑底
+1. background_gradient 必须使用上面指定的配色 {bg_suggestion}
 2. 文本字号偏大：title >= 50，节点标签 >= 30，说明文字 >= 28
-3. box 类型用圆角卡片，配色优先 ocean-cyan / teal-mint（蓝青绿）
+3. box 类型用圆角卡片，accent 色优先使用 {accent_color}
 4. 除流程框外，至少加入 2 个辅助图形对象（circle/dot/text）增强画面生动感
-5. 多用镜头切换（fade_out 旧 + fade_in 新），重点用 indicate/flash
+5. 多用镜头切换（fade_out 旧 + fade_in 新），重点用 indicate
 6. 最后加 text_block 总结
+7. 【重要】所有标签必须使用中文，禁止出现英文标签或副标题
+8. 【重要】对象标签必须使用具体内容，禁止使用 A/B/C/D/E 等占位符
+   - 排序算法：用具体数字如 "5"、"3"、"8"
+   - 协议步骤：用具体名称如 "SYN"、"ACK"
+   - 流程节点：用具体操作名称
+9. 【重要】position 必须合理分布，避免对象重叠：
+   - 5个对象横排：x 坐标用 -4, -2, 0, 2, 4
+   - 3个对象横排：x 坐标用 -3, 0, 3
+   - 纵向排列：y 坐标用 2, 0, -2
+10. 【重要】对象颜色必须使用深色或高饱和度，禁止使用 WHITE/GRAY_A/GRAY_B 等浅色
+    - 推荐：BLUE_C, GREEN_C, RED_C, ORANGE, PURPLE, TEAL, MAROON, GOLD
+    - 禁止：WHITE, GRAY, GRAY_A, GRAY_B, GRAY_C（浅色背景看不清）
+11. 【重要】timeline 必须分场景渐进，每个 step 只显示 1-2 个对象，用 fade_out 切换旧对象
 
 输出 JSON："""
 

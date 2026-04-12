@@ -52,6 +52,10 @@ _USER_PROMPT_TEMPLATE = """\
    "trend_change" | "generic_process"
 5. objects 列出动画中出现的关键对象（2-5个），每个对象需有 id、label、kind、role。
    kind 从以下值选择：endpoint | payload | step | layer | node | stage | point | source | channel | converter | output
+   【重要】label 必须使用具体内容，禁止使用 A/B/C/D/E 等占位符：
+   - 排序算法：用具体数字如 "5"、"3"、"8"、"1"、"9"
+   - 协议步骤：用具体名称如 "SYN"、"ACK"、"GET /index.html"
+   - 流程节点：用具体操作如 "词法分析"、"构建语法树"
 6. focus 用一句话说明动画最需要表达的核心内容。
 7. 每个 scene 必须包含：title、description、emphasis、shot_type、transition、camera、key_points（1-3条）。
    - shot_type：第一个场景必须是 "intro"，最后一个必须是 "summary"，中间为 "focus"
