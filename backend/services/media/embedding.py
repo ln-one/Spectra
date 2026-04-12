@@ -99,7 +99,7 @@ class EmbeddingService:
         model_name = (self._model or "").strip().lower()
         if _is_multimodal_embedding_model(model_name):
             return MULTIMODAL_EMBEDDING_BATCH_LIMIT
-        if model_name == "text-embedding-v3":
+        if model_name in {"text-embedding-v3", "text-embedding-v4"}:
             return TEXT_EMBEDDING_V4_BATCH_LIMIT
         return DEFAULT_DASHSCOPE_BATCH_LIMIT
 
