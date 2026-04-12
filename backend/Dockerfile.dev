@@ -1,22 +1,11 @@
-# syntax=docker/dockerfile:1.7
-
 FROM python:3.11-bookworm
 
 WORKDIR /app
 
-ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    PIP_NO_CACHE_DIR=1 \
-    CHROME_PATH=/usr/bin/chromium
-
-ARG TORCH_CPU_INDEX_URL=https://download.pytorch.org/whl/cpu
-
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-    --mount=type=cache,target=/var/lib/apt,sharing=locked \
-    set -eux; \
-    export DEBIAN_FRONTEND=noninteractive; \
+RUN set -eux; \
+    apt-get update -o Acquire::Retries=8; \
     success=0; \
     for i in 1 2 3; do \
-      apt-get update -o Acquire::Retries=8; \
       if apt-get install -y --no-install-recommends --fix-missing \
         gcc \
         nodejs \
@@ -31,10 +20,6 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
         break; \
       fi; \
       echo "apt install retry $i failed"; \
-      dpkg --configure -a || true; \
-      apt-get install -f -y || true; \
-      apt-get clean; \
-      rm -rf /var/lib/apt/lists/*; \
       sleep 5; \
     done; \
     if [ "$success" -ne 1 ]; then \
@@ -45,13 +30,20 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 
 RUN npm install -g @marp-team/marp-cli
 
-COPY requirements*.txt ./
+ENV CHROME_PATH=/usr/bin/chromium
 
-RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install --index-url ${TORCH_CPU_INDEX_URL} "torch>=2.1,<3"
+COPY requirements.txt requirements-dev.txt .
 
-RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install -r requirements.txt
+# Improve dependency installation resilience on unstable networks.
+RUN pip install --no-cache-dir \
+    --retries 10 \
+    --timeout 300 \
+    -i https://pypi.tuna.tsinghua.edu.cn/simple \
+    --extra-index-url https://pypi.org/simple \
+    -r requirements.txt \
+    -r requirements-dev.txt
+
+RUN python -m playwright install chromium
 
 COPY . .
 

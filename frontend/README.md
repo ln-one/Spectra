@@ -61,6 +61,7 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 NEXT_PUBLIC_API_URL="http://localhost:8000"
 NEXT_PUBLIC_API_TIMEOUT_MS=180000
 NEXT_PUBLIC_CHAT_TIMEOUT_MS=90000
+NEXT_PUBLIC_STUDIO_EXECUTE_TIMEOUT_MS=180000
 
 # App Configuration
 NEXT_PUBLIC_APP_NAME="Spectra"
@@ -151,6 +152,10 @@ Chat requests can legitimately take longer than ordinary CRUD requests because
 the backend may wait for retrieval, model inference, and persistence before
 responding. Use `NEXT_PUBLIC_CHAT_TIMEOUT_MS` to give `/api/v1/chat/messages`
 more headroom without increasing the timeout for every API call.
+
+Studio card execute endpoints (for example animation generation) may also take
+longer than regular requests. Use `NEXT_PUBLIC_STUDIO_EXECUTE_TIMEOUT_MS` to
+set a higher timeout for `POST /api/v1/generate/studio-cards/*/execute` only.
 
 See `lib/api.ts` for the complete API client implementation.
 

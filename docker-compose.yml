@@ -1,4 +1,28 @@
 services:
+  manim-renderer:
+    build:
+      context: ./manim-renderer
+      dockerfile: Dockerfile
+    ports:
+      - "127.0.0.1:8120:8120"
+    environment:
+      - MANIM_TIMEOUT_SECONDS=120
+      - MANIM_WORK_DIR=/tmp/manim-renderer
+      - MANIM_MAX_CODE_LENGTH=32000
+    volumes:
+      - runtime_data:/var/lib/spectra
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8120/health/ready', timeout=3)",
+        ]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+
   dualweave:
     image: ghcr.io/ln-one/dualweave-service:latest
     env_file:
@@ -10,6 +34,8 @@ services:
     environment:
       - DUALWEAVE_ADDR=:8080
       - DUALWEAVE_LOCAL_DIR=/var/lib/dualweave/uploads
+      - DUALWEAVE_TEXT_RERANK_PROVIDER=dashscope
+      - DASHSCOPE_TEXT_RERANK_MODEL=qwen3-vl-rerank
 
   postgres:
     image: postgres:16-alpine
@@ -40,6 +66,18 @@ services:
       timeout: 3s
       retries: 5
 
+  qdrant:
+    image: qdrant/qdrant:v1.13.2
+    ports:
+      - "127.0.0.1:6333:6333"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    healthcheck:
+      test: ["CMD-SHELL", "bash -lc 'exec 3<>/dev/tcp/127.0.0.1/6333'"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   frontend:
     build:
       context: ./frontend
@@ -58,6 +96,114 @@ services:
     command: npm run dev
     depends_on:
       - backend
+
+  pagevra:
+    image: ghcr.io/ln-one/pagevra:dev
+    ports:
+      - "127.0.0.1:8090:8090"
+    volumes:
+      - runtime_data:/var/lib/spectra
+    environment:
+      - PORT=8090
+      - CHROME_PATH=/usr/bin/chromium
+      - PAGEVRA_DISTRIBUTION=image
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:8090/health/ready').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+  stratumind:
+    image: ghcr.io/ln-one/stratumind:latest
+    env_file:
+      - ./backend/.env
+    ports:
+      - "127.0.0.1:8110:8110"
+    environment:
+      - PORT=8110
+      - QDRANT_URL=http://qdrant:6333
+      - QDRANT_COLLECTION_TEXT=stratumind_text_chunks
+      - STRATUMIND_EMBEDDING_MODEL=text-embedding-v4
+      - STRATUMIND_EMBEDDING_DIMENSION=1024
+      - STRATUMIND_RERANK_ENABLED=false
+      - STRATUMIND_RERANK_BASE_URL=http://dualweave:8080
+      - STRATUMIND_RERANK_CANDIDATE_K=20
+      - STRATUMIND_RERANK_TIMEOUT_SECONDS=10
+    depends_on:
+      dualweave:
+        condition: service_started
+      qdrant:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "-q",
+          "-O-",
+          "http://127.0.0.1:8110/health/ready",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+  ourograph_db_init:
+    image: postgres:16-alpine
+    environment:
+      PGPASSWORD: spectra
+    command:
+      [
+        "sh",
+        "-c",
+        "until pg_isready -h postgres -U spectra -d postgres; do sleep 1; done; psql -h postgres -U spectra -d postgres -tc \"SELECT 1 FROM pg_database WHERE datname = 'ourograph'\" | grep -q 1 || psql -h postgres -U spectra -d postgres -c \"CREATE DATABASE ourograph\"",
+      ]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  ourograph:
+    image: ghcr.io/ln-one/ourograph:latest
+    ports:
+      - "127.0.0.1:8101:8101"
+    volumes:
+      - runtime_data:/var/lib/spectra
+    environment:
+      - DATABASE_URL=postgresql://spectra:spectra@postgres:5432/ourograph
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - STRATUMIND_BASE_URL=http://stratumind:8110
+      - STRATUMIND_TIMEOUT_SECONDS=15
+      - QDRANT_URL=http://qdrant:6333
+      - UPLOAD_DIR=/var/lib/spectra/uploads
+      - ARTIFACT_STORAGE_DIR=/var/lib/spectra/artifacts
+      - GENERATED_DIR=/var/lib/spectra/generated
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "-q",
+          "-O-",
+          "http://127.0.0.1:8101/health/ready",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    depends_on:
+      ourograph_db_init:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      stratumind:
+        condition: service_healthy
 
   backend:
     build:
@@ -85,21 +231,30 @@ services:
       - RQ_WORKER_HEARTBEAT_FRESHNESS_SECONDS=420
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      - CHROMA_MODE=persistent
-      - CHROMA_HOST=chromadb
-      - CHROMA_PORT=8000
       - DOCUMENT_PARSER=${DOCUMENT_PARSER:-auto}
       - LLAMAPARSE_API_KEY=${LLAMAPARSE_API_KEY}
-      - CHROMA_PERSIST_DIR=/var/lib/spectra/chroma
       - UPLOAD_DIR=/var/lib/spectra/uploads
       - ARTIFACT_STORAGE_DIR=/var/lib/spectra/artifacts
       - GENERATED_DIR=/var/lib/spectra/generated
+      - PAGEVRA_ENABLED=true
+      - PAGEVRA_BASE_URL=http://pagevra:8090
+      - PAGEVRA_TIMEOUT_SECONDS=180
+      - OUROGRAPH_ENABLED=true
+      - OUROGRAPH_BASE_URL=http://ourograph:8101
+      - OUROGRAPH_TIMEOUT_SECONDS=30
       - POSTGRES_BACKUP_DIR=/var/lib/spectra/backups
       - POSTGRES_RESTORE_STAGING_DIR=/var/lib/spectra/restore-staging
       - POSTGRES_BACKUP_RETENTION_DAYS=14
       - POSTGRES_BACKUP_PREFIX=spectra-dev
       - DUALWEAVE_ENABLED=true
       - DUALWEAVE_BASE_URL=http://dualweave:8080
+      - STRATUMIND_ENABLED=true
+      - STRATUMIND_BASE_URL=http://stratumind:8110
+      - STRATUMIND_TIMEOUT_SECONDS=15
+      - MANIM_RENDERER_ENABLED=true
+      - MANIM_RENDERER_BASE_URL=http://manim-renderer:8120
+      - MANIM_RENDERER_TIMEOUT_SECONDS=150
+      - MANIM_LLM_MODEL=qwen3.5-flash
       - DB_REQUIRED=true
       - REDIS_REQUIRED=false
       - UVICORN_RELOAD=false
@@ -123,12 +278,18 @@ services:
     depends_on:
       redis:
         condition: service_healthy
-      chromadb:
-        condition: service_started
       postgres:
         condition: service_healthy
       dualweave:
         condition: service_started
+      stratumind:
+        condition: service_healthy
+      pagevra:
+        condition: service_healthy
+      ourograph:
+        condition: service_healthy
+      manim-renderer:
+        condition: service_healthy
     healthcheck:
       test:
         [
@@ -165,21 +326,30 @@ services:
       - GENERATION_TOOLS_REQUIRED=true
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      - CHROMA_MODE=persistent
-      - CHROMA_HOST=chromadb
-      - CHROMA_PORT=8000
       - DOCUMENT_PARSER=${DOCUMENT_PARSER:-auto}
       - LLAMAPARSE_API_KEY=${LLAMAPARSE_API_KEY}
-      - CHROMA_PERSIST_DIR=/var/lib/spectra/chroma
       - UPLOAD_DIR=/var/lib/spectra/uploads
       - ARTIFACT_STORAGE_DIR=/var/lib/spectra/artifacts
       - GENERATED_DIR=/var/lib/spectra/generated
+      - PAGEVRA_ENABLED=true
+      - PAGEVRA_BASE_URL=http://pagevra:8090
+      - PAGEVRA_TIMEOUT_SECONDS=180
+      - OUROGRAPH_ENABLED=true
+      - OUROGRAPH_BASE_URL=http://ourograph:8101
+      - OUROGRAPH_TIMEOUT_SECONDS=30
       - POSTGRES_BACKUP_DIR=/var/lib/spectra/backups
       - POSTGRES_RESTORE_STAGING_DIR=/var/lib/spectra/restore-staging
       - POSTGRES_BACKUP_RETENTION_DAYS=14
       - POSTGRES_BACKUP_PREFIX=spectra-dev
       - DUALWEAVE_ENABLED=true
       - DUALWEAVE_BASE_URL=http://dualweave:8080
+      - STRATUMIND_ENABLED=true
+      - STRATUMIND_BASE_URL=http://stratumind:8110
+      - STRATUMIND_TIMEOUT_SECONDS=15
+      - MANIM_RENDERER_ENABLED=true
+      - MANIM_RENDERER_BASE_URL=http://manim-renderer:8120
+      - MANIM_RENDERER_TIMEOUT_SECONDS=150
+      - MANIM_LLM_MODEL=qwen3.5-flash
       - WORKER_NAME=worker-1
       - WORKER_RECOVERY_SCAN=true
       - RQ_WORKER_HEARTBEAT_FRESHNESS_SECONDS=420
@@ -199,32 +369,22 @@ services:
     depends_on:
       redis:
         condition: service_healthy
-      chromadb:
-        condition: service_started
       postgres:
         condition: service_healthy
       dualweave:
         condition: service_started
-
-  chromadb:
-    image: chromadb/chroma:0.5.2
-    ports:
-      - "127.0.0.1:8001:8000"
-    volumes:
-      - chroma_data:/chroma/chroma
-    environment:
-      - IS_PERSISTENT=TRUE
-      - PERSIST_DIRECTORY=/chroma/chroma
-      - ANONYMIZED_TELEMETRY=FALSE
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
+      stratumind:
+        condition: service_healthy
+      pagevra:
+        condition: service_healthy
+      ourograph:
+        condition: service_healthy
+      manim-renderer:
+        condition: service_healthy
 
 volumes:
   dualweave_data:
   postgres_data:
   redis_data:
-  chroma_data:
+  qdrant_data:
   runtime_data:
