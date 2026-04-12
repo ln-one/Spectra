@@ -58,7 +58,7 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 ```bash
 # API Configuration
-# Next.js forwards browser /api/v1 requests to this target
+# Browser-side SDK requests go directly to this backend origin
 NEXT_PUBLIC_API_URL="http://localhost:8000"
 NEXT_PUBLIC_API_TIMEOUT_MS=180000
 NEXT_PUBLIC_CHAT_TIMEOUT_MS=300000
@@ -139,9 +139,10 @@ This project uses [`next/font`](https://nextjs.org/docs/app/building-your-applic
 
 ## API Integration
 
-Browser requests go to the frontend origin at `/api/v1` and are forwarded by
-Next.js to the configured backend target. Server-side requests use
-`INTERNAL_API_URL` when present, otherwise `NEXT_PUBLIC_API_URL`.
+Browser-side SDK requests go directly to `NEXT_PUBLIC_API_URL`. Server-side
+requests use `INTERNAL_API_URL` when present, otherwise `NEXT_PUBLIC_API_URL`.
+The Next.js rewrite remains available as a compatibility path, but it is not
+the canonical transport for long-running API calls like chat generation.
 
 The backend API surface remains `/api/v1`:
 
@@ -155,7 +156,10 @@ The backend API surface remains `/api/v1`:
 Chat requests can legitimately take longer than ordinary CRUD requests because
 the backend may wait for retrieval, model inference, and persistence before
 responding. Use `NEXT_PUBLIC_CHAT_TIMEOUT_MS` to give `/api/v1/chat/messages`
-more headroom without increasing the timeout for every API call.
+more headroom without increasing the timeout for every API call. This is
+especially important in local development: a verified incident showed the
+backend returning `200 OK` after about 38 seconds while the Next dev proxy
+reset the connection first.
 
 See `lib/api.ts` for the complete API client implementation.
 

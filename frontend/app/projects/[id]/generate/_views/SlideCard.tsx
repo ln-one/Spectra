@@ -180,7 +180,10 @@ export function SlideCard({
   onOpenPreview?: (slide: Slide) => void;
 }) {
   const renderedPreviews = useMemo(() => {
-    if (Array.isArray(slide.rendered_previews) && slide.rendered_previews.length) {
+    if (
+      Array.isArray(slide.rendered_previews) &&
+      slide.rendered_previews.length
+    ) {
       return [...slide.rendered_previews].sort(
         (a, b) => (a.split_index ?? 0) - (b.split_index ?? 0)
       );
@@ -196,7 +199,11 @@ export function SlideCard({
       ];
     }
     return [];
-  }, [slide.rendered_html_preview, slide.rendered_previews, slide.thumbnail_url]);
+  }, [
+    slide.rendered_html_preview,
+    slide.rendered_previews,
+    slide.thumbnail_url,
+  ]);
   const hasRenderedPreview = renderedPreviews.length > 0;
   const hasMultipleRenderedPreviews = renderedPreviews.length > 1;
   const table = useMemo(

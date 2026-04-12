@@ -1,5 +1,10 @@
 ﻿import { chatApi, studioCardsApi } from "@/lib/sdk";
-import { createApiError, getErrorMessage } from "@/lib/sdk/errors";
+import {
+  createApiError,
+  getChatLatencyNotice,
+  getChatRequestErrorMessage,
+  getErrorMessage,
+} from "@/lib/sdk/errors";
 import { toast } from "@/hooks/use-toast";
 import {
   buildRefineFailureMessage,
@@ -333,6 +338,16 @@ export function createChatActions({
 
         await get().fetchGenerationHistory(projectId);
 
+        const latencyNotice = getChatLatencyNotice(
+          response?.data?.observability ?? null
+        );
+        if (latencyNotice) {
+          toast({
+            title: "聊天响应较慢",
+            description: latencyNotice,
+          });
+        }
+
         if (response?.data?.message) {
           set((state) => ({
             messages: [
@@ -343,7 +358,7 @@ export function createChatActions({
           }));
         }
       } catch (error) {
-        const message = getErrorMessage(error);
+        const message = getChatRequestErrorMessage(error);
         set((state) => ({
           messages: state.messages.filter((m) => m.id !== tempId),
           lastFailedInput: content,

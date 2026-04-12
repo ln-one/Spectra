@@ -23,7 +23,9 @@ function hasRenderablePreview(slide: {
     html_preview?: string | null;
   }>;
 }): boolean {
-  const frames = Array.isArray(slide.rendered_previews) ? slide.rendered_previews : [];
+  const frames = Array.isArray(slide.rendered_previews)
+    ? slide.rendered_previews
+    : [];
   if (
     frames.some(
       (frame) =>
@@ -215,24 +217,29 @@ export default function StreamingWorkbenchPageView() {
   const fullscreenPreviews = useMemo(() => {
     if (!fullscreenSlide) return [];
     if (
-      Array.isArray((fullscreenSlide as { rendered_previews?: unknown }).rendered_previews)
+      Array.isArray(
+        (fullscreenSlide as { rendered_previews?: unknown }).rendered_previews
+      )
     ) {
       return (
-        (fullscreenSlide as {
-          rendered_previews?: Array<{
-            image_url?: string | null;
-            html_preview?: string | null;
-            split_index?: number;
-          }>;
-        }).rendered_previews ?? []
+        (
+          fullscreenSlide as {
+            rendered_previews?: Array<{
+              image_url?: string | null;
+              html_preview?: string | null;
+              split_index?: number;
+            }>;
+          }
+        ).rendered_previews ?? []
       ).slice();
     }
     if (fullscreenSlide.thumbnail_url) {
       return [
         {
           image_url: fullscreenSlide.thumbnail_url,
-          html_preview: (fullscreenSlide as { rendered_html_preview?: string | null })
-            .rendered_html_preview,
+          html_preview: (
+            fullscreenSlide as { rendered_html_preview?: string | null }
+          ).rendered_html_preview,
           split_index: 0,
         },
       ];
@@ -407,7 +414,7 @@ export default function StreamingWorkbenchPageView() {
                   key={slide.id || `thumb-${slide.index}`}
                   type="button"
                   onClick={() => setFullscreenSlideIndex(slide.index)}
-                    className={`mb-3 overflow-hidden rounded-lg border text-left ${
+                  className={`mb-3 overflow-hidden rounded-lg border text-left ${
                     slide.index === fullscreenSlide.index
                       ? "border-blue-400"
                       : "border-transparent"

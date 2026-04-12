@@ -121,7 +121,9 @@ function buildSlidesContentMarkdown(slides: Slide[]): string {
   return sections.join("\n\n---\n\n").trim();
 }
 
-function hasRenderablePreviewFrame(page: RenderedPreviewFrame | null | undefined): boolean {
+function hasRenderablePreviewFrame(
+  page: RenderedPreviewFrame | null | undefined
+): boolean {
   if (!page) return false;
   if (typeof page.html_preview === "string" && page.html_preview.trim()) {
     return true;
@@ -131,7 +133,9 @@ function hasRenderablePreviewFrame(page: RenderedPreviewFrame | null | undefined
 
 function hasRenderablePreview(slide: Slide | null | undefined): boolean {
   if (!slide) return false;
-  const pages = Array.isArray(slide.rendered_previews) ? slide.rendered_previews : [];
+  const pages = Array.isArray(slide.rendered_previews)
+    ? slide.rendered_previews
+    : [];
   if (pages.some((page) => hasRenderablePreviewFrame(page))) {
     return true;
   }
@@ -316,17 +320,17 @@ export function useGeneratePreviewState({
       renderedCount: number;
       markdownReady: boolean;
     } => {
-      const previewData = (response.data ?? null) as
-        | {
-            slides?: Slide[];
-            rendered_preview?: RenderedPreview | null;
-          }
-        | null;
+      const previewData = (response.data ?? null) as {
+        slides?: Slide[];
+        rendered_preview?: RenderedPreview | null;
+      } | null;
       if (response.success && previewData?.slides) {
         const renderedPreview = previewData.rendered_preview as
           | RenderedPreview
           | undefined;
-        const renderedPages = ((renderedPreview?.pages ?? []) as RenderedPreviewFrame[])
+        const renderedPages = (
+          (renderedPreview?.pages ?? []) as RenderedPreviewFrame[]
+        )
           .filter(
             (page) =>
               page &&

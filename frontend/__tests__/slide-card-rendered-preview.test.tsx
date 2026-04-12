@@ -32,8 +32,13 @@ describe("SlideCard rendered preview", () => {
 
     const iframe = screen.getByTitle("真实预览");
     expect(iframe).toBeInTheDocument();
-    expect(iframe).toHaveAttribute("srcdoc", expect.stringContaining("HTML 优先展示"));
-    expect(screen.queryByRole("img", { name: "真实预览" })).not.toBeInTheDocument();
+    expect(iframe).toHaveAttribute(
+      "srcdoc",
+      expect.stringContaining("HTML 优先展示")
+    );
+    expect(
+      screen.queryByRole("img", { name: "真实预览" })
+    ).not.toBeInTheDocument();
     expect(screen.queryByText("markdown fallback")).not.toBeInTheDocument();
   });
 
@@ -79,7 +84,10 @@ describe("SlideCard rendered preview", () => {
 
     const iframe = screen.getByTitle("结构预览");
     expect(iframe).toBeInTheDocument();
-    expect(iframe).toHaveAttribute("srcdoc", expect.stringContaining("HTML preview body"));
+    expect(iframe).toHaveAttribute(
+      "srcdoc",
+      expect.stringContaining("HTML preview body")
+    );
     expect(screen.queryByText("markdown fallback")).not.toBeInTheDocument();
   });
 });

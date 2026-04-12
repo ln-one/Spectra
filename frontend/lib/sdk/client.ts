@@ -9,9 +9,11 @@ function trimTrailingSlash(value: string): string {
   return value.replace(/\/+$/, "");
 }
 
-function resolveApiBaseUrl(): string {
-  if (typeof window !== "undefined") {
-    return trimTrailingSlash(window.location.origin);
+export function resolveApiBaseUrl(runtime?: "browser" | "server"): string {
+  const effectiveRuntime =
+    runtime ?? (typeof window !== "undefined" ? "browser" : "server");
+  if (effectiveRuntime === "browser") {
+    return trimTrailingSlash(PUBLIC_API_BASE_URL);
   }
   if (INTERNAL_API_BASE_URL) {
     return trimTrailingSlash(INTERNAL_API_BASE_URL);

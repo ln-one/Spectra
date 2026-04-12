@@ -210,6 +210,12 @@ NEXT_PUBLIC_CDN_URL="https://cdn.spectra.com"
 NEXT_PUBLIC_DEBUG="false"
 ```
 
+说明：
+
+- 浏览器端 SDK 直接请求 `NEXT_PUBLIC_API_URL`
+- `INTERNAL_API_URL` 仅供 Next.js 服务端或内部请求使用
+- `NEXT_PUBLIC_CHAT_TIMEOUT_MS` 只放宽聊天请求，不建议依赖 Next rewrite 代理承载长聊天
+
 `NEXT_PUBLIC_CHAT_TIMEOUT_MS` is intentionally separate from
 `NEXT_PUBLIC_API_TIMEOUT_MS` so chat sends can wait longer for retrieval and
 model work without stretching every frontend API call.
@@ -247,6 +253,7 @@ openssl rand -base64 32
 ### 密钥轮换
 
 定期更换生产环境的 JWT_SECRET_KEY：
+
 1. 生成新密钥
 2. 更新环境变量
 3. 重启服务

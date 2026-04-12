@@ -2123,9 +2123,17 @@ components:
         latency_ms:
           type: number
           format: float
+        total_duration_ms:
+          type: number
+          format: float
         route_decision:
           type: object
           additionalProperties: true
+        stage_timings_ms:
+          type: object
+          additionalProperties:
+            type: number
+            format: float
     SendMessageResponse:
       type: object
       required:

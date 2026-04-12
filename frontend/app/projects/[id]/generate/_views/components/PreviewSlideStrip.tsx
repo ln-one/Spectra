@@ -30,7 +30,8 @@ export function PreviewSlideStrip({
     slide.rendered_previews.some(
       (preview) =>
         Boolean(preview?.image_url) ||
-        (typeof preview?.html_preview === "string" && preview.html_preview.trim())
+        (typeof preview?.html_preview === "string" &&
+          preview.html_preview.trim())
     );
 
   return (

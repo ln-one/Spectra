@@ -128,12 +128,10 @@ export function SpeakerNotesToolPanel({
           artifact_id: selectedDeckId,
         });
         if (cancelled) return;
-        const previewData = (response.data ?? null) as
-          | {
-              slides?: Slide[];
-              rendered_preview?: RenderedPreview | null;
-            }
-          | null;
+        const previewData = (response.data ?? null) as {
+          slides?: Slide[];
+          rendered_preview?: RenderedPreview | null;
+        } | null;
         const slides = (previewData?.slides ?? []) as Slide[];
         const renderedPreview = previewData?.rendered_preview as
           | RenderedPreview

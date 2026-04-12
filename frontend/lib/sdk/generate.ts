@@ -20,12 +20,14 @@ export type CreateGenerationSessionRequest =
   components["schemas"]["CreateGenerationSessionRequest"];
 type CreateGenerationSessionResponseTarget =
   components["schemas"]["CreateGenerationSessionResponseTarget"];
-export type CreateGenerationSessionResponse =
-  Omit<CreateGenerationSessionResponseTarget, "data"> & {
-    data: CreateGenerationSessionResponseTarget["data"] & {
-      run: SessionRun;
-    };
+export type CreateGenerationSessionResponse = Omit<
+  CreateGenerationSessionResponseTarget,
+  "data"
+> & {
+  data: CreateGenerationSessionResponseTarget["data"] & {
+    run: SessionRun;
   };
+};
 export type GenerationSessionResponse =
   components["schemas"]["GenerationSessionResponseTarget"];
 export type GenerationEvent = components["schemas"]["GenerationEventTarget"];
