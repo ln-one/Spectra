@@ -55,9 +55,9 @@ python3 ./scripts/compose_smart.py up --build
 For more detail, see `docs/guides/docker-setup.md`.
 Runtime configuration should come from `backend/.env`, using `backend/.env.example` as the template.
 
-The four microservices are consumed in two modes:
+The five private microservices are consumed in two modes:
 
-- default/team mode: `docker-compose.yml` pulls the locked GHCR images for `Pagevra`, `Dualweave`, `Ourograph`, and `Stratumind`
+- default/team mode: `docker-compose.yml` pulls the locked GHCR images for `Pagevra`, `Dualweave`, `Ourograph`, `Stratumind`, and `Diego`
 - maintainer mode: initialize the matching submodule and let `python3 ./scripts/compose_smart.py` switch that service to a local source build automatically
 
 ```bash
@@ -84,7 +84,7 @@ returns a standard upload result plus `processing_artifact.result_url`; Spectra
 still owns downloading that artifact and extracting markdown for indexing, so
 the boundary stays at the artifact reference layer.
 
-Pagevra, Dualweave, Ourograph, and Stratumind all follow the same pattern:
+Pagevra, Dualweave, Ourograph, Stratumind, and Diego all follow the same pattern:
 normal developers consume the locked image, while maintainers can initialize
 submodules and keep using the same smart compose entrypoint for local builds.
 
@@ -102,12 +102,13 @@ The core commands are:
 - `Dualweave`: local source or docker image
 - `Ourograph`: local source or docker image
 - `Stratumind`: local source or docker image
+- `Diego`: local source or docker image
 
 Current default behavior:
 
 - Spectra reads `infra/stack-lock.develop.json` on non-`main` branches and `infra/stack-lock.main.json` on `main`
 - base compose consumes the lock-generated image refs, and plain `docker compose` works after `sync` because the same refs are mirrored into the root `.env`
-- if a local `pagevra/`, `dualweave/`, `ourograph/`, or `stratumind/` source checkout exists, `compose_smart.py` adds the matching override file and uses local source mode for that service
+- if a local `pagevra/`, `dualweave/`, `ourograph/`, `stratumind/`, or `diego/` source checkout exists, `compose_smart.py` adds the matching override file and uses local source mode for that service
 - if a lock entry is still unpublished, `sync` and `doctor` fail explicitly instead of drifting to a floating tag
 
 Recommended onboarding for developers without microservice repo access:

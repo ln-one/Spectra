@@ -14,3 +14,7 @@
 	path = stratumind
 	url = https://github.com/ln-one/Stratumind.git
 	branch = main
+[submodule "diego"]
+	path = diego
+	url = https://github.com/watermelon551/ppt-agent-service.git
+	branch = master

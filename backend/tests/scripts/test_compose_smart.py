@@ -24,6 +24,7 @@ def _lock_payload(
     dualweave_digest: str | None,
     ourograph_digest: str | None,
     stratumind_digest: str | None,
+    diego_digest: str | None,
 ) -> str:
     return json.dumps(
         {
@@ -61,6 +62,14 @@ def _lock_payload(
                     "published": stratumind_digest is not None,
                     "notes": "stratumind lock",
                 },
+                "diego": {
+                    "image": "ghcr.io/example/diego",
+                    "tag": "dev" if channel == "develop" else "latest",
+                    "digest": diego_digest,
+                    "source_branch": channel,
+                    "published": diego_digest is not None,
+                    "notes": "diego lock",
+                },
             },
         },
         indent=2,
@@ -74,18 +83,21 @@ def _run_compose_smart(
     dualweave: bool,
     ourograph: bool,
     stratumind: bool,
+    diego: bool,
     args: list[str],
-    develop_lock: tuple[str | None, str | None, str | None, str | None] = (
+    develop_lock: tuple[str | None, str | None, str | None, str | None, str | None] = (
         "sha256:" + "1" * 64,
         "sha256:" + "2" * 64,
         "sha256:" + "3" * 64,
         "sha256:" + "4" * 64,
-    ),
-    main_lock: tuple[str | None, str | None, str | None, str | None] = (
         "sha256:" + "5" * 64,
+    ),
+    main_lock: tuple[str | None, str | None, str | None, str | None, str | None] = (
         "sha256:" + "6" * 64,
         "sha256:" + "7" * 64,
         "sha256:" + "8" * 64,
+        "sha256:" + "9" * 64,
+        "sha256:" + "a" * 64,
     ),
 ) -> subprocess.CompletedProcess[str]:
     root = tmp_path / "repo"
@@ -98,6 +110,7 @@ def _run_compose_smart(
     _make_file(root / "docker-compose.dualweave.dev.yml", "services: {}\n")
     _make_file(root / "docker-compose.ourograph.dev.yml", "services: {}\n")
     _make_file(root / "docker-compose.stratumind.dev.yml", "services: {}\n")
+    _make_file(root / "docker-compose.diego.dev.yml", "services: {}\n")
     _make_file(
         root / "infra/stack-lock.develop.json",
         _lock_payload(
@@ -106,6 +119,7 @@ def _run_compose_smart(
             dualweave_digest=develop_lock[1],
             ourograph_digest=develop_lock[2],
             stratumind_digest=develop_lock[3],
+            diego_digest=develop_lock[4],
         ),
     )
     _make_file(
@@ -116,6 +130,7 @@ def _run_compose_smart(
             dualweave_digest=main_lock[1],
             ourograph_digest=main_lock[2],
             stratumind_digest=main_lock[3],
+            diego_digest=main_lock[4],
         ),
     )
 
@@ -170,6 +185,10 @@ def _run_compose_smart(
         _make_file(root / "stratumind/Dockerfile", "FROM golang:1.23-alpine\n")
         _make_file(root / "stratumind/README.md", "# Stratumind\n")
         _make_file(root / "stratumind/.git", "gitdir: ../.git/modules/stratumind\n")
+    if diego:
+        _make_file(root / "diego/Dockerfile", "FROM python:3.11-slim\n")
+        _make_file(root / "diego/README.md", "# Diego\n")
+        _make_file(root / "diego/.git", "gitdir: ../.git/modules/diego\n")
 
     env = os.environ | {
         "PATH": f"{root / 'bin'}:{os.environ['PATH']}",
@@ -177,6 +196,7 @@ def _run_compose_smart(
         "TEST_SUBMODULE_DUALWEAVE": "1" if dualweave else "0",
         "TEST_SUBMODULE_OUROGRAPH": "1" if ourograph else "0",
         "TEST_SUBMODULE_STRATUMIND": "1" if stratumind else "0",
+        "TEST_SUBMODULE_DIEGO": "1" if diego else "0",
         "TEST_BRANCH": "develop",
     }
     return subprocess.run(
@@ -196,6 +216,7 @@ def test_status_reports_lock_and_source_modes(tmp_path: Path) -> None:
         dualweave=False,
         ourograph=True,
         stratumind=True,
+        diego=True,
         args=["status"],
     )
 
@@ -205,6 +226,7 @@ def test_status_reports_lock_and_source_modes(tmp_path: Path) -> None:
     assert "Dualweave: using locked image" in result.stdout
     assert "Ourograph: using local source" in result.stdout
     assert "Stratumind: using local source" in result.stdout
+    assert "Diego: using local source" in result.stdout
     assert "Synced env: missing" in result.stdout
 
 
@@ -215,6 +237,7 @@ def test_sync_writes_env_and_pulls_only_image_mode_services(tmp_path: Path) -> N
         dualweave=False,
         ourograph=True,
         stratumind=True,
+        diego=True,
         args=["sync", "--channel", "develop"],
     )
 
@@ -232,6 +255,7 @@ def test_sync_writes_env_and_pulls_only_image_mode_services(tmp_path: Path) -> N
     assert "PAGEVRA_IMAGE=ghcr.io/example/pagevra@sha256:" in content
     assert "OUROGRAPH_IMAGE=ghcr.io/example/ourograph@sha256:" in content
     assert "STRATUMIND_IMAGE=ghcr.io/example/stratumind@sha256:" in content
+    assert "DIEGO_IMAGE=ghcr.io/example/diego@sha256:" in content
     assert content == mirror_content
 
 
@@ -242,8 +266,9 @@ def test_sync_fails_when_image_mode_service_is_unpublished(tmp_path: Path) -> No
         dualweave=False,
         ourograph=False,
         stratumind=False,
+        diego=False,
         args=["sync", "--channel", "develop"],
-        develop_lock=("sha256:" + "1" * 64, None, None, None),
+        develop_lock=("sha256:" + "1" * 64, None, None, None, None),
     )
 
     combined = result.stdout + result.stderr
@@ -251,6 +276,7 @@ def test_sync_fails_when_image_mode_service_is_unpublished(tmp_path: Path) -> No
     assert "Dualweave lock for channel 'develop' is not published yet" in combined
     assert "Ourograph lock for channel 'develop' is not published yet" in combined
     assert "Stratumind lock for channel 'develop' is not published yet" in combined
+    assert "Diego lock for channel 'develop' is not published yet" in combined
 
 
 def test_sync_allows_unpublished_service_when_local_source_exists(
@@ -262,8 +288,9 @@ def test_sync_allows_unpublished_service_when_local_source_exists(
         dualweave=True,
         ourograph=True,
         stratumind=True,
+        diego=True,
         args=["sync", "--channel", "develop"],
-        develop_lock=("sha256:" + "1" * 64, None, None, None),
+        develop_lock=("sha256:" + "1" * 64, None, None, None, None),
     )
 
     env_file = tmp_path / "repo/.env.compose.lock"
@@ -274,6 +301,7 @@ def test_sync_allows_unpublished_service_when_local_source_exists(
     assert "DUALWEAVE_IMAGE=ghcr.io/example/dualweave:dev" in content
     assert "OUROGRAPH_IMAGE=ghcr.io/example/ourograph:dev" in content
     assert "STRATUMIND_IMAGE=ghcr.io/example/stratumind:dev" in content
+    assert "DIEGO_IMAGE=ghcr.io/example/diego:dev" in content
     assert content == mirror_content
 
 
@@ -284,6 +312,7 @@ def test_doctor_fails_when_sync_missing_for_image_mode(tmp_path: Path) -> None:
         dualweave=False,
         ourograph=False,
         stratumind=False,
+        diego=False,
         args=["doctor", "--channel", "develop"],
     )
 
@@ -300,6 +329,7 @@ def test_compose_command_uses_synced_env_and_overrides(tmp_path: Path) -> None:
         dualweave=True,
         ourograph=True,
         stratumind=True,
+        diego=True,
         args=["sync", "--channel", "develop"],
     )
     assert sync_result.returncode == 0
@@ -310,6 +340,7 @@ def test_compose_command_uses_synced_env_and_overrides(tmp_path: Path) -> None:
         dualweave=True,
         ourograph=True,
         stratumind=True,
+        diego=True,
         args=["config"],
     )
 
@@ -319,3 +350,4 @@ def test_compose_command_uses_synced_env_and_overrides(tmp_path: Path) -> None:
     assert "docker-compose.dualweave.dev.yml" in result.stdout
     assert "docker-compose.ourograph.dev.yml" in result.stdout
     assert "docker-compose.stratumind.dev.yml" in result.stdout
+    assert "docker-compose.diego.dev.yml" in result.stdout

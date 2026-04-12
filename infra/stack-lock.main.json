@@ -34,6 +34,14 @@
       "source_branch": "main",
       "published": true,
       "notes": "Pinned from GHCR public latest manifest on 2026-04-12 after stratumind commit 14e9058. Lock-only mode requires the package to remain anonymously pullable."
+    },
+    "diego": {
+      "image": "ghcr.io/watermelon551/diego",
+      "tag": "latest",
+      "digest": null,
+      "source_branch": "main",
+      "published": false,
+      "notes": "Diego source-mode bootstrap lock. Publish a digest before enabling image-only mode."
     }
   }
 }

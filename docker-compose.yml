@@ -95,6 +95,31 @@ services:
       timeout: 5s
       retries: 6
 
+  diego:
+    image: ${DIEGO_IMAGE:?Run python3 ./scripts/compose_smart.py sync --channel develop}
+    env_file:
+      - ./backend/.env
+    ports:
+      - "127.0.0.1:8120:8000"
+    environment:
+      - PYTHONUNBUFFERED=1
+      - LLM_API_STYLE=openai_chat
+      - LLM_BASE_URL=${DIEGO_LLM_BASE_URL:-https://api.openai.com/v1}
+      - LLM_API_KEY=${DIEGO_LLM_API_KEY:-diego-local-placeholder}
+      - LLM_MODEL=${DIEGO_LLM_MODEL:-gpt-4o-mini}
+      - ASSET_PROVIDER=${DIEGO_ASSET_PROVIDER:-none}
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=3)",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
   stratumind:
     image: ${STRATUMIND_IMAGE:?Run python3 ./scripts/compose_smart.py sync --channel develop}
     env_file:

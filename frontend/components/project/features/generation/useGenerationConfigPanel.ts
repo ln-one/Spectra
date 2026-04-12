@@ -6,6 +6,7 @@ import { generateApi, ragApi } from "@/lib/sdk";
 import { useNotification } from "@/hooks/use-notification";
 import { useProjectStore } from "@/stores/projectStore";
 import { useShallow } from "zustand/react/shallow";
+import { LAYOUT_MODES, TEMPLATE_CARDS } from "./constants";
 
 function pickRandom<T>(arr: T[], count: number): T[] {
   const copy = [...arr];
@@ -100,6 +101,7 @@ export interface GenerationConfig {
   prompt: string;
   pageCount: number;
   outlineStyle: "structured" | "story" | "problem" | "workshop";
+  visualStyle: string;
 }
 
 interface UseGenerationConfigPanelArgs {
@@ -145,11 +147,41 @@ export function useGenerationConfigPanel({
   const [pageCount, setPageCount] = useState<number>(12);
   const [outlineStyle, setOutlineStyle] =
     useState<GenerationConfig["outlineStyle"]>("structured");
+  const [visualStyle, setVisualStyle] = useState<string>("free");
+  const [layoutMode, setLayoutMode] = useState<"smart" | "classic">("smart");
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>(
+    TEMPLATE_CARDS[0].id
+  );
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const [isCreatingSession, setIsCreatingSession] = useState(false);
   const [showOutlineEditor, setShowOutlineEditor] = useState(false);
   const [showRegenerateHint, setShowRegenerateHint] = useState(false);
+
+  useEffect(() => {
+    const mapping = LAYOUT_MODES.find((m) => m.id === layoutMode);
+    if (mapping) {
+      setOutlineStyle(
+        mapping.outlineStyle as GenerationConfig["outlineStyle"]
+      );
+    }
+  }, [layoutMode]);
+
+  useEffect(() => {
+    if (layoutMode === "classic") {
+      const isTemplate = TEMPLATE_CARDS.some((t) => t.id === visualStyle);
+      if (!isTemplate) {
+        setVisualStyle(selectedTemplateId);
+      }
+    } else {
+      const isStyle =
+        visualStyle &&
+        ["free", "academic", "minimal", "professional", "botanical", "wabi", "memphis", "constructivism", "brutalist", "8bit", "electro", "geometric", "morandi", "nordic", "fluid", "cinema", "coolblue", "warmvc", "modernacademic", "curatorial"].includes(visualStyle);
+      if (!isStyle) {
+        setVisualStyle("free");
+      }
+    }
+  }, [layoutMode, selectedTemplateId, visualStyle]);
 
   const sessionId =
     activeSessionId || generationSession?.session?.session_id || "";
@@ -292,6 +324,7 @@ export function useGenerationConfigPanel({
         prompt: prompt.trim(),
         pageCount,
         outlineStyle,
+        visualStyle,
       });
 
       const sessionIdFromCallback =
@@ -450,6 +483,7 @@ export function useGenerationConfigPanel({
     pageCount,
     prompt,
     showRegenerateHint,
+    visualStyle,
   ]);
 
   const handleBackToConfigFromOutline = useCallback(() => {
@@ -483,6 +517,12 @@ export function useGenerationConfigPanel({
     setPageCount,
     outlineStyle,
     setOutlineStyle,
+    visualStyle,
+    setVisualStyle,
+    layoutMode,
+    setLayoutMode,
+    selectedTemplateId,
+    setSelectedTemplateId,
     suggestions,
     loadingSuggestions,
     isCreatingSession,

@@ -71,8 +71,6 @@ services:
       DATABASE_URL: postgresql://spectra:spectra@postgres:5432/spectra
       REDIS_HOST: redis
       REDIS_PORT: "6379"
-      STRATUMIND_BASE_URL: http://stratumind:8110
-      STRATUMIND_TIMEOUT_SECONDS: "15"
       QDRANT_URL: http://qdrant:6333
       UPLOAD_DIR: /var/lib/spectra/uploads
       ARTIFACT_STORAGE_DIR: /var/lib/spectra/artifacts
@@ -130,8 +128,6 @@ services:
       DATABASE_URL: postgresql://spectra:spectra@postgres:5432/spectra
       REDIS_HOST: redis
       REDIS_PORT: "6379"
-      STRATUMIND_BASE_URL: http://stratumind:8110
-      STRATUMIND_TIMEOUT_SECONDS: "15"
       QDRANT_URL: http://qdrant:6333
       UPLOAD_DIR: /var/lib/spectra/uploads
       ARTIFACT_STORAGE_DIR: /var/lib/spectra/artifacts
@@ -214,6 +210,26 @@ services:
       - "127.0.0.1:8090:8090"
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8090/health/ready').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+  diego:
+    image: ${DIEGO_IMAGE:?Run python3 ./scripts/compose_smart.py sync --channel main}
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env
+    environment:
+      PYTHONUNBUFFERED: "1"
+      LLM_API_STYLE: "openai_chat"
+      LLM_BASE_URL: ${DIEGO_LLM_BASE_URL:-https://api.openai.com/v1}
+      LLM_API_KEY: ${DIEGO_LLM_API_KEY:-diego-local-placeholder}
+      LLM_MODEL: ${DIEGO_LLM_MODEL:-gpt-4o-mini}
+      ASSET_PROVIDER: ${DIEGO_ASSET_PROVIDER:-none}
+    ports:
+      - "127.0.0.1:8120:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=3)"]
       interval: 10s
       timeout: 5s
       retries: 6

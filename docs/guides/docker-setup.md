@@ -45,7 +45,7 @@ python3 ./scripts/compose_smart.py down
 
 ## 维护者源码模式
 
-`Spectra` 默认使用锁定镜像启动 `Dualweave`、`Pagevra`、`Ourograph` 和 `Stratumind`。
+`Spectra` 默认使用锁定镜像启动 `Dualweave`、`Pagevra`、`Ourograph`、`Stratumind` 和 `Diego`。
 如果你是对应服务的维护者，可以初始化 submodule，`python3 ./scripts/compose_smart.py`
 会自动切换到本地源码构建。
 
@@ -72,7 +72,7 @@ git submodule update --init --recursive
 python3 ./scripts/compose_smart.py up --build
 ```
 
-如果没有 `Pagevra` / `Dualweave` / `Ourograph` / `Stratumind` 源码仓权限，也不需要改 compose；
+如果没有 `Pagevra` / `Dualweave` / `Ourograph` / `Stratumind` / `Diego` 源码仓权限，也不需要改 compose；
 只要对应镜像已经发布且可匿名拉取，`sync` 就会把锁定组合写入 `.env.compose.lock`。
 
 如果某个服务的共享镜像还没发布，或者 GHCR package 仍然是私有的，`sync` / `doctor`
@@ -84,6 +84,7 @@ python3 ./scripts/compose_smart.py up --build
 - `Dualweave`: `develop -> dev`，`main -> latest`
 - `Ourograph`: `develop -> dev`，`main -> latest`
 - `Stratumind`: `develop -> dev`，`main -> latest`
+- `Diego`: `develop -> dev`，`main -> latest`（当前为 source-mode 引导锁，待发布 digest）
 - Spectra 自己通过 `infra/stack-lock.<channel>.json` 决定“当前兼容的整套私有服务组合”
 
 ## 常用命令
