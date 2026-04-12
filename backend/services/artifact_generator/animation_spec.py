@@ -27,16 +27,61 @@ _TEACHING_PPT_CARTOON_THEME = {
     "grid": "#e8c978",
     "highlight": "#c2663f",
 }
+_TEACHING_PPT_DEEP_BLUE_THEME = {
+    "background": "#dfeaf6",
+    "panel": "#f5f9ff",
+    "panel_alt": "#d3e2f6",
+    "accent": "#2f6da5",
+    "accent_soft": "#7fb2da",
+    "accent_deep": "#0f2f4f",
+    "text": "#12324d",
+    "muted": "#5d7387",
+    "grid": "#c4d5e6",
+    "highlight": "#2fa8c2",
+}
+_TEACHING_PPT_WARM_ORANGE_THEME = {
+    "background": "#f7e9d8",
+    "panel": "#fff5ea",
+    "panel_alt": "#f7dcc2",
+    "accent": "#ce7a32",
+    "accent_soft": "#f2b87d",
+    "accent_deep": "#8d4c1f",
+    "text": "#4a2a16",
+    "muted": "#7a5f4b",
+    "grid": "#e7cdb5",
+    "highlight": "#d64545",
+}
+_TEACHING_PPT_MINIMAL_GRAY_THEME = {
+    "background": "#eef1f4",
+    "panel": "#ffffff",
+    "panel_alt": "#dfe5ea",
+    "accent": "#5c7389",
+    "accent_soft": "#a2b4c3",
+    "accent_deep": "#2f3f50",
+    "text": "#243240",
+    "muted": "#6d7986",
+    "grid": "#d1d8df",
+    "highlight": "#ed8f3b",
+}
 
 _STYLE_PACK_THEMES = {
     "teaching_ppt_cartoon": _TEACHING_PPT_CARTOON_THEME,
     "teaching_ppt_fresh_green": DEFAULT_THEME,
+    "teaching_ppt_deep_blue": _TEACHING_PPT_DEEP_BLUE_THEME,
+    "teaching_ppt_warm_orange": _TEACHING_PPT_WARM_ORANGE_THEME,
+    "teaching_ppt_minimal_gray": _TEACHING_PPT_MINIMAL_GRAY_THEME,
 }
 _STYLE_PACK_ALIASES = {
     "default": "teaching_ppt_cartoon",
     "teaching_ppt": "teaching_ppt_cartoon",
     "cartoon": "teaching_ppt_cartoon",
     "fresh_green": "teaching_ppt_fresh_green",
+    "deep_blue": "teaching_ppt_deep_blue",
+    "warm_orange": "teaching_ppt_warm_orange",
+    "minimal_gray": "teaching_ppt_minimal_gray",
+    "blue": "teaching_ppt_deep_blue",
+    "orange": "teaching_ppt_warm_orange",
+    "gray": "teaching_ppt_minimal_gray",
 }
 _DEFAULT_STYLE_PACK = "teaching_ppt_cartoon"
 

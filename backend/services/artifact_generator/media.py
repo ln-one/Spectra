@@ -1,5 +1,13 @@
 import logging
 
+from services.artifact_generator.cloud_video import (
+    render_aliyun_wan_video,
+    should_use_aliyun_wan_video,
+)
+from services.artifact_generator.manim_renderer import (
+    render_gif_via_manim,
+    should_use_manim_renderer,
+)
 from services.artifact_generator.policies import allow_media_placeholder_artifacts
 from services.artifact_generator.storyboard_renderer import render_gif, render_mp4
 
@@ -15,7 +23,37 @@ class ArtifactMediaMixin:
         self, content, project_id: str, artifact_id: str
     ) -> str:
         storage_path = self.get_storage_path(project_id, "gif", artifact_id)
-        actual_path = render_gif(content or {}, storage_path)
+        normalized_content = dict(content or {})
+        if (
+            str(normalized_content.get("render_mode") or "").strip().lower()
+            == "cloud_video_wan"
+        ):
+            logger.info(
+                "Normalize animation render_mode from cloud_video_wan to gif "
+                "for GIF artifact generation"
+            )
+            normalized_content["render_mode"] = "gif"
+        # Manim renderer path (higher quality, no template)
+        render_mode = normalized_content.get("render_mode")
+        use_manim = should_use_manim_renderer(normalized_content)
+        logger.info(
+            "Animation render decision: render_mode=%s use_manim=%s",
+            render_mode,
+            use_manim,
+        )
+        if use_manim:
+            try:
+                actual_path = await render_gif_via_manim(
+                    normalized_content, storage_path
+                )
+                logger.info("Generated Manim GIF at %s", actual_path)
+                return actual_path
+            except Exception as exc:
+                logger.warning(
+                    "Manim render failed (%r), falling back to SVG renderer", exc
+                )
+        # Legacy SVG/HTML template renderer
+        actual_path = render_gif(normalized_content, storage_path)
         logger.info("Generated animation GIF at %s", actual_path)
         return actual_path
 
@@ -30,6 +68,10 @@ class ArtifactMediaMixin:
 
     async def generate_video(self, content, project_id: str, artifact_id: str) -> str:
         storage_path = self.get_storage_path(project_id, "mp4", artifact_id)
+        if should_use_aliyun_wan_video(content or {}):
+            actual_path = await render_aliyun_wan_video(content or {}, storage_path)
+            logger.info("Generated Aliyun Wan MP4 at %s", actual_path)
+            return actual_path
         actual_path = render_mp4(content or {}, storage_path)
         logger.info("Generated MP4 at %s", actual_path)
         return actual_path

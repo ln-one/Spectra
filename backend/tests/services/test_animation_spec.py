@@ -92,6 +92,33 @@ def test_normalize_animation_spec_accepts_fresh_green_style_pack():
     assert spec["theme"]["background"] == "#f5f8f3"
 
 
+def test_normalize_animation_spec_accepts_deep_blue_style_pack():
+    spec = normalize_animation_spec(
+        {
+            "title": "HTTP 请求响应流程",
+            "summary": "强调请求路径和响应返回",
+            "style_pack": "teaching_ppt_deep_blue",
+        }
+    )
+
+    assert spec["style_pack"] == "teaching_ppt_deep_blue"
+    assert spec["theme"]["background"] == "#dfeaf6"
+    assert spec["theme"]["accent_deep"] == "#0f2f4f"
+
+
+def test_normalize_animation_spec_maps_style_pack_alias_to_new_theme():
+    spec = normalize_animation_spec(
+        {
+            "title": "数据库事务流程",
+            "summary": "展示提交与回滚",
+            "style_pack": "warm_orange",
+        }
+    )
+
+    assert spec["style_pack"] == "teaching_ppt_warm_orange"
+    assert spec["theme"]["background"] == "#f7e9d8"
+
+
 def test_normalize_animation_spec_supports_variable_scene_count_for_long_duration():
     spec = normalize_animation_spec(
         {

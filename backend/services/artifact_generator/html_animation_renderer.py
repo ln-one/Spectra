@@ -363,47 +363,47 @@ _HTML_TEMPLATE = """<!doctype html>
           : easeInOutCubic(clamp(sceneProgress, 0, 1)));
       const target = resolveSceneTarget(spec, scene, sceneIndex, sceneCount, sceneProgress);
       const lockStrength = {
-        wide: 0.16,
-        medium: 0.3,
-        close: 0.56,
-        track_left: 0.46,
-        track_right: 0.46,
-        zoom_in: 0.54,
-        zoom_out: 0.2,
+        wide: 0.12,
+        medium: 0.2,
+        close: 0.28,
+        track_left: 0.24,
+        track_right: 0.24,
+        zoom_in: 0.26,
+        zoom_out: 0.14,
       }[camera] || 0.3;
       const lockX = (480 - target.x) * lockStrength;
       const lockY = (318 - target.y) * lockStrength;
       const travel = easeInOutCubic(clamp(sceneProgress, 0, 1));
       if (camera === "wide") {
-        return { offsetX: lockX * 0.88, offsetY: lockY * 0.82 - 4, scale: 0.84 + blend * 0.03 };
+        return { offsetX: lockX * 0.64, offsetY: lockY * 0.62 - 2, scale: 0.94 + blend * 0.02 };
       }
       if (camera === "medium") {
-        return { offsetX: lockX, offsetY: lockY - 6, scale: 0.97 + blend * 0.04 };
+        return { offsetX: lockX * 0.72, offsetY: lockY * 0.68 - 3, scale: 0.96 + blend * 0.02 };
       }
       if (camera === "close") {
-        return { offsetX: lockX * 1.06, offsetY: lockY - 8, scale: 1.12 + blend * 0.06 };
+        return { offsetX: lockX * 0.84, offsetY: lockY * 0.76 - 4, scale: 0.98 + blend * 0.01 };
       }
       if (camera === "track_left") {
         return {
-          offsetX: lockX + 28 - travel * 42,
-          offsetY: lockY - 5,
-          scale: 1.06 + blend * 0.04,
+          offsetX: lockX * 0.74 + 10 - travel * 16,
+          offsetY: lockY * 0.7 - 3,
+          scale: 0.97 + blend * 0.02,
         };
       }
       if (camera === "track_right") {
         return {
-          offsetX: lockX - 28 + travel * 42,
-          offsetY: lockY - 5,
-          scale: 1.06 + blend * 0.04,
+          offsetX: lockX * 0.74 - 10 + travel * 16,
+          offsetY: lockY * 0.7 - 3,
+          scale: 0.97 + blend * 0.02,
         };
       }
       if (camera === "zoom_in") {
-        return { offsetX: lockX, offsetY: lockY - 6, scale: 1.04 + blend * 0.1 };
+        return { offsetX: lockX * 0.78, offsetY: lockY * 0.72 - 3, scale: 0.97 + blend * 0.02 };
       }
       if (camera === "zoom_out") {
-        return { offsetX: lockX * 0.82, offsetY: lockY * 0.86 - 4, scale: 1.08 - blend * 0.18 };
+        return { offsetX: lockX * 0.62, offsetY: lockY * 0.64 - 2, scale: 0.98 - blend * 0.04 };
       }
-      return { offsetX: lockX, offsetY: lockY - 5, scale: 1 + blend * 0.04 };
+      return { offsetX: lockX * 0.72, offsetY: lockY * 0.68 - 3, scale: 0.97 + blend * 0.02 };
     }
 
     function wrapSceneBody(body, spec, scene, sceneIndex, sceneCount, sceneProgress, options = {}) {
@@ -420,9 +420,18 @@ _HTML_TEMPLATE = """<!doctype html>
       });
       const cx = 480;
       const cy = 318;
+      const viewportWidth = 960;
+      const viewportHeight = 636;
+      const combinedScale = clamp(motion.scale * camera.scale, 0.9, 1);
+      const rawOffsetX = motion.offsetX + camera.offsetX;
+      const rawOffsetY = camera.offsetY;
+      const safeOffsetX = ((viewportWidth * (1 - combinedScale)) / 2) - 6;
+      const safeOffsetY = ((viewportHeight * (1 - combinedScale)) / 2) - 6;
+      const offsetX = clamp(rawOffsetX, -Math.max(0, safeOffsetX), Math.max(0, safeOffsetX));
+      const offsetY = clamp(rawOffsetY, -Math.max(0, safeOffsetY), Math.max(0, safeOffsetY));
       return `
         <g opacity="${(motion.opacity * extraOpacity).toFixed(3)}"
-           transform="translate(${(motion.offsetX + camera.offsetX).toFixed(2)}, ${camera.offsetY.toFixed(2)}) translate(${cx}, ${cy}) scale(${(motion.scale * camera.scale).toFixed(4)}) translate(${-cx}, ${-cy})">
+           transform="translate(${offsetX.toFixed(2)}, ${offsetY.toFixed(2)}) translate(${cx}, ${cy}) scale(${combinedScale.toFixed(4)}) translate(${-cx}, ${-cy})">
           ${body}
         </g>
       `;

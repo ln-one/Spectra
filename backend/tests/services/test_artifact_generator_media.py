@@ -3,6 +3,7 @@ from pathlib import Path
 import pytest
 from PIL import Image
 
+import services.artifact_generator.manim_renderer as manim_renderer
 from services.artifact_generator.media import ArtifactMediaMixin
 from services.artifact_generator.storyboard_renderer import render_gif
 
@@ -29,6 +30,67 @@ async def test_generate_animation_writes_real_gif(tmp_path: Path):
     assert path.exists()
     assert path.suffix == ".gif"
     assert path.stat().st_size > 0
+
+
+def test_should_use_manim_renderer_honors_explicit_mode(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    monkeypatch.setattr(manim_renderer, "_MANIM_RENDERER_ENABLED", False)
+    assert manim_renderer.should_use_manim_renderer({"render_mode": "manim"}) is True
+    assert manim_renderer.should_use_manim_renderer({"render_mode": "gif"}) is False
+
+
+@pytest.mark.asyncio
+async def test_generate_animation_uses_manim_when_explicit_mode(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    generator = _MediaGenerator(tmp_path)
+
+    async def _fake_manim_render(content, storage_path):
+        Path(storage_path).write_bytes(b"manim-gif")
+        return storage_path
+
+    monkeypatch.setattr(
+        "services.artifact_generator.media.render_gif_via_manim",
+        _fake_manim_render,
+    )
+    output = await generator.generate_animation(
+        {"topic": "光合作用", "render_mode": "manim"},
+        "project-1",
+        "artifact-manim-gif",
+    )
+    path = Path(output)
+    assert path.exists()
+    assert path.suffix == ".gif"
+    assert path.read_bytes() == b"manim-gif"
+
+
+@pytest.mark.asyncio
+async def test_generate_animation_normalizes_cloud_video_mode_for_gif(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    generator = _MediaGenerator(tmp_path)
+    captured = {}
+
+    async def _fake_manim_render(content, storage_path):
+        captured["render_mode"] = content.get("render_mode")
+        Path(storage_path).write_bytes(b"manim-gif")
+        return storage_path
+
+    monkeypatch.setattr(
+        "services.artifact_generator.media.render_gif_via_manim",
+        _fake_manim_render,
+    )
+    output = await generator.generate_animation(
+        {"topic": "鍏夊悎浣滅敤", "render_mode": "cloud_video_wan"},
+        "project-1",
+        "artifact-cloud-gif",
+    )
+    path = Path(output)
+    assert path.exists()
+    assert path.suffix == ".gif"
+    assert path.read_bytes() == b"manim-gif"
+    assert captured["render_mode"] == "gif"
 
 
 def test_render_gif_uses_browser_frames_when_available(
