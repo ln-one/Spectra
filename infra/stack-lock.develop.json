@@ -1,6 +1,6 @@
 {
   "channel": "develop",
-  "generated_at": "2026-04-10T00:00:00Z",
+  "generated_at": "2026-04-12T00:00:00Z",
   "updated_by": "codex",
   "services": {
     "pagevra": {
@@ -14,10 +14,10 @@
     "dualweave": {
       "image": "ghcr.io/ln-one/dualweave-service",
       "tag": "latest",
-      "digest": "sha256:c93167b605d0ff8fa06e1d0b1416889142a9a61520497635a09be8da013c1e00",
+      "digest": "sha256:ec93a35dcc14a4bcdb2ef1c998aa167336f2b7df4b01d1520d26c6d3b62d533a",
       "source_branch": "develop",
       "published": true,
-      "notes": "Pinned from GHCR public latest manifest on 2026-04-11."
+      "notes": "Pinned from GHCR public latest manifest on 2026-04-12 after dualweave commit dbe1538."
     },
     "ourograph": {
       "image": "ghcr.io/ln-one/ourograph",
@@ -30,10 +30,10 @@
     "stratumind": {
       "image": "ghcr.io/ln-one/stratumind",
       "tag": "latest",
-      "digest": "sha256:c49f0a3e676a94257f351feb9c67a54b3529a6a768c6bd1ec1b3173aa00eb55c",
+      "digest": "sha256:c73532ab9c933fc85b89a2b1e2beab0d2cb2d884efb57b2073ab218aa4330334",
       "source_branch": "develop",
       "published": true,
-      "notes": "Pinned from GHCR latest manifest on 2026-04-12. Lock-only mode requires the package to remain anonymously pullable."
+      "notes": "Pinned from GHCR public latest manifest on 2026-04-12 after stratumind commit 14e9058. Lock-only mode requires the package to remain anonymously pullable."
     }
   }
 }
