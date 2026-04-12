@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import time
+import json
 from pathlib import Path
 from typing import Any, Optional
 
@@ -50,12 +51,12 @@ class DualweaveClient:
         *,
         filepath: str,
         filename: str,
+        execution: dict[str, Any],
         mime_type: Optional[str] = None,
-        metadata: Optional[dict[str, str]] = None,
     ) -> dict[str, Any]:
         path = Path(filepath)
         timeout = httpx.Timeout(self.timeout_seconds)
-        data = dict(metadata or {})
+        data = {"execution": json.dumps(execution, ensure_ascii=False)}
 
         with path.open("rb") as stream:
             files = {
@@ -79,12 +80,12 @@ class DualweaveClient:
         *,
         filepath: str,
         filename: str,
+        execution: dict[str, Any],
         mime_type: Optional[str] = None,
-        metadata: Optional[dict[str, str]] = None,
     ) -> dict[str, Any]:
         path = Path(filepath)
         timeout = httpx.Timeout(self.timeout_seconds)
-        data = dict(metadata or {})
+        data = {"execution": json.dumps(execution, ensure_ascii=False)}
 
         with path.open("rb") as stream:
             files = {
@@ -129,14 +130,14 @@ class DualweaveClient:
         *,
         filepath: str,
         filename: str,
+        execution: dict[str, Any],
         mime_type: Optional[str] = None,
-        metadata: Optional[dict[str, str]] = None,
     ) -> dict[str, Any]:
         result = self.upload_file_sync(
             filepath=filepath,
             filename=filename,
+            execution=execution,
             mime_type=mime_type,
-            metadata=metadata,
         )
         return self.wait_for_result_url_sync(result)
 
@@ -237,8 +238,11 @@ def _is_terminal_without_result(result: dict[str, Any]) -> bool:
     return False
 
 
-def build_dualweave_client() -> Optional[DualweaveClient]:
-    base_url = dualweave_base_url()
+def build_dualweave_client(
+    *,
+    base_url: str | None = None,
+) -> Optional[DualweaveClient]:
+    base_url = (base_url or "").strip() or dualweave_base_url()
     if not dualweave_enabled() or not base_url:
         return None
     return DualweaveClient(

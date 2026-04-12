@@ -13,7 +13,7 @@ async def test_index_upload_for_rag_schedules_remote_reconcile_when_parse_is_def
     upload = SimpleNamespace(id="file-001")
     parse_result = {
         "deferred_parse": True,
-        "provider_used": "dualweave_mineru",
+        "provider_used": "dualweave_remote",
         "dualweave": {"upload_id": "upl-123", "status": "pending_remote"},
     }
     monkeypatch.setattr(
@@ -52,7 +52,7 @@ async def test_index_upload_for_rag_local_fallback_reconciles_until_terminal(
     upload = SimpleNamespace(id="file-001")
     parse_result = {
         "deferred_parse": True,
-        "provider_used": "dualweave_mineru",
+        "provider_used": "dualweave_remote",
         "dualweave": {"upload_id": "upl-123", "status": "pending_remote"},
     }
     monkeypatch.setattr(

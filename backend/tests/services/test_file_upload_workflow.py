@@ -1,11 +1,10 @@
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 
 from services.file_upload_service.workflow import (
     _prepare_uploaded_file,
-    apply_mineru_parse_result_response,
     batch_upload_files_response,
     upload_file_response,
 )
@@ -15,7 +14,7 @@ from services.file_upload_service.workflow import (
 async def test_prepare_uploaded_file_refreshes_latest_status_after_sync_index(
     monkeypatch,
 ):
-    upload = SimpleNamespace(id="file-001")
+    upload = SimpleNamespace(id="file-001", fileType="word")
     failed_upload = SimpleNamespace(
         id="file-001",
         filename="lesson.pdf",
@@ -65,6 +64,119 @@ async def test_prepare_uploaded_file_refreshes_latest_status_after_sync_index(
 
 
 @pytest.mark.asyncio
+async def test_prepare_uploaded_file_starts_remote_parse_and_enqueues_reconcile(
+    monkeypatch,
+):
+    upload = SimpleNamespace(id="file-001", fileType="pdf")
+    latest = SimpleNamespace(
+        id="file-001",
+        filename="lesson.pdf",
+        fileType="pdf",
+        mimeType="application/pdf",
+        size=12,
+        status="uploading",
+        parseResult={"deferred_parse": True},
+        errorMessage=None,
+        usageIntent=None,
+        createdAt=None,
+        updatedAt=None,
+    )
+    monkeypatch.setattr(
+        "services.file_upload_service.workflow.save_and_record_upload",
+        AsyncMock(return_value=upload),
+    )
+    monkeypatch.setattr(
+        "services.file_upload_service.workflow.should_use_dualweave_remote_parse",
+        lambda file_type: True,
+    )
+    start_remote = AsyncMock(return_value="pending")
+    monkeypatch.setattr(
+        "services.file_upload_service.workflow.start_remote_parse_upload",
+        start_remote,
+    )
+    enqueue_remote = Mock()
+    monkeypatch.setattr(
+        "services.file_upload_service.workflow.enqueue_remote_parse_reconcile",
+        enqueue_remote,
+    )
+    monkeypatch.setattr(
+        "services.file_upload_service.workflow.db_service.get_file",
+        AsyncMock(return_value=latest),
+    )
+
+    task_queue_service = SimpleNamespace()
+    payload = await _prepare_uploaded_file(
+        request=SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace(task_queue_service=task_queue_service))),
+        background_tasks=SimpleNamespace(add_task=lambda *args, **kwargs: None),
+        file=SimpleNamespace(filename="lesson.pdf"),
+        project_id="p-001",
+        session_id="s-001",
+    )
+
+    assert payload["status"] == "uploading"
+    start_remote.assert_awaited_once()
+    enqueue_remote.assert_called_once_with(
+        task_queue_service=task_queue_service,
+        file_id="file-001",
+        project_id="p-001",
+        session_id="s-001",
+    )
+
+
+@pytest.mark.asyncio
+async def test_prepare_uploaded_file_starts_remote_parse_in_background_without_queue(
+    monkeypatch,
+):
+    upload = SimpleNamespace(id="file-001", fileType="image")
+    latest = SimpleNamespace(
+        id="file-001",
+        filename="lesson.png",
+        fileType="image",
+        mimeType="image/png",
+        size=12,
+        status="uploading",
+        parseResult={"deferred_parse": True},
+        errorMessage=None,
+        usageIntent=None,
+        createdAt=None,
+        updatedAt=None,
+    )
+    background_calls: list[tuple] = []
+    monkeypatch.setattr(
+        "services.file_upload_service.workflow.save_and_record_upload",
+        AsyncMock(return_value=upload),
+    )
+    monkeypatch.setattr(
+        "services.file_upload_service.workflow.should_use_dualweave_remote_parse",
+        lambda file_type: True,
+    )
+    monkeypatch.setattr(
+        "services.file_upload_service.workflow.start_remote_parse_upload",
+        AsyncMock(return_value="pending"),
+    )
+    monkeypatch.setattr(
+        "services.file_upload_service.workflow.db_service.get_file",
+        AsyncMock(return_value=latest),
+    )
+
+    payload = await _prepare_uploaded_file(
+        request=SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace())),
+        background_tasks=SimpleNamespace(
+            add_task=lambda *args, **kwargs: background_calls.append((args, kwargs))
+        ),
+        file=SimpleNamespace(filename="lesson.png"),
+        project_id="p-001",
+        session_id="s-001",
+    )
+
+    assert payload["status"] == "uploading"
+    assert background_calls
+    args, kwargs = background_calls[0]
+    assert args[0].__name__ == "reconcile_remote_parse_until_terminal"
+    assert kwargs["file_id"] == "file-001"
+
+
+@pytest.mark.asyncio
 async def test_upload_file_response_uses_status_aware_message(monkeypatch):
     monkeypatch.setattr(
         "services.file_upload_service.workflow.verify_project_access",
@@ -88,7 +200,7 @@ async def test_upload_file_response_uses_status_aware_message(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_upload_file_response_defer_parse_uses_waiting_message(monkeypatch):
+async def test_upload_file_response_deferred_result_uses_waiting_message(monkeypatch):
     monkeypatch.setattr(
         "services.file_upload_service.workflow.verify_project_access",
         AsyncMock(return_value=None),
@@ -111,7 +223,6 @@ async def test_upload_file_response_defer_parse_uses_waiting_message(monkeypatch
         project_id="p-001",
         session_id=None,
         user_id="u-001",
-        defer_parse=True,
     )
 
     assert response["message"] == "文件上传成功，等待远端解析结果"
@@ -188,54 +299,3 @@ async def test_upload_file_response_idempotency_hit_skips_prepare(monkeypatch):
     verify_access.assert_awaited_once_with("p-001", "u-001")
     get_idempotency.assert_awaited_once_with("files:single:u-001:p-001:s-001:idem-001")
     prepare.assert_not_awaited()
-
-
-@pytest.mark.asyncio
-async def test_apply_mineru_parse_result_response_reindexes_with_remote_text(
-    monkeypatch,
-):
-    upload = SimpleNamespace(id="f-001", projectId="p-001", filename="lesson.pdf")
-    latest = SimpleNamespace(
-        id="f-001",
-        filename="lesson.pdf",
-        fileType="pdf",
-        mimeType="application/pdf",
-        size=12,
-        status="ready",
-        parseResult=None,
-        errorMessage=None,
-        usageIntent=None,
-        createdAt=None,
-        updatedAt=None,
-    )
-    get_file = AsyncMock(side_effect=[upload, latest])
-    monkeypatch.setattr(
-        "services.file_upload_service.workflow.db_service.get_file", get_file
-    )
-    monkeypatch.setattr(
-        "services.file_upload_service.workflow.verify_project_access",
-        AsyncMock(return_value=None),
-    )
-    update_status = AsyncMock()
-    monkeypatch.setattr(
-        "services.file_upload_service.workflow.db_service.update_upload_status",
-        update_status,
-    )
-
-    remote_result = {"chunk_count": 2, "indexed_count": 2, "provider": "mineru_remote"}
-    monkeypatch.setattr(
-        "services.media.rag_indexing.index_upload_file_for_rag",
-        AsyncMock(return_value=remote_result),
-    )
-
-    response = await apply_mineru_parse_result_response(
-        file_id="f-001",
-        user_id="u-001",
-        parsed_text="remote parsed text",
-        parse_details={"pages_extracted": 3},
-        session_id="s-001",
-    )
-
-    assert response["message"] == "MinerU 解析结果已同步并完成索引"
-    assert response["data"]["file"]["id"] == "f-001"
-    assert update_status.await_count == 2

@@ -51,6 +51,50 @@ def test_dualweave_client_builds_poll_interval_when_configured(monkeypatch):
     assert dualweave_poll_interval_seconds() == 0.5
 
 
+def test_upload_file_sync_sends_execution(monkeypatch, tmp_path):
+    sent: dict[str, object] = {}
+
+    class _FakeResponse:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {"upload_id": "upl-123"}
+
+    class _FakeClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def post(self, url, files=None, data=None):
+            sent["url"] = url
+            sent["files"] = files
+            sent["data"] = data
+            return _FakeResponse()
+
+    monkeypatch.setattr("services.platform.dualweave_client.httpx.Client", _FakeClient)
+
+    path = tmp_path / "sample.pdf"
+    path.write_bytes(b"pdf")
+    client = DualweaveClient(base_url="http://dualweave:8080")
+
+    result = client.upload_file_sync(
+        filepath=str(path),
+        filename="sample.pdf",
+        mime_type="application/pdf",
+        execution={"send": {"kind": "send/http_multipart"}},
+    )
+
+    assert result["upload_id"] == "upl-123"
+    assert sent["url"] == "http://dualweave:8080/uploads"
+    assert sent["data"] == {"execution": '{"send": {"kind": "send/http_multipart"}}'}
+
+
 def test_wait_for_result_url_sync_returns_immediately_when_result_ready():
     client = DualweaveClient(
         base_url="http://dualweave:8080", timeout_seconds=1, poll_interval_seconds=0.01

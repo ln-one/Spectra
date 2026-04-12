@@ -326,29 +326,27 @@ def test_extract_text_for_rag_unknown_provider_falls_back_to_local(
     assert calls["local"] == 1
 
 
-def test_extract_text_for_rag_auto_routes_pdf_to_mineru_cloud(
-    tmp_path: Path, monkeypatch
-):
+def test_extract_text_for_rag_auto_routes_pdf_to_local(tmp_path: Path, monkeypatch):
     import services.file_parser as file_parser_module
 
-    class _FakeMineruCloudProvider:
-        name = "mineru_cloud"
+    class _FakeLocalProvider:
+        name = "local"
 
         def supports(self, _file_type: str) -> bool:
             return True
 
         def extract_text(self, _filepath: str, _filename: str, _file_type: str):
-            return "mineru cloud parsed content", {
+            return "local parsed content", {
                 "pages_extracted": 1,
-                "text_length": 27,
+                "text_length": 20,
             }
 
     calls: list[str] = []
 
     def _fake_get_parser(provider_name=None):
         calls.append(str(provider_name))
-        if provider_name == "mineru_cloud":
-            return _FakeMineruCloudProvider()
+        if provider_name == "local":
+            return _FakeLocalProvider()
         raise AssertionError(f"unexpected provider request: {provider_name}")
 
     pdf_path = tmp_path / "sample.pdf"
@@ -359,67 +357,12 @@ def test_extract_text_for_rag_auto_routes_pdf_to_mineru_cloud(
 
     text, details = extract_text_for_rag(str(pdf_path), "sample.pdf", "pdf")
 
-    assert text == "mineru cloud parsed content"
-    assert details["provider_used"] == "mineru_cloud"
+    assert text == "local parsed content"
+    assert details["provider_used"] == "local"
     assert details["parser_routing"]["mode"] == "auto"
-    assert details["parser_routing"]["primary_provider"] == "mineru_cloud"
-    assert details["provider_attempted"] == ["mineru_cloud"]
-    assert calls == ["mineru_cloud"]
-
-
-def test_extract_text_for_rag_preserves_deferred_remote_parse_without_fallback(
-    tmp_path: Path, monkeypatch
-):
-    import services.file_parser as file_parser_module
-
-    class _FakeMineruCloudProvider:
-        name = "mineru_cloud"
-
-        def supports(self, _file_type: str) -> bool:
-            return True
-
-        def extract_text(self, _filepath: str, _filename: str, _file_type: str):
-            return "", {
-                "deferred_parse": True,
-                "provider_used": "dualweave_mineru",
-                "dualweave": {
-                    "upload_id": "upl-123",
-                    "status": "pending_remote",
-                },
-            }
-
-    calls: list[str] = []
-
-    def _fake_get_parser(provider_name=None):
-        calls.append(str(provider_name))
-        if provider_name == "mineru_cloud":
-            return _FakeMineruCloudProvider()
-        raise AssertionError(f"unexpected provider request: {provider_name}")
-
-    fallback_called = False
-
-    def _unexpected_fallback(**_kwargs):
-        nonlocal fallback_called
-        fallback_called = True
-        raise AssertionError("fallback should not run for deferred remote parse")
-
-    pdf_path = tmp_path / "sample.pdf"
-    pdf_path.write_bytes(b"%PDF-1.4\n")
-
-    monkeypatch.setenv("DOCUMENT_PARSER", "auto")
-    monkeypatch.setattr(file_parser_module, "get_parser", _fake_get_parser)
-    monkeypatch.setattr(
-        file_parser_module, "extract_with_fallback", _unexpected_fallback
-    )
-
-    text, details = extract_text_for_rag(str(pdf_path), "sample.pdf", "pdf")
-
-    assert text == ""
-    assert details["deferred_parse"] is True
-    assert details["provider_used"] == "dualweave_mineru"
-    assert details["dualweave"]["status"] == "pending_remote"
-    assert calls == ["mineru_cloud"]
-    assert fallback_called is False
+    assert details["parser_routing"]["primary_provider"] == "local"
+    assert details["provider_attempted"] == ["local"]
+    assert calls == ["local"]
 
 
 def test_extract_text_for_rag_auto_routes_word_to_local(tmp_path: Path, monkeypatch):

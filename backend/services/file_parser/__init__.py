@@ -1,9 +1,8 @@
-"""File Parser Service — 可插拔解析器的统一入口。
+"""File Parser Service — local parsing and parser-provider fallback only.
 
-通过 ``DOCUMENT_PARSER`` 环境变量切换解析 provider（与 ADR-005 一致）。
-默认使用 ``local`` provider（pypdf / python-docx / python-pptx）。
-
-本模块实现完整的 fallback chain 与降级信息返回。
+Remote parse orchestration belongs to the upload workflow. This module still
+consumes deferred parse markers so RAG/indexing can recognize pending remote
+results, but it does not decide whether an upload should enter Dualweave.
 """
 
 from __future__ import annotations
@@ -36,7 +35,7 @@ def _resolve_configured_parser_mode() -> str:
 def _resolve_primary_provider(
     parser_mode: str, file_type: FileType, parser_override: str | None = None
 ) -> str:
-    """Resolve runtime provider from parser mode and normalized file type."""
+    """Resolve runtime provider for local parsing and fallback paths."""
     override = (parser_override or "").strip().lower()
     if override:
         return override
@@ -44,8 +43,6 @@ def _resolve_primary_provider(
     if parser_mode != AUTO_PARSER_MODE:
         return parser_mode
 
-    if file_type == FileType.PDF:
-        return "mineru_cloud"
     return "local"
 
 

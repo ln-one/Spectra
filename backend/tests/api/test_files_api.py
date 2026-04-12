@@ -97,7 +97,7 @@ def test_upload_file_success(client, monkeypatch, _as_user):
     save_idempotency.assert_awaited_once()
 
 
-def test_upload_file_defer_parse_flag(client, monkeypatch, _as_user):
+def test_upload_file_uses_streamlined_upload_contract(client, monkeypatch, _as_user):
     mocked_response = {
         "success": True,
         "data": {"file": {"id": _FILE_ID, "status": "uploading"}},
@@ -109,12 +109,12 @@ def test_upload_file_defer_parse_flag(client, monkeypatch, _as_user):
     resp = client.post(
         "/api/v1/files",
         files={"file": ("a.pdf", b"%PDF-1.4", "application/pdf")},
-        data={"project_id": _PROJECT_ID, "defer_parse": "true"},
+        data={"project_id": _PROJECT_ID},
     )
 
     assert resp.status_code == 200
     assert resp.json()["message"] == "文件上传成功，等待远端解析结果"
-    assert upload_mock.await_args.kwargs["defer_parse"] is True
+    assert upload_mock.await_args.kwargs["project_id"] == _PROJECT_ID
 
 
 def test_upload_file_idempotency_hit_returns_cached(client, monkeypatch, _as_user):
@@ -278,33 +278,6 @@ def test_batch_upload_persists_idempotency_on_miss(client, monkeypatch, _as_user
         "files:batch:u-001:p-001:s-001:00000000-0000-0000-0000-000000000014"
     )
     save_idempotency.assert_awaited_once()
-
-
-def test_apply_mineru_parse_result_success(client, monkeypatch, _as_user):
-    response_payload = {
-        "success": True,
-        "data": {"file": {"id": _FILE_ID, "status": "ready"}},
-        "message": "MinerU 解析结果已同步并完成索引",
-    }
-    apply_mock = AsyncMock(return_value=response_payload)
-    monkeypatch.setattr(
-        "routers.files.uploads.apply_mineru_parse_result_response",
-        apply_mock,
-    )
-
-    resp = client.post(
-        f"/api/v1/files/{_FILE_ID}/parse/mineru",
-        json={
-            "parsed_text": "parsed by mineru",
-            "parse_details": {"pages_extracted": 2},
-        },
-    )
-
-    assert resp.status_code == 200
-    assert resp.json()["message"] == "MinerU 解析结果已同步并完成索引"
-    assert apply_mock.await_args.kwargs["file_id"] == _FILE_ID
-
-
 def test_update_file_intent_success(client, monkeypatch, _as_user):
     _mock(monkeypatch, db_service, "get_file", _fake_upload())
     _mock(monkeypatch, db_service, "get_project", _fake_project())

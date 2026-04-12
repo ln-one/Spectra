@@ -1,11 +1,10 @@
-from typing import Any, Optional
+from typing import Optional
 
 from fastapi import BackgroundTasks, Request, UploadFile
 from fastapi.encoders import jsonable_encoder
 
 from services.database import db_service
 from services.file import file_service
-from utils.exceptions import NotFoundException, ValidationException
 from utils.responses import success_response
 
 from .access import (
@@ -17,9 +16,14 @@ from .access import (
 from .constants import UploadStatus
 from .indexing import (
     _SYNC_RAG_INDEXING,
-    _build_rag_index_failure_payload,
     dispatch_rag_indexing,
     index_upload_for_rag,
+)
+from .remote_parse import (
+    enqueue_remote_parse_reconcile,
+    reconcile_remote_parse_until_terminal,
+    should_use_dualweave_remote_parse,
+    start_remote_parse_upload,
 )
 from .serialization import serialize_upload
 
@@ -100,21 +104,30 @@ async def _prepare_uploaded_file(
     file: UploadFile,
     project_id: str,
     session_id: Optional[str],
-    defer_parse: bool = False,
 ) -> dict:
     upload = await save_and_record_upload(file, project_id)
     task_queue_service = getattr(request.app.state, "task_queue_service", None)
-    if defer_parse:
-        await db_service.update_upload_status(
-            upload.id,
-            status=UploadStatus.UPLOADING.value,
-            parse_result={
-                "deferred_parse": True,
-                "parse_mode": "dual_channel",
-                "state": "awaiting_remote_result",
-            },
-            error_message=None,
+    if should_use_dualweave_remote_parse(upload.fileType):
+        outcome = await start_remote_parse_upload(
+            db=db_service,
+            upload=upload,
+            session_id=session_id,
         )
+        if outcome == "pending":
+            if task_queue_service is not None:
+                enqueue_remote_parse_reconcile(
+                    task_queue_service=task_queue_service,
+                    file_id=upload.id,
+                    project_id=project_id,
+                    session_id=session_id,
+                )
+            else:
+                background_tasks.add_task(
+                    reconcile_remote_parse_until_terminal,
+                    db=db_service,
+                    file_id=upload.id,
+                    session_id=session_id,
+                )
     else:
         await db_service.update_upload_status(
             upload.id, status=UploadStatus.PARSING.value
@@ -142,7 +155,6 @@ async def upload_file_response(
     session_id: Optional[str],
     user_id: str,
     idempotency_key: Optional[str] = None,
-    defer_parse: bool = False,
 ):
     await verify_project_access(project_id, user_id)
     cache_key = _build_upload_idempotency_cache_key(
@@ -163,7 +175,6 @@ async def upload_file_response(
         file=file,
         project_id=project_id,
         session_id=session_id,
-        defer_parse=defer_parse,
     )
     response = success_response(
         data={"file": file_payload},
@@ -184,7 +195,6 @@ async def batch_upload_files_response(
     session_id: Optional[str],
     user_id: str,
     idempotency_key: Optional[str] = None,
-    defer_parse: bool = False,
 ):
     await verify_project_access(project_id, user_id)
     cache_key = _build_upload_idempotency_cache_key(
@@ -210,7 +220,6 @@ async def batch_upload_files_response(
                     file=file,
                     project_id=project_id,
                     session_id=session_id,
-                    defer_parse=defer_parse,
                 )
             )
         except Exception as exc:
@@ -229,67 +238,3 @@ async def batch_upload_files_response(
             cache_key, jsonable_encoder(response)
         )
     return response
-
-
-async def apply_mineru_parse_result_response(
-    *,
-    file_id: str,
-    user_id: str,
-    parsed_text: str,
-    parse_details: Optional[dict[str, Any]] = None,
-    session_id: Optional[str] = None,
-):
-    upload = await db_service.get_file(file_id)
-    if upload is None:
-        raise NotFoundException(message="文件不存在", details={"file_id": file_id})
-
-    await verify_project_access(upload.projectId, user_id)
-
-    text = str(parsed_text or "").strip()
-    if not text:
-        raise ValidationException(
-            message="MinerU 解析结果为空，无法建立索引",
-            details={"file_id": file_id},
-        )
-
-    await db_service.update_upload_status(
-        file_id,
-        status=UploadStatus.PARSING.value,
-        error_message=None,
-    )
-
-    try:
-        from services.media.rag_indexing import index_upload_file_for_rag
-
-        result = await index_upload_file_for_rag(
-            upload=upload,
-            project_id=upload.projectId,
-            session_id=session_id,
-            chunk_size=500,
-            chunk_overlap=50,
-            reindex=True,
-            db=db_service,
-            preparsed_text=text,
-            preparsed_details=parse_details or {},
-            provider_override="mineru_remote",
-        )
-        await db_service.update_upload_status(
-            file_id,
-            status=UploadStatus.READY.value,
-            parse_result=result,
-            error_message=None,
-        )
-    except Exception as exc:
-        await db_service.update_upload_status(
-            file_id,
-            status=UploadStatus.FAILED.value,
-            parse_result=_build_rag_index_failure_payload(exc),
-            error_message=str(exc),
-        )
-        raise
-
-    latest = await db_service.get_file(file_id)
-    return success_response(
-        data={"file": serialize_upload(latest)},
-        message="MinerU 解析结果已同步并完成索引",
-    )

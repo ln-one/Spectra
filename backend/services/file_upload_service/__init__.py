@@ -12,7 +12,6 @@ from .dualweave_bridge import (
 from .indexing import _SYNC_RAG_INDEXING, dispatch_rag_indexing, index_upload_for_rag
 from .serialization import serialize_upload
 from .workflow import (
-    apply_mineru_parse_result_response,
     batch_upload_files_response,
     save_and_record_upload,
     upload_file_response,
@@ -20,7 +19,6 @@ from .workflow import (
 
 __all__ = [
     "_SYNC_RAG_INDEXING",
-    "apply_mineru_parse_result_response",
     "batch_upload_files_response",
     "build_dualweave_parse_result",
     "dispatch_rag_indexing",

@@ -6,6 +6,10 @@ from .dualweave_client import (
     dualweave_base_url,
     dualweave_enabled,
 )
+from .dualweave_execution import (
+    build_dualweave_execution,
+    dualweave_remote_parse_supported,
+)
 from .redis_manager import RedisConnectionManager
 from .state_transition_guard import (
     StateTransitionGuard,
@@ -19,6 +23,8 @@ __all__ = [
     "build_dualweave_client",
     "dualweave_base_url",
     "dualweave_enabled",
+    "build_dualweave_execution",
+    "dualweave_remote_parse_supported",
     "RedisConnectionManager",
     "StateTransitionGuard",
     "TransitionResult",

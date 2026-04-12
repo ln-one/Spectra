@@ -148,7 +148,7 @@ async def test_index_upload_file_for_rag_short_circuits_deferred_parse(monkeypat
             "",
             {
                 "deferred_parse": True,
-                "provider_used": "dualweave_mineru",
+                "provider_used": "dualweave_remote",
                 "dualweave": {"upload_id": "upl-123", "status": "pending_remote"},
             },
         ),

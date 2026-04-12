@@ -17,7 +17,7 @@
 | 数据库访问     | Prisma Client Python（async）                                | prisma 0.15.0                     | `backend/prisma/schema.prisma`, `backend/services/database.py`                                     |
 | 关系型数据库    | PostgreSQL（当前默认）                                           | 本地/容器统一 PostgreSQL               | `backend/prisma/schema.prisma`, `backend/.env.example`                                             |
 | LLM 调用    | LiteLLM + DashScope(Qwen)                                  | litellm 1.81.13                   | `backend/services/ai.py`, `backend/requirements.txt`                                               |
-| Embedding | DashScope `text-embedding-v4`                                 | 1024 维默认                          | `backend/services/media/embedding.py`, `stratumind/internal/infrastructure/embedding.go`          |
+| Embedding | DashScope `text-embedding-v3`                                 | 1024 维默认                          | `backend/services/media/embedding.py`, `stratumind/internal/infrastructure/embedding.go`          |
 | 检索服务      | Stratumind + Qdrant                                           | 独立微服务 + 向量存储底盘                  | `stratumind/`, `backend/services/stratumind_client.py`                                             |
 | 文档解析      | pypdf / python-docx / python-pptx（轻量解析）                    | MVP 实装                            | `backend/services/file_parser.py`, `backend/requirements.txt`                                      |
 | 课件导出      | Marp CLI（PPTX）+ Pandoc（DOCX）                               | 外部 CLI 工具                         | `backend/services/generation/marp_generator.py`, `backend/services/generation/pandoc_generator.py` |

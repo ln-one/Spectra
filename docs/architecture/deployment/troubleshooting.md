@@ -122,7 +122,10 @@ echo $JWT_SECRET_KEY
 **解决方案**:
 
 - 清空对应 `Qdrant` collection 或删除项目索引后重新入库。
-- 确认 `STRATUMIND_EMBEDDING_DIMENSION` 与实际 provider 返回维度一致。
+- 确认 `.env` 中的 `EMBEDDING_MODEL / EMBEDDING_DIMENSION` 与
+  `STRATUMIND_EMBEDDING_MODEL / STRATUMIND_EMBEDDING_DIMENSION` 一致。
+- 如果 provider 报 `model_not_supported`，先检查是否误把
+  `qwen3-vl-embedding` 配到了 DashScope compatibility embeddings 接口。
 
 ## 性能问题
 

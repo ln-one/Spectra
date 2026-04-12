@@ -29,7 +29,7 @@
 
 - Status: `confirmed`
 - Meaning:
-  - text retrieval should use `text-embedding-v4`
+  - text retrieval should use `text-embedding-v3`
   - multimodal embedding should use `qwen3-vl-embedding`
 - Why it matters: using the wrong DashScope interface caused broken embedding calls and opaque performance degradation.
 
