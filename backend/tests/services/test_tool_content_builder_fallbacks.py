@@ -31,10 +31,14 @@ def test_fallback_content_supports_word_document() -> None:
 
     assert payload["kind"] == "word_document"
     assert payload["document_variant"] == "student_handout"
+    assert payload["layout_version"] == "v1"
+    assert isinstance(payload["layout_payload"], dict)
     assert isinstance(payload["sections"], list)
     assert payload["sections"]
     assert isinstance(payload["lesson_plan_markdown"], str)
     assert payload["lesson_plan_markdown"].startswith("# ")
+    assert "<html" in payload["preview_html"]
+    assert "<html" in payload["doc_source_html"]
 
 
 def test_fallback_content_supports_interactive_games_template_patterns() -> None:

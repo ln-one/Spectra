@@ -1,4 +1,4 @@
-import html
+﻿import html
 import json
 from typing import Optional
 
@@ -161,9 +161,11 @@ def build_export_payload(
     if not include_sources:
         slides, lesson_plan = strip_sources(slides, lesson_plan)
 
-    # 优先使用 render_markdown
-    source_content = content.get("render_markdown") or content.get(
-        "markdown_content", ""
+    preview_html = str(content.get("preview_html") or "").strip()
+    source_content = (
+        content.get("render_markdown")
+        or content.get("lesson_plan_markdown")
+        or content.get("markdown_content", "")
     )
 
     normalized_format = export_format.lower()
@@ -174,11 +176,18 @@ def build_export_payload(
                 "slides": slides,
                 "lesson_plan": lesson_plan,
                 "markdown_content": source_content,
+                "title": content.get("title"),
+                "summary": content.get("summary"),
+                "document_variant": content.get("document_variant"),
+                "layout_version": content.get("layout_version"),
+                "layout_payload": content.get("layout_payload"),
+                "preview_html": preview_html,
+                "doc_source_html": content.get("doc_source_html"),
             },
             ensure_ascii=False,
         )
     elif normalized_format == "html":
-        export_content = (
+        export_content = preview_html or (
             "<!doctype html><html><body><pre>"
             + html.escape(source_content)
             + "</pre></body></html>"

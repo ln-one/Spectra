@@ -43,6 +43,21 @@ def _raise_run_not_ready(run_id: str) -> None:
     )
 
 
+def _has_preview_content(content: object) -> bool:
+    if not isinstance(content, dict):
+        return False
+    render_markdown = str(content.get("render_markdown") or "").strip()
+    markdown_content = str(content.get("markdown_content") or "").strip()
+    if render_markdown or markdown_content:
+        return True
+    rendered_preview = content.get("rendered_preview")
+    if isinstance(rendered_preview, dict):
+        pages = rendered_preview.get("pages")
+        if isinstance(pages, list) and len(pages) > 0:
+            return True
+    return False
+
+
 def _resolve_modify_instruction(body: dict) -> str:
     instruction = str(body.get("instruction") or "").strip()
     if not instruction:
@@ -383,7 +398,7 @@ async def export_session_response(
             load_preview_material=load_preview_material,
         )
     )
-    if resolved_run_id and task is None:
+    if resolved_run_id and task is None and not _has_preview_content(content):
         _raise_run_not_ready(resolved_run_id)
 
     payload = build_export_payload(

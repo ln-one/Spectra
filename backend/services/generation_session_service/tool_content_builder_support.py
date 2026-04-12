@@ -8,11 +8,15 @@ from services.generation_session_service.game_template_engine import (
     is_template_game_pattern,
     resolve_game_pattern,
 )
+from services.generation_session_service.word_template_engine import (
+    build_word_schema_hint,
+    resolve_word_document_variant,
+)
 from utils.exceptions import APIException, ErrorCode
 
 _PAYLOAD_REQUIREMENTS: dict[str, tuple[str, ...]] = {
     "courseware_ppt": ("title", "summary"),
-    "word_document": ("title", "summary"),
+    "word_document": ("title", "summary", "layout_payload"),
     "knowledge_mindmap": ("title", "nodes"),
     "interactive_quick_quiz": ("title", "questions"),
     "interactive_games": ("title", "html"),
@@ -126,6 +130,10 @@ def validate_card_payload(card_id: str, payload: dict[str, Any]) -> None:
     elif card_id in {"courseware_ppt", "word_document"}:
         require_non_empty_str(payload, "title")
         require_non_empty_str(payload, "summary")
+        if card_id == "word_document":
+            layout_payload = payload.get("layout_payload")
+            if not isinstance(layout_payload, dict) or not layout_payload:
+                raise ValueError("field_layout_payload_empty")
 
 
 def validate_simulator_turn_payload(payload: dict[str, Any]) -> None:
@@ -194,9 +202,8 @@ def build_schema_hint(card_id: str, config: dict[str, Any] | None = None) -> str
         "courseware_ppt": (
             '{"title":"", "summary":"", "pages":12, "template":"default"}'
         ),
-        "word_document": (
-            '{"title":"", "summary":"", "document_variant":"layered_lesson_plan", '
-            '"sections":[{"title":"","content":""}], "lesson_plan_markdown":""}'
+        "word_document": build_word_schema_hint(
+            resolve_word_document_variant((config or {}).get("document_variant"))
         ),
         "knowledge_mindmap": (
             '{"title":"",'

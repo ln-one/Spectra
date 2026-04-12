@@ -7,6 +7,7 @@ from typing import Optional
 
 from services.file_parser import extract_text_for_rag
 from services.database import db_service
+from utils.docx_content_sidecar import load_docx_content_sidecar
 
 from .cache import load_preview_content, save_preview_content
 from .content_generation import get_or_generate_content as _get_or_generate_content
@@ -87,6 +88,19 @@ async def _load_docx_artifact_preview_content(
     storage_path = str(getattr(artifact, "storagePath", "") or "").strip()
     if not storage_path:
         return {}
+
+    sidecar_content = load_docx_content_sidecar(storage_path)
+    if sidecar_content:
+        markdown_content = str(
+            sidecar_content.get("lesson_plan_markdown")
+            or sidecar_content.get("markdown_content")
+            or ""
+        ).strip()
+        if markdown_content and not sidecar_content.get("markdown_content"):
+            sidecar_content["markdown_content"] = markdown_content
+        if not sidecar_content.get("title"):
+            sidecar_content["title"] = Path(storage_path).name or f"{artifact_id}.docx"
+        return sidecar_content
 
     filename = Path(storage_path).name or f"{artifact_id}.docx"
     extracted_text, _ = extract_text_for_rag(

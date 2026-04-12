@@ -15,6 +15,11 @@ from services.generation_session_service.game_template_engine import (
     resolve_game_pattern,
     validate_game_data,
 )
+from services.generation_session_service.word_template_engine import (
+    build_word_payload,
+    build_word_prompt,
+    resolve_word_document_variant,
+)
 from services.generation_session_service.tool_content_builder_fallbacks import (
     SUPPORTED_CARD_IDS,
     card_query_text,
@@ -91,19 +96,12 @@ def _hydrate_structured_payload(
     for key, value in (payload or {}).items():
         if value not in (None, "", [], {}):
             merged[key] = value
-
-    sections = merged.get("sections")
-    if not isinstance(sections, list) or not sections:
-        merged["sections"] = base_payload.get("sections", [])
-
-    lesson_plan_markdown = str(merged.get("lesson_plan_markdown") or "").strip()
-    if not lesson_plan_markdown:
-        merged["lesson_plan_markdown"] = str(
-            base_payload.get("lesson_plan_markdown") or ""
-        ).strip()
-
-    merged["kind"] = "word_document"
-    return merged
+    return build_word_payload(
+        document_variant=resolve_word_document_variant(
+            merged.get("document_variant") or config.get("document_variant")
+        ),
+        payload=merged,
+    )
 
 
 async def _load_rag_snippets(
@@ -301,32 +299,41 @@ async def _generate_structured_content(
                 rag_snippets=rag_snippets,
             )
 
-    schema_hint = _build_schema_hint(card_id, config)
-    if not schema_hint:
-        _raise_generation_error(
-            status_code=400,
-            error_code=ErrorCode.INVALID_INPUT,
-            message="Unsupported studio card for structured generation.",
-            card_id=card_id,
-            model=None,
-            phase="preflight",
-            failure_reason="unsupported_card",
-            retryable=False,
+    if card_id == "word_document":
+        prompt = build_word_prompt(
+            document_variant=resolve_word_document_variant(
+                config.get("document_variant")
+            ),
+            config=config,
+            rag_snippets=rag_snippets,
         )
+    else:
+        schema_hint = _build_schema_hint(card_id, config)
+        if not schema_hint:
+            _raise_generation_error(
+                status_code=400,
+                error_code=ErrorCode.INVALID_INPUT,
+                message="Unsupported studio card for structured generation.",
+                card_id=card_id,
+                model=None,
+                phase="preflight",
+                failure_reason="unsupported_card",
+                retryable=False,
+            )
 
-    prompt = (
-        "You are a teaching tool content generator.\n"
-        "Return ONLY a JSON object. Do not include markdown fences.\n"
-        f"Card type: {card_id}\n"
-        f"Config: {json.dumps(config, ensure_ascii=False)}\n"
-        f"Source artifact hint: {source_hint or 'none'}\n"
-        f"RAG snippets: {json.dumps(rag_snippets, ensure_ascii=False)}\n"
-        "Requirements:\n"
-        "- Output must be directly usable for artifact persistence.\n"
-        "- Avoid placeholders, empty strings, and empty arrays.\n"
-        "- Keep semantics educational and concrete.\n"
-        f"Expected JSON shape example: {schema_hint}\n"
-    )
+        prompt = (
+            "You are a teaching tool content generator.\n"
+            "Return ONLY a JSON object. Do not include markdown fences.\n"
+            f"Card type: {card_id}\n"
+            f"Config: {json.dumps(config, ensure_ascii=False)}\n"
+            f"Source artifact hint: {source_hint or 'none'}\n"
+            f"RAG snippets: {json.dumps(rag_snippets, ensure_ascii=False)}\n"
+            "Requirements:\n"
+            "- Output must be directly usable for artifact persistence.\n"
+            "- Avoid placeholders, empty strings, and empty arrays.\n"
+            "- Keep semantics educational and concrete.\n"
+            f"Expected JSON shape example: {schema_hint}\n"
+        )
 
     try:
         response = await ai_service.generate(

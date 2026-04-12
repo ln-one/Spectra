@@ -578,3 +578,86 @@ def test_export_preview_returns_binding_and_content(client, monkeypatch, _as_use
     assert data["content"] == "# Demo"
     assert data["artifact_anchor"]["run_id"] == "run-007"
     assert load_preview_material.await_args.args[4] == "run-007"
+
+
+def test_export_preview_with_run_id_allows_docx_content_without_task(
+    client, monkeypatch, _as_user
+):
+    svc = SimpleNamespace(
+        get_session_snapshot=AsyncMock(return_value=_snapshot(render_version=7))
+    )
+    monkeypatch.setattr(
+        generate_sessions_preview_router, "_get_session_service", lambda: svc
+    )
+    monkeypatch.setattr(
+        generate_sessions_preview_router,
+        "_resolve_session_artifact_binding",
+        AsyncMock(return_value=SimpleNamespace(id="a-004", basedOnVersionId="v-007")),
+    )
+    load_preview_material = AsyncMock(
+        return_value=(
+            None,
+            [],
+            None,
+            {"markdown_content": "# DOCX Preview"},
+        )
+    )
+    monkeypatch.setattr(
+        generate_sessions_preview_router,
+        "_load_preview_material",
+        load_preview_material,
+    )
+
+    resp = client.post(
+        "/api/v1/generate/sessions/s-preview-001/preview/export",
+        json={"format": "markdown", "artifact_id": "a-004", "run_id": "run-007"},
+    )
+    assert resp.status_code == 200
+    data = resp.json()["data"]
+    assert data["artifact_id"] == "a-004"
+    assert data["content"] == "# DOCX Preview"
+    assert data["artifact_anchor"]["run_id"] == "run-007"
+    assert load_preview_material.await_args.args[4] == "run-007"
+
+
+def test_export_preview_html_prefers_structured_word_preview_html(
+    client, monkeypatch, _as_user
+):
+    svc = SimpleNamespace(
+        get_session_snapshot=AsyncMock(return_value=_snapshot(render_version=8))
+    )
+    monkeypatch.setattr(
+        generate_sessions_preview_router, "_get_session_service", lambda: svc
+    )
+    monkeypatch.setattr(
+        generate_sessions_preview_router,
+        "_resolve_session_artifact_binding",
+        AsyncMock(return_value=SimpleNamespace(id="a-008", basedOnVersionId="v-008")),
+    )
+    monkeypatch.setattr(
+        generate_sessions_preview_router,
+        "_load_preview_material",
+        AsyncMock(
+            return_value=(
+                None,
+                [],
+                None,
+                {
+                    "title": "进程管理学生讲义",
+                    "preview_html": "<!doctype html><html><body><main>Styled Word Preview</main></body></html>",
+                    "lesson_plan_markdown": "# fallback markdown",
+                },
+            )
+        ),
+    )
+
+    resp = client.post(
+        "/api/v1/generate/sessions/s-preview-001/preview/export",
+        json={"format": "html", "artifact_id": "a-008"},
+    )
+
+    assert resp.status_code == 200
+    data = resp.json()["data"]
+    assert data["format"] == "html"
+    assert "Styled Word Preview" in data["content"]
+    assert "<pre>" not in data["content"]

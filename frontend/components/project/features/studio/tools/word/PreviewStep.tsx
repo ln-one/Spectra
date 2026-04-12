@@ -5,6 +5,7 @@ import { CapabilityNotice } from "../CapabilityNotice";
 import type { ToolFlowContext } from "../types";
 
 interface PreviewStepProps {
+  html?: string;
   markdown: string;
   isGenerating: boolean;
   lastGeneratedAt: string | null;
@@ -14,6 +15,7 @@ interface PreviewStepProps {
 }
 
 export function PreviewStep({
+  html = "",
   markdown,
   isGenerating,
   lastGeneratedAt,
@@ -42,10 +44,11 @@ export function PreviewStep({
   const currentWordArtifactTitle =
     (latestArtifact as { title?: string | null } | null)?.title ?? null;
   const hasMarkdownContent = markdown.trim().length > 0;
+  const hasHtmlContent = html.trim().length > 0;
   const hasBackendArtifact = Boolean(exportArtifactId);
   const hasContent =
     capabilityStatus === "backend_ready" &&
-    (hasMarkdownContent || hasBackendArtifact);
+    (hasHtmlContent || hasMarkdownContent || hasBackendArtifact);
 
   return (
     <div className="space-y-4">
@@ -98,7 +101,14 @@ export function PreviewStep({
 
         {hasContent ? (
           <div className="mt-4 rounded-2xl border border-zinc-200 bg-zinc-50/70 p-5">
-            {hasMarkdownContent ? (
+            {hasHtmlContent ? (
+              <iframe
+                title="word-preview"
+                srcDoc={html}
+                sandbox="allow-same-origin"
+                className="h-[720px] w-full rounded-xl border border-zinc-200 bg-white"
+              />
+            ) : hasMarkdownContent ? (
               <article className="prose prose-zinc max-w-none text-sm leading-6 prose-headings:mb-2 prose-headings:mt-4 prose-p:my-1">
                 <ReactMarkdown remarkPlugins={[remarkGfm]}>
                   {markdown}
@@ -117,7 +127,7 @@ export function PreviewStep({
               暂未收到后端真实文档内容
             </p>
             <p className="mt-1 text-[11px] text-zinc-500">
-              生成完成后，这里会直接显示由后端导出的预览文本。
+              生成完成后，这里会直接显示由后端导出的版式化预览。
             </p>
           </div>
         )}

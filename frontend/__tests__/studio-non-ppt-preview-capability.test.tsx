@@ -62,9 +62,25 @@ function buildFlowContext(
 }
 
 describe("non-ppt preview capability notice", () => {
+  it("word preview prefers backend html iframe when present", () => {
+    render(
+      <WordPreviewStep
+        html="<!doctype html><html><body><main>Styled Word Preview</main></body></html>"
+        markdown=""
+        isGenerating={false}
+        lastGeneratedAt={null}
+        flowContext={buildFlowContext("backend_ready")}
+      />
+    );
+
+    const frame = screen.getByTitle("word-preview");
+    expect(frame).toBeInTheDocument();
+  });
+
   it("word preview shows backend status and no fake frontend draft", () => {
     render(
       <WordPreviewStep
+        html=""
         markdown=""
         isGenerating={false}
         lastGeneratedAt={null}

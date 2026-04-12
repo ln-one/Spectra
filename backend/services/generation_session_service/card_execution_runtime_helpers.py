@@ -4,6 +4,7 @@ import json
 
 from schemas.project_space import ArtifactType
 from services.project_space_service import project_space_service
+from utils.docx_content_sidecar import load_docx_content_sidecar
 from utils.exceptions import APIException, ErrorCode
 
 from .card_source_bindings import get_card_source_artifact_types
@@ -102,6 +103,9 @@ async def load_artifact_content(artifact) -> dict:
     storage_path = getattr(artifact, "storagePath", None)
     if not storage_path:
         return {}
+    artifact_type = str(getattr(artifact, "type", "") or "").strip().lower()
+    if artifact_type == ArtifactType.DOCX.value:
+        return load_docx_content_sidecar(storage_path)
     with open(storage_path, "r", encoding="utf-8") as handle:
         data = json.load(handle)
     return data if isinstance(data, dict) else {}

@@ -59,7 +59,7 @@ async def test_build_studio_tool_artifact_content_strict_validates_minimum_field
     assert exc.error_code == ErrorCode.INVALID_INPUT
     assert exc.details["card_id"] == card_id
     assert exc.details["phase"] == "validate"
-    assert exc.details["failure_reason"].startswith("field_")
+    assert exc.details["failure_reason"].startswith(("field_", "missing_field_"))
 
 
 @pytest.mark.asyncio
@@ -172,6 +172,58 @@ async def test_build_studio_tool_artifact_content_allow_mode_uses_fallback(
     assert payload["kind"] == "mindmap"
     assert isinstance(payload["nodes"], list)
     assert payload["nodes"]
+
+
+@pytest.mark.asyncio
+async def test_build_studio_tool_artifact_content_word_document_builds_structured_layout(
+    monkeypatch,
+):
+    monkeypatch.setenv("STUDIO_TOOL_FALLBACK_MODE", "strict")
+    monkeypatch.setenv("STUDIO_TOOL_ENABLE_AI_GENERATION", "true")
+    monkeypatch.setattr(
+        tool_content_builder,
+        "_load_rag_snippets",
+        AsyncMock(return_value=["rag snippet"]),
+    )
+    monkeypatch.setattr(
+        tool_content_builder,
+        "_load_source_artifact_hint",
+        AsyncMock(return_value=None),
+    )
+    monkeypatch.setattr(
+        tool_content_builder.ai_service,
+        "generate",
+        AsyncMock(
+            return_value={
+                "content": (
+                    '{"title":"进程管理学生讲义","summary":"面向学生的课堂讲义。",'
+                    '"document_variant":"student_handout",'
+                    '"layout_payload":{"learning_goals":["理解进程概念"],'
+                    '"key_terms":[{"term":"进程","explanation":"程序的一次执行过程"}],'
+                    '"core_concepts":[{"heading":"核心知识","bullets":["概念","特征"]}],'
+                    '"worked_examples":[{"title":"例题一","steps":["审题","分析","作答"]}],'
+                    '"practice_tasks":["完成课后练习"],'
+                    '"summary_box":"抓住概念边界。",'
+                    '"after_class_notes":["整理错题"]}}'
+                ),
+                "model": "openai/gpt-4o-mini",
+            }
+        ),
+    )
+
+    payload = await tool_content_builder.build_studio_tool_artifact_content(
+        card_id="word_document",
+        project_id="p-001",
+        config={"topic": "进程管理", "document_variant": "student_handout"},
+    )
+
+    assert payload is not None
+    assert payload["kind"] == "word_document"
+    assert payload["document_variant"] == "student_handout"
+    assert payload["layout_version"] == "v1"
+    assert payload["sections"]
+    assert "<html" in payload["preview_html"]
+    assert "<html" in payload["doc_source_html"]
 
 
 @pytest.mark.asyncio

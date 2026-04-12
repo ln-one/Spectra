@@ -18,6 +18,7 @@ from services.artifact_generator.office_placeholders import (
     generate_pptx_placeholder,
 )
 from services.artifact_generator.policies import allow_office_placeholder_artifacts
+from utils.docx_content_sidecar import write_docx_content_sidecar
 
 logger = logging.getLogger(__name__)
 
@@ -124,6 +125,25 @@ class ArtifactOfficeMixin:
             temp_md.unlink(missing_ok=True)
         return output_path.exists() and output_path.stat().st_size > 0
 
+    async def _render_docx_with_pandoc_html(self, storage_path: str, html_content: str) -> bool:
+        try:
+            from services.generation.pandoc_generator import call_pandoc
+        except Exception as exc:
+            logger.debug("Pandoc renderer unavailable in artifact generator: %s", exc)
+            return False
+
+        output_path = Path(storage_path)
+        temp_html = output_path.with_name(f".tmp-{uuid4().hex}.html")
+        temp_html.write_text(html_content, encoding="utf-8")
+        try:
+            await call_pandoc(temp_html, output_path)
+        except Exception as exc:
+            logger.warning("Pandoc HTML render failed, fallback to local generator: %s", exc)
+            return False
+        finally:
+            temp_html.unlink(missing_ok=True)
+        return output_path.exists() and output_path.stat().st_size > 0
+
     async def generate_pptx(
         self, content: Dict[str, Any], project_id: str, artifact_id: str
     ) -> str:
@@ -185,8 +205,17 @@ class ArtifactOfficeMixin:
         storage_path = self.get_storage_path(project_id, "docx", artifact_id)
         title = str(content.get("title", "Project Space DOCX")).strip()
         markdown = self._build_doc_markdown(content, title)
+        doc_source_html = str(content.get("doc_source_html") or "").strip()
+
+        if doc_source_html and await self._render_docx_with_pandoc_html(
+            storage_path, doc_source_html
+        ):
+            write_docx_content_sidecar(storage_path, content)
+            logger.info("Generated DOCX artifact via Pandoc HTML at %s", storage_path)
+            return storage_path
 
         if await self._render_docx_with_pandoc(storage_path, markdown):
+            write_docx_content_sidecar(storage_path, content)
             logger.info("Generated DOCX artifact via Pandoc at %s", storage_path)
             return storage_path
 
@@ -215,6 +244,7 @@ class ArtifactOfficeMixin:
                         document.add_paragraph(section_content)
 
                 document.save(storage_path)
+                write_docx_content_sidecar(storage_path, content)
                 logger.info("Generated DOCX artifact at %s", storage_path)
                 return storage_path
             except Exception as exc:
