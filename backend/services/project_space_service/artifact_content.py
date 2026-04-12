@@ -174,13 +174,28 @@ def normalize_artifact_content(
         and mode == ArtifactMetadataKind.OUTLINE.value
     ):
         normalized["nodes"] = normalized.get("nodes") or []
-    elif artifact_type == ArtifactType.GIF.value:
+    elif artifact_type in {ArtifactType.GIF.value, ArtifactType.MP4.value}:
         normalized.setdefault("kind", "animation_storyboard")
-        normalized["format"] = "gif"
+        normalized["format"] = (
+            "mp4" if artifact_type == ArtifactType.MP4.value else "gif"
+        )
         normalized.setdefault("duration_seconds", incoming.get("duration_seconds", 6))
         normalized.setdefault("rhythm", incoming.get("rhythm") or "balanced")
         normalized.setdefault("focus", incoming.get("focus") or "")
         normalized["placements"] = list(incoming.get("placements") or [])
+        normalized["render_mode"] = str(
+            incoming.get("render_mode")
+            or ("cloud_video_wan" if artifact_type == ArtifactType.MP4.value else "gif")
+        ).strip()
+        normalized["cloud_video_provider"] = str(
+            incoming.get("cloud_video_provider") or ""
+        ).strip()
+        normalized["cloud_video_prompt"] = str(
+            incoming.get("cloud_video_prompt") or ""
+        ).strip()
+        normalized["negative_prompt"] = str(
+            incoming.get("negative_prompt") or ""
+        ).strip()
         normalized["render_spec"] = normalize_animation_spec(normalized)
     elif (
         artifact_type == ArtifactType.HTML.value
@@ -208,23 +223,33 @@ def build_artifact_metadata(
     title = content.get("title")
     if isinstance(title, str) and title.strip():
         metadata["title"] = title.strip()
-    if artifact_type == ArtifactType.GIF.value and kind == "animation_storyboard":
+    if (
+        artifact_type in {ArtifactType.GIF.value, ArtifactType.MP4.value}
+        and kind == "animation_storyboard"
+    ):
         render_spec = normalize_animation_spec(content)
         metadata["summary"] = str(content.get("summary") or "").strip()
         metadata["topic"] = str(content.get("topic") or "").strip()
         metadata["scene"] = str(content.get("scene") or "").strip()
-        metadata["format"] = str(content.get("format") or "gif").strip().lower()
+        metadata["format"] = str(content.get("format") or artifact_type).strip().lower()
         metadata["duration_seconds"] = content.get("duration_seconds")
         metadata["rhythm"] = str(content.get("rhythm") or "").strip()
         metadata["focus"] = str(content.get("focus") or "").strip()
         metadata["visual_type"] = str(render_spec.get("visual_type") or "").strip()
+        metadata["render_mode"] = str(content.get("render_mode") or "").strip()
+        metadata["cloud_video_provider"] = str(
+            content.get("cloud_video_provider") or ""
+        ).strip()
+        metadata["cloud_video_prompt"] = str(
+            content.get("cloud_video_prompt") or ""
+        ).strip()
         metadata["content_snapshot"] = {
             "kind": kind,
             "title": metadata.get("title") or "教学动画",
             "summary": metadata.get("summary") or "",
             "topic": metadata.get("topic") or "",
             "scene": metadata.get("scene") or "",
-            "format": metadata.get("format") or "gif",
+            "format": metadata.get("format") or artifact_type,
             "duration_seconds": content.get("duration_seconds"),
             "rhythm": metadata.get("rhythm") or "",
             "focus": metadata.get("focus") or "",
@@ -232,6 +257,9 @@ def build_artifact_metadata(
             "scenes": list(content.get("scenes") or []),
             "render_spec": render_spec,
             "placements": list(content.get("placements") or []),
+            "render_mode": metadata.get("render_mode") or "",
+            "cloud_video_provider": metadata.get("cloud_video_provider") or "",
+            "cloud_video_prompt": metadata.get("cloud_video_prompt") or "",
         }
     metadata["mode"] = artifact_mode
     metadata["is_current"] = True

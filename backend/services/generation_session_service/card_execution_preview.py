@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from schemas.project_space import ArtifactType, ArtifactVisibility
 from schemas.studio_cards import (
@@ -29,9 +29,11 @@ def _animation_visual_label(visual_type: str) -> str:
 
 
 def _build_animation_base_content(cfg: dict) -> dict:
+    render_mode = str(cfg.get("render_mode") or "gif").strip().lower()
+    is_cloud_video = render_mode == "cloud_video_wan"
     return {
         "kind": "animation_storyboard",
-        "format": "gif",
+        "format": "mp4" if is_cloud_video else "gif",
         "topic": cfg.get("topic"),
         "style_pack": cfg.get("style_pack") or "teaching_ppt_cartoon",
         "visual_type": cfg.get("visual_type"),
@@ -42,7 +44,16 @@ def _build_animation_base_content(cfg: dict) -> dict:
         "focus": cfg.get("focus") or cfg.get("topic"),
         "summary": cfg.get("motion_brief") or cfg.get("topic"),
         "placements": [],
+        "render_mode": render_mode,
+        "cloud_video_provider": "aliyun_wan" if is_cloud_video else None,
     }
+
+
+def _resolve_animation_artifact_type(cfg: dict) -> str:
+    render_mode = str(cfg.get("render_mode") or "gif").strip().lower()
+    if render_mode == "cloud_video_wan":
+        return ArtifactType.MP4.value
+    return ArtifactType.GIF.value
 
 
 def _estimate_animation_duration_guidance(spec: dict, selected_duration: float) -> dict:
@@ -91,7 +102,16 @@ def _estimate_animation_duration_guidance(spec: dict, selected_duration: float) 
 
     if any(
         keyword in semantic_text
-        for keyword in ("解释", "讲解", "原因", "因果", "完整流程", "全链路", "机制", "推导")
+        for keyword in (
+            "解释",
+            "讲解",
+            "原因",
+            "因果",
+            "完整流程",
+            "全链路",
+            "机制",
+            "推导",
+        )
     ):
         comfortable_duration += 1.2
 
@@ -411,6 +431,9 @@ def build_studio_card_execution_preview(
         spec_preview, spec_candidates, spec_confidence, needs_user_choice = (
             _build_animation_spec_preview(cfg)
         )
+        artifact_type = _resolve_animation_artifact_type(cfg)
+        render_mode = str(cfg.get("render_mode") or "gif").strip().lower()
+        is_cloud_video = artifact_type == ArtifactType.MP4.value
         return StudioCardExecutionPreview(
             card_id=card_id,
             readiness=StudioCardReadiness.FOUNDATION_READY,
@@ -418,25 +441,15 @@ def build_studio_card_execution_preview(
                 method="POST",
                 endpoint=f"/api/v1/projects/{project_id}/artifacts",
                 payload={
-                    "type": ArtifactType.GIF.value,
+                    "type": artifact_type,
                     "visibility": artifact_visibility,
                     "rag_source_ids": rag_source_ids or [],
-                    "content": {
-                        "kind": "animation_storyboard",
-                        "format": "gif",
-                        "topic": cfg.get("topic"),
-                        "style_pack": cfg.get("style_pack") or "teaching_ppt_cartoon",
-                        "visual_type": cfg.get("visual_type"),
-                        "scene": cfg.get("scene"),
-                        "speed": cfg.get("speed"),
-                        "duration_seconds": cfg.get("duration_seconds", 6),
-                        "rhythm": cfg.get("rhythm", "balanced"),
-                        "focus": cfg.get("focus") or cfg.get("topic"),
-                        "summary": cfg.get("motion_brief") or cfg.get("topic"),
-                        "placements": [],
-                    },
+                    "content": _build_animation_base_content(cfg),
                 },
-                notes="动画卡片第一阶段固定输出 GIF，并作为独立 artifact 入库。",
+                notes=(
+                    "动画卡片默认输出 GIF；当 render_mode=cloud_video_wan 时，"
+                    "会调用阿里百炼 Wan 并生成 MP4 独立 artifact。"
+                ),
             ),
             refine_request=StudioCardResolvedRequest(
                 method="POST",
@@ -452,12 +465,21 @@ def build_studio_card_execution_preview(
                         "focus": cfg.get("focus") or cfg.get("topic"),
                         "visual_type": cfg.get("visual_type"),
                         "style_pack": cfg.get("style_pack") or "teaching_ppt_cartoon",
+                        "render_mode": render_mode,
                     },
                     "metadata": {"card_id": card_id},
                 },
-                notes="动画 refine 通过 replacement GIF artifact 收口，不反向覆盖已插入的 PPT。",
+                notes=(
+                    "动画 refine 会生成 replacement artifact；GIF 模式不反向覆盖已插入的 PPT，"
+                    "云视频模式会延续 render_mode 并重新生成 MP4。"
+                ),
             ),
-            spec_preview=spec_preview,
+            spec_preview={
+                **spec_preview,
+                "render_mode": render_mode,
+                "artifact_type": artifact_type,
+                "cloud_video_provider": "aliyun_wan" if is_cloud_video else None,
+            },
             spec_candidates=spec_candidates,
             spec_confidence=spec_confidence,
             needs_user_choice=needs_user_choice,
@@ -619,4 +641,3 @@ def build_studio_card_execution_preview(
         )
 
     return None
-

@@ -1309,6 +1309,7 @@ async def test_preview_studio_card_execution_returns_animation_spec_preview(
                 "motion_brief": "突出各层职责差异与封装关系",
                 "focus": "强调应用层到物理层的顺序与作用",
                 "visual_type": "structure_breakdown",
+                "style_pack": "teaching_ppt_deep_blue",
                 "duration_seconds": 8,
                 "rhythm": "balanced",
             },
@@ -1322,15 +1323,15 @@ async def test_preview_studio_card_execution_returns_animation_spec_preview(
         "structure_breakdown"
     )
     assert preview["initial_request"]["payload"]["content"]["style_pack"] == (
-        "teaching_ppt_cartoon"
+        "teaching_ppt_deep_blue"
     )
     assert preview["refine_request"]["payload"]["config"]["visual_type"] == (
         "structure_breakdown"
     )
     assert preview["refine_request"]["payload"]["config"]["style_pack"] == (
-        "teaching_ppt_cartoon"
+        "teaching_ppt_deep_blue"
     )
-    assert preview["spec_preview"]["style_pack"] == "teaching_ppt_cartoon"
+    assert preview["spec_preview"]["style_pack"] == "teaching_ppt_deep_blue"
     assert preview["spec_preview"]["visual_type"] == "structure_breakdown"
     assert preview["spec_preview"]["visual_label"] == "结构拆解"
     assert isinstance(preview["spec_preview"]["scenes"], list)
