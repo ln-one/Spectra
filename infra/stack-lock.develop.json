@@ -30,10 +30,10 @@
     "stratumind": {
       "image": "ghcr.io/ln-one/stratumind",
       "tag": "latest",
-      "digest": "sha256:9093be5d4bd38cf785715404e9027dd8bb5a8d2343934e5ff309aa2ee6449dc0",
+      "digest": "sha256:c49f0a3e676a94257f351feb9c67a54b3529a6a768c6bd1ec1b3173aa00eb55c",
       "source_branch": "develop",
       "published": true,
-      "notes": "Pinned from GHCR latest manifest on 2026-04-11. Lock-only mode requires the package to remain anonymously pullable."
+      "notes": "Pinned from GHCR latest manifest on 2026-04-12. Lock-only mode requires the package to remain anonymously pullable."
     }
   }
 }
