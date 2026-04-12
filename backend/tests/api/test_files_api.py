@@ -278,6 +278,8 @@ def test_batch_upload_persists_idempotency_on_miss(client, monkeypatch, _as_user
         "files:batch:u-001:p-001:s-001:00000000-0000-0000-0000-000000000014"
     )
     save_idempotency.assert_awaited_once()
+
+
 def test_update_file_intent_success(client, monkeypatch, _as_user):
     _mock(monkeypatch, db_service, "get_file", _fake_upload())
     _mock(monkeypatch, db_service, "get_project", _fake_project())

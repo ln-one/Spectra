@@ -260,7 +260,9 @@ async def test_start_remote_parse_upload_passes_execution(monkeypatch):
     )
     execution = dict(_GENERIC_IMAGE_EXECUTION)
     monkeypatch.setattr(remote_parse, "build_dualweave_client", lambda **kwargs: client)
-    monkeypatch.setattr(remote_parse, "build_dualweave_execution", lambda file_type: execution)
+    monkeypatch.setattr(
+        remote_parse, "build_dualweave_execution", lambda file_type: execution
+    )
 
     outcome = await remote_parse.start_remote_parse_upload(
         db=db,

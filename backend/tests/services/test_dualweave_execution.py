@@ -14,8 +14,14 @@ def test_dualweave_execution_builds_document_template(monkeypatch):
     assert execution["local"]["kind"] == "localfs"
     assert execution["custom"]["kind"] == "brokered_http_upload"
     custom_config = execution["custom"]["config"]
-    assert custom_config["prepare"]["url"] == "https://mineru.example/api/v4/file-urls/batch"
-    assert custom_config["workflow"]["url"] == "https://mineru.example/api/v4/extract-results/batch/{job_id}"
+    assert (
+        custom_config["prepare"]["url"]
+        == "https://mineru.example/api/v4/file-urls/batch"
+    )
+    assert (
+        custom_config["workflow"]["url"]
+        == "https://mineru.example/api/v4/extract-results/batch/{job_id}"
+    )
     assert custom_config["auth"]["kind"] == "auth/header_token"
     assert custom_config["auth"]["config"]["token_env"] == "MINERU_TOKEN"
     assert execution["workflow_options"]["poll_interval"] == "3s"

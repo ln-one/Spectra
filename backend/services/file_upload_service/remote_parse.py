@@ -31,6 +31,7 @@ from .serialization import safe_parse_json_object
 
 logger = logging.getLogger(__name__)
 
+
 def remote_parse_reconcile_delay_seconds() -> int:
     raw = os.getenv("DUALWEAVE_RECONCILE_DELAY_SECONDS", "5").strip()
     try:
@@ -47,7 +48,10 @@ def should_use_dualweave_remote_parse(file_type: str) -> bool:
     normalized = normalize_file_type(file_type)
     if not dualweave_remote_parse_supported(normalized):
         return False
-    return build_dualweave_client() is not None and build_dualweave_execution(normalized) is not None
+    return (
+        build_dualweave_client() is not None
+        and build_dualweave_execution(normalized) is not None
+    )
 
 
 def _extract_dualweave_upload_id(parse_result: dict[str, Any]) -> str:
@@ -94,7 +98,9 @@ def _build_execution_trace(execution: Optional[dict[str, Any]]) -> dict[str, Any
     return compact
 
 
-def _build_remote_parse_result(result: dict[str, Any], file_type: str) -> dict[str, Any]:
+def _build_remote_parse_result(
+    result: dict[str, Any], file_type: str
+) -> dict[str, Any]:
     parse_result = build_dualweave_parse_result(result)
     if normalize_file_type(file_type) == FileType.IMAGE:
         parse_result.setdefault("images_extracted", 1)

@@ -196,7 +196,9 @@ def _build_document_execution() -> dict[str, Any]:
             "auth": {
                 "kind": "auth/header_token",
                 "config": {
-                    "header": _getenv("DUALWEAVE_DOCUMENT_AUTH_HEADER", "Authorization"),
+                    "header": _getenv(
+                        "DUALWEAVE_DOCUMENT_AUTH_HEADER", "Authorization"
+                    ),
                     "prefix": _getenv("DUALWEAVE_DOCUMENT_AUTH_PREFIX", "Bearer"),
                     "token_env": _getenv(
                         "DUALWEAVE_DOCUMENT_TOKEN_ENV", "MINERU_CLOUD_API_TOKEN"

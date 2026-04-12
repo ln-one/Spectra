@@ -106,7 +106,11 @@ async def test_prepare_uploaded_file_starts_remote_parse_and_enqueues_reconcile(
 
     task_queue_service = SimpleNamespace()
     payload = await _prepare_uploaded_file(
-        request=SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace(task_queue_service=task_queue_service))),
+        request=SimpleNamespace(
+            app=SimpleNamespace(
+                state=SimpleNamespace(task_queue_service=task_queue_service)
+            )
+        ),
         background_tasks=SimpleNamespace(add_task=lambda *args, **kwargs: None),
         file=SimpleNamespace(filename="lesson.pdf"),
         project_id="p-001",
