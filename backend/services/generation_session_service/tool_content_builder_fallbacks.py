@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import logging
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 SUPPORTED_CARD_IDS = {
     "courseware_ppt",
@@ -288,27 +291,101 @@ def fallback_simulator_content(
     }
 
 
+async def generate_animation_content(
+    config: dict[str, Any], rag_snippets: list[str]
+) -> dict[str, Any]:
+    """Generate animation content, using LLM spec generation when possible.
+
+    Falls back to the rule-based template if LLM is unavailable or fails.
+    """
+    from services.artifact_generator.animation_spec_llm import (
+        generate_animation_spec_with_llm,
+        merge_llm_spec_into_content,
+    )
+    from services.artifact_generator.animation_spec import normalize_animation_spec
+
+    topic = str(config.get("topic") or "演示主题")
+    render_mode = str(config.get("render_mode") or "gif").strip().lower()
+    duration_seconds = int(config.get("duration_seconds") or 6)
+    rhythm = str(config.get("rhythm") or "balanced")
+    focus = str(config.get("focus") or topic)
+    description = rag_snippets[0][:140] if rag_snippets else f"围绕{topic}展示关键过程。"
+
+    base_content: dict[str, Any] = {
+        "topic": topic,
+        "title": f"{topic}演示动画",
+        "summary": description,
+        "focus": focus,
+        "duration_seconds": duration_seconds,
+        "rhythm": rhythm,
+        "render_mode": render_mode,
+        "style_pack": str(config.get("style_pack") or ""),
+        "theme": config.get("theme"),
+    }
+
+    # Attempt LLM-driven spec generation
+    llm_spec = await generate_animation_spec_with_llm(base_content, rag_snippets)
+    if llm_spec:
+        merged = merge_llm_spec_into_content(base_content, llm_spec)
+    else:
+        # Rule-based fallback: keep original keyword-matching logic
+        logger.info("animation fallback: using rule-based spec for topic=%s", topic)
+        merged = base_content
+
+    # Always pass through normalize_animation_spec for consistent output shape
+    spec = normalize_animation_spec(merged)
+
+    return {
+        "kind": "animation_storyboard",
+        "title": spec["title"],
+        "summary": spec["summary"] or description,
+        "format": "mp4" if render_mode == "cloud_video_wan" else "gif",
+        "topic": spec["topic"],
+        "duration_seconds": spec["duration_seconds"],
+        "rhythm": spec["rhythm"],
+        "focus": spec["focus"],
+        "visual_type": spec["visual_type"],
+        "subject_family": spec["subject_family"],
+        "render_mode": render_mode,
+        "cloud_video_provider": (
+            "aliyun_wan" if render_mode == "cloud_video_wan" else None
+        ),
+        "placements": [],
+        "scenes": spec["scenes"],
+        "objects": spec.get("objects", []),
+        "object_details": spec.get("object_details", []),
+    }
+
+
 def fallback_animation_content(
     config: dict[str, Any], rag_snippets: list[str]
 ) -> dict[str, Any]:
+    """Synchronous rule-based fallback (kept for contexts that cannot await)."""
     topic = str(config.get("topic") or "演示主题")
+    render_mode = str(config.get("render_mode") or "gif").strip().lower()
     duration_seconds = int(config.get("duration_seconds") or 6)
     rhythm = str(config.get("rhythm") or "balanced")
     focus = str(config.get("focus") or topic)
     description = (
         rag_snippets[0][:140] if rag_snippets else f"围绕{topic}展示关键过程。"
     )
-    visual_type = "relationship_change" if "变化" in topic or "关系" in topic else "process_flow"
+    visual_type = (
+        "relationship_change" if "变化" in topic or "关系" in topic else "process_flow"
+    )
     return {
         "kind": "animation_storyboard",
         "title": f"{topic}演示动画",
         "summary": description,
-        "format": "gif",
+        "format": "mp4" if render_mode == "cloud_video_wan" else "gif",
         "topic": topic,
         "duration_seconds": duration_seconds,
         "rhythm": rhythm,
         "focus": focus,
         "visual_type": visual_type,
+        "render_mode": render_mode,
+        "cloud_video_provider": (
+            "aliyun_wan" if render_mode == "cloud_video_wan" else None
+        ),
         "placements": [],
         "scenes": [
             {
@@ -463,6 +540,27 @@ def fallback_simulator_turn_result(
     return updated_content, turn_result
 
 
+async def fallback_content_async(
+    *,
+    card_id: str,
+    config: dict[str, Any],
+    rag_snippets: list[str],
+    source_hint: str | None = None,
+    source_artifact_id: str | None = None,
+) -> dict[str, Any]:
+    """Async version of fallback_content; uses LLM for demonstration_animations."""
+    if card_id == "demonstration_animations":
+        return await generate_animation_content(config, rag_snippets)
+    # All other cards are synchronous – wrap in a plain return
+    return fallback_content(
+        card_id=card_id,
+        config=config,
+        rag_snippets=rag_snippets,
+        source_hint=source_hint,
+        source_artifact_id=source_artifact_id,
+    )
+
+
 def fallback_content(
     *,
     card_id: str,
@@ -490,4 +588,5 @@ def fallback_content(
             source_hint,
             source_artifact_id,
         )
+    # Synchronous rule-based fallback for animation (no LLM)
     return fallback_animation_content(config, rag_snippets)

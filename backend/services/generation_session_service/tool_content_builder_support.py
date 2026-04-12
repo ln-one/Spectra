@@ -202,7 +202,9 @@ def build_schema_hint(card_id: str) -> str | None:
             '"feedback":""}]}'
         ),
         "demonstration_animations": (
-            '{"title":"", "summary":"", "format":"gif", '
+            '{"title":"", "summary":"", "format":"gif|mp4", '
+            '"render_mode":"gif|cloud_video_wan", '
+            '"style_pack":"teaching_ppt_cartoon|teaching_ppt_fresh_green|teaching_ppt_deep_blue|teaching_ppt_warm_orange|teaching_ppt_minimal_gray", '  # noqa: E501
             '"visual_type":"process_flow", '
             '"scenes":[{"title":"","description":"","emphasis":""}]}'
         ),

@@ -12,6 +12,7 @@ from services.generation_session_service.tool_content_builder_fallbacks import (
     SUPPORTED_CARD_IDS,
     card_query_text,
     fallback_content,
+    fallback_content_async,
     fallback_simulator_turn_result,
 )
 from services.generation_session_service.tool_content_builder_support import (
@@ -288,7 +289,7 @@ async def build_studio_tool_artifact_content(
             exc,
         )
 
-    fallback_payload = fallback_content(
+    fallback_payload = await fallback_content_async(
         card_id=card_id,
         config=cfg,
         rag_snippets=rag_snippets,
