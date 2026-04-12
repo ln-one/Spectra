@@ -73,10 +73,19 @@ const main = async () => {
 
 // Frontend checks
 console.log('📦 Frontend checks...');
-console.log('  ├─ Building...');
-if (!runCommand('npm run build', frontendDir)) {
-  console.error('\n❌ Frontend build failed!');
-  process.exit(1);
+const frontendChecks = [
+  ['Linting...', 'npm run lint', 'Frontend lint failed!'],
+  ['Checking formatting...', 'npm run format:check', 'Frontend format check failed!'],
+  ['Running tests...', 'npm test', 'Frontend tests failed!'],
+  ['Building...', 'npm run build', 'Frontend build failed!'],
+];
+
+for (const [label, command, failureMessage] of frontendChecks) {
+  console.log(`  ├─ ${label}`);
+  if (!runCommand(command, frontendDir)) {
+    console.error(`\n❌ ${failureMessage}`);
+    process.exit(1);
+  }
 }
 
 // Backend checks
