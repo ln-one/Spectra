@@ -230,8 +230,6 @@ _HTML_TEMPLATE = """<!doctype html>
     function renderChip(x, y, text, fill, stroke, textColor) {
       const chipText = splitTextLines(text, 12, 1)[0] || "";
       const width = Math.max(120, Math.min(240, chipText.length * 14 + 32));
-      const revealTrack = 124 + progress * 560;
-      const reviewProgress = 132 + progress * 332;
       return `
         <g transform="translate(${x}, ${y})">
           <rect width="${width}" height="36" rx="18" fill="${fill}" stroke="${stroke}" />
@@ -496,8 +494,63 @@ _HTML_TEMPLATE = """<!doctype html>
       return "focus";
     }
 
+    function resolveSubjectFamily(spec) {
+      const family = String(spec?.subject_family || "").trim().toLowerCase();
+      if (family) {
+        return family;
+      }
+      if (spec?.visual_type === "relationship_change") {
+        return "trend_change";
+      }
+      if (spec?.visual_type === "structure_breakdown") {
+        return "structure_layers";
+      }
+      return "generic_process";
+    }
+
+    function resolveLayoutType(spec) {
+      const layoutType = String(spec?.layout_type || "").trim().toLowerCase();
+      if (layoutType) {
+        return layoutType;
+      }
+      const family = resolveSubjectFamily(spec);
+      const defaults = {
+        protocol_exchange: "two_party_sequence",
+        traversal_path: "traversal_map",
+        energy_transfer: "energy_track",
+        lifecycle_cycle: "cycle_stages",
+        structure_layers: "layer_stack",
+        trend_change: "trend_curve",
+      };
+      return defaults[family] || "horizontal_pipeline";
+    }
+
+    function resolveSemanticObjects(spec, sceneNodes) {
+      const details = Array.isArray(spec?.object_details) ? spec.object_details : [];
+      if (details.length > 0) {
+        return details.map((item, index) => ({
+          id: item?.id || `obj_${index + 1}`,
+          label: item?.label || `对象 ${index + 1}`,
+          kind: item?.kind || "step",
+          role: item?.role || "",
+        }));
+      }
+      const nodes = Array.isArray(sceneNodes) ? sceneNodes : [];
+      return nodes.slice(0, 6).map((sceneItem, index) => ({
+        id: sceneItem?.id || `obj_${index + 1}`,
+        label: sceneItem?.title || `步骤 ${index + 1}`,
+        kind: "step",
+        role: sceneItem?.description || "",
+      }));
+    }
+
     function resolveProcessActors(spec) {
       const text = `${spec?.title || ""} ${spec?.topic || ""} ${spec?.summary || ""}`;
+      const semanticObjects = resolveSemanticObjects(spec, spec?.scenes || []);
+      const endpoints = semanticObjects.filter((item) => item.kind === "endpoint");
+      if (endpoints.length >= 2) {
+        return [endpoints[0].label, endpoints[1].label];
+      }
       if (text.includes("TCP") || text.includes("握手") || text.includes("连接")) {
         return ["客户端", "服务器"];
       }
@@ -631,6 +684,265 @@ _HTML_TEMPLATE = """<!doctype html>
       return Math.max(0, Math.min(2, sceneIndex));
     }
 
+    function renderTraversalFlow(spec, scene, progress, sceneIndex = 0) {
+      const theme = spec.theme || {};
+      const semanticObjects = resolveSemanticObjects(spec, spec?.scenes || []);
+      const sceneCount = Array.isArray(spec.scenes) ? spec.scenes.length : 1;
+      const shot = resolveProcessShot(scene, sceneIndex, sceneCount);
+      const focusSequence = Array.isArray(scene?.focus_sequence) && scene.focus_sequence.length > 0
+        ? scene.focus_sequence
+        : semanticObjects.map((item) => item.label);
+      const labels = focusSequence.length > 0 ? focusSequence : semanticObjects.map((item) => item.label);
+      const activeIndex = shot === "summary"
+        ? Math.max(labels.length - 1, 0)
+        : Math.min(Math.max(labels.length - 1, 0), Math.floor(progress * Math.max(labels.length, 1)));
+      const activeLabel = labels[activeIndex] || semanticObjects[0]?.label || "当前节点";
+      const bullets = resolveBullets(scene, spec, 2);
+      const rootX = 220;
+      const midX = 470;
+      const leafX = 720;
+      const points = [
+        { label: labels[0] || semanticObjects[0]?.label || "根节点", x: rootX, y: 252 },
+        { label: labels[1] || semanticObjects[1]?.label || "左分支", x: midX - 86, y: 324 },
+        { label: labels[2] || semanticObjects[2]?.label || "右分支", x: midX + 86, y: 324 },
+        { label: labels[3] || semanticObjects[3]?.label || "目标节点", x: leafX, y: 234 },
+        { label: labels[4] || semanticObjects[4]?.label || "结果序列", x: leafX, y: 388 },
+      ];
+      const visitTrail = points.slice(0, Math.max(activeIndex + 1, 1));
+      const tracePath = visitTrail.map((item, index) => {
+        return `${index === 0 ? "M" : "L"} ${item.x} ${item.y}`;
+      }).join(" ");
+      const nodes = points.map((item, index) => {
+        const active = item.label === activeLabel || index === activeIndex;
+        const visited = index <= activeIndex;
+        return `
+          <g>
+            ${visited ? `<circle cx="${item.x}" cy="${item.y}" r="${active ? 34 : 26}" fill="${withAlpha(theme.highlight, active ? 0.18 : 0.10)}" />` : ""}
+            <circle cx="${item.x}" cy="${item.y}" r="${active ? 20 : 16}" fill="${active ? theme.highlight : theme.panel}" stroke="${active ? withAlpha(theme.accent_deep, 0.75) : withAlpha(theme.accent, 0.28)}" stroke-width="${active ? 3 : 2.2}" />
+            <text x="${item.x}" y="${item.y + 6}" text-anchor="middle" font-family="__FONT_FAMILY_STACK__" font-size="13" font-weight="800" fill="${active ? theme.text : theme.accent_deep}">
+              ${index + 1}
+            </text>
+            ${renderTextBlock(item.x - 44, item.y + 42, item.label, {
+              fontSize: 13,
+              fill: theme.text,
+              lineHeight: 16,
+              maxChars: 8,
+              maxLines: 2,
+              fontWeight: active ? 700 : 600,
+            })}
+          </g>
+        `;
+      }).join("");
+      const resultCards = labels.slice(0, Math.max(activeIndex + 1, 1)).map((label, index) =>
+        renderChip(
+          564 + (index % 2) * 140,
+          340 + Math.floor(index / 2) * 44,
+          label,
+          withAlpha(theme.panel_alt, 0.9),
+          withAlpha(theme.accent, 0.24),
+          theme.accent_deep
+        )
+      ).join("");
+      return `
+        <g>
+          <rect x="40" y="150" width="880" height="352" rx="34" fill="${withAlpha(theme.panel, 0.96)}" stroke="${withAlpha(theme.accent, 0.18)}" />
+          <rect x="74" y="188" width="454" height="272" rx="26" fill="${withAlpha(theme.panel_alt, 0.78)}" stroke="${withAlpha(theme.accent, 0.18)}" />
+          <rect x="550" y="188" width="326" height="272" rx="28" fill="${withAlpha(theme.highlight, shot === "focus" ? 0.12 : 0.08)}" stroke="${withAlpha(theme.highlight, 0.24)}" />
+          <text x="96" y="220" font-family="__FONT_FAMILY_STACK__" font-size="24" font-weight="800" fill="${theme.accent_deep}">
+            ${shot === "summary" ? "遍历结果回收" : "路径展开与节点访问"}
+          </text>
+          <path d="M ${rootX} ${points[0].y} L ${midX - 86} ${points[1].y}" stroke="${withAlpha(theme.accent, 0.28)}" stroke-width="4" fill="none" />
+          <path d="M ${rootX} ${points[0].y} L ${midX + 86} ${points[2].y}" stroke="${withAlpha(theme.accent, 0.28)}" stroke-width="4" fill="none" />
+          <path d="M ${midX + 86} ${points[2].y} L ${leafX} ${points[3].y}" stroke="${withAlpha(theme.accent, 0.28)}" stroke-width="4" fill="none" />
+          <path d="M ${midX - 86} ${points[1].y} L ${leafX} ${points[4].y}" stroke="${withAlpha(theme.accent, 0.22)}" stroke-width="4" fill="none" />
+          <path d="${tracePath}" stroke="${theme.highlight}" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round" />
+          ${nodes}
+          <circle cx="${visitTrail[visitTrail.length - 1]?.x || rootX}" cy="${visitTrail[visitTrail.length - 1]?.y || points[0].y}" r="${16 + Math.sin(progress * Math.PI * 2) * 3}" fill="none" stroke="${withAlpha(theme.highlight, 0.28)}" stroke-width="3" />
+          <text x="574" y="226" font-family="__FONT_FAMILY_STACK__" font-size="22" font-weight="800" fill="${theme.text}">
+            ${shot === "summary" ? "结果序列" : "当前访问目标"}
+          </text>
+          ${renderTextBlock(574, 262, scene.description || activeLabel || "", {
+            fontSize: 16,
+            fill: theme.text,
+            lineHeight: 22,
+            maxChars: 14,
+            maxLines: 3,
+            fontWeight: 600,
+          })}
+          ${renderChip(574, 314, `当前节点：${activeLabel}`, withAlpha(theme.accent, 0.12), withAlpha(theme.accent, 0.26), theme.accent_deep)}
+          ${resultCards}
+          ${bullets.map((point, index) => `
+            <g transform="translate(576, ${410 + index * 22})">
+              <circle cx="0" cy="0" r="4" fill="${theme.highlight}" />
+              ${renderTextBlock(12, 5, point, {
+                fontSize: 13,
+                fill: theme.text,
+                lineHeight: 16,
+                maxChars: 18,
+                maxLines: 1,
+                fontWeight: 600,
+              })}
+            </g>
+          `).join("")}
+        </g>
+      `;
+    }
+
+    function renderEnergyTransferFlow(spec, scene, progress, sceneIndex = 0) {
+      const theme = spec.theme || {};
+      const semanticObjects = resolveSemanticObjects(spec, spec?.scenes || []);
+      const sceneCount = Array.isArray(spec.scenes) ? spec.scenes.length : 1;
+      const shot = resolveProcessShot(scene, sceneIndex, sceneCount);
+      const labels = semanticObjects.length > 0
+        ? semanticObjects.map((item) => item.label)
+        : ["能量源", "传递通道", "转换单元", "输出结果"];
+      const stageCount = labels.length;
+      const activeIndex = shot === "summary"
+        ? Math.max(stageCount - 1, 0)
+        : Math.min(stageCount - 1, Math.floor(progress * stageCount));
+      const flowX = 144 + clamp(progress, 0, 1) * 612;
+      const waveOffset = Math.sin(progress * Math.PI * 2) * 10;
+      const bullets = resolveBullets(scene, spec, 2);
+      return `
+        <g>
+          <rect x="42" y="154" width="876" height="344" rx="34" fill="${withAlpha(theme.panel, 0.96)}" stroke="${withAlpha(theme.accent, 0.18)}" />
+          <rect x="78" y="194" width="804" height="180" rx="28" fill="${withAlpha(theme.panel_alt, 0.78)}" stroke="${withAlpha(theme.accent, 0.20)}" />
+          <line x1="144" y1="286" x2="756" y2="286" stroke="${withAlpha(theme.accent, 0.34)}" stroke-width="12" stroke-linecap="round" />
+          <line x1="144" y1="286" x2="${flowX}" y2="286" stroke="${withAlpha(theme.highlight, 0.82)}" stroke-width="16" stroke-linecap="round" />
+          ${renderMotionTrail(144, 756, 286, progress, theme.highlight, 5)}
+          <circle cx="${flowX}" cy="${286 + waveOffset * 0.15}" r="18" fill="${theme.highlight}" stroke="${withAlpha(theme.accent_deep, 0.72)}" stroke-width="3" />
+          ${labels.map((label, index) => {
+            const x = 144 + index * (612 / Math.max(stageCount - 1, 1));
+            const active = index <= activeIndex;
+            const current = index === activeIndex;
+            return `
+              <g>
+                <circle cx="${x}" cy="286" r="${current ? 28 : 22}" fill="${active ? theme.accent : theme.panel}" stroke="${current ? withAlpha(theme.highlight, 0.88) : withAlpha(theme.accent, 0.28)}" stroke-width="${current ? 4 : 2.5}" />
+                <text x="${x}" y="293" text-anchor="middle" font-family="__FONT_FAMILY_STACK__" font-size="13" font-weight="800" fill="${active ? withAlpha(theme.panel, 0.96) : theme.accent_deep}">
+                  ${index + 1}
+                </text>
+                ${renderTextBlock(x - 56, 344, label, {
+                  fontSize: 14,
+                  fill: theme.text,
+                  lineHeight: 18,
+                  maxChars: 10,
+                  maxLines: 2,
+                  fontWeight: current ? 700 : 600,
+                })}
+              </g>
+            `;
+          }).join("")}
+          <rect x="94" y="394" width="338" height="72" rx="22" fill="${withAlpha(theme.highlight, 0.10)}" stroke="${withAlpha(theme.highlight, 0.26)}" />
+          <text x="122" y="422" font-family="__FONT_FAMILY_STACK__" font-size="20" font-weight="800" fill="${theme.accent_deep}">
+            当前能量段：${escapeHtml(labels[activeIndex] || "输出结果")}
+          </text>
+          ${renderTextBlock(122, 448, scene.description || spec.summary || "", {
+            fontSize: 14,
+            fill: theme.text,
+            lineHeight: 18,
+            maxChars: 24,
+            maxLines: 1,
+            fontWeight: 600,
+          })}
+          <rect x="464" y="394" width="390" height="72" rx="22" fill="${withAlpha(theme.panel, 0.94)}" stroke="${withAlpha(theme.accent, 0.18)}" />
+          ${bullets.map((point, index) => `
+            <g transform="translate(490, ${422 + index * 20})">
+              <circle cx="0" cy="0" r="4" fill="${theme.highlight}" />
+              ${renderTextBlock(12, 5, point, {
+                fontSize: 13,
+                fill: theme.text,
+                lineHeight: 16,
+                maxChars: 26,
+                maxLines: 1,
+                fontWeight: 600,
+              })}
+            </g>
+          `).join("")}
+        </g>
+      `;
+    }
+
+    function renderLifecycleFlow(spec, scene, progress, sceneIndex = 0) {
+      const theme = spec.theme || {};
+      const semanticObjects = resolveSemanticObjects(spec, spec?.scenes || []);
+      const sceneCount = Array.isArray(spec.scenes) ? spec.scenes.length : 1;
+      const shot = resolveProcessShot(scene, sceneIndex, sceneCount);
+      const labels = semanticObjects.length > 0
+        ? semanticObjects.map((item) => item.label)
+        : (spec.scenes || []).map((item) => item.title || "");
+      const visibleLabels = labels.slice(0, 5);
+      const activeIndex = shot === "summary"
+        ? Math.max(visibleLabels.length - 1, 0)
+        : Math.min(Math.max(visibleLabels.length - 1, 0), Math.floor(progress * Math.max(visibleLabels.length, 1)));
+      const centerX = 334;
+      const centerY = 322;
+      const radius = 118;
+      const orbit = visibleLabels.map((label, index) => {
+        const angle = (-Math.PI / 2) + (Math.PI * 2 * index) / Math.max(visibleLabels.length, 1);
+        return {
+          label,
+          x: centerX + Math.cos(angle) * radius,
+          y: centerY + Math.sin(angle) * radius,
+        };
+      });
+      const activeNode = orbit[activeIndex] || orbit[0] || { label: "当前阶段", x: centerX, y: centerY - radius };
+      const bullets = resolveBullets(scene, spec, 2);
+      return `
+        <g>
+          <rect x="40" y="154" width="880" height="344" rx="34" fill="${withAlpha(theme.panel, 0.96)}" stroke="${withAlpha(theme.accent, 0.18)}" />
+          <rect x="74" y="190" width="520" height="274" rx="30" fill="${withAlpha(theme.panel_alt, 0.78)}" stroke="${withAlpha(theme.accent, 0.18)}" />
+          <circle cx="${centerX}" cy="${centerY}" r="${radius}" fill="none" stroke="${withAlpha(theme.accent, 0.28)}" stroke-width="8" />
+          <circle cx="${centerX}" cy="${centerY}" r="${radius}" fill="none" stroke="${withAlpha(theme.highlight, 0.18)}" stroke-width="16" stroke-dasharray="${Math.round(radius * 2.1)} ${Math.round(radius * 4.1)}" stroke-dashoffset="${Math.round((1 - progress) * radius * 6)}" />
+          ${orbit.map((item, index) => {
+            const active = index === activeIndex;
+            return `
+              <g>
+                <circle cx="${item.x}" cy="${item.y}" r="${active ? 24 : 18}" fill="${active ? theme.highlight : theme.panel}" stroke="${active ? withAlpha(theme.accent_deep, 0.75) : withAlpha(theme.accent, 0.24)}" stroke-width="${active ? 3.5 : 2.2}" />
+                <text x="${item.x}" y="${item.y + 5}" text-anchor="middle" font-family="__FONT_FAMILY_STACK__" font-size="12" font-weight="800" fill="${active ? theme.text : theme.accent_deep}">
+                  ${index + 1}
+                </text>
+                ${renderTextBlock(item.x - 42, item.y + 38, item.label, {
+                  fontSize: 13,
+                  fill: theme.text,
+                  lineHeight: 16,
+                  maxChars: 8,
+                  maxLines: 2,
+                  fontWeight: active ? 700 : 600,
+                })}
+              </g>
+            `;
+          }).join("")}
+          <circle cx="${activeNode.x}" cy="${activeNode.y}" r="${32 + Math.sin(progress * Math.PI * 2) * 4}" fill="none" stroke="${withAlpha(theme.highlight, 0.24)}" stroke-width="3" />
+          <rect x="624" y="190" width="240" height="274" rx="26" fill="${withAlpha(theme.highlight, shot === "summary" ? 0.12 : 0.08)}" stroke="${withAlpha(theme.highlight, 0.24)}" />
+          <text x="652" y="226" font-family="__FONT_FAMILY_STACK__" font-size="22" font-weight="800" fill="${theme.text}">
+            ${shot === "summary" ? "阶段总览" : "当前阶段"}
+          </text>
+          ${renderTextBlock(652, 262, scene.description || activeNode.label || "", {
+            fontSize: 16,
+            fill: theme.text,
+            lineHeight: 22,
+            maxChars: 12,
+            maxLines: 4,
+            fontWeight: 600,
+          })}
+          ${renderChip(652, 354, `聚焦：${activeNode.label}`, withAlpha(theme.accent, 0.12), withAlpha(theme.accent, 0.24), theme.accent_deep)}
+          ${bullets.map((point, index) => `
+            <g transform="translate(654, ${404 + index * 22})">
+              <circle cx="0" cy="0" r="4" fill="${theme.highlight}" />
+              ${renderTextBlock(12, 5, point, {
+                fontSize: 13,
+                fill: theme.text,
+                lineHeight: 16,
+                maxChars: 14,
+                maxLines: 1,
+                fontWeight: 600,
+              })}
+            </g>
+          `).join("")}
+        </g>
+      `;
+    }
+
     function renderProcessIntroScene(spec, scene, progress, sceneNodes) {
       const theme = spec.theme || {};
       const protocol = resolveProcessProtocol(spec, sceneNodes);
@@ -705,6 +1017,7 @@ _HTML_TEMPLATE = """<!doctype html>
           withAlpha(theme.panel, 0.98)
         )
       ).join("");
+      const revealTrack = 124 + progress * 560;
       return `
         <g>
           <rect x="32" y="146" width="896" height="364" rx="36" fill="${withAlpha(theme.accent_deep, 0.88)}" stroke="${withAlpha(theme.panel, 0.22)}" />
@@ -1031,6 +1344,17 @@ _HTML_TEMPLATE = """<!doctype html>
       const scenes = Array.isArray(spec.scenes) && spec.scenes.length > 0
         ? spec.scenes
         : [scene || { title: "步骤 1", description: spec.summary || "" }];
+      const family = resolveSubjectFamily(spec);
+      const layoutType = resolveLayoutType(spec);
+      if (family === "traversal_path" || layoutType === "traversal_map") {
+        return renderTraversalFlow(spec, scene, progress, sceneIndex);
+      }
+      if (family === "energy_transfer" || layoutType === "energy_track") {
+        return renderEnergyTransferFlow(spec, scene, progress, sceneIndex);
+      }
+      if (family === "lifecycle_cycle" || layoutType === "cycle_stages") {
+        return renderLifecycleFlow(spec, scene, progress, sceneIndex);
+      }
       const shot = resolveProcessShot(scene, sceneIndex, scenes.length);
       if (shot === "intro") {
         return renderProcessIntroScene(spec, scene, progress, scenes);
@@ -1183,6 +1507,7 @@ _HTML_TEMPLATE = """<!doctype html>
         `;
       }
 
+      const reviewProgress = 132 + progress * 332;
       return `
         <g>
           <rect x="64" y="176" width="832" height="284" rx="32" fill="${theme.panel}" stroke="${withAlpha(theme.accent, 0.20)}" />

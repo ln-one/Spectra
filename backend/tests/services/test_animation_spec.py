@@ -156,6 +156,9 @@ def test_normalize_animation_spec_uses_protocol_step_scenes_for_tcp_handshake():
         "close",
         "zoom_out",
     ]
+    assert spec["subject_family"] == "protocol_exchange"
+    assert spec["layout_type"] == "two_party_sequence"
+    assert spec["object_details"][0]["kind"] == "endpoint"
     assert "SYN" in spec["scenes"][0]["title"]
     assert "SYN" in spec["scenes"][1]["title"]
     assert "ACK" in spec["scenes"][2]["title"]
@@ -189,6 +192,39 @@ def test_normalize_animation_spec_respects_requested_scene_count_constraint():
 
     assert spec["visual_type"] == "process_flow"
     assert len(spec["scenes"]) >= 5
+
+
+def test_normalize_animation_spec_assigns_traversal_family_semantics():
+    spec = normalize_animation_spec(
+        {
+            "title": "二叉树前序遍历动画演示",
+            "summary": "展示根节点开始依次访问左右子树的过程",
+            "focus": "突出访问路径和结果序列",
+        }
+    )
+
+    assert spec["subject_family"] == "traversal_path"
+    assert spec["layout_type"] == "traversal_map"
+    assert spec["object_details"]
+    assert spec["scenes"][0]["scene_actions"]
+    assert spec["scenes"][1]["focus_target"]
+
+
+def test_normalize_animation_spec_assigns_energy_family_semantics():
+    spec = normalize_animation_spec(
+        {
+            "title": "新能源汽车电池能量流全过程演示",
+            "summary": "制作从充电到驱动车轮的能量传递动画",
+            "focus": "突出储能、转换和输出过程",
+        }
+    )
+
+    assert spec["subject_family"] == "energy_transfer"
+    assert spec["layout_type"] == "energy_track"
+    assert [item["kind"] for item in spec["object_details"]][:2] == [
+        "source",
+        "channel",
+    ]
 
 
 def test_normalize_animation_spec_enforces_intro_and_summary_for_custom_scenes():

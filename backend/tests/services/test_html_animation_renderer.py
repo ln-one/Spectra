@@ -79,6 +79,15 @@ def test_html_template_process_flow_supports_tcp_handshake_dynamic():
     assert "ESTABLISHED" in _HTML_TEMPLATE
 
 
+def test_html_template_supports_subject_family_renderers():
+    assert "function resolveSubjectFamily(spec)" in _HTML_TEMPLATE
+    assert "function resolveLayoutType(spec)" in _HTML_TEMPLATE
+    assert "function resolveSemanticObjects(spec, sceneNodes)" in _HTML_TEMPLATE
+    assert "function renderTraversalFlow(" in _HTML_TEMPLATE
+    assert "function renderEnergyTransferFlow(" in _HTML_TEMPLATE
+    assert "function renderLifecycleFlow(" in _HTML_TEMPLATE
+
+
 def test_html_template_hides_rhythm_chip():
     assert "节奏：" not in _HTML_TEMPLATE
 
