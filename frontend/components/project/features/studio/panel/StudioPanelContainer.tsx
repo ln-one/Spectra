@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { studioCardsApi } from "@/lib/sdk/studio-cards";
 import { cn } from "@/lib/utils";
 import { useProjectStore, GENERATION_TOOLS } from "@/stores/projectStore";
+import { resolveReadySelectedFileIds } from "@/stores/project-store/source-scope";
 import type { GenerationToolType } from "@/lib/project-space/artifact-history";
 import { STUDIO_TOOL_COMPONENTS } from "../tools";
 import type { StudioToolKey, ToolDraftState, ToolFlowContext } from "../tools";
@@ -96,6 +97,26 @@ function extractRunIdFromExecutionResult(
     : null;
 }
 
+function mapVisualStyleToDiegoPreset(styleId: string): string {
+  const normalized = String(styleId || "").trim().toLowerCase();
+  const mapping: Record<string, string> = {
+    free: "auto",
+    wabi: "wabi-sabi",
+    brutalist: "neo-brutalism",
+    electro: "electro-pop",
+    geometric: "geo-bold",
+    modernacademic: "contemporary-academic",
+    curatorial: "academic-curation",
+    warmvc: "warm-vc",
+    coolblue: "rational-blue",
+    nordic: "nordic-research",
+    fluid: "emotional-flow",
+    cinema: "cinema-minimal",
+    "8bit": "8bit",
+  };
+  return mapping[normalized] || normalized || "auto";
+}
+
 export function StudioPanelContainer({
   onToolClick,
   onPptStep2LayoutChange,
@@ -105,6 +126,7 @@ export function StudioPanelContainer({
 }: StudioPanelProps) {
   const {
     project,
+    files,
     layoutMode,
     expandedTool,
     artifactHistoryByTool,
@@ -124,6 +146,7 @@ export function StudioPanelContainer({
   } = useProjectStore(
     useShallow((state) => ({
       project: state.project,
+      files: state.files,
       layoutMode: state.layoutMode,
       expandedTool: state.expandedTool,
       artifactHistoryByTool: state.artifactHistoryByTool,
@@ -739,6 +762,20 @@ export function StudioPanelContainer({
                   activeSessionId ??
                   undefined;
                 const liveRunId = liveStoreState.activeRunId ?? undefined;
+                const readySelectedFileIds = resolveReadySelectedFileIds(
+                  files,
+                  selectedFileIds
+                );
+                const generationMode =
+                  config.layoutMode === "classic" ? "template" : "scratch";
+                const templateId =
+                  generationMode === "template"
+                    ? (config.templateId ?? undefined)
+                    : undefined;
+                const stylePreset =
+                  generationMode === "scratch"
+                    ? mapVisualStyleToDiegoPreset(config.visualStyle)
+                    : "auto";
                 const executeResponse = await studioCardsApi.execute(
                   "courseware_ppt",
                   {
@@ -746,14 +783,21 @@ export function StudioPanelContainer({
                     client_session_id: liveSessionId,
                     run_id: liveRunId,
                     rag_source_ids:
-                      selectedFileIds.length > 0 ? selectedFileIds : undefined,
+                      readySelectedFileIds.length > 0
+                        ? readySelectedFileIds
+                        : undefined,
                     template_config: {
                       style: "teach",
                       template_id: "document-teaching",
                     },
                     config: {
+                      topic: config.prompt,
                       template: "teach",
                       pages: Number(config.pageCount) || 15,
+                      generation_mode: generationMode,
+                      template_id: templateId,
+                      style_preset: stylePreset,
+                      visual_policy: config.visualPolicy,
                       audience: "intermediate",
                       include_animations: false,
                       include_games: false,

@@ -102,6 +102,9 @@ export interface GenerationConfig {
   pageCount: number;
   outlineStyle: "structured" | "story" | "problem" | "workshop";
   visualStyle: string;
+  layoutMode: "smart" | "classic";
+  templateId: string | null;
+  visualPolicy: "auto" | "media_required" | "basic_graphics_only";
 }
 
 interface UseGenerationConfigPanelArgs {
@@ -148,6 +151,9 @@ export function useGenerationConfigPanel({
   const [outlineStyle, setOutlineStyle] =
     useState<GenerationConfig["outlineStyle"]>("structured");
   const [visualStyle, setVisualStyle] = useState<string>("free");
+  const [visualPolicy, setVisualPolicy] = useState<
+    "auto" | "media_required" | "basic_graphics_only"
+  >("auto");
   const [layoutMode, setLayoutMode] = useState<"smart" | "classic">("smart");
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>(
     TEMPLATE_CARDS[0].id
@@ -325,6 +331,9 @@ export function useGenerationConfigPanel({
         pageCount,
         outlineStyle,
         visualStyle,
+        layoutMode,
+        templateId: layoutMode === "classic" ? selectedTemplateId : null,
+        visualPolicy,
       });
 
       const sessionIdFromCallback =
@@ -483,7 +492,10 @@ export function useGenerationConfigPanel({
     pageCount,
     prompt,
     showRegenerateHint,
+    layoutMode,
+    selectedTemplateId,
     visualStyle,
+    visualPolicy,
   ]);
 
   const handleBackToConfigFromOutline = useCallback(() => {
@@ -519,6 +531,8 @@ export function useGenerationConfigPanel({
     setOutlineStyle,
     visualStyle,
     setVisualStyle,
+    visualPolicy,
+    setVisualPolicy,
     layoutMode,
     setLayoutMode,
     selectedTemplateId,

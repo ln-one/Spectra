@@ -1,0 +1,222 @@
+from __future__ import annotations
+
+import json
+import uuid
+from typing import Any, Optional
+
+_DIEGO_BINDING_KEY = "diego"
+
+
+def parse_options(raw: Any) -> dict[str, Any]:
+    if isinstance(raw, dict):
+        return dict(raw)
+    if isinstance(raw, str) and raw.strip():
+        try:
+            parsed = json.loads(raw)
+        except (TypeError, json.JSONDecodeError):
+            return {}
+        return dict(parsed) if isinstance(parsed, dict) else {}
+    return {}
+
+
+def normalize_mode(value: Any) -> str:
+    normalized = str(value or "").strip().lower()
+    return normalized if normalized in {"scratch", "template"} else "scratch"
+
+
+def normalize_style_preset(value: Any) -> str:
+    normalized = str(value or "").strip()
+    return normalized or "auto"
+
+
+def normalize_visual_policy(value: Any) -> str:
+    normalized = str(value or "").strip().lower()
+    if normalized in {"media_required", "basic_graphics_only"}:
+        return normalized
+    return "auto"
+
+
+def normalize_rag_source_ids(value: Any) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    normalized: list[str] = []
+    seen: set[str] = set()
+    for item in value:
+        source_id = str(item or "").strip()
+        if not source_id or source_id in seen:
+            continue
+        seen.add(source_id)
+        normalized.append(source_id)
+    return normalized
+
+
+def resolve_topic_from_options(options: dict[str, Any]) -> str:
+    explicit = str(options.get("topic") or "").strip()
+    if explicit:
+        return explicit
+
+    tone = str(options.get("system_prompt_tone") or "").strip()
+    if not tone:
+        return "课程主题"
+    for line in tone.splitlines():
+        clean = str(line or "").strip()
+        if not clean:
+            continue
+        if clean.startswith("[") and clean.endswith("]"):
+            continue
+        return clean[:300]
+    return tone[:300] or "课程主题"
+
+
+def build_diego_create_payload(
+    *,
+    options: dict[str, Any],
+    diego_project_id: str,
+) -> dict[str, Any]:
+    mode = normalize_mode(options.get("generation_mode"))
+    target_slide_count = options.get("pages")
+    try:
+        parsed_pages = int(target_slide_count)
+    except (TypeError, ValueError):
+        parsed_pages = 12
+    target_slide_count = min(max(parsed_pages, 1), 50)
+
+    payload: dict[str, Any] = {
+        "topic": resolve_topic_from_options(options),
+        "project_id": diego_project_id,
+        "rag_source_ids": normalize_rag_source_ids(options.get("rag_source_ids")),
+        "style_preset": normalize_style_preset(options.get("style_preset")),
+        "target_slide_count": target_slide_count,
+        "generation_mode": mode,
+        "visual_policy": normalize_visual_policy(options.get("visual_policy")),
+    }
+    if mode == "template":
+        template_id = str(options.get("template_id") or "").strip()
+        if template_id:
+            payload["template_id"] = template_id
+    return payload
+
+
+def build_diego_binding(
+    *,
+    diego_project_id: str,
+    diego_run_id: str,
+    diego_trace_id: str,
+    run,
+    mode: str,
+    style_preset: str,
+    visual_policy: str,
+    template_id: Optional[str],
+) -> dict[str, Any]:
+    return {
+        "provider": "diego",
+        "enabled": True,
+        "diego_project_id": diego_project_id,
+        "diego_run_id": diego_run_id,
+        "diego_trace_id": diego_trace_id,
+        "spectra_run_id": getattr(run, "id", None),
+        "generation_mode": mode,
+        "style_preset": style_preset,
+        "visual_policy": visual_policy,
+        "template_id": template_id,
+    }
+
+
+def get_diego_binding_from_options(options: dict[str, Any]) -> dict[str, Any] | None:
+    binding = options.get(_DIEGO_BINDING_KEY)
+    if not isinstance(binding, dict):
+        return None
+    if str(binding.get("provider") or "").strip().lower() != "diego":
+        return None
+    if not bool(binding.get("enabled")):
+        return None
+    diego_run_id = str(binding.get("diego_run_id") or "").strip()
+    if not diego_run_id:
+        return None
+    return dict(binding)
+
+
+def get_session_diego_binding(session) -> dict[str, Any] | None:
+    options = parse_options(getattr(session, "options", None))
+    return get_diego_binding_from_options(options)
+
+
+def convert_diego_outline_to_spectra(diego_outline: dict[str, Any]) -> dict[str, Any]:
+    version_raw = diego_outline.get("version")
+    try:
+        version = int(version_raw)
+    except (TypeError, ValueError):
+        version = 1
+    if version < 1:
+        version = 1
+
+    nodes_raw = diego_outline.get("nodes")
+    nodes: list[dict[str, Any]] = []
+    if isinstance(nodes_raw, list):
+        for index, node in enumerate(nodes_raw, start=1):
+            if not isinstance(node, dict):
+                continue
+            bullets_raw = node.get("bullets")
+            key_points = []
+            if isinstance(bullets_raw, list):
+                key_points = [
+                    str(item).strip()
+                    for item in bullets_raw
+                    if str(item or "").strip()
+                ]
+            if not key_points:
+                key_points = ["核心要点讲解"]
+            nodes.append(
+                {
+                    "id": str(uuid.uuid4()),
+                    "order": index,
+                    "title": str(node.get("title") or f"第 {index} 页").strip(),
+                    "key_points": key_points,
+                    "estimated_minutes": None,
+                }
+            )
+
+    return {
+        "version": version,
+        "nodes": nodes,
+        "summary": str(diego_outline.get("summary") or "").strip() or None,
+    }
+
+
+def convert_spectra_outline_to_diego(outline: dict[str, Any]) -> dict[str, Any]:
+    nodes_raw = outline.get("nodes")
+    converted_nodes: list[dict[str, Any]] = []
+    if isinstance(nodes_raw, list):
+        for node in nodes_raw:
+            if not isinstance(node, dict):
+                continue
+            key_points_raw = node.get("key_points")
+            bullets = []
+            if isinstance(key_points_raw, list):
+                bullets = [
+                    str(item).strip()
+                    for item in key_points_raw
+                    if str(item or "").strip()
+                ]
+            converted_nodes.append(
+                {
+                    "title": str(node.get("title") or "教学内容").strip(),
+                    "bullets": bullets,
+                    "page_type": "CONTENT",
+                }
+            )
+
+    version_raw = outline.get("version")
+    try:
+        version = int(version_raw)
+    except (TypeError, ValueError):
+        version = 1
+    if version < 1:
+        version = 1
+
+    return {
+        "version": version,
+        "nodes": converted_nodes,
+        "summary": str(outline.get("summary") or "").strip(),
+    }
+

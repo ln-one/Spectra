@@ -7,6 +7,12 @@ from typing import Awaitable, Callable
 from schemas.generation import TaskStatus
 from services.generation_session_service.capability_helpers import _normalize_task_type
 from services.generation_session_service.constants import SessionLifecycleReason
+from services.generation_session_service.diego_runtime import (
+    confirm_diego_outline_for_session,
+)
+from services.generation_session_service.diego_runtime_helpers import (
+    get_session_diego_binding,
+)
 from services.generation_session_service.outline_versions import (
     get_effective_outline_version,
     load_latest_outline_record,
@@ -275,6 +281,14 @@ async def handle_confirm_outline(
             tool_type=tool_type,
             step=RUN_STEP_GENERATE,
             status=RUN_STATUS_PENDING,
+        )
+
+    if get_session_diego_binding(session):
+        return await confirm_diego_outline_for_session(
+            db=db,
+            session=session,
+            run=run,
+            command=command,
         )
 
     task = await db.generationtask.create(

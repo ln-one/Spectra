@@ -36,6 +36,7 @@ import {
   itemVariants,
   LAYOUT_MODES,
   PAGE_PRESETS,
+  VISUAL_POLICIES,
   VISUAL_STYLES,
   TEMPLATE_CARDS,
 } from "./constants";
@@ -76,6 +77,8 @@ export function GenerationConfigPanel({
     setPageCount,
     visualStyle,
     setVisualStyle,
+    visualPolicy,
+    setVisualPolicy,
     layoutMode,
     setLayoutMode,
     selectedTemplateId,
@@ -248,6 +251,33 @@ export function GenerationConfigPanel({
                                 className="text-[13px]"
                               >
                                 {p} 页
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+
+                        <Select
+                          value={visualPolicy}
+                          onValueChange={(value) =>
+                            setVisualPolicy(
+                              value as
+                                | "auto"
+                                | "media_required"
+                                | "basic_graphics_only"
+                            )
+                          }
+                        >
+                          <SelectTrigger className="h-9 w-auto min-w-[128px] rounded-full border-0 bg-white px-3.5 text-[13px] font-medium text-zinc-600 shadow-sm ring-1 ring-zinc-100 hover:ring-zinc-200 focus:ring-2 focus:ring-zinc-200">
+                            <SelectValue placeholder="视觉策略" />
+                          </SelectTrigger>
+                          <SelectContent className="rounded-2xl border-zinc-100 bg-white/95 backdrop-blur-xl">
+                            {VISUAL_POLICIES.map((policy) => (
+                              <SelectItem
+                                key={policy.id}
+                                value={policy.id}
+                                className="text-[13px]"
+                              >
+                                {policy.name}
                               </SelectItem>
                             ))}
                           </SelectContent>

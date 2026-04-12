@@ -45,7 +45,12 @@ def build_studio_card_execution_preview(
                         "card_id": card_id,
                         "template": cfg.get("template", "default"),
                         "pages": cfg.get("pages", 12),
+                        "topic": cfg.get("topic"),
                         "audience": cfg.get("audience", "intermediate"),
+                        "generation_mode": cfg.get("generation_mode", "scratch"),
+                        "template_id": cfg.get("template_id"),
+                        "style_preset": cfg.get("style_preset", "auto"),
+                        "visual_policy": cfg.get("visual_policy", "auto"),
                         "system_prompt_tone": cfg.get("system_prompt_tone"),
                         "include_animations": bool(
                             cfg.get("include_animations", False)

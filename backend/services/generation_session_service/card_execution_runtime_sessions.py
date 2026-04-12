@@ -10,6 +10,10 @@ from schemas.studio_cards import (
 )
 from services.application.access import get_owned_project
 from services.generation_session_service.constants import SessionLifecycleReason
+from services.generation_session_service.diego_runtime import (
+    should_use_diego_for_courseware,
+    start_diego_outline_workflow,
+)
 from services.generation_session_service.session_history import (
     RUN_STATUS_PENDING,
     RUN_STEP_OUTLINE,
@@ -116,12 +120,75 @@ async def execute_studio_card_session_request(
             ),
         },
     )
-    await session_service._schedule_outline_draft_task(
-        session_id=session_ref["session_id"],
-        project_id=body.project_id,
-        options=payload.get("options"),
-        task_queue_service=task_queue_service,
-    )
+    if should_use_diego_for_courseware(card_id=card_id):
+        try:
+            await start_diego_outline_workflow(
+                db=session_service._db,
+                session_id=session_ref["session_id"],
+                run=run,
+                options=(
+                    dict(payload.get("options"))
+                    if isinstance(payload.get("options"), dict)
+                    else {}
+                ),
+            )
+        except Exception as exc:
+            logger.warning(
+                "Diego bootstrap failed: session=%s run=%s error=%s",
+                session_ref["session_id"],
+                getattr(run, "id", None),
+                exc,
+                exc_info=True,
+            )
+            if run is not None:
+                await update_session_run(
+                    db=session_service._db,
+                    run_id=run.id,
+                    status="failed",
+                    step=RUN_STEP_OUTLINE,
+                )
+            await session_service._db.generationsession.update(
+                where={"id": session_ref["session_id"]},
+                data={
+                    "state": GenerationState.FAILED.value,
+                    "stateReason": "diego_bootstrap_failed",
+                    "errorCode": "DIEGO_CREATE_RUN_FAILED",
+                    "errorMessage": str(exc),
+                    "errorRetryable": True,
+                    "resumable": True,
+                },
+            )
+            await session_service._append_event(
+                session_id=session_ref["session_id"],
+                event_type=GenerationEventType.STATE_CHANGED.value,
+                state=GenerationState.FAILED.value,
+                state_reason="diego_bootstrap_failed",
+                payload={
+                    "reason": "diego_bootstrap_failed",
+                    "error_code": "DIEGO_CREATE_RUN_FAILED",
+                    "error_message": str(exc),
+                    "retryable": True,
+                    "run_id": getattr(run, "id", None),
+                },
+            )
+            raise APIException(
+                status_code=502,
+                error_code=ErrorCode.EXTERNAL_SERVICE_ERROR,
+                message="Diego 任务创建失败，请稍后重试。",
+                details={
+                    "reason": "diego_bootstrap_failed",
+                    "run_id": getattr(run, "id", None),
+                    "error": str(exc),
+                },
+                retryable=True,
+            ) from exc
+    else:
+        await session_service._schedule_outline_draft_task(
+            session_id=session_ref["session_id"],
+            project_id=body.project_id,
+            options=payload.get("options"),
+            task_queue_service=task_queue_service,
+        )
     session_ref.update(
         {
             "state": GenerationState.DRAFTING_OUTLINE.value,
