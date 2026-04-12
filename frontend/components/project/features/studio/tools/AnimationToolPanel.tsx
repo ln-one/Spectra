@@ -13,6 +13,7 @@ import { PreviewStep } from "./animation/PreviewStep";
 import type {
   AnimationPlacementSlot,
   AnimationRhythm,
+  AnimationStylePack,
   AnimationStep,
   AnimationVisualType,
 } from "./animation/types";
@@ -31,6 +32,9 @@ export function AnimationToolPanel({
   const [focus, setFocus] = useState("");
   const [durationSeconds, setDurationSeconds] = useState(6);
   const [rhythm, setRhythm] = useState<AnimationRhythm>("balanced");
+  const [stylePack, setStylePack] = useState<AnimationStylePack>(
+    "teaching_ppt_cartoon"
+  );
   const [visualType, setVisualType] = useState<AnimationVisualType | null>(null);
   const [hasBootstrappedTopic, setHasBootstrappedTopic] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -75,6 +79,7 @@ export function AnimationToolPanel({
       motion_brief: focus,
       duration_seconds: durationSeconds,
       rhythm,
+      style_pack: stylePack,
       visual_type: visualType,
       source_artifact_id: flowContext?.selectedSourceId ?? null,
     });
@@ -84,6 +89,7 @@ export function AnimationToolPanel({
     focus,
     onDraftChange,
     rhythm,
+    stylePack,
     topic,
     visualType,
   ]);
@@ -192,6 +198,7 @@ export function AnimationToolPanel({
         config: {
           duration_seconds: durationSeconds,
           rhythm,
+          style_pack: stylePack,
           focus,
           visual_type: visualType,
         },
@@ -328,6 +335,7 @@ export function AnimationToolPanel({
                   focus={focus}
                   durationSeconds={durationSeconds}
                   rhythm={rhythm}
+                  stylePack={stylePack}
                   visualType={visualType}
                   serverSpecPreview={serverSpecPreview}
                   serverSpecCandidates={serverSpecCandidates}
@@ -337,6 +345,7 @@ export function AnimationToolPanel({
                   isGenerating={isGenerating || isPreparingSpec}
                   onDurationChange={setDurationSeconds}
                   onRhythmChange={setRhythm}
+                  onStylePackChange={setStylePack}
                   onVisualTypeChange={setVisualType}
                   onBack={() => setActiveStep("config")}
                   onGenerate={() => void handleGenerate()}
@@ -348,6 +357,7 @@ export function AnimationToolPanel({
                   lastGeneratedAt={lastGeneratedAt}
                   durationSeconds={durationSeconds}
                   rhythm={rhythm}
+                  stylePack={stylePack}
                   visualType={visualType}
                   focus={focus}
                   serverSpecPreview={serverSpecPreview}
@@ -359,6 +369,7 @@ export function AnimationToolPanel({
                   isConfirmingPlacement={isConfirmingPlacement}
                   onDurationChange={setDurationSeconds}
                   onRhythmChange={setRhythm}
+                  onStylePackChange={setStylePack}
                   onVisualTypeChange={setVisualType}
                   onFocusChange={setFocus}
                   onRefine={() => {

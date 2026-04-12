@@ -11,11 +11,18 @@ import {
 } from "@/components/ui/select";
 import {
   ANIMATION_RHYTHM_OPTIONS,
+  ANIMATION_STYLE_PACK_OPTIONS,
+  ANIMATION_STYLE_PACK_SWATCHES,
   ANIMATION_VISUAL_TYPE_OPTIONS,
   getRhythmLabel,
+  getStylePackLabel,
   getVisualTypeLabel,
 } from "./constants";
-import type { AnimationRhythm, AnimationVisualType } from "./types";
+import type {
+  AnimationRhythm,
+  AnimationStylePack,
+  AnimationVisualType,
+} from "./types";
 import type { ToolFlowContext } from "../types";
 import { buildAnimationSpecPreview } from "./spec-preview";
 
@@ -24,6 +31,7 @@ interface GenerateStepProps {
   focus: string;
   durationSeconds: number;
   rhythm: AnimationRhythm;
+  stylePack: AnimationStylePack;
   visualType: AnimationVisualType | null;
   serverSpecPreview: Record<string, unknown> | null;
   serverSpecCandidates: Record<string, unknown>[];
@@ -33,6 +41,7 @@ interface GenerateStepProps {
   isGenerating: boolean;
   onDurationChange: (value: number) => void;
   onRhythmChange: (value: AnimationRhythm) => void;
+  onStylePackChange: (value: AnimationStylePack) => void;
   onVisualTypeChange: (value: AnimationVisualType | null) => void;
   onBack: () => void;
   onGenerate: () => void;
@@ -43,6 +52,7 @@ export function GenerateStep({
   focus,
   durationSeconds,
   rhythm,
+  stylePack,
   visualType,
   serverSpecPreview,
   serverSpecCandidates,
@@ -52,6 +62,7 @@ export function GenerateStep({
   isGenerating,
   onDurationChange,
   onRhythmChange,
+  onStylePackChange,
   onVisualTypeChange,
   onBack,
   onGenerate,
@@ -128,6 +139,7 @@ export function GenerateStep({
           <p>教学需求：{topic || "未填写"}</p>
           <p>当前时长：{durationSeconds} 秒</p>
           <p>当前节奏：{getRhythmLabel(rhythm)}</p>
+          <p>视觉主题：{getStylePackLabel(stylePack)}</p>
           <p>渲染链路：HTML/SVG/Canvas 模板导出 GIF</p>
         </div>
         <div className="mt-3">
@@ -298,6 +310,52 @@ export function GenerateStep({
             {
               ANIMATION_RHYTHM_OPTIONS.find((item) => item.value === rhythm)
                 ?.description
+            }
+          </p>
+        </div>
+        <div className="space-y-1.5 sm:col-span-2">
+          <Label className="text-xs text-zinc-600">视觉主题</Label>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {ANIMATION_STYLE_PACK_OPTIONS.map((item) => {
+              const swatch = ANIMATION_STYLE_PACK_SWATCHES[item.value];
+              const selected = item.value === stylePack;
+              return (
+                <button
+                  key={item.value}
+                  type="button"
+                  onClick={() => onStylePackChange(item.value)}
+                  className={`rounded-lg border px-2 py-2 text-left transition ${
+                    selected
+                      ? "border-blue-500 bg-blue-50 shadow-sm"
+                      : "border-zinc-200 bg-white hover:border-zinc-300"
+                  }`}
+                >
+                  <div className="mb-1.5 flex items-center gap-1.5">
+                    <span
+                      className="h-3 w-3 rounded-full border border-black/10"
+                      style={{ background: swatch.background }}
+                    />
+                    <span
+                      className="h-3 w-3 rounded-full border border-black/10"
+                      style={{ background: swatch.accent }}
+                    />
+                    <span
+                      className="h-3 w-3 rounded-full border border-black/10"
+                      style={{ background: swatch.text }}
+                    />
+                  </div>
+                  <p className="text-[11px] font-medium text-zinc-800">
+                    {item.label}
+                  </p>
+                </button>
+              );
+            })}
+          </div>
+          <p className="text-[11px] text-zinc-500">
+            {
+              ANIMATION_STYLE_PACK_OPTIONS.find(
+                (item) => item.value === stylePack
+              )?.description
             }
           </p>
         </div>

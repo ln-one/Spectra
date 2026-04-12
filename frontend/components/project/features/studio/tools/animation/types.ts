@@ -2,6 +2,13 @@ export type AnimationStep = "config" | "generate" | "preview";
 
 export type AnimationRhythm = "slow" | "balanced" | "fast";
 
+export type AnimationStylePack =
+  | "teaching_ppt_cartoon"
+  | "teaching_ppt_fresh_green"
+  | "teaching_ppt_deep_blue"
+  | "teaching_ppt_warm_orange"
+  | "teaching_ppt_minimal_gray";
+
 export type AnimationVisualType =
   | "process_flow"
   | "relationship_change"
