@@ -10,6 +10,7 @@ reference examples covering the most common teaching animation patterns.
 If the first attempt fails (syntax error / runtime error from the renderer),
 the error message is fed back to the LLM for one automatic repair attempt.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -30,12 +31,10 @@ _MANIM_RENDERER_BASE_URL = os.getenv(
     "MANIM_RENDERER_BASE_URL", "http://manim-renderer:8120"
 )
 _MANIM_RENDERER_TIMEOUT = float(os.getenv("MANIM_RENDERER_TIMEOUT_SECONDS", "150"))
-_MANIM_RENDERER_ENABLED = (
-    os.getenv("MANIM_RENDERER_ENABLED", "false").lower() == "true"
-)
+_MANIM_RENDERER_ENABLED = os.getenv("MANIM_RENDERER_ENABLED", "false").lower() == "true"
 _MANIM_RENDER_QUALITY = str(os.getenv("MANIM_RENDER_QUALITY", "m")).strip() or "m"
 _MANIM_RENDER_FPS = int(os.getenv("MANIM_RENDER_FPS", "24"))
-_MAX_REPAIR_ATTEMPTS = 2  # 失败后最多尝试 LLM 修复两次
+_MAX_REPAIR_ATTEMPTS = 0  # 当前无 LLM Python repair，仅主渲染一次
 
 
 # ---------------------------------------------------------------------------
@@ -342,15 +341,16 @@ _REPAIR_PROMPT_TEMPLATE = """\
 def _extract_error_context(code: str, error: str) -> str:
     """Extract the lines around the error location from the error message."""
     import re
+
     # Try to find line number from error message
-    match = re.search(r'scene\.py[:\s]+line\s+(\d+)|scene\.py:(\d+)', error)
+    match = re.search(r"scene\.py[:\s]+line\s+(\d+)|scene\.py:(\d+)", error)
     if not match:
-        match = re.search(r'❱\s+(\d+)', error)
+        match = re.search(r"❱\s+(\d+)", error)
     if not match:
         return f"（无法定位具体行号）\n错误：{error[:300]}"
 
     line_no = int(match.group(1) or match.group(2))
-    lines = code.split('\n')
+    lines = code.split("\n")
     start = max(0, line_no - 4)
     end = min(len(lines), line_no + 3)
     context_lines = []
@@ -363,6 +363,7 @@ def _extract_error_context(code: str, error: str) -> str:
 # ---------------------------------------------------------------------------
 # Prompt builders
 # ---------------------------------------------------------------------------
+
 
 def _format_scenes(scenes: list[dict]) -> str:
     lines = []
@@ -406,9 +407,7 @@ def _build_generation_prompt(spec: dict[str, Any]) -> tuple[str, str]:
 def _build_repair_prompt(code: str, error: str) -> tuple[str, str]:
     error_context = _extract_error_context(code, error)
     user_prompt = _REPAIR_PROMPT_TEMPLATE.format(
-        code=code,
-        error=error[-1200:],
-        error_context=error_context
+        code=code, error=error[-1200:], error_context=error_context
     )
     return _SYSTEM_PROMPT, user_prompt
 
@@ -417,7 +416,10 @@ def _build_repair_prompt(code: str, error: str) -> tuple[str, str]:
 # LLM call
 # ---------------------------------------------------------------------------
 
-async def _call_llm(system_prompt: str, user_prompt: str, max_tokens: int = 2400) -> str:
+
+async def _call_llm(
+    system_prompt: str, user_prompt: str, max_tokens: int = 2400
+) -> str:
     from services.ai import _resolve_model_name, acompletion
 
     raw_model = (
@@ -464,64 +466,66 @@ def _sanitize_manim_code(code: str) -> str:
             count=1,
         )
     # Replace <br> / <br/> inside strings with \n
-    code = re.sub(r'<br\s*/?>', r'\\n', code)
+    code = re.sub(r"<br\s*/?>", r"\\n", code)
     # Remove markup=True/False argument (Text() doesn't support it in v0.18)
-    code = re.sub(r',?\s*markup\s*=\s*(True|False)', '', code)
+    code = re.sub(r",?\s*markup\s*=\s*(True|False)", "", code)
     # Remove set_tex_format calls (not a real Manim method)
-    code = re.sub(r'\s*\w+\.set_tex_format\([^)]*\)\n?', '\n', code)
+    code = re.sub(r"\s*\w+\.set_tex_format\([^)]*\)\n?", "\n", code)
     # Remove free_copy_of_text calls (not a real Manim method)
-    code = re.sub(r'\s*self\.free_copy_of_text\([^)]*\)\n?', '\n', code)
+    code = re.sub(r"\s*self\.free_copy_of_text\([^)]*\)\n?", "\n", code)
     # Remove hallucinated font= keyword arguments in Text()
     # e.g. font=URBAN_BOLD, font=BOLD_FONT etc.
-    code = re.sub(r',?\s*font\s*=\s*[A-Z_][A-Z_0-9]*(?=[,\)])', '', code)
+    code = re.sub(r",?\s*font\s*=\s*[A-Z_][A-Z_0-9]*(?=[,\)])", "", code)
     # Replace hallucinated animation classes with correct ones
-    code = re.sub(r'\bGrowCorner\b', 'GrowFromCenter', code)
-    code = re.sub(r'\bGrowFromEdge\b', 'GrowFromCenter', code)
-    code = re.sub(r'\bSpinInFromNothing\b', 'FadeIn', code)
-    code = re.sub(r'\bRollIn\b', 'FadeIn', code)
-    code = re.sub(r'\bSlideIn\b', 'FadeIn', code)
+    code = re.sub(r"\bGrowCorner\b", "GrowFromCenter", code)
+    code = re.sub(r"\bGrowFromEdge\b", "GrowFromCenter", code)
+    code = re.sub(r"\bSpinInFromNothing\b", "FadeIn", code)
+    code = re.sub(r"\bRollIn\b", "FadeIn", code)
+    code = re.sub(r"\bSlideIn\b", "FadeIn", code)
     # Replace hallucinated color constants with valid Manim colors
-    code = re.sub(r'\bLIME\b', 'LIME_GREEN', code)
-    code = re.sub(r'\bPURPLE_LIGHT\b', 'PURPLE_A', code)
-    code = re.sub(r'\bLIGHT_BLUE\b', 'BLUE_A', code)
-    code = re.sub(r'\bLIGHT_GREEN\b', 'GREEN_A', code)
-    code = re.sub(r'\bLIGHT_RED\b', 'RED_A', code)
-    code = re.sub(r'\bDARK_BLUE\b', 'DARK_BLUE', code)
-    code = re.sub(r'\bGRAY_LIGHT\b', 'GRAY_A', code)
-    code = re.sub(r'\bGRAY_DARK\b', 'GRAY_E', code)
+    code = re.sub(r"\bLIME\b", "LIME_GREEN", code)
+    code = re.sub(r"\bPURPLE_LIGHT\b", "PURPLE_A", code)
+    code = re.sub(r"\bLIGHT_BLUE\b", "BLUE_A", code)
+    code = re.sub(r"\bLIGHT_GREEN\b", "GREEN_A", code)
+    code = re.sub(r"\bLIGHT_RED\b", "RED_A", code)
+    code = re.sub(r"\bDARK_BLUE\b", "DARK_BLUE", code)
+    code = re.sub(r"\bGRAY_LIGHT\b", "GRAY_A", code)
+    code = re.sub(r"\bGRAY_DARK\b", "GRAY_E", code)
     # Remove corner_radius from shapes that don't support it
     # Only RoundedRectangle supports corner_radius
     # Step 1: temporarily protect RoundedRectangle's corner_radius
     code = re.sub(
-        r'(RoundedRectangle\([^)]*?),?\s*corner_radius\s*=\s*([\d.]+)',
-        r'\1,__CR__=\2',
-        code
+        r"(RoundedRectangle\([^)]*?),?\s*corner_radius\s*=\s*([\d.]+)",
+        r"\1,__CR__=\2",
+        code,
     )
     # Step 2: remove all remaining corner_radius
-    code = re.sub(r',?\s*corner_radius\s*=\s*[\d.]+', '', code)
+    code = re.sub(r",?\s*corner_radius\s*=\s*[\d.]+", "", code)
     # Step 3: restore RoundedRectangle's corner_radius
-    code = re.sub(r',__CR__=([\d.]+)', r', corner_radius=\1', code)
+    code = re.sub(r",__CR__=([\d.]+)", r", corner_radius=\1", code)
     # Remove hallucinated Arrow/shape parameters
-    code = re.sub(r',?\s*width_to_tip_len_ratio\s*=\s*[^,\)\n]+', '', code)
-    code = re.sub(r',?\s*tip_length\s*=\s*[^,\)\n]+', '', code)
-    code = re.sub(r',?\s*tip_width_ratio\s*=\s*[^,\)\n]+', '', code)
+    code = re.sub(r",?\s*width_to_tip_len_ratio\s*=\s*[^,\)\n]+", "", code)
+    code = re.sub(r",?\s*tip_length\s*=\s*[^,\)\n]+", "", code)
+    code = re.sub(r",?\s*tip_width_ratio\s*=\s*[^,\)\n]+", "", code)
     # Replace FRAME_WIDTH/FRAME_HEIGHT with config.frame_width/height
-    code = re.sub(r'\bFRAME_WIDTH\b', 'config.frame_width', code)
-    code = re.sub(r'\bFRAME_HEIGHT\b', 'config.frame_height', code)
+    code = re.sub(r"\bFRAME_WIDTH\b", "config.frame_width", code)
+    code = re.sub(r"\bFRAME_HEIGHT\b", "config.frame_height", code)
     # Fix set_fill(fill_opacity=...) -> set_fill(opacity=...)
-    code = re.sub(r'\.set_fill\(([^)]*?)fill_opacity\s*=', r'.set_fill(\1opacity=', code)
+    code = re.sub(
+        r"\.set_fill\(([^)]*?)fill_opacity\s*=", r".set_fill(\1opacity=", code
+    )
     # Fix set_stroke(stroke_opacity=...) -> set_stroke(opacity=...)
-    code = re.sub(r'\.set_stroke\(([^)]*?)stroke_opacity\s*=', r'.set_stroke(\1opacity=', code)
+    code = re.sub(
+        r"\.set_stroke\(([^)]*?)stroke_opacity\s*=", r".set_stroke(\1opacity=", code
+    )
     # Wrap bare string literals inside VGroup(...) with Text()
     # e.g. VGroup(rect, "label") -> VGroup(rect, Text("label"))
     code = re.sub(
-        r'VGroup\(([^)]+)\)',
-        lambda m: 'VGroup(' + re.sub(
-            r'(?<![=\w])"([^"]+)"',
-            r'Text("\1")',
-            m.group(1)
-        ) + ')',
-        code
+        r"VGroup\(([^)]+)\)",
+        lambda m: "VGroup("
+        + re.sub(r'(?<![=\w])"([^"]+)"', r'Text("\1")', m.group(1))
+        + ")",
+        code,
     )
     return code
 
@@ -631,23 +635,76 @@ async def generate_manim_code(spec: dict[str, Any]) -> str:
 
 
 async def _generate_via_ir(spec: dict[str, Any]) -> str:
-    """Generate Manim code via IR (AnimationPlan JSON -> compiler)."""
+    """Generate Manim code via IR (AnimationPlan JSON -> compiler).
+
+    Strategy:
+    1. Try template-based generation first (stable, multi-shot)
+    2. Fall back to free LLM generation if no template matches
+    """
+    from services.artifact_generator.animation_template_dispatcher import (
+        select_template,
+        fill_template_slots,
+    )
+    from services.artifact_generator.animation_compiler import (
+        compile_animation_plan_from_json,
+    )
+
+    topic = spec.get("topic", "")
+    theme = spec.get("theme") or {}
+    bg = theme.get("background", "#f3fbff")
+    panel = theme.get("panel", "#ffffff")
+
+    # Step 1: Try template-based generation
+    match = await select_template(spec, _call_llm)
+    if match:
+        template_name, template_fn = match
+        logger.info(
+            "generate_manim_code[template]: topic=%s template=%s", topic, template_name
+        )
+        try:
+            slots = await fill_template_slots(template_name, spec, _call_llm)
+            template_result = template_fn(slots)
+
+            plan_json = {
+                "scene_meta": {
+                    "title": topic,
+                    "subtitle": spec.get("focus", ""),
+                    "duration_seconds": spec.get("duration_seconds", 8),
+                    "background_gradient": [bg, panel],
+                },
+                "objects": template_result["objects"],
+                "timeline": template_result["timeline"],
+                "text_blocks": [],
+            }
+            plan_json = _align_timeline_with_scenes(plan_json, spec)
+
+            code = compile_animation_plan_from_json(plan_json)
+            logger.info("generate_manim_code[template]: code_length=%d", len(code))
+            return code
+        except Exception as e:
+            logger.warning(
+                "Template generation failed (%s), falling back to free LLM", e
+            )
+
+    # Step 2: Free LLM generation
     system_prompt, user_prompt = _build_ir_prompt(spec)
 
-    # Try up to 2 times: initial generation + 1 repair attempt
     for attempt in range(2):
         raw = await _call_llm(system_prompt, user_prompt, max_tokens=3000)
 
         try:
             # Extract JSON from LLM response
             plan_json = _extract_json(raw)
+            plan_json = _align_timeline_with_scenes(plan_json, spec)
             plan = AnimationPlan.model_validate(plan_json)
 
             # Preflight check: validate plan before compilation
             errors = preflight_check(plan)
             if errors:
                 error_msg = f"AnimationPlan validation failed: {'; '.join(errors[:3])}"
-                logger.warning("generate_manim_code[IR]: preflight failed, errors=%s", errors)
+                logger.warning(
+                    "generate_manim_code[IR]: preflight failed, errors=%s", errors
+                )
                 if attempt < 1:
                     # Retry with error feedback
                     user_prompt = f"""{user_prompt}
@@ -661,8 +718,12 @@ async def _generate_via_ir(spec: dict[str, Any]) -> str:
 
             # Compile IR -> Manim code
             code = compile_animation_plan_from_json(plan_json)
-            logger.info("generate_manim_code[IR]: topic=%s code_length=%d attempt=%d",
-                       spec.get("topic"), len(code), attempt)
+            logger.info(
+                "generate_manim_code[IR]: topic=%s code_length=%d attempt=%d",
+                spec.get("topic"),
+                len(code),
+                attempt,
+            )
             return code
 
         except (_json.JSONDecodeError, Exception) as e:
@@ -686,11 +747,21 @@ async def _generate_legacy(spec: dict[str, Any]) -> str:
     code = _sanitize_manim_code(_extract_python_code(raw))
     syntax_error = _check_syntax(code)
     if syntax_error:
-        logger.warning("generate_manim_code[legacy]: syntax error, repairing: %s", syntax_error)
-        code = _sanitize_manim_code(_extract_python_code(
-            await _call_llm(*_build_repair_prompt(code, syntax_error), max_tokens=2400)
-        ))
-    logger.info("generate_manim_code[legacy]: topic=%s code_length=%d", spec.get("topic"), len(code))
+        logger.warning(
+            "generate_manim_code[legacy]: syntax error, repairing: %s", syntax_error
+        )
+        code = _sanitize_manim_code(
+            _extract_python_code(
+                await _call_llm(
+                    *_build_repair_prompt(code, syntax_error), max_tokens=2400
+                )
+            )
+        )
+    logger.info(
+        "generate_manim_code[legacy]: topic=%s code_length=%d",
+        spec.get("topic"),
+        len(code),
+    )
     return code
 
 
@@ -705,6 +776,154 @@ def _extract_json(raw: str) -> dict:
         raw = raw[:-3]
     raw = raw.strip()
     return _json.loads(raw)
+
+
+def _scene_step_description(scene: dict[str, Any], index: int) -> str:
+    """Build timeline description from scene card."""
+    title = str(scene.get("title") or "").strip()
+    desc = str(scene.get("description") or "").strip()
+    if title and desc:
+        return f"{title} - {desc}"[:120]
+    if title:
+        return title[:120]
+    if desc:
+        return desc[:120]
+    return f"场景{index + 1}演示"
+
+
+def _align_timeline_with_scenes(
+    plan_json: dict[str, Any], spec: dict[str, Any]
+) -> dict[str, Any]:
+    """Ensure scene cards map to timeline steps (at least 1 step per scene)."""
+    theme = spec.get("theme") or {}
+    bg = str(theme.get("background") or "#f3fbff")
+    panel = str(theme.get("panel") or "#ffffff")
+    duration_seconds = int(spec.get("duration_seconds") or 8)
+
+    scene_meta = plan_json.get("scene_meta")
+    if not isinstance(scene_meta, dict):
+        scene_meta = {}
+    scene_meta["duration_seconds"] = duration_seconds
+    scene_meta["background_gradient"] = [bg, panel]
+    plan_json["scene_meta"] = scene_meta
+
+    scenes = spec.get("scenes") or []
+
+    timeline = plan_json.get("timeline")
+    if not isinstance(timeline, list):
+        timeline = []
+    objects = plan_json.get("objects")
+    if not isinstance(objects, list):
+        objects = []
+
+    object_ids = [
+        str(obj.get("id")) for obj in objects if isinstance(obj, dict) and obj.get("id")
+    ]
+
+    has_scenes = isinstance(scenes, list) and len(scenes) > 0
+    min_steps_by_duration = max(3, min(6, round(duration_seconds / 2.8)))
+    target_steps = max(len(scenes) if has_scenes else 0, min_steps_by_duration)
+
+    # Align existing step descriptions with scene cards (if available).
+    if has_scenes:
+        for i in range(min(len(timeline), len(scenes))):
+            step = timeline[i]
+            if not isinstance(step, dict):
+                continue
+            step["description"] = _scene_step_description(scenes[i], i)
+            step["wait_after"] = float(step.get("wait_after") or 0.4)
+
+    # If timeline is too short, append deterministic focus steps.
+    if len(timeline) < target_steps:
+        fallback_target = object_ids[0] if object_ids else None
+        for i in range(len(timeline), target_steps):
+            target = object_ids[i % len(object_ids)] if object_ids else fallback_target
+            actions = []
+            if i == 0 and object_ids:
+                actions.append(
+                    {
+                        "type": "fade_in",
+                        "target": object_ids[: min(2, len(object_ids))],
+                        "params": {"run_time": 0.5},
+                    }
+                )
+            if target:
+                actions.append(
+                    {
+                        "type": "indicate",
+                        "target": target,
+                        "params": {"color": "YELLOW", "run_time": 0.6},
+                    }
+                )
+            if not target and object_ids:
+                actions.append(
+                    {
+                        "type": "fade_in",
+                        "target": object_ids[: min(2, len(object_ids))],
+                        "params": {"run_time": 0.5},
+                    }
+                )
+            timeline.append(
+                {
+                    "description": (
+                        _scene_step_description(scenes[i], i)
+                        if has_scenes and i < len(scenes)
+                        else f"镜头 {i + 1}"
+                    ),
+                    "actions": actions,
+                    "wait_after": 0.45,
+                }
+            )
+
+    # Guarantee each step has visible shot change, avoid "single static camera".
+    entrance_types = {"fade_in", "create", "write", "grow_arrow"}
+    for i, step in enumerate(timeline):
+        if not isinstance(step, dict):
+            continue
+        actions = step.get("actions")
+        if not isinstance(actions, list):
+            actions = []
+            step["actions"] = actions
+        has_entrance = any(
+            isinstance(a, dict) and a.get("type") in entrance_types for a in actions
+        )
+        if has_entrance:
+            continue
+        if object_ids:
+            curr_target = object_ids[i % len(object_ids)]
+            if i > 0:
+                prev_target = object_ids[(i - 1) % len(object_ids)]
+                actions.insert(
+                    0,
+                    {
+                        "type": "fade_out",
+                        "target": prev_target,
+                        "params": {"run_time": 0.28},
+                    },
+                )
+            actions.insert(
+                1 if i > 0 else 0,
+                {
+                    "type": "fade_in",
+                    "target": curr_target,
+                    "params": {"run_time": 0.42, "shift": [0.22, 0]},
+                },
+            )
+        step["wait_after"] = float(step.get("wait_after") or 0.4)
+
+    # Stretch/compact waits so playback duration is closer to requested seconds.
+    total_wait = sum(float((s or {}).get("wait_after") or 0.4) for s in timeline)
+    target_wait = max(duration_seconds - 2.5, len(timeline) * 0.4)
+    if timeline and total_wait > 0:
+        scale = max(0.75, min(2.8, target_wait / total_wait))
+        for step in timeline:
+            if not isinstance(step, dict):
+                continue
+            adjusted = float(step.get("wait_after") or 0.4) * scale
+            step["wait_after"] = round(max(0.3, min(1.8, adjusted)), 2)
+
+    plan_json["timeline"] = timeline
+    return plan_json
 
 
 def _build_ir_prompt(spec: dict[str, Any]) -> tuple[str, str]:
@@ -727,7 +946,7 @@ def _build_ir_prompt(spec: dict[str, Any]) -> tuple[str, str]:
 AnimationPlan 结构：
 {
   "scene_meta": {"title": "标题", "subtitle": "副标题", "duration_seconds": 8, "background_gradient": ["#0a0e27", "#1a1e3a"]},
-  "objects": [{"id": "唯一ID", "type": "box|circle|dot|text|arrow", "label": "标签", "color": "颜色", "position": [-4, 0], "size": {"width": 2.5, "height": 1.5}, "style": {"fill_opacity": 0.3, "corner_radius": 0.2}}],
+  "objects": [{"id": "唯一ID", "type": "box|circle|dot|text|arrow|icon", "name": "icon名称(仅icon需要)", "label": "标签", "color": "颜色", "position": [-4, 0], "size": {"width": 2.5, "height": 1.5}, "style": {"fill_opacity": 0.3, "corner_radius": 0.2}}],
   "timeline": [{"description": "描述", "actions": [{"type": "动画类型", "target": "对象ID", "params": {}, "lag_ratio": 0.2}], "wait_after": 0.3}],
   "text_blocks": [{"id": "ID", "content": "文字", "position": "bottom", "color": "WHITE", "font_size": 26, "offset": [0, 0]}]
 }
@@ -736,7 +955,9 @@ AnimationPlan 结构：
 - objects 的 position 必须是数字数组 [x, y]，如 [-4, 0] 表示左侧，[4, 0] 表示右侧，[0, 0] 表示中心
 - 不要用字符串如 "left" 或 ["center", "middle"]，必须用数字
 - text_blocks 的 position 可以用字符串 "top"/"bottom"/"left"/"right"/"center"
-- 可用 type: box, circle, dot, text, arrow
+- 可用 type: box, circle, dot, text, arrow, icon
+- icon 对象必须提供 name 字段，可用 name: sun, leaf, cell, molecule, atom, server, router, cloud, database, arrow, check, cross, star
+- icon 的 size 可以是数字缩放值，例如 1.2
 - 可用动画: fade_in, fade_out, create, indicate（强烈推荐）
 - 严格禁止使用: transform, move_to, highlight, flash（这些动作容易出错）
 - 所有对象必须在 objects 里预先定义，不能在 timeline 里引用不存在的对象
@@ -784,10 +1005,13 @@ AnimationPlan 结构：
         f"  场景{i+1}【{s.get('title', '')}】：{s.get('description', '')}（重点：{s.get('emphasis', '')}）"
         for i, s in enumerate(scenes)
     )
-    objects_text = "\n".join(
-        f"  - {(obj.get('label') or obj) if isinstance(obj, dict) else obj}"
-        for obj in objects
-    ) or "  （无指定对象）"
+    objects_text = (
+        "\n".join(
+            f"  - {(obj.get('label') or obj) if isinstance(obj, dict) else obj}"
+            for obj in objects
+        )
+        or "  （无指定对象）"
+    )
 
     user_prompt = f"""\
 请为以下教学主题设计 AnimationPlan JSON：
@@ -840,6 +1064,7 @@ async def repair_manim_code(code: str, error: str) -> str:
 # HTTP client: call manim-renderer service
 # ---------------------------------------------------------------------------
 
+
 async def _call_renderer(
     code: str,
     scene_name: str = "GeneratedScene",
@@ -871,6 +1096,7 @@ async def _call_renderer(
 # ---------------------------------------------------------------------------
 # Public entry point
 # ---------------------------------------------------------------------------
+
 
 def should_use_manim_renderer(content: dict[str, Any]) -> bool:
     """Return True if the Manim renderer should be used for this request."""
@@ -906,39 +1132,30 @@ async def render_gif_via_manim(
     if not code:
         raise RuntimeError("LLM returned empty Manim code")
 
-    # Step 2: Try rendering
+    # Step 2: Try rendering (single attempt, no LLM repair)
     render_error: str | None = None
-    for attempt in range(_MAX_REPAIR_ATTEMPTS + 1):
-        try:
-            gif_bytes = await _call_renderer(
-                code=code,
-                scene_name="GeneratedScene",
-                output_format="gif",
-                quality=_MANIM_RENDER_QUALITY,
-                fps=_MANIM_RENDER_FPS,
-            )
-            # Success: write to storage path
-            path = Path(storage_path)
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_bytes(gif_bytes)
-            logger.info(
-                "render_gif_via_manim: saved gif size=%d path=%s attempt=%d",
-                len(gif_bytes), storage_path, attempt
-            )
-            return str(path)
+    try:
+        gif_bytes = await _call_renderer(
+            code=code,
+            scene_name="GeneratedScene",
+            output_format="gif",
+            quality=_MANIM_RENDER_QUALITY,
+            fps=_MANIM_RENDER_FPS,
+        )
+        # Success: write to storage path
+        path = Path(storage_path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(gif_bytes)
+        logger.info(
+            "render_gif_via_manim: saved gif size=%d path=%s",
+            len(gif_bytes),
+            storage_path,
+        )
+        return str(path)
 
-        except (ValueError, RuntimeError) as exc:
-            render_error = str(exc)
-            logger.warning(
-                "render_gif_via_manim: attempt %d failed: %s", attempt, render_error
-            )
-            if attempt < _MAX_REPAIR_ATTEMPTS:
-                logger.info("render_gif_via_manim: attempting LLM code repair")
-                try:
-                    code = await repair_manim_code(code, render_error)
-                except Exception as repair_exc:
-                    logger.warning("LLM repair failed: %s", repair_exc)
-                    break
+    except (ValueError, RuntimeError) as exc:
+        render_error = str(exc)
+        logger.warning("render_gif_via_manim: rendering failed: %s", render_error)
 
     # Step 3: Deterministic fallback inside Manim path (avoid dropping to SVG)
     logger.warning(
