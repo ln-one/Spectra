@@ -56,6 +56,16 @@ const TOOL_TITLE_MAP: Record<GenerationToolType, string> = {
   handout: "学情预演",
 };
 
+const GENERIC_ARTIFACT_TITLES = new Set([
+  "演示动画",
+  "教学动画",
+  "科普动画",
+  "动画",
+  "动画占位",
+  "animation",
+  "animation placeholder",
+]);
+
 function normalizeStatus(statusRaw: unknown): ArtifactHistoryItem["status"] {
   const normalized =
     typeof statusRaw === "string" ? statusRaw.toLowerCase() : "";
@@ -78,6 +88,58 @@ function readArtifactKind(artifact: Artifact): string | null {
   if (typeof rawKind !== "string") return null;
   const normalized = rawKind.trim();
   return normalized || null;
+}
+
+function readContentSnapshotTitle(metadata: Artifact["metadata"]): string | null {
+  const snapshot = readMetadataField(metadata, "content_snapshot");
+  if (!snapshot || typeof snapshot !== "object") return null;
+  const title = (snapshot as Record<string, unknown>).title;
+  if (typeof title !== "string") return null;
+  const normalized = title.trim();
+  return normalized || null;
+}
+
+function sanitizeHistoryTitle(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const normalized = value.trim();
+  if (!normalized) return null;
+  if (GENERIC_ARTIFACT_TITLES.has(normalized.toLowerCase())) return null;
+  return normalized;
+}
+
+function deriveArtifactHistoryTitle(
+  artifact: Artifact,
+  toolType: GenerationToolType
+): string | null {
+  const metadataTitle = sanitizeHistoryTitle(
+    typeof readMetadataField(artifact.metadata, "title") === "string"
+      ? (readMetadataField(artifact.metadata, "title") as string)
+      : null
+  );
+  if (metadataTitle) return metadataTitle;
+
+  if (toolType === "animation") {
+    const topic = sanitizeHistoryTitle(
+      typeof readMetadataField(artifact.metadata, "topic") === "string"
+        ? (readMetadataField(artifact.metadata, "topic") as string)
+        : null
+    );
+    if (topic) return topic;
+
+    const snapshotTitle = sanitizeHistoryTitle(
+      readContentSnapshotTitle(artifact.metadata)
+    );
+    if (snapshotTitle) return snapshotTitle;
+  }
+
+  const runTitle = sanitizeHistoryTitle(
+    typeof readMetadataField(artifact.metadata, "run_title") === "string"
+      ? (readMetadataField(artifact.metadata, "run_title") as string)
+      : null
+  );
+  if (runTitle) return runTitle;
+
+  return null;
 }
 
 function readStudioCardToolType(
@@ -175,22 +237,8 @@ export function toArtifactHistoryItem(artifact: Artifact): ArtifactHistoryItem {
     readMetadataField(artifact.metadata, "status")
   );
   const artifactKind = readArtifactKind(artifact) ?? undefined;
-  const metadataTitle = readMetadataField(artifact.metadata, "title");
-  const runTitle = readMetadataField(artifact.metadata, "run_title");
-  const runTitleSource = readMetadataField(
-    artifact.metadata,
-    "run_title_source"
-  );
-  const canUseRunTitle =
-    typeof runTitle === "string" &&
-    runTitle.trim().length > 0 &&
-    (runTitleSource === "auto" || runTitleSource === "manual");
-  const title =
-    typeof metadataTitle === "string" && metadataTitle.trim()
-      ? metadataTitle.trim()
-      : canUseRunTitle
-        ? runTitle.trim()
-        : `${titlePrefix} ${artifact.id.slice(0, 8)}`;
+  const derivedTitle = deriveArtifactHistoryTitle(artifact, toolType);
+  const title = derivedTitle || `${titlePrefix} ${artifact.id.slice(0, 8)}`;
 
   return {
     artifactId: artifact.id,
