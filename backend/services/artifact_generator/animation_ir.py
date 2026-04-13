@@ -31,8 +31,12 @@ class SceneMeta(BaseModel):
 class VisualObject(BaseModel):
     """可视化对象定义"""
     id: str = Field(description="对象唯一标识符，用于后续引用")
-    type: Literal["box", "circle", "arrow", "text", "dot"] = Field(
+    type: Literal["box", "circle", "arrow", "text", "dot", "icon"] = Field(
         description="对象类型"
+    )
+    name: str | None = Field(
+        default=None,
+        description="Icon name when type=icon, e.g. sun/server/check",
     )
     label: str | None = Field(default=None, description="对象上的文字标签")
     color: str = Field(default="BLUE", description="颜色（Manim 颜色常量名）")
@@ -40,7 +44,7 @@ class VisualObject(BaseModel):
         default=[0, 0],
         description="初始位置：[x, y] 或 'left'/'right'/'top'/'bottom'/'center'"
     )
-    size: dict[str, float] | None = Field(
+    size: dict[str, float] | float | int | None = Field(
         default=None,
         description="尺寸参数，如 {width: 2.5, height: 1.5} 或 {radius: 0.5}"
     )
@@ -80,7 +84,8 @@ class AnimationAction(BaseModel):
     """单个动画动作"""
     type: Literal[
         "create", "fade_in", "fade_out", "write", "grow_arrow",
-        "move_to", "highlight", "indicate", "flash", "transform"
+        "move_to", "highlight", "indicate", "flash", "transform",
+        "pulse_glow", "absorb_to", "emit_from"
     ] = Field(description="动画类型")
     target: str | list[str] = Field(
         description="目标对象 ID（单个或多个）"
