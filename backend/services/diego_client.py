@@ -177,6 +177,16 @@ class DiegoClient:
             f"/v1/ppt/runs/{run_id}/artifacts/pptx",
         )
 
+    async def get_slide_preview(
+        self,
+        run_id: str,
+        slide_no: int,
+    ) -> dict[str, Any]:
+        return await self._request_json(
+            "GET",
+            f"/v1/ppt/runs/{run_id}/slides/{int(slide_no)}/preview",
+        )
+
 
 def build_diego_client(
     *,
@@ -189,4 +199,3 @@ def build_diego_client(
         base_url=resolved_base_url,
         timeout_seconds=diego_timeout_seconds(),
     )
-

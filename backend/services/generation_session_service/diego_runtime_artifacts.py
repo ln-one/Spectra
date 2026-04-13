@@ -8,6 +8,7 @@ from services.artifact_generator import artifact_generator
 from services.generation_session_service.outline_versions import (
     parse_outline_json,
 )
+from services.preview_helpers import load_preview_content
 from services.generation_session_service.run_lifecycle import update_session_run
 from services.preview_helpers.content_generation import build_outline_preview_payload
 from services.project_space_service.service import project_space_service
@@ -52,10 +53,19 @@ async def persist_diego_success_artifact(
 
     project = await db.project.find_unique(where={"id": session.projectId})
     outline_doc = await _load_latest_outline_document(db, session.id)
-    preview_content = build_outline_preview_payload(
-        getattr(project, "name", None) or "课件预览",
-        outline_doc,
+    cached_preview_content = await load_preview_content(str(getattr(run, "id", "") or ""))
+    preview_content = (
+        dict(cached_preview_content)
+        if isinstance(cached_preview_content, dict)
+        else None
     )
+    if not isinstance(preview_content, dict):
+        preview_content = build_outline_preview_payload(
+            getattr(project, "name", None) or "课件预览",
+            outline_doc,
+        )
+    elif not str(preview_content.get("title") or "").strip():
+        preview_content["title"] = getattr(project, "name", None) or "课件预览"
     metadata: dict[str, Any] = {
         "mode": "create",
         "status": "completed",
