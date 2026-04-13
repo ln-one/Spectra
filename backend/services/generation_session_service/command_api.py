@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import Any, Optional
 
 from services.generation_session_service.command_execution import (
-    dispatch_created_task,
     load_and_validate_session,
     load_cached_command_response,
     save_cached_command_response,
@@ -55,24 +54,8 @@ class SessionCommandMixin:
         )
 
         dispatch_result = await self._dispatch_command(session, command, result)
-        created_task_id = (
-            dispatch_result.get("task_id")
-            if isinstance(dispatch_result, dict)
-            else (dispatch_result if isinstance(dispatch_result, str) else None)
-        )
         run_data = (
             dispatch_result.get("run") if isinstance(dispatch_result, dict) else None
-        )
-        warnings = await dispatch_created_task(
-            db=self._db,
-            conflict_error_cls=self.conflict_error_cls,
-            session_id=session_id,
-            session=session,
-            created_task_id=created_task_id,
-            task_queue_service=task_queue_service,
-            mark_dispatch_failed=self._mark_dispatch_failed,
-            schedule_enqueued_task_watchdog=self._schedule_enqueued_task_watchdog,
-            append_event=self._append_event,
         )
 
         response_data = await build_command_response(
@@ -81,7 +64,7 @@ class SessionCommandMixin:
             command_type=command_type,
             run_data=run_data,
             result=result,
-            warnings=warnings,
+            warnings=[],
             contract_version=self.CONTRACT_VERSION,
             schema_version=self.SCHEMA_VERSION,
         )

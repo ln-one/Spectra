@@ -1,7 +1,6 @@
 import asyncio
 from typing import Optional
 
-from schemas.generation import TaskStatus
 from schemas.project_semantics import validate_project_sharing_rules
 from schemas.projects import ProjectCreate
 from services.library_semantics import SILENT_ACCRETION_USAGE_INTENT
@@ -133,14 +132,14 @@ class ProjectMixin:
 
     async def get_project_statistics(self, project_id: str) -> dict:
         file_where = self._project_file_where(project_id)
-        project, files_count, messages_count, tasks_count, completed_count = (
+        project, files_count, messages_count, session_count, success_count = (
             await asyncio.gather(
                 self.db.project.find_unique(where={"id": project_id}),
                 self.db.upload.count(where=file_where),
                 self.db.conversation.count(where={"projectId": project_id}),
-                self.db.generationtask.count(where={"projectId": project_id}),
-                self.db.generationtask.count(
-                    where={"projectId": project_id, "status": TaskStatus.COMPLETED}
+                self.db.generationsession.count(where={"projectId": project_id}),
+                self.db.generationsession.count(
+                    where={"projectId": project_id, "state": "SUCCESS"}
                 ),
             )
         )
@@ -174,8 +173,8 @@ class ProjectMixin:
             "project_id": project_id,
             "files_count": files_count,
             "messages_count": messages_count,
-            "generation_tasks_count": tasks_count,
-            "completed_tasks_count": completed_count,
+            "generation_tasks_count": session_count,
+            "completed_tasks_count": success_count,
             "total_file_size": total_file_size,
             "last_activity": project.updatedAt if project else None,
             "created_at": project.createdAt if project else None,

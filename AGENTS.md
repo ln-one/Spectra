@@ -186,6 +186,7 @@ Important reality:
 
 - legacy `generationtask -> task_executor/generation` PPT path has been removed
 - legacy `outline_draft` queue/executor path has been removed
+- active Prisma schema no longer carries `GenerationTask` as a runtime source of truth
 - `CONFIRM_OUTLINE` for PPT must run with a Diego binding; no legacy fallback
 - generation outputs must land as project-space artifacts
 - session URLs should point to artifact download semantics, not ad hoc preview text exports

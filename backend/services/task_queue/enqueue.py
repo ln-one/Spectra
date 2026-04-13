@@ -24,21 +24,6 @@ def _resolve_queue(service, priority: str):
     raise ValueError(f"Invalid priority: {priority}")
 
 
-def enqueue_generation_task(
-    service,
-    task_id: str,
-    project_id: str,
-    task_type: str,
-    template_config: Optional[dict] = None,
-    priority: str = "default",
-    timeout: int = 1800,
-) -> Job:
-    raise RuntimeError(
-        "Legacy generation-task queue path has been removed. "
-        "Use Diego-driven generation session flow instead."
-    )
-
-
 def enqueue_rag_indexing_task(
     service,
     file_id: str,

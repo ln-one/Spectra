@@ -6,7 +6,6 @@ from enum import Enum
 class TaskExecutionErrorCode(str, Enum):
     TIMEOUT = "TASK_EXECUTION_TIMEOUT"
     FAILED = "TASK_EXECUTION_FAILED"
-    DISPATCH_FAILED = "TASK_DISPATCH_FAILED"
 
 
 class TaskFailureStateReason(str, Enum):
@@ -16,5 +15,4 @@ class TaskFailureStateReason(str, Enum):
     FAILED_RETRY_EXHAUSTED = "task_failed_retry_exhausted"
     FAILED_PERMANENT_ERROR = "task_failed_permanent_error"
     FAILED_UNKNOWN_ERROR = "task_failed_unknown_error"
-    DISPATCH_FAILED = "task_dispatch_failed"
     COMPLETED = "task_completed"

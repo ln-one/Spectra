@@ -1,7 +1,6 @@
 from services.prisma_runtime import ensure_generated_prisma_client_path
 
 from .files import FileMixin
-from .generation_tasks import GenerationTaskMixin
 from .projects import ProjectMixin
 from .users_conversations import UserConversationMixin
 
@@ -10,7 +9,6 @@ class DatabaseService(
     ProjectMixin,
     FileMixin,
     UserConversationMixin,
-    GenerationTaskMixin,
 ):
     """Service for database operations using Prisma."""
 

@@ -11,8 +11,10 @@ from services.platform.generation_event_constants import GenerationEventType
 async def test_handle_regenerate_slide_emits_processing_event():
     db = SimpleNamespace(
         generationsession=SimpleNamespace(update=AsyncMock()),
-        generationtask=SimpleNamespace(find_first=AsyncMock(), update=AsyncMock()),
-        sessionrun=SimpleNamespace(count=AsyncMock(return_value=0), create=AsyncMock()),
+        sessionrun=SimpleNamespace(
+            count=AsyncMock(return_value=0),
+            create=AsyncMock(),
+        ),
     )
     session = SimpleNamespace(
         id="s-001",
@@ -40,7 +42,10 @@ async def test_handle_regenerate_slide_emits_processing_event():
 
     with (
         patch(
-            "services.generation_session_service.preview_mutation_context.load_preview_content",
+            (
+                "services.generation_session_service.preview_mutation_context"
+                ".load_preview_content"
+            ),
             new=AsyncMock(
                 return_value={
                     "title": "t",
@@ -50,7 +55,10 @@ async def test_handle_regenerate_slide_emits_processing_event():
             ),
         ),
         patch(
-            "services.generation_session_service.command_runtime._refresh_rendered_preview",
+            (
+                "services.generation_session_service.command_runtime"
+                "._refresh_rendered_preview"
+            ),
             new=AsyncMock(
                 side_effect=lambda **kwargs: {
                     **kwargs["preview_payload"],
@@ -59,11 +67,17 @@ async def test_handle_regenerate_slide_emits_processing_event():
             ),
         ),
         patch(
-            "services.generation_session_service.command_runtime._persist_modified_pptx_artifact",
+            (
+                "services.generation_session_service.command_runtime"
+                "._persist_modified_pptx_artifact"
+            ),
             new=AsyncMock(return_value=("artifact-001", {"pptx": "/download/a"})),
         ),
         patch(
-            "services.generation_session_service.preview_mutation_context.save_preview_content",
+            (
+                "services.generation_session_service.preview_mutation_context"
+                ".save_preview_content"
+            ),
             new=AsyncMock(),
         ),
         patch(
@@ -115,8 +129,10 @@ async def test_handle_regenerate_slide_emits_processing_event():
 async def test_handle_regenerate_slide_emits_failed_event_on_conflict():
     db = SimpleNamespace(
         generationsession=SimpleNamespace(update=AsyncMock()),
-        generationtask=SimpleNamespace(find_first=AsyncMock(), update=AsyncMock()),
-        sessionrun=SimpleNamespace(count=AsyncMock(return_value=0), create=AsyncMock()),
+        sessionrun=SimpleNamespace(
+            count=AsyncMock(return_value=0),
+            create=AsyncMock(),
+        ),
     )
     session = SimpleNamespace(
         id="s-001",
@@ -152,10 +168,10 @@ async def test_handle_regenerate_slide_emits_failed_event_on_conflict():
 async def test_handle_regenerate_slide_does_not_mutate_session_when_preview_missing():
     db = SimpleNamespace(
         generationsession=SimpleNamespace(update=AsyncMock()),
-        generationtask=SimpleNamespace(
-            find_first=AsyncMock(return_value=None), update=AsyncMock()
+        sessionrun=SimpleNamespace(
+            count=AsyncMock(return_value=0),
+            create=AsyncMock(),
         ),
-        sessionrun=SimpleNamespace(count=AsyncMock(return_value=0), create=AsyncMock()),
     )
     session = SimpleNamespace(
         id="s-001",
@@ -186,11 +202,13 @@ async def test_handle_regenerate_slide_does_not_mutate_session_when_preview_miss
 
 
 @pytest.mark.anyio
-async def test_handle_regenerate_slide_fallbacks_to_project_rag_when_selected_source_misses():
+async def test_handle_regenerate_slide_fallbacks_to_project_rag():
     db = SimpleNamespace(
         generationsession=SimpleNamespace(update=AsyncMock()),
-        generationtask=SimpleNamespace(find_first=AsyncMock(), update=AsyncMock()),
-        sessionrun=SimpleNamespace(count=AsyncMock(return_value=0), create=AsyncMock()),
+        sessionrun=SimpleNamespace(
+            count=AsyncMock(return_value=0),
+            create=AsyncMock(),
+        ),
     )
     session = SimpleNamespace(
         id="s-001",
@@ -218,7 +236,10 @@ async def test_handle_regenerate_slide_fallbacks_to_project_rag_when_selected_so
 
     with (
         patch(
-            "services.generation_session_service.preview_mutation_context.load_preview_content",
+            (
+                "services.generation_session_service.preview_mutation_context"
+                ".load_preview_content"
+            ),
             new=AsyncMock(
                 return_value={
                     "title": "t",
@@ -228,7 +249,10 @@ async def test_handle_regenerate_slide_fallbacks_to_project_rag_when_selected_so
             ),
         ),
         patch(
-            "services.generation_session_service.command_runtime._refresh_rendered_preview",
+            (
+                "services.generation_session_service.command_runtime"
+                "._refresh_rendered_preview"
+            ),
             new=AsyncMock(
                 side_effect=lambda **kwargs: {
                     **kwargs["preview_payload"],
@@ -237,7 +261,10 @@ async def test_handle_regenerate_slide_fallbacks_to_project_rag_when_selected_so
             ),
         ),
         patch(
-            "services.generation_session_service.command_runtime._persist_modified_pptx_artifact",
+            (
+                "services.generation_session_service.command_runtime"
+                "._persist_modified_pptx_artifact"
+            ),
             new=AsyncMock(return_value=("artifact-001", {"pptx": "/download/a"})),
         ),
         patch(
@@ -250,7 +277,10 @@ async def test_handle_regenerate_slide_fallbacks_to_project_rag_when_selected_so
             ),
         ) as mock_retrieve,
         patch(
-            "services.generation_session_service.preview_mutation_context.save_preview_content",
+            (
+                "services.generation_session_service.preview_mutation_context"
+                ".save_preview_content"
+            ),
             new=AsyncMock(),
         ),
         patch(
@@ -303,8 +333,10 @@ async def test_handle_regenerate_slide_fallbacks_to_project_rag_when_selected_so
 async def test_handle_regenerate_slide_restores_session_state_on_modify_failure():
     db = SimpleNamespace(
         generationsession=SimpleNamespace(update=AsyncMock()),
-        generationtask=SimpleNamespace(find_first=AsyncMock(), update=AsyncMock()),
-        sessionrun=SimpleNamespace(count=AsyncMock(return_value=0), create=AsyncMock()),
+        sessionrun=SimpleNamespace(
+            count=AsyncMock(return_value=0),
+            create=AsyncMock(),
+        ),
     )
     session = SimpleNamespace(
         id="s-001",
@@ -332,7 +364,10 @@ async def test_handle_regenerate_slide_restores_session_state_on_modify_failure(
 
     with (
         patch(
-            "services.generation_session_service.preview_mutation_context.load_preview_content",
+            (
+                "services.generation_session_service.preview_mutation_context"
+                ".load_preview_content"
+            ),
             new=AsyncMock(
                 return_value={
                     "title": "t",

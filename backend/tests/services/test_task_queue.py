@@ -39,20 +39,6 @@ class TestTaskQueueService:
         assert task_queue_service.default_queue.name == "default"
         assert task_queue_service.low_queue.name == "low"
 
-    def test_enqueue_generation_task_removed(self, task_queue_service):
-        """旧版 generation-task 队列入口已下线。"""
-        with pytest.raises(
-            RuntimeError,
-            match="Legacy generation-task queue path has been removed",
-        ):
-            task_queue_service.enqueue_generation_task(
-                task_id="test-task-1",
-                project_id="test-project-1",
-                task_type="pptx",
-                priority="default",
-                timeout=1800,
-            )
-
     def test_enqueue_remote_parse_reconcile_task_uses_direct_enqueue(
         self, task_queue_service
     ):

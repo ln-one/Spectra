@@ -86,25 +86,6 @@ CREATE TABLE "ParsedChunk" (
 );
 
 -- CreateTable
-CREATE TABLE "GenerationTask" (
-    "id" TEXT NOT NULL,
-    "projectId" TEXT NOT NULL,
-    "sessionId" TEXT,
-    "taskType" TEXT NOT NULL,
-    "status" TEXT NOT NULL DEFAULT 'pending',
-    "progress" INTEGER NOT NULL DEFAULT 0,
-    "rqJobId" TEXT,
-    "retryCount" INTEGER NOT NULL DEFAULT 0,
-    "inputData" TEXT,
-    "outputUrls" TEXT,
-    "errorMessage" TEXT,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
-
-    CONSTRAINT "GenerationTask_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
 CREATE TABLE "ProjectReference" (
     "id" TEXT NOT NULL,
     "projectId" TEXT NOT NULL,
@@ -287,15 +268,6 @@ CREATE INDEX "Upload_projectId_status_idx" ON "Upload"("projectId", "status");
 CREATE INDEX "ParsedChunk_uploadId_chunkIndex_idx" ON "ParsedChunk"("uploadId", "chunkIndex");
 
 -- CreateIndex
-CREATE INDEX "GenerationTask_projectId_status_idx" ON "GenerationTask"("projectId", "status");
-
--- CreateIndex
-CREATE INDEX "GenerationTask_rqJobId_idx" ON "GenerationTask"("rqJobId");
-
--- CreateIndex
-CREATE INDEX "GenerationTask_sessionId_idx" ON "GenerationTask"("sessionId");
-
--- CreateIndex
 CREATE INDEX "ProjectReference_projectId_relationType_idx" ON "ProjectReference"("projectId", "relationType");
 
 -- CreateIndex
@@ -357,12 +329,6 @@ ALTER TABLE "Upload" ADD CONSTRAINT "Upload_projectId_fkey" FOREIGN KEY ("projec
 
 -- AddForeignKey
 ALTER TABLE "ParsedChunk" ADD CONSTRAINT "ParsedChunk_uploadId_fkey" FOREIGN KEY ("uploadId") REFERENCES "Upload"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "GenerationTask" ADD CONSTRAINT "GenerationTask_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "Project"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "GenerationTask" ADD CONSTRAINT "GenerationTask_sessionId_fkey" FOREIGN KEY ("sessionId") REFERENCES "GenerationSession"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "ProjectReference" ADD CONSTRAINT "ProjectReference_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "Project"("id") ON DELETE CASCADE ON UPDATE CASCADE;

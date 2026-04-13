@@ -23,7 +23,6 @@ MIGRATION_LOCK = ROOT / "backend/prisma/migrations/migration_lock.toml"
 TARGET_MODELS = {
     "Project",
     "GenerationSession",
-    "GenerationTask",
     "Conversation",
     "Upload",
     "ParsedChunk",
@@ -46,7 +45,7 @@ HOTSPOT_PATTERNS = {
         ROOT / "backend/services/project_space_service/candidate_change_semantics.py",
     ],
     "generation_session": [
-        ROOT / "backend/services/generation_session_service/task_dispatch.py",
+        ROOT / "backend/services/generation_session_service/task_runtime.py",
         ROOT / "backend/services/generation_session_service/diego_runtime_sync.py",
         ROOT / "backend/services/generation_session_service/command_execution.py",
     ],

@@ -223,7 +223,6 @@ def test_get_preview_with_run_id_supports_prisma_without_select(
             generationsession=SimpleNamespace(
                 find_unique=AsyncMock(side_effect=_find_unique)
             ),
-            generationtask=SimpleNamespace(find_first=AsyncMock(return_value=None)),
             artifact=SimpleNamespace(find_first=AsyncMock(return_value=None)),
         )
     )
@@ -578,7 +577,6 @@ def test_get_slide_preview_with_run_id_supports_prisma_without_select(
             generationsession=SimpleNamespace(
                 find_unique=AsyncMock(side_effect=_find_unique)
             ),
-            generationtask=SimpleNamespace(find_first=AsyncMock(return_value=None)),
             artifact=SimpleNamespace(find_first=AsyncMock(return_value=None)),
         )
     )
