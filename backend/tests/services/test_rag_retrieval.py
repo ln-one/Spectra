@@ -72,7 +72,10 @@ class _StubClient:
                     "selected_profile_name": "balanced_default",
                     "query_buckets": ["chinese", "local_session"],
                 },
-                "planning_trace": {"confidence": "high", "matched_buckets": ["chinese"]},
+                "planning_trace": {
+                    "confidence": "high",
+                    "matched_buckets": ["chinese"],
+                },
                 "rewrite": {"applied_rules": ["definition_enrichment"]},
                 "evidence": {"mode": "balanced"},
             }

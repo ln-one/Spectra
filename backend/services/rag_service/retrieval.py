@@ -47,7 +47,9 @@ def _diagnostics_from_response(payload: dict) -> dict:
         "rewrite_rules": rewrite.get("applied_rules") or [],
         "evidence_mode": evidence.get("mode"),
     }
-    return {key: value for key, value in diagnostics.items() if value not in (None, [], "")}
+    return {
+        key: value for key, value in diagnostics.items() if value not in (None, [], "")
+    }
 
 
 def _normalize_result(

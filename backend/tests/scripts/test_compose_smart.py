@@ -106,11 +106,32 @@ def _run_compose_smart(
     shutil.copy2(PYTHON_SCRIPT, root / "scripts/compose_smart.py")
 
     _make_file(root / "docker-compose.yml", "services: {}\n")
-    _make_file(root / "docker-compose.pagevra.dev.yml", "services: {}\n")
-    _make_file(root / "docker-compose.dualweave.dev.yml", "services: {}\n")
-    _make_file(root / "docker-compose.ourograph.dev.yml", "services: {}\n")
-    _make_file(root / "docker-compose.stratumind.dev.yml", "services: {}\n")
-    _make_file(root / "docker-compose.diego.dev.yml", "services: {}\n")
+    _make_file(
+        root / "docker-compose.pagevra.dev.yml",
+        "services:\n"
+        "  pagevra:\n"
+        "    build:\n"
+        "      context: ./pagevra\n"
+        "\n"
+        "volumes:\n"
+        "  runtime_data:\n",
+    )
+    _make_file(
+        root / "docker-compose.dualweave.dev.yml",
+        "services:\n" "  dualweave:\n" "    build:\n" "      context: ./dualweave\n",
+    )
+    _make_file(
+        root / "docker-compose.ourograph.dev.yml",
+        "services:\n" "  ourograph:\n" "    build:\n" "      context: ./ourograph\n",
+    )
+    _make_file(
+        root / "docker-compose.stratumind.dev.yml",
+        "services:\n" "  stratumind:\n" "    build:\n" "      context: ./stratumind\n",
+    )
+    _make_file(
+        root / "docker-compose.diego.dev.yml",
+        "services:\n" "  diego:\n" "    build:\n" "      context: .\n",
+    )
     _make_file(
         root / "infra/stack-lock.develop.json",
         _lock_payload(
@@ -243,13 +264,16 @@ def test_sync_writes_env_and_pulls_only_image_mode_services(tmp_path: Path) -> N
 
     env_file = tmp_path / "repo/.env.compose.lock"
     env_mirror = tmp_path / "repo/.env"
+    override_file = tmp_path / "repo/docker-compose.override.yml"
     assert result.returncode == 0
     assert "Pulling Dualweave" in result.stdout
     assert "uses local source" in result.stdout
     assert env_file.exists()
     assert env_mirror.exists()
+    assert override_file.exists()
     content = env_file.read_text(encoding="utf-8")
     mirror_content = env_mirror.read_text(encoding="utf-8")
+    override_content = override_file.read_text(encoding="utf-8")
     assert "COMPOSE_LOCK_CHANNEL=develop" in content
     assert "DUALWEAVE_IMAGE=ghcr.io/example/dualweave@sha256:" in content
     assert "PAGEVRA_IMAGE=ghcr.io/example/pagevra@sha256:" in content
@@ -257,6 +281,13 @@ def test_sync_writes_env_and_pulls_only_image_mode_services(tmp_path: Path) -> N
     assert "STRATUMIND_IMAGE=ghcr.io/example/stratumind@sha256:" in content
     assert "DIEGO_IMAGE=ghcr.io/example/diego@sha256:" in content
     assert content == mirror_content
+    assert "services:" in override_content
+    assert "pagevra:" in override_content
+    assert "ourograph:" in override_content
+    assert "stratumind:" in override_content
+    assert "diego:" in override_content
+    assert "dualweave:" not in override_content
+    assert "volumes:" in override_content
 
 
 def test_sync_fails_when_image_mode_service_is_unpublished(tmp_path: Path) -> None:
@@ -295,14 +326,37 @@ def test_sync_allows_unpublished_service_when_local_source_exists(
 
     env_file = tmp_path / "repo/.env.compose.lock"
     env_mirror = tmp_path / "repo/.env"
+    override_file = tmp_path / "repo/docker-compose.override.yml"
     assert result.returncode == 0
     content = env_file.read_text(encoding="utf-8")
     mirror_content = env_mirror.read_text(encoding="utf-8")
+    override_content = override_file.read_text(encoding="utf-8")
     assert "DUALWEAVE_IMAGE=ghcr.io/example/dualweave:dev" in content
     assert "OUROGRAPH_IMAGE=ghcr.io/example/ourograph:dev" in content
     assert "STRATUMIND_IMAGE=ghcr.io/example/stratumind:dev" in content
     assert "DIEGO_IMAGE=ghcr.io/example/diego:dev" in content
     assert content == mirror_content
+    assert "dualweave:" in override_content
+    assert "ourograph:" in override_content
+    assert "stratumind:" in override_content
+    assert "diego:" in override_content
+
+
+def test_sync_removes_override_when_no_local_sources(tmp_path: Path) -> None:
+    result = _run_compose_smart(
+        tmp_path,
+        pagevra=False,
+        dualweave=False,
+        ourograph=False,
+        stratumind=False,
+        diego=False,
+        args=["sync", "--channel", "develop"],
+    )
+
+    override_file = tmp_path / "repo/docker-compose.override.yml"
+    assert result.returncode == 0
+    assert not override_file.exists()
+    assert "Removed" in result.stdout
 
 
 def test_doctor_fails_when_sync_missing_for_image_mode(tmp_path: Path) -> None:

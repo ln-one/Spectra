@@ -125,6 +125,7 @@ services:
       - PORT=8110
       - QDRANT_URL=http://qdrant:6333
       - QDRANT_COLLECTION_TEXT=stratumind_text_chunks
+      - QDRANT_COLLECTION_TEXT_ACTIVE=stratumind_text_chunks_v2
     depends_on:
       dualweave:
         condition: service_started
