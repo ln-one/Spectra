@@ -19,8 +19,20 @@ class _StubClient:
         top_k: int = 5,
         session_id: str | None = None,
         filters: dict | None = None,
+        planning: dict | None = None,
+        response: dict | None = None,
     ):
-        self.calls.append((project_id, query, top_k, session_id, filters))
+        self.calls.append(
+            {
+                "project_id": project_id,
+                "query": query,
+                "top_k": top_k,
+                "session_id": session_id,
+                "filters": filters,
+                "planning": planning,
+                "response": response,
+            }
+        )
         if project_id == "p-missing":
             raise StratumindClientError(
                 message="missing",
@@ -38,7 +50,11 @@ class _StubClient:
                         "source_type": "document",
                         "metadata": {},
                     }
-                ]
+                ],
+                "telemetry": {
+                    "selected_profile_name": "balanced_default",
+                    "query_buckets": ["reference"],
+                },
             }
         if session_id == "s-001":
             return {
@@ -51,7 +67,14 @@ class _StubClient:
                         "source_type": "document",
                         "metadata": {},
                     }
-                ]
+                ],
+                "telemetry": {
+                    "selected_profile_name": "balanced_default",
+                    "query_buckets": ["chinese", "local_session"],
+                },
+                "planning_trace": {"confidence": "high", "matched_buckets": ["chinese"]},
+                "rewrite": {"applied_rules": ["definition_enrichment"]},
+                "evidence": {"mode": "balanced"},
             }
         return {
             "results": [
@@ -63,7 +86,14 @@ class _StubClient:
                     "source_type": "document",
                     "metadata": {},
                 }
-            ]
+            ],
+            "telemetry": {
+                "selected_profile_name": "balanced_default",
+                "query_buckets": ["chinese", "local_project"],
+            },
+            "planning_trace": {"confidence": "medium", "matched_buckets": ["chinese"]},
+            "rewrite": {"applied_rules": ["definition_enrichment"]},
+            "evidence": {"mode": "balanced"},
         }
 
 
@@ -84,6 +114,12 @@ async def test_search_keeps_project_shared_chunks_alongside_session_chunks(monke
     )
 
     assert [item.chunk_id for item in results] == ["chunk-session", "chunk-project"]
+    assert results[0].metadata["stratumind_diagnostics"]["matched_buckets"] == [
+        "chinese"
+    ]
+    assert (
+        results[0].metadata["stratumind_diagnostics"]["planning_confidence"] == "high"
+    )
 
 
 @pytest.mark.asyncio
@@ -104,14 +140,25 @@ async def test_search_combines_selected_file_filter_with_session_overlay(monkeyp
         filters={"file_ids": ["file-1"]},
     )
 
-    assert client.calls[0] == (
-        "p-001",
-        "生成课件",
-        5,
-        "s-001",
-        {"file_ids": ["file-1"]},
-    )
-    assert client.calls[1] == ("p-001", "生成课件", 5, None, {"file_ids": ["file-1"]})
+    assert client.calls[0]["project_id"] == "p-001"
+    assert client.calls[0]["session_id"] == "s-001"
+    assert client.calls[0]["filters"] == {"file_ids": ["file-1"]}
+    assert client.calls[0]["planning"] == {
+        "allowed_scopes": ["local_session"],
+        "preferred_scopes": ["local_session"],
+    }
+    assert client.calls[0]["response"] == {
+        "include_evidence": True,
+        "include_planning_trace": True,
+        "include_rewrite_trace": True,
+    }
+    assert client.calls[1]["project_id"] == "p-001"
+    assert client.calls[1]["session_id"] is None
+    assert client.calls[1]["filters"] == {"file_ids": ["file-1"]}
+    assert client.calls[1]["planning"] == {
+        "allowed_scopes": ["local_project"],
+        "preferred_scopes": ["local_project"],
+    }
 
 
 @pytest.mark.asyncio

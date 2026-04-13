@@ -148,6 +148,8 @@ class StratumindClient:
         top_k: int = 5,
         session_id: str | None = None,
         filters: Optional[dict] = None,
+        planning: Optional[dict] = None,
+        response: Optional[dict] = None,
     ) -> dict[str, Any]:
         return await _request(
             "POST",
@@ -158,6 +160,8 @@ class StratumindClient:
                 "top_k": top_k,
                 "session_id": session_id,
                 "filters": filters or {},
+                "planning": planning or {},
+                "response": response or {},
             },
         )
 

@@ -11,11 +11,51 @@ from services.stratumind_client import StratumindClientError
 logger = logging.getLogger(__name__)
 
 
+def _search_response_options() -> dict:
+    return {
+        "include_evidence": True,
+        "include_planning_trace": True,
+        "include_rewrite_trace": True,
+    }
+
+
+def _search_planning_hints(*, source_scope: str, session_id: Optional[str]) -> dict:
+    hints: dict[str, object] = {}
+    if source_scope == "local_session" and session_id:
+        hints["allowed_scopes"] = ["local_session"]
+        hints["preferred_scopes"] = ["local_session"]
+    elif source_scope == "local_project":
+        hints["allowed_scopes"] = ["local_project"]
+        hints["preferred_scopes"] = ["local_project"]
+    return hints
+
+
+def _diagnostics_from_response(payload: dict) -> dict:
+    telemetry = payload.get("telemetry") or {}
+    planning_trace = payload.get("planning_trace") or {}
+    evidence = payload.get("evidence") or {}
+    rewrite = payload.get("rewrite") or {}
+    diagnostics = {
+        "ranking_stage": payload.get("ranking_stage"),
+        "degraded": bool(payload.get("degraded")),
+        "degrade_reason": payload.get("degrade_reason"),
+        "selected_profile": telemetry.get("selected_profile_name"),
+        "query_buckets": telemetry.get("query_buckets") or [],
+        "evidence_chunk_ids": telemetry.get("evidence_chunk_ids") or [],
+        "planning_confidence": planning_trace.get("confidence"),
+        "matched_buckets": planning_trace.get("matched_buckets") or [],
+        "rewrite_rules": rewrite.get("applied_rules") or [],
+        "evidence_mode": evidence.get("mode"),
+    }
+    return {key: value for key, value in diagnostics.items() if value not in (None, [], "")}
+
+
 def _normalize_result(
     payload: dict,
     *,
     source_project_id: str,
     source_scope: str,
+    retrieval_diagnostics: Optional[dict] = None,
     relation_type: Optional[str] = None,
     reference_mode: Optional[str] = None,
     reference_priority: Optional[int] = None,
@@ -24,6 +64,8 @@ def _normalize_result(
     metadata = dict(payload.get("metadata") or {})
     metadata.setdefault("source_project_id", source_project_id)
     metadata.setdefault("source_scope", source_scope)
+    if retrieval_diagnostics:
+        metadata.setdefault("stratumind_diagnostics", retrieval_diagnostics)
     if relation_type is not None:
         metadata.setdefault("reference_relation_type", relation_type)
     if reference_mode is not None:
@@ -66,6 +108,10 @@ async def search(
                 top_k=top_k,
                 session_id=session_id,
                 filters=filters,
+                planning=_search_planning_hints(
+                    source_scope="local_session", session_id=session_id
+                ),
+                response=_search_response_options(),
             )
             if local_session_result.get("results"):
                 result_sets.append(
@@ -74,6 +120,9 @@ async def search(
                         {
                             "source_project_id": project_id,
                             "source_scope": "local_session",
+                            "retrieval_diagnostics": _diagnostics_from_response(
+                                local_session_result
+                            ),
                         },
                     )
                 )
@@ -88,12 +137,22 @@ async def search(
             top_k=top_k,
             session_id=None,
             filters=filters,
+            planning=_search_planning_hints(
+                source_scope="local_project", session_id=None
+            ),
+            response=_search_response_options(),
         )
         if local_project_result.get("results"):
             result_sets.append(
                 (
                     local_project_result["results"],
-                    {"source_project_id": project_id, "source_scope": "local_project"},
+                    {
+                        "source_project_id": project_id,
+                        "source_scope": "local_project",
+                        "retrieval_diagnostics": _diagnostics_from_response(
+                            local_project_result
+                        ),
+                    },
                 )
             )
     except StratumindClientError as exc:
@@ -109,6 +168,11 @@ async def search(
                     top_k=top_k,
                     session_id=None,
                     filters=filters,
+                    planning=_search_planning_hints(
+                        source_scope=str(target.get("source_scope") or ""),
+                        session_id=None,
+                    ),
+                    response=_search_response_options(),
                 )
             except StratumindClientError as exc:
                 if exc.code == "PROJECT_NOT_INDEXED":
@@ -119,7 +183,12 @@ async def search(
             result_sets.append(
                 (
                     target_result["results"],
-                    target,
+                    {
+                        **target,
+                        "retrieval_diagnostics": _diagnostics_from_response(
+                            target_result
+                        ),
+                    },
                 )
             )
 

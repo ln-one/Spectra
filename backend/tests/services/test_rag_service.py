@@ -27,8 +27,12 @@ class _StubClient:
         top_k: int = 5,
         session_id: str | None = None,
         filters: dict | None = None,
+        planning: dict | None = None,
+        response: dict | None = None,
     ):
         del query
+        del planning
+        del response
         filters = filters or {}
         project_chunks = list(self.indexed.get(project_id, {}).values())
         results = []
