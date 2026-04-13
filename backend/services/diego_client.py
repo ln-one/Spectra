@@ -139,7 +139,10 @@ class DiegoClient:
                         error_payload, status_code=response.status_code
                     )
                     if isinstance(error_payload, dict)
-                    else f"Diego artifact download failed: status={response.status_code}"
+                    else (
+                        "Diego artifact download failed: "
+                        f"status={response.status_code}"
+                    )
                 ),
                 status_code=(
                     response.status_code if response.status_code >= 500 else 502

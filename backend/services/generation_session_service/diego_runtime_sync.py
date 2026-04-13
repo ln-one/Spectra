@@ -351,7 +351,8 @@ async def _sync_pending_slide_previews(
                 remaining.add(slide_no)
                 continue
             logger.warning(
-                "Diego slide preview fetch failed: run=%s diego_run=%s slide_no=%s error=%s",
+                "Diego slide preview fetch failed: run=%s diego_run=%s "
+                "slide_no=%s error=%s",
                 run.id,
                 diego_run_id,
                 slide_no,
@@ -362,7 +363,8 @@ async def _sync_pending_slide_previews(
             continue
         except Exception as exc:
             logger.warning(
-                "Diego slide preview fetch raised: run=%s diego_run=%s slide_no=%s error=%s",
+                "Diego slide preview fetch raised: run=%s diego_run=%s "
+                "slide_no=%s error=%s",
                 run.id,
                 diego_run_id,
                 slide_no,
