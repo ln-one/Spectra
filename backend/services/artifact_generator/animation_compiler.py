@@ -81,7 +81,7 @@ def _is_light_hex(hex_color: str) -> bool:
 
 
 # ============================================================================
-# Object builders – each type maps to exactly one Manim constructor
+# Object builders — each type maps to exactly one Manim constructor
 # ============================================================================
 
 def _build_object(obj: dict) -> list[str]:

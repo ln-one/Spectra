@@ -1,14 +1,12 @@
 """Manim renderer client + LLM code generation.
 
 Flow:
-  1. generate_manim_code_with_llm(spec)  → Manim Python code string
-  2. render_manim_gif(code, scene_name)  → calls manim-renderer service → GIF bytes
-  3. render_gif_via_manim(content, storage_path)  → public entry point used by media.py
+  1. `generate_manim_code_with_llm(spec)` -> Manim Python code string
+  2. `render_manim_gif(code, scene_name)` -> call manim-renderer service -> GIF bytes
+  3. `render_gif_via_manim(content, storage_path)` -> public entry point used by `media.py`
 
-The LLM generates Manim code using a Few-Shot prompt that includes three
-reference examples covering the most common teaching animation patterns.
-If the first attempt fails (syntax error / runtime error from the renderer),
-the error message is fed back to the LLM for one automatic repair attempt.
+The LLM generates Manim code using a few-shot prompt that includes several
+reference examples covering common teaching animation patterns.
 """
 
 from __future__ import annotations
@@ -42,204 +40,26 @@ _MAX_REPAIR_ATTEMPTS = 0  # 当前无 LLM Python repair，仅主渲染一次
 # ---------------------------------------------------------------------------
 
 _FEWSHOT_EXAMPLES = """
-=== 示例1：流程步骤（process_flow / pipeline_sequence） ===
+=== 示例 1：流程型动画（process_flow / pipeline_sequence）===
 主题：编译器的四个阶段
+- 深色渐变背景
+- 4 个流程卡片横向排布
+- 箭头串联各阶段
+- 每一步用 `Indicate` 强调当前阶段
+- 结尾用底部总结文本收束
 
-```python
-from manim import *
+=== 示例 2：双端交互（protocol_exchange）===
+主题：HTTP 请求与响应
+- 左右两端分别是客户端和服务端
+- 请求箭头从左到右，响应箭头从右到左
+- 每次消息发送时高亮当前发送方
+- 结尾总结“请求-响应循环完成”
 
-class CompilerPipelineScene(Scene):
-    def construct(self):
-        # 深色渐变背景
-        bg = Rectangle(width=config.frame_width + 1, height=config.frame_height + 1,
-                       fill_color=["#0a0e27", "#1a1e3a"], fill_opacity=1, stroke_width=0)
-        self.add(bg)
-
-        title = Text("编译器的四个阶段", font_size=42, color=WHITE)
-        subtitle = Text("从源代码到可执行程序", font_size=22, color=GRAY_A)
-        header = VGroup(title, subtitle).arrange(DOWN, buff=0.2).to_edge(UP, buff=0.6)
-        self.play(Write(title), FadeIn(subtitle, shift=UP * 0.2))
-        self.wait(0.3)
-
-        stages = ["词法分析", "语法分析", "语义分析", "代码生成"]
-        colors = [TEAL, BLUE, PURPLE, GREEN]
-        boxes = VGroup()
-        for i, (name, color) in enumerate(zip(stages, colors)):
-            box = RoundedRectangle(width=2.4, height=1.2, corner_radius=0.2,
-                                   color=color, fill_opacity=0.25, stroke_width=2)
-            label = Text(name, font_size=24, color=WHITE)
-            label.move_to(box)
-            group = VGroup(box, label)
-            group.shift(RIGHT * (i * 3.0 - 4.5) + DOWN * 0.8)
-            boxes.add(group)
-
-        arrows = VGroup()
-        for i in range(len(boxes) - 1):
-            arr = Arrow(boxes[i].get_right(), boxes[i+1].get_left(),
-                        buff=0.15, color=GRAY_B, stroke_width=2)
-            arrows.add(arr)
-
-        self.play(LaggedStart(*[FadeIn(b, shift=UP * 0.3) for b in boxes], lag_ratio=0.2))
-        self.play(LaggedStart(*[GrowArrow(a) for a in arrows], lag_ratio=0.15))
-        self.wait(0.3)
-
-        # 逐步高亮 + 说明文字
-        descs = ["将源代码拆分为 Token 序列", "构建抽象语法树 AST",
-                 "类型检查与语义验证", "生成目标机器代码"]
-        desc_text = None
-        for i, box in enumerate(boxes):
-            if desc_text:
-                self.play(FadeOut(desc_text), run_time=0.2)
-            rect = box[0]
-            self.play(rect.animate.set_fill(opacity=0.7), Indicate(box, color=colors[i]),
-                      run_time=0.6)
-            desc_text = Text(descs[i], font_size=20, color=colors[i])
-            desc_text.next_to(boxes, DOWN, buff=0.6)
-            self.play(FadeIn(desc_text, shift=UP * 0.15))
-            self.wait(0.5)
-            self.play(rect.animate.set_fill(opacity=0.25), run_time=0.3)
-
-        if desc_text:
-            self.play(FadeOut(desc_text))
-
-        summary = Text("四个阶段协同完成编译过程", font_size=28, color=GREEN)
-        summary.to_edge(DOWN, buff=0.5)
-        self.play(FadeIn(summary, shift=UP * 0.2))
-        self.wait(1)
-```
-
-=== 示例2：双端交互（protocol_exchange） ===
-主题：HTTP 请求响应
-
-```python
-from manim import *
-
-class HttpRequestScene(Scene):
-    def construct(self):
-        bg = Rectangle(width=config.frame_width + 1, height=config.frame_height + 1,
-                       fill_color=["#0a1628", "#0d2137"], fill_opacity=1, stroke_width=0)
-        self.add(bg)
-
-        title = Text("HTTP 请求与响应", font_size=38, color=WHITE)
-        title.to_edge(UP, buff=0.5)
-        self.play(Write(title))
-
-        # 客户端和服务器卡片
-        client = RoundedRectangle(width=2.8, height=1.6, corner_radius=0.2,
-                                  color=TEAL, fill_opacity=0.3, stroke_width=2)
-        client_label = Text("浏览器", font_size=28, color=TEAL)
-        client_label.move_to(client)
-        client_group = VGroup(client, client_label).shift(LEFT * 4 + DOWN * 0.3)
-
-        server = RoundedRectangle(width=2.8, height=1.6, corner_radius=0.2,
-                                  color=BLUE, fill_opacity=0.3, stroke_width=2)
-        server_label = Text("服务器", font_size=28, color=BLUE)
-        server_label.move_to(server)
-        server_group = VGroup(server, server_label).shift(RIGHT * 4 + DOWN * 0.3)
-
-        self.play(FadeIn(client_group, shift=RIGHT * 0.3),
-                  FadeIn(server_group, shift=LEFT * 0.3))
-        self.wait(0.3)
-
-        # 请求报文飞行
-        req_dot = Dot(color=YELLOW, radius=0.12)
-        req_dot.move_to(client_group.get_right())
-        req_label = Text("GET /index.html", font_size=18, color=YELLOW)
-        req_label.next_to(req_dot, UP, buff=0.15)
-        self.play(FadeIn(req_dot), Write(req_label))
-        self.play(
-            req_dot.animate.move_to(server_group.get_left()),
-            req_label.animate.move_to(server_group.get_left() + UP * 0.4),
-            run_time=1.0
-        )
-        self.play(Flash(server_group, color=BLUE, flash_radius=0.5))
-        self.play(FadeOut(req_dot), FadeOut(req_label))
-
-        # 状态码
-        state = Text("200 OK", font_size=24, color=GREEN)
-        state.next_to(server_group, DOWN, buff=0.3)
-        self.play(Write(state))
-        self.wait(0.3)
-
-        # 响应报文飞行
-        res_dot = Dot(color=GREEN, radius=0.12)
-        res_dot.move_to(server_group.get_left())
-        res_label = Text("HTML 响应", font_size=18, color=GREEN)
-        res_label.next_to(res_dot, UP, buff=0.15)
-        self.play(FadeIn(res_dot), Write(res_label))
-        self.play(
-            res_dot.animate.move_to(client_group.get_right()),
-            res_label.animate.move_to(client_group.get_right() + UP * 0.4),
-            run_time=1.0
-        )
-        self.play(Flash(client_group, color=TEAL, flash_radius=0.5))
-        self.play(FadeOut(res_dot), FadeOut(res_label), FadeOut(state))
-
-        summary = Text("一次完整的 HTTP 交互完成", font_size=26, color=WHITE)
-        summary.to_edge(DOWN, buff=0.5)
-        self.play(FadeIn(summary, shift=UP * 0.2))
-        self.wait(1)
-```
-
-=== 示例3：结构分层（structure_breakdown） ===
+=== 示例 3：结构分层（structure_breakdown）===
 主题：TCP/IP 五层模型
-
-```python
-from manim import *
-
-class TcpIpLayersScene(Scene):
-    def construct(self):
-        bg = Rectangle(width=config.frame_width + 1, height=config.frame_height + 1,
-                       fill_color=["#0d0d1a", "#1a1a2e"], fill_opacity=1, stroke_width=0)
-        self.add(bg)
-
-        title = Text("TCP/IP 五层模型", font_size=40, color=WHITE)
-        title.to_edge(UP, buff=0.5)
-        self.play(Write(title))
-
-        layers = [
-            ("应用层", TEAL, "HTTP、DNS、FTP"),
-            ("传输层", BLUE, "TCP、UDP"),
-            ("网络层", PURPLE, "IP 寻址与路由"),
-            ("数据链路层", ORANGE, "帧传输与 MAC"),
-            ("物理层", RED, "比特信号传输"),
-        ]
-        rects = VGroup()
-        for i, (name, color, _) in enumerate(layers):
-            rect = RoundedRectangle(width=7, height=0.75, corner_radius=0.15,
-                                    color=color, fill_opacity=0.3, stroke_width=2)
-            label = Text(name, font_size=24, color=WHITE)
-            label.move_to(rect)
-            group = VGroup(rect, label)
-            group.shift(DOWN * (i * 0.9 - 1.2))
-            rects.add(group)
-
-        self.play(LaggedStart(
-            *[FadeIn(r, shift=LEFT * 0.5) for r in rects], lag_ratio=0.12
-        ))
-        self.wait(0.4)
-
-        # 逐层高亮 + 右侧说明
-        desc_text = None
-        for i, (rect_group, (_, color, desc)) in enumerate(zip(rects, layers)):
-            if desc_text:
-                self.play(FadeOut(desc_text), run_time=0.2)
-            self.play(rect_group[0].animate.set_fill(opacity=0.7),
-                      Indicate(rect_group, color=color), run_time=0.5)
-            desc_text = Text(desc, font_size=20, color=color)
-            desc_text.next_to(rects, RIGHT, buff=0.5).shift(UP * (1.5 - i * 0.7))
-            self.play(FadeIn(desc_text, shift=LEFT * 0.2))
-            self.wait(0.4)
-            self.play(rect_group[0].animate.set_fill(opacity=0.3), run_time=0.2)
-
-        if desc_text:
-            self.play(FadeOut(desc_text))
-
-        summary = Text("五层协同完成网络通信", font_size=28, color=TEAL)
-        summary.to_edge(DOWN, buff=0.4)
-        self.play(FadeIn(summary, shift=UP * 0.2))
-        self.wait(1)
-```
+- 5 层卡片纵向堆叠
+- 逐层高亮并显示右侧说明
+- 结尾用一句总结文本收束
 """
 
 _SYSTEM_PROMPT = """\
@@ -941,27 +761,26 @@ def _build_ir_prompt(spec: dict[str, Any]) -> tuple[str, str]:
     bg_suggestion = f'["{bg_gradient}", "{panel_color}"]'
 
     system_prompt = """\
-你是一名动画设计专家。你只输出 AnimationPlan JSON，不输出任何解释。
-
+你是一名动画设计专家。你只输出 AnimationPlan JSON，不输出解释。
 AnimationPlan 结构：
 {
   "scene_meta": {"title": "标题", "subtitle": "副标题", "duration_seconds": 8, "background_gradient": ["#0a0e27", "#1a1e3a"]},
-  "objects": [{"id": "唯一ID", "type": "box|circle|dot|text|arrow|icon", "name": "icon名称(仅icon需要)", "label": "标签", "color": "颜色", "position": [-4, 0], "size": {"width": 2.5, "height": 1.5}, "style": {"fill_opacity": 0.3, "corner_radius": 0.2}}],
+  "objects": [{"id": "唯一ID", "type": "box|circle|dot|text|arrow|icon", "name": "icon名称", "label": "标签", "color": "颜色", "position": [-4, 0], "size": {"width": 2.5, "height": 1.5}, "style": {"fill_opacity": 0.3, "corner_radius": 0.2}}],
   "timeline": [{"description": "描述", "actions": [{"type": "动画类型", "target": "对象ID", "params": {}, "lag_ratio": 0.2}], "wait_after": 0.3}],
   "text_blocks": [{"id": "ID", "content": "文字", "position": "bottom", "color": "WHITE", "font_size": 26, "offset": [0, 0]}]
 }
 
 重要规则：
-- objects 的 position 必须是数字数组 [x, y]，如 [-4, 0] 表示左侧，[4, 0] 表示右侧，[0, 0] 表示中心
-- 不要用字符串如 "left" 或 ["center", "middle"]，必须用数字
-- text_blocks 的 position 可以用字符串 "top"/"bottom"/"left"/"right"/"center"
+- objects 的 position 必须是数字数组 [x, y]
+- text_blocks 的 position 可以是 top/bottom/left/right/center
 - 可用 type: box, circle, dot, text, arrow, icon
-- icon 对象必须提供 name 字段，可用 name: sun, leaf, cell, molecule, atom, server, router, cloud, database, arrow, check, cross, star
+- icon 对象必须提供 name 字段
+- 可用 icon name: sun, leaf, cell, molecule, atom, server, router, cloud, database, arrow, check, cross, star
 - icon 的 size 可以是数字缩放值，例如 1.2
-- 可用动画: fade_in, fade_out, create, indicate（强烈推荐）
-- 严格禁止使用: transform, move_to, highlight, flash（这些动作容易出错）
-- 所有对象必须在 objects 里预先定义，不能在 timeline 里引用不存在的对象
-- 可用颜色: WHITE, BLACK, GRAY, GRAY_A, RED, ORANGE, YELLOW, GREEN, BLUE, PURPLE, TEAL, MAROON, GOLD, PINK 及 _A/_B/_C/_D/_E 变体
+- 可用动画: fade_in, fade_out, create, indicate
+- 严格禁止使用: transform, move_to, highlight, flash
+- 所有对象必须先在 objects 中定义，不能在 timeline 中引用不存在的对象
+- 可用颜色: WHITE, BLACK, GRAY, GRAY_A, RED, ORANGE, YELLOW, GREEN, BLUE, PURPLE, TEAL, MAROON, GOLD, PINK 及其 _A/_B/_C/_D/_E 变体
 
 示例 1 - TCP 三次握手：
 {
@@ -972,32 +791,7 @@ AnimationPlan 结构：
     {"id": "arrow1", "type": "arrow", "label": "", "color": "TEAL", "position": [0, 1], "style": {"start": [-2.5, 0.5], "end": [2.5, 0.5]}},
     {"id": "arrow2", "type": "arrow", "label": "", "color": "ORANGE", "position": [0, 0], "style": {"start": [2.5, 0], "end": [-2.5, 0]}},
     {"id": "arrow3", "type": "arrow", "label": "", "color": "PURPLE", "position": [0, -1], "style": {"start": [-2.5, -0.5], "end": [2.5, -0.5]}}
-  ],
-  "timeline": [
-    {"description": "显示客户端和服务器", "actions": [{"type": "fade_in", "target": ["client", "server"]}], "wait_after": 0.5},
-    {"description": "SYN", "actions": [{"type": "create", "target": "arrow1"}, {"type": "indicate", "target": "client", "params": {"color": "YELLOW"}}], "wait_after": 1.0},
-    {"description": "SYN-ACK", "actions": [{"type": "create", "target": "arrow2"}, {"type": "indicate", "target": "server", "params": {"color": "YELLOW"}}], "wait_after": 1.0},
-    {"description": "ACK", "actions": [{"type": "create", "target": "arrow3"}, {"type": "indicate", "target": "client", "params": {"color": "YELLOW"}}], "wait_after": 1.0}
-  ],
-  "text_blocks": [{"id": "summary", "content": "三次握手完成，连接建立", "position": "bottom", "color": "MAROON", "font_size": 28, "offset": [0, 0]}]
-}
-
-示例 2 - HTTP 请求响应（带镜头切换）：
-{
-  "scene_meta": {"title": "HTTP 请求响应", "subtitle": "客户端与服务器交互", "duration_seconds": 8, "background_gradient": ["#f3fbff", "#d8ecfb"]},
-  "objects": [
-    {"id": "browser", "type": "box", "label": "浏览器", "color": "BLUE_C", "position": [-3, 0], "size": {"width": 2.0, "height": 1.2}, "style": {"fill_opacity": 0.2, "corner_radius": 0.2}},
-    {"id": "server", "type": "box", "label": "服务器", "color": "GREEN_C", "position": [3, 0], "size": {"width": 2.0, "height": 1.2}, "style": {"fill_opacity": 0.2, "corner_radius": 0.2}},
-    {"id": "request_arrow", "type": "arrow", "label": "", "color": "TEAL", "position": [0, 0.8], "style": {"start": [-1.5, 0.8], "end": [1.5, 0.8]}},
-    {"id": "response_arrow", "type": "arrow", "label": "", "color": "ORANGE", "position": [0, -0.8], "style": {"start": [1.5, -0.8], "end": [-1.5, -0.8]}}
-  ],
-  "timeline": [
-    {"description": "显示浏览器", "actions": [{"type": "fade_in", "target": "browser"}], "wait_after": 0.5},
-    {"description": "显示服务器", "actions": [{"type": "fade_in", "target": "server"}], "wait_after": 0.5},
-    {"description": "发送请求", "actions": [{"type": "create", "target": "request_arrow"}, {"type": "indicate", "target": "browser", "params": {"color": "YELLOW"}}], "wait_after": 1.5},
-    {"description": "返回响应", "actions": [{"type": "fade_out", "target": "request_arrow"}, {"type": "create", "target": "response_arrow"}, {"type": "indicate", "target": "server", "params": {"color": "YELLOW"}}], "wait_after": 1.5}
-  ],
-  "text_blocks": [{"id": "summary", "content": "请求-响应循环完成", "position": "bottom", "color": "MAROON", "font_size": 28, "offset": [0, 0]}]
+  ]
 }
 """
 
@@ -1013,9 +807,8 @@ AnimationPlan 结构：
         or "  （无指定对象）"
     )
 
-    user_prompt = f"""\
+    user_prompt = f"""\\
 请为以下教学主题设计 AnimationPlan JSON：
-
 【主题】{spec.get('topic') or spec.get('title') or '教学主题'}
 【重点】{spec.get('focus') or ''}
 【类型】{spec.get('visual_type') or 'process_flow'}
@@ -1025,30 +818,21 @@ AnimationPlan 结构：
 【对象】
 {objects_text}
 【时长】约 {spec.get('duration_seconds') or 8} 秒
-【视觉主题配色】背景渐变必须使用 {bg_suggestion}，强调色为 {accent_color}
+【视觉主题配色】背景渐变必须使用 {bg_suggestion}，强调色优先使用 {accent_color}
 
 设计要求：
-1. background_gradient 必须使用上面指定的配色 {bg_suggestion}
+1. background_gradient 必须使用指定配色 {bg_suggestion}
 2. 文本字号偏大：title >= 50，节点标签 >= 30，说明文字 >= 28
-3. box 类型用圆角卡片，accent 色优先使用 {accent_color}
-4. 除流程框外，至少加入 2 个辅助图形对象（circle/dot/text）增强画面生动感
-5. 多用镜头切换（fade_out 旧 + fade_in 新），重点用 indicate
-6. 最后加 text_block 总结
-7. 【重要】所有标签必须使用中文，禁止出现英文标签或副标题
-8. 【重要】对象标签必须使用具体内容，禁止使用 A/B/C/D/E 等占位符
-   - 排序算法：用具体数字如 "5"、"3"、"8"
-   - 协议步骤：用具体名称如 "SYN"、"ACK"
-   - 流程节点：用具体操作名称
-9. 【重要】position 必须合理分布，避免对象重叠：
-   - 5个对象横排：x 坐标用 -4, -2, 0, 2, 4
-   - 3个对象横排：x 坐标用 -3, 0, 3
-   - 纵向排列：y 坐标用 2, 0, -2
-10. 【重要】对象颜色必须使用深色或高饱和度，禁止使用 WHITE/GRAY_A/GRAY_B 等浅色
-    - 推荐：BLUE_C, GREEN_C, RED_C, ORANGE, PURPLE, TEAL, MAROON, GOLD
-    - 禁止：WHITE, GRAY, GRAY_A, GRAY_B, GRAY_C（浅色背景看不清）
-11. 【重要】timeline 必须分场景渐进，每个 step 只显示 1-2 个对象，用 fade_out 切换旧对象
+3. box 类型优先使用圆角卡片风格
+4. 尽量使用镜头切换和 indicate 强调重点
+5. 所有标签必须使用中文
+6. 对象标签必须具体，禁止 A/B/C 这类占位符
+7. position 必须合理分布，避免对象重叠
+8. 对象颜色优先使用深色或高饱和颜色
+9. timeline 应分场景渐进展开
 
-输出 JSON："""
+只输出 JSON。
+"""
 
     return system_prompt, user_prompt
 
