@@ -159,3 +159,50 @@ async def test_outline_timeout_emits_stable_timeout_reason():
     ]
     payload = json.loads(failed_events[0]["payload"])
     assert payload["error_code"] == OutlineGenerationErrorCode.TIMEOUT.value
+
+
+@pytest.mark.anyio
+async def test_execute_outline_draft_failure_marks_run_failed():
+    db = SimpleNamespace(
+        project=SimpleNamespace(find_unique=AsyncMock(return_value=SimpleNamespace())),
+        generationsession=SimpleNamespace(
+            find_unique=AsyncMock(
+                side_effect=[
+                    {
+                        "state": GenerationState.DRAFTING_OUTLINE.value,
+                        "currentOutlineVersion": 0,
+                        "outputType": "ppt",
+                    },
+                    {
+                        "state": GenerationState.DRAFTING_OUTLINE.value,
+                        "currentOutlineVersion": 0,
+                        "outputType": "ppt",
+                    },
+                ]
+            ),
+            update=AsyncMock(),
+        ),
+        outlineversion=SimpleNamespace(create=AsyncMock()),
+        sessionevent=SimpleNamespace(create=AsyncMock()),
+        sessionrun=SimpleNamespace(
+            find_first=AsyncMock(return_value=SimpleNamespace(id="run-1")),
+            update=AsyncMock(return_value=SimpleNamespace(id="run-1")),
+        ),
+    )
+    service = GenerationSessionService(db=db)
+
+    with patch("services.generation_session_service.ai_service") as mock_ai:
+        mock_ai.generate_outline = AsyncMock(side_effect=Exception("mock outline error"))
+        await service._execute_outline_draft_local(
+            session_id="s-001",
+            project_id="p-001",
+            options={"pages": 10},
+        )
+
+    update_calls = db.sessionrun.update.await_args_list
+    assert any(
+        call.kwargs["where"]["id"] == "run-1"
+        and call.kwargs["data"].get("status") == "failed"
+        and call.kwargs["data"].get("step") == "outline"
+        for call in update_calls
+    )

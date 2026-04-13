@@ -47,12 +47,13 @@ async def set_session_state(
     update_payload: dict[str, Any] = {
         "state": state,
         "stateReason": state_reason,
-        "progress": progress,
         "errorCode": error_code,
         "errorMessage": error_message,
         "errorRetryable": bool(error_retryable),
         "resumable": True,
     }
+    if progress is not None:
+        update_payload["progress"] = progress
     if ppt_url is not None:
         update_payload["pptUrl"] = ppt_url
     await db.generationsession.update(

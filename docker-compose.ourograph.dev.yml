@@ -4,7 +4,8 @@ services:
     build:
       context: ./ourograph
       dockerfile: Dockerfile.dev
-    command: ["gradle", "--no-daemon", "run"]
+    healthcheck:
+      start_period: 180s
     volumes:
       - ./ourograph:/app
       - runtime_data:/var/lib/spectra

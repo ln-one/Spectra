@@ -28,10 +28,12 @@ from services.generation_session_service.outline_versions import (
 )
 from services.generation_session_service.run_queries import resolve_output_tool_type
 from services.generation_session_service.session_history import (
+    RUN_STATUS_FAILED,
     RUN_STATUS_PENDING,
     RUN_STATUS_PROCESSING,
     RUN_STEP_CONFIG,
     RUN_STEP_OUTLINE,
+    update_session_run,
 )
 from services.platform.generation_event_constants import GenerationEventType
 from services.platform.state_transition_guard import GenerationState
@@ -310,6 +312,13 @@ async def execute_outline_draft_local(
                 db=db,
                 session_id=session_id,
                 output_type=output_type,
+            )
+        if run_id:
+            await update_session_run(
+                db=db,
+                run_id=run_id,
+                status=RUN_STATUS_FAILED,
+                step=RUN_STEP_OUTLINE,
             )
         await emit_outline_failure(
             append_event,

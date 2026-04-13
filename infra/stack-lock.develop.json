@@ -37,11 +37,11 @@
     },
     "diego": {
       "image": "ghcr.io/watermelon551/diego",
-      "tag": "dev",
-      "digest": null,
+      "tag": "master",
+      "digest": "sha256:41c6b4d73fcbbc98a32b253b9e6a08725bf25ea9be27b6826b0790414999ec02",
       "source_branch": "develop",
-      "published": false,
-      "notes": "Diego source-mode bootstrap lock. Publish a digest before enabling image-only mode."
+      "published": true,
+      "notes": "Pinned from GHCR public master manifest on 2026-04-13."
     }
   }
 }
