@@ -110,6 +110,7 @@ def _run_compose_smart(
         root / "docker-compose.pagevra.dev.yml",
         "services:\n"
         "  pagevra:\n"
+        "    image: spectra-pagevra:dev\n"
         "    build:\n"
         "      context: ./pagevra\n"
         "\n"
@@ -283,6 +284,7 @@ def test_sync_writes_env_and_pulls_only_image_mode_services(tmp_path: Path) -> N
     assert content == mirror_content
     assert "services:" in override_content
     assert "pagevra:" in override_content
+    assert "image: spectra-pagevra:dev" in override_content
     assert "ourograph:" in override_content
     assert "stratumind:" in override_content
     assert "diego:" in override_content
@@ -405,3 +407,54 @@ def test_compose_command_uses_synced_env_and_overrides(tmp_path: Path) -> None:
     assert "docker-compose.ourograph.dev.yml" in result.stdout
     assert "docker-compose.stratumind.dev.yml" in result.stdout
     assert "docker-compose.diego.dev.yml" in result.stdout
+
+
+def test_up_auto_syncs_when_env_lock_is_missing(tmp_path: Path) -> None:
+    result = _run_compose_smart(
+        tmp_path,
+        pagevra=False,
+        dualweave=False,
+        ourograph=False,
+        stratumind=False,
+        diego=False,
+        args=["up"],
+    )
+
+    env_file = tmp_path / "repo/.env.compose.lock"
+    assert result.returncode == 0
+    assert env_file.exists()
+    assert "Auto-syncing compose environment before docker compose" in result.stdout
+    assert "Syncing stack lock for channel 'develop'" in result.stdout
+    assert "DOCKER pull ghcr.io/example/pagevra@sha256:" in result.stdout
+    assert "DOCKER compose --env-file" in result.stdout
+    assert " -f docker-compose.yml up" in result.stdout
+
+
+def test_up_auto_adds_build_when_local_source_exists(tmp_path: Path) -> None:
+    sync_result = _run_compose_smart(
+        tmp_path,
+        pagevra=True,
+        dualweave=True,
+        ourograph=True,
+        stratumind=True,
+        diego=True,
+        args=["sync", "--channel", "develop"],
+    )
+    assert sync_result.returncode == 0
+
+    result = _run_compose_smart(
+        tmp_path,
+        pagevra=True,
+        dualweave=True,
+        ourograph=True,
+        stratumind=True,
+        diego=True,
+        args=["up"],
+    )
+
+    assert result.returncode == 0
+    assert "Local source detected; adding '--build'" in result.stdout
+    assert "DOCKER compose --env-file" in result.stdout
+    assert " -f docker-compose.yml" in result.stdout
+    assert "docker-compose.pagevra.dev.yml" in result.stdout
+    assert "up --build" in result.stdout

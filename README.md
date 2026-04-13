@@ -46,14 +46,16 @@ The repository has completed its first major structural convergence:
 ### Docker
 
 ```bash
-python3 ./scripts/compose_smart.py status
-python3 ./scripts/compose_smart.py sync --channel develop
-python3 ./scripts/compose_smart.py doctor
-python3 ./scripts/compose_smart.py up --build
+python3 ./scripts/compose_smart.py up
 ```
 
 For more detail, see `docs/guides/docker-setup.md`.
 Runtime configuration should come from `backend/.env`, using `backend/.env.example` as the template.
+
+`compose_smart.py up` is now the recommended day-to-day entrypoint: it auto-runs
+`sync` when the compose lock env is missing or stale, and when local private
+service source trees are detected it automatically adds `--build` so you do not
+need a separate rebuild step just to pick up source changes.
 
 The five private microservices are consumed in two modes:
 
@@ -114,8 +116,6 @@ Current default behavior:
 Recommended onboarding for developers without microservice repo access:
 
 ```bash
-python3 ./scripts/compose_smart.py sync --channel develop
-python3 ./scripts/compose_smart.py doctor
 python3 ./scripts/compose_smart.py up -d
 ```
 

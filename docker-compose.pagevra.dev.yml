@@ -2,6 +2,7 @@
 # This file is used when ./pagevra directory exists (submodule initialized)
 services:
   pagevra:
+    image: spectra-pagevra:dev
     build:
       context: ./pagevra
       dockerfile: Dockerfile
