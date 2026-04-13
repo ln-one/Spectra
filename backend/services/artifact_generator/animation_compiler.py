@@ -13,6 +13,7 @@ import logging
 from typing import Any
 
 from services.artifact_generator.animation_ir import AnimationPlan
+from services.artifact_generator.icon_library import resolve_icon_name
 
 logger = logging.getLogger(__name__)
 
@@ -141,6 +142,30 @@ def _build_object(obj: dict) -> list[str]:
         lines.append(
             f'        {oid} = Text("{_safe_str(label or "")}", font_size={fs}, color={color}, font=base_font)'
         )
+        lines.append(f'        {oid}.move_to(RIGHT * {pos[0]} + UP * {pos[1]})')
+
+    elif otype == "icon":
+        icon_name = obj.get("name") or obj.get("icon_id") or label or "star"
+        resolved_icon_name = resolve_icon_name(str(icon_name))
+        scale = 1.0
+        if isinstance(size, (int, float)):
+            scale = float(size)
+        elif isinstance(size, dict):
+            scale = float(size.get("scale", 1.0))
+        scale = max(0.2, min(scale, 3.0))
+        lines.append(
+            f'        {oid}_icon = _build_icon_mobject("{_safe_str(resolved_icon_name)}", {color})'
+        )
+        lines.append(f'        {oid}_icon.set_color({color})')
+        lines.append(f'        {oid}_icon.scale({scale})')
+        if label:
+            lines.append(
+                f'        {oid}_label = Text("{_safe_str(label)}", font_size=22, color="#1a1a1a", font=base_font)'
+            )
+            lines.append(f'        {oid}_label.next_to({oid}_icon, DOWN, buff=0.16)')
+            lines.append(f'        {oid} = VGroup({oid}_icon, {oid}_label)')
+        else:
+            lines.append(f'        {oid} = {oid}_icon')
         lines.append(f'        {oid}.move_to(RIGHT * {pos[0]} + UP * {pos[1]})')
 
     elif otype == "arrow":
@@ -306,6 +331,51 @@ def compile_animation_plan(plan: AnimationPlan) -> str:
     lines.append("")
     lines.append("class GeneratedScene(Scene):")
     lines.append("    def construct(self):")
+    lines.append("        def _build_icon_mobject(icon_name: str, icon_color):")
+    lines.append("            name = (icon_name or 'star').strip().lower()")
+    lines.append("            if name == 'sun':")
+    lines.append("                core = Circle(radius=0.22, color=icon_color, fill_opacity=0.95, stroke_width=2)")
+    lines.append("                rays = VGroup(*[Line(UP * 0.28, UP * 0.46, color=icon_color, stroke_width=2).rotate(i * PI / 4) for i in range(8)])")
+    lines.append("                return VGroup(core, rays)")
+    lines.append("            if name == 'leaf':")
+    lines.append("                leaf = Ellipse(width=0.72, height=0.42, color=icon_color, fill_opacity=0.88, stroke_width=2)")
+    lines.append("                vein = Line(LEFT * 0.22, RIGHT * 0.2, color=WHITE, stroke_width=2).rotate(-PI / 8)")
+    lines.append("                return VGroup(leaf, vein)")
+    lines.append("            if name in ('cell', 'atom', 'molecule'):")
+    lines.append("                core = Circle(radius=0.2, color=icon_color, fill_opacity=0.9, stroke_width=2)")
+    lines.append("                ring = Circle(radius=0.34, color=icon_color, fill_opacity=0.0, stroke_width=2)")
+    lines.append("                p1 = Dot(point=RIGHT * 0.34, color=icon_color, radius=0.05)")
+    lines.append("                p2 = Dot(point=LEFT * 0.34, color=icon_color, radius=0.05)")
+    lines.append("                return VGroup(core, ring, p1, p2)")
+    lines.append("            if name == 'server':")
+    lines.append("                rack1 = RoundedRectangle(width=0.62, height=0.16, corner_radius=0.03, color=icon_color, fill_opacity=0.9, stroke_width=2).shift(UP * 0.18)")
+    lines.append("                rack2 = RoundedRectangle(width=0.62, height=0.16, corner_radius=0.03, color=icon_color, fill_opacity=0.9, stroke_width=2)")
+    lines.append("                rack3 = RoundedRectangle(width=0.62, height=0.16, corner_radius=0.03, color=icon_color, fill_opacity=0.9, stroke_width=2).shift(DOWN * 0.18)")
+    lines.append("                return VGroup(rack1, rack2, rack3)")
+    lines.append("            if name == 'router':")
+    lines.append("                base = RoundedRectangle(width=0.66, height=0.2, corner_radius=0.05, color=icon_color, fill_opacity=0.9, stroke_width=2)")
+    lines.append("                ant_l = Line(LEFT * 0.18 + UP * 0.1, LEFT * 0.28 + UP * 0.28, color=icon_color, stroke_width=2)")
+    lines.append("                ant_r = Line(RIGHT * 0.18 + UP * 0.1, RIGHT * 0.28 + UP * 0.28, color=icon_color, stroke_width=2)")
+    lines.append("                return VGroup(base, ant_l, ant_r)")
+    lines.append("            if name == 'cloud':")
+    lines.append("                c1 = Circle(radius=0.17, color=icon_color, fill_opacity=0.9, stroke_width=2).shift(LEFT * 0.14)")
+    lines.append("                c2 = Circle(radius=0.2, color=icon_color, fill_opacity=0.9, stroke_width=2).shift(RIGHT * 0.05)")
+    lines.append("                c3 = Circle(radius=0.14, color=icon_color, fill_opacity=0.9, stroke_width=2).shift(RIGHT * 0.22 + DOWN * 0.03)")
+    lines.append("                return VGroup(c1, c2, c3)")
+    lines.append("            if name == 'database':")
+    lines.append("                top = Ellipse(width=0.62, height=0.16, color=icon_color, fill_opacity=0.9, stroke_width=2).shift(UP * 0.2)")
+    lines.append("                mid = RoundedRectangle(width=0.62, height=0.36, corner_radius=0.03, color=icon_color, fill_opacity=0.65, stroke_width=2)")
+    lines.append("                bottom = Ellipse(width=0.62, height=0.16, color=icon_color, fill_opacity=0.9, stroke_width=2).shift(DOWN * 0.2)")
+    lines.append("                return VGroup(top, mid, bottom)")
+    lines.append("            if name == 'arrow':")
+    lines.append("                return Arrow(LEFT * 0.32, RIGHT * 0.32, color=icon_color, buff=0.0, stroke_width=4)")
+    lines.append("            if name == 'check':")
+    lines.append("                return VGroup(Line(LEFT * 0.24 + DOWN * 0.03, LEFT * 0.06 + DOWN * 0.2, color=icon_color, stroke_width=5), Line(LEFT * 0.06 + DOWN * 0.2, RIGHT * 0.26 + UP * 0.2, color=icon_color, stroke_width=5))")
+    lines.append("            if name == 'cross':")
+    lines.append("                return VGroup(Line(LEFT * 0.24 + UP * 0.24, RIGHT * 0.24 + DOWN * 0.24, color=icon_color, stroke_width=4), Line(LEFT * 0.24 + DOWN * 0.24, RIGHT * 0.24 + UP * 0.24, color=icon_color, stroke_width=4))")
+    lines.append("            if name == 'star':")
+    lines.append("                return Star(n=5, outer_radius=0.34, color=icon_color, fill_opacity=0.9, stroke_width=2)")
+    lines.append("            return Dot(color=icon_color, radius=0.16)")
     lines.append('        base_font = "Noto Sans CJK SC"')
     lines.append("        Text.set_default(font=base_font)")
 
