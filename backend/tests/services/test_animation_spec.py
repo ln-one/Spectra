@@ -150,6 +150,18 @@ def test_normalize_animation_spec_strips_request_style_copy_from_display_text():
     assert "请给我制作一个" not in spec["teaching_goal"]
 
 
+def test_normalize_animation_spec_uses_keyword_title_from_user_request():
+    spec = normalize_animation_spec(
+        {
+            "title": "请给我制作一个光合作用演示动画",
+            "topic": "光合作用过程演示动画",
+            "motion_brief": "展示光能输入、物质转化和产物输出",
+        }
+    )
+
+    assert spec["title"] == "光合作用过程"
+
+
 def test_normalize_animation_spec_drops_request_sentence_summary():
     spec = normalize_animation_spec(
         {

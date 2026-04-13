@@ -82,6 +82,17 @@ _STYLE_PACK_ALIASES = {
     "blue": "teaching_ppt_deep_blue",
     "orange": "teaching_ppt_warm_orange",
     "gray": "teaching_ppt_minimal_gray",
+    # Frontend theme preset IDs
+    "sunset-amber": "teaching_ppt_warm_orange",
+    "sand-ochre": "teaching_ppt_warm_orange",
+    "ocean-cyan": "teaching_ppt_deep_blue",
+    "graphite-blue": "teaching_ppt_deep_blue",
+    "forest-emerald": "teaching_ppt_fresh_green",
+    "teal-mint": "teaching_ppt_fresh_green",
+    "mist-zinc": "teaching_ppt_minimal_gray",
+    "lavender-slate": "teaching_ppt_minimal_gray",
+    "rose-wine": "teaching_ppt_warm_orange",
+    "ink-sky": "teaching_ppt_deep_blue",
 }
 _DEFAULT_STYLE_PACK = "teaching_ppt_cartoon"
 
@@ -204,6 +215,61 @@ def _sanitize_display_copy(value: Any) -> str:
     if _REQUEST_PATTERN.search(normalized):
         return ""
     return normalized
+
+
+_GENERIC_ANIMATION_TITLE_PATTERNS = (
+    r"(?:演示|讲解|教学|科普|展示)?动画(?:演示|展示|讲解)?$",
+    r"(?:演示|讲解|教学|科普|展示)?动画稿$",
+    r"(?:演示|讲解|教学|科普|展示)?gif$",
+    r"(?:演示|讲解|教学|科普|展示)?视频$",
+    r"(?:演示|讲解|教学|科普|展示)?动图$",
+    r"(?:过程|流程|原理|机制)?演示$",
+    r"(?:过程|流程|原理|机制)?展示$",
+    r"(?:过程|流程|原理|机制)?讲解$",
+)
+_GENERIC_ANIMATION_TITLE_EXACT = {
+    "动画",
+    "演示动画",
+    "教学动画",
+    "科普动画",
+    "展示动画",
+    "讲解动画",
+    "gif",
+    "gif动画",
+    "动图",
+    "视频",
+}
+
+
+def _extract_animation_title_keywords(*values: Any) -> str:
+    for raw_value in values:
+        candidate = _sanitize_display_copy(raw_value)
+        if not candidate:
+            continue
+        candidate = re.split(r"[，,。；;：:\n]+", candidate, maxsplit=1)[0].strip()
+        candidate = candidate.strip("《》“”\"'[]()（）- ")
+        for pattern in _GENERIC_ANIMATION_TITLE_PATTERNS:
+            candidate = re.sub(pattern, "", candidate, flags=re.IGNORECASE).strip()
+        candidate = candidate.strip("《》“”\"'[]()（）- ")
+        if not candidate:
+            continue
+        lowered = candidate.lower()
+        if lowered in _GENERIC_ANIMATION_TITLE_EXACT:
+            continue
+        return _clip_text(candidate, maximum=24)
+    return ""
+
+
+def derive_animation_title(content: dict[str, Any] | None) -> str:
+    payload = dict(content or {})
+    return _extract_animation_title_keywords(
+        payload.get("topic"),
+        payload.get("motion_brief"),
+        payload.get("title"),
+        payload.get("focus"),
+        payload.get("summary"),
+        payload.get("scene"),
+    )
 
 
 def _clamp_int(value: Any, *, default: int, minimum: int, maximum: int) -> int:
@@ -1208,7 +1274,7 @@ def _enforce_scene_progression(scenes: list[dict[str, Any]]) -> list[dict[str, A
 
 
 def normalize_animation_spec(content: dict[str, Any]) -> dict[str, Any]:
-    title = _sanitize_display_copy(_clean_text(content.get("title"))) or "教学动画"
+    title = derive_animation_title(content) or "教学动画"
     topic = _sanitize_display_copy(_clean_text(content.get("topic"))) or title
     summary = _sanitize_display_copy(
         _clean_text(content.get("summary")) or _clean_text(content.get("scene"))
