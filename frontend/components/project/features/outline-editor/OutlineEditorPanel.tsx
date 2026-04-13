@@ -102,7 +102,7 @@ function buildOutlinePayloadFromSlides(
       estimated_minutes:
         typeof slide.estimatedMinutes === "number"
           ? slide.estimatedMinutes
-          : null,
+          : undefined,
     })),
     summary,
   };
@@ -205,10 +205,30 @@ export function OutlineEditorPanel({
       setPreambleCollapsed(true);
     }
     if (sessionState === "FAILED") {
+      const sessionErrorFields = generationSession?.session as
+        | {
+            error_message?: unknown;
+            errorMessage?: unknown;
+            state_reason?: unknown;
+          }
+        | null
+        | undefined;
+      const legacyErrorMessage =
+        typeof sessionErrorFields?.error_message === "string"
+          ? sessionErrorFields.error_message
+          : null;
+      const camelErrorMessage =
+        typeof sessionErrorFields?.errorMessage === "string"
+          ? sessionErrorFields.errorMessage
+          : null;
+      const stateReasonMessage =
+        typeof sessionErrorFields?.state_reason === "string"
+          ? sessionErrorFields.state_reason
+          : null;
       const message =
-        generationSession?.session?.error_message ||
-        generationSession?.session?.errorMessage ||
-        generationSession?.session?.state_reason ||
+        legacyErrorMessage ||
+        camelErrorMessage ||
+        stateReasonMessage ||
         "大纲生成失败";
       setErrorMessage(message);
     }

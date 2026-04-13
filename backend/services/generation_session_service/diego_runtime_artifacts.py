@@ -8,8 +8,8 @@ from services.artifact_generator import artifact_generator
 from services.generation_session_service.outline_versions import (
     parse_outline_json,
 )
-from services.preview_helpers import load_preview_content
 from services.generation_session_service.run_lifecycle import update_session_run
+from services.preview_helpers import load_preview_content
 from services.preview_helpers.content_generation import build_outline_preview_payload
 from services.project_space_service.service import project_space_service
 
