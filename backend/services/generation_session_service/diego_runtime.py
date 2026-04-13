@@ -4,7 +4,7 @@ import json
 import os
 from typing import Any
 
-from services.diego_client import build_diego_client, diego_enabled
+from services.diego_client import build_diego_client
 from services.generation_session_service.background_tasks import spawn_background_task
 from services.generation_session_service.constants import SessionLifecycleReason
 from services.generation_session_service.run_lifecycle import update_session_run
@@ -62,7 +62,7 @@ def _generation_sync_timeout_seconds() -> float:
 
 
 def should_use_diego_for_courseware(*, card_id: str) -> bool:
-    return card_id == "courseware_ppt" and diego_enabled()
+    return card_id == "courseware_ppt"
 
 
 async def start_diego_outline_workflow(

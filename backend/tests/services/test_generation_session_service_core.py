@@ -58,7 +58,10 @@ def test_build_outline_requirements_keeps_style_and_pages():
     text = _build_outline_requirements(
         project,
         {
-            "system_prompt_tone": "[outline_style=workshop]\nPlease emphasize hands-on practice",
+            "system_prompt_tone": (
+                "[outline_style=workshop]\n"
+                "Please emphasize hands-on practice"
+            ),
             "pages": 12,
         },
     )
@@ -95,7 +98,6 @@ async def test_create_session_reuses_project_current_version_as_base_when_missin
     )
 
     service = GenerationSessionService(db=db)
-    service._schedule_outline_draft_task = AsyncMock()
 
     session_ref = await service.create_session(
         project_id="p-001",
@@ -103,19 +105,18 @@ async def test_create_session_reuses_project_current_version_as_base_when_missin
         output_type=SessionOutputType.PPT.value,
         client_session_id="s-existing",
         options={"pages": 6},
-        task_queue_service=SimpleNamespace(name="queue"),
+        bootstrap_only=True,
     )
 
     assert session_ref["session_id"] == "s-existing"
     assert session_ref["base_version_id"] == "ver-current-002"
-    service._schedule_outline_draft_task.assert_awaited_once()
 
 
 @pytest.mark.anyio
-async def test_create_session_returns_quickly_without_waiting_for_outline():
+async def test_create_session_bootstrap_starts_from_idle_state():
     created_session = _fake_session(
         session_id="s-new",
-        state=GenerationState.DRAFTING_OUTLINE.value,
+        state=GenerationState.IDLE.value,
         base_version_id="ver-current-001",
     )
     db = SimpleNamespace(
@@ -135,21 +136,41 @@ async def test_create_session_returns_quickly_without_waiting_for_outline():
     )
 
     service = GenerationSessionService(db=db)
-    service._schedule_outline_draft_task = AsyncMock()
 
     session_ref = await service.create_session(
         project_id="p-001",
         user_id="u-001",
         output_type=SessionOutputType.PPT.value,
         options={"pages": 10},
-        task_queue_service=SimpleNamespace(name="queue"),
+        bootstrap_only=True,
     )
 
     assert session_ref["session_id"] == "s-new"
     event_data = db.sessionevent.create.await_args.kwargs["data"]
     assert event_data["eventType"] == GenerationEventType.STATE_CHANGED.value
-    assert event_data["state"] == GenerationState.DRAFTING_OUTLINE.value
-    service._schedule_outline_draft_task.assert_awaited_once()
+    assert event_data["state"] == GenerationState.IDLE.value
+
+
+@pytest.mark.anyio
+async def test_create_session_rejects_non_bootstrap_start():
+    db = SimpleNamespace(
+        project=SimpleNamespace(find_unique=AsyncMock(return_value=None)),
+        generationsession=SimpleNamespace(find_first=AsyncMock(return_value=None)),
+        sessionevent=SimpleNamespace(create=AsyncMock()),
+    )
+    service = GenerationSessionService(db=db)
+
+    with pytest.raises(
+        RuntimeError,
+        match="legacy_non_bootstrap_generation_session_start_removed",
+    ):
+        await service.create_session(
+            project_id="p-001",
+            user_id="u-001",
+            output_type=SessionOutputType.PPT.value,
+            options={"pages": 10},
+            bootstrap_only=False,
+        )
 
 
 @pytest.mark.anyio

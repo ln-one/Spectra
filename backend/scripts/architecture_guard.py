@@ -42,7 +42,6 @@ IGNORE_DIR_NAMES = {
 EXPLICIT_IMPORT_ALLOWLIST = {
     BACKEND_ROOT / "services" / "ai" / "service.py",
     BACKEND_ROOT / "services" / "generation_session_service" / "task_runtime.py",
-    BACKEND_ROOT / "services" / "task_executor" / "generation_error_handling.py",
     BACKEND_ROOT / "services" / "__init__.py",
 }
 

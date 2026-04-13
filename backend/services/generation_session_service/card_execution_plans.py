@@ -17,9 +17,10 @@ CARD_EXECUTION_PLANS: dict[str, StudioCardExecutionPlan] = {
             status=StudioCardBindingStatus.READY,
             method="POST",
             endpoint="/api/v1/generate/sessions",
-            required_fields=["project_id", "output_type"],
+            required_fields=["project_id", "output_type", "bootstrap_only"],
             bound_config_keys=[
                 "output_type",
+                "bootstrap_only",
                 "template",
                 "pages",
                 "audience",
@@ -28,7 +29,7 @@ CARD_EXECUTION_PLANS: dict[str, StudioCardExecutionPlan] = {
             ],
             pending_config_keys=[],
             result_fields=["session.session_id", "session.output_type"],
-            notes="课件卡片已接入 create-session 主链，配置写入 options 并进入标准生成流程。",
+            notes="课件卡片已接入 create-session bootstrap 绑定链，正式生成由 Diego runtime 承担。",
         ),
         refine_binding=StudioCardExecutionBinding(
             transport=StudioCardTransport.CHAT_MESSAGE,

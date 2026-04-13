@@ -84,9 +84,8 @@ export default function StreamingWorkbenchPageView() {
     regeneratingSlideId,
     previewBlockedReason,
     isSessionGenerating,
+    sessionState,
     sessionFailureMessage,
-    isOutlineGenerating,
-    outlineSections,
     slidesContentMarkdown,
     activeSessionId,
     handleExport,
@@ -139,6 +138,12 @@ export default function StreamingWorkbenchPageView() {
   useEffect(() => {
     activeSlideIndexRef.current = activeSlideIndex;
   }, [activeSlideIndex]);
+
+  useEffect(() => {
+    if (!activeSessionId || !projectId) return;
+    if (sessionState !== "AWAITING_OUTLINE_CONFIRM") return;
+    router.replace(`/projects/${projectId}?session=${encodeURIComponent(activeSessionId)}`);
+  }, [activeSessionId, projectId, router, sessionState]);
 
   const renderedSlides = useMemo(
     () => orderedSlides.filter((slide) => hasRenderablePreview(slide)),
@@ -277,25 +282,6 @@ export default function StreamingWorkbenchPageView() {
                 ref={leftScrollRef}
                 className="h-full overflow-y-auto pr-1 md:pr-2"
               >
-                {isOutlineGenerating ? (
-                  <div className="mb-4 rounded-xl border bg-white p-3 shadow-sm">
-                    <p className="mb-2 text-xs font-semibold text-zinc-700">
-                      Outline streaming
-                    </p>
-                    <div className="space-y-1 text-xs text-zinc-600">
-                      {outlineSections.length === 0 ? (
-                        <p>Waiting outline sections...</p>
-                      ) : (
-                        outlineSections.map((section, index) => (
-                          <p key={`${index}-${section}`}>
-                            {index + 1}. {section}
-                          </p>
-                        ))
-                      )}
-                    </div>
-                  </div>
-                ) : null}
-
                 {sessionFailureMessage ? (
                   <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
                     Generation failed: {sessionFailureMessage}

@@ -7,7 +7,6 @@ from rq import Queue
 
 from services.task_queue.enqueue import (
     enqueue_generation_task,
-    enqueue_outline_draft_task,
     enqueue_rag_indexing_task,
     enqueue_remote_parse_reconcile_task,
 )
@@ -67,23 +66,6 @@ class TaskQueueService:
             session_id=session_id,
             parse_provider_override=parse_provider_override,
             fallback_triggered=fallback_triggered,
-            priority=priority,
-            timeout=timeout,
-        )
-
-    def enqueue_outline_draft_task(
-        self,
-        session_id: str,
-        project_id: str,
-        options=None,
-        priority: str = "default",
-        timeout: int = 300,
-    ):
-        return enqueue_outline_draft_task(
-            self,
-            session_id=session_id,
-            project_id=project_id,
-            options=options,
             priority=priority,
             timeout=timeout,
         )

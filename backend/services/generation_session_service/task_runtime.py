@@ -1,14 +1,8 @@
 from __future__ import annotations
 
-from importlib import import_module
 from typing import Any, Optional
 
 from services.generation_session_service.event_store import append_event
-from services.generation_session_service.outline_draft import (
-    execute_outline_draft_local,
-    schedule_outline_draft_task,
-    schedule_outline_draft_watchdog,
-)
 from services.generation_session_service.task_dispatch import (
     mark_dispatch_failed,
     schedule_enqueued_task_watchdog,
@@ -18,60 +12,6 @@ from services.generation_session_service.task_dispatch import (
 class SessionTaskRuntimeMixin:
     _db: Any
     SCHEMA_VERSION: int
-
-    async def _schedule_outline_draft_task(
-        self,
-        session_id: str,
-        project_id: str,
-        options: Optional[dict],
-        task_queue_service,
-    ) -> None:
-        await schedule_outline_draft_task(
-            db=self._db,
-            session_id=session_id,
-            project_id=project_id,
-            options=options,
-            task_queue_service=task_queue_service,
-            append_event=self._append_event,
-            execute_outline_draft_local=self._execute_outline_draft_local,
-        )
-
-    def _schedule_outline_draft_watchdog(
-        self,
-        session_id: str,
-        project_id: str,
-        options: Optional[dict],
-        rq_job_id: str,
-        task_queue_service,
-    ) -> None:
-        schedule_outline_draft_watchdog(
-            db=self._db,
-            session_id=session_id,
-            project_id=project_id,
-            options=options,
-            rq_job_id=rq_job_id,
-            task_queue_service=task_queue_service,
-            execute_outline_draft_local=self._execute_outline_draft_local,
-        )
-
-    async def _execute_outline_draft_local(
-        self,
-        session_id: str,
-        project_id: str,
-        options: Optional[dict],
-        trace_id: Optional[str] = None,
-    ) -> None:
-        generation_session_module = import_module("services.generation_session_service")
-
-        await execute_outline_draft_local(
-            db=self._db,
-            session_id=session_id,
-            project_id=project_id,
-            options=options,
-            append_event=self._append_event,
-            ai_service_obj=generation_session_module.ai_service,
-            trace_id=trace_id,
-        )
 
     async def _append_event(
         self,

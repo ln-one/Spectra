@@ -1,10 +1,13 @@
 from datetime import datetime, timezone
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, Mock
+from unittest.mock import AsyncMock
 
 import pytest
 
-from services.generation_session_service import ConflictError, GenerationSessionService
+from services.generation_session_service import (
+    ConflictError,
+    GenerationSessionService,
+)
 from services.generation_session_service.constants import (
     SessionOutputType,
 )
@@ -64,7 +67,10 @@ async def test_execute_command_rejects_when_session_task_is_running(monkeypatch)
     service = GenerationSessionService(db=db)
 
     monkeypatch.setattr(
-        "services.platform.task_recovery.TaskRecoveryService.is_session_already_running",
+        (
+            "services.platform.task_recovery."
+            "TaskRecoveryService.is_session_already_running"
+        ),
         AsyncMock(return_value=True),
     )
 
@@ -77,130 +83,66 @@ async def test_execute_command_rejects_when_session_task_is_running(monkeypatch)
 
 
 @pytest.mark.anyio
-async def test_confirm_outline_normalizes_task_type_for_enqueue(monkeypatch):
-    session_before = _fake_session(
-        output_type=SessionOutputType.WORD.value,
-        options='{"template_config": {"style": "gaia"}}',
-    )
-    session_after = _fake_session(
-        state=GenerationState.GENERATING_CONTENT.value,
-        output_type=SessionOutputType.WORD.value,
-    )
-    created_task = SimpleNamespace(id="task-101")
-
-    db = SimpleNamespace(
-        idempotencykey=SimpleNamespace(find_unique=AsyncMock(return_value=None)),
-        generationsession=SimpleNamespace(
-            find_unique=AsyncMock(side_effect=[session_before, session_after]),
-            update=AsyncMock(),
-        ),
-        generationtask=SimpleNamespace(
-            create=AsyncMock(return_value=created_task),
-            update=AsyncMock(),
-            find_unique=AsyncMock(return_value=SimpleNamespace(inputData=None)),
-        ),
-        sessionevent=SimpleNamespace(create=AsyncMock()),
-    )
-    service = GenerationSessionService(db=db)
-
-    queue = Mock()
-    queue.get_queue_info.return_value = {"workers": {"count": 1, "stale": []}}
-    queue.enqueue_generation_task.return_value = SimpleNamespace(id="rq-1")
-
-    monkeypatch.setattr(
-        "services.platform.task_recovery.TaskRecoveryService.is_session_already_running",
-        AsyncMock(return_value=False),
-    )
-    monkeypatch.setattr(
-        service._guard, "validate", lambda *_: _allow_confirm_transition()
-    )
-
-    result = await service.execute_command(
-        session_id="s-001",
-        user_id="u-001",
-        command={"command_type": "CONFIRM_OUTLINE"},
-        task_queue_service=queue,
-    )
-
-    assert result["warnings"] == []
-    assert "task_id" not in result
-    enqueue_kwargs = queue.enqueue_generation_task.call_args.kwargs
-    assert enqueue_kwargs["task_type"] == "docx"
-    assert enqueue_kwargs["template_config"] == {"style": "gaia"}
-
-
-@pytest.mark.anyio
-async def test_execute_command_marks_dispatch_failed_when_queue_unavailable(
+async def test_execute_command_confirm_outline_without_diego_binding_conflicts(
     monkeypatch,
 ):
-    session_before = _fake_session(output_type=SessionOutputType.PPT.value)
-    session_after = _fake_session(
-        state=GenerationState.GENERATING_CONTENT.value,
+    session_before = _fake_session(
         output_type=SessionOutputType.PPT.value,
+        options="{}",
     )
     db = SimpleNamespace(
         idempotencykey=SimpleNamespace(find_unique=AsyncMock(return_value=None)),
         generationsession=SimpleNamespace(
-            find_unique=AsyncMock(side_effect=[session_before, session_after]),
+            find_unique=AsyncMock(return_value=session_before),
             update=AsyncMock(),
         ),
-        generationtask=SimpleNamespace(update=AsyncMock()),
-        sessionevent=SimpleNamespace(create=AsyncMock()),
+        outlineversion=SimpleNamespace(find_first=AsyncMock(return_value=None)),
+        sessionrun=SimpleNamespace(),
     )
     service = GenerationSessionService(db=db)
-    service._dispatch_command = AsyncMock(return_value="task-202")
 
     monkeypatch.setattr(
-        "services.platform.task_recovery.TaskRecoveryService.is_session_already_running",
+        (
+            "services.platform.task_recovery."
+            "TaskRecoveryService.is_session_already_running"
+        ),
         AsyncMock(return_value=False),
     )
     monkeypatch.setattr(
         service._guard, "validate", lambda *_: _allow_confirm_transition()
     )
+    monkeypatch.setattr(
+        "services.generation_session_service.outline_command_handlers"
+        ".get_latest_active_session_run",
+        AsyncMock(return_value=None),
+    )
+    monkeypatch.setattr(
+        "services.generation_session_service.outline_command_handlers"
+        ".get_latest_active_session_run_by_tool",
+        AsyncMock(return_value=None),
+    )
+    monkeypatch.setattr(
+        "services.generation_session_service.outline_command_handlers"
+        ".create_session_run",
+        AsyncMock(
+            return_value=SimpleNamespace(
+                id="run-101",
+                runNo=1,
+                title="run-101",
+                toolType="ppt_generate",
+            )
+        ),
+    )
+    monkeypatch.setattr(
+        "services.generation_session_service.outline_command_handlers"
+        ".get_session_diego_binding",
+        lambda _session: None,
+    )
 
-    with pytest.raises(ConflictError):
+    with pytest.raises(ConflictError) as exc:
         await service.execute_command(
             session_id="s-001",
             user_id="u-001",
             command={"command_type": "CONFIRM_OUTLINE"},
-            task_queue_service=None,
         )
-
-    state_updates = [
-        call.kwargs["data"]
-        for call in db.generationsession.update.await_args_list
-        if "state" in (call.kwargs.get("data") or {})
-    ]
-    assert state_updates
-    update_payload = state_updates[-1]
-    assert update_payload["state"] == GenerationState.FAILED.value
-
-
-@pytest.mark.anyio
-async def test_schedule_outline_draft_task_uses_rq_when_available():
-    service = GenerationSessionService(db=SimpleNamespace())
-    queue = Mock()
-    queue.get_queue_info.return_value = {"workers": {"count": 1}}
-    queue.enqueue_outline_draft_task.return_value = SimpleNamespace(id="job-123")
-
-    await service._schedule_outline_draft_task(
-        session_id="s-001",
-        project_id="p-001",
-        options={"pages": 10},
-        task_queue_service=queue,
-    )
-
-    queue.enqueue_outline_draft_task.assert_called_once()
-
-
-@pytest.mark.anyio
-async def test_schedule_outline_draft_task_raises_when_queue_unavailable():
-    service = GenerationSessionService(db=SimpleNamespace())
-
-    with pytest.raises(RuntimeError):
-        await service._schedule_outline_draft_task(
-            session_id="s-001",
-            project_id="p-001",
-            options={"pages": 10},
-            task_queue_service=None,
-        )
+    assert exc.value.details["reason"] == "legacy_ppt_flow_removed"

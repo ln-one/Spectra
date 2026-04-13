@@ -173,22 +173,23 @@ Important reality:
 
 ### 5.3 Generation pipeline
 
-`session bootstrap -> draft outline -> confirm outline -> generate content -> render -> persist artifact -> preview/download`
+`session bootstrap -> Diego outline -> confirm outline -> Diego generation -> artifact persist -> preview/download`
 
 Relevant areas:
 
 - `backend/services/generation_session_service/`
-- `backend/services/courseware_ai/`
-- `backend/services/task_executor/`
-- `backend/services/artifact_generator/`
+- `backend/services/generation_session_service/diego_runtime*.py`
+- `backend/services/diego_client.py`
 - `backend/routers/generate_sessions/`
 
 Important reality:
 
+- legacy `generationtask -> task_executor/generation` PPT path has been removed
+- legacy `outline_draft` queue/executor path has been removed
+- `CONFIRM_OUTLINE` for PPT must run with a Diego binding; no legacy fallback
 - generation outputs must land as project-space artifacts
 - session URLs should point to artifact download semantics, not ad hoc preview text exports
-- `pptx` generation uses Marp CLI in the rendering path
-- `docx` generation uses Pandoc in the rendering path
+- preview rendering remains on `pagevra` contract surfaces
 
 ### 5.4 Queue and execution pipeline
 
@@ -203,7 +204,8 @@ Relevant areas:
 
 Important reality:
 
-- queue execution is the primary path
+- queue execution remains primary for indexing/parse/background tasks
+- PPT session generation is Diego-orchestrated and is not the legacy generationtask worker path
 - `local_async` is a fallback, not the normal design
 - only fresh workers count as available workers
 
@@ -360,8 +362,9 @@ Spectra does not render PPT/Word by arbitrary ad hoc conversion.
 
 Current practical rendering chain:
 
-- PPT path: Marp CLI based rendering flow
-- Word path: Pandoc based rendering flow
+- PPT generation path: Diego produces canonical PPT artifact
+- Preview rendering path: Pagevra contract
+- Do not reintroduce legacy local PPT generationtask rendering chain
 
 Do not replace or bypass these locally without checking the full generation chain, health checks, and deployment assumptions.
 
@@ -396,23 +399,95 @@ When touching deployment:
 - check health/readiness endpoints
 - check audit scripts under `backend/scripts/`
 
+### 10.1 Canonical local startup flow (Docker, current)
+
+Use `scripts/compose_smart.py` as the only startup entry.
+Current repository default is local-source builds for private services
+(`pagevra`, `dualweave`, `ourograph`, `stratumind`, `diego`) when those source
+trees exist in this workspace.
+
+Recommended sequence:
+
+```bash
+python3 ./scripts/compose_smart.py status
+python3 ./scripts/compose_smart.py sync --channel develop
+python3 ./scripts/compose_smart.py doctor
+python3 ./scripts/compose_smart.py up --build
+```
+
+Key behavior to remember:
+
+- `sync` writes both `.env.compose.lock` and root `.env` from `infra/stack-lock.<channel>.json`
+- image-mode services require a fresh `sync`; stale/missing lock env must fail explicitly
+- local private-service source checkouts (`pagevra/`, `dualweave/`, `ourograph/`, `stratumind/`, `diego/`) automatically enable compose override files and build local images from local Dockerfiles
+- `compose_smart.py` infers channel from branch (`main -> main`, otherwise `develop`) when channel is not explicitly passed
+- when local-source mode is active, startup freshness should be judged by local repo/submodule update state and local rebuild results, not by remote locked image recency
+- do not describe the normal local dev path as "running remote locked images"; remote locked images are the fallback for environments without local source trees
+
+Useful runtime checks after boot:
+
+- frontend: `http://localhost:3000`
+- backend ready: `http://localhost:8000/health/ready`
+- backend docs: `http://localhost:8000/docs`
+
+### 10.2 Host-side focused startup (without full compose)
+
+Use this only for focused local iteration on a specific layer.
+
+```bash
+cd backend
+cp .env.example .env
+pip install -r requirements.txt
+pip install -r requirements-dev.txt
+python -m prisma generate
+uvicorn main:app --reload
+```
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Queue-dependent flows still require Redis/Postgres/worker and the related services.
+
 ## 11. Validation Checklist
+
+Default rule: do not run the full Python suite unless explicitly required.
 
 At minimum, after a meaningful backend change run:
 
 ```bash
 cd backend
-black .
-isort .
-flake8 .
-pytest
+python3 -m py_compile <changed_python_files>
 python3 scripts/architecture_guard.py
+pytest -m "not integration and not slow" <focused_test_targets>
 ```
 
-At repository level, common gates include:
+For CI-parity checks, use the same commands as `.github/workflows/ci.yml`.
+
+Frontend CI parity:
 
 ```bash
-npm test --prefix frontend
+cd frontend
+npm ci
+npm run lint
+npm run format:check
+npm test
+npm run build
+```
+
+Backend CI parity:
+
+```bash
+cd backend
+pip install -r requirements.txt
+pip install -r requirements-dev.txt
+python -m prisma generate
+black --check .
+isort --check .
+flake8 . --max-line-length=88 --extend-ignore=E203
+pytest -m "not integration and not slow"
 ```
 
 Also validate OpenAPI when contract surface changes:
@@ -423,6 +498,13 @@ npm run validate:openapi
 npm run bundle:openapi:target
 npm run validate:openapi:target
 ```
+
+Repository-local pre-push gate:
+
+- `.husky/pre-push` runs `node scripts/pre-push.js`
+- this includes frontend checks, backend checks, and OpenAPI bundle/lint
+- contract alignment check (`scripts/validate-contract-target.js`) runs only when backend is reachable or when explicitly required by env
+- there is currently no default `.husky/pre-commit` hook in this repository
 
 For workflow-sensitive changes, smoke the real chain:
 
@@ -567,3 +649,12 @@ If uncertain, prefer:
 - compatibility over churn
 - fewer moving parts over wider surface area
 - preserving the recursive system model over local convenience
+
+## 18. Remaining Update Points (Keep Tightening)
+
+These are stable doc-alignment gaps worth fixing when nearby files are touched.
+
+1. Many links still use machine-local absolute paths (for example `/Users/ln1/Projects/Spectra/...`); prefer repository-relative paths in active docs.
+2. CI truth must come from `.github/workflows/ci.yml`; when `docs/guides/ci-cd.md` differs, update the guide to match actual workflow steps.
+3. Validation docs must stay aligned with section 6.6 (`no default full-suite pytest`) and with marker-based backend CI (`not integration and not slow`).
+4. Startup docs must continue to treat `scripts/compose_smart.py` as canonical, with local-source image builds as the default development mode and locked remote images as fallback-only.

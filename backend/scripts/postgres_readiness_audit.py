@@ -47,7 +47,7 @@ HOTSPOT_PATTERNS = {
     ],
     "generation_session": [
         ROOT / "backend/services/generation_session_service/task_dispatch.py",
-        ROOT / "backend/services/generation_session_service/outline_draft/execution.py",
+        ROOT / "backend/services/generation_session_service/diego_runtime_sync.py",
         ROOT / "backend/services/generation_session_service/command_execution.py",
     ],
 }

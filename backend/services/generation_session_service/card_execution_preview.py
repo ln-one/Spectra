@@ -41,6 +41,7 @@ def build_studio_card_execution_preview(
                 payload={
                     "project_id": project_id,
                     "output_type": SessionOutputType.PPT.value,
+                    "bootstrap_only": True,
                     "options": {
                         "card_id": card_id,
                         "template": cfg.get("template", "default"),
@@ -62,7 +63,10 @@ def build_studio_card_execution_preview(
                         "rag_source_ids": rag_source_ids or [],
                     },
                 },
-                notes="课件卡片通过 create-session 主路径落地，卡片配置写入 options。",
+                notes=(
+                    "课件卡片通过 create-session bootstrap 路径绑定会话，"
+                    "卡片配置写入 options，正式执行由 Diego runtime 承担。"
+                ),
             ),
             refine_request=StudioCardResolvedRequest(
                 method="POST",

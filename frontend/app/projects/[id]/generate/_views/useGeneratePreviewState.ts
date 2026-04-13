@@ -36,13 +36,6 @@ type RenderedPreview = {
 };
 type SessionStatePayload = components["schemas"]["SessionStatePayloadTarget"];
 type ArtifactType = components["schemas"]["Artifact"]["type"];
-type OutlineSectionPayload = {
-  section_index?: number;
-  index?: number;
-  title?: string;
-  heading?: string;
-};
-
 type SessionStatePayloadWithRun = SessionStatePayload & {
   current_run?: {
     run_id?: string;
@@ -214,8 +207,6 @@ export function useGeneratePreviewState({
   const [previewBlockedReason, setPreviewBlockedReason] = useState<
     string | null
   >(null);
-  const [isOutlineGenerating, setIsOutlineGenerating] = useState(false);
-  const [outlineSections, setOutlineSections] = useState<string[]>([]);
   const [slidesContentMarkdown, setSlidesContentMarkdown] = useState("");
   const [sessionFailureMessage, setSessionFailureMessage] = useState<
     string | null
@@ -616,8 +607,6 @@ export function useGeneratePreviewState({
     eventsCursorRef.current = null;
     pendingModifyRetryRef.current = null;
     eventsSnapshotReadyRef.current = false;
-    setOutlineSections([]);
-    setIsOutlineGenerating(false);
     setSlidesContentMarkdown("");
     setSessionFailureMessage(null);
     setPreviewSessionState(null);
@@ -636,35 +625,6 @@ export function useGeneratePreviewState({
       const eventType = event.event_type as string;
       const payload = (event.payload ?? {}) as Record<string, unknown>;
 
-      if (eventType === "outline.started") {
-        setIsOutlineGenerating(true);
-        continue;
-      }
-      if (eventType === "outline.section.generated") {
-        const section = payload as OutlineSectionPayload;
-        const index =
-          typeof section.section_index === "number"
-            ? section.section_index
-            : typeof section.index === "number"
-              ? section.index
-              : null;
-        const title =
-          (typeof section.title === "string" && section.title) ||
-          (typeof section.heading === "string" && section.heading) ||
-          "未命名章节";
-        if (typeof index === "number") {
-          setOutlineSections((prev) => {
-            const next = [...prev];
-            next[index] = title;
-            return next;
-          });
-        }
-        continue;
-      }
-      if (eventType === "outline.completed") {
-        setIsOutlineGenerating(false);
-        continue;
-      }
       if (eventType === "ppt.started") {
         setPreviewBlockedReason(null);
         setPreviewSessionState("RENDERING");
@@ -988,8 +948,6 @@ export function useGeneratePreviewState({
     isSessionGenerating,
     sessionState,
     sessionFailureMessage,
-    isOutlineGenerating,
-    outlineSections,
     slidesContentMarkdown,
     activeSessionId,
     activeRunId,

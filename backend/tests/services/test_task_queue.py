@@ -39,88 +39,19 @@ class TestTaskQueueService:
         assert task_queue_service.default_queue.name == "default"
         assert task_queue_service.low_queue.name == "low"
 
-    def test_enqueue_generation_task_default_priority(self, task_queue_service):
-        """测试提交任务到默认优先级队列"""
-        with patch("services.task_queue.Queue.enqueue") as mock_enqueue:
-            mock_job = Mock(spec=Job)
-            mock_job.id = "job-123"
-            mock_enqueue.return_value = mock_job
-
-            job = task_queue_service.enqueue_generation_task(
+    def test_enqueue_generation_task_removed(self, task_queue_service):
+        """旧版 generation-task 队列入口已下线。"""
+        with pytest.raises(
+            RuntimeError,
+            match="Legacy generation-task queue path has been removed",
+        ):
+            task_queue_service.enqueue_generation_task(
                 task_id="test-task-1",
                 project_id="test-project-1",
                 task_type="pptx",
                 priority="default",
                 timeout=1800,
             )
-
-            assert job is not None
-            assert mock_enqueue.called
-
-    def test_enqueue_generation_task_high_priority(self, task_queue_service):
-        """测试提交任务到高优先级队列"""
-        with patch("services.task_queue.Queue.enqueue") as mock_enqueue:
-            mock_job = Mock(spec=Job)
-            mock_job.id = "job-456"
-            mock_enqueue.return_value = mock_job
-
-            job = task_queue_service.enqueue_generation_task(
-                task_id="test-task-2",
-                project_id="test-project-1",
-                task_type="docx",
-                priority="high",
-                timeout=3600,
-            )
-
-            assert job is not None
-            assert mock_enqueue.called
-
-    def test_enqueue_generation_task_low_priority(self, task_queue_service):
-        """测试提交任务到低优先级队列"""
-        with patch("services.task_queue.Queue.enqueue") as mock_enqueue:
-            mock_job = Mock(spec=Job)
-            mock_job.id = "job-789"
-            mock_enqueue.return_value = mock_job
-
-            job = task_queue_service.enqueue_generation_task(
-                task_id="test-task-3",
-                project_id="test-project-1",
-                task_type="both",
-                priority="low",
-                timeout=900,
-            )
-
-            assert job is not None
-            assert mock_enqueue.called
-
-    def test_enqueue_generation_task_invalid_priority(self, task_queue_service):
-        """测试无效优先级参数"""
-        with pytest.raises(ValueError, match="Invalid priority"):
-            task_queue_service.enqueue_generation_task(
-                task_id="test-task-4",
-                project_id="test-project-1",
-                task_type="pptx",
-                priority="invalid",
-            )
-
-    def test_enqueue_generation_task_with_template_config(self, task_queue_service):
-        """测试提交任务时传递模板配置"""
-        with patch("services.task_queue.Queue.enqueue") as mock_enqueue:
-            mock_job = Mock(spec=Job)
-            mock_job.id = "job-999"
-            mock_enqueue.return_value = mock_job
-
-            template_config = {"theme": "default", "layout": "standard"}
-
-            job = task_queue_service.enqueue_generation_task(
-                task_id="test-task-5",
-                project_id="test-project-1",
-                task_type="pptx",
-                template_config=template_config,
-            )
-
-            assert job is not None
-            assert mock_enqueue.called
 
     def test_enqueue_remote_parse_reconcile_task_uses_direct_enqueue(
         self, task_queue_service

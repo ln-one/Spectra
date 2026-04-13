@@ -1,4 +1,3 @@
-from datetime import datetime, timezone
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
@@ -7,9 +6,6 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from routers.generate_sessions import router as generate_sessions_router
-from services.database import db_service
-from services.generation_session_service import GenerationSessionService
-from services.platform.state_transition_guard import GenerationState
 from utils.dependencies import get_current_user, get_current_user_optional
 
 
@@ -35,54 +31,12 @@ def _as_user(app):
 
 
 @pytest.mark.anyio
-async def test_create_session_returns_quickly_and_schedules_outline(app, _as_user):
+async def test_create_session_rejects_direct_non_bootstrap_start(app, _as_user):
     client = TestClient(app)
-    existing_session = SimpleNamespace(
-        id="s-001",
-        projectId="p-001",
-        userId="u-001",
-        state=GenerationState.IDLE.value,
-        outputType="ppt",
-        options=None,
-        clientSessionId="s-001",
-        renderVersion=0,
-        currentOutlineVersion=0,
-        resumable=True,
-        updatedAt=datetime.now(timezone.utc),
-        progress=0,
-        stateReason=None,
-    )
-    started_session = SimpleNamespace(
-        **{**existing_session.__dict__, "state": GenerationState.DRAFTING_OUTLINE.value}
-    )
-    schedule_mock = AsyncMock()
-
     with (
         patch(
             "services.database.db_service.get_project",
             AsyncMock(return_value=SimpleNamespace(id="p-001", userId="u-001")),
-        ),
-        patch.object(
-            db_service,
-            "db",
-            SimpleNamespace(
-                generationsession=SimpleNamespace(
-                    find_first=AsyncMock(return_value=existing_session),
-                    update=AsyncMock(return_value=started_session),
-                    count=AsyncMock(return_value=0),
-                ),
-                sessionevent=SimpleNamespace(create=AsyncMock()),
-                project=SimpleNamespace(
-                    find_unique=AsyncMock(
-                        return_value=SimpleNamespace(
-                            id="p-001", currentVersionId="v-001"
-                        )
-                    )
-                ),
-            ),
-        ),
-        patch.object(
-            GenerationSessionService, "_schedule_outline_draft_task", schedule_mock
         ),
     ):
         response = client.post(
@@ -94,12 +48,9 @@ async def test_create_session_returns_quickly_and_schedules_outline(app, _as_use
             },
         )
 
-    assert response.status_code == 200
-    assert (
-        response.json()["data"]["session"]["state"]
-        == GenerationState.DRAFTING_OUTLINE.value
-    )
-    schedule_mock.assert_awaited_once()
+    assert response.status_code == 409
+    payload = response.json()
+    assert payload["error"]["details"]["reason"] == "direct_generation_start_removed"
 
 
 @pytest.mark.anyio

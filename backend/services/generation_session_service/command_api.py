@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from typing import Any, Optional
 
 from services.generation_session_service.command_execution import (
@@ -64,13 +63,6 @@ class SessionCommandMixin:
         run_data = (
             dispatch_result.get("run") if isinstance(dispatch_result, dict) else None
         )
-        if command_type == GenerationCommandType.REDRAFT_OUTLINE.value:
-            await self._schedule_outline_draft_task(
-                session_id=session.id,
-                project_id=session.projectId,
-                options=_build_redraft_outline_options(session, command),
-                task_queue_service=task_queue_service,
-            )
         warnings = await dispatch_created_task(
             db=self._db,
             conflict_error_cls=self.conflict_error_cls,
@@ -129,23 +121,3 @@ class SessionCommandMixin:
             append_event=self._append_event,
             conflict_error_cls=self.conflict_error_cls,
         )
-
-
-def _build_redraft_outline_options(session, command: dict) -> Optional[dict]:
-    options_raw = getattr(session, "options", None)
-    options: dict = {}
-    if options_raw:
-        try:
-            parsed = json.loads(options_raw)
-            if isinstance(parsed, dict):
-                options = parsed
-        except (TypeError, json.JSONDecodeError):
-            options = {}
-
-    instruction = str(command.get("instruction") or "").strip()
-    if instruction:
-        options = {
-            **options,
-            "outline_redraft_instruction": instruction,
-        }
-    return options or None

@@ -271,6 +271,13 @@ async def create_generation_session(
             error_code=ErrorCode.INVALID_INPUT,
             message=f"output_type 必须是 {sorted(allowed_output_types)} 之一",
         )
+    if not bootstrap_only:
+        raise APIException(
+            status_code=status.HTTP_409_CONFLICT,
+            error_code=ErrorCode.RESOURCE_CONFLICT,
+            message="旧版直连生成会话启动已下线，请通过 Studio 的 Diego PPT 流程发起。",
+            details={"reason": "direct_generation_start_removed"},
+        )
 
     try:
         await get_owned_project(project_id, user_id)

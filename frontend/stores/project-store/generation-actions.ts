@@ -1,7 +1,6 @@
 ﻿import { generateApi, previewApi, projectSpaceApi } from "@/lib/sdk";
 import { createApiError, getErrorMessage } from "@/lib/sdk/errors";
 import { toast } from "@/hooks/use-toast";
-import { parseActiveRunConflict } from "@/lib/project/generation-run-conflict";
 import { groupArtifactsByTool } from "@/lib/project-space/artifact-history";
 import {
   buildArtifactDownloadFilename,
@@ -9,16 +8,10 @@ import {
 } from "@/lib/project-space/download-filename";
 import {
   mapSessionsToHistory,
-  normalizeGenerationOptions,
-  resolveOutputType,
-  resolveReusableGenerationSessionId,
 } from "./generation-actions.helpers";
-import { resolveReadySelectedFileIds } from "./source-scope";
 import type {
   Artifact,
   GenerationHistory,
-  GenerationOptions,
-  GenerationTool,
   OutlineDocument,
   ProjectStoreContext,
   ProjectState,
@@ -73,7 +66,6 @@ export function createGenerationActions({
   get,
 }: ProjectStoreContext): Pick<
   ProjectState,
-  | "startGeneration"
   | "fetchGenerationHistory"
   | "fetchArtifactHistory"
   | "exportArtifact"
@@ -84,136 +76,6 @@ export function createGenerationActions({
   | "confirmOutline"
 > {
   return {
-    startGeneration: async (
-      projectId: string,
-      tool: GenerationTool,
-      options?: GenerationOptions
-    ) => {
-      try {
-        const { selectedFileIds, files, activeSessionId, generationSession } =
-          get();
-        if (!activeSessionId) {
-          toast({
-            title: "请先创建会话",
-            description: "会话只能通过会话选择器中的“新建会话”创建。",
-            variant: "destructive",
-          });
-          return null;
-        }
-        const currentSessionId = resolveReusableGenerationSessionId(
-          activeSessionId,
-          generationSession
-        );
-        const effectiveRagSourceIds = resolveReadySelectedFileIds(
-          files,
-          selectedFileIds
-        );
-        const normalizedOptions = normalizeGenerationOptions(options);
-        const response = await generateApi.createSession({
-          project_id: projectId,
-          output_type: resolveOutputType(tool),
-          options: {
-            ...normalizedOptions,
-            rag_source_ids:
-              effectiveRagSourceIds.length > 0
-                ? effectiveRagSourceIds
-                : undefined,
-          },
-          client_session_id: currentSessionId,
-          bootstrap_only: false,
-        });
-
-        if (response?.data?.session) {
-          const sessionId = response.data.session.session_id;
-          const runId = extractRunId(response.data.run);
-          const previousHistoryTitle =
-            get().generationHistory.find((item) => item.id === sessionId)
-              ?.title || "";
-          const sessionDisplayTitle = String(
-            (
-              response.data.session as {
-                display_title?: string | null;
-              }
-            ).display_title || ""
-          ).trim();
-          const resolvedHistoryTitle =
-            previousHistoryTitle.trim() ||
-            sessionDisplayTitle ||
-            `会话 ${sessionId.slice(-6)}`;
-
-          set({
-            activeSessionId: sessionId,
-            activeRunId: runId,
-            generationSession: {
-              session: response.data.session,
-              options: normalizedOptions,
-            } as SessionStatePayload,
-          });
-
-          const historyItem: GenerationHistory = {
-            id: sessionId,
-            toolId: tool.id,
-            toolName: tool.name,
-            status: "processing",
-            sessionState: "CONFIGURING",
-            createdAt: new Date().toISOString(),
-            title: resolvedHistoryTitle,
-          };
-          set((state) => ({
-            generationHistory: [
-              historyItem,
-              ...state.generationHistory.filter(
-                (item) => item.id !== sessionId
-              ),
-            ],
-          }));
-
-          try {
-            const sessionResponse = await generateApi.getSessionSnapshot(
-              sessionId,
-              { run_id: runId }
-            );
-            const latestSessionPayload = sessionResponse?.data ?? null;
-            set({
-              generationSession: latestSessionPayload,
-              activeRunId: extractCurrentRunId(latestSessionPayload) || runId,
-            });
-            await get().fetchArtifactHistory(projectId, sessionId);
-          } catch (sessionError) {
-            const message = getErrorMessage(sessionError);
-            set((state) => ({
-              generationHistory: state.generationHistory.map((h) => {
-                if (h.id !== sessionId) return h;
-                if (h.status === "failed") return h;
-                return { ...h, status: "processing" as const };
-              }),
-              error: createApiError({ code: "SESSION_FETCH_FAILED", message }),
-            }));
-            toast({
-              title: "会话状态同步延迟",
-              description: `生成任务已创建，正在继续同步会话状态：${message}`,
-            });
-          }
-
-          return sessionId;
-        }
-
-        return null;
-      } catch (error) {
-        const message = getErrorMessage(error);
-        set({ error: createApiError({ code: "GENERATION_FAILED", message }) });
-        const runConflict = parseActiveRunConflict(error);
-        if (!runConflict) {
-          toast({
-            title: "创建生成任务失败",
-            description: message,
-            variant: "destructive",
-          });
-        }
-        throw error;
-      }
-    },
-
     fetchGenerationHistory: async (projectId: string) => {
       try {
         const response = await generateApi.listSessions({
