@@ -13,6 +13,7 @@ from schemas.studio_cards import (
     StudioCardTurnRequest,
     StudioCardTurnResult,
 )
+from services.artifact_generator.animation_spec import derive_animation_title
 from services.generation_session_service.event_store import append_event
 from services.generation_session_service.session_history import build_run_trace_payload
 from services.platform.generation_event_constants import GenerationEventType
@@ -126,6 +127,14 @@ async def execute_studio_card_artifact_request(
     if card_id == "demonstration_animations":
         artifact_content["kind"] = "animation_storyboard"
         artifact_content["format"] = "gif"
+        normalized_animation_title = derive_animation_title(
+            {
+                **artifact_content,
+                **(body.config if isinstance(body.config, dict) else {}),
+            }
+        )
+        if normalized_animation_title:
+            artifact_content["title"] = normalized_animation_title
     source_artifact_id = str(
         body.source_artifact_id
         or artifact_content.get("source_artifact_id")

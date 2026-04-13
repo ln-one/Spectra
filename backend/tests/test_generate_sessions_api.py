@@ -2738,6 +2738,7 @@ async def test_execute_studio_card_creates_gif_animation_artifact(app, _as_user)
     assert kwargs["content"]["format"] == "gif"
     assert kwargs["content"]["duration_seconds"] == 7
     assert kwargs["content"]["rhythm"] == "balanced"
+    assert kwargs["content"]["title"] == "冒泡排序每轮交换过程"
     assert isinstance(kwargs["content"]["scenes"], list)
     assert kwargs["content"]["scenes"]
 
