@@ -23,11 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { OutlineEditorPanel } from "@/components/project";
 import { PptWorkflowRail } from "./components/PptWorkflowRail";
 import { TOOL_COLORS } from "@/components/project/features/studio/constants";
@@ -130,10 +126,7 @@ export function GenerationConfigPanel({
       <div className="pointer-events-none absolute -bottom-32 -left-20 h-96 w-96 rounded-full bg-indigo-400/8 blur-[120px]" />
 
       <div
-        className={cn(
-          "h-1 shrink-0 w-full bg-gradient-to-r",
-          colors.gradient
-        )}
+        className={cn("h-1 shrink-0 w-full bg-gradient-to-r", colors.gradient)}
       />
 
       <div
@@ -286,7 +279,10 @@ export function GenerationConfigPanel({
                         <SelectedSourceScopeBadge />
                       </div>
 
-                      <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                      <motion.div
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                      >
                         <Button
                           onClick={() => void handleGenerate()}
                           disabled={!prompt.trim() || isCreatingSession}
@@ -342,7 +338,9 @@ export function GenerationConfigPanel({
                       换一批
                     </motion.button>
                     {loadingSuggestions && suggestions.length === 0 ? (
-                      <span className="text-xs text-zinc-400">正在准备示例...</span>
+                      <span className="text-xs text-zinc-400">
+                        正在准备示例...
+                      </span>
                     ) : null}
                   </div>
                 </motion.section>
@@ -460,9 +458,7 @@ export function GenerationConfigPanel({
                         })}
 
                         {/* More templates placeholder */}
-                        <div
-                          className="group relative cursor-pointer overflow-hidden rounded-3xl bg-zinc-50 shadow-sm ring-1 ring-zinc-100 transition-all duration-150 ease-out hover:-translate-y-1 hover:scale-[1.01] hover:bg-zinc-100 hover:ring-zinc-200 active:scale-[0.99]"
-                        >
+                        <div className="group relative cursor-pointer overflow-hidden rounded-3xl bg-zinc-50 shadow-sm ring-1 ring-zinc-100 transition-all duration-150 ease-out hover:-translate-y-1 hover:scale-[1.01] hover:bg-zinc-100 hover:ring-zinc-200 active:scale-[0.99]">
                           <div className="relative aspect-[16/10] flex flex-col items-center justify-center gap-2">
                             <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white shadow-sm ring-1 ring-zinc-100 transition-all group-hover:scale-110">
                               <LayoutTemplate className="h-5 w-5 text-zinc-400" />

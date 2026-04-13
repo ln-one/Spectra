@@ -91,9 +91,7 @@ class DiegoClient:
             raise ExternalServiceException(
                 message=_build_error_message(body, status_code=response.status_code),
                 status_code=(
-                    response.status_code
-                    if response.status_code >= 500
-                    else 502
+                    response.status_code if response.status_code >= 500 else 502
                 ),
                 details={
                     "url": url,
@@ -137,14 +135,14 @@ class DiegoClient:
                 error_payload = response.text[:300]
             raise ExternalServiceException(
                 message=(
-                    _build_error_message(error_payload, status_code=response.status_code)
+                    _build_error_message(
+                        error_payload, status_code=response.status_code
+                    )
                     if isinstance(error_payload, dict)
                     else f"Diego artifact download failed: status={response.status_code}"
                 ),
                 status_code=(
-                    response.status_code
-                    if response.status_code >= 500
-                    else 502
+                    response.status_code if response.status_code >= 500 else 502
                 ),
                 details={
                     "url": url,

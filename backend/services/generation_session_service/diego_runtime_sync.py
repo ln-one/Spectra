@@ -231,7 +231,10 @@ def _build_spectra_preview_page(
         page_index = slide_no - 1
     if page_index < 0:
         page_index = 0
-    slide_id = str(preview.get("slide_id") or "").strip() or f"{spectra_run_id}-slide-{page_index}"
+    slide_id = (
+        str(preview.get("slide_id") or "").strip()
+        or f"{spectra_run_id}-slide-{page_index}"
+    )
     try:
         split_index = int(preview.get("split_index") or 0)
     except (TypeError, ValueError):
@@ -258,7 +261,9 @@ def _build_spectra_preview_page(
     return page
 
 
-def _upsert_rendered_preview_page(preview_payload: dict, page: dict[str, object]) -> bool:
+def _upsert_rendered_preview_page(
+    preview_payload: dict, page: dict[str, object]
+) -> bool:
     rendered = preview_payload.get("rendered_preview")
     if not isinstance(rendered, dict):
         rendered = {"format": "html", "pages": [], "page_count": 0}
@@ -431,11 +436,7 @@ async def _append_diego_stream_events(
         if seq <= next_seq:
             continue
         event_type = str(item.get("event") or "").strip()
-        payload = (
-            item.get("payload")
-            if isinstance(item.get("payload"), dict)
-            else {}
-        )
+        payload = item.get("payload") if isinstance(item.get("payload"), dict) else {}
         stream_channel = _resolve_stream_channel(event_type)
         progress_message = _build_progress_message(event_type, payload)
         event_payload = {
@@ -633,16 +634,18 @@ async def sync_diego_generation_until_terminal(
                     pending_slide_numbers.update(newly_generated_slides)
 
             if pending_slide_numbers:
-                pending_slide_numbers, preview_payload = await _sync_pending_slide_previews(
-                    db=db,
-                    session_id=session_id,
-                    run=run,
-                    client=client,
-                    diego_run_id=diego_run_id,
-                    diego_trace_id=diego_trace_id,
-                    diego_status=status,
-                    pending_slide_numbers=pending_slide_numbers,
-                    preview_payload=preview_payload,
+                pending_slide_numbers, preview_payload = (
+                    await _sync_pending_slide_previews(
+                        db=db,
+                        session_id=session_id,
+                        run=run,
+                        client=client,
+                        diego_run_id=diego_run_id,
+                        diego_trace_id=diego_trace_id,
+                        diego_status=status,
+                        pending_slide_numbers=pending_slide_numbers,
+                        preview_payload=preview_payload,
+                    )
                 )
 
             if status != last_status:
@@ -684,18 +687,22 @@ async def sync_diego_generation_until_terminal(
 
             if status == _DIEGO_STATUS_SUCCEEDED:
                 if pending_slide_numbers:
-                    pending_slide_numbers, preview_payload = await _sync_pending_slide_previews(
-                        db=db,
-                        session_id=session_id,
-                        run=run,
-                        client=client,
-                        diego_run_id=diego_run_id,
-                        diego_trace_id=diego_trace_id,
-                        diego_status=status,
-                        pending_slide_numbers=pending_slide_numbers,
-                        preview_payload=preview_payload,
+                    pending_slide_numbers, preview_payload = (
+                        await _sync_pending_slide_previews(
+                            db=db,
+                            session_id=session_id,
+                            run=run,
+                            client=client,
+                            diego_run_id=diego_run_id,
+                            diego_trace_id=diego_trace_id,
+                            diego_status=status,
+                            pending_slide_numbers=pending_slide_numbers,
+                            preview_payload=preview_payload,
+                        )
                     )
-                session = await db.generationsession.find_unique(where={"id": session_id})
+                session = await db.generationsession.find_unique(
+                    where={"id": session_id}
+                )
                 if not session:
                     return
                 options = parse_options(getattr(session, "options", None))

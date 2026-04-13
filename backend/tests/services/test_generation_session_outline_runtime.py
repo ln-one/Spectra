@@ -192,7 +192,9 @@ async def test_execute_outline_draft_failure_marks_run_failed():
     service = GenerationSessionService(db=db)
 
     with patch("services.generation_session_service.ai_service") as mock_ai:
-        mock_ai.generate_outline = AsyncMock(side_effect=Exception("mock outline error"))
+        mock_ai.generate_outline = AsyncMock(
+            side_effect=Exception("mock outline error")
+        )
         await service._execute_outline_draft_local(
             session_id="s-001",
             project_id="p-001",

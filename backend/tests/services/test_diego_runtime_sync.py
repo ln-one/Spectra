@@ -66,7 +66,9 @@ async def test_sync_diego_generation_streams_slide_preview(monkeypatch):
     db = SimpleNamespace(
         generationsession=SimpleNamespace(find_unique=AsyncMock(return_value=session)),
         outlineversion=SimpleNamespace(find_first=AsyncMock(return_value=None)),
-        project=SimpleNamespace(find_unique=AsyncMock(return_value=SimpleNamespace(name="Demo"))),
+        project=SimpleNamespace(
+            find_unique=AsyncMock(return_value=SimpleNamespace(name="Demo"))
+        ),
     )
     run = SimpleNamespace(
         id="run-1",
@@ -122,7 +124,9 @@ async def test_sync_diego_generation_streams_slide_preview(monkeypatch):
     assert save_preview_content_mock.await_count >= 1
     preview_payload = save_preview_content_mock.await_args_list[-1].args[1]
     assert preview_payload["rendered_preview"]["page_count"] == 1
-    assert preview_payload["rendered_preview"]["pages"][0]["slide_id"] == "run-1-slide-0"
+    assert (
+        preview_payload["rendered_preview"]["pages"][0]["slide_id"] == "run-1-slide-0"
+    )
 
     event_types = [
         call.kwargs.get("event_type") for call in append_event_mock.await_args_list

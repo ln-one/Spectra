@@ -167,9 +167,7 @@ export function useGenerationConfigPanel({
   useEffect(() => {
     const mapping = LAYOUT_MODES.find((m) => m.id === layoutMode);
     if (mapping) {
-      setOutlineStyle(
-        mapping.outlineStyle as GenerationConfig["outlineStyle"]
-      );
+      setOutlineStyle(mapping.outlineStyle as GenerationConfig["outlineStyle"]);
     }
   }, [layoutMode]);
 
@@ -182,7 +180,28 @@ export function useGenerationConfigPanel({
     } else {
       const isStyle =
         visualStyle &&
-        ["free", "academic", "minimal", "professional", "botanical", "wabi", "memphis", "constructivism", "brutalist", "8bit", "electro", "geometric", "morandi", "nordic", "fluid", "cinema", "coolblue", "warmvc", "modernacademic", "curatorial"].includes(visualStyle);
+        [
+          "free",
+          "academic",
+          "minimal",
+          "professional",
+          "botanical",
+          "wabi",
+          "memphis",
+          "constructivism",
+          "brutalist",
+          "8bit",
+          "electro",
+          "geometric",
+          "morandi",
+          "nordic",
+          "fluid",
+          "cinema",
+          "coolblue",
+          "warmvc",
+          "modernacademic",
+          "curatorial",
+        ].includes(visualStyle);
       if (!isStyle) {
         setVisualStyle("free");
       }

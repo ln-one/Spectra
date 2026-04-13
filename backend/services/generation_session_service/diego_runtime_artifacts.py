@@ -53,7 +53,9 @@ async def persist_diego_success_artifact(
 
     project = await db.project.find_unique(where={"id": session.projectId})
     outline_doc = await _load_latest_outline_document(db, session.id)
-    cached_preview_content = await load_preview_content(str(getattr(run, "id", "") or ""))
+    cached_preview_content = await load_preview_content(
+        str(getattr(run, "id", "") or "")
+    )
     preview_content = (
         dict(cached_preview_content)
         if isinstance(cached_preview_content, dict)

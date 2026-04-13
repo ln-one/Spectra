@@ -137,14 +137,46 @@ export const VISUAL_STYLES = [
 ] as const;
 
 export const TEMPLATE_CARDS = [
-  { id: "tpl-1", name: "海洋保护行动", coverImage: "/images/templates/tpl-1.svg" },
-  { id: "tpl-2", name: "文创品牌炼金术", coverImage: "/images/templates/tpl-2.svg" },
-  { id: "tpl-3", name: "潮流玩具品牌商业计划", coverImage: "/images/templates/tpl-3.svg" },
-  { id: "tpl-4", name: "大数据驱动的疾病监测系统", coverImage: "/images/templates/tpl-4.svg" },
-  { id: "tpl-5", name: "Luminara 2025品牌年度汇报", coverImage: "/images/templates/tpl-5.svg" },
-  { id: "tpl-6", name: "童梦奇航亲子冒险企划", coverImage: "/images/templates/tpl-6.svg" },
-  { id: "tpl-7", name: "艺术品牌策划全景解析", coverImage: "/images/templates/tpl-7.svg" },
-  { id: "tpl-8", name: "非遗文化传承研究", coverImage: "/images/templates/tpl-8.svg" },
+  {
+    id: "tpl-1",
+    name: "海洋保护行动",
+    coverImage: "/images/templates/tpl-1.svg",
+  },
+  {
+    id: "tpl-2",
+    name: "文创品牌炼金术",
+    coverImage: "/images/templates/tpl-2.svg",
+  },
+  {
+    id: "tpl-3",
+    name: "潮流玩具品牌商业计划",
+    coverImage: "/images/templates/tpl-3.svg",
+  },
+  {
+    id: "tpl-4",
+    name: "大数据驱动的疾病监测系统",
+    coverImage: "/images/templates/tpl-4.svg",
+  },
+  {
+    id: "tpl-5",
+    name: "Luminara 2025品牌年度汇报",
+    coverImage: "/images/templates/tpl-5.svg",
+  },
+  {
+    id: "tpl-6",
+    name: "童梦奇航亲子冒险企划",
+    coverImage: "/images/templates/tpl-6.svg",
+  },
+  {
+    id: "tpl-7",
+    name: "艺术品牌策划全景解析",
+    coverImage: "/images/templates/tpl-7.svg",
+  },
+  {
+    id: "tpl-8",
+    name: "非遗文化传承研究",
+    coverImage: "/images/templates/tpl-8.svg",
+  },
 ] as const;
 
 export const LAYOUT_MODES = [

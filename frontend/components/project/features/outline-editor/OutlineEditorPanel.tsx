@@ -68,9 +68,7 @@ function parseSessionSlides(session: unknown): SlideDraft[] {
       estimated_minutes?: unknown;
     };
     const keyPoints = Array.isArray(current.key_points)
-      ? current.key_points
-          .map((item) => normalizeText(item))
-          .filter(Boolean)
+      ? current.key_points.map((item) => normalizeText(item)).filter(Boolean)
       : [];
     slides.push({
       id: normalizeText(current.id) || `slide-${index + 1}`,
@@ -100,9 +98,7 @@ function buildOutlinePayloadFromSlides(
       id: slide.id,
       order: index + 1,
       title: slide.title.trim() || `第 ${index + 1} 页`,
-      key_points: slide.keyPoints
-        .map((point) => point.trim())
-        .filter(Boolean),
+      key_points: slide.keyPoints.map((point) => point.trim()).filter(Boolean),
       estimated_minutes:
         typeof slide.estimatedMinutes === "number"
           ? slide.estimatedMinutes
@@ -112,19 +108,25 @@ function buildOutlinePayloadFromSlides(
   };
 }
 
-function serializeComparableOutline(outline: OutlineDocument | null | undefined) {
+function serializeComparableOutline(
+  outline: OutlineDocument | null | undefined
+) {
   const nodes = Array.isArray(outline?.nodes) ? outline.nodes : [];
   return JSON.stringify(
     nodes.map((node, index) => ({
       id: normalizeText(node.id) || `slide-${index + 1}`,
       order:
-        typeof node.order === "number" && node.order > 0 ? node.order : index + 1,
+        typeof node.order === "number" && node.order > 0
+          ? node.order
+          : index + 1,
       title: normalizeText(node.title),
       key_points: Array.isArray(node.key_points)
         ? node.key_points.map((item) => normalizeText(item)).filter(Boolean)
         : [],
       estimated_minutes:
-        typeof node.estimated_minutes === "number" ? node.estimated_minutes : null,
+        typeof node.estimated_minutes === "number"
+          ? node.estimated_minutes
+          : null,
     }))
   );
 }
@@ -181,7 +183,10 @@ export function OutlineEditorPanel({
     setPreambleCollapsed(false);
     const sessionSlides = parseSessionSlides(generationSession);
     setSlides(sessionSlides);
-    if (sessionSlides.length > 0 && sessionState === "AWAITING_OUTLINE_CONFIRM") {
+    if (
+      sessionSlides.length > 0 &&
+      sessionState === "AWAITING_OUTLINE_CONFIRM"
+    ) {
       setPhase("editing");
       setPreambleCollapsed(true);
       return;
@@ -191,7 +196,10 @@ export function OutlineEditorPanel({
 
   useEffect(() => {
     const sessionSlides = parseSessionSlides(generationSession);
-    if (sessionSlides.length > 0 && sessionState === "AWAITING_OUTLINE_CONFIRM") {
+    if (
+      sessionSlides.length > 0 &&
+      sessionState === "AWAITING_OUTLINE_CONFIRM"
+    ) {
       setSlides(sessionSlides);
       setPhase("editing");
       setPreambleCollapsed(true);
@@ -271,11 +279,9 @@ export function OutlineEditorPanel({
   }, [currentRunId, events]);
 
   const outlineIncomplete = expectedPages > 0 && slides.length < expectedPages;
-  const canGoPreview = [
-    "GENERATING_CONTENT",
-    "RENDERING",
-    "SUCCESS",
-  ].includes(sessionState);
+  const canGoPreview = ["GENERATING_CONTENT", "RENDERING", "SUCCESS"].includes(
+    sessionState
+  );
   const canConfirm =
     phase === "editing" &&
     slides.length > 0 &&
@@ -349,7 +355,9 @@ export function OutlineEditorPanel({
       <div className="border-b border-zinc-200 px-4 py-3">
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <h3 className="text-sm font-semibold text-zinc-900">大纲生成与确认</h3>
+            <h3 className="text-sm font-semibold text-zinc-900">
+              大纲生成与确认
+            </h3>
             <p className="mt-1 truncate text-xs text-zinc-500">{topic}</p>
             <p className="mt-1 text-xs text-zinc-400">{phaseText}</p>
           </div>
@@ -463,8 +471,7 @@ export function OutlineEditorPanel({
                 className="rounded-xl border border-zinc-200 bg-white p-3"
               >
                 <div className="mb-2 flex items-center gap-2 text-xs text-zinc-500">
-                  <Pencil className="h-3.5 w-3.5" />
-                  第 {index + 1} 页
+                  <Pencil className="h-3.5 w-3.5" />第 {index + 1} 页
                 </div>
                 <Input
                   value={slide.title}

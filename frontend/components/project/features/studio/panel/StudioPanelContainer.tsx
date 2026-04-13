@@ -98,7 +98,9 @@ function extractRunIdFromExecutionResult(
 }
 
 function mapVisualStyleToDiegoPreset(styleId: string): string {
-  const normalized = String(styleId || "").trim().toLowerCase();
+  const normalized = String(styleId || "")
+    .trim()
+    .toLowerCase();
   const mapping: Record<string, string> = {
     free: "auto",
     wabi: "wabi-sabi",

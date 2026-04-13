@@ -160,9 +160,7 @@ def convert_diego_outline_to_spectra(diego_outline: dict[str, Any]) -> dict[str,
             key_points = []
             if isinstance(bullets_raw, list):
                 key_points = [
-                    str(item).strip()
-                    for item in bullets_raw
-                    if str(item or "").strip()
+                    str(item).strip() for item in bullets_raw if str(item or "").strip()
                 ]
             if not key_points:
                 key_points = ["核心要点讲解"]
@@ -219,4 +217,3 @@ def convert_spectra_outline_to_diego(outline: dict[str, Any]) -> dict[str, Any]:
         "nodes": converted_nodes,
         "summary": str(outline.get("summary") or "").strip(),
     }
-

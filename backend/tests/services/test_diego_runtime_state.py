@@ -35,9 +35,7 @@ async def test_set_session_state_omits_progress_when_none(monkeypatch):
     assert update_data["errorRetryable"] is True
 
     append_state_changed_event_mock.assert_awaited_once()
-    assert (
-        append_state_changed_event_mock.await_args.kwargs["progress"] is None
-    )
+    assert append_state_changed_event_mock.await_args.kwargs["progress"] is None
 
 
 @pytest.mark.anyio
