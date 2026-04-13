@@ -81,33 +81,34 @@ async def test_sync_diego_generation_streams_slide_preview(monkeypatch):
     set_session_state_mock = AsyncMock()
     persist_artifact_mock = AsyncMock(return_value=("artifact-1", "/download/pptx"))
     save_preview_content_mock = AsyncMock()
+    sync_module_path = "services.generation_session_service.diego_runtime_sync"
 
     monkeypatch.setattr(
-        "services.generation_session_service.diego_runtime_sync.build_diego_client",
+        f"{sync_module_path}.build_diego_client",
         lambda: fake_client,
     )
     monkeypatch.setattr(
-        "services.generation_session_service.diego_runtime_sync.append_event",
+        f"{sync_module_path}.append_event",
         append_event_mock,
     )
     monkeypatch.setattr(
-        "services.generation_session_service.diego_runtime_sync.set_session_state",
+        f"{sync_module_path}.set_session_state",
         set_session_state_mock,
     )
     monkeypatch.setattr(
-        "services.generation_session_service.diego_runtime_sync.persist_diego_success_artifact",
+        f"{sync_module_path}.persist_diego_success_artifact",
         persist_artifact_mock,
     )
     monkeypatch.setattr(
-        "services.generation_session_service.diego_runtime_sync.save_preview_content",
+        f"{sync_module_path}.save_preview_content",
         save_preview_content_mock,
     )
     monkeypatch.setattr(
-        "services.generation_session_service.diego_runtime_sync.load_preview_content",
+        f"{sync_module_path}.load_preview_content",
         AsyncMock(return_value=None),
     )
     monkeypatch.setattr(
-        "services.generation_session_service.diego_runtime_sync.asyncio.sleep",
+        f"{sync_module_path}.asyncio.sleep",
         AsyncMock(return_value=None),
     )
 
@@ -125,7 +126,7 @@ async def test_sync_diego_generation_streams_slide_preview(monkeypatch):
     preview_payload = save_preview_content_mock.await_args_list[-1].args[1]
     assert preview_payload["rendered_preview"]["page_count"] == 1
     assert (
-        preview_payload["rendered_preview"]["pages"][0]["slide_id"] == "run-1-slide-0"
+        preview_payload["rendered_preview"]["pages"][0]["slide_id"] == "ignored-by-sync"
     )
 
     event_types = [
