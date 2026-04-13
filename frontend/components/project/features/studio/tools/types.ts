@@ -28,6 +28,19 @@ export interface ResolvedArtifactPayload {
   blob?: Blob;
 }
 
+export interface ToolStructuredRefineRequest {
+  artifactId?: string | null;
+  message: string;
+  config?: Record<string, unknown>;
+}
+
+export interface ToolStructuredRefineResult {
+  ok: boolean;
+  artifactId: string | null;
+  effectiveSessionId: string | null;
+  insertedNodeId?: string | null;
+}
+
 export type ToolDraftValue =
   | string
   | number
@@ -80,6 +93,9 @@ export interface ToolFlowContext {
   onPrepareGenerate?: () => Promise<boolean> | boolean;
   onExecute?: () => Promise<boolean> | boolean;
   onRefine?: () => Promise<void> | void;
+  onStructuredRefineArtifact?: (
+    request: ToolStructuredRefineRequest
+  ) => Promise<ToolStructuredRefineResult>;
   onExportArtifact?: (artifactId: string) => Promise<void> | void;
 }
 

@@ -51,7 +51,8 @@ function parseGamePatternOptions(
   if (!Array.isArray(cardConfigFields)) return DEFAULT_GAME_PATTERN_OPTIONS;
   const patternField = cardConfigFields.find(
     (field) =>
-      typeof field?.key === "string" && field.key.toLowerCase() === "game_pattern"
+      typeof field?.key === "string" &&
+      field.key.toLowerCase() === "game_pattern"
   );
   if (!patternField || !Array.isArray(patternField.options)) {
     return DEFAULT_GAME_PATTERN_OPTIONS;
@@ -101,7 +102,9 @@ export function GameToolPanel({
   const [mechanicsNotes, setMechanicsNotes] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [lastGeneratedAt, setLastGeneratedAt] = useState<string | null>(null);
-  const gamePatternOptions = parseGamePatternOptions(flowContext?.cardConfigFields);
+  const gamePatternOptions = parseGamePatternOptions(
+    flowContext?.cardConfigFields
+  );
   const selectedGamePatternLabel =
     gamePatternOptions.find((item) => item.value === gamePattern)?.label ??
     GAME_PATTERN_LABELS[gamePattern];
@@ -119,13 +122,20 @@ export function GameToolPanel({
 
   useEffect(() => {
     if (!gamePatternOptions.length) return;
-    const exists = gamePatternOptions.some((item) => item.value === gamePattern);
+    const exists = gamePatternOptions.some(
+      (item) => item.value === gamePattern
+    );
     if (exists) return;
     setGamePattern(gamePatternOptions[0].value);
   }, [gamePattern, gamePatternOptions]);
 
   useEffect(() => {
-    const creativeBrief = [selectedGamePatternLabel, summary, playerGoal, mechanicsNotes]
+    const creativeBrief = [
+      selectedGamePatternLabel,
+      summary,
+      playerGoal,
+      mechanicsNotes,
+    ]
       .map((item) => item.trim())
       .filter(Boolean)
       .join("\n");

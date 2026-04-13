@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import asyncio
 import copy
@@ -13,6 +13,7 @@ from services.generation_session_service.game_template_engine import (
     resolve_game_pattern,
     validate_game_data,
 )
+from utils.exceptions import APIException, ErrorCode
 
 
 def _split_anchor(anchor: str | None) -> list[str]:
@@ -34,6 +35,32 @@ def _resolve_mindmap_target_id(
         if isinstance(node, dict) and str(node.get("parent_id") or "") in {"", "None"}:
             return str(node.get("id") or "root")
     return "root"
+
+
+def _find_mindmap_node(
+    nodes: list[dict[str, Any]], target_id: str
+) -> dict[str, Any] | None:
+    for node in nodes:
+        if str(node.get("id") or "").strip() == target_id:
+            return node
+    return None
+
+
+def _require_manual_mindmap_title(message: str) -> str:
+    title = str(message or "").strip()
+    if not title:
+        raise APIException(
+            status_code=400,
+            error_code=ErrorCode.INVALID_INPUT,
+            message="mindmap child node title is required",
+        )
+    if len(title) > 60:
+        raise APIException(
+            status_code=400,
+            error_code=ErrorCode.INVALID_INPUT,
+            message="mindmap child node title must be 60 chars or fewer",
+        )
+    return title
 
 
 async def _load_rag_snippets(
@@ -78,18 +105,35 @@ async def refine_mindmap_content(
         dict(node) for node in (updated.get("nodes") or []) if isinstance(node, dict)
     ]
     target_id = _resolve_mindmap_target_id(current_content, config)
-    query = str(config.get("topic") or updated.get("title") or message or "导图扩展")
+    target_node = _find_mindmap_node(nodes, target_id)
+    if target_node is None:
+        raise APIException(
+            status_code=409,
+            error_code=ErrorCode.RESOURCE_CONFLICT,
+            message="selected mindmap node is stale; refresh and retry",
+        )
+    query = str(
+        config.get("topic") or updated.get("title") or message or "mindmap extension"
+    )
     rag_snippets = await _load_rag_snippets(
         project_id=project_id,
         query=query,
         rag_source_ids=rag_source_ids,
     )
     next_index = len(nodes) + 1
-    branch_title = str(message or "新增分支").strip()[:40] or f"扩展分支 {next_index}"
-    summary = rag_snippets[0] if rag_snippets else f"围绕“{branch_title}”扩展知识要点。"
+    branch_title = _require_manual_mindmap_title(message)
+    inserted_node_id = f"{target_id}-refine-{next_index}"
+    manual_summary = str(config.get("manual_child_summary") or "").strip()
+    summary = manual_summary[:220]
+    if not summary:
+        summary = (
+            rag_snippets[0]
+            if rag_snippets
+            else f"New child node added for {branch_title}."
+        )
     nodes.append(
         {
-            "id": f"{target_id}-refine-{next_index}",
+            "id": inserted_node_id,
             "parent_id": target_id,
             "title": branch_title,
             "summary": summary,
@@ -97,7 +141,8 @@ async def refine_mindmap_content(
     )
     updated["kind"] = "mindmap"
     updated["nodes"] = nodes
-    updated["summary"] = f"已围绕节点 {target_id} 扩展新的知识分支。"
+    updated["summary"] = f"Added a child node under {target_id}."
+    updated["_inserted_node_id"] = inserted_node_id
     return updated
 
 

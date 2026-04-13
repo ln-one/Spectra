@@ -626,6 +626,8 @@ export function StudioPanelContainer({
       return false;
     },
     onRefine: () => execution.handleOpenChatRefine(),
+    onStructuredRefineArtifact: (request) =>
+      execution.handleStudioStructuredRefineArtifact(request),
     onExportArtifact: (artifactId) => exportArtifact(artifactId),
   };
 

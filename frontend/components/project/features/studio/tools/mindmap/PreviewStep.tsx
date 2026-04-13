@@ -1,4 +1,8 @@
-﻿import { Network } from "lucide-react";
+﻿import { useMemo, useState } from "react";
+import { Network } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { CapabilityNotice } from "../CapabilityNotice";
 import type { ToolFlowContext } from "../types";
 import { MindmapCanvas } from "./MindmapCanvas";
@@ -91,12 +95,26 @@ function countTreeNodes(node: MindNode): number {
   );
 }
 
+function findNodeById(node: MindNode, id: string): MindNode | null {
+  if (node.id === id) return node;
+  for (const child of node.children ?? []) {
+    const matched = findNodeById(child, id);
+    if (matched) return matched;
+  }
+  return null;
+}
+
 export function PreviewStep({
   selectedId,
   lastGeneratedAt,
   flowContext,
   onSelectNode,
 }: PreviewStepProps) {
+  const [isAddFormOpen, setIsAddFormOpen] = useState(false);
+  const [childTitle, setChildTitle] = useState("");
+  const [childSummary, setChildSummary] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
   const capabilityStatus =
     flowContext?.capabilityStatus ?? "backend_placeholder";
   const capabilityReason =
@@ -106,6 +124,70 @@ export function PreviewStep({
       ? extractBackendTree(flowContext)
       : null;
   const activeTree = backendTree;
+  const selectedNode = useMemo(() => {
+    if (!activeTree) return null;
+    return findNodeById(activeTree, selectedId || activeTree.id) ?? activeTree;
+  }, [activeTree, selectedId]);
+  const artifactId = flowContext?.resolvedArtifact?.artifactId ?? null;
+  const canAddChild = Boolean(
+    activeTree &&
+    artifactId &&
+    typeof flowContext?.onStructuredRefineArtifact === "function"
+  );
+  const addChildDisabledReason = !activeTree
+    ? "等待后端返回真实导图后才能编辑。"
+    : !artifactId
+      ? "当前未定位到可编辑的导图 artifact。"
+      : !flowContext?.onStructuredRefineArtifact
+        ? "当前导图未暴露结构化编辑能力。"
+        : "";
+
+  const handleSubmitAddChild = async () => {
+    const title = childTitle.trim();
+    const summary = childSummary.trim();
+
+    if (!selectedNode) {
+      setSubmitError("未定位到当前选中节点，请重新选择后再试。");
+      return;
+    }
+    if (!title) {
+      setSubmitError("请输入子节点名称。");
+      return;
+    }
+    if (title.length > 60) {
+      setSubmitError("子节点名称不能超过 60 个字符。");
+      return;
+    }
+    if (!artifactId || !flowContext?.onStructuredRefineArtifact) {
+      setSubmitError("当前导图不可编辑，请刷新后重试。");
+      return;
+    }
+
+    setSubmitError("");
+    setIsSubmitting(true);
+    try {
+      const result = await flowContext.onStructuredRefineArtifact({
+        artifactId,
+        message: title,
+        config: {
+          selected_node_path: selectedNode.id,
+          manual_child_summary: summary || undefined,
+        },
+      });
+      if (!result.ok) {
+        setSubmitError("子节点新增失败，请根据错误提示重试。");
+        return;
+      }
+      if (result.insertedNodeId) {
+        onSelectNode(result.insertedNodeId);
+      }
+      setChildTitle("");
+      setChildSummary("");
+      setIsAddFormOpen(false);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -126,6 +208,85 @@ export function PreviewStep({
             <div className="mb-3 flex items-center gap-3 text-[11px] text-zinc-600">
               <span>节点总数：{countTreeNodes(activeTree)}</span>
               <span>当前根节点：{activeTree.label}</span>
+            </div>
+            <div className="mb-4 rounded-xl border border-zinc-200 bg-white/90 p-3">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                <div className="space-y-1">
+                  <p className="text-xs font-semibold text-zinc-900">
+                    当前选中节点
+                  </p>
+                  <p className="text-sm text-zinc-700">
+                    {selectedNode?.label ?? "未选中节点"}
+                  </p>
+                  <p className="text-[11px] text-zinc-500">
+                    点击节点后可在该节点下新增一个手工子节点，并写回后端导图
+                    artifact。
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={!canAddChild || isSubmitting}
+                  onClick={() => {
+                    setSubmitError("");
+                    setIsAddFormOpen((prev) => !prev);
+                  }}
+                  title={addChildDisabledReason || undefined}
+                >
+                  添加子节点
+                </Button>
+              </div>
+
+              {isAddFormOpen ? (
+                <div className="mt-3 space-y-3 border-t border-zinc-200 pt-3">
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-zinc-700">
+                      子节点名称
+                    </label>
+                    <Input
+                      value={childTitle}
+                      maxLength={60}
+                      disabled={isSubmitting}
+                      placeholder="例如：进程切换开销"
+                      onChange={(event) => setChildTitle(event.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-zinc-700">
+                      节点说明（可选）
+                    </label>
+                    <Textarea
+                      value={childSummary}
+                      disabled={isSubmitting}
+                      placeholder="补充一句说明，后端会写入新节点摘要。"
+                      onChange={(event) => setChildSummary(event.target.value)}
+                    />
+                  </div>
+                  {submitError ? (
+                    <p className="text-xs text-red-600">{submitError}</p>
+                  ) : null}
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      disabled={!canAddChild || isSubmitting}
+                      onClick={() => void handleSubmitAddChild()}
+                    >
+                      {isSubmitting ? "提交中..." : "确认新增"}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => {
+                        if (isSubmitting) return;
+                        setIsAddFormOpen(false);
+                        setSubmitError("");
+                      }}
+                    >
+                      取消
+                    </Button>
+                  </div>
+                </div>
+              ) : null}
             </div>
             <MindmapCanvas
               tree={activeTree}

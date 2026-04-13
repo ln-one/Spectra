@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 import re
 
@@ -13,10 +14,12 @@ from schemas.studio_cards import (
     StudioCardTurnRequest,
     StudioCardTurnResult,
 )
+from services.artifact_generator import artifact_generator
 from services.generation_session_service.event_store import append_event
 from services.generation_session_service.session_history import build_run_trace_payload
 from services.platform.generation_event_constants import GenerationEventType
 from services.project_space_service import project_space_service
+from services.project_space_service.artifact_content import build_artifact_metadata
 from utils.exceptions import APIException, ErrorCode
 
 from .card_execution_runtime_helpers import (
@@ -192,6 +195,47 @@ async def execute_studio_card_artifact_request(
 logger = logging.getLogger(__name__)
 
 
+async def _update_mindmap_artifact_in_place(
+    *,
+    artifact,
+    project_id: str,
+    user_id: str,
+    content: dict,
+):
+    storage_path = await artifact_generator.generate_mindmap(
+        content,
+        project_id,
+        artifact.id,
+    )
+    current_metadata = artifact_metadata_dict(artifact)
+    metadata_mode = str(current_metadata.get("mode") or "create").strip() or "create"
+    next_metadata = {
+        **current_metadata,
+        **build_artifact_metadata(
+            artifact.type,
+            content,
+            user_id,
+            artifact_mode=metadata_mode,
+        ),
+        "updated_in_place": True,
+    }
+    db_handle = getattr(getattr(project_space_service, "db", None), "db", None)
+    artifact_model = getattr(db_handle, "artifact", None)
+    if artifact_model is None or not hasattr(artifact_model, "update"):
+        raise APIException(
+            status_code=500,
+            error_code=ErrorCode.INTERNAL_ERROR,
+            message="mindmap artifact update path is unavailable",
+        )
+    return await artifact_model.update(
+        where={"id": artifact.id},
+        data={
+            "storagePath": storage_path,
+            "metadata": json.dumps(next_metadata),
+        },
+    )
+
+
 async def execute_studio_card_structured_refine(
     *,
     card_id: str,
@@ -219,17 +263,30 @@ async def execute_studio_card_structured_refine(
         project_id=body.project_id,
         rag_source_ids=body.rag_source_ids,
     )
-    new_artifact = await create_replacement_artifact(
-        source_artifact=artifact,
-        project_id=body.project_id,
-        user_id=user_id,
-        content=updated_content,
-    )
+    inserted_node_id = None
+    if isinstance(updated_content, dict):
+        inserted_node_id = (
+            str(updated_content.pop("_inserted_node_id", "") or "").strip() or None
+        )
+    if card_id == "knowledge_mindmap":
+        result_artifact = await _update_mindmap_artifact_in_place(
+            artifact=artifact,
+            project_id=body.project_id,
+            user_id=user_id,
+            content=updated_content,
+        )
+    else:
+        result_artifact = await create_replacement_artifact(
+            source_artifact=artifact,
+            project_id=body.project_id,
+            user_id=user_id,
+            content=updated_content,
+        )
     run = await _create_artifact_run(
         card_id=card_id,
         body=body,
-        artifact=new_artifact,
-        session_id=getattr(new_artifact, "sessionId", None) or body.session_id,
+        artifact=result_artifact,
+        session_id=getattr(result_artifact, "sessionId", None) or body.session_id,
     )
     current_version_id = await get_current_version_id(body.project_id)
     return StudioCardExecutionResult(
@@ -238,14 +295,22 @@ async def execute_studio_card_structured_refine(
         transport=StudioCardTransport.ARTIFACT_CREATE,
         resource_kind=StudioCardExecutionResultKind.ARTIFACT,
         session=(
-            {"session_id": getattr(new_artifact, "sessionId", None) or body.session_id}
-            if (getattr(new_artifact, "sessionId", None) or body.session_id)
+            {
+                "session_id": getattr(result_artifact, "sessionId", None)
+                or body.session_id
+            }
+            if (getattr(result_artifact, "sessionId", None) or body.session_id)
             else None
         ),
-        artifact=artifact_result_payload(
-            new_artifact,
-            current_version_id=current_version_id,
-        ),
+        artifact={
+            **artifact_result_payload(
+                result_artifact,
+                current_version_id=current_version_id,
+            ),
+            "metadata": (
+                {"inserted_node_id": inserted_node_id} if inserted_node_id else {}
+            ),
+        },
         run=run,
         request_preview=preview.refine_request,
     )

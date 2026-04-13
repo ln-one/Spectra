@@ -2205,7 +2205,7 @@ async def test_refine_studio_card_routes_through_chat_metadata(app, _as_user):
 
 @slow_studio_card
 @pytest.mark.anyio
-async def test_refine_studio_card_replaces_mindmap_artifact(app, _as_user):
+async def test_refine_studio_card_updates_mindmap_artifact_in_place(app, _as_user):
     client = TestClient(app)
     current_artifact = SimpleNamespace(
         id="a-map-001",
@@ -2218,17 +2218,18 @@ async def test_refine_studio_card_replaces_mindmap_artifact(app, _as_user):
         storagePath="/tmp/map.json",
         metadata={"kind": "mindmap"},
     )
-    new_artifact = SimpleNamespace(
-        id="a-map-002",
+    updated_artifact = SimpleNamespace(
+        id="a-map-001",
         projectId="p-001",
         sessionId=None,
         basedOnVersionId=None,
         ownerUserId="u-001",
         type="mindmap",
         visibility="project-visible",
-        storagePath="uploads/artifacts/a-map-002.json",
+        storagePath="uploads/artifacts/a-map-001.json",
         createdAt=datetime.now(timezone.utc),
         updatedAt=datetime.now(timezone.utc),
+        metadata={"kind": "mindmap", "updated_in_place": True},
     )
     current_content = {
         "kind": "mindmap",
@@ -2250,9 +2251,13 @@ async def test_refine_studio_card_replaces_mindmap_artifact(app, _as_user):
             AsyncMock(return_value=current_content),
         ),
         patch(
-            "services.project_space_service.project_space_service.create_artifact_with_file",
-            AsyncMock(return_value=new_artifact),
-        ) as create_artifact_mock,
+            "services.generation_session_service.card_execution_runtime_artifacts._update_mindmap_artifact_in_place",
+            AsyncMock(return_value=updated_artifact),
+        ) as update_mindmap_mock,
+        patch(
+            "services.generation_session_service.card_execution_runtime_artifacts._create_artifact_run",
+            AsyncMock(return_value=None),
+        ),
         patch(
             "services.project_space_service.project_space_service.db.get_project",
             AsyncMock(return_value=SimpleNamespace(currentVersionId="v-current")),
@@ -2264,14 +2269,118 @@ async def test_refine_studio_card_replaces_mindmap_artifact(app, _as_user):
                 "project_id": "p-001",
                 "artifact_id": "a-map-001",
                 "message": "add force-analysis branch",
-                "config": {"selected_node_path": "root"},
+                "config": {
+                    "selected_node_path": "root",
+                    "manual_child_summary": "focus on force decomposition",
+                },
             },
         )
 
     assert response.status_code == 200
-    kwargs = create_artifact_mock.await_args.kwargs
-    assert kwargs["artifact_mode"] == "replace"
+    payload = response.json()["data"]["execution_result"]
+    kwargs = update_mindmap_mock.await_args.kwargs
+    assert kwargs["artifact"].id == "a-map-001"
     assert len(kwargs["content"]["nodes"]) == 2
+    assert kwargs["content"]["nodes"][-1]["parent_id"] == "root"
+    assert kwargs["content"]["nodes"][-1]["summary"] == "focus on force decomposition"
+    assert payload["artifact"]["id"] == "a-map-001"
+    assert payload["artifact"]["metadata"]["inserted_node_id"] == "root-refine-2"
+
+
+@slow_studio_card
+@pytest.mark.anyio
+async def test_refine_studio_card_rejects_stale_mindmap_node(app, _as_user):
+    client = TestClient(app)
+    current_artifact = SimpleNamespace(
+        id="a-map-001",
+        projectId="p-001",
+        sessionId=None,
+        basedOnVersionId=None,
+        ownerUserId="u-001",
+        type="mindmap",
+        visibility="project-visible",
+        storagePath="/tmp/map.json",
+        metadata={"kind": "mindmap"},
+    )
+    current_content = {
+        "kind": "mindmap",
+        "title": "Root topic",
+        "nodes": [{"id": "root", "parent_id": None, "title": "Root topic"}],
+    }
+
+    with (
+        patch(
+            "services.project_space_service.project_space_service.check_project_permission",
+            AsyncMock(),
+        ),
+        patch(
+            "services.project_space_service.project_space_service.get_artifact",
+            AsyncMock(return_value=current_artifact),
+        ),
+        patch(
+            "services.generation_session_service.card_execution_runtime._load_artifact_content",
+            AsyncMock(return_value=current_content),
+        ),
+    ):
+        response = client.post(
+            "/api/v1/generate/studio-cards/knowledge_mindmap/refine",
+            json={
+                "project_id": "p-001",
+                "artifact_id": "a-map-001",
+                "message": "new child",
+                "config": {"selected_node_path": "missing-node"},
+            },
+        )
+
+    assert response.status_code == 409
+
+
+@slow_studio_card
+@pytest.mark.anyio
+async def test_refine_studio_card_rejects_empty_mindmap_child_title(app, _as_user):
+    client = TestClient(app)
+    current_artifact = SimpleNamespace(
+        id="a-map-001",
+        projectId="p-001",
+        sessionId=None,
+        basedOnVersionId=None,
+        ownerUserId="u-001",
+        type="mindmap",
+        visibility="project-visible",
+        storagePath="/tmp/map.json",
+        metadata={"kind": "mindmap"},
+    )
+    current_content = {
+        "kind": "mindmap",
+        "title": "Root topic",
+        "nodes": [{"id": "root", "parent_id": None, "title": "Root topic"}],
+    }
+
+    with (
+        patch(
+            "services.project_space_service.project_space_service.check_project_permission",
+            AsyncMock(),
+        ),
+        patch(
+            "services.project_space_service.project_space_service.get_artifact",
+            AsyncMock(return_value=current_artifact),
+        ),
+        patch(
+            "services.generation_session_service.card_execution_runtime._load_artifact_content",
+            AsyncMock(return_value=current_content),
+        ),
+    ):
+        response = client.post(
+            "/api/v1/generate/studio-cards/knowledge_mindmap/refine",
+            json={
+                "project_id": "p-001",
+                "artifact_id": "a-map-001",
+                "message": "   ",
+                "config": {"selected_node_path": "root"},
+            },
+        )
+
+    assert response.status_code == 400
 
 
 @slow_studio_card
