@@ -18,7 +18,7 @@ async def get_current_user(
     """Extract and verify bearer token from Authorization header."""
     if not credentials:
         raise UnauthorizedException(
-            message="缺少认证头",
+            message="登录可能过期（缺少认证头）",
             error_code=ErrorCode.UNAUTHORIZED,
         )
 

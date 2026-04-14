@@ -6,6 +6,8 @@ import { motion } from "framer-motion";
 import {
   ArrowUp,
   Check,
+  ChevronLeft,
+  ChevronRight,
   Eye,
   LayoutTemplate,
   Lightbulb,
@@ -36,6 +38,7 @@ import {
   VISUAL_STYLES,
   TEMPLATE_CARDS,
 } from "./constants";
+import { getStylePreviewSlides } from "./stylePreviewSlides";
 import { SelectedSourceScopeBadge } from "@/components/project/features/sources/components/SelectedSourceScopeBadge";
 import {
   type GenerationConfig,
@@ -105,13 +108,49 @@ export function GenerationConfigPanel({
 
   const activeVisualStyle = VISUAL_STYLES.find((s) => s.id === visualStyle);
   const [previewOpen, setPreviewOpen] = React.useState(false);
-  const [previewImage, setPreviewImage] = React.useState<string | null>(null);
+  const [previewTitle, setPreviewTitle] = React.useState<string>("预览");
+  const [previewImages, setPreviewImages] = React.useState<string[]>([]);
+  const [previewIndex, setPreviewIndex] = React.useState(0);
 
-  const openPreview = (src: string) => (e: React.MouseEvent) => {
+  const openPreview =
+    (images: string[], title: string) => (e: React.MouseEvent) => {
     e.stopPropagation();
-    setPreviewImage(src);
+    setPreviewImages(images);
+    setPreviewTitle(title);
+    setPreviewIndex(0);
     setPreviewOpen(true);
   };
+  const currentPreviewImage = previewImages[previewIndex] ?? null;
+  const canPreviewPrev = previewIndex > 0;
+  const canPreviewNext = previewIndex < previewImages.length - 1;
+
+  const goPreviewPrev = React.useCallback(() => {
+    setPreviewIndex((current) => (current > 0 ? current - 1 : current));
+  }, []);
+
+  const goPreviewNext = React.useCallback(() => {
+    setPreviewIndex((current) =>
+      current < previewImages.length - 1 ? current + 1 : current
+    );
+  }, [previewImages.length]);
+
+  React.useEffect(() => {
+    if (!previewOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "ArrowLeft") {
+        event.preventDefault();
+        goPreviewPrev();
+      } else if (event.key === "ArrowRight") {
+        event.preventDefault();
+        goPreviewNext();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [goPreviewNext, goPreviewPrev, previewOpen]);
+
   return (
     <div
       className="project-tool-workbench relative h-full flex flex-col overflow-hidden rounded-[2rem] border border-white/60 bg-zinc-50/40 backdrop-blur-2xl shadow-2xl shadow-zinc-200/20 group/workbench"
@@ -181,7 +220,7 @@ export function GenerationConfigPanel({
                   <div className="group relative rounded-[2rem] bg-white p-1 shadow-[0_2px_24px_-6px_rgba(0,0,0,0.06)] ring-1 ring-zinc-100 transition-all hover:shadow-[0_8px_32px_-8px_rgba(0,0,0,0.1)] hover:ring-zinc-200">
                     <div className="flex gap-3 p-4">
                       {/* Style Preview Thumbnail */}
-                      <div className="hidden sm:block relative overflow-hidden rounded-2xl w-[88px] h-[76px] shrink-0 ring-1 ring-zinc-100 shadow-sm">
+                      <div className="hidden sm:block relative overflow-hidden rounded-2xl w-[160px] h-[100px] shrink-0 ring-1 ring-zinc-100 shadow-sm">
                         <img
                           src={activeVisualStyle?.coverImage}
                           alt=""
@@ -355,14 +394,19 @@ export function GenerationConfigPanel({
                       </h3>
                       {layoutMode === "smart" && (
                         <span className="ml-auto text-xs font-medium text-zinc-400">
-                          {VISUAL_STYLES.length} 种风格
+                          以下样例均为Spectra一键生成
+                        </span>
+                      )}
+                      {layoutMode === "smart" && (
+                        <span className="ml-auto text-xs font-medium text-zinc-400">
+                          风格仅代表生成后的版式和配色倾向，具体配色由您或Spectra自行决定
                         </span>
                       )}
                     </div>
 
                     {layoutMode === "smart" ? (
                       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                        {VISUAL_STYLES.map((style, idx) => {
+                        {VISUAL_STYLES.map((style) => {
                           const selected = visualStyle === style.id;
                           return (
                             <div
@@ -387,7 +431,13 @@ export function GenerationConfigPanel({
                                 <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/0 opacity-0 transition-all duration-150 group-hover:pointer-events-auto group-hover:bg-black/20 group-hover:opacity-100">
                                   <button
                                     type="button"
-                                    onClick={openPreview(style.coverImage)}
+                                    onClick={openPreview(
+                                      getStylePreviewSlides(
+                                        style.id,
+                                        style.coverImage
+                                      ),
+                                      style.name
+                                    )}
                                     className="flex items-center gap-1.5 rounded-full bg-white/90 px-3 py-1.5 text-xs font-semibold text-zinc-800 shadow-lg shadow-black/10 backdrop-blur-md transition-transform duration-150 scale-95 group-hover:scale-100"
                                   >
                                     <Eye className="h-3.5 w-3.5" />
@@ -414,7 +464,7 @@ export function GenerationConfigPanel({
                       </div>
                     ) : (
                       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                        {TEMPLATE_CARDS.map((tpl, idx) => {
+                        {TEMPLATE_CARDS.map((tpl) => {
                           const selected = selectedTemplateId === tpl.id;
                           return (
                             <div
@@ -439,7 +489,10 @@ export function GenerationConfigPanel({
                                 <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/0 opacity-0 transition-all duration-150 group-hover:pointer-events-auto group-hover:bg-black/20 group-hover:opacity-100">
                                   <button
                                     type="button"
-                                    onClick={openPreview(tpl.coverImage)}
+                                    onClick={openPreview(
+                                      [tpl.coverImage],
+                                      tpl.name
+                                    )}
                                     className="flex items-center gap-1.5 rounded-full bg-white/90 px-3 py-1.5 text-xs font-semibold text-zinc-800 shadow-lg shadow-black/10 backdrop-blur-md transition-transform duration-150 scale-95 group-hover:scale-100"
                                   >
                                     <Eye className="h-3.5 w-3.5" />
@@ -496,13 +549,51 @@ export function GenerationConfigPanel({
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
         <DialogContent className="[&>button]:hidden max-w-4xl border-0 bg-transparent p-0 shadow-none">
           <DialogTitle className="sr-only">预览</DialogTitle>
-          {previewImage && (
+          {currentPreviewImage && (
             <div className="relative">
               <img
-                src={previewImage}
-                alt=""
+                src={currentPreviewImage}
+                alt={previewTitle}
                 className="max-h-[80vh] w-full rounded-3xl object-contain shadow-2xl"
               />
+              <div className="pointer-events-none absolute left-4 top-4 rounded-full bg-black/45 px-3 py-1 text-xs font-medium text-white">
+                {previewTitle}
+                {previewImages.length > 1
+                  ? ` · ${previewIndex + 1}/${previewImages.length}`
+                  : ""}
+              </div>
+              {previewImages.length > 1 ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={goPreviewPrev}
+                    disabled={!canPreviewPrev}
+                    className={cn(
+                      "absolute left-3 top-1/2 -translate-y-1/2 flex h-10 w-10 items-center justify-center rounded-full text-white backdrop-blur-md transition-all",
+                      canPreviewPrev
+                        ? "bg-black/35 hover:bg-black/55"
+                        : "bg-black/20 opacity-50 cursor-not-allowed"
+                    )}
+                    aria-label="上一页"
+                  >
+                    <ChevronLeft className="h-5 w-5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={goPreviewNext}
+                    disabled={!canPreviewNext}
+                    className={cn(
+                      "absolute right-3 top-1/2 -translate-y-1/2 flex h-10 w-10 items-center justify-center rounded-full text-white backdrop-blur-md transition-all",
+                      canPreviewNext
+                        ? "bg-black/35 hover:bg-black/55"
+                        : "bg-black/20 opacity-50 cursor-not-allowed"
+                    )}
+                    aria-label="下一页"
+                  >
+                    <ChevronRight className="h-5 w-5" />
+                  </button>
+                </>
+              ) : null}
               <button
                 type="button"
                 onClick={() => setPreviewOpen(false)}

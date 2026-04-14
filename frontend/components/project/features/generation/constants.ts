@@ -1,8 +1,8 @@
 export const PAGE_PRESETS = [8, 12, 16, 20, 24];
 
 export const VISUAL_POLICIES = [
-  { id: "auto", name: "自动视觉策略" },
-  { id: "media_required", name: "强制图文并茂" },
+  { id: "auto", name: "自动图片添加" },
+  { id: "media_required", name: "强制图片添加" },
   { id: "basic_graphics_only", name: "仅基础图形" },
 ] as const;
 
