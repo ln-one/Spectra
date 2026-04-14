@@ -6,14 +6,14 @@ services:
     build:
       context: ./pagevra
       dockerfile: Dockerfile
+    env_file:
+      - ./backend/.env
     ports:
       - "127.0.0.1:8090:8090"
     volumes:
       - runtime_data:/var/lib/spectra
     environment:
       - PORT=8090
-      - CHROME_PATH=/usr/bin/chromium
-      - PAGEVRA_DISTRIBUTION=image
     healthcheck:
       test:
         [

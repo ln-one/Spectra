@@ -1,3 +1,6 @@
+x-backend-runtime-env: &backend-runtime-env
+  - PYTHONUNBUFFERED=1
+
 services:
   dualweave:
     image: ${DUALWEAVE_IMAGE:?Run python3 ./scripts/compose_smart.py sync --channel develop}
@@ -7,10 +10,6 @@ services:
       - "127.0.0.1:8080:8080"
     volumes:
       - dualweave_data:/var/lib/dualweave/uploads
-    environment:
-      - DUALWEAVE_ADDR=:8080
-      - DUALWEAVE_LOCAL_DIR=/var/lib/dualweave/uploads
-      - DUALWEAVE_TEXT_RERANK_PROVIDER=dashscope
 
   postgres:
     image: postgres:16-alpine
@@ -75,14 +74,14 @@ services:
 
   pagevra:
     image: ${PAGEVRA_IMAGE:?Run python3 ./scripts/compose_smart.py sync --channel develop}
+    env_file:
+      - ./backend/.env
     ports:
       - "127.0.0.1:8090:8090"
     volumes:
       - runtime_data:/var/lib/spectra
     environment:
       - PORT=8090
-      - CHROME_PATH=/usr/bin/chromium
-      - PAGEVRA_DISTRIBUTION=image
     healthcheck:
       test:
         [
@@ -123,9 +122,6 @@ services:
       - "127.0.0.1:8110:8110"
     environment:
       - PORT=8110
-      - QDRANT_URL=http://qdrant:6333
-      - QDRANT_COLLECTION_TEXT=stratumind_text_chunks
-      - QDRANT_COLLECTION_TEXT_ACTIVE=stratumind_text_chunks_v2
     depends_on:
       dualweave:
         condition: service_started
@@ -160,20 +156,14 @@ services:
 
   ourograph:
     image: ${OUROGRAPH_IMAGE:?Run python3 ./scripts/compose_smart.py sync --channel develop}
+    env_file:
+      - ./backend/.env
     ports:
       - "127.0.0.1:8101:8101"
     volumes:
       - runtime_data:/var/lib/spectra
     environment:
-      - DATABASE_URL=postgresql://spectra:spectra@postgres:5432/ourograph
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - STRATUMIND_BASE_URL=http://stratumind:8110
-      - STRATUMIND_TIMEOUT_SECONDS=15
-      - QDRANT_URL=http://qdrant:6333
-      - UPLOAD_DIR=/var/lib/spectra/uploads
-      - ARTIFACT_STORAGE_DIR=/var/lib/spectra/artifacts
-      - GENERATED_DIR=/var/lib/spectra/generated
+      - PORT=8101
     healthcheck:
       test:
         [
@@ -209,41 +199,7 @@ services:
       - /app/venv
       - runtime_data:/var/lib/spectra
     environment:
-      - PYTHONUNBUFFERED=1
-      - DATABASE_URL=postgresql://spectra:spectra@postgres:5432/spectra
-      - JWT_SECRET_KEY=spectra-local-dev-jwt-secret
-      - AI_REQUEST_TIMEOUT_SECONDS=90
-      - CHAT_RESPONSE_TIMEOUT_SECONDS=300
-      - CHAT_RAG_TIMEOUT_SECONDS=5
-      - OUTLINE_DRAFT_TIMEOUT_SECONDS=90
-      - PREVIEW_REBUILD_TIMEOUT_SECONDS=8
-      - TOOL_CHECK_CACHE_TTL_SECONDS=300
-      - HEALTH_TOOL_TIMEOUT_SECONDS=2
-      - GENERATION_TOOLS_REQUIRED=true
-      - RQ_WORKER_HEARTBEAT_FRESHNESS_SECONDS=420
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - UPLOAD_DIR=/var/lib/spectra/uploads
-      - ARTIFACT_STORAGE_DIR=/var/lib/spectra/artifacts
-      - GENERATED_DIR=/var/lib/spectra/generated
-      - PAGEVRA_ENABLED=true
-      - PAGEVRA_BASE_URL=http://pagevra:8090
-      - PAGEVRA_TIMEOUT_SECONDS=180
-      - OUROGRAPH_ENABLED=true
-      - OUROGRAPH_BASE_URL=http://ourograph:8101
-      - OUROGRAPH_TIMEOUT_SECONDS=30
-      - POSTGRES_BACKUP_DIR=/var/lib/spectra/backups
-      - POSTGRES_RESTORE_STAGING_DIR=/var/lib/spectra/restore-staging
-      - POSTGRES_BACKUP_RETENTION_DAYS=14
-      - POSTGRES_BACKUP_PREFIX=spectra-dev
-      - DUALWEAVE_ENABLED=true
-      - DUALWEAVE_BASE_URL=http://dualweave:8080
-      - STRATUMIND_ENABLED=true
-      - STRATUMIND_BASE_URL=http://stratumind:8110
-      - STRATUMIND_TIMEOUT_SECONDS=15
-      - DB_REQUIRED=true
-      - REDIS_REQUIRED=false
-      - UVICORN_RELOAD=false
+      *backend-runtime-env
     command: sh -c "prisma migrate deploy && prisma generate && if [ \"$${UVICORN_RELOAD:-false}\" = \"true\" ]; then uvicorn main:app --host 0.0.0.0 --port 8000 --reload; else uvicorn main:app --host 0.0.0.0 --port 8000; fi"
     depends_on:
       redis:
@@ -282,41 +238,7 @@ services:
       - /app/venv
       - runtime_data:/var/lib/spectra
     environment:
-      - PYTHONUNBUFFERED=1
-      - DATABASE_URL=postgresql://spectra:spectra@postgres:5432/spectra
-      - JWT_SECRET_KEY=spectra-local-dev-jwt-secret
-      - AI_REQUEST_TIMEOUT_SECONDS=90
-      - CHAT_RESPONSE_TIMEOUT_SECONDS=300
-      - CHAT_RAG_TIMEOUT_SECONDS=5
-      - OUTLINE_DRAFT_TIMEOUT_SECONDS=90
-      - PREVIEW_REBUILD_TIMEOUT_SECONDS=8
-      - TOOL_CHECK_CACHE_TTL_SECONDS=300
-      - HEALTH_TOOL_TIMEOUT_SECONDS=2
-      - GENERATION_TOOLS_REQUIRED=true
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - UPLOAD_DIR=/var/lib/spectra/uploads
-      - ARTIFACT_STORAGE_DIR=/var/lib/spectra/artifacts
-      - GENERATED_DIR=/var/lib/spectra/generated
-      - PAGEVRA_ENABLED=true
-      - PAGEVRA_BASE_URL=http://pagevra:8090
-      - PAGEVRA_TIMEOUT_SECONDS=180
-      - OUROGRAPH_ENABLED=true
-      - OUROGRAPH_BASE_URL=http://ourograph:8101
-      - OUROGRAPH_TIMEOUT_SECONDS=30
-      - POSTGRES_BACKUP_DIR=/var/lib/spectra/backups
-      - POSTGRES_RESTORE_STAGING_DIR=/var/lib/spectra/restore-staging
-      - POSTGRES_BACKUP_RETENTION_DAYS=14
-      - POSTGRES_BACKUP_PREFIX=spectra-dev
-      - DUALWEAVE_ENABLED=true
-      - DUALWEAVE_BASE_URL=http://dualweave:8080
-      - STRATUMIND_ENABLED=true
-      - STRATUMIND_BASE_URL=http://stratumind:8110
-      - STRATUMIND_TIMEOUT_SECONDS=15
-      - WORKER_NAME=worker-1
-      - RQ_WORKER_COUNT=3
-      - WORKER_RECOVERY_SCAN=true
-      - RQ_WORKER_HEARTBEAT_FRESHNESS_SECONDS=420
+      *backend-runtime-env
     command: sh -c "prisma migrate deploy && prisma generate && count=$${RQ_WORKER_COUNT:-1}; i=1; while [ $$i -le $$count ]; do WORKER_NAME=worker-$$i python worker.py & i=$$((i+1)); done; wait"
     depends_on:
       redis:

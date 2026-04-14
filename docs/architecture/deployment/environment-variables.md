@@ -1,14 +1,35 @@
 # Environment Variables Configuration
 
+## Runtime Authority
+
+For Docker and local multi-service development, the single source of truth for
+business runtime configuration is [`backend/.env.example`](/Users/ln1/Projects/Spectra/backend/.env.example)
+and your local `backend/.env`.
+
+Keep these values in `backend/.env`:
+
+- cross-service base URLs
+- provider settings and model names
+- runtime timeouts and feature toggles
+- storage directories and collection names
+
+Keep these values in Compose:
+
+- image names
+- host port mappings
+- volumes
+- health checks
+- `depends_on`
+
 ## 后端环境变量
 
-### 开发环境 (.env)
+### 统一运行时 (`backend/.env`)
 
 ```bash
 # =============================================================================
 # Database Configuration
 # =============================================================================
-DATABASE_URL="postgresql://spectra:spectra@127.0.0.1:5432/spectra"
+DATABASE_URL="postgresql://spectra:spectra@postgres:5432/spectra"
 
 # =============================================================================
 # Security Configuration
@@ -43,12 +64,15 @@ DOCUMENT_PARSER="local"
 # =============================================================================
 # Retrieval Configuration
 # =============================================================================
-STRATUMIND_BASE_URL="http://localhost:8110"
+STRATUMIND_BASE_URL="http://stratumind:8110"
 STRATUMIND_TIMEOUT_SECONDS=15
-QDRANT_URL="http://localhost:6333"
+QDRANT_URL="http://qdrant:6333"
+QDRANT_COLLECTION_TEXT="stratumind_text_chunks"
+QDRANT_COLLECTION_TEXT_ACTIVE="stratumind_text_chunks_v2"
 
 EMBEDDING_MODEL="text-embedding-v3"
 EMBEDDING_DIMENSION=1024
+STRATUMIND_EMBEDDING_BASE_URL="https://dashscope.aliyuncs.com/compatible-mode/v1"
 STRATUMIND_EMBEDDING_MODEL="text-embedding-v3"
 STRATUMIND_EMBEDDING_DIMENSION=1024
 STRATUMIND_RERANK_ENABLED=true
@@ -56,14 +80,45 @@ STRATUMIND_RERANK_BASE_URL="http://dualweave:8080"
 STRATUMIND_RERANK_CANDIDATE_K=20
 STRATUMIND_RERANK_TIMEOUT_SECONDS=10
 STRATUMIND_RERANK_MODEL="qwen3-rerank"
-DASHSCOPE_TEXT_RERANK_MODEL="qwen3-vl-rerank"
+DUALWEAVE_TEXT_RERANK_PROVIDER="dashscope"
+DASHSCOPE_BASE_URL="https://dashscope.aliyuncs.com"
+DASHSCOPE_TEXT_RERANK_MODEL="qwen3-rerank"
 CHAT_RAG_TIMEOUT_SECONDS=5
+
+DUALWEAVE_ENABLED=true
+DUALWEAVE_BASE_URL="http://dualweave:8080"
+DUALWEAVE_TIMEOUT_SECONDS=600
+DUALWEAVE_POLL_INTERVAL_SECONDS=2
+DUALWEAVE_RECONCILE_DELAY_SECONDS=2
+
+DUALWEAVE_ADDR=":8080"
+DUALWEAVE_LOCAL_DIR="/var/lib/dualweave/uploads"
+DUALWEAVE_WORKFLOW_POLL_INTERVAL="3s"
+DUALWEAVE_WORKFLOW_TIMEOUT="10m"
+DUALWEAVE_HTTP_TIMEOUT="30s"
+DUALWEAVE_READ_TIMEOUT="30s"
+DUALWEAVE_WRITE_TIMEOUT="30s"
+DUALWEAVE_IDLE_TIMEOUT="60s"
+DUALWEAVE_CHUNK_SIZE=1048576
+
+PAGEVRA_ENABLED=true
+PAGEVRA_BASE_URL="http://pagevra:8090"
+PAGEVRA_TIMEOUT_SECONDS=180
+PAGEVRA_DISTRIBUTION="image"
+CHROME_PATH="/usr/bin/chromium"
+
+OUROGRAPH_ENABLED=true
+OUROGRAPH_BASE_URL="http://ourograph:8101"
+OUROGRAPH_TIMEOUT_SECONDS=20
+OUROGRAPH_DATABASE_URL="postgresql://spectra:spectra@postgres:5432/ourograph"
 
 # =============================================================================
 # File Storage Configuration
 # =============================================================================
 STORAGE_TYPE="local"
-UPLOAD_DIR="./uploads"
+UPLOAD_DIR="/var/lib/spectra/uploads"
+ARTIFACT_STORAGE_DIR="/var/lib/spectra/artifacts"
+GENERATED_DIR="/var/lib/spectra/generated"
 MAX_FILE_SIZE=104857600 # 100MB
 ALLOWED_EXTENSIONS=".pdf,.docx,.pptx,.mp4,.mov"
 
@@ -74,7 +129,7 @@ DEBUG=True
 HOST="0.0.0.0"
 PORT=8000
 CORS_ORIGINS="http://localhost:3000,http://127.0.0.1:3000"
-DB_REQUIRED="false"
+DB_REQUIRED="true"
 REDIS_REQUIRED="false"
 HEALTH_DEPENDENCY_TIMEOUT_SECONDS=3
 
@@ -85,93 +140,9 @@ LOG_LEVEL="DEBUG"
 LOG_FORMAT="json"
 ```
 
-### 生产环境 (.env.prod)
-
-```bash
-# =============================================================================
-# Database Configuration
-# =============================================================================
-DATABASE_URL="postgresql://user:password@postgres:5432/spectra"
-
-# =============================================================================
-# Security Configuration (重要！)
-# =============================================================================
-JWT_SECRET_KEY="CHANGE-THIS-TO-A-RANDOM-SECRET-KEY-IN-PRODUCTION"
-JWT_ALGORITHM="HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES=1440 # 24 小时
-
-# =============================================================================
-# AI/LLM Configuration
-# =============================================================================
-DASHSCOPE_API_KEY="sk-your-production-dashscope-api-key"
-LLAMAPARSE_API_KEY="llx-your-production-llamaparse-api-key"
-DEFAULT_MODEL="qwen3.5-flash"
-LARGE_MODEL="qwen3.5-plus"
-SMALL_MODEL="qwen3.5-flash"
-AI_REQUEST_TIMEOUT_SECONDS=90
-AI_UPSTREAM_RETRY_ATTEMPTS=1
-AI_UPSTREAM_RETRY_DELAY_SECONDS=0.35
-OUTLINE_DRAFT_TIMEOUT_SECONDS=90
-PREVIEW_REBUILD_TIMEOUT_SECONDS=8
-TOOL_CHECK_CACHE_TTL_SECONDS=300
-HEALTH_TOOL_TIMEOUT_SECONDS=2
-GENERATION_TOOLS_REQUIRED=true
-ALLOW_AI_STUB=false
-ALLOW_COURSEWARE_FALLBACK=false
-
-# Document parser provider (see ADR-005)
-# 生产环境推荐 local（当前可用）；mineru（完全离线，待集成完成后再启用）
-DOCUMENT_PARSER="local"
-
-# =============================================================================
-# Retrieval Configuration
-# =============================================================================
-STRATUMIND_BASE_URL="http://stratumind:8110"
-STRATUMIND_TIMEOUT_SECONDS=15
-QDRANT_URL="http://qdrant:6333"
-
-# =============================================================================
-# File Storage Configuration
-# =============================================================================
-STORAGE_TYPE="oss"
-UPLOAD_DIR="/var/lib/spectra/uploads"
-ARTIFACT_STORAGE_DIR="/var/lib/spectra/artifacts"
-GENERATED_DIR="/var/lib/spectra/generated"
-OSS_ACCESS_KEY="your-oss-access-key"
-OSS_SECRET_KEY="your-oss-secret-key"
-OSS_BUCKET="spectra-prod"
-OSS_ENDPOINT="oss-cn-hangzhou.aliyuncs.com"
-
-# =============================================================================
-# Cache Configuration
-# =============================================================================
-REDIS_HOST="redis"
-REDIS_PORT=6379
-CACHE_TTL=3600
-
-# =============================================================================
-# Server Configuration
-# =============================================================================
-DEBUG=False
-HOST="0.0.0.0"
-PORT=8000
-CORS_ORIGINS="https://spectra.com,https://www.spectra.com"
-DB_REQUIRED="true"
-REDIS_REQUIRED="true"
-HEALTH_DEPENDENCY_TIMEOUT_SECONDS=3
-
-# =============================================================================
-# Monitoring Configuration
-# =============================================================================
-SENTRY_DSN="https://your-sentry-dsn"
-ENABLE_METRICS=True
-
-# =============================================================================
-# Logging Configuration
-# =============================================================================
-LOG_LEVEL="INFO"
-LOG_FORMAT="json"
-```
+生产环境也从 `backend/.env.example` 起步，保持相同变量名，只替换成真实
+secret、存储后端和外部依赖地址。这样 Compose 与各服务 loader 读取的是同一套
+运行契约，而不是多份彼此漂移的默认值。
 
 ## 前端环境变量
 
