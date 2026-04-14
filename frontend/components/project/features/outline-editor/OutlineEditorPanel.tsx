@@ -18,6 +18,22 @@ import type {
 export type { OutlineEditorConfig, OutlineEditorPanelProps } from "./types";
 
 type DiegoStreamChannel = "diego.preamble" | "diego.outline.token";
+const DIEGO_EVENT_PREFIXES = [
+  "requirements.",
+  "outline.",
+  "slide.",
+  "compile.",
+  "run.",
+  "plan.",
+  "qa.",
+  "repair.",
+  "slot.",
+  "chart.",
+  "artifact.",
+  "research.",
+  "template.",
+  "llm.",
+];
 
 type SlideDraft = {
   id: string;
@@ -267,13 +283,23 @@ export function OutlineEditorPanel({
       const eventRunId =
         typeof payload.run_id === "string" ? payload.run_id : null;
       if (currentRunId && eventRunId && currentRunId !== eventRunId) continue;
-      if (event.event_type !== "progress.updated") continue;
-
       const sectionPayload =
         payload.section_payload && typeof payload.section_payload === "object"
           ? payload.section_payload
           : null;
-      const streamChannel = sectionPayload?.stream_channel as
+      const eventType = normalizeText(event.event_type);
+      const diegoEventType =
+        normalizeText(sectionPayload?.diego_event_type) || eventType;
+      const isDiegoEvent =
+        eventType === "progress.updated" ||
+        Boolean(normalizeText(sectionPayload?.diego_event_type)) ||
+        DIEGO_EVENT_PREFIXES.some((prefix) => diegoEventType.startsWith(prefix));
+      if (!isDiegoEvent) continue;
+
+      const streamChannelRaw =
+        normalizeText(sectionPayload?.stream_channel) ||
+        (diegoEventType === "outline.token" ? "diego.outline.token" : "");
+      const streamChannel = streamChannelRaw as
         | DiegoStreamChannel
         | undefined;
       if (
@@ -286,7 +312,7 @@ export function OutlineEditorPanel({
       if (streamChannel === "diego.preamble") {
         const message =
           normalizeText(payload.progress_message) ||
-          normalizeText(sectionPayload?.diego_event_type) ||
+          diegoEventType ||
           "处理中";
         setStreamLogs((prev) => {
           const next: StreamLog[] = [
@@ -294,7 +320,7 @@ export function OutlineEditorPanel({
             {
               id: key,
               ts: event.timestamp,
-              eventType: normalizeText(sectionPayload?.diego_event_type),
+              eventType: diegoEventType,
               message,
             },
           ];

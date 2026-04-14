@@ -41,6 +41,52 @@ _DIEGO_STATUS_FAILED = "FAILED"
 _DIEGO_EVENT_SLIDE_GENERATED = "slide.generated"
 _DIEGO_STREAM_CHANNEL_PREAMBLE = "diego.preamble"
 _DIEGO_STREAM_CHANNEL_OUTLINE_TOKEN = "diego.outline.token"
+_DIEGO_DIRECT_FORWARD_EVENTS: set[str] = {
+    "requirements.analyzing.started",
+    "requirements.analyzing.completed",
+    "requirements.analyzed",
+    "outline.token",
+    "outline.completed",
+    "outline.updated",
+    "slide.generated",
+    "compile.completed",
+    "run.failed",
+    "slide.started",
+    "compile.started",
+    "plan.completed",
+    "slide.reviewed",
+    "qa.completed",
+    "repair.started",
+    "slot.mapping.completed",
+    "slide.preview.qa",
+    "chart.truth.checked",
+    "repair.round.completed",
+    "slide.codegen.started",
+    "slide.codegen.completed",
+    "slide.spec.generated",
+    "slide.spec.repaired",
+    "slide.critic.completed",
+    "slide.repair.completed",
+    "artifact.cleanup.completed",
+    "slide.plan.completed",
+    "slide.quality.gate.completed",
+    "slide.repair.directives.generated",
+    "research.completed",
+    "slide.candidate.generated",
+    "slide.selection.completed",
+    "template.layout.reflow.completed",
+    "template.fidelity.checked",
+    "outline.repair.started",
+    "outline.repair.completed",
+    "outline.repair.failed",
+    "llm.request.retry",
+    "llm.request.timeout",
+    "slide.failed",
+    "slide.failure.diagnostics",
+    "slide.auto.fix.applied",
+    "slide.retry.context.built",
+    "run.finalized",
+}
 
 _DIEGO_EVENT_MESSAGE_MAP: dict[str, str] = {
     "requirements.analyzing.started": "正在分析需求与素材上下文",
@@ -97,6 +143,22 @@ def _build_progress_message(event_type: str, payload: dict[str, object]) -> str:
     if fallback:
         return fallback
     return event_type
+
+
+def _resolve_event_state_from_diego_status(status: str) -> str:
+    if status == _DIEGO_STATUS_OUTLINE_DRAFTING:
+        return GenerationState.DRAFTING_OUTLINE.value
+    if status == _DIEGO_STATUS_AWAITING_OUTLINE_CONFIRM:
+        return GenerationState.AWAITING_OUTLINE_CONFIRM.value
+    if status == _DIEGO_STATUS_SLIDES_GENERATING:
+        return GenerationState.GENERATING_CONTENT.value
+    if status == _DIEGO_STATUS_COMPILING:
+        return GenerationState.RENDERING.value
+    if status == _DIEGO_STATUS_SUCCEEDED:
+        return GenerationState.SUCCESS.value
+    if status == _DIEGO_STATUS_FAILED:
+        return GenerationState.FAILED.value
+    return GenerationState.DRAFTING_OUTLINE.value
 
 
 def _extract_new_slide_numbers(
@@ -431,6 +493,8 @@ async def _append_diego_stream_events(
     diego_trace_id: Optional[str],
     diego_events: list[dict[str, object]],
     last_seq: int,
+    state: str,
+    stage: str,
 ) -> int:
     next_seq = last_seq
     for item in diego_events:
@@ -447,6 +511,7 @@ async def _append_diego_stream_events(
             "progress_message": progress_message,
             "section_payload": {
                 "stream_channel": stream_channel,
+                "stage": stage,
                 "diego_event_type": event_type,
                 "diego_seq": seq,
                 "token": str(payload.get("token") or ""),
@@ -455,12 +520,22 @@ async def _append_diego_stream_events(
             "diego_run_id": diego_run_id,
             "diego_trace_id": diego_trace_id,
         }
+        if event_type in _DIEGO_DIRECT_FORWARD_EVENTS:
+            await append_event(
+                db=db,
+                schema_version=_SCHEMA_VERSION,
+                session_id=session_id,
+                event_type=event_type,
+                state=state,
+                progress=None,
+                payload=event_payload,
+            )
         await append_event(
             db=db,
             schema_version=_SCHEMA_VERSION,
             session_id=session_id,
             event_type=GenerationEventType.PROGRESS_UPDATED.value,
-            state=GenerationState.DRAFTING_OUTLINE.value,
+            state=state,
             progress=None,
             payload=event_payload,
         )
@@ -497,6 +572,8 @@ async def sync_diego_outline_until_ready(
                     diego_trace_id=diego_trace_id,
                     diego_events=diego_events,
                     last_seq=last_diego_event_seq,
+                    state=GenerationState.DRAFTING_OUTLINE.value,
+                    stage="outline",
                 )
             status = str(detail.get("status") or "").strip().upper()
             if status == _DIEGO_STATUS_OUTLINE_DRAFTING:
@@ -625,12 +702,24 @@ async def sync_diego_generation_until_terminal(
             status = str(detail.get("status") or "").strip().upper()
             diego_events = _extract_diego_events(detail)
             if diego_events:
+                previous_seq = last_diego_event_seq
+                last_diego_event_seq = await _append_diego_stream_events(
+                    db=db,
+                    session_id=session_id,
+                    spectra_run_id=run.id,
+                    diego_run_id=diego_run_id,
+                    diego_trace_id=diego_trace_id,
+                    diego_events=diego_events,
+                    last_seq=last_diego_event_seq,
+                    state=_resolve_event_state_from_diego_status(status),
+                    stage="generation",
+                )
                 (
-                    last_diego_event_seq,
+                    _,
                     newly_generated_slides,
                 ) = _extract_new_slide_numbers(
                     diego_events=diego_events,
-                    last_seq=last_diego_event_seq,
+                    last_seq=previous_seq,
                 )
                 if newly_generated_slides:
                     pending_slide_numbers.update(newly_generated_slides)

@@ -2966,10 +2966,66 @@ components:
         - progress.updated
         - outline.ready
         - outline.updated
+        - outline.started
+        - outline.section.generated
+        - outline.completed
+        - slides.started
+        - slide.generating
+        - slide.generated
+        - slides.completed
+        - generation.completed
+        - generation.failed
+        - ppt.started
+        - ppt.slide.generated
+        - ppt.completed
         - slide.updated
+        - slide.modify.started
+        - slide.modify.processing
+        - slide.modify.failed
         - task.completed
         - task.failed
         - session.recovered
+        - requirements.analyzing.started
+        - requirements.analyzing.completed
+        - requirements.analyzed
+        - outline.token
+        - compile.completed
+        - run.failed
+        - slide.started
+        - compile.started
+        - plan.completed
+        - slide.reviewed
+        - qa.completed
+        - repair.started
+        - slot.mapping.completed
+        - slide.preview.qa
+        - chart.truth.checked
+        - repair.round.completed
+        - slide.codegen.started
+        - slide.codegen.completed
+        - slide.spec.generated
+        - slide.spec.repaired
+        - slide.critic.completed
+        - slide.repair.completed
+        - artifact.cleanup.completed
+        - slide.plan.completed
+        - slide.quality.gate.completed
+        - slide.repair.directives.generated
+        - research.completed
+        - slide.candidate.generated
+        - slide.selection.completed
+        - template.layout.reflow.completed
+        - template.fidelity.checked
+        - outline.repair.started
+        - outline.repair.completed
+        - outline.repair.failed
+        - llm.request.retry
+        - llm.request.timeout
+        - slide.failed
+        - slide.failure.diagnostics
+        - slide.auto.fix.applied
+        - slide.retry.context.built
+        - run.finalized
     RunTracePayload:
       type: object
       properties:

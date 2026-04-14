@@ -372,6 +372,7 @@ async def get_session_events(
     request: Request,
     session_id: str,
     cursor: Optional[str] = Query(None, description="断线续传游标"),
+    limit: int = Query(50, ge=1, le=500, description="返回事件数量上限"),
     accept: Optional[str] = Query(None),
     accept_header: Optional[str] = Header(None, alias="Accept"),
     token: Optional[str] = Query(
@@ -397,7 +398,12 @@ async def get_session_events(
     )
 
     if mode == _EVENTS_ACCEPT_JSON:
-        events = await svc.get_events(session_id, user_id, cursor=cursor)
+        events = await svc.get_events(
+            session_id,
+            user_id,
+            cursor=cursor,
+            limit=limit,
+        )
         return success_response(data={"events": events}, message="获取事件成功")
 
     async def sse_generator():

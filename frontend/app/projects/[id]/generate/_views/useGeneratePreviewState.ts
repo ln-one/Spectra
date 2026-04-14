@@ -624,6 +624,14 @@ export function useGeneratePreviewState({
 
       const eventType = event.event_type as string;
       const payload = (event.payload ?? {}) as Record<string, unknown>;
+      const sectionPayload =
+        payload.section_payload && typeof payload.section_payload === "object"
+          ? (payload.section_payload as Record<string, unknown>)
+          : null;
+      const diegoEventType =
+        typeof sectionPayload?.diego_event_type === "string"
+          ? sectionPayload.diego_event_type
+          : eventType;
 
       if (eventType === "ppt.started") {
         setPreviewBlockedReason(null);
@@ -631,13 +639,27 @@ export function useGeneratePreviewState({
         void loadSlides();
         continue;
       }
-      if (eventType === "ppt.slide.generated") {
+      if (
+        eventType === "ppt.slide.generated" ||
+        diegoEventType === "slide.generated"
+      ) {
         void loadSlides();
         continue;
       }
-      if (eventType === "ppt.completed") {
+      if (
+        eventType === "ppt.completed" ||
+        diegoEventType === "compile.completed"
+      ) {
         void loadSlides();
         continue;
+      }
+      if (diegoEventType === "run.failed" || diegoEventType === "slide.failed") {
+        const failedMessage =
+          readStringField(payload, "progress_message") ||
+          readStringField(payload, "error_message") ||
+          readStringField(payload, "state_reason") ||
+          diegoEventType;
+        setSessionFailureMessage(failedMessage);
       }
       if (
         eventType === "slide.modify.started" ||
