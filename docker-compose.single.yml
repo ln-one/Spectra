@@ -221,11 +221,6 @@ services:
       - ./backend/.env
     environment:
       PYTHONUNBUFFERED: "1"
-      LLM_API_STYLE: "openai_chat"
-      LLM_BASE_URL: ${DIEGO_LLM_BASE_URL:-https://api.openai.com/v1}
-      LLM_API_KEY: ${DIEGO_LLM_API_KEY:-diego-local-placeholder}
-      LLM_MODEL: ${DIEGO_LLM_MODEL:-gpt-4o-mini}
-      ASSET_PROVIDER: ${DIEGO_ASSET_PROVIDER:-none}
     ports:
       - "127.0.0.1:8120:8000"
     healthcheck:
