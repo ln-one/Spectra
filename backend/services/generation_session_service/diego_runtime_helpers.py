@@ -21,7 +21,11 @@ def parse_options(raw: Any) -> dict[str, Any]:
 
 def normalize_mode(value: Any) -> str:
     normalized = str(value or "").strip().lower()
-    return normalized if normalized in {"scratch", "template"} else "scratch"
+    if normalized in {"template", "classic"}:
+        return "template"
+    if normalized in {"scratch", "free", "smart"}:
+        return "scratch"
+    return "scratch"
 
 
 def normalize_style_preset(value: Any) -> str:
@@ -55,17 +59,29 @@ def resolve_topic_from_options(options: dict[str, Any]) -> str:
     if explicit:
         return explicit
 
-    tone = str(options.get("system_prompt_tone") or "").strip()
-    if not tone:
-        return "课程主题"
-    for line in tone.splitlines():
-        clean = str(line or "").strip()
-        if not clean:
-            continue
-        if clean.startswith("[") and clean.endswith("]"):
-            continue
-        return clean[:300]
-    return tone[:300] or "课程主题"
+    # Backward compatibility for older sessions that persisted `prompt`.
+    explicit = str(options.get("prompt") or "").strip()
+    if explicit:
+        return explicit
+
+    return "课程主题"
+
+
+def resolve_target_slide_count(options: dict[str, Any]) -> int:
+    raw = (
+        options.get("pages")
+        if options.get("pages") is not None
+        else (
+            options.get("target_slide_count")
+            if options.get("target_slide_count") is not None
+            else options.get("page_count")
+        )
+    )
+    try:
+        parsed_pages = int(raw)
+    except (TypeError, ValueError):
+        parsed_pages = 12
+    return min(max(parsed_pages, 1), 50)
 
 
 def build_diego_create_payload(
@@ -74,12 +90,7 @@ def build_diego_create_payload(
     diego_project_id: str,
 ) -> dict[str, Any]:
     mode = normalize_mode(options.get("generation_mode"))
-    target_slide_count = options.get("pages")
-    try:
-        parsed_pages = int(target_slide_count)
-    except (TypeError, ValueError):
-        parsed_pages = 12
-    target_slide_count = min(max(parsed_pages, 1), 50)
+    target_slide_count = resolve_target_slide_count(options)
 
     payload: dict[str, Any] = {
         "topic": resolve_topic_from_options(options),

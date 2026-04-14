@@ -119,6 +119,12 @@ function mapVisualStyleToDiegoPreset(styleId: string): string {
   return mapping[normalized] || normalized || "auto";
 }
 
+function normalizePageCount(value: unknown): number {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return 12;
+  return Math.min(50, Math.max(1, Math.round(parsed)));
+}
+
 export function StudioPanelContainer({
   onToolClick,
   onPptStep2LayoutChange,
@@ -770,6 +776,7 @@ export function StudioPanelContainer({
                 );
                 const generationMode =
                   config.layoutMode === "classic" ? "template" : "scratch";
+                const normalizedPageCount = normalizePageCount(config.pageCount);
                 const templateId =
                   generationMode === "template"
                     ? (config.templateId ?? undefined)
@@ -788,26 +795,14 @@ export function StudioPanelContainer({
                       readySelectedFileIds.length > 0
                         ? readySelectedFileIds
                         : undefined,
-                    template_config: {
-                      style: "teach",
-                      template_id: "document-teaching",
-                    },
                     config: {
                       topic: config.prompt,
-                      template: "teach",
-                      pages: Number(config.pageCount) || 15,
+                      pages: normalizedPageCount,
+                      target_slide_count: normalizedPageCount,
                       generation_mode: generationMode,
                       template_id: templateId,
                       style_preset: stylePreset,
                       visual_policy: config.visualPolicy,
-                      audience: "intermediate",
-                      include_animations: false,
-                      include_games: false,
-                      system_prompt_tone: [
-                        `[outline_style=${config.outlineStyle}]`,
-                        config.prompt,
-                        "Keep a clear teaching structure and slide pacing.",
-                      ].join("\n"),
                     },
                   }
                 );

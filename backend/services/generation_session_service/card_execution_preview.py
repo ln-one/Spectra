@@ -18,6 +18,30 @@ def _normalize_visibility(value: str | None) -> str:
         return ArtifactVisibility.PRIVATE.value
 
 
+def _resolve_topic(config: dict) -> str | None:
+    topic = str(config.get("topic") or "").strip()
+    if topic:
+        return topic
+    # Backward compatibility for older callers still sending `prompt`.
+    prompt = str(config.get("prompt") or "").strip()
+    return prompt or None
+
+
+def _normalize_pages(value: object, *, default: int = 12) -> int:
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        parsed = default
+    return max(1, min(parsed, 50))
+
+
+def _normalize_generation_mode(value: object) -> str:
+    normalized = str(value or "").strip().lower()
+    if normalized in {"template", "classic"}:
+        return "template"
+    return "scratch"
+
+
 def build_studio_card_execution_preview(
     card_id: str,
     project_id: str,
@@ -28,10 +52,14 @@ def build_studio_card_execution_preview(
     rag_source_ids: list[str] | None = None,
 ) -> StudioCardExecutionPreview | None:
     cfg = dict(config or {})
-    template_cfg = dict(template_config) if isinstance(template_config, dict) else {}
     artifact_visibility = _normalize_visibility(visibility)
 
     if card_id == "courseware_ppt":
+        normalized_pages = _normalize_pages(
+            cfg.get("pages", cfg.get("target_slide_count", cfg.get("page_count", 12)))
+        )
+        generation_mode = _normalize_generation_mode(cfg.get("generation_mode"))
+        topic = _resolve_topic(cfg)
         return StudioCardExecutionPreview(
             card_id=card_id,
             readiness=StudioCardReadiness.FOUNDATION_READY,
@@ -44,20 +72,13 @@ def build_studio_card_execution_preview(
                     "bootstrap_only": True,
                     "options": {
                         "card_id": card_id,
-                        "template": cfg.get("template", "default"),
-                        "pages": cfg.get("pages", 12),
-                        "topic": cfg.get("topic"),
-                        "audience": cfg.get("audience", "intermediate"),
-                        "generation_mode": cfg.get("generation_mode", "scratch"),
+                        "pages": normalized_pages,
+                        "target_slide_count": normalized_pages,
+                        "topic": topic,
+                        "generation_mode": generation_mode,
                         "template_id": cfg.get("template_id"),
                         "style_preset": cfg.get("style_preset", "auto"),
                         "visual_policy": cfg.get("visual_policy", "auto"),
-                        "system_prompt_tone": cfg.get("system_prompt_tone"),
-                        "include_animations": bool(
-                            cfg.get("include_animations", False)
-                        ),
-                        "include_games": bool(cfg.get("include_games", False)),
-                        "template_config": template_cfg or None,
                         "source_artifact_id": source_artifact_id
                         or cfg.get("source_artifact_id"),
                         "rag_source_ids": rag_source_ids or [],
@@ -77,7 +98,7 @@ def build_studio_card_execution_preview(
                     "metadata": {
                         "card_id": card_id,
                         "template": cfg.get("template", "default"),
-                        "pages": cfg.get("pages", 12),
+                        "pages": normalized_pages,
                     },
                 },
                 notes="课件上下文微调通过 chat 路径承托，message 由前端填充。",
