@@ -17,6 +17,7 @@ import { useStudioWorkflowHistory } from "../history/useStudioWorkflowHistory";
 import { useStudioCapabilityState } from "./useStudioCapabilityState";
 import { useStudioExecutionHandlers } from "./useStudioExecutionHandlers";
 import { useStudioHistoryHandlers } from "./useStudioHistoryHandlers";
+import { usePptHistoryStatusSync } from "./usePptHistoryStatusSync";
 import type { StudioPanelProps } from "./types";
 import {
   isDraftStateEqual,
@@ -434,6 +435,13 @@ export function StudioPanelContainer({
     pushStudioStageHint,
   });
 
+  usePptHistoryStatusSync({
+    activeSessionId,
+    groupedHistory,
+    resolvePptRunId: execution.resolvePptRunId,
+    recordWorkflowEntry,
+  });
+
   useEffect(() => {
     const handleOpenHistoryItemFromChat = (event: Event) => {
       const customEvent = event as CustomEvent<StudioHistoryItem>;
@@ -713,6 +721,7 @@ export function StudioPanelContainer({
                     title: "PPT Outline Draft",
                     status: "draft",
                     step: "outline",
+                    ppt_status: "outline_generating",
                     sessionId: resolvedSessionId,
                     runId,
                     titleSource: "PPT Outline Draft",
@@ -736,6 +745,7 @@ export function StudioPanelContainer({
                     title: "PPT Generating",
                     status: "processing",
                     step: "preview",
+                    ppt_status: "slides_generating",
                     sessionId: resolvedSessionId,
                     runId,
                     toolLabel: TOOL_LABELS.ppt,

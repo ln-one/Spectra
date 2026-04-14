@@ -87,6 +87,21 @@ function parseSessionSlides(session: unknown): SlideDraft[] {
   return slides.sort((left, right) => left.order - right.order);
 }
 
+function resolveExpectedPages(options: unknown): number {
+  if (!options || typeof options !== "object") return 0;
+  const sessionOptions = options as {
+    pages?: unknown;
+    target_slide_count?: unknown;
+    page_count?: unknown;
+  };
+  const raw =
+    sessionOptions.pages ??
+    sessionOptions.target_slide_count ??
+    sessionOptions.page_count;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed > 0 ? Math.round(parsed) : 0;
+}
+
 function buildOutlinePayloadFromSlides(
   slides: SlideDraft[],
   version: number,
@@ -155,7 +170,7 @@ export function OutlineEditorPanel({
     typeof generationSession?.outline?.summary === "string"
       ? generationSession.outline.summary
       : "";
-  const expectedPages = Number(generationSession?.options?.pages || 0);
+  const expectedPages = resolveExpectedPages(generationSession?.options);
   const currentRunId =
     activeRunId || generationSession?.current_run?.run_id || null;
 

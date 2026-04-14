@@ -92,6 +92,21 @@ function buildRagGuidedSuggestions(args: {
   return uniqueNonEmpty([...dynamic, ...focused]);
 }
 
+function resolveExpectedPages(options: unknown): number {
+  if (!options || typeof options !== "object") return 0;
+  const sessionOptions = options as {
+    pages?: unknown;
+    target_slide_count?: unknown;
+    page_count?: unknown;
+  };
+  const raw =
+    sessionOptions.pages ??
+    sessionOptions.target_slide_count ??
+    sessionOptions.page_count;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed > 0 ? Math.round(parsed) : 0;
+}
+
 const wait = (ms: number) =>
   new Promise<void>((resolve) => {
     setTimeout(resolve, ms);
@@ -420,9 +435,8 @@ export function useGenerationConfigPanel({
             transientPollErrorCount = 0;
             const state = latestSession?.session?.state;
             const currentPages = latestSession?.outline?.nodes?.length || 0;
-            const targetPages = Number(
-              latestSession?.options?.pages || pageCount
-            );
+            const targetPages =
+              resolveExpectedPages(latestSession?.options) || pageCount;
             const latestRunId =
               targetRunId || extractRunIdFromSessionPayload(latestSession);
 

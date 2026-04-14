@@ -84,6 +84,21 @@ function hasOutlineChanges(
   return false;
 }
 
+function resolveExpectedPages(options: unknown): number {
+  if (!options || typeof options !== "object") return 0;
+  const sessionOptions = options as {
+    pages?: unknown;
+    target_slide_count?: unknown;
+    page_count?: unknown;
+  };
+  const raw =
+    sessionOptions.pages ??
+    sessionOptions.target_slide_count ??
+    sessionOptions.page_count;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed > 0 ? Math.round(parsed) : 0;
+}
+
 export function useOutlineEditorController({
   topic = "课程大纲",
   isBootstrapping = false,
@@ -104,7 +119,7 @@ export function useOutlineEditorController({
     () => (generationSession?.outline?.nodes || []) as OutlineNodeLike[],
     [generationSession?.outline?.nodes]
   );
-  const expectedPages = Number(generationSession?.options?.pages || 0);
+  const expectedPages = resolveExpectedPages(generationSession?.options);
   const sessionState = generationSession?.session?.state || "";
 
   const [slides, setSlides] = useState<SlideCard[]>([]);
