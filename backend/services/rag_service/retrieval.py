@@ -20,14 +20,9 @@ def _search_response_options() -> dict:
 
 
 def _search_planning_hints(*, source_scope: str, session_id: Optional[str]) -> dict:
-    hints: dict[str, object] = {}
-    if source_scope == "local_session" and session_id:
-        hints["allowed_scopes"] = ["local_session"]
-        hints["preferred_scopes"] = ["local_session"]
-    elif source_scope == "local_project":
-        hints["allowed_scopes"] = ["local_project"]
-        hints["preferred_scopes"] = ["local_project"]
-    return hints
+    # Current Stratumind indexes do not expose stable local_session/local_project
+    # scope labels, so hint-constrained retrieval can incorrectly hide valid hits.
+    return {}
 
 
 def _diagnostics_from_response(payload: dict) -> dict:

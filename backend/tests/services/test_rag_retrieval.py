@@ -146,10 +146,7 @@ async def test_search_combines_selected_file_filter_with_session_overlay(monkeyp
     assert client.calls[0]["project_id"] == "p-001"
     assert client.calls[0]["session_id"] == "s-001"
     assert client.calls[0]["filters"] == {"file_ids": ["file-1"]}
-    assert client.calls[0]["planning"] == {
-        "allowed_scopes": ["local_session"],
-        "preferred_scopes": ["local_session"],
-    }
+    assert client.calls[0]["planning"] == {}
     assert client.calls[0]["response"] == {
         "include_evidence": True,
         "include_planning_trace": True,
@@ -158,10 +155,7 @@ async def test_search_combines_selected_file_filter_with_session_overlay(monkeyp
     assert client.calls[1]["project_id"] == "p-001"
     assert client.calls[1]["session_id"] is None
     assert client.calls[1]["filters"] == {"file_ids": ["file-1"]}
-    assert client.calls[1]["planning"] == {
-        "allowed_scopes": ["local_project"],
-        "preferred_scopes": ["local_project"],
-    }
+    assert client.calls[1]["planning"] == {}
 
 
 @pytest.mark.asyncio
