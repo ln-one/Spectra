@@ -36,6 +36,14 @@ def _snapshot(render_version: int = 3, state: str = GenerationState.SUCCESS.valu
     }
 
 
+def _ppt_snapshot(
+    render_version: int = 3, state: str = GenerationState.SUCCESS.value
+):
+    snapshot = _snapshot(render_version=render_version, state=state)
+    snapshot["current_run"] = {"tool_type": "studio_card:courseware_ppt"}
+    return snapshot
+
+
 def _preview_session_model(
     *,
     session_id: str = "s-preview-001",
@@ -501,6 +509,30 @@ def test_modify_preview_requires_instruction(client, monkeypatch, _as_user):
     )
     assert resp.status_code == 400
     assert resp.json()["error"]["code"] == "INVALID_INPUT"
+
+
+def test_modify_preview_blocks_ppt_legacy_modify(client, monkeypatch, _as_user):
+    svc = SimpleNamespace(
+        get_session_snapshot=AsyncMock(return_value=_ppt_snapshot(render_version=5)),
+        execute_command=AsyncMock(return_value={}),
+    )
+    monkeypatch.setattr(
+        generate_sessions_preview_router, "_get_session_service", lambda: svc
+    )
+
+    resp = client.post(
+        "/api/v1/generate/sessions/s-preview-001/preview/modify",
+        json={
+            "slide_id": "slide-1",
+            "instruction": "改标题",
+            "patch": {"title": "new title"},
+        },
+    )
+    assert resp.status_code == 409
+    body = resp.json()
+    assert body["success"] is False
+    assert body["error"]["code"] == "RESOURCE_CONFLICT"
+    assert body["error"]["details"]["reason"] == "legacy_ppt_modify_removed"
 
 
 def test_get_slide_preview_returns_slide_shape(client, monkeypatch, _as_user):

@@ -39,13 +39,12 @@ async def test_get_or_generate_content_uses_session_messages_and_selected_source
         ]
     )
     monkeypatch.setattr(
-        "services.preview_helpers.content.db_service.get_recent_conversation_messages",
-        recent_mock,
-    )
-    monkeypatch.setattr(
-        "services.preview_helpers.content.db_service.db",
+        "services.preview_helpers.content.db_service",
         SimpleNamespace(
-            outlineversion=SimpleNamespace(find_first=AsyncMock(return_value=None))
+            get_recent_conversation_messages=recent_mock,
+            db=SimpleNamespace(
+                outlineversion=SimpleNamespace(find_first=AsyncMock(return_value=None))
+            ),
         ),
     )
 
@@ -155,13 +154,12 @@ async def test_get_or_generate_content_timeout_returns_fallback(monkeypatch):
         AsyncMock(return_value=None),
     )
     monkeypatch.setattr(
-        "services.preview_helpers.content.db_service.get_recent_conversation_messages",
-        AsyncMock(return_value=[]),
-    )
-    monkeypatch.setattr(
-        "services.preview_helpers.content.db_service.db",
+        "services.preview_helpers.content.db_service",
         SimpleNamespace(
-            outlineversion=SimpleNamespace(find_first=AsyncMock(return_value=None))
+            get_recent_conversation_messages=AsyncMock(return_value=[]),
+            db=SimpleNamespace(
+                outlineversion=SimpleNamespace(find_first=AsyncMock(return_value=None))
+            ),
         ),
     )
     monkeypatch.setattr(
@@ -214,16 +212,19 @@ async def test_get_or_generate_content_failed_task_uses_outline_preview(monkeypa
         save_mock,
     )
     monkeypatch.setattr(
-        "services.preview_helpers.content.db_service.db",
+        "services.preview_helpers.content.db_service",
         SimpleNamespace(
-            outlineversion=SimpleNamespace(
-                find_first=AsyncMock(
-                    return_value=SimpleNamespace(
-                        outlineData=json.dumps(outline_doc),
-                        version=1,
+            get_recent_conversation_messages=AsyncMock(return_value=[]),
+            db=SimpleNamespace(
+                outlineversion=SimpleNamespace(
+                    find_first=AsyncMock(
+                        return_value=SimpleNamespace(
+                            outlineData=json.dumps(outline_doc),
+                            version=1,
+                        )
                     )
                 )
-            )
+            ),
         ),
     )
     generate_mock = AsyncMock()
@@ -240,6 +241,70 @@ async def test_get_or_generate_content_failed_task_uses_outline_preview(monkeypa
     assert "教学过程" in result["lesson_plan_markdown"]
     save_mock.assert_awaited_once()
     generate_mock.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_get_or_generate_content_ppt_task_does_not_trigger_ai_rebuild(monkeypatch):
+    task = SimpleNamespace(
+        id="task-005",
+        status="completed",
+        sessionId="session-005",
+        templateConfig=None,
+        inputData=None,
+        outputType="ppt",
+        toolType="studio_card:courseware_ppt",
+    )
+    project = SimpleNamespace(id="project-005", name="PPT Diego")
+    outline_doc = {
+        "version": 1,
+        "nodes": [
+            {
+                "order": 1,
+                "title": "封面",
+                "key_points": ["主题", "副标题"],
+            }
+        ],
+    }
+
+    monkeypatch.setattr(
+        "services.preview_helpers.content.load_preview_content",
+        AsyncMock(return_value=None),
+    )
+    recent_mock = AsyncMock(return_value=[])
+    monkeypatch.setattr(
+        "services.preview_helpers.content.db_service",
+        SimpleNamespace(
+            get_recent_conversation_messages=recent_mock,
+            db=SimpleNamespace(
+                outlineversion=SimpleNamespace(
+                    find_first=AsyncMock(
+                        return_value=SimpleNamespace(
+                            outlineData=json.dumps(outline_doc),
+                            version=1,
+                        )
+                    )
+                )
+            ),
+        ),
+    )
+    save_mock = AsyncMock()
+    monkeypatch.setattr(
+        "services.preview_helpers.content.save_preview_content",
+        save_mock,
+    )
+    generate_mock = AsyncMock()
+    monkeypatch.setattr(
+        "services.ai.ai_service.generate_courseware_content",
+        generate_mock,
+    )
+
+    result = await get_or_generate_content(task, project)
+
+    assert result["title"] == "PPT Diego"
+    assert "# 封面" in result["markdown_content"]
+    recent_mock.assert_not_awaited()
+    generate_mock.assert_not_awaited()
+    save_mock.assert_awaited_once()
 
 
 @pytest.mark.asyncio

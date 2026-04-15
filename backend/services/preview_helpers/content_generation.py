@@ -152,6 +152,14 @@ def parse_task_input_data(raw_input_data: object) -> dict:
     return payload if isinstance(payload, dict) else {}
 
 
+def _is_ppt_task(task: object) -> bool:
+    output_type = str(getattr(task, "outputType", "") or "").strip().lower()
+    if output_type in {"ppt", "both"}:
+        return True
+    tool_type = str(getattr(task, "toolType", "") or "").strip().lower()
+    return tool_type in {"courseware_ppt", "studio_card:courseware_ppt"}
+
+
 async def get_or_generate_content(
     task,
     project,
@@ -239,6 +247,42 @@ async def get_or_generate_content(
                     exc,
                 )
             return outline_preview
+        return build_fallback_preview_payload(project.name)
+
+    if _is_ppt_task(task):
+        outline_preview = build_outline_preview_payload(project.name, outline_document)
+        if outline_preview:
+            logger.info(
+                "legacy_ppt_preview_rebuild_removed_use_outline session_id=%s task_id=%s",
+                session_id,
+                getattr(task, "id", None),
+                extra={
+                    "session_id": session_id,
+                    "task_id": getattr(task, "id", None),
+                    "tool_type": getattr(task, "toolType", None),
+                    "reason": "legacy_ppt_preview_rebuild_removed",
+                },
+            )
+            try:
+                await save_preview_content_fn(task.id, outline_preview)
+            except Exception as exc:  # pragma: no cover
+                logger.warning(
+                    "Failed to cache outline preview for PPT task %s: %s",
+                    task.id,
+                    exc,
+                )
+            return outline_preview
+        logger.info(
+            "legacy_ppt_preview_rebuild_removed_waiting_diego session_id=%s task_id=%s",
+            session_id,
+            getattr(task, "id", None),
+            extra={
+                "session_id": session_id,
+                "task_id": getattr(task, "id", None),
+                "tool_type": getattr(task, "toolType", None),
+                "reason": "legacy_ppt_preview_rebuild_removed",
+            },
+        )
         return build_fallback_preview_payload(project.name)
 
     messages = await db_service.get_recent_conversation_messages(

@@ -146,3 +146,51 @@ async def test_execute_command_confirm_outline_without_diego_binding_conflicts(
             command={"command_type": "CONFIRM_OUTLINE"},
         )
     assert exc.value.details["reason"] == "legacy_ppt_flow_removed"
+
+
+@pytest.mark.anyio
+async def test_execute_command_regenerate_slide_blocks_legacy_ppt_modify(
+    monkeypatch,
+):
+    session = _fake_session(
+        state=GenerationState.SUCCESS.value,
+        output_type=SessionOutputType.PPT.value,
+        options="{}",
+    )
+    db = SimpleNamespace(
+        idempotencykey=SimpleNamespace(find_unique=AsyncMock(return_value=None)),
+        generationsession=SimpleNamespace(find_unique=AsyncMock(return_value=session)),
+    )
+    service = GenerationSessionService(db=db)
+
+    monkeypatch.setattr(
+        (
+            "services.platform.task_recovery."
+            "TaskRecoveryService.is_session_already_running"
+        ),
+        AsyncMock(return_value=False),
+    )
+    monkeypatch.setattr(
+        service._guard,
+        "validate",
+        lambda *_: TransitionResult(
+            allowed=True,
+            from_state=GenerationState.SUCCESS.value,
+            to_state=GenerationState.RENDERING.value,
+            command_type=GenerationCommandType.REGENERATE_SLIDE.value,
+        ),
+    )
+
+    with pytest.raises(ConflictError) as exc:
+        await service.execute_command(
+            session_id="s-001",
+            user_id="u-001",
+            command={
+                "command_type": GenerationCommandType.REGENERATE_SLIDE.value,
+                "slide_id": "slide-1",
+                "instruction": "rewrite",
+            },
+        )
+
+    assert exc.value.details["reason"] == "legacy_ppt_modify_removed"
+    assert exc.value.details["tool_type"] == "courseware_ppt"
