@@ -52,6 +52,21 @@ def _raise_run_not_ready(run_id: str) -> None:
     )
 
 
+def _has_preview_content(content: object) -> bool:
+    if not isinstance(content, dict):
+        return False
+    render_markdown = str(content.get("render_markdown") or "").strip()
+    markdown_content = str(content.get("markdown_content") or "").strip()
+    if render_markdown or markdown_content:
+        return True
+    rendered_preview = content.get("rendered_preview")
+    if isinstance(rendered_preview, dict):
+        pages = rendered_preview.get("pages")
+        if isinstance(pages, list) and len(pages) > 0:
+            return True
+    return False
+
+
 def _run_material_ready(material_context, slides: list[dict], content: dict) -> bool:
     if material_context and not isinstance(material_context, dict):
         return True
@@ -190,6 +205,7 @@ async def get_session_preview_response(
         data=build_preview_payload(
             session_id=session_id,
             snapshot=snapshot,
+            task=material_context,
             slides=slides,
             lesson_plan=lesson_plan,
             anchor=anchor,
@@ -260,10 +276,12 @@ async def modify_session_preview_response(
         body.get("artifact_id"),
         body.get("run_id"),
     )
+    task_id = snapshot["session"].get("task_id")
     _, slides, _, _ = await load_preview_material(
         session_id,
         snapshot["session"]["project_id"],
         anchor.get("artifact_id"),
+        task_id,
         anchor.get("run_id"),
     )
     slide_id, slide_index = _resolve_target_slide_id(body, slides)
@@ -414,12 +432,13 @@ async def export_session_response(
             load_preview_material=load_preview_material,
         )
     )
-    if resolved_run_id and not _run_material_ready(material_context, slides, content):
+    if resolved_run_id and not _has_preview_content(content):
         _raise_run_not_ready(resolved_run_id)
 
     payload = build_export_payload(
         session_id=session_id,
         snapshot=snapshot,
+        task=material_context,
         slides=slides,
         lesson_plan=lesson_plan,
         content=content,

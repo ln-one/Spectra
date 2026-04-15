@@ -26,6 +26,7 @@ export interface ResolvedArtifactPayload {
   contentKind: ResolvedArtifactContentKind;
   content: unknown;
   blob?: Blob;
+  artifactMetadata?: Record<string, unknown> | null;
 }
 
 export type ToolDraftValue =
@@ -40,6 +41,7 @@ export type ToolDraftState = Record<string, ToolDraftValue>;
 
 export interface ToolSourceOption {
   id: string;
+  projectId?: string;
   title?: string;
   type?: string;
   sessionId?: string | null;
@@ -75,10 +77,44 @@ export interface ToolFlowContext {
   onStepChange?: (stepId: string) => void;
   onSelectedSourceChange?: (sourceId: string | null) => void;
   onLoadSources?: () => Promise<void> | void;
-  onPreviewExecution?: () => Promise<void> | void;
+  onPreviewExecution?: () =>
+    | Promise<Record<string, unknown> | null>
+    | Record<string, unknown>
+    | null;
   onPrepareGenerate?: () => Promise<boolean> | boolean;
   onExecute?: () => Promise<boolean> | boolean;
   onRefine?: () => Promise<void> | void;
+  onStructuredRefine?: (payload: {
+    artifactId: string;
+    message?: string;
+    config?: Record<string, unknown>;
+  }) => Promise<boolean> | boolean;
+  onStructuredRefineArtifact?: (payload: {
+    artifactId: string;
+    message: string;
+    config?: Record<string, unknown>;
+  }) => Promise<{
+    ok: boolean;
+    artifactId?: string | null;
+    effectiveSessionId?: string | null;
+    insertedNodeId?: string | null;
+  }>;
+  onRecommendAnimationPlacement?: (payload: {
+    artifactId: string;
+    pptArtifactId: string;
+  }) =>
+    | Promise<Record<string, unknown> | null>
+    | Record<string, unknown>
+    | null;
+  onConfirmAnimationPlacement?: (payload: {
+    artifactId: string;
+    pptArtifactId: string;
+    pageNumbers: number[];
+    slot: string;
+  }) =>
+    | Promise<Record<string, unknown> | null>
+    | Record<string, unknown>
+    | null;
   onExportArtifact?: (artifactId: string) => Promise<void> | void;
 }
 

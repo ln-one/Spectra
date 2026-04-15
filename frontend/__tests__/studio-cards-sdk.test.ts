@@ -133,4 +133,64 @@ describe("studio cards sdk", () => {
       "/api/v1/generate/studio-cards/speaker_notes/refine"
     );
   });
+
+  test("passes session_id when loading source artifacts", async () => {
+    const fetchMock = jest.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          success: true,
+          message: "ok",
+          data: { sources: [] },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      )
+    );
+    global.fetch = fetchMock as typeof global.fetch;
+
+    await studioCardsApi.getSources(
+      "demonstration_animations",
+      "proj_1",
+      "sess_1"
+    );
+
+    const request = fetchMock.mock.calls[0]?.[0] as Request;
+    expect(request.url).toContain(
+      "/api/v1/generate/studio-cards/demonstration_animations/sources"
+    );
+    expect(request.url).toContain("project_id=proj_1");
+    expect(request.url).toContain("session_id=sess_1");
+  });
+
+  test("keeps ppt_artifact payload when confirming animation placement", async () => {
+    const fetchMock = jest.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          success: true,
+          message: "ok",
+          data: {
+            placements: [{ page_number: 2, slot: "right-panel" }],
+            artifact: { id: "gif_1" },
+            ppt_artifact: {
+              id: "ppt_1",
+              session_id: "sess_1",
+              updated_at: "2026-04-11T10:00:00.000Z",
+            },
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      )
+    );
+    global.fetch = fetchMock as typeof global.fetch;
+
+    const result = await studioCardsApi.confirmAnimationPlacement({
+      project_id: "proj_1",
+      artifact_id: "gif_1",
+      ppt_artifact_id: "ppt_1",
+      page_numbers: [2],
+      slot: "right-panel",
+    });
+
+    expect(result.data.ppt_artifact?.id).toBe("ppt_1");
+    expect(result.data.ppt_artifact?.session_id).toBe("sess_1");
+  });
 });

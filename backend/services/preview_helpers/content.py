@@ -1,7 +1,12 @@
+import json
 import logging
+import re
+from pathlib import Path
 from typing import Optional
 
 from services.database import db_service
+from services.file_parser import extract_text_for_rag
+from utils.docx_content_sidecar import load_docx_content_sidecar
 
 from .cache import load_preview_content, save_preview_content
 from .content_generation import get_or_generate_content as _get_or_generate_content
@@ -20,6 +25,90 @@ async def get_or_generate_content(task, project) -> dict:
         load_preview_content_fn=load_preview_content,
         save_preview_content_fn=save_preview_content,
     )
+
+
+def _parse_artifact_metadata(raw_metadata) -> dict:
+    if isinstance(raw_metadata, dict):
+        return dict(raw_metadata)
+    if isinstance(raw_metadata, str) and raw_metadata.strip():
+        try:
+            parsed = json.loads(raw_metadata)
+            if isinstance(parsed, dict):
+                return parsed
+        except json.JSONDecodeError:
+            logger.debug("artifact metadata decode failed for preview hydration")
+    return {}
+
+
+def _normalize_docx_preview_markdown(title: str, text: str) -> str:
+    normalized_text = str(text or "").replace("\r\n", "\n").replace("\r", "\n")
+    normalized_text = re.sub(r"[\x00-\x08\x0B\x0C\x0E-\x1F]", "", normalized_text)
+    normalized_text = normalized_text.replace("\u21b5", "\n")
+    normalized_text = normalized_text.replace("\ufeff", "")
+    normalized_text = re.sub(r"[\u200b\u200c\u200d\xa0]", " ", normalized_text)
+    normalized_text = normalized_text.replace("□", "")
+    normalized_text = re.sub(r"[ \t]+", " ", normalized_text)
+
+    def _clean_line(value: str) -> str:
+        line = str(value or "").strip()
+        line = re.sub(r"^[•·▪◦●■]+\s*", "", line)
+        line = line.replace("↵", "").replace("□", "").strip()
+        return line
+
+    paragraphs = [_clean_line(line) for line in normalized_text.split("\n")]
+    paragraphs = [line for line in paragraphs if line]
+    normalized_title = _clean_line(title)
+    if normalized_title and paragraphs and paragraphs[0] == normalized_title:
+        paragraphs = paragraphs[1:]
+    body = "\n\n".join(paragraphs).strip()
+    if normalized_title and body:
+        return f"# {normalized_title}\n\n{body}"
+    if normalized_title:
+        return f"# {normalized_title}"
+    return body
+
+
+async def _load_docx_artifact_preview_content(
+    project_id: str,
+    artifact_id: Optional[str],
+) -> dict:
+    if not artifact_id:
+        return {}
+    artifact = await db_service.get_artifact(artifact_id)
+    if not artifact or getattr(artifact, "projectId", None) != project_id:
+        return {}
+    if str(getattr(artifact, "type", "") or "").strip().lower() != "docx":
+        return {}
+
+    storage_path = str(getattr(artifact, "storagePath", "") or "").strip()
+    if not storage_path:
+        return {}
+
+    sidecar_content = load_docx_content_sidecar(storage_path)
+    if sidecar_content:
+        markdown_content = str(
+            sidecar_content.get("lesson_plan_markdown")
+            or sidecar_content.get("markdown_content")
+            or ""
+        ).strip()
+        if markdown_content and not sidecar_content.get("markdown_content"):
+            sidecar_content["markdown_content"] = markdown_content
+        if not sidecar_content.get("title"):
+            sidecar_content["title"] = Path(storage_path).name or f"{artifact_id}.docx"
+        return sidecar_content
+
+    filename = Path(storage_path).name or f"{artifact_id}.docx"
+    extracted_text, _ = extract_text_for_rag(storage_path, filename, "word")
+    metadata = _parse_artifact_metadata(getattr(artifact, "metadata", None))
+    title = str(metadata.get("title") or "").strip()
+    markdown_content = _normalize_docx_preview_markdown(title, extracted_text)
+    if not markdown_content.strip():
+        return {}
+    return {
+        "title": title or filename,
+        "markdown_content": markdown_content,
+        "lesson_plan_markdown": "",
+    }
 
 
 def _normalized_slide_id(render_job_id: str, page_index: object) -> str:
@@ -110,6 +199,7 @@ async def load_preview_material(
     session_id: str,
     project_id: str,
     artifact_id: Optional[str] = None,
+    task_id: Optional[str] = None,
     run_id: Optional[str] = None,
 ):
     material_context = await resolve_preview_material_context(
@@ -119,7 +209,18 @@ async def load_preview_material(
         run_id,
     )
     if material_context is None:
-        return None, [], None, {}
+        try:
+            docx_content = await _load_docx_artifact_preview_content(
+                project_id, artifact_id
+            )
+        except Exception as preview_err:
+            logger.warning(
+                "Docx artifact preview extraction failed: %s",
+                preview_err,
+                exc_info=True,
+            )
+            docx_content = {}
+        return None, [], None, docx_content
 
     slides: list[dict] = []
     lesson_plan: Optional[dict] = None

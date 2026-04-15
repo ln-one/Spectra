@@ -5,6 +5,16 @@ from typing import Any
 
 from services.ai import ai_service
 from services.ai.model_router import ModelRouteTask
+from services.generation_session_service.game_template_engine import (
+    is_template_game_pattern,
+    render_game_html,
+    resolve_game_pattern,
+    validate_game_data,
+)
+from services.generation_session_service.word_template_engine import (
+    build_word_payload,
+    resolve_word_document_variant,
+)
 from utils.exceptions import APIException, ErrorCode
 
 from .tool_content_builder_support import (
@@ -24,7 +34,7 @@ def _build_structured_artifact_prompt(
     rag_snippets: list[str],
     source_hint: str | None,
 ) -> str:
-    schema_hint = build_schema_hint(card_id)
+    schema_hint = build_schema_hint(card_id, config)
     if not schema_hint:
         raise_generation_error(
             status_code=400,
@@ -157,6 +167,56 @@ async def generate_structured_artifact_content(
         rag_snippets=rag_snippets,
         max_tokens=1600,
     )
+    if card_id == "interactive_games":
+        pattern = resolve_game_pattern(config)
+        if is_template_game_pattern(pattern):
+            game_data = (
+                payload.get("game_data")
+                if isinstance(payload.get("game_data"), dict)
+                else payload
+            )
+            try:
+                validate_game_data(pattern, game_data)
+            except ValueError as exc:
+                raise_generation_error(
+                    status_code=400,
+                    error_code=ErrorCode.INVALID_INPUT,
+                    message="Interactive game data failed schema validation.",
+                    card_id=card_id,
+                    model=model_name,
+                    phase="validate",
+                    failure_reason=str(exc),
+                    retryable=False,
+                )
+            payload = {
+                "kind": "interactive_game",
+                "title": str(
+                    game_data.get("game_title") or config.get("topic") or "互动游戏"
+                ).strip(),
+                "summary": str(game_data.get("instruction") or "").strip(),
+                "game_pattern": pattern,
+                "game_data": game_data,
+                "html": render_game_html(pattern, game_data),
+            }
+    elif card_id == "word_document":
+        try:
+            payload = build_word_payload(
+                document_variant=resolve_word_document_variant(
+                    payload.get("document_variant") or config.get("document_variant")
+                ),
+                payload=payload,
+            )
+        except ValueError as exc:
+            raise_generation_error(
+                status_code=400,
+                error_code=ErrorCode.INVALID_INPUT,
+                message="Word document payload failed schema validation.",
+                card_id=card_id,
+                model=model_name,
+                phase="validate",
+                failure_reason=f"field_{exc}",
+                retryable=False,
+            )
     try:
         validate_card_payload(card_id, payload)
     except ValueError as exc:

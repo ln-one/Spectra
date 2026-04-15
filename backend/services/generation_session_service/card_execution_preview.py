@@ -249,7 +249,10 @@ def build_studio_card_execution_preview(
         )
 
     if card_id == "demonstration_animations":
+        render_mode = str(cfg.get("render_mode") or "").strip().lower()
         animation_format = str(cfg.get("animation_format", "html5")).lower()
+        if render_mode == "cloud_video_wan":
+            animation_format = "mp4"
         artifact_type = (
             ArtifactType.GIF.value
             if animation_format == "gif"
@@ -272,8 +275,13 @@ def build_studio_card_execution_preview(
                     "content": {
                         "kind": "animation_storyboard",
                         "format": animation_format,
+                        "render_mode": render_mode or animation_format,
+                        "cloud_video_provider": (
+                            "aliyun_wan" if render_mode == "cloud_video_wan" else None
+                        ),
                         "topic": cfg.get("topic"),
                         "scene": cfg.get("scene"),
+                        "duration_seconds": cfg.get("duration_seconds"),
                         "speed": cfg.get("speed"),
                         "show_trail": cfg.get("show_trail"),
                         "split_view": cfg.get("split_view"),
@@ -296,6 +304,7 @@ def build_studio_card_execution_preview(
                 },
                 notes="参数热更新仍通过 chat 路径承托。",
             ),
+            spec_preview={"artifact_type": artifact_type},
         )
 
     if card_id == "speaker_notes":

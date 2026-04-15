@@ -251,9 +251,9 @@ export function useStudioExecutionHandlers({
 
   const handleStudioPreviewExecution = useCallback(async () => {
     const cardId = currentCardId;
-    if (!cardId || isStudioActionRunning) return;
+    if (!cardId || isStudioActionRunning) return null;
     const requestBody = buildStudioExecutionRequest();
-    if (!requestBody) return;
+    if (!requestBody) return null;
     if (
       isRestrictedRagModeEnabled(currentToolDraft) &&
       requestBody.rag_source_ids.length === 0
@@ -263,7 +263,7 @@ export function useStudioExecutionHandlers({
         description: "Restricted mode requires at least one selected source.",
         variant: "destructive",
       });
-      return;
+      return null;
     }
     try {
       startCardAction(cardId);
@@ -292,12 +292,14 @@ export function useStudioExecutionHandlers({
         title: "Execution preview generated",
         description: endpoint,
       });
+      return preview;
     } catch (error) {
       toast({
         title: "Execution preview failed",
         description: formatStudioExecutionError(error),
         variant: "destructive",
       });
+      return null;
     } finally {
       endCardAction(cardId);
     }
@@ -735,6 +737,93 @@ export function useStudioExecutionHandlers({
     syncStudioChatContextByStep,
   ]);
 
+  const handleStructuredRefineArtifact = useCallback(
+    async ({
+      artifactId,
+      message,
+      config,
+    }: {
+      artifactId: string;
+      message: string;
+      config?: Record<string, unknown>;
+    }) => {
+      if (!project || !currentCardId) {
+        return {
+          ok: false,
+          artifactId: null,
+          effectiveSessionId: activeSessionId ?? null,
+          insertedNodeId: null,
+        };
+      }
+
+      try {
+        startCardAction(currentCardId);
+        const response = await studioCardsApi.refineArtifact(currentCardId, {
+          project_id: project.id,
+          session_id: activeSessionId ?? undefined,
+          artifact_id: artifactId,
+          message,
+          config,
+          rag_source_ids: resolveEffectiveRagSourceIds(selectedFileIds),
+        });
+        const executionResult = response?.data?.execution_result ?? {};
+        const artifact =
+          typeof executionResult.artifact === "object" &&
+          executionResult.artifact !== null
+            ? (executionResult.artifact as Record<string, unknown>)
+            : null;
+        const effectiveSessionId =
+          (typeof executionResult.session === "object" &&
+          executionResult.session !== null
+            ? ((executionResult.session as Record<string, unknown>)
+                .session_id ??
+              (executionResult.session as Record<string, unknown>).id)
+            : null) ?? activeSessionId;
+
+        if (effectiveSessionId) {
+          await fetchArtifactHistory(project.id, String(effectiveSessionId));
+          scheduleArtifactRefresh(project.id, String(effectiveSessionId));
+        }
+
+        return {
+          ok: true,
+          artifactId:
+            (typeof artifact?.id === "string" && artifact.id) || artifactId,
+          effectiveSessionId:
+            typeof effectiveSessionId === "string" ? effectiveSessionId : null,
+          insertedNodeId:
+            (typeof artifact?.inserted_node_id === "string" &&
+              artifact.inserted_node_id) ||
+            null,
+        };
+      } catch (error) {
+        toast({
+          title: "Structured refine failed",
+          description: formatStudioExecutionError(error),
+          variant: "destructive",
+        });
+        return {
+          ok: false,
+          artifactId: null,
+          effectiveSessionId: activeSessionId ?? null,
+          insertedNodeId: null,
+        };
+      } finally {
+        endCardAction(currentCardId);
+      }
+    },
+    [
+      activeSessionId,
+      currentCardId,
+      endCardAction,
+      fetchArtifactHistory,
+      project,
+      scheduleArtifactRefresh,
+      selectedFileIds,
+      startCardAction,
+    ]
+  );
+
   const openPptPreviewPage = useCallback(
     (
       sessionId?: string | null,
@@ -758,6 +847,7 @@ export function useStudioExecutionHandlers({
     handleStudioPrepareDraft,
     handleStudioExecute,
     handleOpenChatRefine,
+    handleStructuredRefineArtifact,
     openPptPreviewPage,
     resolvePptRunId,
   };

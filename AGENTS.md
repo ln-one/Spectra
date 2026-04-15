@@ -134,6 +134,24 @@ For current product runtime, the only formal external capability authorities are
 Spectra backend is the orchestrator and contract surface around these services.
 It should not keep growing second implementations of the same product abilities.
 
+### 4.2 Runtime config authority
+
+For Spectra runtime/provider/model settings, check `backend/.env` first before
+assuming a value is missing, inventing a new env name, or proposing a parallel
+configuration path.
+
+Important expectations:
+
+- `backend/.env` often already contains the active model, provider, timeout, and
+  service endpoint settings used in local development.
+- when investigating AI, RAG, vision, parser, rerank, Dualweave, or Stratumind
+  behavior, inspect `backend/.env` early as part of normal repository context gathering
+- prefer existing env names and wiring over introducing aliases or duplicate config surfaces
+- do not tell the user to add config “from scratch” until you have checked whether
+  the repository already defines it in `backend/.env` or the corresponding env loader
+- if code behavior appears inconsistent with docs, treat live env-backed runtime
+  configuration as part of the implementation truth
+
 ## 5. Current End-to-End Pipelines
 
 Agents must understand the full pipeline before changing local pieces.

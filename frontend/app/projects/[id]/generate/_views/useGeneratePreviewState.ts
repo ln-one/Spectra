@@ -94,6 +94,16 @@ function readRunIdFromTrace(payload: Record<string, unknown>): string | null {
   return null;
 }
 
+export function shouldAdoptStudioArtifactForPptPreview(
+  payload: Record<string, unknown>
+): boolean {
+  const cardId = readStringField(payload, "card_id");
+  const artifactType = readStringField(payload, "artifact_type");
+  if (cardId === "courseware_ppt") return true;
+  if (artifactType === "pptx") return true;
+  return false;
+}
+
 function readBooleanField(
   payload: Record<string, unknown>,
   key: string

@@ -131,6 +131,7 @@ class StudioCardExecutionPreview(BaseModel):
     initial_request: StudioCardResolvedRequest
     refine_request: Optional[StudioCardResolvedRequest] = None
     source_request: Optional[StudioCardResolvedRequest] = None
+    spec_preview: Optional[dict] = None
 
 
 class StudioCardExecutionPreviewResponse(BaseModel):

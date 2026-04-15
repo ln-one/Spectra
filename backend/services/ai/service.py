@@ -87,6 +87,14 @@ class AIService:
             chat_request_timeout_seconds=self.chat_request_timeout_seconds,
         )
 
+    @staticmethod
+    def _resolve_vision_model(default_model: str) -> str:
+        for env_name in ("VISION_MODEL", "QWEN_VL_MODEL"):
+            value = str(os.getenv(env_name, "") or "").strip()
+            if value:
+                return value
+        return default_model
+
     async def _run_completion(
         self,
         *,
@@ -191,7 +199,7 @@ class AIService:
         if not image_inputs:
             return None
 
-        vision_model = os.getenv("VISION_MODEL", self.large_model).strip()
+        vision_model = self._resolve_vision_model(self.large_model)
         resolved_model = _resolve_model_name(vision_model)
         timeout_seconds = self._resolve_timeout_seconds(ModelRouteTask.CHAT_RESPONSE)
 

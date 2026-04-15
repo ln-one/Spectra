@@ -1,6 +1,7 @@
 import logging
 from typing import Optional
 
+from services.ai.multimodal_rag import build_multimodal_context
 from utils.upstream_failures import classify_upstream_failure
 
 logger = logging.getLogger(__name__)
@@ -27,7 +28,30 @@ async def retrieve_rag_context(
             filters=filters,
         )
         if results:
-            return [r.model_dump() for r in results]
+            payload = [r.model_dump() for r in results]
+            try:
+                multimodal_context = await build_multimodal_context(
+                    service,
+                    query=query,
+                    rag_results=results,
+                )
+            except Exception as multimodal_exc:
+                logger.warning(
+                    "Multimodal RAG hint skipped for project %s",
+                    project_id,
+                    extra={
+                        "project_id": project_id,
+                        "session_id": session_id,
+                        "multimodal_failure_type": classify_upstream_failure(
+                            multimodal_exc
+                        ),
+                    },
+                    exc_info=True,
+                )
+                multimodal_context = []
+            if multimodal_context:
+                payload = multimodal_context + payload
+            return payload
     except Exception as e:
         logger.warning(
             "RAG retrieval failed for project %s",

@@ -170,7 +170,12 @@ export function MindmapCanvas({
           });
         }}
         onPointerDown={(event) => {
-          event.currentTarget.setPointerCapture(event.pointerId);
+          if (event.target !== event.currentTarget) {
+            return;
+          }
+          if (typeof event.currentTarget.setPointerCapture === "function") {
+            event.currentTarget.setPointerCapture(event.pointerId);
+          }
           setDragState({
             pointerId: event.pointerId,
             x: event.clientX,
@@ -194,7 +199,13 @@ export function MindmapCanvas({
           if (dragState?.pointerId === event.pointerId) {
             setDragState(null);
           }
-          event.currentTarget.releasePointerCapture(event.pointerId);
+          if (
+            typeof event.currentTarget.hasPointerCapture === "function" &&
+            event.currentTarget.hasPointerCapture(event.pointerId) &&
+            typeof event.currentTarget.releasePointerCapture === "function"
+          ) {
+            event.currentTarget.releasePointerCapture(event.pointerId);
+          }
         }}
       >
         <g transform={`translate(${offset.x} ${offset.y}) scale(${scale})`}>
@@ -219,27 +230,46 @@ export function MindmapCanvas({
               <g
                 key={node.id}
                 transform={`translate(${node.x} ${node.y})`}
+                onPointerDown={(event) => {
+                  event.stopPropagation();
+                }}
                 onClick={(event) => {
                   event.stopPropagation();
                   onSelectNode(node.id);
                 }}
                 className="cursor-pointer"
               >
+                {isSelected ? (
+                  <rect
+                    x={-width / 2 - 8}
+                    y={-26}
+                    width={width + 16}
+                    height={52}
+                    rx={16}
+                    fill="rgba(20, 184, 166, 0.12)"
+                    stroke="rgba(13, 148, 136, 0.38)"
+                    strokeWidth={1.4}
+                  />
+                ) : null}
                 <rect
                   x={-width / 2}
                   y={-18}
                   width={width}
                   height={36}
                   rx={10}
-                  fill={isSelected ? "rgba(20, 184, 166, 0.18)" : "white"}
+                  fill={isSelected ? "rgba(20, 184, 166, 0.24)" : "white"}
                   stroke={isSelected ? "#0f766e" : "rgba(82, 82, 91, 0.35)"}
-                  strokeWidth={isSelected ? 2.2 : 1.2}
+                  strokeWidth={isSelected ? 2.8 : 1.2}
                 />
+                {isSelected ? (
+                  <circle cx={0} cy={-24} r={4.5} fill="#0f766e" />
+                ) : null}
                 <text
                   x={0}
                   y={4}
                   textAnchor="middle"
-                  fontSize={12}
+                  fontSize={isSelected ? 12.5 : 12}
+                  fontWeight={isSelected ? 700 : 500}
                   fill={isSelected ? "#115e59" : "#334155"}
                 >
                   {node.label}

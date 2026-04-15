@@ -28,6 +28,8 @@ def _snapshot(render_version: int = 3, state: str = GenerationState.SUCCESS.valu
             "state": state,
             "render_version": render_version,
         },
+        "current_version_id": "v-current",
+        "upstream_updated": True,
         "result": {
             "ppt_url": "uploads/ppt/demo.pptx",
             "word_url": "uploads/doc/demo.docx",
@@ -68,8 +70,6 @@ def _preview_session_model(
         displayTitleSource=None,
         displayTitleUpdatedAt=None,
     )
-
-
 def test_get_preview_includes_artifact_binding(client, monkeypatch, _as_user):
     svc = SimpleNamespace(get_session_snapshot=AsyncMock(return_value=_snapshot()))
     monkeypatch.setattr(
@@ -113,6 +113,8 @@ def test_get_preview_includes_artifact_binding(client, monkeypatch, _as_user):
     assert body["success"] is True
     assert body["data"]["artifact_id"] == "a-001"
     assert body["data"]["based_on_version_id"] == "v-001"
+    assert body["data"]["current_version_id"] == "v-current"
+    assert body["data"]["upstream_updated"] is True
     assert body["data"]["rendered_preview"]["pages"][0]["slide_id"] == "slide-1"
 
 
@@ -218,7 +220,6 @@ def test_get_preview_with_run_id_returns_run_not_ready_when_no_task(
     assert body["error"]["details"]["reason"] == "run_not_ready"
     assert body["error"]["details"]["run_id"] == "run-001"
 
-
 def test_get_preview_with_run_id_supports_prisma_without_select(
     client, monkeypatch, _as_user
 ):
@@ -271,8 +272,6 @@ def test_get_preview_with_run_id_supports_prisma_without_select(
     body = resp.json()
     assert body["data"]["artifact_id"] == "a-010"
     assert body["data"]["artifact_anchor"]["run_id"] == "run-010"
-
-
 def test_modify_preview_returns_contract_fields(client, monkeypatch, _as_user):
     load_preview_material = AsyncMock(
         return_value=(
@@ -292,7 +291,7 @@ def test_modify_preview_returns_contract_fields(client, monkeypatch, _as_user):
     )
     svc = SimpleNamespace(
         get_session_snapshot=AsyncMock(return_value=_snapshot(render_version=5)),
-        execute_command=AsyncMock(return_value={}),
+        execute_command=AsyncMock(return_value={"task_id": "gt-001"}),
     )
     monkeypatch.setattr(
         generate_sessions_preview_router, "_get_session_service", lambda: svc
@@ -326,9 +325,11 @@ def test_modify_preview_returns_contract_fields(client, monkeypatch, _as_user):
     assert resp.status_code == 200
     data = resp.json()["data"]
     assert data["session_id"] == "s-preview-001"
-    assert "modify_task_id" not in data
+    assert data["modify_task_id"] == "gt-001"
     assert data["artifact_id"] == "a-002"
     assert data["based_on_version_id"] == "v-002"
+    assert data["current_version_id"] == "v-current"
+    assert data["upstream_updated"] is True
     assert data["render_version"] == 5
     assert data["slide_id"] == "slide-1"
     assert data["slide_index"] == 1
@@ -338,13 +339,13 @@ def test_modify_preview_returns_contract_fields(client, monkeypatch, _as_user):
     assert command["preserve_layout"] is False
     assert command["preserve_deck_consistency"] is False
     assert command["patch"] == {"title": "new title"}
-    assert load_preview_material.await_args.args[3] == "run-002"
+    assert load_preview_material.await_args.args[4] == "run-002"
 
 
 def test_modify_preview_accepts_base_render_version_alias(
     client, monkeypatch, _as_user
 ):
-    execute_command = AsyncMock(return_value={})
+    execute_command = AsyncMock(return_value={"task_id": "gt-001"})
     svc = SimpleNamespace(
         get_session_snapshot=AsyncMock(return_value=_snapshot(render_version=5)),
         execute_command=execute_command,
@@ -396,7 +397,7 @@ def test_modify_preview_accepts_base_render_version_alias(
 def test_modify_preview_defaults_to_current_slide_when_page_not_passed(
     client, monkeypatch, _as_user
 ):
-    execute_command = AsyncMock(return_value={})
+    execute_command = AsyncMock(return_value={"task_id": "gt-002"})
     svc = SimpleNamespace(
         get_session_snapshot=AsyncMock(return_value=_snapshot(render_version=6)),
         execute_command=execute_command,
@@ -472,7 +473,7 @@ def test_modify_preview_rejects_conflicting_render_versions(client, _as_user):
 def test_modify_preview_requires_instruction(client, monkeypatch, _as_user):
     svc = SimpleNamespace(
         get_session_snapshot=AsyncMock(return_value=_snapshot(render_version=5)),
-        execute_command=AsyncMock(return_value={}),
+        execute_command=AsyncMock(return_value={"task_id": "gt-001"}),
     )
     monkeypatch.setattr(
         generate_sessions_preview_router, "_get_session_service", lambda: svc
@@ -592,8 +593,11 @@ def test_get_slide_preview_returns_slide_shape(client, monkeypatch, _as_user):
     assert body["data"]["slide"]["id"] == "slide-2"
     assert body["data"]["teaching_plan"]["slide_id"] == "slide-2"
     assert body["data"]["artifact_id"] == "a-003"
+    assert body["data"]["current_version_id"] == "v-current"
+    assert body["data"]["upstream_updated"] is True
     assert body["data"]["artifact_anchor"]["run_id"] == "run-003"
     assert body["data"]["rendered_page"]["slide_id"] == "slide-2"
+<<<<<<< HEAD
     assert load_preview_material.await_args.args[3] == "run-003"
 
 
@@ -653,6 +657,9 @@ def test_get_slide_preview_with_run_id_supports_prisma_without_select(
     assert body["data"]["artifact_id"] == "a-011"
     assert body["data"]["artifact_anchor"]["run_id"] == "run-011"
     assert load_preview_material.await_args.args[3] == "run-011"
+=======
+    assert load_preview_material.await_args.args[4] == "run-003"
+>>>>>>> 0801b058 (feat: land theseus render service updates)
 
 
 def test_export_preview_expected_render_version_conflict(client, monkeypatch, _as_user):
@@ -735,9 +742,93 @@ def test_export_preview_returns_binding_and_content(client, monkeypatch, _as_use
     data = resp.json()["data"]
     assert data["artifact_id"] == "a-004"
     assert data["based_on_version_id"] == "v-007"
-    assert "task_id" not in data
+    assert data["current_version_id"] == "v-current"
+    assert data["upstream_updated"] is True
     assert data["format"] == "markdown"
     assert data["render_version"] == 7
     assert data["content"] == "# Demo"
     assert data["artifact_anchor"]["run_id"] == "run-007"
-    assert load_preview_material.await_args.args[3] == "run-007"
+    assert load_preview_material.await_args.args[4] == "run-007"
+
+
+def test_export_preview_with_run_id_allows_docx_content_without_task(
+    client, monkeypatch, _as_user
+):
+    svc = SimpleNamespace(
+        get_session_snapshot=AsyncMock(return_value=_snapshot(render_version=7))
+    )
+    monkeypatch.setattr(
+        generate_sessions_preview_router, "_get_session_service", lambda: svc
+    )
+    monkeypatch.setattr(
+        generate_sessions_preview_router,
+        "_resolve_session_artifact_binding",
+        AsyncMock(return_value=SimpleNamespace(id="a-004", basedOnVersionId="v-007")),
+    )
+    load_preview_material = AsyncMock(
+        return_value=(
+            None,
+            [],
+            None,
+            {"markdown_content": "# DOCX Preview"},
+        )
+    )
+    monkeypatch.setattr(
+        generate_sessions_preview_router,
+        "_load_preview_material",
+        load_preview_material,
+    )
+
+    resp = client.post(
+        "/api/v1/generate/sessions/s-preview-001/preview/export",
+        json={"format": "markdown", "artifact_id": "a-004", "run_id": "run-007"},
+    )
+    assert resp.status_code == 200
+    data = resp.json()["data"]
+    assert data["artifact_id"] == "a-004"
+    assert data["content"] == "# DOCX Preview"
+    assert data["artifact_anchor"]["run_id"] == "run-007"
+    assert load_preview_material.await_args.args[4] == "run-007"
+
+
+def test_export_preview_html_prefers_structured_word_preview_html(
+    client, monkeypatch, _as_user
+):
+    svc = SimpleNamespace(
+        get_session_snapshot=AsyncMock(return_value=_snapshot(render_version=8))
+    )
+    monkeypatch.setattr(
+        generate_sessions_preview_router, "_get_session_service", lambda: svc
+    )
+    monkeypatch.setattr(
+        generate_sessions_preview_router,
+        "_resolve_session_artifact_binding",
+        AsyncMock(return_value=SimpleNamespace(id="a-008", basedOnVersionId="v-008")),
+    )
+    monkeypatch.setattr(
+        generate_sessions_preview_router,
+        "_load_preview_material",
+        AsyncMock(
+            return_value=(
+                None,
+                [],
+                None,
+                {
+                    "title": "进程管理学生讲义",
+                    "preview_html": "<!doctype html><html><body><main>Styled Word Preview</main></body></html>",
+                    "lesson_plan_markdown": "# fallback markdown",
+                },
+            )
+        ),
+    )
+
+    resp = client.post(
+        "/api/v1/generate/sessions/s-preview-001/preview/export",
+        json={"format": "html", "artifact_id": "a-008"},
+    )
+
+    assert resp.status_code == 200
+    data = resp.json()["data"]
+    assert data["format"] == "html"
+    assert "Styled Word Preview" in data["content"]
+    assert "<pre>" not in data["content"]

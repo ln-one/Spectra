@@ -5,6 +5,7 @@ import { LayoutGroup } from "framer-motion";
 import { Sparkles } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
 import { Card, CardContent } from "@/components/ui/card";
+import { toast } from "@/hooks/use-toast";
 import { studioCardsApi } from "@/lib/sdk/studio-cards";
 import { cn } from "@/lib/utils";
 import { useProjectStore, GENERATION_TOOLS } from "@/stores/projectStore";
@@ -664,6 +665,82 @@ export function StudioPanelContainer({
       return false;
     },
     onRefine: () => execution.handleOpenChatRefine(),
+    onStructuredRefine: async (payload) => {
+      const result = await execution.handleStructuredRefineArtifact({
+        artifactId: payload.artifactId,
+        message: payload.message ?? "",
+        config: payload.config,
+      });
+      if (result.ok) {
+        toast({
+          title: "动画 refine 已提交",
+          description: "新的动画 artifact 正在刷新。",
+        });
+      }
+      return result.ok;
+    },
+    onStructuredRefineArtifact: (payload) =>
+      execution.handleStructuredRefineArtifact(payload),
+    onRecommendAnimationPlacement: async (payload) => {
+      if (!project) return null;
+      try {
+        const response = await studioCardsApi.recommendAnimationPlacement({
+          project_id: project.id,
+          artifact_id: payload.artifactId,
+          ppt_artifact_id: payload.pptArtifactId,
+        });
+        toast({
+          title: "已生成推荐页",
+          description: "你可以直接采用推荐，也可以改选其他页。",
+        });
+        return response?.data?.recommendation ?? null;
+      } catch (error) {
+        toast({
+          title: "获取推荐页失败",
+          description: error instanceof Error ? error.message : "请稍后重试。",
+          variant: "destructive",
+        });
+        return null;
+      }
+    },
+    onConfirmAnimationPlacement: async (payload) => {
+      if (!project) return null;
+      try {
+        const response = await studioCardsApi.confirmAnimationPlacement({
+          project_id: project.id,
+          artifact_id: payload.artifactId,
+          ppt_artifact_id: payload.pptArtifactId,
+          page_numbers: payload.pageNumbers,
+          slot: payload.slot,
+        });
+        const responseData = response?.data ?? null;
+        const pptArtifact =
+          responseData &&
+          typeof responseData.ppt_artifact === "object" &&
+          responseData.ppt_artifact
+            ? (responseData.ppt_artifact as Record<string, unknown>)
+            : null;
+        const refreshSessionId =
+          (typeof pptArtifact?.session_id === "string" &&
+            pptArtifact.session_id.trim()) ||
+          activeSessionId;
+        if (refreshSessionId) {
+          await fetchArtifactHistory(project.id, refreshSessionId);
+        }
+        toast({
+          title: "已记录插入关系",
+          description: "动画 artifact 与 PPT 页面绑定关系已更新。",
+        });
+        return responseData;
+      } catch (error) {
+        toast({
+          title: "记录插入关系失败",
+          description: error instanceof Error ? error.message : "请稍后重试。",
+          variant: "destructive",
+        });
+        return null;
+      }
+    },
     onExportArtifact: (artifactId) => exportArtifact(artifactId),
   };
 
@@ -852,7 +929,9 @@ export function StudioPanelContainer({
               canRefine={canRefine}
               canExecute={canExecute}
               onOpenChatRefine={execution.handleOpenChatRefine}
-              onPreviewExecution={execution.handleStudioPreviewExecution}
+              onPreviewExecution={async () => {
+                await execution.handleStudioPreviewExecution();
+              }}
               onLoadSources={execution.handleStudioLoadSources}
               onExecute={async () => {
                 await execution.handleStudioExecute();

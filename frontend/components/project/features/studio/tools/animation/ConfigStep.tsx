@@ -1,47 +1,25 @@
 ﻿import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Slider } from "@/components/ui/slider";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { ANIMATION_SCENE_OPTIONS } from "./constants";
-import type { AnimationScene } from "./types";
+import { Textarea } from "@/components/ui/textarea";
 
 interface ConfigStepProps {
   topic: string;
-  scene: AnimationScene;
-  speed: number;
-  showTrail: boolean;
-  splitView: boolean;
+  focus: string;
   topicSuggestions: string[];
   isRecommendationsLoading: boolean;
   onTopicChange: (value: string) => void;
-  onSceneChange: (value: AnimationScene) => void;
-  onSpeedChange: (value: number) => void;
-  onShowTrailChange: (value: boolean) => void;
-  onSplitViewChange: (value: boolean) => void;
+  onFocusChange: (value: string) => void;
   onNext: () => void;
 }
 
 export function ConfigStep({
   topic,
-  scene,
-  speed,
-  showTrail,
-  splitView,
+  focus,
   topicSuggestions,
   isRecommendationsLoading,
   onTopicChange,
-  onSceneChange,
-  onSpeedChange,
-  onShowTrailChange,
-  onSplitViewChange,
+  onFocusChange,
   onNext,
 }: ConfigStepProps) {
   return (
@@ -49,23 +27,25 @@ export function ConfigStep({
       <section className="rounded-xl border border-zinc-200 bg-white p-4">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <Label className="text-xs text-zinc-600">动画主题</Label>
+            <Label className="text-xs text-zinc-600">
+              你想让动画演示什么？
+            </Label>
             <p className="mt-1 text-[11px] text-zinc-500">
-              优先基于当前知识库推荐抽象过程、动态关系和演示重点。
+              先用教师视角完整描述这段动画要解释的知识点、教学过程和展示要求。
             </p>
           </div>
           {isRecommendationsLoading ? (
             <span className="inline-flex items-center gap-1 text-[11px] text-zinc-500">
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              正在读取 RAG 推荐
+              正在读取推荐
             </span>
           ) : null}
         </div>
-        <Input
+        <Textarea
           value={topic}
           onChange={(event) => onTopicChange(event.target.value)}
-          placeholder="例如：粒子受力变化、排序交换过程、电流方向演示"
-          className="mt-3 h-9 text-xs"
+          placeholder="例如：我想做一段给初中生看的动画，演示电流形成过程，重点解释电子为什么会定向移动，并突出电场作用和导体内部变化。"
+          className="mt-3 min-h-[136px] resize-y text-xs leading-6"
         />
         {topicSuggestions.length > 0 ? (
           <div className="mt-3 flex flex-wrap gap-2">
@@ -83,63 +63,21 @@ export function ConfigStep({
         ) : null}
       </section>
 
-      <section className="grid grid-cols-1 gap-3 rounded-xl border border-zinc-200 bg-white p-4 sm:grid-cols-2">
-        <div className="space-y-1.5 sm:col-span-2">
-          <Label className="text-xs text-zinc-600">动画场景</Label>
-          <Select
-            value={scene}
-            onValueChange={(value) => onSceneChange(value as AnimationScene)}
-          >
-            <SelectTrigger className="h-9 text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {ANIMATION_SCENE_OPTIONS.map((item) => (
-                <SelectItem key={item.value} value={item.value}>
-                  {item.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <p className="text-[11px] text-zinc-500">
-            {
-              ANIMATION_SCENE_OPTIONS.find((item) => item.value === scene)
-                ?.description
-            }
-          </p>
-        </div>
-        <div className="space-y-2 sm:col-span-2">
-          <Label className="text-xs text-zinc-600">动画速度：{speed}%</Label>
-          <Slider
-            value={[speed]}
-            min={10}
-            max={100}
-            step={5}
-            onValueChange={(value) => onSpeedChange(value[0] ?? 50)}
-          />
-        </div>
-        <button
-          type="button"
-          onClick={() => onShowTrailChange(!showTrail)}
-          className={`rounded-lg border px-3 py-2 text-left text-xs ${
-            showTrail
-              ? "border-blue-500 bg-blue-50 text-blue-700"
-              : "border-zinc-200 bg-white text-zinc-600"
-          }`}
-        >
-          轨迹线：{showTrail ? "显示" : "隐藏"}
-        </button>
-        <button
-          type="button"
-          onClick={() => onSplitViewChange(!splitView)}
-          className={`rounded-lg border px-3 py-2 text-left text-xs ${
-            splitView
-              ? "border-blue-500 bg-blue-50 text-blue-700"
-              : "border-zinc-200 bg-white text-zinc-600"
-          }`}
-        >
-          代码视图：{splitView ? "显示" : "隐藏"}
-        </button>
+      <section className="rounded-xl border border-zinc-200 bg-white p-4">
+        <Label className="text-xs text-zinc-600">你最想突出什么？</Label>
+        <Textarea
+          value={focus}
+          onChange={(event) => onFocusChange(event.target.value)}
+          placeholder="例如：突出电子受电场作用后的定向移动，不要平均展示所有部分。"
+          className="mt-3 min-h-[104px] resize-none text-xs"
+        />
+      </section>
+
+      <section className="rounded-xl border border-zinc-200 bg-white p-4">
+        <p className="text-xs font-medium text-zinc-800">下一步会发生什么</p>
+        <p className="mt-2 text-[11px] leading-6 text-zinc-600">
+          系统会先根据你的主题需求生成动画规格卡，判断分镜结构、模板类型和镜头数量，然后再给出更准确的双档时长推荐，由你确认后再开始生成。
+        </p>
       </section>
 
       <div className="flex justify-end">
@@ -149,7 +87,7 @@ export function ConfigStep({
           onClick={onNext}
           disabled={!topic.trim()}
         >
-          下一步：确认生成
+          下一步：生成动画规格卡
         </Button>
       </div>
     </div>

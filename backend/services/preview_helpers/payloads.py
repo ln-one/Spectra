@@ -87,6 +87,7 @@ def _resolved_export_markdown(content: dict) -> str:
 def build_preview_payload(
     session_id: str,
     snapshot: dict,
+    task,
     slides: list[dict],
     lesson_plan: Optional[dict],
     anchor: dict,
@@ -99,6 +100,7 @@ def build_preview_payload(
         "session_id": session_id,
         "session_state": snapshot["session"].get("state"),
         "session_state_reason": snapshot["session"].get("stateReason"),
+        "task_id": task.id if task else None,
         "artifact_id": anchor["artifact_id"],
         "based_on_version_id": anchor["based_on_version_id"],
         "current_version_id": snapshot.get("current_version_id"),
@@ -121,6 +123,8 @@ def build_modify_payload(
 ) -> dict:
     payload = {
         "session_id": session_id,
+        "modify_task_id": (result.get("task_id") if isinstance(result, dict) else None)
+        or f"modify-{session_id}",
         "status": TaskStatus.PENDING,
         "render_version": snapshot["session"].get("render_version") or 1,
         "artifact_id": anchor["artifact_id"],
@@ -130,9 +134,7 @@ def build_modify_payload(
         "artifact_anchor": anchor,
     }
     if isinstance(result, dict):
-        payload.update(
-            {key: value for key, value in result.items() if key != "task_id"}
-        )
+        payload.update(result)
     return payload
 
 
@@ -162,6 +164,7 @@ def build_slide_preview_payload(
 def build_export_payload(
     session_id: str,
     snapshot: dict,
+    task,
     slides: list[dict],
     lesson_plan: Optional[dict],
     content: dict,
@@ -172,7 +175,12 @@ def build_export_payload(
     if not include_sources:
         slides, lesson_plan = strip_sources(slides, lesson_plan)
 
-    source_content = _resolved_export_markdown(content)
+    preview_html = str(content.get("preview_html") or "").strip()
+    source_content = (
+        content.get("render_markdown")
+        or content.get("lesson_plan_markdown")
+        or _resolved_export_markdown(content)
+    )
 
     normalized_format = export_format.lower()
     if normalized_format == "json":
@@ -186,7 +194,7 @@ def build_export_payload(
             ensure_ascii=False,
         )
     elif normalized_format == "html":
-        export_content = (
+        export_content = preview_html or (
             "<!doctype html><html><body><pre>"
             + html.escape(source_content)
             + "</pre></body></html>"
@@ -202,6 +210,7 @@ def build_export_payload(
     )
     return {
         "session_id": session_id,
+        "task_id": task.id if task else None,
         "artifact_id": anchor["artifact_id"],
         "based_on_version_id": anchor["based_on_version_id"],
         "current_version_id": snapshot.get("current_version_id"),

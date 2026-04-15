@@ -161,6 +161,10 @@ async def execute_studio_card_structured_refine(
         user_id=user_id,
         content=updated_content,
     )
+    artifact_payload = artifact_result_payload(new_artifact)
+    inserted_node_id = updated_content.get("_inserted_node_id")
+    if isinstance(inserted_node_id, str) and inserted_node_id.strip():
+        artifact_payload["inserted_node_id"] = inserted_node_id.strip()
     run = await create_artifact_run(
         card_id=card_id,
         body=body,
@@ -177,7 +181,7 @@ async def execute_studio_card_structured_refine(
             if (getattr(new_artifact, "sessionId", None) or body.session_id)
             else None
         ),
-        artifact=artifact_result_payload(new_artifact),
+        artifact=artifact_payload,
         run=run,
         request_preview=preview.refine_request,
     )

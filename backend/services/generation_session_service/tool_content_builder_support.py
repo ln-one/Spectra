@@ -3,16 +3,25 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from services.generation_session_service.game_template_engine import (
+    build_game_schema_hint,
+    is_template_game_pattern,
+    resolve_game_pattern,
+)
+from services.generation_session_service.word_template_engine import (
+    build_word_schema_hint,
+    resolve_word_document_variant,
+)
 from utils.exceptions import APIException, ErrorCode
 
 _PAYLOAD_REQUIREMENTS: dict[str, tuple[str, ...]] = {
     "courseware_ppt": ("title", "summary"),
-    "word_document": ("title", "summary"),
+    "word_document": ("title", "summary", "layout_payload"),
     "knowledge_mindmap": ("title", "nodes"),
     "interactive_quick_quiz": ("title", "questions"),
     "interactive_games": ("title", "html"),
     "classroom_qa_simulator": ("title", "turns"),
-    "demonstration_animations": ("title", "html"),
+    "demonstration_animations": ("title",),
     "speaker_notes": ("title", "slides"),
 }
 
@@ -114,13 +123,17 @@ def validate_card_payload(card_id: str, payload: dict[str, Any]) -> None:
         require_non_empty_list(payload, "turns")
     elif card_id == "demonstration_animations":
         require_non_empty_str(payload, "title")
-        require_non_empty_str(payload, "html")
+        require_non_empty_list(payload, "scenes")
     elif card_id == "speaker_notes":
         require_non_empty_str(payload, "title")
         require_non_empty_list(payload, "slides")
     elif card_id in {"courseware_ppt", "word_document"}:
         require_non_empty_str(payload, "title")
         require_non_empty_str(payload, "summary")
+        if card_id == "word_document":
+            layout_payload = payload.get("layout_payload")
+            if not isinstance(layout_payload, dict) or not layout_payload:
+                raise ValueError("field_layout_payload_empty")
 
 
 def validate_simulator_turn_payload(payload: dict[str, Any]) -> None:
@@ -178,13 +191,19 @@ def parse_ai_object_payload(
     return parsed
 
 
-def build_schema_hint(card_id: str) -> str | None:
+def build_schema_hint(card_id: str, config: dict[str, Any] | None = None) -> str | None:
+    if card_id == "interactive_games":
+        pattern = resolve_game_pattern(config)
+        if is_template_game_pattern(pattern):
+            return build_game_schema_hint(pattern)
+        return '{"title":"", "html":""}'
+
     return {
         "courseware_ppt": (
             '{"title":"", "summary":"", "pages":12, "template":"default"}'
         ),
-        "word_document": (
-            '{"title":"", "summary":"", "document_variant":"layered_lesson_plan"}'
+        "word_document": build_word_schema_hint(
+            resolve_word_document_variant((config or {}).get("document_variant"))
         ),
         "knowledge_mindmap": (
             '{"title":"",'
@@ -195,15 +214,17 @@ def build_schema_hint(card_id: str) -> str | None:
             ' "questions":[{"id":"","question":"","options":[""],'
             '"answer":"","explanation":""}]}'
         ),
-        "interactive_games": '{"title":"", "html":""}',
         "classroom_qa_simulator": (
             '{"title":"", "summary":"", "key_points":[""], '
             '"turns":[{"student":"","question":"","teacher_hint":"",'
             '"feedback":""}]}'
         ),
         "demonstration_animations": (
-            '{"title":"", "html":"", "summary":"", '
-            '"scenes":[{"title":"","description":""}]}'
+            '{"title":"", "summary":"", "format":"gif|mp4", '
+            '"render_mode":"gif|cloud_video_wan", '
+            '"style_pack":"teaching_ppt_cartoon|teaching_ppt_fresh_green|teaching_ppt_deep_blue|teaching_ppt_warm_orange|teaching_ppt_minimal_gray", '
+            '"visual_type":"process_flow", '
+            '"scenes":[{"title":"","description":"","emphasis":""}]}'
         ),
         "speaker_notes": (
             '{"title":"", "summary":"", '

@@ -80,6 +80,7 @@ export interface StudioCardRefineRequest {
 
 export interface StudioCardSourceArtifact {
   id: string;
+  project_id?: string;
   type: string;
   title?: string;
   visibility?: string;
@@ -105,6 +106,20 @@ export interface StudioCardTurnResult {
   feedback: string;
   score: number;
   next_focus?: string;
+}
+
+export interface AnimationPlacementRecommendationRequest {
+  project_id: string;
+  artifact_id: string;
+  ppt_artifact_id: string;
+}
+
+export interface AnimationPlacementConfirmRequest {
+  project_id: string;
+  artifact_id: string;
+  ppt_artifact_id: string;
+  page_numbers: number[];
+  slot: string;
 }
 
 type ApiEnvelope<T> = {
@@ -251,9 +266,13 @@ export const studioCardsApi = {
 
   async getSources(
     cardId: string,
-    projectId: string
+    projectId: string,
+    sessionId?: string | null
   ): Promise<ApiEnvelope<{ sources: StudioCardSourceArtifact[] }>> {
     const params = new URLSearchParams({ project_id: projectId });
+    if (sessionId?.trim()) {
+      params.set("session_id", sessionId.trim());
+    }
     const response = await apiFetch(
       `/api/v1/generate/studio-cards/${encodeURIComponent(cardId)}/sources?${params.toString()}`
     );
@@ -283,5 +302,55 @@ export const studioCardsApi = {
         turn_result: StudioCardTurnResult;
       }>
     >(response, "推进课堂问答模拟失败");
+  },
+
+  async recommendAnimationPlacement(
+    body: AnimationPlacementRecommendationRequest
+  ): Promise<
+    ApiEnvelope<{
+      recommendation: Record<string, unknown>;
+      artifact: Record<string, unknown>;
+    }>
+  > {
+    const response = await apiFetch(
+      "/api/v1/generate/studio-cards/demonstration_animations/recommend-placement",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      }
+    );
+    return parseResponse<
+      ApiEnvelope<{
+        recommendation: Record<string, unknown>;
+        artifact: Record<string, unknown>;
+      }>
+    >(response, "获取动画插入推荐失败");
+  },
+
+  async confirmAnimationPlacement(
+    body: AnimationPlacementConfirmRequest
+  ): Promise<
+    ApiEnvelope<{
+      placements: Record<string, unknown>[];
+      artifact: Record<string, unknown>;
+      ppt_artifact?: Record<string, unknown>;
+    }>
+  > {
+    const response = await apiFetch(
+      "/api/v1/generate/studio-cards/demonstration_animations/confirm-placement",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      }
+    );
+    return parseResponse<
+      ApiEnvelope<{
+        placements: Record<string, unknown>[];
+        artifact: Record<string, unknown>;
+        ppt_artifact?: Record<string, unknown>;
+      }>
+    >(response, "记录动画插入关系失败");
   },
 };

@@ -1,5 +1,9 @@
 import logging
 
+from services.artifact_generator.cloud_video import (
+    render_aliyun_wan_video,
+    should_use_aliyun_wan_video,
+)
 from services.artifact_generator.storyboard_renderer import render_gif, render_mp4
 
 logger = logging.getLogger(__name__)
@@ -25,6 +29,9 @@ class ArtifactMediaMixin:
 
     async def generate_video(self, content, project_id: str, artifact_id: str) -> str:
         storage_path = self.get_storage_path(project_id, "mp4", artifact_id)
-        actual_path = render_mp4(content or {}, storage_path)
+        if should_use_aliyun_wan_video(content or {}):
+            actual_path = await render_aliyun_wan_video(content or {}, storage_path)
+        else:
+            actual_path = render_mp4(content or {}, storage_path)
         logger.info("Generated MP4 at %s", actual_path)
         return actual_path

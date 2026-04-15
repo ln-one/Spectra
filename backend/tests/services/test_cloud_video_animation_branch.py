@@ -1,0 +1,107 @@
+from pathlib import Path
+from types import SimpleNamespace
+
+import pytest
+
+from services.artifact_generator.media import ArtifactMediaMixin
+from services.generation_session_service.card_execution_preview import (
+    build_studio_card_execution_preview,
+)
+from services.generation_session_service.card_execution_runtime_helpers import (
+    load_artifact_content,
+)
+from services.project_space_service.artifact_content import build_artifact_metadata
+
+
+class _MediaGenerator(ArtifactMediaMixin):
+    def __init__(self, base_dir: Path):
+        self.base_dir = base_dir
+
+    def get_storage_path(self, project_id: str, artifact_type: str, artifact_id: str):
+        target_dir = self.base_dir / project_id / artifact_type
+        target_dir.mkdir(parents=True, exist_ok=True)
+        return str(target_dir / f"{artifact_id}.{artifact_type}")
+
+
+def test_animation_preview_switches_to_mp4_for_cloud_video_mode():
+    preview = build_studio_card_execution_preview(
+        card_id="demonstration_animations",
+        project_id="p-001",
+        config={
+            "topic": "植物生长全过程",
+            "motion_brief": "突出种子发芽到开花结果的镜头变化",
+            "duration_seconds": 10,
+            "render_mode": "cloud_video_wan",
+        },
+    )
+
+    assert preview is not None
+    payload = preview.initial_request.payload
+    assert payload["type"] == "mp4"
+    assert payload["content"]["format"] == "mp4"
+    assert payload["content"]["render_mode"] == "cloud_video_wan"
+    assert payload["content"]["cloud_video_provider"] == "aliyun_wan"
+    assert preview.spec_preview["artifact_type"] == "mp4"
+
+
+@pytest.mark.asyncio
+async def test_generate_video_uses_aliyun_wan_branch(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    generator = _MediaGenerator(tmp_path)
+
+    async def _fake_render(content, storage_path):
+        Path(storage_path).write_bytes(b"wan-mp4")
+        return storage_path
+
+    monkeypatch.setattr(
+        "services.artifact_generator.media.render_aliyun_wan_video",
+        _fake_render,
+    )
+    output = await generator.generate_video(
+        {
+            "title": "植物生长全过程",
+            "render_mode": "cloud_video_wan",
+            "cloud_video_provider": "aliyun_wan",
+            "duration_seconds": 8,
+            "scenes": [{"title": "发芽", "description": "种子破土"}],
+        },
+        "project-1",
+        "artifact-mp4",
+    )
+
+    path = Path(output)
+    assert path.exists()
+    assert path.suffix == ".mp4"
+    assert path.read_bytes() == b"wan-mp4"
+
+
+@pytest.mark.asyncio
+async def test_load_artifact_content_supports_mp4_animation_snapshot():
+    metadata = build_artifact_metadata(
+        "mp4",
+        {
+            "kind": "animation_storyboard",
+            "title": "植物生长全过程",
+            "summary": "从种子到开花结果",
+            "topic": "植物生长全过程",
+            "format": "mp4",
+            "duration_seconds": 10,
+            "rhythm": "balanced",
+            "focus": "根系、叶片、开花",
+            "render_mode": "cloud_video_wan",
+            "cloud_video_provider": "aliyun_wan",
+            "cloud_video_prompt": "生成多镜头教学视频",
+            "scenes": [{"title": "发芽", "description": "种子破土"}],
+            "placements": [],
+        },
+        "u-001",
+    )
+    artifact = SimpleNamespace(type="mp4", metadata=metadata, storagePath=None)
+
+    content = await load_artifact_content(artifact)
+
+    assert content["format"] == "mp4"
+    assert content["render_mode"] == "cloud_video_wan"
+    assert content["cloud_video_provider"] == "aliyun_wan"
+    assert content["scenes"][0]["title"] == "发芽"
