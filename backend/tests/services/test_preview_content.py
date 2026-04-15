@@ -1,4 +1,3 @@
-import asyncio
 import json
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
@@ -12,7 +11,7 @@ from services.preview_helpers.content import (
 
 
 @pytest.mark.asyncio
-async def test_get_or_generate_content_uses_session_messages_and_selected_sources(
+async def test_get_or_generate_content_completed_task_uses_fallback_when_no_outline(
     monkeypatch,
 ):
     task = SimpleNamespace(
@@ -32,45 +31,24 @@ async def test_get_or_generate_content_uses_session_messages_and_selected_source
         "services.preview_helpers.content.save_preview_content", save_mock
     )
 
-    recent_mock = AsyncMock(
-        return_value=[
-            SimpleNamespace(role="user", content="请强调实验导入"),
-            SimpleNamespace(role="assistant", content="好的"),
-        ]
-    )
     monkeypatch.setattr(
         "services.preview_helpers.content.db_service",
         SimpleNamespace(
-            get_recent_conversation_messages=recent_mock,
+            get_recent_conversation_messages=AsyncMock(return_value=[]),
             db=SimpleNamespace(
                 outlineversion=SimpleNamespace(find_first=AsyncMock(return_value=None))
             ),
         ),
     )
 
-    generate_mock = AsyncMock(
-        return_value=SimpleNamespace(
-            title="牛顿第二定律",
-            markdown_content="# Slide",
-            lesson_plan_markdown="plan",
-        )
-    )
-    monkeypatch.setattr(
-        "services.ai.ai_service.generate_courseware_content", generate_mock
-    )
-
     result = await get_or_generate_content(task, project)
 
-    assert result["title"] == "牛顿第二定律"
-    recent_mock.assert_awaited_once_with(
-        "project-001",
-        limit=5,
-        session_id="session-001",
-    )
-    assert generate_mock.await_args.kwargs["session_id"] == "session-001"
-    assert generate_mock.await_args.kwargs["rag_source_ids"] == ["file-1", "file-2"]
-    assert "请强调实验导入" == generate_mock.await_args.kwargs["user_requirements"]
-    save_mock.assert_awaited_once()
+    assert result == {
+        "title": "牛顿第二定律",
+        "markdown_content": "",
+        "lesson_plan_markdown": "",
+    }
+    save_mock.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -139,7 +117,9 @@ async def test_get_or_generate_content_rehydrates_from_task_input_data(monkeypat
 
 
 @pytest.mark.asyncio
-async def test_get_or_generate_content_timeout_returns_fallback(monkeypatch):
+async def test_get_or_generate_content_completed_without_outline_returns_fallback(
+    monkeypatch,
+):
     task = SimpleNamespace(
         id="task-003",
         status="completed",
@@ -162,11 +142,6 @@ async def test_get_or_generate_content_timeout_returns_fallback(monkeypatch):
             ),
         ),
     )
-    monkeypatch.setattr(
-        "services.ai.ai_service.generate_courseware_content",
-        AsyncMock(side_effect=asyncio.TimeoutError("simulated timeout")),
-    )
-
     result = await get_or_generate_content(task, project)
 
     assert result == {

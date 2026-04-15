@@ -31,29 +31,12 @@ from utils.responses import success_response
 logger = logging.getLogger(__name__)
 
 
-def _is_ppt_courseware_tool_type(tool_type: object) -> bool:
-    normalized = str(tool_type or "").strip().lower()
-    return normalized in {"courseware_ppt", "studio_card:courseware_ppt"}
-
-
-def _is_ppt_preview_snapshot(snapshot: dict) -> bool:
-    current_run = snapshot.get("current_run")
-    if isinstance(current_run, dict) and _is_ppt_courseware_tool_type(
-        current_run.get("tool_type")
-    ):
-        return True
-    return False
-
-
-def _raise_legacy_ppt_modify_removed() -> None:
+def _raise_legacy_courseware_modify_removed() -> None:
     raise APIException(
         status_code=status.HTTP_409_CONFLICT,
         error_code=ErrorCode.RESOURCE_CONFLICT,
-        message="PPT 单页修改旧链路已下线，仅支持 Diego 课件流程。",
-        details={
-            "reason": "legacy_ppt_modify_removed",
-            "tool_type": "courseware_ppt",
-        },
+        message="课件单页修改旧链路已下线，仅支持 Diego 生成主链路。",
+        details={"reason": "legacy_courseware_modify_removed"},
     )
 
 
@@ -260,18 +243,17 @@ async def modify_session_preview_response(
     expected_render_version = resolve_modify_expected_render_version(body)
     validate_optional_positive_int(expected_render_version, "expected_render_version")
     snapshot = await get_preview_snapshot_or_raise(session_id, user_id)
-    if _is_ppt_preview_snapshot(snapshot):
-        logger.info(
-            "legacy_ppt_preview_modify_blocked session_id=%s tool_type=%s",
-            session_id,
-            ((snapshot.get("current_run") or {}).get("tool_type")),
-            extra={
-                "session_id": session_id,
-                "tool_type": ((snapshot.get("current_run") or {}).get("tool_type")),
-                "reason": "legacy_ppt_modify_removed",
-            },
-        )
-        _raise_legacy_ppt_modify_removed()
+    logger.info(
+        "legacy_courseware_preview_modify_blocked session_id=%s tool_type=%s",
+        session_id,
+        ((snapshot.get("current_run") or {}).get("tool_type")),
+        extra={
+            "session_id": session_id,
+            "tool_type": ((snapshot.get("current_run") or {}).get("tool_type")),
+            "reason": "legacy_courseware_modify_removed",
+        },
+    )
+    _raise_legacy_courseware_modify_removed()
     anchor = await resolve_preview_anchor(
         session_id,
         snapshot,

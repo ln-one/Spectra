@@ -22,10 +22,10 @@ def check_quality(
     outline: Optional[CoursewareOutline] = None,
 ) -> QualityReport:
     """对课件内容进行自动质量检查。"""
-    from services.courseware_ai import CoursewareAIMixin
+    from services.marp_utils import parse_marp_slides
 
     issues: list[QualityIssue] = []
-    slides = CoursewareAIMixin.parse_marp_slides(markdown_content)
+    slides = parse_marp_slides(markdown_content)
 
     if not slides:
         return QualityReport(

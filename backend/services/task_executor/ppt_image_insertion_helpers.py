@@ -7,7 +7,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-from services.courseware_ai.parsing import (
+from services.marp_utils import (
     extract_frontmatter,
     parse_marp_slides,
     reassemble_marp,

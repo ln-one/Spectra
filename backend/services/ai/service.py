@@ -10,6 +10,8 @@ from typing import Optional
 
 from dotenv import load_dotenv
 
+from schemas.generation import CoursewareContent
+from schemas.outline import CoursewareOutline
 from services.ai.generate_runtime import generate_with_routing
 from services.ai.model_resolution import _resolve_model_name
 from services.ai.model_router import ModelRouter, ModelRouteTask
@@ -23,14 +25,13 @@ from services.ai.service_support import (
     resolve_upstream_retry_attempts,
     resolve_upstream_retry_delay_seconds,
 )
-from services.courseware_ai import CoursewareAIMixin
 
 logger = logging.getLogger(__name__)
 BASE_DIR = Path(__file__).resolve().parents[2]
 load_dotenv(dotenv_path=BASE_DIR / ".env", override=False)
 
 
-class AIService(CoursewareAIMixin):
+class AIService:
     """Service for AI operations using LiteLLM."""
 
     def __init__(self):
@@ -238,5 +239,158 @@ class AIService(CoursewareAIMixin):
                 exc,
             )
             return {"reason": "vision_completion_error", "model": resolved_model}
+
+    async def generate_outline(
+        self,
+        project_id: str,
+        user_requirements: str,
+        template_style: str = "default",
+        session_id: Optional[str] = None,
+        rag_source_ids: Optional[list[str]] = None,
+    ) -> CoursewareOutline:
+        raise RuntimeError(
+            "legacy_courseware_chain_removed: outline generation must run via Diego."
+        )
+
+    async def modify_courseware(
+        self,
+        current_content: str,
+        instruction: str,
+        target_slides: Optional[list[int]] = None,
+        rag_context: Optional[list[dict]] = None,
+        strict_source_mode: bool = False,
+    ) -> CoursewareContent:
+        raise RuntimeError(
+            "legacy_courseware_chain_removed: slide modify must run via Diego."
+        )
+
+    async def extract_structured_content(
+        self,
+        project_id: str,
+        user_requirements: str,
+        template_style: str = "default",
+        outline: Optional[CoursewareOutline] = None,
+        session_id: Optional[str] = None,
+        rag_source_ids: Optional[list[str]] = None,
+    ) -> CoursewareContent:
+        raise RuntimeError(
+            (
+                "legacy_courseware_chain_removed: "
+                "structured content extraction must run via Diego."
+            )
+        )
+
+    async def generate_courseware_content(
+        self,
+        project_id: str,
+        user_requirements: Optional[str] = None,
+        template_style: str = "default",
+        outline_document: Optional[dict] = None,
+        outline_version: Optional[int] = None,
+        session_id: Optional[str] = None,
+        rag_source_ids: Optional[list[str]] = None,
+    ) -> CoursewareContent:
+        raise RuntimeError(
+            (
+                "legacy_courseware_chain_removed: "
+                "courseware content generation must run via Diego."
+            )
+        )
+
+    @staticmethod
+    def _get_fallback_outline(user_requirements: str) -> CoursewareOutline:
+        raise RuntimeError(
+            "legacy_courseware_chain_removed: fallback outline is removed."
+        )
+
+    @staticmethod
+    def parse_marp_slides(markdown_content: str) -> list[dict]:
+        from services.marp_utils import parse_marp_slides
+
+        return parse_marp_slides(markdown_content)
+
+    @staticmethod
+    def _reassemble_marp(frontmatter: str, slides: list[str]) -> str:
+        from services.marp_utils import reassemble_marp
+
+        return reassemble_marp(frontmatter, slides)
+
+    @staticmethod
+    def _extract_frontmatter(markdown_content: str) -> str:
+        from services.marp_utils import extract_frontmatter
+
+        return extract_frontmatter(markdown_content)
+
+    @staticmethod
+    def _merge_requirements_with_outline(
+        user_requirements: str,
+        outline_document: dict,
+    ) -> str:
+        raise RuntimeError(
+            "legacy_courseware_chain_removed: requirements merge is removed."
+        )
+
+    def _parse_courseware_response(
+        self,
+        content: str,
+        user_requirements: str,
+    ) -> CoursewareContent:
+        raise RuntimeError(
+            "legacy_courseware_chain_removed: courseware response parsing is removed."
+        )
+
+    @staticmethod
+    def _strip_outer_code_fence(content: str) -> str:
+        raise RuntimeError(
+            "legacy_courseware_chain_removed: markdown fence stripping is removed."
+        )
+
+    @staticmethod
+    def _extract_block(content: str, start_tag: str, end_tag: str) -> str:
+        raise RuntimeError(
+            "legacy_courseware_chain_removed: tagged block extraction is removed."
+        )
+
+    @staticmethod
+    def _sanitize_marker_lines(content: str) -> str:
+        raise RuntimeError(
+            "legacy_courseware_chain_removed: marker sanitizer is removed."
+        )
+
+    @staticmethod
+    def _sanitize_ppt_markdown(content: str) -> str:
+        raise RuntimeError(
+            "legacy_courseware_chain_removed: markdown sanitizer is removed."
+        )
+
+    def _enforce_outline_structure(
+        self,
+        markdown_content: str,
+        outline_document: dict,
+    ) -> str:
+        raise RuntimeError(
+            "legacy_courseware_chain_removed: outline enforcement is removed."
+        )
+
+    @staticmethod
+    def _normalize_slide_with_outline(
+        content: str,
+        expected_title: str,
+        key_points: list[str],
+    ) -> str:
+        raise RuntimeError(
+            "legacy_courseware_chain_removed: slide normalization is removed."
+        )
+
+    @staticmethod
+    def _heuristic_split_sections(content: str) -> tuple[str, str]:
+        raise RuntimeError(
+            "legacy_courseware_chain_removed: heuristic section split is removed."
+        )
+
+    def _get_fallback_courseware(self, user_requirements: str) -> CoursewareContent:
+        raise RuntimeError(
+            "legacy_courseware_chain_removed: fallback courseware is removed."
+        )
 
     _retrieve_rag_context = retrieve_rag_context_bound

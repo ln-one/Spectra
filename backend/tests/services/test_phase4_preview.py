@@ -28,7 +28,11 @@ from schemas.preview import (
     SourceType,
 )
 from services.ai import AIService
-from services.courseware_ai import CoursewareAIMixin
+from services.marp_utils import (
+    extract_frontmatter,
+    parse_marp_slides,
+    reassemble_marp,
+)
 from services.quality_service import QualityReport, check_quality
 
 # ============================================================
@@ -142,44 +146,44 @@ class TestMarpParsing:
     """parse_marp_slides / _extract_frontmatter / _reassemble_marp"""
 
     def test_parse_basic(self):
-        slides = CoursewareAIMixin.parse_marp_slides(SAMPLE_MARP)
+        slides = parse_marp_slides(SAMPLE_MARP)
         assert len(slides) == 4
         assert slides[0]["title"] == "标题页"
         assert slides[1]["title"] == "学习目标"
         assert slides[3]["title"] == "总结"
 
     def test_parse_preserves_content(self):
-        slides = CoursewareAIMixin.parse_marp_slides(SAMPLE_MARP)
+        slides = parse_marp_slides(SAMPLE_MARP)
         assert "目标1" in slides[1]["content"]
         assert "详细内容" in slides[2]["content"]
 
     def test_parse_empty(self):
-        slides = CoursewareAIMixin.parse_marp_slides("")
+        slides = parse_marp_slides("")
         assert slides == []
 
     def test_parse_no_frontmatter(self):
         md = "# Page 1\n\ncontent\n\n---\n\n# Page 2\n\nmore"
-        slides = CoursewareAIMixin.parse_marp_slides(md)
+        slides = parse_marp_slides(md)
         assert len(slides) == 2
 
     def test_extract_frontmatter(self):
-        fm = CoursewareAIMixin._extract_frontmatter(SAMPLE_MARP)
+        fm = extract_frontmatter(SAMPLE_MARP)
         assert "marp: true" in fm
 
     def test_extract_frontmatter_missing(self):
-        fm = CoursewareAIMixin._extract_frontmatter("# No frontmatter")
+        fm = extract_frontmatter("# No frontmatter")
         assert fm == ""
 
     def test_reassemble_marp(self):
         fm = "---\nmarp: true\n---"
         slides = ["# Page 1\n\ncontent", "# Page 2\n\nmore"]
-        result = CoursewareAIMixin._reassemble_marp(fm, slides)
+        result = reassemble_marp(fm, slides)
         assert "---\nmarp: true\n---" in result
         assert "# Page 1" in result
         assert "# Page 2" in result
 
     def test_parse_indices_sequential(self):
-        slides = CoursewareAIMixin.parse_marp_slides(SAMPLE_MARP)
+        slides = parse_marp_slides(SAMPLE_MARP)
         indices = [s["index"] for s in slides]
         assert indices == [0, 1, 2, 3]
 
@@ -309,111 +313,16 @@ class TestPreviewHelpers:
 
 
 class TestModifyCourseware:
-    """modify_courseware 测试"""
+    """modify_courseware 已下线"""
 
     @pytest.mark.asyncio
-    async def test_modify_with_target_slides(self):
+    async def test_modify_courseware_removed(self):
         ai = AIService()
-        modified_slide = "# 新标题\n\n新内容"
-        with patch.object(
-            ai,
-            "generate",
-            new_callable=AsyncMock,
-            return_value={"content": modified_slide},
+        with pytest.raises(
+            RuntimeError, match="legacy_courseware_chain_removed"
         ):
-            result = await ai.modify_courseware(
-                current_content=SAMPLE_MARP,
-                instruction="把第1页标题改成新标题",
-                target_slides=[1],
-            )
-        assert result.title is not None
-        assert result.markdown_content is not None
-        assert "Courseware is being prepared..." not in result.markdown_content
-        assert "# 总结" in result.markdown_content
-        assert result.lesson_plan_markdown == ""
-
-    @pytest.mark.asyncio
-    async def test_modify_with_target_slides_retries_strict_partial_contract(self):
-        ai = AIService()
-        with patch.object(
-            ai,
-            "generate",
-            new_callable=AsyncMock,
-            side_effect=[
-                {"content": "# 第一页\n\nA\n\n---\n\n# 第二页\n\nB"},
-                {"content": "# 新标题\n\n新内容"},
-            ],
-        ) as mock_generate:
-            result = await ai.modify_courseware(
-                current_content=SAMPLE_MARP,
-                instruction="把第1页标题改成新标题",
-                target_slides=[1],
-            )
-
-        assert mock_generate.await_count == 2
-        assert "重要：只返回目标页" in mock_generate.await_args_list[1].kwargs["prompt"]
-        assert "# 总结" in result.markdown_content
-        assert "# 新标题" in result.markdown_content
-
-    @pytest.mark.asyncio
-    async def test_modify_with_target_slides_accepts_full_deck_response(self):
-        ai = AIService()
-        full_deck = (
-            "---\nmarp: true\ntheme: default\npaginate: true\n---\n\n"
-            "# 新标题\n\n新内容\n\n---\n\n"
-            "# 学习目标\n\n- 目标1\n- 目标2\n\n---\n\n"
-            "# 核心内容\n\n详细内容...\n\n---\n\n"
-            "# 总结\n\n回顾"
-        )
-        with patch.object(
-            ai,
-            "generate",
-            new_callable=AsyncMock,
-            return_value={"content": full_deck},
-        ):
-            result = await ai.modify_courseware(
-                current_content=SAMPLE_MARP,
-                instruction="把第1页标题改成新标题",
-                target_slides=[1],
-            )
-
-        assert "# 新标题" in result.markdown_content
-        assert "# 总结" in result.markdown_content
-        assert "Courseware is being prepared..." not in result.markdown_content
-
-    @pytest.mark.asyncio
-    async def test_modify_with_target_slides_rejects_placeholder_fallback(self):
-        ai = AIService()
-        with patch.object(
-            ai,
-            "generate",
-            new_callable=AsyncMock,
-            side_effect=[{"content": ""}, {"content": ""}],
-        ):
-            with pytest.raises(
-                ValueError, match="placeholder|fewer slides|returned 0 sections"
-            ):
-                await ai.modify_courseware(
-                    current_content=SAMPLE_MARP,
-                    instruction="详细一点",
-                    target_slides=[1],
-                )
-
-    @pytest.mark.asyncio
-    async def test_modify_full_content(self):
-        ai = AIService()
-        full_modified = (
-            "---\nmarp: true\n---\n\n# 新标题\n\n新内容\n\n---\n\n# 总结\n\n完"
-        )
-        with patch.object(
-            ai,
-            "generate",
-            new_callable=AsyncMock,
-            return_value={"content": full_modified},
-        ):
-            result = await ai.modify_courseware(
+            await ai.modify_courseware(
                 current_content=SAMPLE_MARP,
                 instruction="整体改成学术风格",
-                target_slides=None,
+                target_slides=[1],
             )
-        assert result.markdown_content is not None

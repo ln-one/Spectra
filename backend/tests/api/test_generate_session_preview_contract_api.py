@@ -532,7 +532,7 @@ def test_modify_preview_blocks_ppt_legacy_modify(client, monkeypatch, _as_user):
     body = resp.json()
     assert body["success"] is False
     assert body["error"]["code"] == "RESOURCE_CONFLICT"
-    assert body["error"]["details"]["reason"] == "legacy_ppt_modify_removed"
+    assert body["error"]["details"]["reason"] == "legacy_courseware_modify_removed"
 
 
 def test_get_slide_preview_returns_slide_shape(client, monkeypatch, _as_user):
