@@ -50,12 +50,18 @@ export function isMatchingSlideReadyEvent(
   runId: string
 ): boolean {
   const eventType = readString(event.event_type);
-  if (eventType !== "ppt.slide.generated") return false;
+  if (eventType !== "ppt.slide.generated" && eventType !== "slide.generated") {
+    return false;
+  }
   const payload =
     event.payload && typeof event.payload === "object"
       ? (event.payload as Record<string, unknown>)
       : null;
-  const payloadRunId = readString(payload?.run_id);
+  const payloadRunId =
+    readString(payload?.run_id) ||
+    readString(
+      (payload?.section_payload as { run_id?: unknown } | undefined)?.run_id
+    );
   return payloadRunId === runId;
 }
 
@@ -216,17 +222,30 @@ export function usePptHistoryStatusSync({
       syncingRef.current = true;
       try {
         await pullEvents(false);
+        let runResponse: Awaited<ReturnType<typeof generateApi.getRun>> | null =
+          null;
+        try {
+          runResponse = await generateApi.getRun(sessionId, runId);
+        } catch {
+          runResponse = null;
+        }
+        const runRecord = runResponse?.data?.run as
+          | { run_status?: unknown; run_step?: unknown }
+          | null
+          | undefined;
         const snapshot = await generateApi.getSessionSnapshot(sessionId, {
           run_id: runId,
         });
         const sessionState = readString(snapshot?.data?.session?.state);
-        const currentRun = snapshot?.data?.current_run;
-        const runStatus = readString(
-          (currentRun as { run_status?: unknown } | null)?.run_status
-        );
-        const runStep = readString(
-          (currentRun as { run_step?: unknown } | null)?.run_step
-        );
+        const currentRun = snapshot?.data?.current_run as
+          | { run_status?: unknown; run_step?: unknown }
+          | null
+          | undefined;
+        const runStatus =
+          readString(runRecord?.run_status) ||
+          readString(currentRun?.run_status);
+        const runStep =
+          readString(runRecord?.run_step) || readString(currentRun?.run_step);
         const derived = derivePptStatus({
           sessionState,
           runStatus,

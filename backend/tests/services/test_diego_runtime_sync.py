@@ -1,3 +1,4 @@
+import copy
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
@@ -44,6 +45,68 @@ class _FakeDiegoClient:
             "slide_id": "ignored-by-sync",
             "status": "ready",
             "html_preview": "<html><body>slide-1</body></html>",
+            "width": 1600,
+            "height": 900,
+        }
+
+    async def download_pptx(self, _run_id: str) -> bytes:
+        return b"pptx-bytes"
+
+
+class _FakeDiegoClientWithMultiRevision:
+    def __init__(self) -> None:
+        self._poll_count = 0
+        self._preview_count = 0
+
+    async def get_run(self, _run_id: str) -> dict:
+        self._poll_count += 1
+        if self._poll_count == 1:
+            return {
+                "status": "SLIDES_GENERATING",
+                "slides": [{"slide_no": 1}],
+                "events": [
+                    {
+                        "seq": 1,
+                        "event": "slide.generated",
+                        "payload": {"slide_no": 1, "status": "generated"},
+                    },
+                    {
+                        "seq": 2,
+                        "event": "slide.generated",
+                        "payload": {"slide_no": 1, "status": "generated"},
+                    },
+                ],
+            }
+        return {
+            "status": "SUCCEEDED",
+            "slides": [{"slide_no": 1}],
+            "events": [
+                {
+                    "seq": 1,
+                    "event": "slide.generated",
+                    "payload": {"slide_no": 1, "status": "generated"},
+                },
+                {
+                    "seq": 2,
+                    "event": "slide.generated",
+                    "payload": {"slide_no": 1, "status": "generated"},
+                },
+            ],
+        }
+
+    async def get_slide_preview(self, _run_id: str, _slide_no: int) -> dict:
+        self._preview_count += 1
+        html = (
+            "<html><body>slide-1-v1</body></html>"
+            if self._preview_count == 1
+            else "<html><body>slide-1-final</body></html>"
+        )
+        return {
+            "slide_no": 1,
+            "page_index": 0,
+            "slide_id": "ignored-by-sync",
+            "status": "ready",
+            "html_preview": html,
             "width": 1600,
             "height": 900,
         }
@@ -134,3 +197,81 @@ async def test_sync_diego_generation_streams_slide_preview(monkeypatch):
     ]
     assert GenerationEventType.PPT_SLIDE_GENERATED.value in event_types
     assert GenerationEventType.GENERATION_COMPLETED.value in event_types
+
+
+@pytest.mark.anyio
+async def test_sync_diego_generation_refreshes_slide_until_latest_preview(monkeypatch):
+    fake_client = _FakeDiegoClientWithMultiRevision()
+
+    session = SimpleNamespace(
+        id="sess-1",
+        projectId="proj-1",
+        userId="user-1",
+        baseVersionId=None,
+        options="{}",
+    )
+    db = SimpleNamespace(
+        generationsession=SimpleNamespace(find_unique=AsyncMock(return_value=session)),
+        outlineversion=SimpleNamespace(find_first=AsyncMock(return_value=None)),
+        project=SimpleNamespace(
+            find_unique=AsyncMock(return_value=SimpleNamespace(name="Demo"))
+        ),
+    )
+    run = SimpleNamespace(
+        id="run-1",
+        runNo=1,
+        title="Demo Run",
+        toolType="courseware_ppt",
+    )
+
+    append_event_mock = AsyncMock()
+    set_session_state_mock = AsyncMock()
+    persist_artifact_mock = AsyncMock(return_value=("artifact-1", "/download/pptx"))
+    captured_preview_payloads: list[dict] = []
+    sync_module_path = "services.generation_session_service.diego_runtime_sync"
+
+    async def _capture_preview_payload(_run_id: str, payload: dict) -> None:
+        captured_preview_payloads.append(copy.deepcopy(payload))
+
+    monkeypatch.setattr(
+        f"{sync_module_path}.build_diego_client",
+        lambda: fake_client,
+    )
+    monkeypatch.setattr(
+        f"{sync_module_path}.append_event",
+        append_event_mock,
+    )
+    monkeypatch.setattr(
+        f"{sync_module_path}.set_session_state",
+        set_session_state_mock,
+    )
+    monkeypatch.setattr(
+        f"{sync_module_path}.persist_diego_success_artifact",
+        persist_artifact_mock,
+    )
+    monkeypatch.setattr(
+        f"{sync_module_path}.save_preview_content",
+        _capture_preview_payload,
+    )
+    monkeypatch.setattr(
+        f"{sync_module_path}.load_preview_content",
+        AsyncMock(return_value=None),
+    )
+    monkeypatch.setattr(
+        f"{sync_module_path}.asyncio.sleep",
+        AsyncMock(return_value=None),
+    )
+
+    await sync_diego_generation_until_terminal(
+        db=db,
+        session_id="sess-1",
+        run=run,
+        diego_run_id="diego-1",
+        diego_trace_id="trace-1",
+        poll_interval_seconds=0.01,
+        timeout_seconds=2,
+    )
+
+    assert len(captured_preview_payloads) >= 2
+    final_page = captured_preview_payloads[-1]["rendered_preview"]["pages"][0]
+    assert "slide-1-final" in str(final_page.get("html_preview") or "")

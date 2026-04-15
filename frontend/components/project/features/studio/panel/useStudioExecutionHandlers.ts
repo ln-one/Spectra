@@ -312,13 +312,16 @@ export function useStudioExecutionHandlers({
 
   const resolvePptRunId = useCallback(
     (fallback?: string | null) => {
+      const explicitRunId =
+        typeof fallback === "string" && fallback.trim() ? fallback : null;
+      if (explicitRunId) return explicitRunId;
       const stateRunId = activeRunId;
       if (stateRunId) return stateRunId;
       const sessionRunId = (
         generationSession as { current_run?: { run_id?: string } } | null
       )?.current_run?.run_id;
       if (sessionRunId) return sessionRunId;
-      return fallback ?? null;
+      return null;
     },
     [activeRunId, generationSession]
   );

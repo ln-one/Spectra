@@ -67,6 +67,81 @@ function resolveEventKey(event: {
   return `fallback:${event.timestamp ?? ""}:${event.event_type ?? ""}`;
 }
 
+function clipText(value: unknown, max = 120): string {
+  const text = normalizeText(value);
+  if (!text) return "";
+  return text.length > max ? `${text.slice(0, max)}...` : text;
+}
+
+function resolveHttpStatusHint(reason: unknown): string {
+  const text = normalizeText(reason);
+  if (!text) return "";
+  const match = text.match(/Server error '(\d{3})[^']*'/i);
+  if (match?.[1]) return `HTTP ${match[1]}`;
+  const fallback = text.match(/(\d{3})/);
+  return fallback?.[1] ? `HTTP ${fallback[1]}` : clipText(text, 80);
+}
+
+function formatDiegoEventMessage(
+  eventType: string,
+  payload: Record<string, unknown>
+): string {
+  if (eventType === "llm.request.timeout") {
+    const phase = normalizeText(payload.phase) || "unknown";
+    const attempt = Number(payload.attempt || 0);
+    const maxAttempts = Number(payload.max_attempts || 0);
+    const reason = resolveHttpStatusHint(payload.reason);
+    return `[事件] LLM 超时 ${phase} (${attempt || 0}/${maxAttempts || 0})${reason ? ` · ${reason}` : ""}`;
+  }
+  if (eventType === "llm.request.retry") {
+    const phase = normalizeText(payload.phase) || "unknown";
+    const attempt = Number(payload.attempt || 0);
+    const maxAttempts = Number(payload.max_attempts || 0);
+    const delay = Number(payload.next_delay_sec || 0);
+    const reason = resolveHttpStatusHint(payload.reason);
+    return `[事件] LLM 重试 ${phase} (${attempt || 0}/${maxAttempts || 0}) · ${delay > 0 ? `${delay.toFixed(1)}s 后重试` : "即将重试"}${reason ? ` · ${reason}` : ""}`;
+  }
+  if (eventType === "requirements.analyzing.started") {
+    const pages = Number(payload.target_slide_count || 0);
+    const hasRag = Boolean(payload.has_rag);
+    return `[事件] 开始需求分析${pages > 0 ? ` · 目标 ${pages} 页` : ""}${hasRag ? " · 已启用 RAG" : ""}`;
+  }
+  if (eventType === "requirements.analyzing.completed") {
+    const pages = Number(payload.page_count_fixed || 0);
+    const style = normalizeText(payload.style_reference_name);
+    return `[事件] 需求分析完成${pages > 0 ? ` · 固定 ${pages} 页` : ""}${style ? ` · 风格 ${style}` : ""}`;
+  }
+  if (eventType === "requirements.analyzed") {
+    const preset = normalizeText(payload.style_preset);
+    const palette = normalizeText(payload.palette_name);
+    return `[事件] 需求结构已确定${preset ? ` · preset=${preset}` : ""}${palette ? ` · 配色 ${palette}` : ""}`;
+  }
+  if (eventType === "outline.completed") {
+    const version = Number(payload.version || 0);
+    const sections = Number(payload.sections || 0);
+    return `[事件] 大纲生成完成${version > 0 ? ` · v${version}` : ""}${sections > 0 ? ` · ${sections} 节` : ""}`;
+  }
+  if (eventType === "research.completed") {
+    const audience = clipText(payload.audience, 40);
+    const purpose = clipText(payload.purpose, 80);
+    return `[事件] 研究信息已整理${audience ? ` · 受众 ${audience}` : ""}${purpose ? ` · 目标 ${purpose}` : ""}`;
+  }
+  if (eventType === "plan.completed") {
+    return "[事件] 结构规划完成";
+  }
+  if (eventType === "outline.repair.started") {
+    return "[事件] 正在修复大纲结构";
+  }
+  if (eventType === "outline.repair.completed") {
+    return "[事件] 大纲修复完成";
+  }
+  if (eventType === "outline.repair.failed") {
+    return "[事件] 大纲修复失败，准备重试";
+  }
+
+  return `[事件] ${eventType}`;
+}
+
 function parseSessionSlides(session: unknown): SlideDraft[] {
   if (!session || typeof session !== "object") return [];
   const outline = (session as { outline?: { nodes?: unknown } }).outline;
@@ -198,7 +273,10 @@ export function OutlineEditorPanel({
   const [isConfirming, setIsConfirming] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const processedEventKeysRef = useRef<Set<string>>(new Set());
+  const processedDiegoSeqRef = useRef<Set<number>>(new Set());
+  const lastLoggedStateRef = useRef<string>("");
   const lastSessionIdRef = useRef<string>("");
+  const logContainerRef = useRef<HTMLDivElement | null>(null);
 
   const { events } = useGenerationEvents({
     sessionId: sessionId || null,
@@ -208,6 +286,8 @@ export function OutlineEditorPanel({
     if (sessionId === lastSessionIdRef.current) return;
     lastSessionIdRef.current = sessionId;
     processedEventKeysRef.current.clear();
+    processedDiegoSeqRef.current.clear();
+    lastLoggedStateRef.current = "";
     setStreamLogs([]);
     setOutlineStreamText("");
     setErrorMessage(null);
@@ -278,6 +358,8 @@ export function OutlineEditorPanel({
           stream_channel?: string;
           diego_event_type?: string;
           token?: string;
+          diego_seq?: number;
+          raw_payload?: Record<string, unknown>;
         };
       };
       const eventRunId =
@@ -287,6 +369,11 @@ export function OutlineEditorPanel({
         payload.section_payload && typeof payload.section_payload === "object"
           ? payload.section_payload
           : null;
+      const diegoSeq = Number(sectionPayload?.diego_seq || 0);
+      if (diegoSeq > 0) {
+        if (processedDiegoSeqRef.current.has(diegoSeq)) continue;
+        processedDiegoSeqRef.current.add(diegoSeq);
+      }
       const eventType = normalizeText(event.event_type);
       const diegoEventType =
         normalizeText(sectionPayload?.diego_event_type) || eventType;
@@ -296,6 +383,23 @@ export function OutlineEditorPanel({
         DIEGO_EVENT_PREFIXES.some((prefix) => diegoEventType.startsWith(prefix));
       if (!isDiegoEvent) continue;
 
+      const state = normalizeText((event as { state?: string }).state);
+      if (state && state !== lastLoggedStateRef.current) {
+        lastLoggedStateRef.current = state;
+        setStreamLogs((prev) => {
+          const next: StreamLog[] = [
+            ...prev,
+            {
+              id: `${key}:state:${state}`,
+              ts: event.timestamp,
+              eventType: "state.changed",
+              message: `[状态] ${state}`,
+            },
+          ];
+          return next.slice(-200);
+        });
+      }
+
       const streamChannelRaw =
         normalizeText(sectionPayload?.stream_channel) ||
         (diegoEventType === "outline.token" ? "diego.outline.token" : "");
@@ -304,16 +408,30 @@ export function OutlineEditorPanel({
         | undefined;
       if (
         streamChannel !== "diego.preamble" &&
-        streamChannel !== "diego.outline.token"
+        streamChannel !== "diego.outline.token" &&
+        streamChannelRaw
       ) {
         continue;
       }
 
-      if (streamChannel === "diego.preamble") {
-        const message =
-          normalizeText(payload.progress_message) ||
-          diegoEventType ||
-          "处理中";
+      if (diegoEventType === "outline.token") {
+        const token =
+          normalizeText(sectionPayload?.token) ||
+          normalizeText(payload.progress_message);
+        if (!token) continue;
+        setPhase("outline_streaming");
+        setPreambleCollapsed(true);
+        setOutlineStreamText((prev) => `${prev}${token}`);
+        continue;
+      }
+
+      if (eventType !== "progress.updated" || diegoEventType !== eventType) {
+        const rawPayload =
+          sectionPayload?.raw_payload &&
+          typeof sectionPayload.raw_payload === "object"
+            ? sectionPayload.raw_payload
+            : (payload as Record<string, unknown>);
+        const message = formatDiegoEventMessage(diegoEventType, rawPayload);
         setStreamLogs((prev) => {
           const next: StreamLog[] = [
             ...prev,
@@ -324,20 +442,17 @@ export function OutlineEditorPanel({
               message,
             },
           ];
-          return next.slice(-120);
+          return next.slice(-200);
         });
-        continue;
       }
-
-      const token =
-        normalizeText(sectionPayload?.token) ||
-        normalizeText(payload.progress_message);
-      if (!token) continue;
-      setPhase("outline_streaming");
-      setPreambleCollapsed(true);
-      setOutlineStreamText((prev) => `${prev}${token}`);
     }
   }, [currentRunId, events]);
+
+  useEffect(() => {
+    const node = logContainerRef.current;
+    if (!node) return;
+    node.scrollTop = node.scrollHeight;
+  }, [streamLogs]);
 
   const outlineIncomplete = expectedPages > 0 && slides.length < expectedPages;
   const canGoPreview = ["GENERATING_CONTENT", "RENDERING", "SUCCESS"].includes(
@@ -479,7 +594,10 @@ export function OutlineEditorPanel({
           )}
         </button>
         {!preambleCollapsed ? (
-          <div className="mt-2 max-h-40 space-y-1 overflow-y-auto rounded border border-zinc-200 bg-white p-2">
+          <div
+            ref={logContainerRef}
+            className="mt-2 max-h-44 space-y-1 overflow-y-auto rounded border border-zinc-200 bg-white p-2"
+          >
             {streamLogs.length === 0 ? (
               <div className="flex items-center gap-2 text-xs text-zinc-500">
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />

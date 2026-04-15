@@ -39,6 +39,11 @@ _DIEGO_STATUS_COMPILING = "COMPILING"
 _DIEGO_STATUS_SUCCEEDED = "SUCCEEDED"
 _DIEGO_STATUS_FAILED = "FAILED"
 _DIEGO_EVENT_SLIDE_GENERATED = "slide.generated"
+_DIEGO_EVENT_COMPILE_COMPLETED = "compile.completed"
+_DIEGO_EVENT_RUN_FINALIZED = "run.finalized"
+_SLIDE_PREVIEW_REFRESH_ATTEMPTS_PER_SIGNAL = 2
+_SLIDE_PREVIEW_REFRESH_ATTEMPTS_FINAL_SYNC = 3
+_SLIDE_PREVIEW_REFRESH_ATTEMPTS_MAX_PER_SLIDE = 8
 _DIEGO_STREAM_CHANNEL_PREAMBLE = "diego.preamble"
 _DIEGO_STREAM_CHANNEL_OUTLINE_TOKEN = "diego.outline.token"
 _DIEGO_DIRECT_FORWARD_EVENTS: set[str] = {
@@ -180,10 +185,65 @@ def _extract_new_slide_numbers(
                 slide_no = int(payload_obj.get("slide_no") or 0)
             except (TypeError, ValueError):
                 slide_no = 0
-            if slide_no >= 1 and slide_no not in slide_numbers:
+            if slide_no >= 1:
                 slide_numbers.append(slide_no)
         next_seq = seq
     return next_seq, slide_numbers
+
+
+def _has_diego_events_since(
+    *,
+    diego_events: list[dict[str, object]],
+    last_seq: int,
+    event_types: set[str],
+) -> bool:
+    for item in diego_events:
+        seq = int(item.get("seq") or 0)
+        if seq <= last_seq:
+            continue
+        event_type = str(item.get("event") or "").strip()
+        if event_type in event_types:
+            return True
+    return False
+
+
+def _extract_slide_numbers_from_run_detail(detail: dict[str, object]) -> set[int]:
+    raw = detail.get("slides")
+    if not isinstance(raw, list):
+        return set()
+    slide_numbers: set[int] = set()
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        try:
+            slide_no = int(item.get("slide_no") or 0)
+        except (TypeError, ValueError):
+            slide_no = 0
+        if slide_no >= 1:
+            slide_numbers.add(slide_no)
+    return slide_numbers
+
+
+def _enqueue_slide_preview_refreshes(
+    *,
+    pending_slide_refreshes: dict[int, int],
+    slide_numbers: list[int] | set[int],
+    attempts_per_slide: int,
+) -> None:
+    if attempts_per_slide <= 0:
+        return
+    for slide_no in slide_numbers:
+        try:
+            normalized = int(slide_no)
+        except (TypeError, ValueError):
+            continue
+        if normalized < 1:
+            continue
+        current = int(pending_slide_refreshes.get(normalized) or 0)
+        pending_slide_refreshes[normalized] = min(
+            _SLIDE_PREVIEW_REFRESH_ATTEMPTS_MAX_PER_SLIDE,
+            current + attempts_per_slide,
+        )
 
 
 async def _load_latest_outline_document(db, session_id: str) -> dict | None:
@@ -393,24 +453,30 @@ async def _sync_pending_slide_previews(
     diego_run_id: str,
     diego_trace_id: Optional[str],
     diego_status: str,
-    pending_slide_numbers: set[int],
+    pending_slide_refreshes: dict[int, int],
     preview_payload: dict | None,
-) -> tuple[set[int], dict]:
-    if not pending_slide_numbers:
-        return set(), preview_payload or {}
+) -> tuple[dict[int, int], dict]:
+    if not pending_slide_refreshes:
+        return {}, preview_payload or {}
 
     payload = preview_payload or await _load_or_init_run_preview_payload(
         db=db,
         session_id=session_id,
         spectra_run_id=run.id,
     )
-    remaining: set[int] = set()
-    for slide_no in sorted(pending_slide_numbers):
+    remaining: dict[int, int] = {}
+    for slide_no in sorted(pending_slide_refreshes.keys()):
+        refresh_budget = int(pending_slide_refreshes.get(slide_no) or 0)
+        if refresh_budget <= 0:
+            continue
         try:
             preview = await client.get_slide_preview(diego_run_id, slide_no)
         except ExternalServiceException as exc:
             if _is_diego_preview_not_ready_error(exc):
-                remaining.add(slide_no)
+                remaining[slide_no] = max(
+                    int(remaining.get(slide_no) or 0),
+                    refresh_budget,
+                )
                 continue
             logger.warning(
                 "Diego slide preview fetch failed: run=%s diego_run=%s "
@@ -421,7 +487,10 @@ async def _sync_pending_slide_previews(
                 exc,
                 exc_info=True,
             )
-            remaining.add(slide_no)
+            remaining[slide_no] = max(
+                int(remaining.get(slide_no) or 0),
+                refresh_budget,
+            )
             continue
         except Exception as exc:
             logger.warning(
@@ -433,11 +502,17 @@ async def _sync_pending_slide_previews(
                 exc,
                 exc_info=True,
             )
-            remaining.add(slide_no)
+            remaining[slide_no] = max(
+                int(remaining.get(slide_no) or 0),
+                refresh_budget,
+            )
             continue
 
         if not isinstance(preview, dict):
-            remaining.add(slide_no)
+            remaining[slide_no] = max(
+                int(remaining.get(slide_no) or 0),
+                refresh_budget,
+            )
             continue
         page = _build_spectra_preview_page(
             spectra_run_id=run.id,
@@ -445,42 +520,52 @@ async def _sync_pending_slide_previews(
             preview=preview,
         )
         if page is None:
-            remaining.add(slide_no)
+            remaining[slide_no] = max(
+                int(remaining.get(slide_no) or 0),
+                refresh_budget,
+            )
             continue
         changed = _upsert_rendered_preview_page(payload, page)
-        if not changed:
-            continue
+        if changed:
+            await save_preview_content(run.id, payload)
+            rendered = payload.get("rendered_preview")
+            page_count = (
+                int(rendered.get("page_count") or 0)
+                if isinstance(rendered, dict)
+                else 0
+            )
+            event_payload = {
+                "stage": "preview_slide_rendered",
+                "run_id": run.id,
+                "run_no": run.runNo,
+                "run_title": run.title,
+                "tool_type": run.toolType,
+                "diego_run_id": diego_run_id,
+                "diego_trace_id": diego_trace_id,
+                "slide_no": slide_no,
+                "slide_index": int(page.get("index") or 0),
+                "slide_id": str(page.get("slide_id") or ""),
+                "preview_ready": True,
+                "html_preview_ready": bool(str(page.get("html_preview") or "").strip()),
+                "page_count": page_count,
+            }
+            await append_event(
+                db=db,
+                schema_version=_SCHEMA_VERSION,
+                session_id=session_id,
+                event_type=GenerationEventType.PPT_SLIDE_GENERATED.value,
+                state=_preview_event_state_from_status(diego_status),
+                state_reason="preview_slide_rendered",
+                progress=None,
+                payload=event_payload,
+            )
 
-        await save_preview_content(run.id, payload)
-        rendered = payload.get("rendered_preview")
-        page_count = (
-            int(rendered.get("page_count") or 0) if isinstance(rendered, dict) else 0
-        )
-        event_payload = {
-            "stage": "preview_slide_rendered",
-            "run_id": run.id,
-            "run_no": run.runNo,
-            "run_title": run.title,
-            "tool_type": run.toolType,
-            "diego_run_id": diego_run_id,
-            "diego_trace_id": diego_trace_id,
-            "slide_no": slide_no,
-            "slide_index": int(page.get("index") or 0),
-            "slide_id": str(page.get("slide_id") or ""),
-            "preview_ready": True,
-            "html_preview_ready": bool(str(page.get("html_preview") or "").strip()),
-            "page_count": page_count,
-        }
-        await append_event(
-            db=db,
-            schema_version=_SCHEMA_VERSION,
-            session_id=session_id,
-            event_type=GenerationEventType.PPT_SLIDE_GENERATED.value,
-            state=_preview_event_state_from_status(diego_status),
-            state_reason="preview_slide_rendered",
-            progress=None,
-            payload=event_payload,
-        )
+        remaining_budget = refresh_budget - 1
+        if remaining_budget > 0:
+            remaining[slide_no] = max(
+                int(remaining.get(slide_no) or 0),
+                remaining_budget,
+            )
     return remaining, payload
 
 
@@ -695,7 +780,7 @@ async def sync_diego_generation_until_terminal(
         deadline = asyncio.get_running_loop().time() + timeout_seconds
         last_status: str | None = None
         last_diego_event_seq = 0
-        pending_slide_numbers: set[int] = set()
+        pending_slide_refreshes: dict[int, int] = {}
         preview_payload: dict | None = None
         while asyncio.get_running_loop().time() < deadline:
             detail = await client.get_run(diego_run_id)
@@ -722,10 +807,27 @@ async def sync_diego_generation_until_terminal(
                     last_seq=previous_seq,
                 )
                 if newly_generated_slides:
-                    pending_slide_numbers.update(newly_generated_slides)
+                    _enqueue_slide_preview_refreshes(
+                        pending_slide_refreshes=pending_slide_refreshes,
+                        slide_numbers=newly_generated_slides,
+                        attempts_per_slide=_SLIDE_PREVIEW_REFRESH_ATTEMPTS_PER_SIGNAL,
+                    )
+                if _has_diego_events_since(
+                    diego_events=diego_events,
+                    last_seq=previous_seq,
+                    event_types={
+                        _DIEGO_EVENT_COMPILE_COMPLETED,
+                        _DIEGO_EVENT_RUN_FINALIZED,
+                    },
+                ):
+                    _enqueue_slide_preview_refreshes(
+                        pending_slide_refreshes=pending_slide_refreshes,
+                        slide_numbers=_extract_slide_numbers_from_run_detail(detail),
+                        attempts_per_slide=_SLIDE_PREVIEW_REFRESH_ATTEMPTS_FINAL_SYNC,
+                    )
 
-            if pending_slide_numbers:
-                pending_slide_numbers, preview_payload = (
+            if pending_slide_refreshes:
+                pending_slide_refreshes, preview_payload = (
                     await _sync_pending_slide_previews(
                         db=db,
                         session_id=session_id,
@@ -734,7 +836,7 @@ async def sync_diego_generation_until_terminal(
                         diego_run_id=diego_run_id,
                         diego_trace_id=diego_trace_id,
                         diego_status=status,
-                        pending_slide_numbers=pending_slide_numbers,
+                        pending_slide_refreshes=pending_slide_refreshes,
                         preview_payload=preview_payload,
                     )
                 )
@@ -777,8 +879,15 @@ async def sync_diego_generation_until_terminal(
                 last_status = status
 
             if status == _DIEGO_STATUS_SUCCEEDED:
-                if pending_slide_numbers:
-                    pending_slide_numbers, preview_payload = (
+                _enqueue_slide_preview_refreshes(
+                    pending_slide_refreshes=pending_slide_refreshes,
+                    slide_numbers=_extract_slide_numbers_from_run_detail(detail),
+                    attempts_per_slide=_SLIDE_PREVIEW_REFRESH_ATTEMPTS_FINAL_SYNC,
+                )
+                for _ in range(_SLIDE_PREVIEW_REFRESH_ATTEMPTS_FINAL_SYNC):
+                    if not pending_slide_refreshes:
+                        break
+                    pending_slide_refreshes, preview_payload = (
                         await _sync_pending_slide_previews(
                             db=db,
                             session_id=session_id,
@@ -787,10 +896,12 @@ async def sync_diego_generation_until_terminal(
                             diego_run_id=diego_run_id,
                             diego_trace_id=diego_trace_id,
                             diego_status=status,
-                            pending_slide_numbers=pending_slide_numbers,
+                            pending_slide_refreshes=pending_slide_refreshes,
                             preview_payload=preview_payload,
                         )
                     )
+                    if pending_slide_refreshes:
+                        await asyncio.sleep(min(max(poll_interval_seconds, 0.2), 1.0))
                 session = await db.generationsession.find_unique(
                     where={"id": session_id}
                 )
