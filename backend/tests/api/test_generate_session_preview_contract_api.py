@@ -322,24 +322,13 @@ def test_modify_preview_returns_contract_fields(client, monkeypatch, _as_user):
             "artifact_id": "a-002",
         },
     )
-    assert resp.status_code == 200
-    data = resp.json()["data"]
-    assert data["session_id"] == "s-preview-001"
-    assert data["modify_task_id"] == "gt-001"
-    assert data["artifact_id"] == "a-002"
-    assert data["based_on_version_id"] == "v-002"
-    assert data["current_version_id"] == "v-current"
-    assert data["upstream_updated"] is True
-    assert data["render_version"] == 5
-    assert data["slide_id"] == "slide-1"
-    assert data["slide_index"] == 1
-    assert data["scope"] == "current_slide_only"
-    command = svc.execute_command.await_args.kwargs["command"]
-    assert command["preserve_style"] is False
-    assert command["preserve_layout"] is False
-    assert command["preserve_deck_consistency"] is False
-    assert command["patch"] == {"title": "new title"}
-    assert load_preview_material.await_args.args[4] == "run-002"
+    assert resp.status_code == 409
+    body = resp.json()
+    assert body["success"] is False
+    assert body["error"]["code"] == "RESOURCE_CONFLICT"
+    assert body["error"]["details"]["reason"] == "legacy_courseware_modify_removed"
+    svc.execute_command.assert_not_awaited()
+    load_preview_material.assert_not_awaited()
 
 
 def test_modify_preview_accepts_base_render_version_alias(
@@ -389,9 +378,10 @@ def test_modify_preview_accepts_base_render_version_alias(
             "base_render_version": 3,
         },
     )
-    assert resp.status_code == 200
-    command = execute_command.await_args.kwargs["command"]
-    assert command["expected_render_version"] == 3
+    assert resp.status_code == 409
+    body = resp.json()
+    assert body["error"]["details"]["reason"] == "legacy_courseware_modify_removed"
+    execute_command.assert_not_awaited()
 
 
 def test_modify_preview_defaults_to_current_slide_when_page_not_passed(
@@ -445,11 +435,10 @@ def test_modify_preview_defaults_to_current_slide_when_page_not_passed(
             "artifact_id": "a-003",
         },
     )
-    assert resp.status_code == 200
-    command = execute_command.await_args.kwargs["command"]
-    assert command["slide_id"] == "slide-1"
-    assert command["slide_index"] == 1
-    assert command["instruction"] == "把这一页改成课堂提问风格"
+    assert resp.status_code == 409
+    body = resp.json()
+    assert body["error"]["details"]["reason"] == "legacy_courseware_modify_removed"
+    execute_command.assert_not_awaited()
 
 
 def test_modify_preview_rejects_conflicting_render_versions(client, _as_user):
@@ -597,8 +586,7 @@ def test_get_slide_preview_returns_slide_shape(client, monkeypatch, _as_user):
     assert body["data"]["upstream_updated"] is True
     assert body["data"]["artifact_anchor"]["run_id"] == "run-003"
     assert body["data"]["rendered_page"]["slide_id"] == "slide-2"
-<<<<<<< HEAD
-    assert load_preview_material.await_args.args[3] == "run-003"
+    assert load_preview_material.await_args.args[4] == "run-003"
 
 
 def test_get_slide_preview_with_run_id_supports_prisma_without_select(
@@ -656,10 +644,7 @@ def test_get_slide_preview_with_run_id_supports_prisma_without_select(
     body = resp.json()
     assert body["data"]["artifact_id"] == "a-011"
     assert body["data"]["artifact_anchor"]["run_id"] == "run-011"
-    assert load_preview_material.await_args.args[3] == "run-011"
-=======
-    assert load_preview_material.await_args.args[4] == "run-003"
->>>>>>> 0801b058 (feat: land theseus render service updates)
+    assert load_preview_material.await_args.args[4] == "run-011"
 
 
 def test_export_preview_expected_render_version_conflict(client, monkeypatch, _as_user):

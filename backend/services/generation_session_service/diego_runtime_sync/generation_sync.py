@@ -20,8 +20,14 @@ from .constants import (
     logger,
 )
 from .dependencies import active
-from .events import _extract_diego_events, _extract_new_slide_numbers
+from .events import (
+    _extract_diego_events,
+    _extract_new_slide_numbers,
+    _extract_slide_numbers_from_run_detail,
+)
 from .pending_slides import _sync_pending_slide_previews
+
+_FINAL_PREVIEW_REFRESH_ATTEMPTS = 3
 
 
 async def sync_diego_generation_until_terminal(
@@ -112,7 +118,10 @@ async def sync_diego_generation_until_terminal(
                 last_status = status
 
             if status == _DIEGO_STATUS_SUCCEEDED:
-                if pending_slide_numbers:
+                pending_slide_numbers.update(_extract_slide_numbers_from_run_detail(detail))
+                for attempt in range(_FINAL_PREVIEW_REFRESH_ATTEMPTS):
+                    if not pending_slide_numbers:
+                        break
                     pending_slide_numbers, preview_payload = (
                         await _sync_pending_slide_previews(
                             db=db,
@@ -126,6 +135,8 @@ async def sync_diego_generation_until_terminal(
                             preview_payload=preview_payload,
                         )
                     )
+                    if pending_slide_numbers and attempt + 1 < _FINAL_PREVIEW_REFRESH_ATTEMPTS:
+                        await asyncio.sleep(min(max(poll_interval_seconds, 0.2), 1.0))
                 session = await db.generationsession.find_unique(
                     where={"id": session_id}
                 )

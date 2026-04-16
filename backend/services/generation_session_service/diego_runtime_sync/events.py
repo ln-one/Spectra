@@ -77,3 +77,21 @@ def _extract_new_slide_numbers(
                 slide_numbers.append(slide_no)
         next_seq = seq
     return next_seq, slide_numbers
+
+
+def _extract_slide_numbers_from_run_detail(detail: dict[str, object]) -> set[int]:
+    raw = detail.get("slides")
+    if not isinstance(raw, list):
+        return set()
+
+    slide_numbers: set[int] = set()
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        try:
+            slide_no = int(item.get("slide_no") or 0)
+        except (TypeError, ValueError):
+            slide_no = 0
+        if slide_no >= 1:
+            slide_numbers.add(slide_no)
+    return slide_numbers
