@@ -88,6 +88,13 @@ SERVICE_SOURCES: tuple[ServiceSource, ...] = (
         override_file="docker-compose.diego.dev.yml",
         env_var="DIEGO_IMAGE",
     ),
+    ServiceSource(
+        name="limora",
+        display_name="Limora",
+        path="limora",
+        override_file="docker-compose.limora.dev.yml",
+        env_var="LIMORA_IMAGE",
+    ),
 )
 
 
@@ -120,6 +127,8 @@ def local_source_present(source: ServiceSource) -> bool:
         return True
     if source.name in {"ourograph", "stratumind", "diego"}:
         return (root / "Dockerfile").exists() and (root / "README.md").exists()
+    if source.name == "limora":
+        return (root / "package.json").exists() and (root / "README.md").exists()
     return False
 
 

@@ -22,7 +22,7 @@ class UserConversationMixin:
     async def create_user(
         self,
         email: str,
-        password_hash: str,
+        password_hash: Optional[str],
         username: str,
         full_name: Optional[str] = None,
     ):
@@ -35,6 +35,44 @@ class UserConversationMixin:
             }
         )
 
+    async def upsert_user_identity(
+        self,
+        *,
+        identity_id: str,
+        email: str,
+        username: str,
+        full_name: Optional[str] = None,
+    ):
+        existing = await self.db.user.find_first(
+            where={
+                "OR": [
+                    {"identityId": identity_id},
+                    {"email": email},
+                ]
+            }
+        )
+
+        if existing:
+            return await self.db.user.update(
+                where={"id": existing.id},
+                data={
+                    "identityId": identity_id,
+                    "email": email,
+                    "username": username,
+                    "fullName": full_name,
+                },
+            )
+
+        return await self.db.user.create(
+            data={
+                "identityId": identity_id,
+                "email": email,
+                "password": None,
+                "username": username,
+                "fullName": full_name,
+            },
+        )
+
     async def get_user_by_email(self, email: str):
         return await self.db.user.find_unique(where={"email": email})
 
@@ -43,6 +81,9 @@ class UserConversationMixin:
 
     async def get_user_by_id(self, user_id: str):
         return await self.db.user.find_unique(where={"id": user_id})
+
+    async def get_user_by_identity_id(self, identity_id: str):
+        return await self.db.user.find_unique(where={"identityId": identity_id})
 
     async def create_conversation_message(
         self,

@@ -1,4 +1,10 @@
-"""Adapter for invoking Pagevra as the only render service."""
+"""Legacy structured adapter for invoking Pagevra `/render/*` endpoints.
+
+This module remains as a compatibility layer for structured `document/page/block`
+payloads. Diego-first mainline compile execution should prefer Pagevra
+`/compile/bundles` and related artifact surfaces instead of routing back through
+these structured endpoints.
+"""
 
 from __future__ import annotations
 
@@ -77,6 +83,7 @@ def build_render_engine_input(
     *,
     render_job_id: str,
 ) -> dict[str, Any]:
+    """Build the legacy structured Pagevra `/render/jobs` payload."""
     return _build_render_engine_input(
         courseware_content,
         template_config,
@@ -99,6 +106,7 @@ def build_render_engine_page_input(
     page_class_plan: Optional[list[dict]] = None,
     output_dir: Optional[str] = None,
 ) -> dict[str, Any]:
+    """Build the legacy structured Pagevra `/render/pages` payload."""
     return _build_render_engine_page_input(
         render_job_id=render_job_id,
         page_id=page_id,
@@ -122,6 +130,7 @@ def normalize_render_engine_page_result(result: dict[str, Any]) -> dict[str, Any
 
 
 async def invoke_render_engine(render_input: dict[str, Any]) -> dict[str, Any]:
+    """Invoke the legacy structured document render endpoint."""
     if not render_engine_enabled():
         raise RuntimeError("render_engine_disabled")
     base_url = _render_engine_base_url()
@@ -133,6 +142,7 @@ async def invoke_render_engine(render_input: dict[str, Any]) -> dict[str, Any]:
 
 
 async def invoke_render_engine_page(render_input: dict[str, Any]) -> dict[str, Any]:
+    """Invoke the legacy structured page preview endpoint."""
     if not render_engine_enabled():
         raise RuntimeError("render_engine_disabled")
     base_url = _render_engine_base_url()

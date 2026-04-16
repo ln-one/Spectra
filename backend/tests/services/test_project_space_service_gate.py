@@ -91,6 +91,36 @@ async def test_project_space_service_create_managed_project_uses_remote(monkeypa
 
 
 @pytest.mark.asyncio
+async def test_project_space_service_update_project_governance_uses_remote(monkeypatch):
+    monkeypatch.setenv("OUROGRAPH_BASE_URL", "http://ourograph.test")
+
+    service = ProjectSpaceService()
+    payload = {"project": {"id": "p-1"}}
+    mock = AsyncMock(return_value=payload)
+    monkeypatch.setattr(
+        "services.project_space_service.service.ourograph_client.update_project_governance",
+        mock,
+    )
+
+    result = await service.update_project_governance(
+        project_id="p-1",
+        user_id="u-1",
+        description="desc",
+        visibility="shared",
+        is_referenceable=True,
+    )
+
+    assert result == payload
+    mock.assert_awaited_once_with(
+        project_id="p-1",
+        user_id="u-1",
+        description="desc",
+        visibility="shared",
+        is_referenceable=True,
+    )
+
+
+@pytest.mark.asyncio
 async def test_project_space_service_get_project_artifacts_passes_user_id(monkeypatch):
     monkeypatch.setenv("OUROGRAPH_BASE_URL", "http://ourograph.test")
 

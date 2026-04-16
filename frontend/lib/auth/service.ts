@@ -1,5 +1,5 @@
 ﻿import { authApi } from "../sdk/auth";
-import { TokenStorage } from "./token-storage";
+import { emitAuthStateChange } from "./token-storage";
 import { toUser } from "./user-mapper";
 import { validateLoginInput, validateRegisterInput } from "./validators";
 import type {
@@ -22,20 +22,9 @@ export const authService = {
       }
 
       const user = toUser(userData);
-      const token = response.data.access_token;
-      const refreshToken = response.data.refresh_token;
-      const expiresIn = response.data.expires_in;
-
-      if (token) {
-        TokenStorage.setAccessToken(token, expiresIn);
-      }
-      if (refreshToken) {
-        TokenStorage.setRefreshToken(refreshToken);
-      }
+      emitAuthStateChange();
 
       return {
-        access_token: token || "",
-        token_type: "Bearer",
         user,
       };
     } catch (error) {
@@ -64,20 +53,9 @@ export const authService = {
       }
 
       const user = toUser(userData);
-      const token = response.data.access_token;
-      const refreshToken = response.data.refresh_token;
-      const expiresIn = response.data.expires_in;
-
-      if (token) {
-        TokenStorage.setAccessToken(token, expiresIn);
-      }
-      if (refreshToken) {
-        TokenStorage.setRefreshToken(refreshToken);
-      }
+      emitAuthStateChange();
 
       return {
-        access_token: token || "",
-        token_type: "Bearer",
         user,
       };
     } catch (error) {
@@ -120,36 +98,16 @@ export const authService = {
     } catch {
       // ignore logout errors
     } finally {
-      TokenStorage.clearTokens();
+      emitAuthStateChange();
     }
   },
 
-  async refreshToken(): Promise<boolean> {
-    const refreshToken = TokenStorage.getRefreshToken();
-    if (!refreshToken) {
-      return false;
-    }
-
+  async hasActiveSession(): Promise<boolean> {
     try {
-      const response = await authApi.refreshToken({ refreshToken });
-      if (response?.data?.access_token) {
-        TokenStorage.setAccessToken(
-          response.data.access_token,
-          response.data.expires_in
-        );
-        if (response.data.refresh_token) {
-          TokenStorage.setRefreshToken(response.data.refresh_token);
-        }
-        return true;
-      }
-      return false;
+      await authApi.getCurrentUser();
+      return true;
     } catch {
-      TokenStorage.clearTokens();
       return false;
     }
-  },
-
-  isAuthenticated(): boolean {
-    return TokenStorage.isAuthenticated();
   },
 };

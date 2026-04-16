@@ -126,26 +126,28 @@ def test_preflight_checks_network_targets_when_configured():
     )
 
 
-def test_preflight_reports_render_toolchain_availability(monkeypatch):
-    def fake_which(binary: str):
-        if binary == "marp":
-            return "/usr/local/bin/marp"
-        return None
-
-    monkeypatch.setattr("scripts.deploy_preflight.shutil.which", fake_which)
-
+def test_preflight_reports_service_authority_configuration():
     messages, failures = evaluate_preflight(
         {
             "DATABASE_URL": "postgresql://spectra:pass@postgres.internal:5432/spectra",
             "JWT_SECRET_KEY": "real-secret",
+            "SERVICE_AUTHORITIES_REQUIRED": "true",
+            "DIEGO_BASE_URL": "http://diego.internal:8000",
+            "PAGEVRA_BASE_URL": "http://pagevra.internal:8090",
+            "OUROGRAPH_BASE_URL": "http://ourograph.internal:8101",
+            "DUALWEAVE_BASE_URL": "http://dualweave.internal:8080",
+            "STRATUMIND_BASE_URL": "http://stratumind.internal:8110",
+            "LIMORA_BASE_URL": "http://limora.internal:3001",
         },
         skip_network=True,
         timeout_seconds=0.1,
     )
 
     assert failures == 0
-    assert any("PASS marp available at /usr/local/bin/marp" in m for m in messages)
-    assert any("WARN pandoc missing" in m for m in messages)
+    assert any(
+        "SERVICE_AUTHORITIES_REQUIRED=true and all service URLs are configured" in m
+        for m in messages
+    )
 
 
 def test_preflight_validates_timeout_and_runtime_paths():
@@ -156,8 +158,7 @@ def test_preflight_validates_timeout_and_runtime_paths():
             "AI_REQUEST_TIMEOUT_SECONDS": "invalid",
             "OUTLINE_DRAFT_TIMEOUT_SECONDS": "0",
             "PREVIEW_REBUILD_TIMEOUT_SECONDS": "0",
-            "HEALTH_TOOL_TIMEOUT_SECONDS": "0",
-            "TOOL_CHECK_CACHE_TTL_SECONDS": "-1",
+            "HEALTH_SERVICE_AUTHORITY_TIMEOUT_SECONDS": "0",
             "UPLOAD_DIR": "./uploads",
             "ARTIFACT_STORAGE_DIR": "./uploads/artifacts",
             "GENERATED_DIR": "./generated",
@@ -167,7 +168,7 @@ def test_preflight_validates_timeout_and_runtime_paths():
         timeout_seconds=0.1,
     )
 
-    assert failures == 5
+    assert failures == 4
     assert any(
         "AI_REQUEST_TIMEOUT_SECONDS must be a positive number" in m for m in messages
     )
@@ -179,24 +180,19 @@ def test_preflight_validates_timeout_and_runtime_paths():
         for m in messages
     )
     assert any(
-        "HEALTH_TOOL_TIMEOUT_SECONDS must be a positive number" in m for m in messages
-    )
-    assert any(
-        "TOOL_CHECK_CACHE_TTL_SECONDS must be a non-negative number" in m
+        "HEALTH_SERVICE_AUTHORITY_TIMEOUT_SECONDS must be a positive number" in m
         for m in messages
     )
     assert any("UPLOAD_DIR uses repo-relative path" in m for m in messages)
     assert any("ALLOW_AI_STUB is enabled" in m for m in messages)
 
 
-def test_preflight_fails_when_generation_tools_required_but_binary_missing(monkeypatch):
-    monkeypatch.setattr("scripts.deploy_preflight.shutil.which", lambda _binary: None)
-
+def test_preflight_fails_when_service_authorities_required_but_urls_missing():
     messages, failures = evaluate_preflight(
         {
             "DATABASE_URL": "postgresql://spectra:pass@postgres.internal:5432/spectra",
             "JWT_SECRET_KEY": "real-secret",
-            "GENERATION_TOOLS_REQUIRED": "true",
+            "SERVICE_AUTHORITIES_REQUIRED": "true",
         },
         skip_network=True,
         timeout_seconds=0.1,
@@ -204,6 +200,6 @@ def test_preflight_fails_when_generation_tools_required_but_binary_missing(monke
 
     assert failures == 1
     assert any(
-        "GENERATION_TOOLS_REQUIRED=true but required tools are missing" in m
+        "SERVICE_AUTHORITIES_REQUIRED=true but service URLs are missing" in m
         for m in messages
     )

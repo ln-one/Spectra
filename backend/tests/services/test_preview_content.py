@@ -8,6 +8,7 @@ from services.preview_helpers.content import (
     get_or_generate_content,
     load_preview_material,
 )
+from services.preview_helpers.rendered_preview import build_rendered_preview_payload
 
 
 @pytest.mark.asyncio
@@ -397,3 +398,46 @@ async def test_load_preview_material_returns_explicitly_missing_without_artifact
     assert content == {}
     assert "rendered_preview" not in content
     save_mock.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_build_rendered_preview_payload_prefers_authority_preview(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        "services.preview_helpers.rendered_preview.load_preview_content",
+        AsyncMock(return_value=None),
+    )
+    invoke_page_mock = AsyncMock(
+        side_effect=AssertionError("legacy page render should not run")
+    )
+    monkeypatch.setattr(
+        "services.preview_helpers.rendered_preview.invoke_render_engine_page",
+        invoke_page_mock,
+    )
+
+    payload = await build_rendered_preview_payload(
+        task_id="run-preview-001",
+        title="Authority Preview",
+        markdown_content="# Slide 1",
+        preview_payload={
+            "resolved_markdown_content": "# Slide 1",
+            "rendered_preview": {
+                "format": "html",
+                "page_count": 1,
+                "pages": [
+                    {
+                        "index": 0,
+                        "slide_id": "run-preview-001-slide-0",
+                        "html_preview": "<section>authority</section>",
+                    }
+                ],
+            },
+        },
+    )
+
+    assert payload is not None
+    assert payload["page_count"] == 1
+    assert payload["pages"][0]["html_preview"] == "<section>authority</section>"
+    assert payload["_resolved_markdown_content"] == "# Slide 1"
+    invoke_page_mock.assert_not_awaited()

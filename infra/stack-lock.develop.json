@@ -42,6 +42,14 @@
       "source_branch": "develop",
       "published": true,
       "notes": "Pinned from GHCR public master manifest on 2026-04-13."
+    },
+    "limora": {
+      "image": "ghcr.io/ln-one/limora",
+      "tag": "latest",
+      "digest": null,
+      "source_branch": "develop",
+      "published": false,
+      "notes": "Current Spectra integration expects local-source mode for Limora until a public image is published."
     }
   }
 }

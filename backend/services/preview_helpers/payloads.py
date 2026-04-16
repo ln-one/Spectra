@@ -84,6 +84,20 @@ def _resolved_export_markdown(content: dict) -> str:
     return ""
 
 
+def _material_context_id(material_context) -> Optional[str]:
+    if not material_context:
+        return None
+    if isinstance(material_context, dict):
+        value = (
+            material_context.get("id")
+            or material_context.get("task_id")
+            or material_context.get("render_job_id")
+        )
+        return str(value) if value else None
+    value = getattr(material_context, "id", None)
+    return str(value) if value else None
+
+
 def build_preview_payload(
     session_id: str,
     snapshot: dict,
@@ -100,7 +114,7 @@ def build_preview_payload(
         "session_id": session_id,
         "session_state": snapshot["session"].get("state"),
         "session_state_reason": snapshot["session"].get("stateReason"),
-        "task_id": task.id if task else None,
+        "task_id": _material_context_id(task),
         "artifact_id": anchor["artifact_id"],
         "based_on_version_id": anchor["based_on_version_id"],
         "current_version_id": snapshot.get("current_version_id"),
@@ -210,7 +224,7 @@ def build_export_payload(
     )
     return {
         "session_id": session_id,
-        "task_id": task.id if task else None,
+        "task_id": _material_context_id(task),
         "artifact_id": anchor["artifact_id"],
         "based_on_version_id": anchor["based_on_version_id"],
         "current_version_id": snapshot.get("current_version_id"),

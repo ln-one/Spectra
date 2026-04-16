@@ -26,12 +26,6 @@ class LoginRequest(BaseModel):
     password: str
 
 
-class RefreshTokenRequest(BaseModel):
-    """刷新访问令牌请求"""
-
-    refresh_token: str
-
-
 class UserInfo(BaseModel):
     """用户信息"""
 
@@ -47,9 +41,6 @@ class UserInfo(BaseModel):
 class AuthData(BaseModel):
     """认证响应数据"""
 
-    access_token: str
-    refresh_token: str
-    expires_in: int = Field(gt=0)
     user: UserInfo
 
 

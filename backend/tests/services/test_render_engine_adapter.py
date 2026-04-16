@@ -8,9 +8,10 @@ from services.render_engine_adapter import (
     normalize_render_engine_page_result,
     normalize_render_engine_result,
 )
+from services.render_engine_adapter_helpers.parsing import build_page_markdown, parse_document_pages
 
 
-def test_build_render_engine_input_maps_courseware_content_to_structured_payload():
+def test_legacy_build_render_engine_input_maps_courseware_content_to_structured_payload():
     courseware_content = {
         "title": "测试课件",
         "markdown_content": "# 封面\n\n---\n\n# 目录\n\n- 第一章\n- 第二章\n\n---\n\n## 知识点\n\n- A\n- B",
@@ -39,7 +40,7 @@ def test_build_render_engine_input_maps_courseware_content_to_structured_payload
     assert payload["job_marp_markdown"] is None
 
 
-def test_normalize_render_engine_result_extracts_artifacts_preview_and_metrics():
+def test_legacy_normalize_render_engine_result_extracts_artifacts_preview_and_metrics():
     result = normalize_render_engine_result(
         {
             "artifacts": {
@@ -59,7 +60,7 @@ def test_normalize_render_engine_result_extracts_artifacts_preview_and_metrics()
     assert result["metrics"]["page_count"] == 2
 
 
-def test_normalize_render_engine_result_preserves_job_markdown_metadata():
+def test_legacy_normalize_render_engine_result_preserves_job_markdown_metadata():
     result = normalize_render_engine_result(
         {
             "markdown": "# Resolved",
@@ -76,7 +77,7 @@ def test_normalize_render_engine_result_preserves_job_markdown_metadata():
     assert result["artifact_paths"] == {"pptx": "/tmp/demo.pptx"}
 
 
-def test_build_render_engine_page_input_maps_page_payload():
+def test_legacy_build_render_engine_page_input_maps_page_payload():
     payload = build_render_engine_page_input(
         render_job_id="job-1",
         page_id="job-1-slide-0",
@@ -127,7 +128,7 @@ def test_build_render_engine_page_input_maps_page_payload():
     )
 
 
-def test_build_render_engine_input_allows_explicit_template_override():
+def test_legacy_build_render_engine_input_allows_explicit_template_override():
     payload = build_render_engine_input(
         {"title": "测试课件", "markdown_content": "# 封面"},
         {"style": "default", "template_id": "document-default"},
@@ -139,7 +140,7 @@ def test_build_render_engine_input_allows_explicit_template_override():
     assert payload["render"]["template"]["template_id"] == "document-default"
 
 
-def test_build_render_engine_input_infers_teaching_summary_and_diagram_pages():
+def test_legacy_build_render_engine_input_infers_teaching_summary_and_diagram_pages():
     payload = build_render_engine_input(
         {
             "title": "测试课件",
@@ -185,7 +186,7 @@ def test_build_render_engine_input_infers_teaching_summary_and_diagram_pages():
     ]
 
 
-def test_build_render_engine_input_keeps_export_on_structured_pipeline_when_render_markdown_exists():
+def test_legacy_build_render_engine_input_keeps_export_on_structured_pipeline_when_render_markdown_exists():
     payload = build_render_engine_input(
         {
             "title": "测试课件",
@@ -203,6 +204,41 @@ def test_build_render_engine_input_keeps_export_on_structured_pipeline_when_rend
 
     assert payload["job_marp_markdown"] is None
     assert len(payload["document"]["pages"]) == 2
+
+
+def test_parse_document_pages_keeps_cover_and_semantic_pages_split():
+    pages = parse_document_pages(
+        "---\nmarp: true\n---\n\n"
+        "<!-- _class: cover density-medium -->\n\n"
+        "# 课程标题\n\n"
+        "授课教师：张老师\n\n---\n\n"
+        "# 学习目标\n\n- 目标一\n- 目标二"
+    )
+
+    assert len(pages) == 2
+    assert pages[0]["kind"] == "chapter_cover"
+    assert pages[0]["density"] == "density-medium"
+    assert pages[1]["layout"] == "learning_objectives"
+    assert pages[1]["structure"]["learning_objectives"]["objectives"] == [
+        "目标一",
+        "目标二",
+    ]
+
+
+def test_build_page_markdown_renders_mermaid_and_title():
+    markdown = build_page_markdown(
+        {
+            "title": "流程图",
+            "blocks": [
+                {"type": "paragraph", "text": "说明"},
+                {"type": "mermaid", "title": "结构", "code": "graph TD\nA-->B"},
+            ],
+        }
+    )
+
+    assert markdown.startswith("# 流程图")
+    assert "```mermaid" in markdown
+    assert "graph TD" in markdown
 
 
 def test_normalize_render_engine_page_result_extracts_html_preview():
@@ -258,7 +294,7 @@ def test_normalize_render_engine_page_result_preserves_split_previews():
     ]
 
 
-def test_invoke_render_engine_uses_http_api_when_base_url_is_configured(monkeypatch):
+def test_legacy_invoke_render_engine_uses_http_api_when_base_url_is_configured(monkeypatch):
     class FakeResponse:
         def __init__(self, payload):
             self._payload = payload
@@ -322,7 +358,7 @@ def test_invoke_render_engine_uses_http_api_when_base_url_is_configured(monkeypa
     assert result["artifacts"]["pptx_path"] == "/tmp/out.pptx"
 
 
-def test_invoke_render_engine_page_uses_http_page_api(monkeypatch):
+def test_legacy_invoke_render_engine_page_uses_http_page_api(monkeypatch):
     class FakeResponse:
         def __init__(self, payload):
             self._payload = payload

@@ -6,7 +6,6 @@
   unwrap,
   withIdempotency,
 } from "./client";
-import { TokenStorage } from "../auth";
 import type { components } from "./types";
 
 export type GenerationSessionMode =
@@ -285,8 +284,6 @@ export const generateApi = {
       `${API_BASE_URL}/api/v1/generate/sessions/${sessionId}/events`
     );
     if (cursor) url.searchParams.set("cursor", cursor);
-    const token = TokenStorage.getAccessToken();
-    if (token) url.searchParams.set("token", token);
     return url.toString();
   },
 };

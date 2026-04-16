@@ -6,6 +6,7 @@ import struct
 from pathlib import Path
 from typing import Awaitable, Callable, Optional
 
+from services.preview_helpers.cache import load_preview_content
 from services.generation.marp_document import split_marp_document
 from services.preview_helpers.rendering import build_slides
 from services.preview_helpers.slide_mapping import slide_identity
@@ -79,6 +80,34 @@ def _assemble_resolved_markdown(markdown_fragments: list[tuple[int, str]]) -> st
     return ""
 
 
+def _normalized_rendered_preview(
+    payload: dict | None,
+) -> dict | None:
+    if not isinstance(payload, dict):
+        return None
+    rendered = payload.get("rendered_preview")
+    if not isinstance(rendered, dict):
+        return None
+    pages = [dict(item) for item in (rendered.get("pages") or []) if isinstance(item, dict)]
+    if not pages:
+        return None
+    return {
+        "format": str(rendered.get("format") or "html").strip() or "html",
+        "page_count": len(pages),
+        "pages": pages,
+    }
+
+
+def _authority_resolved_markdown(payload: dict | None) -> str:
+    if not isinstance(payload, dict):
+        return ""
+    for key in ("resolved_markdown_content", "markdown_content", "render_markdown"):
+        value = payload.get(key)
+        if isinstance(value, str) and value.strip():
+            return value
+    return ""
+
+
 async def build_rendered_preview_payload(
     *,
     task_id: str,
@@ -91,9 +120,25 @@ async def build_rendered_preview_payload(
     extra_css: Optional[str] = None,
     page_class_plan: Optional[list[dict]] = None,
     on_page_rendered: Optional[Callable[[dict], Awaitable[None]]] = None,
+    preview_payload: Optional[dict] = None,
 ) -> Optional[dict]:
     if not str(markdown_content or "").strip():
         return None
+
+    cached_preview_payload = await load_preview_content(task_id)
+    for candidate in (preview_payload, cached_preview_payload):
+        rendered_preview = _normalized_rendered_preview(candidate)
+        if rendered_preview is None:
+            continue
+        resolved_markdown = _authority_resolved_markdown(candidate)
+        if resolved_markdown:
+            rendered_preview["_resolved_markdown_content"] = resolved_markdown
+        logger.info(
+            "preview_payload_authority_reused task_id=%s page_count=%s",
+            task_id,
+            rendered_preview.get("page_count"),
+        )
+        return rendered_preview
 
     slide_models = build_slides(
         task_id,

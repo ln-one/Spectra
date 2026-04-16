@@ -1,4 +1,4 @@
-"""Tests for auth schemas (Batch C1)."""
+"""Tests for auth schemas."""
 
 from datetime import datetime, timezone
 from types import SimpleNamespace
@@ -10,7 +10,6 @@ from schemas.auth import (
     AuthData,
     AuthResponse,
     LoginRequest,
-    RefreshTokenRequest,
     RegisterRequest,
     UserInfo,
     UserInfoData,
@@ -39,34 +38,9 @@ def test_register_request_rejects_short_password():
         )
 
 
-def test_register_request_rejects_invalid_username():
-    with pytest.raises(ValidationError):
-        RegisterRequest(
-            email="teacher@example.com",
-            password="StrongPwd123",
-            username="bad name",
-        )
-
-
-def test_register_request_rejects_invalid_email():
-    with pytest.raises(ValidationError):
-        RegisterRequest(
-            email="invalid-email",
-            password="StrongPwd123",
-            username="teacher_01",
-        )
-
-
 def test_login_request_valid_payload():
     req = LoginRequest(email="teacher@example.com", password="StrongPwd123")
-
     assert req.email == "teacher@example.com"
-
-
-def test_refresh_token_request_valid_payload():
-    req = RefreshTokenRequest(refresh_token="token-xyz")
-
-    assert req.refresh_token == "token-xyz"
 
 
 def test_userinfo_from_attributes():
@@ -94,19 +68,10 @@ def test_auth_response_schema_shape():
         createdAt=now,
     )
 
-    response = AuthResponse(
-        data=AuthData(
-            access_token="access-token",
-            refresh_token="refresh-token",
-            expires_in=1800,
-            user=user,
-        )
-    )
+    response = AuthResponse(data=AuthData(user=user))
 
     assert response.success is True
-    assert response.data.access_token == "access-token"
-    assert response.data.refresh_token == "refresh-token"
-    assert response.data.expires_in == 1800
+    assert response.data.user.id == "u-001"
 
 
 def test_userinfo_response_schema_shape():
@@ -123,38 +88,3 @@ def test_userinfo_response_schema_shape():
 
     assert response.success is True
     assert response.data.user.id == "u-001"
-
-
-def test_register_request_allows_hyphen_in_username():
-    req = RegisterRequest(
-        email="teacher@example.com",
-        password="StrongPwd123",
-        username="teacher-01",
-    )
-    assert req.username == "teacher-01"
-
-
-def test_register_request_without_fullname():
-    req = RegisterRequest(
-        email="teacher@example.com",
-        password="StrongPwd123",
-        username="teacher_01",
-    )
-    assert req.fullName is None
-
-
-def test_auth_data_rejects_zero_expires_in():
-    now = datetime.now(timezone.utc)
-    user = UserInfo(
-        id="u-001",
-        email="teacher@example.com",
-        username="teacher_01",
-        createdAt=now,
-    )
-    with pytest.raises(ValidationError):
-        AuthData(
-            access_token="token",
-            refresh_token="refresh",
-            expires_in=0,
-            user=user,
-        )

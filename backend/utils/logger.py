@@ -108,7 +108,17 @@ def setup_logging(log_level: str = "INFO", log_format: str = "text") -> None:
 
     # Third-party HTTP clients may emit debug logs during interpreter shutdown.
     # Keep them at warning+ to avoid noisy/fragile teardown logging in CI.
-    for noisy_logger in ("httpcore", "httpx", "huggingface_hub"):
+    for noisy_logger in (
+        "httpcore",
+        "httpx",
+        "huggingface_hub",
+        "prisma",
+        "prisma._builder",
+        "prisma._base_client",
+        "prisma.engine._http",
+        "prisma.engine._query",
+        "prisma.engine.utils",
+    ):
         logging.getLogger(noisy_logger).setLevel(logging.WARNING)
 
     # Log startup message

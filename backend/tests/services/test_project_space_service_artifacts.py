@@ -134,3 +134,69 @@ async def test_create_artifact_with_file_replace_marks_old_artifact(monkeypatch)
     assert update_metadata.await_args.args[0] == "a-old"
     assert update_metadata.await_args.args[1]["is_current"] is False
     assert update_metadata.await_args.args[1]["superseded_by_artifact_id"] == "a-new"
+
+
+@pytest.mark.asyncio
+async def test_create_artifact_with_file_reuses_authority_office_artifact(
+    monkeypatch,
+):
+    monkeypatch.setenv("OUROGRAPH_BASE_URL", "http://ourograph.test")
+    service = ProjectSpaceService()
+    service.db = SimpleNamespace()
+    monkeypatch.setattr(
+        service,
+        "get_project_current_version_id",
+        AsyncMock(return_value="v-1"),
+    )
+    monkeypatch.setattr(
+        service,
+        "get_project_version_with_context",
+        AsyncMock(return_value=(SimpleNamespace(id="v-1", projectId="p-1"), "v-1")),
+    )
+    monkeypatch.setattr(
+        service,
+        "get_artifact",
+        AsyncMock(
+            return_value=SimpleNamespace(
+                id="a-source",
+                type="pptx",
+                storagePath="/formal/demo.pptx",
+            )
+        ),
+    )
+    invoke_render_mock = AsyncMock(
+        side_effect=AssertionError("legacy render job should not run")
+    )
+    monkeypatch.setattr(
+        "services.project_space_service.artifact_rendering.invoke_render_engine",
+        invoke_render_mock,
+    )
+    create_artifact = AsyncMock(
+        return_value=SimpleNamespace(
+            id="a-new",
+            projectId="p-1",
+            sessionId=None,
+            basedOnVersionId="v-1",
+            ownerUserId="u-1",
+            type="pptx",
+            visibility="private",
+            storagePath="/formal/demo.pptx",
+            metadata="{}",
+            createdAt="2026-04-09T00:00:00Z",
+            updatedAt="2026-04-09T00:00:00Z",
+        )
+    )
+    monkeypatch.setattr(service, "create_artifact", create_artifact)
+    monkeypatch.setattr(service, "update_artifact_metadata", AsyncMock())
+
+    artifact = await service.create_artifact_with_file(
+        project_id="p-1",
+        artifact_type="pptx",
+        visibility="private",
+        user_id="u-1",
+        content={"title": "Authority Deck", "source_artifact_id": "a-source"},
+    )
+
+    assert artifact.id == "a-new"
+    assert create_artifact.await_args.kwargs["storage_path"] == "/formal/demo.pptx"
+    invoke_render_mock.assert_not_awaited()

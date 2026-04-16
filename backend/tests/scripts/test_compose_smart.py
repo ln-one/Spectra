@@ -27,6 +27,7 @@ def _lock_payload(
     ourograph_digest: str | None,
     stratumind_digest: str | None,
     diego_digest: str | None,
+    limora_digest: str | None,
 ) -> str:
     return json.dumps(
         {
@@ -72,6 +73,14 @@ def _lock_payload(
                     "published": diego_digest is not None,
                     "notes": "diego lock",
                 },
+                "limora": {
+                    "image": "ghcr.io/example/limora",
+                    "tag": "dev" if channel == "develop" else "latest",
+                    "digest": limora_digest,
+                    "source_branch": channel,
+                    "published": limora_digest is not None,
+                    "notes": "limora lock",
+                },
             },
         },
         indent=2,
@@ -86,20 +95,27 @@ def _run_compose_smart(
     ourograph: bool,
     stratumind: bool,
     diego: bool,
+    limora: bool,
     args: list[str],
-    develop_lock: tuple[str | None, str | None, str | None, str | None, str | None] = (
+    develop_lock: tuple[
+        str | None, str | None, str | None, str | None, str | None, str | None
+    ] = (
         "sha256:" + "1" * 64,
         "sha256:" + "2" * 64,
         "sha256:" + "3" * 64,
         "sha256:" + "4" * 64,
         "sha256:" + "5" * 64,
+        "sha256:" + "b" * 64,
     ),
-    main_lock: tuple[str | None, str | None, str | None, str | None, str | None] = (
+    main_lock: tuple[
+        str | None, str | None, str | None, str | None, str | None, str | None
+    ] = (
         "sha256:" + "6" * 64,
         "sha256:" + "7" * 64,
         "sha256:" + "8" * 64,
         "sha256:" + "9" * 64,
         "sha256:" + "a" * 64,
+        "sha256:" + "c" * 64,
     ),
 ) -> subprocess.CompletedProcess[str]:
     root = tmp_path / "repo"
@@ -136,6 +152,10 @@ def _run_compose_smart(
         "services:\n" "  diego:\n" "    build:\n" "      context: .\n",
     )
     _make_file(
+        root / "docker-compose.limora.dev.yml",
+        "services:\n" "  limora:\n" "    build:\n" "      context: ./limora\n",
+    )
+    _make_file(
         root / "infra/stack-lock.develop.json",
         _lock_payload(
             channel="develop",
@@ -144,6 +164,7 @@ def _run_compose_smart(
             ourograph_digest=develop_lock[2],
             stratumind_digest=develop_lock[3],
             diego_digest=develop_lock[4],
+            limora_digest=develop_lock[5],
         ),
     )
     _make_file(
@@ -155,6 +176,7 @@ def _run_compose_smart(
             ourograph_digest=main_lock[2],
             stratumind_digest=main_lock[3],
             diego_digest=main_lock[4],
+            limora_digest=main_lock[5],
         ),
     )
 
@@ -213,6 +235,10 @@ def _run_compose_smart(
         _make_file(root / "diego/Dockerfile", "FROM python:3.11-slim\n")
         _make_file(root / "diego/README.md", "# Diego\n")
         _make_file(root / "diego/.git", "gitdir: ../.git/modules/diego\n")
+    if limora:
+        _make_file(root / "limora/package.json", "{\n  \"name\": \"limora\"\n}\n")
+        _make_file(root / "limora/README.md", "# Limora\n")
+        _make_file(root / "limora/.git", "gitdir: ../.git/modules/limora\n")
 
     env = os.environ | {
         "PATH": f"{root / 'bin'}:{os.environ['PATH']}",
@@ -221,6 +247,7 @@ def _run_compose_smart(
         "TEST_SUBMODULE_OUROGRAPH": "1" if ourograph else "0",
         "TEST_SUBMODULE_STRATUMIND": "1" if stratumind else "0",
         "TEST_SUBMODULE_DIEGO": "1" if diego else "0",
+        "TEST_SUBMODULE_LIMORA": "1" if limora else "0",
         "TEST_BRANCH": "develop",
     }
     return subprocess.run(
@@ -241,6 +268,7 @@ def test_status_reports_lock_and_source_modes(tmp_path: Path) -> None:
         ourograph=True,
         stratumind=True,
         diego=True,
+        limora=True,
         args=["status"],
     )
 
@@ -251,6 +279,7 @@ def test_status_reports_lock_and_source_modes(tmp_path: Path) -> None:
     assert "Ourograph: using local source" in result.stdout
     assert "Stratumind: using local source" in result.stdout
     assert "Diego: using local source" in result.stdout
+    assert "Limora: using local source" in result.stdout
     assert "Synced env: missing" in result.stdout
 
 
@@ -262,6 +291,7 @@ def test_sync_writes_env_and_pulls_only_image_mode_services(tmp_path: Path) -> N
         ourograph=True,
         stratumind=True,
         diego=True,
+        limora=True,
         args=["sync", "--channel", "develop"],
     )
 
@@ -283,6 +313,7 @@ def test_sync_writes_env_and_pulls_only_image_mode_services(tmp_path: Path) -> N
     assert "OUROGRAPH_IMAGE=ghcr.io/example/ourograph@sha256:" in content
     assert "STRATUMIND_IMAGE=ghcr.io/example/stratumind@sha256:" in content
     assert "DIEGO_IMAGE=ghcr.io/example/diego@sha256:" in content
+    assert "LIMORA_IMAGE=ghcr.io/example/limora@sha256:" in content
     assert content == mirror_content
     assert "services:" in override_content
     assert "pagevra:" in override_content
@@ -290,6 +321,7 @@ def test_sync_writes_env_and_pulls_only_image_mode_services(tmp_path: Path) -> N
     assert "ourograph:" in override_content
     assert "stratumind:" in override_content
     assert "diego:" in override_content
+    assert "limora:" in override_content
     assert "dualweave:" not in override_content
     assert "volumes:" in override_content
 
@@ -302,8 +334,9 @@ def test_sync_fails_when_image_mode_service_is_unpublished(tmp_path: Path) -> No
         ourograph=False,
         stratumind=False,
         diego=False,
+        limora=False,
         args=["sync", "--channel", "develop"],
-        develop_lock=("sha256:" + "1" * 64, None, None, None, None),
+        develop_lock=("sha256:" + "1" * 64, None, None, None, None, None),
     )
 
     combined = result.stdout + result.stderr
@@ -312,6 +345,7 @@ def test_sync_fails_when_image_mode_service_is_unpublished(tmp_path: Path) -> No
     assert "Ourograph lock for channel 'develop' is not published yet" in combined
     assert "Stratumind lock for channel 'develop' is not published yet" in combined
     assert "Diego lock for channel 'develop' is not published yet" in combined
+    assert "Limora lock for channel 'develop' is not published yet" in combined
 
 
 def test_sync_allows_unpublished_service_when_local_source_exists(
@@ -324,8 +358,9 @@ def test_sync_allows_unpublished_service_when_local_source_exists(
         ourograph=True,
         stratumind=True,
         diego=True,
+        limora=True,
         args=["sync", "--channel", "develop"],
-        develop_lock=("sha256:" + "1" * 64, None, None, None, None),
+        develop_lock=("sha256:" + "1" * 64, None, None, None, None, None),
     )
 
     env_file = tmp_path / "repo/.env.compose.lock"
@@ -339,11 +374,13 @@ def test_sync_allows_unpublished_service_when_local_source_exists(
     assert "OUROGRAPH_IMAGE=ghcr.io/example/ourograph:dev" in content
     assert "STRATUMIND_IMAGE=ghcr.io/example/stratumind:dev" in content
     assert "DIEGO_IMAGE=ghcr.io/example/diego:dev" in content
+    assert "LIMORA_IMAGE=ghcr.io/example/limora:dev" in content
     assert content == mirror_content
     assert "dualweave:" in override_content
     assert "ourograph:" in override_content
     assert "stratumind:" in override_content
     assert "diego:" in override_content
+    assert "limora:" in override_content
 
 
 def test_sync_removes_override_when_no_local_sources(tmp_path: Path) -> None:
@@ -354,6 +391,7 @@ def test_sync_removes_override_when_no_local_sources(tmp_path: Path) -> None:
         ourograph=False,
         stratumind=False,
         diego=False,
+        limora=False,
         args=["sync", "--channel", "develop"],
     )
 
@@ -371,6 +409,7 @@ def test_doctor_fails_when_sync_missing_for_image_mode(tmp_path: Path) -> None:
         ourograph=False,
         stratumind=False,
         diego=False,
+        limora=False,
         args=["doctor", "--channel", "develop"],
     )
 
@@ -388,6 +427,7 @@ def test_compose_command_uses_synced_env_and_overrides(tmp_path: Path) -> None:
         ourograph=True,
         stratumind=True,
         diego=True,
+        limora=True,
         args=["sync", "--channel", "develop"],
     )
     assert sync_result.returncode == 0
@@ -399,6 +439,7 @@ def test_compose_command_uses_synced_env_and_overrides(tmp_path: Path) -> None:
         ourograph=True,
         stratumind=True,
         diego=True,
+        limora=True,
         args=["config"],
     )
 
@@ -409,6 +450,7 @@ def test_compose_command_uses_synced_env_and_overrides(tmp_path: Path) -> None:
     assert "docker-compose.ourograph.dev.yml" in result.stdout
     assert "docker-compose.stratumind.dev.yml" in result.stdout
     assert "docker-compose.diego.dev.yml" in result.stdout
+    assert "docker-compose.limora.dev.yml" in result.stdout
 
 
 def test_up_auto_syncs_when_env_lock_is_missing(tmp_path: Path) -> None:
@@ -419,6 +461,7 @@ def test_up_auto_syncs_when_env_lock_is_missing(tmp_path: Path) -> None:
         ourograph=False,
         stratumind=False,
         diego=False,
+        limora=False,
         args=["up"],
     )
 
@@ -440,6 +483,7 @@ def test_up_auto_adds_build_when_local_source_exists(tmp_path: Path) -> None:
         ourograph=True,
         stratumind=True,
         diego=True,
+        limora=True,
         args=["sync", "--channel", "develop"],
     )
     assert sync_result.returncode == 0
@@ -451,6 +495,7 @@ def test_up_auto_adds_build_when_local_source_exists(tmp_path: Path) -> None:
         ourograph=True,
         stratumind=True,
         diego=True,
+        limora=True,
         args=["up"],
     )
 

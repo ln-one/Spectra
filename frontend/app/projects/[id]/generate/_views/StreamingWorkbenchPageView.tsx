@@ -13,9 +13,23 @@ import { useGeneratePreviewState } from "./useGeneratePreviewState";
 import { PreviewHeader } from "./components/PreviewHeader";
 import { PreviewSlideStrip } from "./components/PreviewSlideStrip";
 import { PreviewFloatingTools } from "./components/PreviewFloatingTools";
-import { HtmlPreviewFrame } from "./components/HtmlPreviewFrame";
 
 function hasRenderablePreview(slide: {
+  thumbnail_url?: string | null;
+  rendered_previews?: Array<{
+    image_url?: string | null;
+  }>;
+}): boolean {
+  const frames = Array.isArray(slide.rendered_previews)
+    ? slide.rendered_previews
+    : [];
+  if (frames.some((frame) => Boolean(frame?.image_url))) {
+    return true;
+  }
+  return Boolean(slide.thumbnail_url);
+}
+
+function hasPreviewShell(slide: {
   thumbnail_url?: string | null;
   rendered_html_preview?: string | null;
   rendered_previews?: Array<{
@@ -23,25 +37,22 @@ function hasRenderablePreview(slide: {
     html_preview?: string | null;
   }>;
 }): boolean {
+  if (hasRenderablePreview(slide)) return true;
   const frames = Array.isArray(slide.rendered_previews)
     ? slide.rendered_previews
     : [];
   if (
     frames.some(
       (frame) =>
-        Boolean(frame?.image_url) ||
-        (typeof frame?.html_preview === "string" && frame.html_preview.trim())
+        typeof frame?.html_preview === "string" && frame.html_preview.trim()
     )
   ) {
     return true;
   }
-  if (
+  return (
     typeof slide.rendered_html_preview === "string" &&
-    slide.rendered_html_preview.trim()
-  ) {
-    return true;
-  }
-  return Boolean(slide.thumbnail_url);
+    Boolean(slide.rendered_html_preview.trim())
+  );
 }
 
 export default function StreamingWorkbenchPageView() {
@@ -148,7 +159,7 @@ export default function StreamingWorkbenchPageView() {
   }, [activeSessionId, projectId, router, sessionState]);
 
   const renderedSlides = useMemo(
-    () => orderedSlides.filter((slide) => hasRenderablePreview(slide)),
+    () => orderedSlides.filter((slide) => hasPreviewShell(slide)),
     [orderedSlides]
   );
   const pendingSlide = useMemo(
@@ -228,25 +239,24 @@ export default function StreamingWorkbenchPageView() {
         (fullscreenSlide as { rendered_previews?: unknown }).rendered_previews
       )
     ) {
-      return (
+      const imagePreviews = (
         (
           fullscreenSlide as {
             rendered_previews?: Array<{
               image_url?: string | null;
-              html_preview?: string | null;
               split_index?: number;
             }>;
           }
         ).rendered_previews ?? []
-      ).slice();
+      )
+        .filter((preview) => Boolean(preview.image_url))
+        .sort((a, b) => (a.split_index ?? 0) - (b.split_index ?? 0));
+      if (imagePreviews.length) return imagePreviews;
     }
     if (fullscreenSlide.thumbnail_url) {
       return [
         {
           image_url: fullscreenSlide.thumbnail_url,
-          html_preview: (
-            fullscreenSlide as { rendered_html_preview?: string | null }
-          ).rendered_html_preview,
           split_index: 0,
         },
       ];
@@ -327,6 +337,7 @@ export default function StreamingWorkbenchPageView() {
                         <SlideCard
                           slide={slide}
                           isActive={activeSlideIndex === slide.index}
+                          isPreviewTerminalFailed={sessionState === "FAILED"}
                           onModify={(target) => {
                             void handleRegenerateSlide(target);
                           }}
@@ -340,7 +351,8 @@ export default function StreamingWorkbenchPageView() {
                         />
                       </motion.div>
                     ))}
-                    {isSessionGenerating && pendingSlide ? (
+                    {pendingSlide &&
+                    (isSessionGenerating || renderedSlides.length === 0) ? (
                       <motion.div
                         key={pendingSlide.id || `pending-${pendingSlide.index}`}
                         initial={{ opacity: 0, y: 10 }}
@@ -439,21 +451,7 @@ export default function StreamingWorkbenchPageView() {
                         分页 {previewIndex + 1} / {fullscreenPreviews.length}
                       </div>
                     ) : null}
-                    {preview.html_preview ? (
-                      <div className="overflow-hidden rounded-lg bg-white shadow-2xl">
-                        <HtmlPreviewFrame
-                          title={
-                            fullscreenPreviews.length > 1
-                              ? `${fullscreenSlide.title || `Slide ${fullscreenSlide.index + 1}`} - 分页 ${previewIndex + 1}`
-                              : fullscreenSlide.title ||
-                                `Slide ${fullscreenSlide.index + 1}`
-                          }
-                          html={preview.html_preview}
-                          interactive
-                          className="min-h-[70vh]"
-                        />
-                      </div>
-                    ) : (
+                    <div className="aspect-[16/9] max-h-[82vh] w-full overflow-hidden rounded-lg bg-white shadow-2xl">
                       <img
                         src={preview.image_url || undefined}
                         alt={
@@ -462,9 +460,9 @@ export default function StreamingWorkbenchPageView() {
                             : fullscreenSlide.title ||
                               `Slide ${fullscreenSlide.index + 1}`
                         }
-                        className="max-h-full max-w-full rounded-lg bg-white object-contain shadow-2xl"
+                        className="h-full w-full object-contain"
                       />
-                    )}
+                    </div>
                   </div>
                 ))}
               </div>

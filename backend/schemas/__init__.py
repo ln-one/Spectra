@@ -2,7 +2,6 @@ from .auth import (
     AuthData,
     AuthResponse,
     LoginRequest,
-    RefreshTokenRequest,
     RegisterRequest,
     UserInfo,
     UserInfoData,
@@ -53,7 +52,6 @@ __all__ = [
     # Auth
     "RegisterRequest",
     "LoginRequest",
-    "RefreshTokenRequest",
     "UserInfo",
     "AuthData",
     "AuthResponse",

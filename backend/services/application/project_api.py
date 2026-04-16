@@ -3,14 +3,17 @@ from typing import Optional
 
 from fastapi.encoders import jsonable_encoder
 
-from schemas.project_semantics import normalize_project_reference_mode
+from schemas.project_semantics import (
+    is_project_referenceable,
+    normalize_project_reference_mode,
+)
 from schemas.project_space import ReferenceRelationType
 from schemas.project_vocabulary import ProjectReferenceMode
 from services.application.access import get_owned_project
 from services.database import db_service
 from services.file_upload_service import serialize_upload
 from services.project_space_service.service import project_space_service
-from utils.exceptions import ValidationException
+from utils.exceptions import InternalServerException, ValidationException
 from utils.responses import success_response
 
 logger = logging.getLogger(__name__)
@@ -55,6 +58,10 @@ async def _create_base_reference_if_needed(project, body, user_id: str) -> None:
     base_project = await db_service.get_project(base_project_id)
     if not base_project:
         raise ValidationException(message=f"基底项目不存在: {base_project_id}")
+    if not is_project_referenceable(base_project):
+        raise ValidationException(
+            message="所选基底项目当前不可引用，请选择标记为“可引用”的项目。"
+        )
 
     reference_mode = normalize_project_reference_mode(
         getattr(body, "reference_mode", ProjectReferenceMode.FOLLOW)
@@ -136,7 +143,7 @@ async def create_project_response(
 async def update_project_response(
     project_id: str, body, user_id: str, idempotency_key: Optional[str]
 ):
-    await get_owned_project(project_id, user_id)
+    existing_project = await get_owned_project(project_id, user_id)
 
     cache_key = (
         f"projects:update:{user_id}:{project_id}:{idempotency_key}"
@@ -164,6 +171,33 @@ async def update_project_response(
         visibility=body.visibility,
         is_referenceable=body.is_referenceable,
     )
+    try:
+        await project_space_service.update_project_governance(
+            project_id=project_id,
+            user_id=user_id,
+            description=body.description,
+            visibility=body.visibility,
+            is_referenceable=body.is_referenceable,
+        )
+    except Exception:
+        await db_service.update_project(
+            project_id=project_id,
+            name=getattr(existing_project, "name", None),
+            description=getattr(existing_project, "description", None),
+            grade_level=getattr(existing_project, "gradeLevel", None),
+            visibility=getattr(existing_project, "visibility", None),
+            is_referenceable=getattr(existing_project, "isReferenceable", None),
+        )
+        logger.error(
+            "project_update_failed",
+            extra={
+                "user_id": user_id,
+                "project_id": project_id,
+                "update_stage": "formal_governance",
+            },
+            exc_info=True,
+        )
+        raise
     logger.info(
         "project_updated",
         extra={
@@ -181,6 +215,52 @@ async def update_project_response(
             cache_key, jsonable_encoder(response_payload)
         )
     return response_payload
+
+
+async def delete_project_response(project_id: str, user_id: str):
+    await get_owned_project(project_id, user_id)
+
+    logger.info(
+        "project_delete_started",
+        extra={"user_id": user_id, "project_id": project_id},
+    )
+
+    try:
+        await _delete_formal_project(project_id, user_id)
+    except Exception:
+        logger.error(
+            "project_delete_failed",
+            extra={
+                "user_id": user_id,
+                "project_id": project_id,
+                "delete_stage": "formal",
+            },
+            exc_info=True,
+        )
+        raise
+
+    try:
+        await db_service.delete_project(project_id)
+    except Exception as exc:
+        logger.error(
+            "project_delete_failed",
+            extra={
+                "user_id": user_id,
+                "project_id": project_id,
+                "delete_stage": "database",
+            },
+            exc_info=True,
+        )
+        raise InternalServerException(
+            message="删除项目失败",
+            details={"project_id": project_id, "stage": "database"},
+        ) from exc
+
+    logger.info(
+        "project_deleted",
+        extra={"user_id": user_id, "project_id": project_id},
+    )
+    return success_response(data={}, message="项目删除成功")
 
 
 async def get_project_files_response(

@@ -228,9 +228,7 @@ export function useLibraryDrawerData(projectId: string, open: boolean) {
     setReferencesState({ loading: true, error: null });
     try {
       const response = await projectSpaceApi.getReferences(projectId);
-      setReferences(
-        enrichReferenceLabels(response.references ?? [], availableLibraries)
-      );
+      setReferences(response.references ?? []);
       setReferencesState({ loading: false, error: null });
     } catch (error) {
       setReferencesState({
@@ -238,7 +236,7 @@ export function useLibraryDrawerData(projectId: string, open: boolean) {
         error: formatLibraryError(error, "加载引用失败"),
       });
     }
-  }, [availableLibraries, projectId]);
+  }, [projectId]);
 
   const loadAvailableLibraries = useCallback(async () => {
     setLibrariesState({ loading: true, error: null });

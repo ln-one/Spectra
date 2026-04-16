@@ -1,6 +1,6 @@
 ﻿import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { authService, TokenStorage } from "@/lib/auth";
+import { authService } from "@/lib/auth";
 
 export function useWelcomePageState() {
   const router = useRouter();
@@ -11,16 +11,7 @@ export function useWelcomePageState() {
     let cancelled = false;
 
     const bootstrap = async () => {
-      let token = TokenStorage.getAccessToken();
-      if (!token && TokenStorage.getRefreshToken()) {
-        const refreshed = await authService.refreshToken();
-        if (cancelled) return;
-        if (refreshed) {
-          token = TokenStorage.getAccessToken();
-        }
-      }
-
-      if (token) {
+      if (await authService.hasActiveSession()) {
         router.push("/projects");
         return;
       }

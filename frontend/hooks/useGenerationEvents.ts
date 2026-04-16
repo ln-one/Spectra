@@ -95,7 +95,7 @@ export function useGenerationEvents(
     setError(null);
 
     const url = generateApi.getEventStream(sessionId, cursorRef.current);
-    const es = new EventSource(url);
+    const es = new EventSource(url, { withCredentials: true });
     eventSourceRef.current = es;
 
     es.onopen = () => {

@@ -171,6 +171,21 @@ export default function NewProjectPage() {
       });
       return;
     }
+    if (
+      selectedBaseLibrary &&
+      formData.base_project_id.trim() &&
+      !selectedBaseLibrary.isReferenceable
+    ) {
+      const message =
+        "所选父项目当前不可引用，请改选标记为“可引用”的项目。";
+      setSubmitError(message);
+      toast({
+        title: "创建项目失败",
+        description: message,
+        variant: "destructive",
+      });
+      return;
+    }
 
     setSubmitError(null);
     setIsLoading(true);

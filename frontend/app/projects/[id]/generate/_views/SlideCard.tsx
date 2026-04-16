@@ -4,7 +4,6 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { cn } from "@/lib/utils";
 import type { components } from "@/lib/sdk/types";
-import { HtmlPreviewFrame } from "./components/HtmlPreviewFrame";
 
 type Slide = components["schemas"]["Slide"] & {
   rendered_html_preview?: string | null;
@@ -172,12 +171,14 @@ export function SlideCard({
   onModify,
   isRegenerating = false,
   onOpenPreview,
+  isPreviewTerminalFailed = false,
 }: {
   slide: Slide;
   isActive: boolean;
   onModify?: (slide: Slide) => void;
   isRegenerating?: boolean;
   onOpenPreview?: (slide: Slide) => void;
+  isPreviewTerminalFailed?: boolean;
 }) {
   const renderedPreviews = useMemo(() => {
     if (
@@ -225,10 +226,10 @@ export function SlideCard({
       id={slide.id || `slide-${slide.index}`}
       data-index={slide.index}
       className={cn(
-        "slide-card mb-10 w-full overflow-hidden rounded-2xl border bg-white shadow-sm transition-all duration-300",
+        "slide-card mx-auto mb-10 w-full max-w-6xl overflow-hidden rounded-2xl border bg-white shadow-sm transition-all duration-300",
         hasMultipleRenderedPreviews
           ? "min-h-[420px]"
-          : "min-h-[420px] md:aspect-[16/9]",
+          : "md:aspect-[16/9]",
         isActive ? "ring-2 ring-primary/30 shadow-md" : "hover:shadow-md"
       )}
     >
@@ -293,27 +294,19 @@ export function SlideCard({
                 <div
                   key={`${slide.id || slide.index}-preview-${preview.split_index ?? previewIndex}`}
                   className={cn(
-                    "relative overflow-hidden rounded-xl border bg-zinc-100",
-                    onOpenPreview ? "cursor-zoom-in" : ""
+                    "relative aspect-[16/9] w-full overflow-hidden rounded-xl border bg-zinc-100",
+                    preview.image_url && onOpenPreview ? "cursor-zoom-in" : ""
                   )}
-                  onClick={() => onOpenPreview?.(slide)}
+                  onClick={() => {
+                    if (preview.image_url) onOpenPreview?.(slide);
+                  }}
                 >
                   {hasMultipleRenderedPreviews ? (
                     <div className="absolute left-3 top-3 z-10 rounded-full bg-white/92 px-2.5 py-1 text-[11px] font-semibold text-zinc-600 shadow-sm">
                       分页 {previewIndex + 1} / {renderedPreviews.length}
                     </div>
                   ) : null}
-                  {preview.html_preview ? (
-                    <HtmlPreviewFrame
-                      title={
-                        renderedPreviews.length > 1
-                          ? `${slide.title || `Slide ${slide.index + 1}`} - 分页 ${previewIndex + 1}`
-                          : slide.title || `Slide ${slide.index + 1}`
-                      }
-                      html={preview.html_preview}
-                      className="min-h-[360px]"
-                    />
-                  ) : preview.image_url ? (
+                  {preview.image_url ? (
                     <img
                       src={preview.image_url ?? undefined}
                       alt={
@@ -321,10 +314,28 @@ export function SlideCard({
                           ? `${slide.title || `Slide ${slide.index + 1}`} - page ${previewIndex + 1}`
                           : slide.title || `Slide ${slide.index + 1}`
                       }
-                      className="h-full w-full object-contain bg-white"
+                      className="h-full w-full bg-white object-contain"
                       loading="lazy"
                     />
-                  ) : null}
+                  ) : (
+                    <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-white px-6 text-center text-sm text-zinc-500">
+                      {isPreviewTerminalFailed ? null : (
+                        <Loader2 className="h-6 w-6 animate-spin text-zinc-400" />
+                      )}
+                      <div>
+                        <p className="font-medium text-zinc-700">
+                          {isPreviewTerminalFailed
+                            ? "预览图片未生成"
+                            : "预览图片生成中"}
+                        </p>
+                        <p className="mt-1 text-xs text-zinc-500">
+                          {isPreviewTerminalFailed
+                            ? "本次生成已失败，未产出可展示的 slide 图片。"
+                            : "已收到结构预览，正在等待最终 slide 图片。"}
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

@@ -128,9 +128,6 @@ function hasRenderablePreviewFrame(
   page: RenderedPreviewFrame | null | undefined
 ): boolean {
   if (!page) return false;
-  if (typeof page.html_preview === "string" && page.html_preview.trim()) {
-    return true;
-  }
   return Boolean(page.image_url);
 }
 
@@ -140,12 +137,6 @@ function hasRenderablePreview(slide: Slide | null | undefined): boolean {
     ? slide.rendered_previews
     : [];
   if (pages.some((page) => hasRenderablePreviewFrame(page))) {
-    return true;
-  }
-  if (
-    typeof slide.rendered_html_preview === "string" &&
-    slide.rendered_html_preview.trim()
-  ) {
     return true;
   }
   return Boolean(slide.thumbnail_url);

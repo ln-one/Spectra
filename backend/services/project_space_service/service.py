@@ -76,6 +76,10 @@ class ProjectSpaceService:
         self._ensure_remote_configured()
         return await ourograph_client.delete_project(**kwargs)
 
+    async def update_project_governance(self, *args, **kwargs):
+        self._ensure_remote_configured()
+        return await ourograph_client.update_project_governance(**kwargs)
+
     async def create_project_member(self, *args, **kwargs):
         self._ensure_remote_configured()
         return await ourograph_client.create_project_member(**kwargs)

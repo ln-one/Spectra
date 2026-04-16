@@ -375,19 +375,11 @@ async def get_session_events(
     limit: int = Query(50, ge=1, le=500, description="返回事件数量上限"),
     accept: Optional[str] = Query(None),
     accept_header: Optional[str] = Header(None, alias="Accept"),
-    token: Optional[str] = Query(
-        None, description="SSE token (when Authorization header is unavailable)"
-    ),
     user_id: Optional[str] = Depends(get_current_user_optional),
 ):
     """获取生成事件流，支持 SSE 或短轮询。"""
     if not user_id:
-        if token:
-            from services.auth_service import auth_service
-
-            user_id = auth_service.verify_token(token)
-        if not user_id:
-            raise UnauthorizedException(message="缺少认证信息")
+        raise UnauthorizedException(message="缺少认证信息")
     svc = get_session_service()
 
     await load_session_runtime_or_raise(svc, session_id, user_id)

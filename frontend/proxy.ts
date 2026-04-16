@@ -13,17 +13,7 @@ export function proxy(request: NextRequest) {
   ) {
     return NextResponse.next();
   }
-
-  const accessToken = request.cookies.get("access_token")?.value;
-  const refreshToken = request.cookies.get("refresh_token")?.value;
-
-  if (!accessToken && !refreshToken) {
-    return NextResponse.redirect(new URL("/", request.url));
-  }
-
-  const response = NextResponse.next();
-  response.headers.set("x-user-authenticated", "true");
-  return response;
+  return NextResponse.next();
 }
 
 export const config = {

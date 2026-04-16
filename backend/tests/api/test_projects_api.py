@@ -7,9 +7,11 @@ from unittest.mock import AsyncMock
 import pytest
 
 from main import app
+from routers.projects import detail as project_detail_router
 from services.application import project_api
 from services.database import db_service
 from utils.dependencies import get_current_user
+from utils.exceptions import ConflictException, ForbiddenException, NotFoundException
 
 _NOW = datetime.now(timezone.utc)
 _USER_ID = "u-001"
@@ -260,6 +262,11 @@ def test_update_project_success(client, monkeypatch, _as_user):
     _mock(monkeypatch, db_service, "update_project", _fake_project(name="Updated"))
     save_mock = AsyncMock(return_value=None)
     monkeypatch.setattr(db_service, "save_idempotency_response", save_mock)
+    monkeypatch.setattr(
+        project_api.project_space_service,
+        "update_project_governance",
+        AsyncMock(return_value=None),
+    )
 
     resp = client.put(
         f"/api/v1/projects/{_PROJECT_ID}",
@@ -282,6 +289,12 @@ def test_update_project_project_space_fields_passed(client, monkeypatch, _as_use
     monkeypatch.setattr(
         db_service, "save_idempotency_response", AsyncMock(return_value=None)
     )
+    governance_mock = AsyncMock(return_value=None)
+    monkeypatch.setattr(
+        project_api.project_space_service,
+        "update_project_governance",
+        governance_mock,
+    )
 
     resp = client.put(
         f"/api/v1/projects/{_PROJECT_ID}",
@@ -299,6 +312,13 @@ def test_update_project_project_space_fields_passed(client, monkeypatch, _as_use
         name="Updated",
         description="new desc",
         grade_level=None,
+        visibility="private",
+        is_referenceable=False,
+    )
+    governance_mock.assert_awaited_once_with(
+        project_id=_PROJECT_ID,
+        user_id=_USER_ID,
+        description="new desc",
         visibility="private",
         is_referenceable=False,
     )
@@ -356,8 +376,12 @@ def test_update_project_forbidden_403(client, monkeypatch, _as_user):
 
 
 def test_delete_project_success(client, monkeypatch, _as_user):
-    _mock(monkeypatch, db_service, "get_project", _fake_project())
-    _mock(monkeypatch, db_service, "delete_project", _fake_project())
+    delete_response = {"success": True, "message": "项目删除成功", "data": {}}
+    monkeypatch.setattr(
+        project_detail_router,
+        "delete_project_response",
+        AsyncMock(return_value=delete_response),
+    )
 
     resp = client.delete(f"/api/v1/projects/{_PROJECT_ID}")
     assert resp.status_code == 200
@@ -365,17 +389,38 @@ def test_delete_project_success(client, monkeypatch, _as_user):
 
 
 def test_delete_project_not_found_404(client, monkeypatch, _as_user):
-    _mock(monkeypatch, db_service, "get_project", None)
+    monkeypatch.setattr(
+        project_detail_router,
+        "delete_project_response",
+        AsyncMock(side_effect=NotFoundException()),
+    )
 
     resp = client.delete(f"/api/v1/projects/{_PROJECT_ID}")
     assert resp.status_code == 404
 
 
 def test_delete_project_forbidden_403(client, monkeypatch, _as_user):
-    _mock(monkeypatch, db_service, "get_project", _fake_project(user_id="other"))
+    monkeypatch.setattr(
+        project_detail_router,
+        "delete_project_response",
+        AsyncMock(side_effect=ForbiddenException()),
+    )
 
     resp = client.delete(f"/api/v1/projects/{_PROJECT_ID}")
     assert resp.status_code == 403
+
+
+def test_delete_project_formal_delete_failure_does_not_mask_error(
+    client, monkeypatch, _as_user
+):
+    monkeypatch.setattr(
+        project_detail_router,
+        "delete_project_response",
+        AsyncMock(side_effect=ConflictException(message="formal conflict")),
+    )
+
+    resp = client.delete(f"/api/v1/projects/{_PROJECT_ID}")
+    assert resp.status_code == 409
 
 
 def test_project_statistics_success(client, monkeypatch, _as_user):

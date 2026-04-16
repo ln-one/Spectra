@@ -139,6 +139,7 @@ async def refresh_rendered_preview(
         style_manifest=preview_payload.get("style_manifest"),
         extra_css=preview_payload.get("extra_css"),
         page_class_plan=preview_payload.get("page_class_plan"),
+        preview_payload=preview_payload,
     )
     next_payload = dict(preview_payload)
     if isinstance(rendered_preview, dict):

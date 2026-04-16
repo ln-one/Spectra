@@ -1,6 +1,11 @@
-"""Prompt Service
+"""Prompt policy kernel for Spectra shell workflows.
 
-Centralized prompt builders for courseware generation and chat workflows.
+This package is a Spectra-owned kernel organ. It centralizes prompt structure,
+traceability, citation formatting, and workflow-specific prompt policy for
+chat, session orchestration, courseware refinement, and adjacent shell flows.
+
+It is not Diego's domain implementation; it is the local prompt/policy layer
+around external authorities.
 """
 
 import logging

@@ -3,7 +3,7 @@
  */
 
 import { create } from "zustand";
-import { authService, TokenStorage, User } from "@/lib/auth";
+import { authService, User } from "@/lib/auth";
 import {
   ApiErrorShape,
   createApiError,
@@ -14,6 +14,8 @@ export interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  isCheckingSession: boolean;
+  isSubmitting: boolean;
   error: ApiErrorShape | null;
 
   login: (email: string, password: string) => Promise<void>;
@@ -33,16 +35,19 @@ export const useAuthStore = create<AuthState>()((set) => ({
   user: null,
   isAuthenticated: false,
   isLoading: false,
+  isCheckingSession: false,
+  isSubmitting: false,
   error: null,
 
   login: async (email: string, password: string) => {
-    set({ isLoading: true, error: null });
+    set({ isLoading: true, isSubmitting: true, error: null });
     try {
       const response = await authService.login(email, password);
       set({
         user: response.user,
         isAuthenticated: true,
         isLoading: false,
+        isSubmitting: false,
       });
     } catch (error) {
       const apiError = createApiError({
@@ -52,6 +57,7 @@ export const useAuthStore = create<AuthState>()((set) => ({
       set({
         error: apiError,
         isLoading: false,
+        isSubmitting: false,
       });
       throw error;
     }
@@ -63,7 +69,7 @@ export const useAuthStore = create<AuthState>()((set) => ({
     username: string,
     fullName?: string
   ) => {
-    set({ isLoading: true, error: null });
+    set({ isLoading: true, isSubmitting: true, error: null });
     try {
       const response = await authService.register({
         email,
@@ -75,6 +81,7 @@ export const useAuthStore = create<AuthState>()((set) => ({
         user: response.user,
         isAuthenticated: true,
         isLoading: false,
+        isSubmitting: false,
       });
     } catch (error) {
       const apiError = createApiError({
@@ -84,6 +91,7 @@ export const useAuthStore = create<AuthState>()((set) => ({
       set({
         error: apiError,
         isLoading: false,
+        isSubmitting: false,
       });
       throw error;
     }
@@ -94,31 +102,22 @@ export const useAuthStore = create<AuthState>()((set) => ({
     set({
       user: null,
       isAuthenticated: false,
+      isLoading: false,
+      isCheckingSession: false,
+      isSubmitting: false,
       error: null,
     });
   },
 
   checkAuth: async () => {
-    let token = TokenStorage.getAccessToken();
-    if (!token && TokenStorage.getRefreshToken()) {
-      const refreshed = await authService.refreshToken();
-      if (refreshed) {
-        token = TokenStorage.getAccessToken();
-      }
-    }
-
-    if (!token) {
-      set({ isAuthenticated: false, user: null });
-      return;
-    }
-
-    set({ isLoading: true });
+    set({ isLoading: true, isCheckingSession: true });
     try {
       const user = await authService.getCurrentUser();
       set({
         user,
         isAuthenticated: true,
         isLoading: false,
+        isCheckingSession: false,
       });
     } catch (error) {
       const status =
@@ -127,19 +126,20 @@ export const useAuthStore = create<AuthState>()((set) => ({
           : undefined;
 
       if (status === 401 || status === 403) {
-        TokenStorage.clearTokens();
         set({
           user: null,
           isAuthenticated: false,
           isLoading: false,
+          isCheckingSession: false,
         });
         return;
       }
 
       set({
         user: null,
-        isAuthenticated: !!TokenStorage.getAccessToken(),
+        isAuthenticated: false,
         isLoading: false,
+        isCheckingSession: false,
       });
     }
   },

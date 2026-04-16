@@ -27,12 +27,7 @@ export function PreviewSlideStrip({
 }: PreviewSlideStripProps) {
   const hasStructuredPreview = (slide: SlideItem): boolean =>
     Array.isArray(slide.rendered_previews) &&
-    slide.rendered_previews.some(
-      (preview) =>
-        Boolean(preview?.image_url) ||
-        (typeof preview?.html_preview === "string" &&
-          preview.html_preview.trim())
-    );
+    slide.rendered_previews.some((preview) => Boolean(preview?.image_url));
 
   return (
     <motion.div

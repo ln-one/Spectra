@@ -103,7 +103,7 @@ def _raise_for_status(resp: httpx.Response, action: str) -> None:
 
 def _register_or_login(
     client: httpx.Client, base_url: str, email: str, password: str, username: str
-) -> str:
+) -> None:
     register_payload = {
         "email": email,
         "password": password,
@@ -112,8 +112,7 @@ def _register_or_login(
     }
     register = client.post(f"{base_url}/auth/register", json=register_payload)
     if register.status_code in (200, 201):
-        data = register.json()["data"]
-        return data["access_token"]
+        return
 
     if register.status_code not in (400, 409):
         _raise_for_status(register, "register")
@@ -121,14 +120,12 @@ def _register_or_login(
     login_payload = {"email": email, "password": password}
     login = client.post(f"{base_url}/auth/login", json=login_payload)
     _raise_for_status(login, "login")
-    data = login.json()["data"]
-    return data["access_token"]
+    return
 
 
 def _create_project(
     client: httpx.Client,
     base_url: str,
-    token: str,
     project_name: str,
     description: str,
 ) -> str:
@@ -140,7 +137,6 @@ def _create_project(
     resp = client.post(
         f"{base_url}/projects",
         json=payload,
-        headers={"Authorization": f"Bearer {token}"},
     )
     _raise_for_status(resp, "create project")
     return resp.json()["data"]["project"]["id"]
@@ -149,7 +145,6 @@ def _create_project(
 def _upload_file(
     client: httpx.Client,
     base_url: str,
-    token: str,
     project_id: str,
     file_path: Path,
 ) -> tuple[str, str]:
@@ -161,7 +156,6 @@ def _upload_file(
         data = {"project_id": project_id}
         resp = client.post(
             f"{base_url}/files",
-            headers={"Authorization": f"Bearer {token}"},
             files=files,
             data=data,
         )
@@ -174,7 +168,6 @@ def _upload_file(
 def _poll_file_status(
     client: httpx.Client,
     base_url: str,
-    token: str,
     project_id: str,
     file_id: str,
     timeout_seconds: int,
@@ -185,7 +178,6 @@ def _poll_file_status(
     while time.time() < deadline:
         resp = client.get(
             f"{base_url}/projects/{project_id}/files",
-            headers={"Authorization": f"Bearer {token}"},
             params={"page": 1, "limit": 100},
         )
         _raise_for_status(resp, "query project files")
@@ -221,7 +213,7 @@ def main() -> int:
     file_path = Path(args.file).expanduser().resolve()
 
     with httpx.Client(timeout=30.0) as client:
-        token = _register_or_login(
+        _register_or_login(
             client=client,
             base_url=args.base_url.rstrip("/"),
             email=args.email,
@@ -231,21 +223,18 @@ def main() -> int:
         project_id = _create_project(
             client=client,
             base_url=args.base_url.rstrip("/"),
-            token=token,
             project_name=args.project_name,
             description=args.project_description,
         )
         file_id, initial_status = _upload_file(
             client=client,
             base_url=args.base_url.rstrip("/"),
-            token=token,
             project_id=project_id,
             file_path=file_path,
         )
         final_file = _poll_file_status(
             client=client,
             base_url=args.base_url.rstrip("/"),
-            token=token,
             project_id=project_id,
             file_id=file_id,
             timeout_seconds=args.timeout_seconds,

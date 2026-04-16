@@ -16,8 +16,9 @@ datasource db {
 /// 用户模型 - 存储用户账号信息
 model User {
   id        String   @id @default(uuid())
+  identityId String? @unique
   email     String   @unique
-  password  String   // bcrypt 哈希 (60 字符)
+  password  String?  // identity mirror: local password auth removed
   username  String   @unique
   fullName  String?
 
@@ -27,6 +28,7 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@index([identityId])
   @@index([email])
   @@index([username])
 }

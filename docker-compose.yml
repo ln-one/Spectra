@@ -41,6 +41,33 @@ services:
       timeout: 3s
       retries: 5
 
+  limora:
+    image: ${LIMORA_IMAGE:?Run python3 ./scripts/compose_smart.py sync --channel develop}
+    ports:
+      - "127.0.0.1:3001:3001"
+    environment:
+      - PORT=3001
+      - DATABASE_URL=postgresql://spectra:spectra@postgres:5432/limora
+      - BETTER_AUTH_SECRET=spectra-limora-local-secret-please-change
+      - LIMORA_PUBLIC_BASE_URL=http://localhost:3001
+      - LIMORA_ALLOWED_HOSTS=localhost:3001,localhost,limora:3001,limora
+      - LIMORA_TRUSTED_ORIGINS=http://localhost:3000,http://frontend:3000,http://backend:8000,http://localhost:8000
+      - LIMORA_COOKIE_MODE=local
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3001/health/ready').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
   qdrant:
     image: qdrant/qdrant:v1.13.2
     ports:
@@ -189,6 +216,8 @@ services:
       redis:
         condition: service_healthy
       postgres:
+        condition: service_healthy
+      limora:
         condition: service_healthy
       dualweave:
         condition: service_started

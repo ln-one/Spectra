@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, Header, Query
 from schemas import ProjectUpdate
 from services.application.access import get_owned_project
 from services.application.project_api import (
+    delete_project_response,
     get_project_files_response,
     update_project_response,
 )
@@ -85,13 +86,7 @@ async def delete_project(
 ):
     """删除项目。"""
     try:
-        await get_owned_project(project_id, user_id)
-        await db_service.delete_project(project_id)
-        logger.info(
-            "project_deleted",
-            extra={"user_id": user_id, "project_id": project_id},
-        )
-        return success_response(data={}, message="项目删除成功")
+        return await delete_project_response(project_id, user_id)
     except APIException:
         raise
     except Exception as exc:
