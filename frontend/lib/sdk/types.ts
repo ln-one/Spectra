@@ -4,5245 +4,5405 @@
  */
 
 export interface paths {
-    "/api/v1/auth/register": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** 用户注册 */
-        post: operations["postAuthRegister"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+  "/api/v1/auth/register": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/v1/auth/login": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** 用户登录 */
-        post: operations["postAuthLogin"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    get?: never;
+    put?: never;
+    /** 用户注册 */
+    post: operations["postAuthRegister"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/auth/login": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/v1/auth/refresh": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** 刷新 Access Token */
-        post: operations["postAuthRefresh"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    get?: never;
+    put?: never;
+    /** 用户登录 */
+    post: operations["postAuthLogin"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/auth/refresh": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/v1/auth/logout": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** 退出登录 */
-        post: operations["postAuthLogout"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    get?: never;
+    put?: never;
+    /** 刷新 Access Token */
+    post: operations["postAuthRefresh"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/auth/logout": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/v1/auth/me": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 获取当前用户信息 */
-        get: operations["getAuthMe"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    get?: never;
+    put?: never;
+    /** 退出登录 */
+    post: operations["postAuthLogout"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/auth/me": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/v1/chat/messages": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 获取对话历史 */
-        get: operations["getChatMessages"];
-        put?: never;
-        /** 发送消息 */
-        post: operations["postChatMessages"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /** 获取当前用户信息 */
+    get: operations["getAuthMe"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/chat/messages": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/v1/chat/voice": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * 语音消息输入
-         * @description 上传语音文件，系统将自动识别并转换为文本消息
-         */
-        post: operations["postChatVoice"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /** 获取对话历史 */
+    get: operations["getChatMessages"];
+    put?: never;
+    /** 发送消息 */
+    post: operations["postChatMessages"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/chat/voice": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/v1/files": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** 上传参考文件 */
-        post: operations["postFiles"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    get?: never;
+    put?: never;
+    /**
+     * 语音消息输入
+     * @description 上传语音文件，系统将自动识别并转换为文本消息
+     */
+    post: operations["postChatVoice"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/files": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/v1/files/{file_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /** 删除上传的文件 */
-        delete: operations["deleteFilesByFileId"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    get?: never;
+    put?: never;
+    /** 上传参考文件 */
+    post: operations["postFiles"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/files/{file_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/v1/files/{file_id}/intent": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /** 标注文件用途 */
-        patch: operations["patchFilesByFileIdIntent"];
-        trace?: never;
+    get?: never;
+    put?: never;
+    post?: never;
+    /** 删除上传的文件 */
+    delete: operations["deleteFilesByFileId"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/files/{file_id}/intent": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/v1/files/{file_id}/parse/mineru": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** 同步 MinerU 解析结果 */
-        post: operations["postFilesByFileIdParseMineru"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    get?: never;
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /** 标注文件用途 */
+    patch: operations["patchFilesByFileIdIntent"];
+    trace?: never;
+  };
+  "/api/v1/files/{file_id}/parse/mineru": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/v1/files/batch": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * 批量上传文件
-         * @description 一次上传多个参考文件
-         */
-        post: operations["postFilesBatch"];
-        /** 批量删除文件 */
-        delete: operations["deleteFilesBatch"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    get?: never;
+    put?: never;
+    /** 同步 MinerU 解析结果 */
+    post: operations["postFilesByFileIdParseMineru"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/files/batch": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/v1/generate/sessions": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * 获取生成会话列表
-         * @description 返回项目内生成会话列表（按更新时间倒序），包含展示标题字段。
-         */
-        get: operations["getGenerateSessions"];
-        put?: never;
-        /**
-         * 创建生成会话
-         * @description 创建可中断、可恢复的课件生成会话，并初始化会话展示标题。
-         */
-        post: operations["postGenerateSessions"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    get?: never;
+    put?: never;
+    /**
+     * 批量上传文件
+     * @description 一次上传多个参考文件
+     */
+    post: operations["postFilesBatch"];
+    /** 批量删除文件 */
+    delete: operations["deleteFilesBatch"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/generate/sessions": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/v1/generate/sessions/{session_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 查询生成会话快照 */
-        get: operations["getGenerateSessionsBySessionId"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /**
+     * 获取生成会话列表
+     * @description 返回项目内生成会话列表（按更新时间倒序），包含展示标题字段。
+     */
+    get: operations["getGenerateSessions"];
+    put?: never;
+    /**
+     * 创建生成会话
+     * @description 创建可中断、可恢复的课件生成会话，并初始化会话展示标题。
+     */
+    post: operations["postGenerateSessions"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/generate/sessions/{session_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/v1/generate/sessions/{session_id}/events": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * 获取生成事件流（SSE）
-         * @description 默认返回 text/event-stream。当客户端无法使用 SSE 时，可通过 `accept=application/json`
-         *     返回短轮询事件列表。目标契约中事件 payload 需要支持 run 追踪、大纲逐条输出、PPT 逐页输出与单页局部修改进展。
-         */
-        get: operations["getGenerateSessionsBySessionIdEvents"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /** 查询生成会话快照 */
+    get: operations["getGenerateSessionsBySessionId"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/generate/sessions/{session_id}/events": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/v1/generate/sessions/{session_id}/runs": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * 获取会话运行列表
-         * @description 返回当前生成会话的运行历史，支持分页。
-         */
-        get: operations["getGenerateSessionRuns"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /**
+     * 获取生成事件流（SSE）
+     * @description 默认返回 text/event-stream。当客户端无法使用 SSE 时，可通过 `accept=application/json`
+     *     返回短轮询事件列表。目标契约中事件 payload 需要支持 run 追踪、大纲逐条输出、PPT 逐页输出与单页局部修改进展。
+     */
+    get: operations["getGenerateSessionsBySessionIdEvents"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/generate/sessions/{session_id}/runs": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/v1/generate/sessions/{session_id}/runs/{run_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * 获取会话运行详情
-         * @description 返回某次运行的结构化详情。
-         */
-        get: operations["getGenerateSessionRunDetail"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /**
+     * 获取会话运行列表
+     * @description 返回当前生成会话的运行历史，支持分页。
+     */
+    get: operations["getGenerateSessionRuns"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/generate/sessions/{session_id}/runs/{run_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/v1/generate/sessions/{session_id}/commands": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * 执行会话命令（唯一写入口）
-         * @description 所有会引起状态变化或内容变化的操作统一通过 Command 接口执行。
-         *     目标契约中补充支持会话手动改名，以及带明确需求的单页局部修改。
-         */
-        post: operations["postGenerateSessionsBySessionIdCommands"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /**
+     * 获取会话运行详情
+     * @description 返回某次运行的结构化详情。
+     */
+    get: operations["getGenerateSessionRunDetail"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/generate/sessions/{session_id}/commands": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/v1/generate/sessions/{session_id}/candidate-change": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 获取当前会话的候选变更列表 */
-        get: operations["getGenerateSessionsBySessionIdCandidateChange"];
-        put?: never;
-        /** 为当前会话提交候选变更 */
-        post: operations["postGenerateSessionsBySessionIdCandidateChange"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    get?: never;
+    put?: never;
+    /**
+     * 执行会话命令（唯一写入口）
+     * @description 所有会引起状态变化或内容变化的操作统一通过 Command 接口执行。
+     *     目标契约中补充支持会话手动改名，以及带明确需求的单页局部修改。
+     */
+    post: operations["postGenerateSessionsBySessionIdCommands"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/generate/sessions/{session_id}/candidate-change": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/v1/generate/capabilities": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * 获取生成域能力声明
-         * @description 返回服务端当前支持的契约版本、特性开关与弃用信息。
-         */
-        get: operations["getGenerateCapabilities"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /** 获取当前会话的候选变更列表 */
+    get: operations["getGenerateSessionsBySessionIdCandidateChange"];
+    put?: never;
+    /** 为当前会话提交候选变更 */
+    post: operations["postGenerateSessionsBySessionIdCandidateChange"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/generate/capabilities": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/v1/generate/studio-cards": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * 获取 Studio 卡片协议目录
-         * @description 返回 Studio 卡片目录、成熟度、配置字段与上下文协议。
-         */
-        get: operations["getGenerateStudioCards"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /**
+     * 获取生成域能力声明
+     * @description 返回服务端当前支持的契约版本、特性开关与弃用信息。
+     */
+    get: operations["getGenerateCapabilities"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/generate/studio-cards": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/v1/generate/studio-cards/{card_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * 获取单张 Studio 卡片协议
-         * @description 返回单张 Studio 卡片的后端协议细节。
-         */
-        get: operations["getGenerateStudioCardById"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /**
+     * 获取 Studio 卡片协议目录
+     * @description 返回 Studio 卡片目录、成熟度、配置字段与上下文协议。
+     */
+    get: operations["getGenerateStudioCards"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/generate/studio-cards/{card_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/v1/generate/studio-cards/{card_id}/execution-plan": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * 获取单张 Studio 卡片执行协议
-         * @description 返回单张 Studio 卡片当前可落地的后端执行绑定、缺口与结果字段。
-         */
-        get: operations["getGenerateStudioCardExecutionPlan"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /**
+     * 获取单张 Studio 卡片协议
+     * @description 返回单张 Studio 卡片的后端协议细节。
+     */
+    get: operations["getGenerateStudioCardById"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/generate/studio-cards/{card_id}/execution-plan": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/v1/generate/studio-cards/{card_id}/execution-preview": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * 获取单张 Studio 卡片执行预览
-         * @description 根据卡片配置返回当前可以直接调用的后端请求预览。
-         */
-        post: operations["postGenerateStudioCardExecutionPreview"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /**
+     * 获取单张 Studio 卡片执行协议
+     * @description 返回单张 Studio 卡片当前可落地的后端执行绑定、缺口与结果字段。
+     */
+    get: operations["getGenerateStudioCardExecutionPlan"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/generate/studio-cards/{card_id}/execution-preview": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/v1/generate/studio-cards/{card_id}/draft": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * 为单张 Studio 卡片创建草稿
-         * @description 为卡片创建 draft run，不触发最终生成结果落地。
-         */
-        post: operations["postGenerateStudioCardDraft"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    get?: never;
+    put?: never;
+    /**
+     * 获取单张 Studio 卡片执行预览
+     * @description 根据卡片配置返回当前可以直接调用的后端请求预览。
+     */
+    post: operations["postGenerateStudioCardExecutionPreview"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/generate/studio-cards/{card_id}/draft": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/v1/generate/studio-cards/{card_id}/execute": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * 执行单张 Studio 卡片
-         * @description 对已达到 foundation-ready 的卡片直接执行初始动作，返回实际落地的 session 或 artifact。
-         */
-        post: operations["postGenerateStudioCardExecute"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    get?: never;
+    put?: never;
+    /**
+     * 为单张 Studio 卡片创建草稿
+     * @description 为卡片创建 draft run，不触发最终生成结果落地。
+     */
+    post: operations["postGenerateStudioCardDraft"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/generate/studio-cards/{card_id}/execute": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/v1/generate/studio-cards/{card_id}/refine": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * 执行单张 Studio 卡片 refine
-         * @description 通过统一 chat 通道执行已暴露 refine 协议的卡片局部改写。
-         */
-        post: operations["postGenerateStudioCardRefine"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    get?: never;
+    put?: never;
+    /**
+     * 执行单张 Studio 卡片
+     * @description 对已达到 foundation-ready 的卡片直接执行初始动作，返回实际落地的 session 或 artifact。
+     */
+    post: operations["postGenerateStudioCardExecute"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/generate/studio-cards/{card_id}/refine": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/v1/generate/studio-cards/classroom_qa_simulator/turn": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * 推进课堂问答模拟轮次
-         * @description 基于已有 classroom_qa_simulator artifact 追加或替换一轮问答模拟。
-         */
-        post: operations["postGenerateStudioCardSimulatorTurn"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    get?: never;
+    put?: never;
+    /**
+     * 执行单张 Studio 卡片 refine
+     * @description 通过统一 chat 通道执行已暴露 refine 协议的卡片局部改写。
+     */
+    post: operations["postGenerateStudioCardRefine"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/generate/studio-cards/classroom_qa_simulator/turn": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/v1/generate/studio-cards/{card_id}/sources": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * 获取 Studio 卡片可绑定源成果
-         * @description 返回当前卡片可选的源成果列表，优先用于 source-artifact 驱动的组合型卡片。
-         */
-        get: operations["getGenerateStudioCardSources"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    get?: never;
+    put?: never;
+    /**
+     * 推进课堂问答模拟轮次
+     * @description 基于已有 classroom_qa_simulator artifact 追加或替换一轮问答模拟。
+     */
+    post: operations["postGenerateStudioCardSimulatorTurn"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/generate/studio-cards/{card_id}/sources": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/v1/generate/sessions/{session_id}/preview": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 获取会话级课件预览 */
-        get: operations["getGenerateSessionsBySessionIdPreview"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /**
+     * 获取 Studio 卡片可绑定源成果
+     * @description 返回当前卡片可选的源成果列表，优先用于 source-artifact 驱动的组合型卡片。
+     */
+    get: operations["getGenerateStudioCardSources"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/generate/sessions/{session_id}/preview": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/v1/generate/sessions/{session_id}/preview/modify": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** 提交会话级预览修改 */
-        post: operations["postGenerateSessionsBySessionIdPreviewModify"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /** 获取会话级课件预览 */
+    get: operations["getGenerateSessionsBySessionIdPreview"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/generate/sessions/{session_id}/preview/modify": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/v1/generate/sessions/{session_id}/preview/slides/{slide_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 获取会话级单页详情 */
-        get: operations["getGenerateSessionsBySessionIdPreviewSlidesBySlideId"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    get?: never;
+    put?: never;
+    /** 提交会话级预览修改 */
+    post: operations["postGenerateSessionsBySessionIdPreviewModify"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/generate/sessions/{session_id}/preview/slides/{slide_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/v1/generate/sessions/{session_id}/preview/export": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** 导出会话级预览内容 */
-        post: operations["postGenerateSessionsBySessionIdPreviewExport"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /** 获取会话级单页详情 */
+    get: operations["getGenerateSessionsBySessionIdPreviewSlidesBySlideId"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/generate/sessions/{session_id}/preview/export": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/v1/rag/search": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** 检索知识库 */
-        post: operations["postRagSearch"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    get?: never;
+    put?: never;
+    /** 导出会话级预览内容 */
+    post: operations["postGenerateSessionsBySessionIdPreviewExport"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/rag/search": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/v1/rag/sources/{chunk_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 查看来源详情 */
-        get: operations["getRagSourcesByChunkId"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    get?: never;
+    put?: never;
+    /** 检索知识库 */
+    post: operations["postRagSearch"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/rag/sources/{chunk_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/v1/rag/sources/{chunk_id}/image": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * 读取来源图片资源
-         * @description 读取来源分块中的图片资源（按需缓存）。
-         */
-        get: operations["getRagSourceImageByChunkId"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /** 查看来源详情 */
+    get: operations["getRagSourcesByChunkId"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/rag/sources/{chunk_id}/image": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/v1/rag/index": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * 索引新文件到知识库
-         * @description 将上传的文件添加到 RAG 知识库索引
-         */
-        post: operations["postRagIndex"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /**
+     * 读取来源图片资源
+     * @description 读取来源分块中的图片资源（按需缓存）。
+     */
+    get: operations["getRagSourceImageByChunkId"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/rag/index": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/v1/rag/similar": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * 查找相似内容
-         * @description 基于给定文本查找知识库中的相似内容
-         */
-        post: operations["postRagSimilar"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    get?: never;
+    put?: never;
+    /**
+     * 索引新文件到知识库
+     * @description 将上传的文件添加到 RAG 知识库索引
+     */
+    post: operations["postRagIndex"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/rag/similar": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/v1/rag/web-search": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** 搜索网络资源并可选入库 */
-        post: {
-            parameters: {
-                query: {
-                    query: string;
-                    project_id: string;
-                    max_results?: number;
-                    auto_index?: boolean;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description 搜索成功 */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["WebSearchResponse"];
-                    };
-                };
-                400: components["responses"]["BadRequest"];
-                401: components["responses"]["Unauthorized"];
-                403: components["responses"]["Forbidden"];
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    get?: never;
+    put?: never;
+    /**
+     * 查找相似内容
+     * @description 基于给定文本查找知识库中的相似内容
+     */
+    post: operations["postRagSimilar"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/rag/web-search": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/v1/rag/audio-transcribe": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
+    get?: never;
+    put?: never;
+    /** 搜索网络资源并可选入库 */
+    post: {
+      parameters: {
+        query: {
+          query: string;
+          project_id: string;
+          max_results?: number;
+          auto_index?: boolean;
         };
-        get?: never;
-        put?: never;
-        /** 音频转录并可选入库 */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "multipart/form-data": {
-                        /**
-                         * Format: binary
-                         * @description 音频文件
-                         */
-                        file: string;
-                        /** @description 可选项目 ID，不传则仅转录不入库 */
-                        project_id?: string;
-                        /** @default false */
-                        auto_index?: boolean;
-                        /** @default zh */
-                        language?: string;
-                    };
-                };
-            };
-            responses: {
-                /** @description 转录成功 */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["AudioTranscribeResponse"];
-                    };
-                };
-                400: components["responses"]["BadRequest"];
-                401: components["responses"]["Unauthorized"];
-                403: components["responses"]["Forbidden"];
-            };
+        header?: never;
+        path?: never;
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description 搜索成功 */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/json": components["schemas"]["WebSearchResponse"];
+          };
         };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+        400: components["responses"]["BadRequest"];
+        401: components["responses"]["Unauthorized"];
+        403: components["responses"]["Forbidden"];
+      };
     };
-    "/api/v1/rag/video-analyze": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** 视频分析并可选入库 */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "multipart/form-data": {
-                        /**
-                         * Format: binary
-                         * @description 视频文件
-                         */
-                        file: string;
-                        /** @description 可选项目 ID，不传则仅分析不入库 */
-                        project_id?: string;
-                        /** @default false */
-                        auto_index?: boolean;
-                    };
-                };
-            };
-            responses: {
-                /** @description 分析成功 */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["VideoAnalyzeResponse"];
-                    };
-                };
-                400: components["responses"]["BadRequest"];
-                401: components["responses"]["Unauthorized"];
-                403: components["responses"]["Forbidden"];
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/rag/audio-transcribe": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/health": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
+    get?: never;
+    put?: never;
+    /** 音频转录并可选入库 */
+    post: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path?: never;
+        cookie?: never;
+      };
+      requestBody: {
+        content: {
+          "multipart/form-data": {
+            /**
+             * Format: binary
+             * @description 音频文件
+             */
+            file: string;
+            /** @description 可选项目 ID，不传则仅转录不入库 */
+            project_id?: string;
+            /** @default false */
+            auto_index?: boolean;
+            /** @default zh */
+            language?: string;
+          };
         };
-        /** 服务健康检查 */
-        get: operations["getHealth"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/health/ready": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
+      };
+      responses: {
+        /** @description 转录成功 */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/json": components["schemas"]["AudioTranscribeResponse"];
+          };
         };
-        /** 服务就绪检查 */
-        get: operations["getHealthReady"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+        400: components["responses"]["BadRequest"];
+        401: components["responses"]["Unauthorized"];
+        403: components["responses"]["Forbidden"];
+      };
     };
-    "/health/live": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/rag/video-analyze": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** 视频分析并可选入库 */
+    post: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path?: never;
+        cookie?: never;
+      };
+      requestBody: {
+        content: {
+          "multipart/form-data": {
+            /**
+             * Format: binary
+             * @description 视频文件
+             */
+            file: string;
+            /** @description 可选项目 ID，不传则仅分析不入库 */
+            project_id?: string;
+            /** @default false */
+            auto_index?: boolean;
+          };
         };
-        /** 服务存活检查 */
-        get: operations["getHealthLive"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/health/capabilities": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
+      };
+      responses: {
+        /** @description 分析成功 */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/json": components["schemas"]["VideoAnalyzeResponse"];
+          };
         };
-        /**
-         * 获取能力健康状态
-         * @description 返回 document_parser / video_understanding / speech_recognition 的能力状态。
-         */
-        get: operations["getHealthCapabilities"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+        400: components["responses"]["BadRequest"];
+        401: components["responses"]["Unauthorized"];
+        403: components["responses"]["Forbidden"];
+      };
     };
-    "/api/v1/system-settings": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * 获取系统级业务配置
-         * @description 返回全局生效的业务运行配置，主要用于开发调试和前后端联调。
-         */
-        get: operations["getSystemSettings"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /**
-         * 更新系统级业务配置
-         * @description 仅修改系统级业务配置，不涉及数据库连接、JWT、API Key、Redis、存储路径等部署级敏感配置。
-         *     当前实现主要面向开发调试和单进程联调场景：配置修改后会影响当前进程中的后续新请求，
-         *     但不会替代持久化配置中心，也不保证跨进程、跨 worker 或重启后继续生效。
-         */
-        patch: operations["patchSystemSettings"];
-        trace?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/health": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/v1/projects": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 获取项目列表 */
-        get: operations["getProjects"];
-        put?: never;
-        /** 创建项目（支持引用式创建） */
-        post: operations["postProjects"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /** 服务健康检查 */
+    get: operations["getHealth"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/health/ready": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/v1/projects/{project_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 获取项目详情 */
-        get: operations["getProjectsByProjectId"];
-        /** 修改项目信息（可扩展可见性与引用权限） */
-        put: operations["putProjectsByProjectId"];
-        post?: never;
-        /** 删除项目 */
-        delete: operations["deleteProjectsByProjectId"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /** 服务就绪检查 */
+    get: operations["getHealthReady"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/health/live": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/v1/projects/{project_id}/files": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 获取项目的上传文件列表 */
-        get: operations["getProjectsByProjectIdFiles"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /** 服务存活检查 */
+    get: operations["getHealthLive"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/health/capabilities": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/v1/projects/{project_id}/statistics": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * 获取项目统计信息
-         * @description 获取项目的文件数、对话数、生成任务数等统计信息
-         */
-        get: operations["getProjectsByProjectIdStatistics"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /**
+     * 获取能力健康状态
+     * @description 返回 document_parser / video_understanding / speech_recognition 的能力状态。
+     */
+    get: operations["getHealthCapabilities"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/system-settings": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/v1/projects/search": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * 搜索项目
-         * @description 根据关键词搜索项目
-         */
-        get: operations["getProjectsSearch"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /**
+     * 获取系统级业务配置
+     * @description 返回全局生效的业务运行配置，主要用于开发调试和前后端联调。
+     */
+    get: operations["getSystemSettings"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /**
+     * 更新系统级业务配置
+     * @description 仅修改系统级业务配置，不涉及数据库连接、JWT、API Key、Redis、存储路径等部署级敏感配置。
+     *     当前实现主要面向开发调试和单进程联调场景：配置修改后会影响当前进程中的后续新请求，
+     *     但不会替代持久化配置中心，也不保证跨进程、跨 worker 或重启后继续生效。
+     */
+    patch: operations["patchSystemSettings"];
+    trace?: never;
+  };
+  "/api/v1/projects": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/v1/projects/{project_id}/references": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 获取项目引用列表 */
-        get: operations["getProjectsByProjectIdReferences"];
-        put?: never;
-        /** 创建项目引用 */
-        post: operations["postProjectsByProjectIdReferences"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /** 获取项目列表 */
+    get: operations["getProjects"];
+    put?: never;
+    /** 创建项目（支持引用式创建） */
+    post: operations["postProjects"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/projects/{project_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/v1/projects/{project_id}/references/{reference_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /** 删除项目引用 */
-        delete: operations["deleteProjectsByProjectIdReferencesByReferenceId"];
-        options?: never;
-        head?: never;
-        /** 更新项目引用 */
-        patch: operations["patchProjectsByProjectIdReferencesByReferenceId"];
-        trace?: never;
+    /** 获取项目详情 */
+    get: operations["getProjectsByProjectId"];
+    /** 修改项目信息（可扩展可见性与引用权限） */
+    put: operations["putProjectsByProjectId"];
+    post?: never;
+    /** 删除项目 */
+    delete: operations["deleteProjectsByProjectId"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/projects/{project_id}/files": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/v1/projects/{project_id}/versions": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 获取项目版本列表 */
-        get: operations["getProjectsByProjectIdVersions"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /** 获取项目的上传文件列表 */
+    get: operations["getProjectsByProjectIdFiles"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/projects/{project_id}/statistics": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/v1/projects/{project_id}/versions/{version_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 获取项目版本详情 */
-        get: operations["getProjectsByProjectIdVersionsByVersionId"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /**
+     * 获取项目统计信息
+     * @description 获取项目的文件数、对话数、生成任务数等统计信息
+     */
+    get: operations["getProjectsByProjectIdStatistics"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/projects/search": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/v1/projects/{project_id}/artifacts": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 获取项目成果列表 */
-        get: operations["getProjectsByProjectIdArtifacts"];
-        put?: never;
-        /** 创建轻量按需成果 */
-        post: operations["postProjectsByProjectIdArtifacts"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /**
+     * 搜索项目
+     * @description 根据关键词搜索项目
+     */
+    get: operations["getProjectsSearch"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/projects/{project_id}/references": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/v1/projects/{project_id}/artifacts/{artifact_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 获取成果详情 */
-        get: operations["getProjectsByProjectIdArtifactsByArtifactId"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /** 获取项目引用列表 */
+    get: operations["getProjectsByProjectIdReferences"];
+    put?: never;
+    /** 创建项目引用 */
+    post: operations["postProjectsByProjectIdReferences"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/projects/{project_id}/references/{reference_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/v1/projects/{project_id}/artifacts/{artifact_id}/download": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 下载成果文件 */
-        get: operations["getProjectsByProjectIdArtifactsByArtifactIdDownload"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    get?: never;
+    put?: never;
+    post?: never;
+    /** 删除项目引用 */
+    delete: operations["deleteProjectsByProjectIdReferencesByReferenceId"];
+    options?: never;
+    head?: never;
+    /** 更新项目引用 */
+    patch: operations["patchProjectsByProjectIdReferencesByReferenceId"];
+    trace?: never;
+  };
+  "/api/v1/projects/{project_id}/versions": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/v1/projects/{project_id}/candidate-changes": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 获取候选变更列表 */
-        get: operations["getProjectsByProjectIdCandidateChanges"];
-        put?: never;
-        /** 提交候选变更 */
-        post: operations["postProjectsByProjectIdCandidateChanges"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /** 获取项目版本列表 */
+    get: operations["getProjectsByProjectIdVersions"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/projects/{project_id}/versions/{version_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/v1/projects/{project_id}/candidate-changes/{change_id}/review": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** 审核候选变更 */
-        post: operations["postProjectsByProjectIdCandidateChangesByChangeIdReview"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /** 获取项目版本详情 */
+    get: operations["getProjectsByProjectIdVersionsByVersionId"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/projects/{project_id}/artifacts": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/v1/projects/{project_id}/members": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 获取项目成员列表 */
-        get: operations["getProjectsByProjectIdMembers"];
-        put?: never;
-        /** 添加项目成员 */
-        post: operations["postProjectsByProjectIdMembers"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /** 获取项目成果列表 */
+    get: operations["getProjectsByProjectIdArtifacts"];
+    put?: never;
+    /** 创建轻量按需成果 */
+    post: operations["postProjectsByProjectIdArtifacts"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/projects/{project_id}/artifacts/{artifact_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/v1/projects/{project_id}/members/{member_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /** Delete project member */
-        delete: operations["deleteProjectsByProjectIdMembersByMemberId"];
-        options?: never;
-        head?: never;
-        /** 更新项目成员权限 */
-        patch: operations["patchProjectsByProjectIdMembersByMemberId"];
-        trace?: never;
+    /** 获取成果详情 */
+    get: operations["getProjectsByProjectIdArtifactsByArtifactId"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/projects/{project_id}/artifacts/{artifact_id}/download": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
+    /** 下载成果文件 */
+    get: operations["getProjectsByProjectIdArtifactsByArtifactIdDownload"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/projects/{project_id}/candidate-changes": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** 获取候选变更列表 */
+    get: operations["getProjectsByProjectIdCandidateChanges"];
+    put?: never;
+    /** 提交候选变更 */
+    post: operations["postProjectsByProjectIdCandidateChanges"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/projects/{project_id}/candidate-changes/{change_id}/review": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** 审核候选变更 */
+    post: operations["postProjectsByProjectIdCandidateChangesByChangeIdReview"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/projects/{project_id}/members": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** 获取项目成员列表 */
+    get: operations["getProjectsByProjectIdMembers"];
+    put?: never;
+    /** 添加项目成员 */
+    post: operations["postProjectsByProjectIdMembers"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/projects/{project_id}/members/{member_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** Delete project member */
+    delete: operations["deleteProjectsByProjectIdMembersByMemberId"];
+    options?: never;
+    head?: never;
+    /** 更新项目成员权限 */
+    patch: operations["patchProjectsByProjectIdMembersByMemberId"];
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
-    schemas: {
-        RegisterRequest: {
-            /**
-             * Format: email
-             * @example user@example.com
-             */
-            email: string;
-            /**
-             * Format: password
-             * @example SecurePass123
-             */
-            password: string;
-            /** @example john_doe */
-            username: string;
-            /** @example John Doe */
-            fullName?: string;
-        };
-        UserInfo: {
-            id: string;
-            /** Format: email */
-            email: string;
-            username: string;
-            fullName?: string;
-            /** Format: date-time */
-            createdAt: string;
-        };
-        AuthResponse: {
-            success: boolean;
-            data: {
-                access_token?: string;
-                refresh_token?: string;
-                expires_in?: number;
-                user?: components["schemas"]["UserInfo"];
-            };
-            message: string;
-        };
-        ErrorResponse: {
-            /** @example false */
-            success: boolean;
-            error: {
-                code: string;
-                message: string;
-                /** @description 是否建议客户端重试 */
-                retryable?: boolean;
-                /** @description 结构化错误详情（例如字段错误、状态冲突上下文） */
-                details?: {
-                    [key: string]: unknown;
-                };
-                /** @description 服务端追踪 ID，用于日志排障 */
-                trace_id?: string;
-            };
-            /** @description 根级错误摘要，通常为“请求失败”或业务级失败说明 */
-            message: string;
-        };
-        LoginRequest: {
-            /** Format: email */
-            email: string;
-            /** Format: password */
-            password: string;
-        };
-        SimpleSuccessResponse: {
-            /** @example true */
-            success: boolean;
-            /** @description 成功响应载荷。部分接口可能返回空对象。 */
-            data: {
-                [key: string]: unknown;
-            };
-            /** @example 操作成功 */
-            message: string;
-        };
-        UserInfoResponse: {
-            success: boolean;
-            data: {
-                user?: components["schemas"]["UserInfo"];
-            };
-            message: string;
-        };
-        /** @description 内容来源引用（用于溯源） */
-        SourceReference: {
-            /** @description 片段唯一标识 */
-            chunk_id: string;
-            /**
-             * @description 来源类型
-             * @enum {string}
-             */
-            source_type: "document" | "web" | "video" | "audio" | "ai_generated";
-            /** @description 源文件名 */
-            filename: string;
-            /** @description 页码（文档场景） */
-            page_number?: number;
-            /**
-             * Format: float
-             * @description 时间戳（视频/音频场景，单位秒）
-             */
-            timestamp?: number;
-            /**
-             * Format: float
-             * @description 检索或重排得分（可选）
-             */
-            score?: number;
-            /** @description 内容预览片段 */
-            content_preview?: string;
-        };
-        Message: {
-            id: string;
-            /** @enum {string} */
-            role: "user" | "assistant" | "system";
-            content: string;
-            /** Format: date-time */
-            timestamp: string;
-            /** @description Structured source citations for assistant responses */
-            citations?: components["schemas"]["SourceReference"][];
-        };
-        GetMessagesResponse: {
-            success: boolean;
-            data: {
-                /** @description Optional queried session scope */
-                session_id?: string;
-                messages?: components["schemas"]["Message"][];
-                total?: number;
-                page?: number;
-                limit?: number;
-            };
-            message: string;
-        };
-        SendMessageRequest: {
-            project_id: string;
-            /** @description Optional session scope id for project-scoped context isolation */
-            session_id?: string;
-            content: string;
-            /** @description Optional context metadata for card refine, selection anchors, or source bindings */
-            metadata?: {
-                [key: string]: unknown;
-            };
-            history?: components["schemas"]["Message"][];
-            /** @description Optional file ids to constrain RAG retrieval scope */
-            rag_source_ids?: string[];
-        };
-        /** @description Observability fields for prompt routing and regression comparison */
-        ChatObservability: {
-            request_id?: string;
-            prompt_template_version?: string;
-            few_shot_version?: string;
-            route_task?: string;
-            selected_model?: string;
-            has_rag_context?: boolean;
-            prompt_hash?: string;
-            response_hash?: string;
-            mechanical_pattern_hit?: boolean;
-            fallback_triggered?: boolean;
-            /** Format: float */
-            latency_ms?: number;
-            /** Format: float */
-            total_duration_ms?: number;
-            route_decision?: {
-                [key: string]: unknown;
-            };
-            stage_timings_ms?: {
-                [key: string]: number;
-            };
-        };
-        SendMessageResponse: {
-            success: boolean;
-            data: {
-                /** @description Session id bound to this response (optional) */
-                session_id?: string;
-                message?: components["schemas"]["Message"];
-                /** @description Whether this reply used RAG context */
-                rag_hit?: boolean;
-                observability?: components["schemas"]["ChatObservability"];
-                suggestions?: string[];
-                session_title_updated?: boolean;
-                session_title?: string;
-                /** @enum {string} */
-                session_title_source?: "default" | "first_message" | "manual";
-            };
-            message: string;
-        };
-        SendMessageResponseTarget: components["schemas"]["SendMessageResponse"] & {
-            data?: {
-                session_title_updated?: boolean;
-                session_title?: string;
-                /** @enum {string} */
-                session_title_source?: "default" | "first_message" | "manual";
-            };
-        };
-        /** @description 能力执行状态与降级信息（统一字段，适用于解析/视频/语音） */
-        CapabilityStatus: {
-            /**
-             * @description 能力标识
-             * @enum {string}
-             */
-            capability: "document_parser" | "video_understanding" | "speech_recognition";
-            /** @description 实际执行的 provider（如 MinerU、Qwen-VL、Faster-Whisper、local_parser） */
-            provider: string;
-            /**
-             * @description 能力状态
-             * @enum {string}
-             */
-            status: "available" | "degraded" | "unavailable";
-            /** @description 是否发生降级 */
-            fallback_used: boolean;
-            /** @description 降级目标 provider（仅当 fallback_used=true 时有值） */
-            fallback_target?: string;
-            /**
-             * @description 失败或降级原因码
-             * @enum {string}
-             */
-            reason_code?: "PROVIDER_TIMEOUT" | "PROVIDER_RATE_LIMITED" | "PROVIDER_UNAVAILABLE" | "INVALID_INPUT_FORMAT" | "UNSUPPORTED_FILE_TYPE" | "EMPTY_OUTPUT" | "INTERNAL_ERROR";
-            /** @description 可直接展示给用户的提示语 */
-            user_message?: string;
-            /** @description 链路追踪 ID */
-            trace_id?: string;
-        };
-        VoiceMessageResponse: {
-            success: boolean;
-            data: {
-                /** @description Optional session id bound to this voice interaction */
-                session_id?: string;
-                /** @description Recognized text */
-                text?: string;
-                /**
-                 * Format: float
-                 * @description Recognition confidence
-                 */
-                confidence?: number;
-                /**
-                 * Format: float
-                 * @description Audio duration in seconds
-                 */
-                duration?: number;
-                /** @description Auto-created assistant message */
-                message?: components["schemas"]["Message"];
-                /** @description Voice flow currently does not run RAG retrieval; returns false explicitly. */
-                rag_hit?: boolean;
-                /** @description Speech recognition capability status with degradation semantics */
-                capability_status?: components["schemas"]["CapabilityStatus"];
-                observability?: components["schemas"]["ChatObservability"];
-                /** @description Follow-up suggestions */
-                suggestions?: string[];
-            };
-            message: string;
-        };
-        UploadedFile: {
-            id: string;
-            filename: string;
-            /** @enum {string} */
-            file_type: "pdf" | "word" | "video" | "image" | "ppt";
-            mime_type?: string;
-            /** @description File size in bytes. Maximum allowed size is 100MB (104857600 bytes). */
-            file_size: number;
-            /** @enum {string} */
-            status: "uploading" | "parsing" | "ready" | "failed";
-            /** @description 解析进度百分比 */
-            parse_progress?: number;
-            /** @description 解析详情 */
-            parse_details?: {
-                /** @description 提取的页数 */
-                pages_extracted?: number;
-                /** @description 提取的图片数 */
-                images_extracted?: number;
-                /** @description 提取的文本长度 */
-                text_length?: number;
-                /** @description 视频时长（秒） */
-                duration?: number;
-            };
-            /** @description 解析错误信息 */
-            parse_error?: string;
-            /** @description 文件用途说明 */
-            usage_intent?: string;
-            /** @description 解析结果摘要 */
-            parse_result?: {
-                /** @description 切分片段数量 */
-                chunk_count?: number;
-                /** @description 入库索引片段数量 */
-                indexed_count?: number;
-                /** @description 解析能力状态（含降级信息） */
-                capability_status?: components["schemas"]["CapabilityStatus"];
-                /** @description 视频解析片段（video 场景） */
-                segments?: Record<string, never>[];
-                /** @description 来源引用（video 场景） */
-                sources?: components["schemas"]["SourceReference"][];
-            };
-            /** Format: date-time */
-            created_at: string;
-            /** Format: date-time */
-            updated_at?: string;
-        };
-        UploadResponse: {
-            success: boolean;
-            data: {
-                file?: components["schemas"]["UploadedFile"];
-            };
-            message: string;
-        };
-        UpdateFileIntentRequest: {
-            usage_intent: string;
-        };
-        UpdateFileIntentResponse: {
-            success: boolean;
-            data: {
-                file?: components["schemas"]["UploadedFile"];
-            };
-            message: string;
-        };
-        BatchUploadResponse: {
-            success: boolean;
-            data: {
-                files?: components["schemas"]["UploadedFile"][];
-                /** @description 成功上传的文件数 */
-                total?: number;
-                /** @description 上传失败的文件列表 */
-                failed?: {
-                    filename?: string;
-                    error?: string;
-                }[];
-            };
-            message: string;
-        };
-        BatchDeleteResponse: {
-            success: boolean;
-            data: {
-                /** @description 成功删除的文件数 */
-                deleted?: number;
-                /** @description 删除失败的文件列表 */
-                failed?: {
-                    file_id?: string;
-                    error?: string;
-                }[];
-            };
-            message: string;
-        };
-        /** @enum {string} */
-        GenerationSessionMode: "ppt" | "word" | "both";
-        /** @enum {string} */
-        GenerationState: "IDLE" | "CONFIGURING" | "ANALYZING" | "DRAFTING_OUTLINE" | "AWAITING_OUTLINE_CONFIRM" | "GENERATING_CONTENT" | "RENDERING" | "SUCCESS" | "FAILED";
-        /** @enum {string} */
-        SessionTitleSource: "default" | "first_message" | "manual";
-        GenerationSessionListItem: {
-            session_id: string;
-            project_id: string;
-            output_type: components["schemas"]["GenerationSessionMode"];
-            state: components["schemas"]["GenerationState"];
-            /** Format: date-time */
-            created_at: string;
-            /** Format: date-time */
-            updated_at: string;
-            display_title?: string;
-            display_title_source?: components["schemas"]["SessionTitleSource"];
-            /** Format: date-time */
-            display_title_updated_at?: string;
-        };
-        GenerationSessionListItemTarget: components["schemas"]["GenerationSessionListItem"] & {
-            display_title?: string;
-            display_title_source?: components["schemas"]["SessionTitleSource"];
-            /** Format: date-time */
-            display_title_updated_at?: string;
-        };
-        GenerationSessionListResponseTarget: {
-            success: boolean;
-            data: {
-                sessions: components["schemas"]["GenerationSessionListItemTarget"][];
-                total: number;
-                page: number;
-                limit: number;
-            };
-            message: string;
-        };
-        /** @enum {string} */
-        CoursewareStylePreset: "academic" | "vibrant" | "dark_tech" | "custom";
-        /** @enum {string} */
-        GenerationAudience: "beginner" | "intermediate" | "professional";
-        GenerationOptions: {
-            /**
-             * @description PPT 模板风格
-             * @default default
-             * @enum {string}
-             */
-            template: "default" | "gaia" | "uncover" | "academic";
-            style_preset?: components["schemas"]["CoursewareStylePreset"];
-            /**
-             * @description 主题色（十六进制颜色代码）
-             * @example #4A90E2
-             */
-            theme_color?: string;
-            /**
-             * @description 是否显示页码
-             * @default true
-             */
-            show_page_number: boolean;
-            /** @description 页眉文本 */
-            header?: string;
-            /** @description 页脚文本 */
-            footer?: string;
-            /** @description 期望的页数 */
-            pages?: number;
-            audience?: components["schemas"]["GenerationAudience"];
-            target_duration_minutes?: number;
-            /**
-             * @description 是否生成动画创意
-             * @default false
-             */
-            include_animations: boolean;
-            /**
-             * @description 是否生成互动游戏
-             * @default false
-             */
-            include_games: boolean;
-            /**
-             * @description 动画输出格式（当 include_animations 为 true 时）
-             * @enum {string}
-             */
-            animation_format?: "gif" | "mp4" | "html5";
-            /**
-             * @description 是否启用自动配图
-             * @default false
-             */
-            use_text_to_image: boolean;
-            /** @description 用户输入的主基调 Prompt */
-            system_prompt_tone?: string;
-            /** @description 本次生成绑定的素材 ID 列表 */
-            rag_source_ids?: string[];
-        };
-        CreateGenerationSessionRequest: {
-            project_id: string;
-            output_type: components["schemas"]["GenerationSessionMode"];
-            options?: components["schemas"]["GenerationOptions"];
-            client_session_id?: string;
-            /** @default false */
-            bootstrap_only: boolean;
-        };
-        SessionRef: {
-            session_id: string;
-            project_id: string;
-            state: components["schemas"]["GenerationState"];
-            /** @description 状态附加语义（用于未知状态或灰度状态说明） */
-            state_reason?: string;
-            /** @example 2026-03 */
-            contract_version: string;
-            /** @description 会话载荷结构版本 */
-            schema_version?: number;
-            progress?: number;
-            resumable?: boolean;
-            /** Format: date-time */
-            updated_at?: string;
-            display_title?: string;
-            display_title_source?: components["schemas"]["SessionTitleSource"];
-            /** Format: date-time */
-            display_title_updated_at?: string;
-        };
-        SessionRefTarget: components["schemas"]["SessionRef"] & {
-            display_title?: string;
-            display_title_source?: components["schemas"]["SessionTitleSource"];
-            /** Format: date-time */
-            display_title_updated_at?: string;
-        };
-        /** @enum {string} */
-        RunTitleSource: "pending" | "auto" | "manual" | "fallback";
-        /** @enum {string} */
-        RunStatus: "pending" | "processing" | "completed" | "failed";
-        /** @enum {string} */
-        RunStep: "config" | "outline" | "generate" | "preview" | "modify_slide" | "completed";
-        SessionRun: {
-            run_id: string;
-            session_id?: string | null;
-            project_id: string;
-            tool_type: string;
-            run_no: number;
-            run_title: string;
-            run_title_source: components["schemas"]["RunTitleSource"];
-            /** Format: date-time */
-            run_title_updated_at?: string;
-            run_status: components["schemas"]["RunStatus"];
-            run_step: components["schemas"]["RunStep"];
-            artifact_id?: string | null;
-            /** Format: date-time */
-            created_at: string;
-            /** Format: date-time */
-            updated_at: string;
-        };
-        CreateGenerationSessionResponseTarget: {
-            success: boolean;
-            data: {
-                session: components["schemas"]["SessionRefTarget"];
-                run: components["schemas"]["SessionRun"];
-            };
-            message: string;
-        };
-        OutlineNode: {
-            id: string;
-            order: number;
-            title: string;
-            key_points?: string[];
-            slide_hint?: string;
-            estimated_minutes?: number;
-        };
-        OutlineDocument: {
-            version: number;
-            nodes: components["schemas"]["OutlineNode"][];
-            summary?: string;
-        };
-        SessionContextSnapshot: {
-            retrieval_id?: string;
-            selected_source_ids?: string[];
-            notes?: string;
-        };
-        /** @enum {string} */
-        "generate-capabilities_CapabilityStatus": "available" | "degraded" | "unavailable";
-        CapabilityDeclaration: {
-            /** @enum {string} */
-            name: "document_parser" | "video_understanding" | "speech_recognition" | "outline_generation" | "slide_regeneration" | "event_stream";
-            status: components["schemas"]["generate-capabilities_CapabilityStatus"];
-            providers?: string[];
-            default_provider?: string;
-            fallback_chain?: string[];
-            operations: string[];
-            status_message?: string;
-        };
-        ExternalFallbackInfo: {
-            /** @enum {string} */
-            capability: "document_parser" | "video_understanding" | "speech_recognition";
-            /**
-             * @description 原始目标能力或供应商
-             * @example MinerU
-             */
-            provider?: string;
-            fallback_used: boolean;
-            /**
-             * @description 实际回退到的能力或供应商
-             * @example local_parser
-             */
-            fallback_target?: string;
-            /**
-             * @description 降级原因码（超时/限流/服务不可用等）
-             * @example PROVIDER_TIMEOUT
-             */
-            reason_code?: string;
-            /** @description 可直接展示给用户的降级提示语 */
-            user_message?: string;
-        };
-        SessionStatePayloadTarget: {
-            session: components["schemas"]["SessionRefTarget"];
-            options?: components["schemas"]["GenerationOptions"];
-            outline?: components["schemas"]["OutlineDocument"];
-            context_snapshot?: components["schemas"]["SessionContextSnapshot"];
-            capabilities?: components["schemas"]["CapabilityDeclaration"][];
-            fallbacks?: components["schemas"]["ExternalFallbackInfo"][];
-            allowed_actions?: string[];
-            current_run?: components["schemas"]["SessionRun"];
-            result?: {
-                ppt_url?: string;
-                word_url?: string;
-                version?: number;
-            };
-            error?: {
-                code?: string;
-                message?: string;
-                retryable?: boolean;
-            };
-        };
-        GenerationSessionResponseTarget: {
-            success: boolean;
-            data: components["schemas"]["SessionStatePayloadTarget"];
-            message: string;
-        };
-        /** @enum {string} */
-        GenerationEventTypeTarget: "state.changed" | "progress.updated" | "outline.ready" | "outline.updated" | "outline.started" | "outline.section.generated" | "outline.completed" | "slides.started" | "slide.generating" | "slide.generated" | "slides.completed" | "generation.completed" | "generation.failed" | "ppt.started" | "ppt.slide.generated" | "ppt.completed" | "slide.updated" | "slide.modify.started" | "slide.modify.processing" | "slide.modify.failed" | "task.completed" | "task.failed" | "session.recovered" | "requirements.analyzing.started" | "requirements.analyzing.completed" | "requirements.analyzed" | "outline.token" | "compile.completed" | "run.failed" | "slide.started" | "compile.started" | "plan.completed" | "slide.reviewed" | "qa.completed" | "repair.started" | "slot.mapping.completed" | "slide.preview.qa" | "chart.truth.checked" | "repair.round.completed" | "slide.codegen.started" | "slide.codegen.completed" | "slide.spec.generated" | "slide.spec.repaired" | "slide.critic.completed" | "slide.repair.completed" | "artifact.cleanup.completed" | "slide.plan.completed" | "slide.quality.gate.completed" | "slide.repair.directives.generated" | "research.completed" | "slide.candidate.generated" | "slide.selection.completed" | "template.layout.reflow.completed" | "template.fidelity.checked" | "outline.repair.started" | "outline.repair.completed" | "outline.repair.failed" | "llm.request.retry" | "llm.request.timeout" | "slide.failed" | "slide.failure.diagnostics" | "slide.auto.fix.applied" | "slide.retry.context.built" | "run.finalized";
-        RunTracePayload: {
-            run_id?: string;
-            run_no?: number;
-            tool_type?: string;
-            run_title?: string;
-            run_title_source?: components["schemas"]["RunTitleSource"];
-            /** Format: date-time */
-            run_title_updated_at?: string;
-            run_status?: components["schemas"]["RunStatus"];
-            run_step?: components["schemas"]["RunStep"];
-            progress_message?: string;
-            partial?: boolean;
-            final?: boolean;
-            section_index?: number;
-            section_title?: string;
-            section_payload?: {
-                [key: string]: unknown;
-            };
-            slide_id?: string;
-            slide_index?: number;
-            slide_payload?: {
-                [key: string]: unknown;
-            };
-            command_id?: string;
-            accepted?: boolean;
-            error?: string | {
-                code?: string;
-                message?: string;
-            };
-        };
-        GenerationEventTarget: {
-            event_id: string;
-            /** @default 1 */
-            event_schema_version: number;
-            event_type: components["schemas"]["GenerationEventTypeTarget"];
-            state: components["schemas"]["GenerationState"];
-            state_reason?: string;
-            progress?: number;
-            /** Format: date-time */
-            timestamp: string;
-            /** @description 增量消费游标 */
-            cursor: string;
-            payload?: components["schemas"]["RunTracePayload"];
-        };
-        GenerationEventListResponseTarget: {
-            success: boolean;
-            data: {
-                events?: components["schemas"]["GenerationEventTarget"][];
-            };
-            message: string;
-        };
-        GenerationSessionRunListResponseTarget: {
-            success: boolean;
-            data: {
-                runs: components["schemas"]["SessionRun"][];
-                total: number;
-                page: number;
-                limit: number;
-            };
-            message: string;
-        };
-        GenerationSessionRunDetailResponseTarget: {
-            success: boolean;
-            data: {
-                run: components["schemas"]["SessionRun"];
-            };
-            message: string;
-        };
-        UpdateOutlineCommand: {
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            command_type: "UPDATE_OUTLINE";
-            base_version: number;
-            outline: components["schemas"]["OutlineDocument"];
-            change_reason?: string;
-        };
-        RedraftOutlineCommand: {
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            command_type: "REDRAFT_OUTLINE";
-            instruction: string;
-            base_version: number;
-        };
-        ConfirmOutlineCommand: {
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            command_type: "CONFIRM_OUTLINE";
-            /** @default true */
-            continue_from_retrieval: boolean;
-            expected_state?: components["schemas"]["GenerationState"];
-        };
-        /** @enum {string} */
-        SlideModifyScope: "current_slide_only";
-        /** @enum {string} */
-        StructuredPatchOperationType: "replace_text" | "insert_block" | "remove_block" | "replace_image" | "reorder_block";
-        StructuredSlidePatchOperation: {
-            op: components["schemas"]["StructuredPatchOperationType"];
-            /**
-             * @description 目标路径（JSON Pointer 风格）
-             * @example /slides/5/body/blocks/2
-             */
-            path: string;
-            /** @description 操作值（按 op 类型解释） */
-            value?: Record<string, never>;
-            /** @description 可选备注，便于审计与回放 */
-            note?: string;
-        };
-        StructuredSlidePatch: {
-            /** @default 1 */
-            schema_version: number;
-            operations: components["schemas"]["StructuredSlidePatchOperation"][];
-        };
-        RegenerateSlideCommandTarget: {
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            command_type: "REGENERATE_SLIDE";
-            slide_id: string;
-            /** @description 用户对当前页的明确修改需求 */
-            instruction: string;
-            expected_render_version?: number;
-            /** @default true */
-            preserve_style: boolean;
-            /** @default true */
-            preserve_layout: boolean;
-            /** @default true */
-            preserve_deck_consistency: boolean;
-            scope?: components["schemas"]["SlideModifyScope"];
-            patch?: components["schemas"]["StructuredSlidePatch"];
-        };
-        ResumeSessionCommand: {
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            command_type: "RESUME_SESSION";
-            cursor?: string;
-            last_known_state?: components["schemas"]["GenerationState"];
-        };
-        SetSessionTitleCommandTarget: {
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            command_type: "SET_SESSION_TITLE";
-            display_title: string;
-        };
-        GenerationCommandEnvelopeTarget: components["schemas"]["UpdateOutlineCommand"] | components["schemas"]["RedraftOutlineCommand"] | components["schemas"]["ConfirmOutlineCommand"] | components["schemas"]["RegenerateSlideCommandTarget"] | components["schemas"]["ResumeSessionCommand"] | components["schemas"]["SetSessionTitleCommandTarget"];
-        GenerationSessionCommandRequestTarget: {
-            command: components["schemas"]["GenerationCommandEnvelopeTarget"];
-        };
-        /** @enum {string} */
-        GenerationCommandTypeTarget: "UPDATE_OUTLINE" | "REDRAFT_OUTLINE" | "CONFIRM_OUTLINE" | "REGENERATE_SLIDE" | "RESUME_SESSION" | "SET_SESSION_TITLE";
-        AppliedTransitionTarget: {
-            command_type: components["schemas"]["GenerationCommandTypeTarget"];
-            from_state: components["schemas"]["GenerationState"];
-            to_state: components["schemas"]["GenerationState"];
-            /** @example StateTransitionGuard */
-            validated_by: string;
-        };
-        GenerationSessionCommandResponseTarget: {
-            success: boolean;
-            data: {
-                command_id: string;
-                /** @default true */
-                accepted: boolean;
-                transition?: components["schemas"]["AppliedTransitionTarget"];
-                session: components["schemas"]["SessionRefTarget"];
-                run?: components["schemas"]["SessionRun"];
-                warnings?: string[];
-            };
-            message: string;
-        };
-        CandidateChange: {
-            id: string;
-            project_id: string;
-            session_id?: string | null;
-            base_version_id?: string | null;
-            title: string;
-            summary: string;
-            payload?: {
-                [key: string]: unknown;
-            };
-            /** @enum {string} */
-            status: "pending" | "accepted" | "rejected";
-            review_comment?: string | null;
-            accepted_version_id?: string | null;
-            proposer_user_id: string;
-            /** Format: date-time */
-            created_at: string;
-            /** Format: date-time */
-            updated_at?: string;
-        };
-        CandidateChangesResponse: {
-            success: boolean;
-            data: {
-                changes?: components["schemas"]["CandidateChange"][];
-            };
-            message: string;
-        };
-        CandidateChangeRequest: {
-            session_id?: string | null;
-            base_version_id?: string | null;
-            title: string;
-            summary?: string;
-            payload?: {
-                [key: string]: unknown;
-            };
-        };
-        CandidateChangeResponse: {
-            success: boolean;
-            data: {
-                change: components["schemas"]["CandidateChange"];
-            };
-            message: string;
-        };
-        /** @enum {string} */
-        GenerationCommandType: "UPDATE_OUTLINE" | "REDRAFT_OUTLINE" | "CONFIRM_OUTLINE" | "REGENERATE_SLIDE" | "RESUME_SESSION" | "SET_SESSION_TITLE";
-        StudioCardConfigOption: {
-            value: string;
-            label: string;
-            description?: string;
-        };
-        StudioCardConfigField: {
-            key: string;
-            label: string;
-            /** @enum {string} */
-            type: "select" | "multiselect" | "boolean" | "integer" | "text" | "reference";
-            required: boolean;
-            options?: components["schemas"]["StudioCardConfigOption"][];
-            placeholder?: string;
-            default_value?: string | number | boolean;
-            notes?: string;
-        };
-        StudioCardAction: {
-            type: string;
-            label: string;
-            notes?: string;
-        };
-        StudioCardCapability: {
-            id: string;
-            title: string;
-            /** @enum {string} */
-            readiness: "ready" | "foundation_ready" | "protocol_pending";
-            /** @enum {string} */
-            context_mode: "session" | "artifact" | "hybrid";
-            /** @enum {string} */
-            execution_mode: "session_command" | "artifact_create" | "composite";
-            primary_capabilities: string[];
-            related_capabilities: string[];
-            artifact_types: string[];
-            /** @enum {string} */
-            session_output_type?: "ppt" | "word" | "both";
-            requires_source_artifact: boolean;
-            supports_chat_refine: boolean;
-            supports_selection_context: boolean;
-            config_fields: components["schemas"]["StudioCardConfigField"][];
-            actions: components["schemas"]["StudioCardAction"][];
-            notes?: string;
-        };
-        StateTransitionRule: {
-            command_type: components["schemas"]["GenerationCommandType"];
-            from_state: components["schemas"]["GenerationState"];
-            to_state: components["schemas"]["GenerationState"];
-        };
-        StateMachineDeclaration: {
-            states: components["schemas"]["GenerationState"][];
-            terminal_states: components["schemas"]["GenerationState"][];
-            transitions: components["schemas"]["StateTransitionRule"][];
-        };
-        GenerationCapabilitiesResponse: {
-            success: boolean;
-            data: {
-                contract_versions: string[];
-                default_contract_version: string;
-                command_interface: {
-                    /** @example /api/v1/generate/sessions/{session_id}/commands */
-                    endpoint: string;
-                    supported_commands: components["schemas"]["GenerationCommandType"][];
-                };
-                capabilities: components["schemas"]["CapabilityDeclaration"][];
-                studio_cards: components["schemas"]["StudioCardCapability"][];
-                state_machine: components["schemas"]["StateMachineDeclaration"];
-                deprecations?: {
-                    api?: string;
-                    /** Format: date-time */
-                    sunset_at?: string;
-                    replacement?: string;
-                }[];
-            };
-            message: string;
-        };
-        StudioCardsCatalogResponse: {
-            success: boolean;
-            data: {
-                studio_cards: components["schemas"]["StudioCardCapability"][];
-            };
-            message: string;
-        };
-        StudioCardDetailResponse: {
-            success: boolean;
-            data: {
-                studio_card: components["schemas"]["StudioCardCapability"];
-            };
-            message: string;
-        };
-        StudioCardExecutionBinding: {
-            /** @enum {string} */
-            transport: "session_create" | "artifact_create" | "chat_message" | "artifact_reference";
-            /** @enum {string} */
-            status: "ready" | "partial" | "pending";
-            method: string;
-            endpoint: string;
-            required_fields: string[];
-            bound_config_keys: string[];
-            pending_config_keys: string[];
-            result_fields: string[];
-            notes?: string;
-        };
-        StudioCardExecutionPlan: {
-            card_id: string;
-            /** @enum {string} */
-            readiness: "ready" | "foundation_ready" | "protocol_pending";
-            initial_binding: components["schemas"]["StudioCardExecutionBinding"];
-            refine_binding?: components["schemas"]["StudioCardExecutionBinding"];
-            source_binding?: components["schemas"]["StudioCardExecutionBinding"];
-        };
-        StudioCardExecutionPlanResponse: {
-            success: boolean;
-            data: {
-                execution_plan: components["schemas"]["StudioCardExecutionPlan"];
-            };
-            message: string;
-        };
-        StudioCardExecutionPreviewRequest: {
-            project_id: string;
-            config?: {
-                [key: string]: unknown;
-            };
-            /** @enum {string} */
-            visibility?: "private" | "project-visible" | "shared";
-            source_artifact_id?: string;
-            rag_source_ids?: string[];
-            client_session_id?: string;
-        };
-        StudioCardResolvedRequest: {
-            method: string;
-            endpoint: string;
-            payload: {
-                [key: string]: unknown;
-            };
-            notes?: string;
-        };
-        StudioCardExecutionPreview: {
-            card_id: string;
-            /** @enum {string} */
-            readiness: "ready" | "foundation_ready" | "protocol_pending";
-            initial_request: components["schemas"]["StudioCardResolvedRequest"];
-            refine_request?: components["schemas"]["StudioCardResolvedRequest"];
-            source_request?: components["schemas"]["StudioCardResolvedRequest"];
-        };
-        StudioCardExecutionPreviewResponse: {
-            success: boolean;
-            data: {
-                execution_preview: components["schemas"]["StudioCardExecutionPreview"];
-            };
-            message: string;
-        };
-        StudioCardExecutionResult: {
-            card_id: string;
-            /** @enum {string} */
-            readiness: "ready" | "foundation_ready" | "protocol_pending";
-            /** @enum {string} */
-            transport: "session_create" | "artifact_create" | "chat_message" | "artifact_reference";
-            /** @enum {string} */
-            resource_kind: "session" | "artifact";
-            session?: {
-                [key: string]: unknown;
-            };
-            artifact?: {
-                [key: string]: unknown;
-            };
-            run?: components["schemas"]["SessionRun"];
-            request_preview: components["schemas"]["StudioCardResolvedRequest"];
-        };
-        StudioCardExecutionResponse: {
-            success: boolean;
-            data: {
-                execution_result: components["schemas"]["StudioCardExecutionResult"];
-            };
-            message: string;
-        };
-        StudioCardRefineRequest: {
-            project_id: string;
-            artifact_id?: string;
-            session_id?: string;
-            message: string;
-            config?: {
-                [key: string]: unknown;
-            };
-            /** @enum {string} */
-            visibility?: "private" | "project-visible" | "shared";
-            source_artifact_id?: string;
-            rag_source_ids?: string[];
-        };
-        StudioCardRefineResponse: {
-            success: boolean;
-            data: {
-                card_id: string;
-                session_id?: string;
-                message: components["schemas"]["Message"];
-                rag_hit?: boolean;
-                suggestions?: string[];
-                observability?: components["schemas"]["ChatObservability"];
-                refine_request: components["schemas"]["StudioCardResolvedRequest"];
-            };
-            message: string;
-        };
-        StudioCardTurnRequest: {
-            project_id: string;
-            artifact_id: string;
-            teacher_answer: string;
-            turn_anchor?: string;
-            config?: {
-                [key: string]: unknown;
-            };
-            rag_source_ids?: string[];
-        };
-        StudioCardTurnResult: {
-            turn_anchor: string;
-            student_profile: string;
-            student_question: string;
-            teacher_answer: string;
-            feedback: string;
-            score: number;
-            next_focus?: string;
-        };
-        StudioCardTurnResponse: {
-            success: boolean;
-            data: {
-                artifact: {
-                    [key: string]: unknown;
-                };
-                turn_result: components["schemas"]["StudioCardTurnResult"];
-            };
-            message: string;
-        };
-        StudioCardSourceArtifact: {
-            id: string;
-            type: string;
-            title?: string;
-            visibility?: string;
-            based_on_version_id?: string;
-            session_id?: string;
-            /** Format: date-time */
-            updated_at?: string;
-        };
-        StudioCardSourceOptionsResponse: {
-            success: boolean;
-            data: {
-                sources: components["schemas"]["StudioCardSourceArtifact"][];
-            };
-            message: string;
-        };
-        ArtifactAnchor: {
-            session_id?: string | null;
-            artifact_id?: string | null;
-            based_on_version_id?: string | null;
-            run_id?: string | null;
-        };
-        RenderedPreviewPage: {
-            index: number;
-            slide_id: string;
-            image_url?: string | null;
-            html_preview?: string | null;
-            status?: string | null;
-            /** @default 0 */
-            split_index: number;
-            /** @default 1 */
-            split_count: number;
-            width?: number | null;
-            height?: number | null;
-        };
-        RenderedPreview: {
-            /** @default png */
-            format: string;
-            /** @default 0 */
-            page_count: number;
-            pages?: components["schemas"]["RenderedPreviewPage"][];
-        };
-        preview_SourceReference: {
-            /** @description 来源片段唯一标识，可用于查询来源详情 */
-            chunk_id: string;
-            /** @enum {string} */
-            source_type: "video" | "document" | "ai_generated";
-            filename: string;
-            page_number?: number;
-            timestamp?: string;
-            preview_text?: string;
-        };
-        /** @description 插图决策元数据 */
-        ImageInsertionMetadata: {
-            /**
-             * @description 检索模式
-             * @enum {string}
-             */
-            retrieval_mode?: "default_library" | "strict_sources";
-            /** @description 页面语义类型 */
-            page_semantic_type?: string;
-            /**
-             * @description 插图决策
-             * @enum {string}
-             */
-            image_insertion_decision?: "insert" | "skip";
-            /** @description 插图数量 */
-            image_count?: number;
-            /**
-             * @description 图位
-             * @enum {string}
-             */
-            image_slot?: "left_split" | "right_split" | "bottom_panel";
-            /**
-             * @description 版式风险等级
-             * @enum {string}
-             */
-            layout_risk_level?: "low" | "medium" | "high";
-            /** @description 插图匹配原因 */
-            image_match_reason?: string;
-            /** @description 跳过插图原因 */
-            skip_reason?: string;
-        };
-        Slide: {
-            id: string;
-            index: number;
-            title: string;
-            content: string;
-            sources: components["schemas"]["preview_SourceReference"][];
-            thumbnail_url?: string;
-            rendered_html_preview?: string | null;
-            rendered_previews?: components["schemas"]["RenderedPreviewPage"][];
-            image_metadata?: components["schemas"]["ImageInsertionMetadata"];
-        };
-        SlidePlan: {
-            slide_id: string;
-            teaching_goal: string;
-            teacher_script: string;
-            teaching_suggestions?: string[];
-            suggested_duration?: number;
-            material_sources?: components["schemas"]["preview_SourceReference"][];
-        };
-        LessonPlan: {
-            teaching_objectives?: string[];
-            slides_plan?: components["schemas"]["SlidePlan"][];
-        };
-        PreviewResponse: {
-            success: boolean;
-            data: {
-                /** @description 会话级预览上下文 ID（session-first） */
-                session_id?: string;
-                /** @description 当前预览对应的成果 ID */
-                artifact_id?: string | null;
-                /** @description 当前预览基于的正式版本 ID */
-                based_on_version_id?: string | null;
-                /** @description 当前项目正式版本 ID */
-                current_version_id?: string | null;
-                /** @description 预览基于的上游版本是否与当前项目版本一致 */
-                upstream_updated?: boolean;
-                /** @description 当前可预览渲染版本 */
-                render_version?: number;
-                artifact_anchor?: components["schemas"]["ArtifactAnchor"];
-                rendered_preview?: components["schemas"]["RenderedPreview"];
-                slides?: components["schemas"]["Slide"][];
-                lesson_plan?: components["schemas"]["LessonPlan"];
-            };
-            message: string;
-        };
-        ModifySessionRequest: {
-            /** @description 指定要修改的成果 ID（可选） */
-            artifact_id?: string;
-            /** @description 指定运行 ID（可选） */
-            run_id?: string;
-            instruction: string;
-            target_slides?: string[];
-            context?: {
-                [key: string]: unknown;
-            };
-            /** @description 并发控制版本（防止覆盖更新） */
-            base_render_version?: number;
-            /** @description 指定要修改的 slide ID（可选） */
-            slide_id?: string;
-            /** @description 指定要修改的页码（从 1 开始） */
-            slide_index?: number;
-            /** @description 修改作用范围 */
-            scope?: string;
-            /** @default true */
-            preserve_style: boolean;
-            /** @default true */
-            preserve_layout: boolean;
-            /** @default true */
-            preserve_deck_consistency: boolean;
-            patch?: components["schemas"]["StructuredSlidePatch"];
-            candidate_change?: components["schemas"]["CandidateChangeRequest"];
-        };
-        ModifyResponse: {
-            success: boolean;
-            data: {
-                /** @description 修改任务实际作用的会话 */
-                session_id?: string;
-                /** @enum {string} */
-                status?: "pending" | "processing" | "completed" | "failed";
-                /** @description 修改后最新渲染版本 */
-                render_version?: number;
-                /** @description 修改任务对应的成果 ID */
-                artifact_id?: string | null;
-                /** @description 修改任务基于的正式版本 ID */
-                based_on_version_id?: string | null;
-                /** @description 当前项目正式版本 ID */
-                current_version_id?: string | null;
-                /** @description 修改基于的上游版本是否与当前项目版本一致 */
-                upstream_updated?: boolean;
-                artifact_anchor?: components["schemas"]["ArtifactAnchor"];
-                slide_id?: string;
-                slide_index?: number;
-                scope?: string;
-                candidate_change?: components["schemas"]["CandidateChange"];
-            };
-            message: string;
-        };
-        SlideDetailResponse: {
-            success: boolean;
-            data: {
-                /** @description 当前幻灯片详情所属会话 */
-                session_id?: string;
-                /** @description 当前预览对应的成果 ID */
-                artifact_id?: string | null;
-                /** @description 当前预览基于的正式版本 ID */
-                based_on_version_id?: string | null;
-                /** @description 当前项目正式版本 ID */
-                current_version_id?: string | null;
-                /** @description 预览基于的上游版本是否与当前项目版本一致 */
-                upstream_updated?: boolean;
-                slide?: components["schemas"]["Slide"];
-                /** @description 该幻灯片对应的教学计划 */
-                teaching_plan?: components["schemas"]["SlidePlan"];
-                artifact_anchor?: components["schemas"]["ArtifactAnchor"];
-                /** @description 相关幻灯片 */
-                related_slides?: {
-                    slide_id?: string;
-                    title?: string;
-                    /** @enum {string} */
-                    relation?: "previous" | "next" | "related";
-                }[];
-            };
-            message: string;
-        };
-        ExportRequest: {
-            /** @description 指定要导出的成果 ID（可选） */
-            artifact_id?: string;
-            /** @description 指定运行 ID（可选） */
-            run_id?: string;
-            /**
-             * @description 导出格式
-             * @enum {string}
-             */
-            format: "json" | "markdown" | "html";
-            /**
-             * @description 是否包含来源信息
-             * @default true
-             */
-            include_sources: boolean;
-            /** @description 可选并发保护版本，仅对 session 级导出接口生效（冲突可返回 409）。 */
-            expected_render_version?: number;
-            candidate_change?: components["schemas"]["CandidateChangeRequest"];
-        };
-        ExportResponse: {
-            success: boolean;
-            data: {
-                /** @description 导出时绑定的会话 ID */
-                session_id?: string;
-                /** @description 导出对应的成果 ID */
-                artifact_id?: string | null;
-                /** @description 导出基于的正式版本 ID */
-                based_on_version_id?: string | null;
-                /** @description 当前项目正式版本 ID */
-                current_version_id?: string | null;
-                /** @description 导出基于的上游版本是否与当前项目版本一致 */
-                upstream_updated?: boolean;
-                artifact_anchor?: components["schemas"]["ArtifactAnchor"];
-                /** @description 导出的内容 */
-                content?: string;
-                format?: string;
-                render_version?: number;
-                candidate_change?: components["schemas"]["CandidateChange"];
-            };
-            message: string;
-        };
-        RAGSearchRequest: {
-            project_id: string;
-            query: string;
-            /** @default 5 */
-            top_k: number;
-            filters?: {
-                file_types?: ("pdf" | "word" | "video" | "image" | "ppt")[];
-                file_ids?: string[];
-            };
-        };
-        RAGResult: {
-            chunk_id: string;
-            content: string;
-            /** Format: float */
-            score: number;
-            source: components["schemas"]["SourceReference"];
-            metadata?: Record<string, never>;
-        };
-        RAGSearchResponse: {
-            success: boolean;
-            data: {
-                results?: components["schemas"]["RAGResult"][];
-                total?: number;
-            };
-            message: string;
-        };
-        SourceDetailResponse: {
-            success: boolean;
-            data: {
-                chunk_id?: string;
-                content?: string;
-                source?: components["schemas"]["SourceReference"];
-                context?: {
-                    previous_chunk?: string;
-                    next_chunk?: string;
-                };
-                file_info?: components["schemas"]["UploadedFile"];
-            };
-            message: string;
-        };
-        WebKnowledgeUnit: {
-            chunk_id: string;
-            /** @enum {string} */
-            source_type: "web" | "audio" | "video";
-            content: string;
-            metadata: {
-                [key: string]: unknown;
-            };
-            citation?: components["schemas"]["SourceReference"];
-        };
-        WebSearchResponse: {
-            success: boolean;
-            data: {
-                results?: components["schemas"]["WebKnowledgeUnit"][];
-                total?: number;
-                indexed?: number | null;
-            };
-            message: string;
-        };
-        AudioTranscribeResponse: {
-            success: boolean;
-            data: {
-                audio_id?: string;
-                text?: string;
-                segments?: components["schemas"]["WebKnowledgeUnit"][];
-                total_segments?: number;
-                indexed?: number | null;
-                language?: string;
-                /** Format: float */
-                confidence?: number;
-                /** Format: float */
-                duration?: number;
-                capability_status?: components["schemas"]["CapabilityStatus"];
-            };
-            message: string;
-        };
-        VideoAnalyzeResponse: {
-            success: boolean;
-            data: {
-                video_id?: string;
-                segments?: components["schemas"]["WebKnowledgeUnit"][];
-                total_segments?: number;
-                indexed?: number | null;
-                capability_status?: components["schemas"]["CapabilityStatus"];
-            };
-            message: string;
-        };
-        HealthCheckResponse: {
-            /** @enum {string} */
-            status: "healthy" | "degraded";
-            /** @enum {string} */
-            database: "connected" | "disconnected";
-            /** @enum {string} */
-            redis: "connected" | "disconnected";
-            db_required: boolean;
-            redis_required: boolean;
-            generation_tools: {
-                /** @enum {string} */
-                marp: "available" | "unavailable" | "unknown";
-                /** @enum {string} */
-                pandoc: "available" | "unavailable" | "unknown";
-                required: boolean;
-                healthy: boolean;
-                timed_out: boolean;
-            };
-            /** Format: float */
-            dependency_timeout_seconds: number;
-            /** Format: float */
-            tool_timeout_seconds: number;
-            latency_ms: {
-                /** Format: float */
-                database: number;
-                /** Format: float */
-                redis: number;
-                /** Format: float */
-                generation_tools: number;
-            };
-        };
-        HealthLivenessResponse: {
-            /** @enum {string} */
-            status: "alive";
-        };
-        CapabilitiesHealthResponse: {
-            success: boolean;
-            data: {
-                document_parser?: components["schemas"]["CapabilityStatus"];
-                video_understanding?: components["schemas"]["CapabilityStatus"];
-                speech_recognition?: components["schemas"]["CapabilityStatus"];
-            };
-            message: string;
-        };
-        SystemSettingsModels: {
-            default_model?: string;
-            large_model?: string;
-            small_model?: string;
-        };
-        SystemSettingsGenerationDefaults: {
-            default_output_type?: components["schemas"]["GenerationSessionMode"];
-            default_page_count?: number;
-            default_outline_style?: string;
-        };
-        SystemSettingsFeatureFlags: {
-            enable_ai_generation?: boolean;
-            enable_file_upload?: boolean;
-            feature_flags?: {
-                [key: string]: unknown;
-            };
-        };
-        SystemSettingsExperience: {
-            chat_timeout_seconds?: number;
-            ai_request_timeout_seconds?: number;
-        };
-        SystemSettings: {
-            models?: components["schemas"]["SystemSettingsModels"];
-            generation_defaults?: components["schemas"]["SystemSettingsGenerationDefaults"];
-            feature_flags?: components["schemas"]["SystemSettingsFeatureFlags"];
-            experience?: components["schemas"]["SystemSettingsExperience"];
-        };
-        SystemSettingsResponse: {
-            success: boolean;
-            data: components["schemas"]["SystemSettings"];
-            message: string;
-        };
-        UpdateSystemSettingsRequest: {
-            models?: components["schemas"]["SystemSettingsModels"];
-            generation_defaults?: components["schemas"]["SystemSettingsGenerationDefaults"];
-            feature_flags?: components["schemas"]["SystemSettingsFeatureFlags"];
-            experience?: components["schemas"]["SystemSettingsExperience"];
-        };
-        Project: {
-            id: string;
-            name: string;
-            description: string;
-            grade_level?: string;
-            /** @enum {string} */
-            status: "draft" | "in_progress" | "completed";
-            /** Format: date-time */
-            created_at: string;
-            /** Format: date-time */
-            updated_at: string;
-        };
-        ProjectTarget: components["schemas"]["Project"] & {
-            /** @enum {string} */
-            visibility?: "private" | "shared";
-            is_referenceable?: boolean;
-            current_version_id?: string | null;
-        };
-        GetProjectsResponseTarget: {
-            success: boolean;
-            data: {
-                projects?: components["schemas"]["ProjectTarget"][];
-                total?: number;
-                page?: number;
-                limit?: number;
-            };
-            message: string;
-        };
-        ProjectRequest: {
-            name: string;
-            description: string;
-            grade_level?: string;
-        };
-        ProjectRequestTarget: components["schemas"]["ProjectRequest"] & {
-            base_project_id?: string | null;
-            /** @enum {string} */
-            reference_mode?: "follow" | "pinned";
-            /** @enum {string} */
-            visibility?: "private" | "shared";
-            is_referenceable?: boolean;
-        };
-        ProjectResponseTarget: {
-            success: boolean;
-            data: {
-                project: components["schemas"]["ProjectTarget"];
-            };
-            message: string;
-        };
-        GetFilesResponse: {
-            success: boolean;
-            data: {
-                files?: components["schemas"]["UploadedFile"][];
-                total?: number;
-                page?: number;
-                limit?: number;
-            };
-            message: string;
-        };
-        ProjectStatisticsResponse: {
-            success: boolean;
-            data: {
-                project_id?: string;
-                /** @description 上传的文件数 */
-                files_count?: number;
-                /** @description 对话消息数 */
-                messages_count?: number;
-                /** @description 生成任务数 */
-                generation_tasks_count?: number;
-                /** @description 已完成的任务数 */
-                completed_tasks_count?: number;
-                /** @description 文件总大小（字节） */
-                total_file_size?: number;
-                /**
-                 * Format: date-time
-                 * @description 最后活动时间
-                 */
-                last_activity?: string;
-                /** Format: date-time */
-                created_at?: string;
-            };
-            message: string;
-        };
-        GetProjectsResponse: {
-            success: boolean;
-            data: {
-                projects?: components["schemas"]["Project"][];
-                total?: number;
-                page?: number;
-                limit?: number;
-            };
-            message: string;
-        };
-        ProjectReference: {
-            id: string;
-            project_id: string;
-            target_project_id: string;
-            /** @enum {string} */
-            relation_type: "base" | "auxiliary";
-            /** @enum {string} */
-            mode: "follow" | "pinned";
-            pinned_version_id?: string | null;
-            /** @description 辅助引用排序，数值越小优先级越高 */
-            priority?: number;
-            /** @enum {string} */
-            status: "active" | "disabled";
-            created_by?: string;
-            /** Format: date-time */
-            created_at: string;
-            /** Format: date-time */
-            updated_at: string;
-        };
-        ProjectReferencesResponse: {
-            success: boolean;
-            data: {
-                references?: components["schemas"]["ProjectReference"][];
-            };
-            message: string;
-        };
-        ProjectReferenceRequest: {
-            target_project_id: string;
-            /** @enum {string} */
-            relation_type: "base" | "auxiliary";
-            /** @enum {string} */
-            mode: "follow" | "pinned";
-            pinned_version_id?: string | null;
-            priority?: number;
-        };
-        ProjectReferenceResponse: {
-            success: boolean;
-            data: {
-                reference: components["schemas"]["ProjectReference"];
-            };
-            message: string;
-        };
-        ProjectReferenceUpdateRequest: {
-            /** @enum {string} */
-            mode?: "follow" | "pinned";
-            pinned_version_id?: string | null;
-            priority?: number;
-            /** @enum {string} */
-            status?: "active" | "disabled";
-        };
-        ProjectVersion: {
-            id: string;
-            project_id: string;
-            parent_version_id?: string | null;
-            summary: string;
-            /** @enum {string} */
-            change_type: "author-update" | "merge-change" | "reference-change" | "import";
-            snapshot_data?: {
-                [key: string]: unknown;
-            };
-            created_by: string;
-            /** Format: date-time */
-            created_at: string;
-        };
-        ProjectVersionsResponse: {
-            success: boolean;
-            data: {
-                versions?: components["schemas"]["ProjectVersion"][];
-            };
-            message: string;
-        };
-        ProjectVersionResponse: {
-            success: boolean;
-            data: {
-                version: components["schemas"]["ProjectVersion"];
-            };
-            message: string;
-        };
-        Artifact: {
-            id: string;
-            project_id: string;
-            session_id?: string | null;
-            based_on_version_id?: string | null;
-            owner_user_id?: string | null;
-            /** @enum {string} */
-            type: "pptx" | "docx" | "mindmap" | "summary" | "exercise" | "html" | "gif" | "mp4";
-            /** @enum {string} */
-            visibility: "private" | "project-visible" | "shared";
-            storage_path?: string;
-            metadata?: {
-                [key: string]: unknown;
-            };
-            /** Format: date-time */
-            created_at: string;
-            /** Format: date-time */
-            updated_at: string;
-        };
-        ArtifactsResponse: {
-            success: boolean;
-            data: {
-                artifacts?: components["schemas"]["Artifact"][];
-            };
-            message: string;
-        };
-        ArtifactCreateRequest: {
-            session_id?: string | null;
-            based_on_version_id?: string | null;
-            /** @enum {string} */
-            type: "pptx" | "docx" | "mindmap" | "summary" | "exercise" | "html" | "gif" | "mp4";
-            /** @enum {string} */
-            visibility?: "private" | "project-visible" | "shared";
-            /** @enum {string} */
-            mode?: "create" | "replace";
-            content?: {
-                [key: string]: unknown;
-            };
-        };
-        ArtifactResponse: {
-            success: boolean;
-            data: {
-                artifact: components["schemas"]["Artifact"];
-            };
-            message: string;
-        };
-        CandidateChangeReviewRequest: {
-            /** @enum {string} */
-            action: "accept" | "reject";
-            review_comment?: string;
-        };
-        ProjectMember: {
-            id: string;
-            project_id: string;
-            user_id: string;
-            /** @enum {string} */
-            role: "owner" | "editor" | "viewer";
-            permissions: {
-                can_view?: boolean;
-                can_reference?: boolean;
-                can_collaborate?: boolean;
-                can_manage?: boolean;
-            };
-            /** @enum {string} */
-            status: "active" | "disabled";
-            /** Format: date-time */
-            created_at: string;
-        };
-        ProjectMembersResponse: {
-            success: boolean;
-            data: {
-                members?: components["schemas"]["ProjectMember"][];
-            };
-            message: string;
-        };
-        ProjectMemberRequest: {
-            user_id: string;
-            /** @enum {string} */
-            role?: "owner" | "editor" | "viewer";
-            permissions?: {
-                can_view?: boolean;
-                can_reference?: boolean;
-                can_collaborate?: boolean;
-                can_manage?: boolean;
-            };
-        };
-        ProjectMemberResponse: {
-            success: boolean;
-            data: {
-                member: components["schemas"]["ProjectMember"];
-            };
-            message: string;
-        };
-        ProjectMemberUpdateRequest: {
-            /** @enum {string} */
-            role?: "owner" | "editor" | "viewer";
-            permissions?: {
-                can_view?: boolean;
-                can_reference?: boolean;
-                can_collaborate?: boolean;
-                can_manage?: boolean;
-            };
-            /** @enum {string} */
-            status?: "active" | "disabled";
-        };
+  schemas: {
+    RegisterRequest: {
+      /**
+       * Format: email
+       * @example user@example.com
+       */
+      email: string;
+      /**
+       * Format: password
+       * @example SecurePass123
+       */
+      password: string;
+      /** @example john_doe */
+      username: string;
+      /** @example John Doe */
+      fullName?: string;
     };
-    responses: {
-        /** @description 请求参数错误或验证失败 */
-        BadRequest: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["ErrorResponse"];
-            };
-        };
-        /** @description 资源冲突 */
-        Conflict: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["ErrorResponse"];
-            };
-        };
-        /** @description 未认证或 Token 无效/过期 */
-        Unauthorized: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["ErrorResponse"];
-            };
-        };
-        /** @description 无权限访问此资源 */
-        Forbidden: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["ErrorResponse"];
-            };
-        };
-        /** @description 请求的资源不存在 */
-        NotFound: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["ErrorResponse"];
-            };
-        };
-        /** @description 服务端内部错误 */
-        InternalServerError: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["ErrorResponse"];
-            };
-        };
-        /** @description 上游服务不可用或返回异常 */
-        BadGateway: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["ErrorResponse"];
-            };
-        };
-        /** @description 服务不可用 */
-        ServiceUnavailable: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["ErrorResponse"];
-            };
-        };
-        /** @description 上游服务响应超时 */
-        GatewayTimeout: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["ErrorResponse"];
-            };
-        };
+    UserInfo: {
+      id: string;
+      /** Format: email */
+      email: string;
+      username: string;
+      fullName?: string;
+      /** Format: date-time */
+      createdAt: string;
     };
-    parameters: {
-        /** @description 页码（从1开始） */
-        PageParam: number;
-        /** @description 每页数量 */
-        LimitParam: number;
-        /** @description 幂等性密钥，用于防止重复请求。 */
-        IdempotencyKey: string;
-        /** @description 客户端期望的契约版本；服务端可据此做兼容降级与告警。 */
-        ContractVersion: string;
+    AuthResponse: {
+      success: boolean;
+      data: {
+        access_token?: string;
+        refresh_token?: string;
+        expires_in?: number;
+        user?: components["schemas"]["UserInfo"];
+      };
+      message: string;
     };
-    requestBodies: never;
-    headers: never;
-    pathItems: never;
+    ErrorResponse: {
+      /** @example false */
+      success: boolean;
+      error: {
+        code: string;
+        message: string;
+        /** @description 是否建议客户端重试 */
+        retryable?: boolean;
+        /** @description 结构化错误详情（例如字段错误、状态冲突上下文） */
+        details?: {
+          [key: string]: unknown;
+        };
+        /** @description 服务端追踪 ID，用于日志排障 */
+        trace_id?: string;
+      };
+      /** @description 根级错误摘要，通常为“请求失败”或业务级失败说明 */
+      message: string;
+    };
+    LoginRequest: {
+      /** Format: email */
+      email: string;
+      /** Format: password */
+      password: string;
+    };
+    SimpleSuccessResponse: {
+      /** @example true */
+      success: boolean;
+      /** @description 成功响应载荷。部分接口可能返回空对象。 */
+      data: {
+        [key: string]: unknown;
+      };
+      /** @example 操作成功 */
+      message: string;
+    };
+    UserInfoResponse: {
+      success: boolean;
+      data: {
+        user?: components["schemas"]["UserInfo"];
+      };
+      message: string;
+    };
+    /** @description 内容来源引用（用于溯源） */
+    SourceReference: {
+      /** @description 片段唯一标识 */
+      chunk_id: string;
+      /**
+       * @description 来源类型
+       * @enum {string}
+       */
+      source_type: "document" | "web" | "video" | "audio" | "ai_generated";
+      /** @description 源文件名 */
+      filename: string;
+      /** @description 页码（文档场景） */
+      page_number?: number;
+      /**
+       * Format: float
+       * @description 时间戳（视频/音频场景，单位秒）
+       */
+      timestamp?: number;
+      /**
+       * Format: float
+       * @description 检索或重排得分（可选）
+       */
+      score?: number;
+      /** @description 内容预览片段 */
+      content_preview?: string;
+    };
+    Message: {
+      id: string;
+      /** @enum {string} */
+      role: "user" | "assistant" | "system";
+      content: string;
+      /** Format: date-time */
+      timestamp: string;
+      /** @description Structured source citations for assistant responses */
+      citations?: components["schemas"]["SourceReference"][];
+    };
+    GetMessagesResponse: {
+      success: boolean;
+      data: {
+        /** @description Optional queried session scope */
+        session_id?: string;
+        messages?: components["schemas"]["Message"][];
+        total?: number;
+        page?: number;
+        limit?: number;
+      };
+      message: string;
+    };
+    SendMessageRequest: {
+      project_id: string;
+      /** @description Optional session scope id for project-scoped context isolation */
+      session_id?: string;
+      content: string;
+      /** @description Optional context metadata for card refine, selection anchors, or source bindings */
+      metadata?: {
+        [key: string]: unknown;
+      };
+      history?: components["schemas"]["Message"][];
+      /** @description Optional file ids to constrain RAG retrieval scope */
+      rag_source_ids?: string[];
+    };
+    /** @description Observability fields for prompt routing and regression comparison */
+    ChatObservability: {
+      request_id?: string;
+      prompt_template_version?: string;
+      few_shot_version?: string;
+      route_task?: string;
+      selected_model?: string;
+      has_rag_context?: boolean;
+      prompt_hash?: string;
+      response_hash?: string;
+      mechanical_pattern_hit?: boolean;
+      fallback_triggered?: boolean;
+      /** Format: float */
+      latency_ms?: number;
+      /** Format: float */
+      total_duration_ms?: number;
+      route_decision?: {
+        [key: string]: unknown;
+      };
+      stage_timings_ms?: {
+        [key: string]: number;
+      };
+    };
+    SendMessageResponse: {
+      success: boolean;
+      data: {
+        /** @description Session id bound to this response (optional) */
+        session_id?: string;
+        message?: components["schemas"]["Message"];
+        /** @description Whether this reply used RAG context */
+        rag_hit?: boolean;
+        observability?: components["schemas"]["ChatObservability"];
+        suggestions?: string[];
+        session_title_updated?: boolean;
+        session_title?: string;
+        /** @enum {string} */
+        session_title_source?: "default" | "first_message" | "manual";
+      };
+      message: string;
+    };
+    SendMessageResponseTarget: components["schemas"]["SendMessageResponse"] & {
+      data?: {
+        session_title_updated?: boolean;
+        session_title?: string;
+        /** @enum {string} */
+        session_title_source?: "default" | "first_message" | "manual";
+      };
+    };
+    /** @description 能力执行状态与降级信息（统一字段，适用于解析/视频/语音） */
+    CapabilityStatus: {
+      /**
+       * @description 能力标识
+       * @enum {string}
+       */
+      capability:
+        | "document_parser"
+        | "video_understanding"
+        | "speech_recognition";
+      /** @description 实际执行的 provider（如 MinerU、Qwen-VL、Faster-Whisper、local_parser） */
+      provider: string;
+      /**
+       * @description 能力状态
+       * @enum {string}
+       */
+      status: "available" | "degraded" | "unavailable";
+      /** @description 是否发生降级 */
+      fallback_used: boolean;
+      /** @description 降级目标 provider（仅当 fallback_used=true 时有值） */
+      fallback_target?: string;
+      /**
+       * @description 失败或降级原因码
+       * @enum {string}
+       */
+      reason_code?:
+        | "PROVIDER_TIMEOUT"
+        | "PROVIDER_RATE_LIMITED"
+        | "PROVIDER_UNAVAILABLE"
+        | "INVALID_INPUT_FORMAT"
+        | "UNSUPPORTED_FILE_TYPE"
+        | "EMPTY_OUTPUT"
+        | "INTERNAL_ERROR";
+      /** @description 可直接展示给用户的提示语 */
+      user_message?: string;
+      /** @description 链路追踪 ID */
+      trace_id?: string;
+    };
+    VoiceMessageResponse: {
+      success: boolean;
+      data: {
+        /** @description Optional session id bound to this voice interaction */
+        session_id?: string;
+        /** @description Recognized text */
+        text?: string;
+        /**
+         * Format: float
+         * @description Recognition confidence
+         */
+        confidence?: number;
+        /**
+         * Format: float
+         * @description Audio duration in seconds
+         */
+        duration?: number;
+        /** @description Auto-created assistant message */
+        message?: components["schemas"]["Message"];
+        /** @description Voice flow currently does not run RAG retrieval; returns false explicitly. */
+        rag_hit?: boolean;
+        /** @description Speech recognition capability status with degradation semantics */
+        capability_status?: components["schemas"]["CapabilityStatus"];
+        observability?: components["schemas"]["ChatObservability"];
+        /** @description Follow-up suggestions */
+        suggestions?: string[];
+      };
+      message: string;
+    };
+    UploadedFile: {
+      id: string;
+      filename: string;
+      /** @enum {string} */
+      file_type: "pdf" | "word" | "video" | "image" | "ppt";
+      mime_type?: string;
+      /** @description File size in bytes. Maximum allowed size is 100MB (104857600 bytes). */
+      file_size: number;
+      /** @enum {string} */
+      status: "uploading" | "parsing" | "ready" | "failed";
+      /** @description 解析进度百分比 */
+      parse_progress?: number;
+      /** @description 解析详情 */
+      parse_details?: {
+        /** @description 提取的页数 */
+        pages_extracted?: number;
+        /** @description 提取的图片数 */
+        images_extracted?: number;
+        /** @description 提取的文本长度 */
+        text_length?: number;
+        /** @description 视频时长（秒） */
+        duration?: number;
+      };
+      /** @description 解析错误信息 */
+      parse_error?: string;
+      /** @description 文件用途说明 */
+      usage_intent?: string;
+      /** @description 解析结果摘要 */
+      parse_result?: {
+        /** @description 切分片段数量 */
+        chunk_count?: number;
+        /** @description 入库索引片段数量 */
+        indexed_count?: number;
+        /** @description 解析能力状态（含降级信息） */
+        capability_status?: components["schemas"]["CapabilityStatus"];
+        /** @description 视频解析片段（video 场景） */
+        segments?: Record<string, never>[];
+        /** @description 来源引用（video 场景） */
+        sources?: components["schemas"]["SourceReference"][];
+      };
+      /** Format: date-time */
+      created_at: string;
+      /** Format: date-time */
+      updated_at?: string;
+    };
+    UploadResponse: {
+      success: boolean;
+      data: {
+        file?: components["schemas"]["UploadedFile"];
+      };
+      message: string;
+    };
+    UpdateFileIntentRequest: {
+      usage_intent: string;
+    };
+    UpdateFileIntentResponse: {
+      success: boolean;
+      data: {
+        file?: components["schemas"]["UploadedFile"];
+      };
+      message: string;
+    };
+    BatchUploadResponse: {
+      success: boolean;
+      data: {
+        files?: components["schemas"]["UploadedFile"][];
+        /** @description 成功上传的文件数 */
+        total?: number;
+        /** @description 上传失败的文件列表 */
+        failed?: {
+          filename?: string;
+          error?: string;
+        }[];
+      };
+      message: string;
+    };
+    BatchDeleteResponse: {
+      success: boolean;
+      data: {
+        /** @description 成功删除的文件数 */
+        deleted?: number;
+        /** @description 删除失败的文件列表 */
+        failed?: {
+          file_id?: string;
+          error?: string;
+        }[];
+      };
+      message: string;
+    };
+    /** @enum {string} */
+    GenerationSessionMode: "ppt" | "word" | "both";
+    /** @enum {string} */
+    GenerationState:
+      | "IDLE"
+      | "CONFIGURING"
+      | "ANALYZING"
+      | "DRAFTING_OUTLINE"
+      | "AWAITING_OUTLINE_CONFIRM"
+      | "GENERATING_CONTENT"
+      | "RENDERING"
+      | "SUCCESS"
+      | "FAILED";
+    /** @enum {string} */
+    SessionTitleSource: "default" | "first_message" | "manual";
+    GenerationSessionListItem: {
+      session_id: string;
+      project_id: string;
+      output_type: components["schemas"]["GenerationSessionMode"];
+      state: components["schemas"]["GenerationState"];
+      /** Format: date-time */
+      created_at: string;
+      /** Format: date-time */
+      updated_at: string;
+      display_title?: string;
+      display_title_source?: components["schemas"]["SessionTitleSource"];
+      /** Format: date-time */
+      display_title_updated_at?: string;
+    };
+    GenerationSessionListItemTarget: components["schemas"]["GenerationSessionListItem"] & {
+      display_title?: string;
+      display_title_source?: components["schemas"]["SessionTitleSource"];
+      /** Format: date-time */
+      display_title_updated_at?: string;
+    };
+    GenerationSessionListResponseTarget: {
+      success: boolean;
+      data: {
+        sessions: components["schemas"]["GenerationSessionListItemTarget"][];
+        total: number;
+        page: number;
+        limit: number;
+      };
+      message: string;
+    };
+    /** @enum {string} */
+    CoursewareStylePreset: "academic" | "vibrant" | "dark_tech" | "custom";
+    /** @enum {string} */
+    GenerationAudience: "beginner" | "intermediate" | "professional";
+    GenerationOptions: {
+      /**
+       * @description PPT 模板风格
+       * @default default
+       * @enum {string}
+       */
+      template: "default" | "gaia" | "uncover" | "academic";
+      style_preset?: components["schemas"]["CoursewareStylePreset"];
+      /**
+       * @description 主题色（十六进制颜色代码）
+       * @example #4A90E2
+       */
+      theme_color?: string;
+      /**
+       * @description 是否显示页码
+       * @default true
+       */
+      show_page_number: boolean;
+      /** @description 页眉文本 */
+      header?: string;
+      /** @description 页脚文本 */
+      footer?: string;
+      /** @description 期望的页数 */
+      pages?: number;
+      audience?: components["schemas"]["GenerationAudience"];
+      target_duration_minutes?: number;
+      /**
+       * @description 是否生成动画创意
+       * @default false
+       */
+      include_animations: boolean;
+      /**
+       * @description 是否生成互动游戏
+       * @default false
+       */
+      include_games: boolean;
+      /**
+       * @description 动画输出格式（当 include_animations 为 true 时）
+       * @enum {string}
+       */
+      animation_format?: "gif" | "mp4" | "html5";
+      /**
+       * @description 是否启用自动配图
+       * @default false
+       */
+      use_text_to_image: boolean;
+      /** @description 用户输入的主基调 Prompt */
+      system_prompt_tone?: string;
+      /** @description 本次生成绑定的素材 ID 列表 */
+      rag_source_ids?: string[];
+    };
+    CreateGenerationSessionRequest: {
+      project_id: string;
+      output_type: components["schemas"]["GenerationSessionMode"];
+      options?: components["schemas"]["GenerationOptions"];
+      client_session_id?: string;
+      /** @default false */
+      bootstrap_only: boolean;
+    };
+    SessionRef: {
+      session_id: string;
+      project_id: string;
+      state: components["schemas"]["GenerationState"];
+      /** @description 状态附加语义（用于未知状态或灰度状态说明） */
+      state_reason?: string;
+      /** @example 2026-03 */
+      contract_version: string;
+      /** @description 会话载荷结构版本 */
+      schema_version?: number;
+      progress?: number;
+      resumable?: boolean;
+      /** Format: date-time */
+      updated_at?: string;
+      display_title?: string;
+      display_title_source?: components["schemas"]["SessionTitleSource"];
+      /** Format: date-time */
+      display_title_updated_at?: string;
+    };
+    SessionRefTarget: components["schemas"]["SessionRef"] & {
+      display_title?: string;
+      display_title_source?: components["schemas"]["SessionTitleSource"];
+      /** Format: date-time */
+      display_title_updated_at?: string;
+    };
+    /** @enum {string} */
+    RunTitleSource: "pending" | "auto" | "manual" | "fallback";
+    /** @enum {string} */
+    RunStatus: "pending" | "processing" | "completed" | "failed";
+    /** @enum {string} */
+    RunStep:
+      | "config"
+      | "outline"
+      | "generate"
+      | "preview"
+      | "modify_slide"
+      | "completed";
+    SessionRun: {
+      run_id: string;
+      session_id?: string | null;
+      project_id: string;
+      tool_type: string;
+      run_no: number;
+      run_title: string;
+      run_title_source: components["schemas"]["RunTitleSource"];
+      /** Format: date-time */
+      run_title_updated_at?: string;
+      run_status: components["schemas"]["RunStatus"];
+      run_step: components["schemas"]["RunStep"];
+      artifact_id?: string | null;
+      /** Format: date-time */
+      created_at: string;
+      /** Format: date-time */
+      updated_at: string;
+    };
+    CreateGenerationSessionResponseTarget: {
+      success: boolean;
+      data: {
+        session: components["schemas"]["SessionRefTarget"];
+        run: components["schemas"]["SessionRun"];
+      };
+      message: string;
+    };
+    OutlineNode: {
+      id: string;
+      order: number;
+      title: string;
+      key_points?: string[];
+      slide_hint?: string;
+      estimated_minutes?: number;
+    };
+    OutlineDocument: {
+      version: number;
+      nodes: components["schemas"]["OutlineNode"][];
+      summary?: string;
+    };
+    SessionContextSnapshot: {
+      retrieval_id?: string;
+      selected_source_ids?: string[];
+      notes?: string;
+    };
+    /** @enum {string} */
+    "generate-capabilities_CapabilityStatus":
+      | "available"
+      | "degraded"
+      | "unavailable";
+    CapabilityDeclaration: {
+      /** @enum {string} */
+      name:
+        | "document_parser"
+        | "video_understanding"
+        | "speech_recognition"
+        | "outline_generation"
+        | "slide_regeneration"
+        | "event_stream";
+      status: components["schemas"]["generate-capabilities_CapabilityStatus"];
+      providers?: string[];
+      default_provider?: string;
+      fallback_chain?: string[];
+      operations: string[];
+      status_message?: string;
+    };
+    ExternalFallbackInfo: {
+      /** @enum {string} */
+      capability:
+        | "document_parser"
+        | "video_understanding"
+        | "speech_recognition";
+      /**
+       * @description 原始目标能力或供应商
+       * @example MinerU
+       */
+      provider?: string;
+      fallback_used: boolean;
+      /**
+       * @description 实际回退到的能力或供应商
+       * @example local_parser
+       */
+      fallback_target?: string;
+      /**
+       * @description 降级原因码（超时/限流/服务不可用等）
+       * @example PROVIDER_TIMEOUT
+       */
+      reason_code?: string;
+      /** @description 可直接展示给用户的降级提示语 */
+      user_message?: string;
+    };
+    SessionStatePayloadTarget: {
+      session: components["schemas"]["SessionRefTarget"];
+      options?: components["schemas"]["GenerationOptions"];
+      outline?: components["schemas"]["OutlineDocument"];
+      context_snapshot?: components["schemas"]["SessionContextSnapshot"];
+      capabilities?: components["schemas"]["CapabilityDeclaration"][];
+      fallbacks?: components["schemas"]["ExternalFallbackInfo"][];
+      allowed_actions?: string[];
+      current_run?: components["schemas"]["SessionRun"];
+      result?: {
+        ppt_url?: string;
+        word_url?: string;
+        version?: number;
+      };
+      error?: {
+        code?: string;
+        message?: string;
+        retryable?: boolean;
+      };
+    };
+    GenerationSessionResponseTarget: {
+      success: boolean;
+      data: components["schemas"]["SessionStatePayloadTarget"];
+      message: string;
+    };
+    /** @enum {string} */
+    GenerationEventTypeTarget:
+      | "state.changed"
+      | "progress.updated"
+      | "outline.ready"
+      | "outline.updated"
+      | "outline.started"
+      | "outline.section.generated"
+      | "outline.completed"
+      | "slides.started"
+      | "slide.generating"
+      | "slide.generated"
+      | "slides.completed"
+      | "generation.completed"
+      | "generation.failed"
+      | "ppt.started"
+      | "ppt.slide.generated"
+      | "ppt.completed"
+      | "slide.updated"
+      | "slide.modify.started"
+      | "slide.modify.processing"
+      | "slide.modify.failed"
+      | "task.completed"
+      | "task.failed"
+      | "session.recovered"
+      | "requirements.analyzing.started"
+      | "requirements.analyzing.completed"
+      | "requirements.analyzed"
+      | "outline.token"
+      | "compile.completed"
+      | "run.failed"
+      | "slide.started"
+      | "compile.started"
+      | "plan.completed"
+      | "slide.reviewed"
+      | "qa.completed"
+      | "repair.started"
+      | "slot.mapping.completed"
+      | "slide.preview.qa"
+      | "chart.truth.checked"
+      | "repair.round.completed"
+      | "slide.codegen.started"
+      | "slide.codegen.completed"
+      | "slide.spec.generated"
+      | "slide.spec.repaired"
+      | "slide.critic.completed"
+      | "slide.repair.completed"
+      | "artifact.cleanup.completed"
+      | "slide.plan.completed"
+      | "slide.quality.gate.completed"
+      | "slide.repair.directives.generated"
+      | "research.completed"
+      | "slide.candidate.generated"
+      | "slide.selection.completed"
+      | "template.layout.reflow.completed"
+      | "template.fidelity.checked"
+      | "outline.repair.started"
+      | "outline.repair.completed"
+      | "outline.repair.failed"
+      | "llm.request.retry"
+      | "llm.request.timeout"
+      | "slide.failed"
+      | "slide.failure.diagnostics"
+      | "slide.auto.fix.applied"
+      | "slide.retry.context.built"
+      | "run.finalized";
+    RunTracePayload: {
+      run_id?: string;
+      run_no?: number;
+      tool_type?: string;
+      run_title?: string;
+      run_title_source?: components["schemas"]["RunTitleSource"];
+      /** Format: date-time */
+      run_title_updated_at?: string;
+      run_status?: components["schemas"]["RunStatus"];
+      run_step?: components["schemas"]["RunStep"];
+      progress_message?: string;
+      partial?: boolean;
+      final?: boolean;
+      section_index?: number;
+      section_title?: string;
+      section_payload?: {
+        [key: string]: unknown;
+      };
+      slide_id?: string;
+      slide_index?: number;
+      slide_payload?: {
+        [key: string]: unknown;
+      };
+      command_id?: string;
+      accepted?: boolean;
+      error?:
+        | string
+        | {
+            code?: string;
+            message?: string;
+          };
+    };
+    GenerationEventTarget: {
+      event_id: string;
+      /** @default 1 */
+      event_schema_version: number;
+      event_type: components["schemas"]["GenerationEventTypeTarget"];
+      state: components["schemas"]["GenerationState"];
+      state_reason?: string;
+      progress?: number;
+      /** Format: date-time */
+      timestamp: string;
+      /** @description 增量消费游标 */
+      cursor: string;
+      payload?: components["schemas"]["RunTracePayload"];
+    };
+    GenerationEventListResponseTarget: {
+      success: boolean;
+      data: {
+        events?: components["schemas"]["GenerationEventTarget"][];
+      };
+      message: string;
+    };
+    GenerationSessionRunListResponseTarget: {
+      success: boolean;
+      data: {
+        runs: components["schemas"]["SessionRun"][];
+        total: number;
+        page: number;
+        limit: number;
+      };
+      message: string;
+    };
+    GenerationSessionRunDetailResponseTarget: {
+      success: boolean;
+      data: {
+        run: components["schemas"]["SessionRun"];
+      };
+      message: string;
+    };
+    UpdateOutlineCommand: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      command_type: "UPDATE_OUTLINE";
+      base_version: number;
+      outline: components["schemas"]["OutlineDocument"];
+      change_reason?: string;
+    };
+    RedraftOutlineCommand: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      command_type: "REDRAFT_OUTLINE";
+      instruction: string;
+      base_version: number;
+    };
+    ConfirmOutlineCommand: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      command_type: "CONFIRM_OUTLINE";
+      /** @default true */
+      continue_from_retrieval: boolean;
+      expected_state?: components["schemas"]["GenerationState"];
+    };
+    /** @enum {string} */
+    SlideModifyScope: "current_slide_only";
+    /** @enum {string} */
+    StructuredPatchOperationType:
+      | "replace_text"
+      | "insert_block"
+      | "remove_block"
+      | "replace_image"
+      | "reorder_block";
+    StructuredSlidePatchOperation: {
+      op: components["schemas"]["StructuredPatchOperationType"];
+      /**
+       * @description 目标路径（JSON Pointer 风格）
+       * @example /slides/5/body/blocks/2
+       */
+      path: string;
+      /** @description 操作值（按 op 类型解释） */
+      value?: Record<string, never>;
+      /** @description 可选备注，便于审计与回放 */
+      note?: string;
+    };
+    StructuredSlidePatch: {
+      /** @default 1 */
+      schema_version: number;
+      operations: components["schemas"]["StructuredSlidePatchOperation"][];
+    };
+    RegenerateSlideCommandTarget: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      command_type: "REGENERATE_SLIDE";
+      slide_id: string;
+      /** @description 用户对当前页的明确修改需求 */
+      instruction: string;
+      expected_render_version?: number;
+      /** @default true */
+      preserve_style: boolean;
+      /** @default true */
+      preserve_layout: boolean;
+      /** @default true */
+      preserve_deck_consistency: boolean;
+      scope?: components["schemas"]["SlideModifyScope"];
+      patch?: components["schemas"]["StructuredSlidePatch"];
+    };
+    ResumeSessionCommand: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      command_type: "RESUME_SESSION";
+      cursor?: string;
+      last_known_state?: components["schemas"]["GenerationState"];
+    };
+    SetSessionTitleCommandTarget: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      command_type: "SET_SESSION_TITLE";
+      display_title: string;
+    };
+    GenerationCommandEnvelopeTarget:
+      | components["schemas"]["UpdateOutlineCommand"]
+      | components["schemas"]["RedraftOutlineCommand"]
+      | components["schemas"]["ConfirmOutlineCommand"]
+      | components["schemas"]["RegenerateSlideCommandTarget"]
+      | components["schemas"]["ResumeSessionCommand"]
+      | components["schemas"]["SetSessionTitleCommandTarget"];
+    GenerationSessionCommandRequestTarget: {
+      command: components["schemas"]["GenerationCommandEnvelopeTarget"];
+    };
+    /** @enum {string} */
+    GenerationCommandTypeTarget:
+      | "UPDATE_OUTLINE"
+      | "REDRAFT_OUTLINE"
+      | "CONFIRM_OUTLINE"
+      | "REGENERATE_SLIDE"
+      | "RESUME_SESSION"
+      | "SET_SESSION_TITLE";
+    AppliedTransitionTarget: {
+      command_type: components["schemas"]["GenerationCommandTypeTarget"];
+      from_state: components["schemas"]["GenerationState"];
+      to_state: components["schemas"]["GenerationState"];
+      /** @example StateTransitionGuard */
+      validated_by: string;
+    };
+    GenerationSessionCommandResponseTarget: {
+      success: boolean;
+      data: {
+        command_id: string;
+        /** @default true */
+        accepted: boolean;
+        transition?: components["schemas"]["AppliedTransitionTarget"];
+        session: components["schemas"]["SessionRefTarget"];
+        run?: components["schemas"]["SessionRun"];
+        warnings?: string[];
+      };
+      message: string;
+    };
+    CandidateChange: {
+      id: string;
+      project_id: string;
+      session_id?: string | null;
+      base_version_id?: string | null;
+      title: string;
+      summary: string;
+      payload?: {
+        [key: string]: unknown;
+      };
+      /** @enum {string} */
+      status: "pending" | "accepted" | "rejected";
+      review_comment?: string | null;
+      accepted_version_id?: string | null;
+      proposer_user_id: string;
+      /** Format: date-time */
+      created_at: string;
+      /** Format: date-time */
+      updated_at?: string;
+    };
+    CandidateChangesResponse: {
+      success: boolean;
+      data: {
+        changes?: components["schemas"]["CandidateChange"][];
+      };
+      message: string;
+    };
+    CandidateChangeRequest: {
+      session_id?: string | null;
+      base_version_id?: string | null;
+      title: string;
+      summary?: string;
+      payload?: {
+        [key: string]: unknown;
+      };
+    };
+    CandidateChangeResponse: {
+      success: boolean;
+      data: {
+        change: components["schemas"]["CandidateChange"];
+      };
+      message: string;
+    };
+    /** @enum {string} */
+    GenerationCommandType:
+      | "UPDATE_OUTLINE"
+      | "REDRAFT_OUTLINE"
+      | "CONFIRM_OUTLINE"
+      | "REGENERATE_SLIDE"
+      | "RESUME_SESSION"
+      | "SET_SESSION_TITLE";
+    StudioCardConfigOption: {
+      value: string;
+      label: string;
+      description?: string;
+    };
+    StudioCardConfigField: {
+      key: string;
+      label: string;
+      /** @enum {string} */
+      type:
+        | "select"
+        | "multiselect"
+        | "boolean"
+        | "integer"
+        | "text"
+        | "reference";
+      required: boolean;
+      options?: components["schemas"]["StudioCardConfigOption"][];
+      placeholder?: string;
+      default_value?: string | number | boolean;
+      notes?: string;
+    };
+    StudioCardAction: {
+      type: string;
+      label: string;
+      notes?: string;
+    };
+    StudioCardCapability: {
+      id: string;
+      title: string;
+      /** @enum {string} */
+      readiness: "ready" | "foundation_ready" | "protocol_pending";
+      /** @enum {string} */
+      context_mode: "session" | "artifact" | "hybrid";
+      /** @enum {string} */
+      execution_mode: "session_command" | "artifact_create" | "composite";
+      primary_capabilities: string[];
+      related_capabilities: string[];
+      artifact_types: string[];
+      /** @enum {string} */
+      session_output_type?: "ppt" | "word" | "both";
+      requires_source_artifact: boolean;
+      supports_chat_refine: boolean;
+      supports_selection_context: boolean;
+      config_fields: components["schemas"]["StudioCardConfigField"][];
+      actions: components["schemas"]["StudioCardAction"][];
+      notes?: string;
+    };
+    StateTransitionRule: {
+      command_type: components["schemas"]["GenerationCommandType"];
+      from_state: components["schemas"]["GenerationState"];
+      to_state: components["schemas"]["GenerationState"];
+    };
+    StateMachineDeclaration: {
+      states: components["schemas"]["GenerationState"][];
+      terminal_states: components["schemas"]["GenerationState"][];
+      transitions: components["schemas"]["StateTransitionRule"][];
+    };
+    GenerationCapabilitiesResponse: {
+      success: boolean;
+      data: {
+        contract_versions: string[];
+        default_contract_version: string;
+        command_interface: {
+          /** @example /api/v1/generate/sessions/{session_id}/commands */
+          endpoint: string;
+          supported_commands: components["schemas"]["GenerationCommandType"][];
+        };
+        capabilities: components["schemas"]["CapabilityDeclaration"][];
+        studio_cards: components["schemas"]["StudioCardCapability"][];
+        state_machine: components["schemas"]["StateMachineDeclaration"];
+        deprecations?: {
+          api?: string;
+          /** Format: date-time */
+          sunset_at?: string;
+          replacement?: string;
+        }[];
+      };
+      message: string;
+    };
+    StudioCardsCatalogResponse: {
+      success: boolean;
+      data: {
+        studio_cards: components["schemas"]["StudioCardCapability"][];
+      };
+      message: string;
+    };
+    StudioCardDetailResponse: {
+      success: boolean;
+      data: {
+        studio_card: components["schemas"]["StudioCardCapability"];
+      };
+      message: string;
+    };
+    StudioCardExecutionBinding: {
+      /** @enum {string} */
+      transport:
+        | "session_create"
+        | "artifact_create"
+        | "chat_message"
+        | "artifact_reference";
+      /** @enum {string} */
+      status: "ready" | "partial" | "pending";
+      method: string;
+      endpoint: string;
+      required_fields: string[];
+      bound_config_keys: string[];
+      pending_config_keys: string[];
+      result_fields: string[];
+      notes?: string;
+    };
+    StudioCardExecutionPlan: {
+      card_id: string;
+      /** @enum {string} */
+      readiness: "ready" | "foundation_ready" | "protocol_pending";
+      initial_binding: components["schemas"]["StudioCardExecutionBinding"];
+      refine_binding?: components["schemas"]["StudioCardExecutionBinding"];
+      source_binding?: components["schemas"]["StudioCardExecutionBinding"];
+    };
+    StudioCardExecutionPlanResponse: {
+      success: boolean;
+      data: {
+        execution_plan: components["schemas"]["StudioCardExecutionPlan"];
+      };
+      message: string;
+    };
+    StudioCardExecutionPreviewRequest: {
+      project_id: string;
+      config?: {
+        [key: string]: unknown;
+      };
+      /** @enum {string} */
+      visibility?: "private" | "project-visible" | "shared";
+      source_artifact_id?: string;
+      rag_source_ids?: string[];
+      client_session_id?: string;
+    };
+    StudioCardResolvedRequest: {
+      method: string;
+      endpoint: string;
+      payload: {
+        [key: string]: unknown;
+      };
+      notes?: string;
+    };
+    StudioCardExecutionPreview: {
+      card_id: string;
+      /** @enum {string} */
+      readiness: "ready" | "foundation_ready" | "protocol_pending";
+      initial_request: components["schemas"]["StudioCardResolvedRequest"];
+      refine_request?: components["schemas"]["StudioCardResolvedRequest"];
+      source_request?: components["schemas"]["StudioCardResolvedRequest"];
+    };
+    StudioCardExecutionPreviewResponse: {
+      success: boolean;
+      data: {
+        execution_preview: components["schemas"]["StudioCardExecutionPreview"];
+      };
+      message: string;
+    };
+    StudioCardExecutionResult: {
+      card_id: string;
+      /** @enum {string} */
+      readiness: "ready" | "foundation_ready" | "protocol_pending";
+      /** @enum {string} */
+      transport:
+        | "session_create"
+        | "artifact_create"
+        | "chat_message"
+        | "artifact_reference";
+      /** @enum {string} */
+      resource_kind: "session" | "artifact";
+      session?: {
+        [key: string]: unknown;
+      };
+      artifact?: {
+        [key: string]: unknown;
+      };
+      run?: components["schemas"]["SessionRun"];
+      request_preview: components["schemas"]["StudioCardResolvedRequest"];
+    };
+    StudioCardExecutionResponse: {
+      success: boolean;
+      data: {
+        execution_result: components["schemas"]["StudioCardExecutionResult"];
+      };
+      message: string;
+    };
+    StudioCardRefineRequest: {
+      project_id: string;
+      artifact_id?: string;
+      session_id?: string;
+      message: string;
+      config?: {
+        [key: string]: unknown;
+      };
+      /** @enum {string} */
+      visibility?: "private" | "project-visible" | "shared";
+      source_artifact_id?: string;
+      rag_source_ids?: string[];
+    };
+    StudioCardRefineResponse: {
+      success: boolean;
+      data: {
+        card_id: string;
+        session_id?: string;
+        message: components["schemas"]["Message"];
+        rag_hit?: boolean;
+        suggestions?: string[];
+        observability?: components["schemas"]["ChatObservability"];
+        refine_request: components["schemas"]["StudioCardResolvedRequest"];
+      };
+      message: string;
+    };
+    StudioCardTurnRequest: {
+      project_id: string;
+      artifact_id: string;
+      teacher_answer: string;
+      turn_anchor?: string;
+      config?: {
+        [key: string]: unknown;
+      };
+      rag_source_ids?: string[];
+    };
+    StudioCardTurnResult: {
+      turn_anchor: string;
+      student_profile: string;
+      student_question: string;
+      teacher_answer: string;
+      feedback: string;
+      score: number;
+      next_focus?: string;
+    };
+    StudioCardTurnResponse: {
+      success: boolean;
+      data: {
+        artifact: {
+          [key: string]: unknown;
+        };
+        turn_result: components["schemas"]["StudioCardTurnResult"];
+      };
+      message: string;
+    };
+    StudioCardSourceArtifact: {
+      id: string;
+      type: string;
+      title?: string;
+      visibility?: string;
+      based_on_version_id?: string;
+      session_id?: string;
+      /** Format: date-time */
+      updated_at?: string;
+    };
+    StudioCardSourceOptionsResponse: {
+      success: boolean;
+      data: {
+        sources: components["schemas"]["StudioCardSourceArtifact"][];
+      };
+      message: string;
+    };
+    ArtifactAnchor: {
+      session_id?: string | null;
+      artifact_id?: string | null;
+      based_on_version_id?: string | null;
+      run_id?: string | null;
+    };
+    RenderedPreviewPage: {
+      index: number;
+      slide_id: string;
+      image_url?: string | null;
+      html_preview?: string | null;
+      status?: string | null;
+      /** @default 0 */
+      split_index: number;
+      /** @default 1 */
+      split_count: number;
+      width?: number | null;
+      height?: number | null;
+    };
+    RenderedPreview: {
+      /** @default png */
+      format: string;
+      /** @default 0 */
+      page_count: number;
+      pages?: components["schemas"]["RenderedPreviewPage"][];
+    };
+    preview_SourceReference: {
+      /** @description 来源片段唯一标识，可用于查询来源详情 */
+      chunk_id: string;
+      /** @enum {string} */
+      source_type: "video" | "document" | "ai_generated";
+      filename: string;
+      page_number?: number;
+      timestamp?: string;
+      preview_text?: string;
+    };
+    /** @description 插图决策元数据 */
+    ImageInsertionMetadata: {
+      /**
+       * @description 检索模式
+       * @enum {string}
+       */
+      retrieval_mode?: "default_library" | "strict_sources";
+      /** @description 页面语义类型 */
+      page_semantic_type?: string;
+      /**
+       * @description 插图决策
+       * @enum {string}
+       */
+      image_insertion_decision?: "insert" | "skip";
+      /** @description 插图数量 */
+      image_count?: number;
+      /**
+       * @description 图位
+       * @enum {string}
+       */
+      image_slot?: "left_split" | "right_split" | "bottom_panel";
+      /**
+       * @description 版式风险等级
+       * @enum {string}
+       */
+      layout_risk_level?: "low" | "medium" | "high";
+      /** @description 插图匹配原因 */
+      image_match_reason?: string;
+      /** @description 跳过插图原因 */
+      skip_reason?: string;
+    };
+    Slide: {
+      id: string;
+      index: number;
+      title: string;
+      content: string;
+      sources: components["schemas"]["preview_SourceReference"][];
+      thumbnail_url?: string;
+      rendered_html_preview?: string | null;
+      rendered_previews?: components["schemas"]["RenderedPreviewPage"][];
+      image_metadata?: components["schemas"]["ImageInsertionMetadata"];
+    };
+    SlidePlan: {
+      slide_id: string;
+      teaching_goal: string;
+      teacher_script: string;
+      teaching_suggestions?: string[];
+      suggested_duration?: number;
+      material_sources?: components["schemas"]["preview_SourceReference"][];
+    };
+    LessonPlan: {
+      teaching_objectives?: string[];
+      slides_plan?: components["schemas"]["SlidePlan"][];
+    };
+    PreviewResponse: {
+      success: boolean;
+      data: {
+        /** @description 会话级预览上下文 ID（session-first） */
+        session_id?: string;
+        /** @description 当前预览对应的成果 ID */
+        artifact_id?: string | null;
+        /** @description 当前预览基于的正式版本 ID */
+        based_on_version_id?: string | null;
+        /** @description 当前项目正式版本 ID */
+        current_version_id?: string | null;
+        /** @description 预览基于的上游版本是否与当前项目版本一致 */
+        upstream_updated?: boolean;
+        /** @description 当前可预览渲染版本 */
+        render_version?: number;
+        artifact_anchor?: components["schemas"]["ArtifactAnchor"];
+        rendered_preview?: components["schemas"]["RenderedPreview"];
+        slides?: components["schemas"]["Slide"][];
+        lesson_plan?: components["schemas"]["LessonPlan"];
+      };
+      message: string;
+    };
+    ModifySessionRequest: {
+      /** @description 指定要修改的成果 ID（可选） */
+      artifact_id?: string;
+      /** @description 指定运行 ID（可选） */
+      run_id?: string;
+      instruction: string;
+      target_slides?: string[];
+      context?: {
+        [key: string]: unknown;
+      };
+      /** @description 并发控制版本（防止覆盖更新） */
+      base_render_version?: number;
+      /** @description 指定要修改的 slide ID（可选） */
+      slide_id?: string;
+      /** @description 指定要修改的页码（从 1 开始） */
+      slide_index?: number;
+      /** @description 修改作用范围 */
+      scope?: string;
+      /** @default true */
+      preserve_style: boolean;
+      /** @default true */
+      preserve_layout: boolean;
+      /** @default true */
+      preserve_deck_consistency: boolean;
+      patch?: components["schemas"]["StructuredSlidePatch"];
+      candidate_change?: components["schemas"]["CandidateChangeRequest"];
+    };
+    ModifyResponse: {
+      success: boolean;
+      data: {
+        /** @description 修改任务实际作用的会话 */
+        session_id?: string;
+        /** @enum {string} */
+        status?: "pending" | "processing" | "completed" | "failed";
+        /** @description 修改后最新渲染版本 */
+        render_version?: number;
+        /** @description 修改任务对应的成果 ID */
+        artifact_id?: string | null;
+        /** @description 修改任务基于的正式版本 ID */
+        based_on_version_id?: string | null;
+        /** @description 当前项目正式版本 ID */
+        current_version_id?: string | null;
+        /** @description 修改基于的上游版本是否与当前项目版本一致 */
+        upstream_updated?: boolean;
+        artifact_anchor?: components["schemas"]["ArtifactAnchor"];
+        slide_id?: string;
+        slide_index?: number;
+        scope?: string;
+        candidate_change?: components["schemas"]["CandidateChange"];
+      };
+      message: string;
+    };
+    SlideDetailResponse: {
+      success: boolean;
+      data: {
+        /** @description 当前幻灯片详情所属会话 */
+        session_id?: string;
+        /** @description 当前预览对应的成果 ID */
+        artifact_id?: string | null;
+        /** @description 当前预览基于的正式版本 ID */
+        based_on_version_id?: string | null;
+        /** @description 当前项目正式版本 ID */
+        current_version_id?: string | null;
+        /** @description 预览基于的上游版本是否与当前项目版本一致 */
+        upstream_updated?: boolean;
+        slide?: components["schemas"]["Slide"];
+        /** @description 该幻灯片对应的教学计划 */
+        teaching_plan?: components["schemas"]["SlidePlan"];
+        artifact_anchor?: components["schemas"]["ArtifactAnchor"];
+        /** @description 相关幻灯片 */
+        related_slides?: {
+          slide_id?: string;
+          title?: string;
+          /** @enum {string} */
+          relation?: "previous" | "next" | "related";
+        }[];
+      };
+      message: string;
+    };
+    ExportRequest: {
+      /** @description 指定要导出的成果 ID（可选） */
+      artifact_id?: string;
+      /** @description 指定运行 ID（可选） */
+      run_id?: string;
+      /**
+       * @description 导出格式
+       * @enum {string}
+       */
+      format: "json" | "markdown" | "html";
+      /**
+       * @description 是否包含来源信息
+       * @default true
+       */
+      include_sources: boolean;
+      /** @description 可选并发保护版本，仅对 session 级导出接口生效（冲突可返回 409）。 */
+      expected_render_version?: number;
+      candidate_change?: components["schemas"]["CandidateChangeRequest"];
+    };
+    ExportResponse: {
+      success: boolean;
+      data: {
+        /** @description 导出时绑定的会话 ID */
+        session_id?: string;
+        /** @description 导出对应的成果 ID */
+        artifact_id?: string | null;
+        /** @description 导出基于的正式版本 ID */
+        based_on_version_id?: string | null;
+        /** @description 当前项目正式版本 ID */
+        current_version_id?: string | null;
+        /** @description 导出基于的上游版本是否与当前项目版本一致 */
+        upstream_updated?: boolean;
+        artifact_anchor?: components["schemas"]["ArtifactAnchor"];
+        /** @description 导出的内容 */
+        content?: string;
+        format?: string;
+        render_version?: number;
+        candidate_change?: components["schemas"]["CandidateChange"];
+      };
+      message: string;
+    };
+    RAGSearchRequest: {
+      project_id: string;
+      query: string;
+      /** @default 5 */
+      top_k: number;
+      filters?: {
+        file_types?: ("pdf" | "word" | "video" | "image" | "ppt")[];
+        file_ids?: string[];
+      };
+    };
+    RAGResult: {
+      chunk_id: string;
+      content: string;
+      /** Format: float */
+      score: number;
+      source: components["schemas"]["SourceReference"];
+      metadata?: Record<string, never>;
+    };
+    RAGSearchResponse: {
+      success: boolean;
+      data: {
+        results?: components["schemas"]["RAGResult"][];
+        total?: number;
+      };
+      message: string;
+    };
+    SourceDetailResponse: {
+      success: boolean;
+      data: {
+        chunk_id?: string;
+        content?: string;
+        source?: components["schemas"]["SourceReference"];
+        context?: {
+          previous_chunk?: string;
+          next_chunk?: string;
+        };
+        file_info?: components["schemas"]["UploadedFile"];
+      };
+      message: string;
+    };
+    WebKnowledgeUnit: {
+      chunk_id: string;
+      /** @enum {string} */
+      source_type: "web" | "audio" | "video";
+      content: string;
+      metadata: {
+        [key: string]: unknown;
+      };
+      citation?: components["schemas"]["SourceReference"];
+    };
+    WebSearchResponse: {
+      success: boolean;
+      data: {
+        results?: components["schemas"]["WebKnowledgeUnit"][];
+        total?: number;
+        indexed?: number | null;
+      };
+      message: string;
+    };
+    AudioTranscribeResponse: {
+      success: boolean;
+      data: {
+        audio_id?: string;
+        text?: string;
+        segments?: components["schemas"]["WebKnowledgeUnit"][];
+        total_segments?: number;
+        indexed?: number | null;
+        language?: string;
+        /** Format: float */
+        confidence?: number;
+        /** Format: float */
+        duration?: number;
+        capability_status?: components["schemas"]["CapabilityStatus"];
+      };
+      message: string;
+    };
+    VideoAnalyzeResponse: {
+      success: boolean;
+      data: {
+        video_id?: string;
+        segments?: components["schemas"]["WebKnowledgeUnit"][];
+        total_segments?: number;
+        indexed?: number | null;
+        capability_status?: components["schemas"]["CapabilityStatus"];
+      };
+      message: string;
+    };
+    HealthCheckResponse: {
+      /** @enum {string} */
+      status: "healthy" | "degraded";
+      /** @enum {string} */
+      database: "connected" | "disconnected";
+      /** @enum {string} */
+      redis: "connected" | "disconnected";
+      db_required: boolean;
+      redis_required: boolean;
+      generation_tools: {
+        /** @enum {string} */
+        marp: "available" | "unavailable" | "unknown";
+        /** @enum {string} */
+        pandoc: "available" | "unavailable" | "unknown";
+        required: boolean;
+        healthy: boolean;
+        timed_out: boolean;
+      };
+      /** Format: float */
+      dependency_timeout_seconds: number;
+      /** Format: float */
+      tool_timeout_seconds: number;
+      latency_ms: {
+        /** Format: float */
+        database: number;
+        /** Format: float */
+        redis: number;
+        /** Format: float */
+        generation_tools: number;
+      };
+    };
+    HealthLivenessResponse: {
+      /** @enum {string} */
+      status: "alive";
+    };
+    CapabilitiesHealthResponse: {
+      success: boolean;
+      data: {
+        document_parser?: components["schemas"]["CapabilityStatus"];
+        video_understanding?: components["schemas"]["CapabilityStatus"];
+        speech_recognition?: components["schemas"]["CapabilityStatus"];
+      };
+      message: string;
+    };
+    SystemSettingsModels: {
+      default_model?: string;
+      large_model?: string;
+      small_model?: string;
+    };
+    SystemSettingsGenerationDefaults: {
+      default_output_type?: components["schemas"]["GenerationSessionMode"];
+      default_page_count?: number;
+      default_outline_style?: string;
+    };
+    SystemSettingsFeatureFlags: {
+      enable_ai_generation?: boolean;
+      enable_file_upload?: boolean;
+      feature_flags?: {
+        [key: string]: unknown;
+      };
+    };
+    SystemSettingsExperience: {
+      chat_timeout_seconds?: number;
+      ai_request_timeout_seconds?: number;
+    };
+    SystemSettings: {
+      models?: components["schemas"]["SystemSettingsModels"];
+      generation_defaults?: components["schemas"]["SystemSettingsGenerationDefaults"];
+      feature_flags?: components["schemas"]["SystemSettingsFeatureFlags"];
+      experience?: components["schemas"]["SystemSettingsExperience"];
+    };
+    SystemSettingsResponse: {
+      success: boolean;
+      data: components["schemas"]["SystemSettings"];
+      message: string;
+    };
+    UpdateSystemSettingsRequest: {
+      models?: components["schemas"]["SystemSettingsModels"];
+      generation_defaults?: components["schemas"]["SystemSettingsGenerationDefaults"];
+      feature_flags?: components["schemas"]["SystemSettingsFeatureFlags"];
+      experience?: components["schemas"]["SystemSettingsExperience"];
+    };
+    Project: {
+      id: string;
+      name: string;
+      description: string;
+      grade_level?: string;
+      /** @enum {string} */
+      status: "draft" | "in_progress" | "completed";
+      /** Format: date-time */
+      created_at: string;
+      /** Format: date-time */
+      updated_at: string;
+    };
+    ProjectTarget: components["schemas"]["Project"] & {
+      /** @enum {string} */
+      visibility?: "private" | "shared";
+      is_referenceable?: boolean;
+      current_version_id?: string | null;
+    };
+    GetProjectsResponseTarget: {
+      success: boolean;
+      data: {
+        projects?: components["schemas"]["ProjectTarget"][];
+        total?: number;
+        page?: number;
+        limit?: number;
+      };
+      message: string;
+    };
+    ProjectRequest: {
+      name: string;
+      description: string;
+      grade_level?: string;
+    };
+    ProjectRequestTarget: components["schemas"]["ProjectRequest"] & {
+      base_project_id?: string | null;
+      /** @enum {string} */
+      reference_mode?: "follow" | "pinned";
+      /** @enum {string} */
+      visibility?: "private" | "shared";
+      is_referenceable?: boolean;
+    };
+    ProjectResponseTarget: {
+      success: boolean;
+      data: {
+        project: components["schemas"]["ProjectTarget"];
+      };
+      message: string;
+    };
+    GetFilesResponse: {
+      success: boolean;
+      data: {
+        files?: components["schemas"]["UploadedFile"][];
+        total?: number;
+        page?: number;
+        limit?: number;
+      };
+      message: string;
+    };
+    ProjectStatisticsResponse: {
+      success: boolean;
+      data: {
+        project_id?: string;
+        /** @description 上传的文件数 */
+        files_count?: number;
+        /** @description 对话消息数 */
+        messages_count?: number;
+        /** @description 生成任务数 */
+        generation_tasks_count?: number;
+        /** @description 已完成的任务数 */
+        completed_tasks_count?: number;
+        /** @description 文件总大小（字节） */
+        total_file_size?: number;
+        /**
+         * Format: date-time
+         * @description 最后活动时间
+         */
+        last_activity?: string;
+        /** Format: date-time */
+        created_at?: string;
+      };
+      message: string;
+    };
+    GetProjectsResponse: {
+      success: boolean;
+      data: {
+        projects?: components["schemas"]["Project"][];
+        total?: number;
+        page?: number;
+        limit?: number;
+      };
+      message: string;
+    };
+    ProjectReference: {
+      id: string;
+      project_id: string;
+      target_project_id: string;
+      /** @enum {string} */
+      relation_type: "base" | "auxiliary";
+      /** @enum {string} */
+      mode: "follow" | "pinned";
+      pinned_version_id?: string | null;
+      /** @description 辅助引用排序，数值越小优先级越高 */
+      priority?: number;
+      /** @enum {string} */
+      status: "active" | "disabled";
+      created_by?: string;
+      /** Format: date-time */
+      created_at: string;
+      /** Format: date-time */
+      updated_at: string;
+    };
+    ProjectReferencesResponse: {
+      success: boolean;
+      data: {
+        references?: components["schemas"]["ProjectReference"][];
+      };
+      message: string;
+    };
+    ProjectReferenceRequest: {
+      target_project_id: string;
+      /** @enum {string} */
+      relation_type: "base" | "auxiliary";
+      /** @enum {string} */
+      mode: "follow" | "pinned";
+      pinned_version_id?: string | null;
+      priority?: number;
+    };
+    ProjectReferenceResponse: {
+      success: boolean;
+      data: {
+        reference: components["schemas"]["ProjectReference"];
+      };
+      message: string;
+    };
+    ProjectReferenceUpdateRequest: {
+      /** @enum {string} */
+      mode?: "follow" | "pinned";
+      pinned_version_id?: string | null;
+      priority?: number;
+      /** @enum {string} */
+      status?: "active" | "disabled";
+    };
+    ProjectVersion: {
+      id: string;
+      project_id: string;
+      parent_version_id?: string | null;
+      summary: string;
+      /** @enum {string} */
+      change_type:
+        | "author-update"
+        | "merge-change"
+        | "reference-change"
+        | "import";
+      snapshot_data?: {
+        [key: string]: unknown;
+      };
+      created_by: string;
+      /** Format: date-time */
+      created_at: string;
+    };
+    ProjectVersionsResponse: {
+      success: boolean;
+      data: {
+        versions?: components["schemas"]["ProjectVersion"][];
+      };
+      message: string;
+    };
+    ProjectVersionResponse: {
+      success: boolean;
+      data: {
+        version: components["schemas"]["ProjectVersion"];
+      };
+      message: string;
+    };
+    Artifact: {
+      id: string;
+      project_id: string;
+      session_id?: string | null;
+      based_on_version_id?: string | null;
+      owner_user_id?: string | null;
+      /** @enum {string} */
+      type:
+        | "pptx"
+        | "docx"
+        | "mindmap"
+        | "summary"
+        | "exercise"
+        | "html"
+        | "gif"
+        | "mp4";
+      /** @enum {string} */
+      visibility: "private" | "project-visible" | "shared";
+      storage_path?: string;
+      metadata?: {
+        [key: string]: unknown;
+      };
+      /** Format: date-time */
+      created_at: string;
+      /** Format: date-time */
+      updated_at: string;
+    };
+    ArtifactsResponse: {
+      success: boolean;
+      data: {
+        artifacts?: components["schemas"]["Artifact"][];
+      };
+      message: string;
+    };
+    ArtifactCreateRequest: {
+      session_id?: string | null;
+      based_on_version_id?: string | null;
+      /** @enum {string} */
+      type:
+        | "pptx"
+        | "docx"
+        | "mindmap"
+        | "summary"
+        | "exercise"
+        | "html"
+        | "gif"
+        | "mp4";
+      /** @enum {string} */
+      visibility?: "private" | "project-visible" | "shared";
+      /** @enum {string} */
+      mode?: "create" | "replace";
+      content?: {
+        [key: string]: unknown;
+      };
+    };
+    ArtifactResponse: {
+      success: boolean;
+      data: {
+        artifact: components["schemas"]["Artifact"];
+      };
+      message: string;
+    };
+    CandidateChangeReviewRequest: {
+      /** @enum {string} */
+      action: "accept" | "reject";
+      review_comment?: string;
+    };
+    ProjectMember: {
+      id: string;
+      project_id: string;
+      user_id: string;
+      /** @enum {string} */
+      role: "owner" | "editor" | "viewer";
+      permissions: {
+        can_view?: boolean;
+        can_reference?: boolean;
+        can_collaborate?: boolean;
+        can_manage?: boolean;
+      };
+      /** @enum {string} */
+      status: "active" | "disabled";
+      /** Format: date-time */
+      created_at: string;
+    };
+    ProjectMembersResponse: {
+      success: boolean;
+      data: {
+        members?: components["schemas"]["ProjectMember"][];
+      };
+      message: string;
+    };
+    ProjectMemberRequest: {
+      user_id: string;
+      /** @enum {string} */
+      role?: "owner" | "editor" | "viewer";
+      permissions?: {
+        can_view?: boolean;
+        can_reference?: boolean;
+        can_collaborate?: boolean;
+        can_manage?: boolean;
+      };
+    };
+    ProjectMemberResponse: {
+      success: boolean;
+      data: {
+        member: components["schemas"]["ProjectMember"];
+      };
+      message: string;
+    };
+    ProjectMemberUpdateRequest: {
+      /** @enum {string} */
+      role?: "owner" | "editor" | "viewer";
+      permissions?: {
+        can_view?: boolean;
+        can_reference?: boolean;
+        can_collaborate?: boolean;
+        can_manage?: boolean;
+      };
+      /** @enum {string} */
+      status?: "active" | "disabled";
+    };
+  };
+  responses: {
+    /** @description 请求参数错误或验证失败 */
+    BadRequest: {
+      headers: {
+        [name: string]: unknown;
+      };
+      content: {
+        "application/json": components["schemas"]["ErrorResponse"];
+      };
+    };
+    /** @description 资源冲突 */
+    Conflict: {
+      headers: {
+        [name: string]: unknown;
+      };
+      content: {
+        "application/json": components["schemas"]["ErrorResponse"];
+      };
+    };
+    /** @description 未认证或 Token 无效/过期 */
+    Unauthorized: {
+      headers: {
+        [name: string]: unknown;
+      };
+      content: {
+        "application/json": components["schemas"]["ErrorResponse"];
+      };
+    };
+    /** @description 无权限访问此资源 */
+    Forbidden: {
+      headers: {
+        [name: string]: unknown;
+      };
+      content: {
+        "application/json": components["schemas"]["ErrorResponse"];
+      };
+    };
+    /** @description 请求的资源不存在 */
+    NotFound: {
+      headers: {
+        [name: string]: unknown;
+      };
+      content: {
+        "application/json": components["schemas"]["ErrorResponse"];
+      };
+    };
+    /** @description 服务端内部错误 */
+    InternalServerError: {
+      headers: {
+        [name: string]: unknown;
+      };
+      content: {
+        "application/json": components["schemas"]["ErrorResponse"];
+      };
+    };
+    /** @description 上游服务不可用或返回异常 */
+    BadGateway: {
+      headers: {
+        [name: string]: unknown;
+      };
+      content: {
+        "application/json": components["schemas"]["ErrorResponse"];
+      };
+    };
+    /** @description 服务不可用 */
+    ServiceUnavailable: {
+      headers: {
+        [name: string]: unknown;
+      };
+      content: {
+        "application/json": components["schemas"]["ErrorResponse"];
+      };
+    };
+    /** @description 上游服务响应超时 */
+    GatewayTimeout: {
+      headers: {
+        [name: string]: unknown;
+      };
+      content: {
+        "application/json": components["schemas"]["ErrorResponse"];
+      };
+    };
+  };
+  parameters: {
+    /** @description 页码（从1开始） */
+    PageParam: number;
+    /** @description 每页数量 */
+    LimitParam: number;
+    /** @description 幂等性密钥，用于防止重复请求。 */
+    IdempotencyKey: string;
+    /** @description 客户端期望的契约版本；服务端可据此做兼容降级与告警。 */
+    ContractVersion: string;
+  };
+  requestBodies: never;
+  headers: never;
+  pathItems: never;
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    postAuthRegister: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RegisterRequest"];
-            };
-        };
-        responses: {
-            /** @description 注册成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AuthResponse"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            409: components["responses"]["Conflict"];
-        };
-    };
-    postAuthLogin: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["LoginRequest"];
-            };
-        };
-        responses: {
-            /** @description 登录成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AuthResponse"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-        };
-    };
-    postAuthRefresh: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    /** @description 长期有效的刷新令牌 */
-                    refresh_token: string;
-                };
-            };
-        };
-        responses: {
-            /** @description 刷新成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AuthResponse"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-        };
-    };
-    postAuthLogout: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 退出成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SimpleSuccessResponse"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-        };
-    };
-    getAuthMe: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["UserInfoResponse"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-        };
-    };
-    getChatMessages: {
-        parameters: {
-            query: {
-                /** @description 项目 ID。当前实现按 project 维度隔离对话上下文。 */
-                project_id: string;
-                /** @description 可选会话 ID。提供后按 project_id + session_id 作用域读取历史。 */
-                session_id?: string;
-                /** @description 页码（从1开始） */
-                page?: components["parameters"]["PageParam"];
-                /** @description 每页数量 */
-                limit?: components["parameters"]["LimitParam"];
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["GetMessagesResponse"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-        };
-    };
-    postChatMessages: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description 幂等性密钥，用于防止重复请求。 */
-                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SendMessageRequest"];
-            };
-        };
-        responses: {
-            /** @description 成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SendMessageResponseTarget"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-        };
-    };
-    postChatVoice: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description 幂等性密钥，用于防止重复请求。 */
-                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "multipart/form-data": {
-                    /**
-                     * Format: binary
-                     * @description 音频文件（支持 wav, mp3, m4a, ogg）
-                     */
-                    audio: string;
-                    /** @description 项目 ID */
-                    project_id: string;
-                    /** @description 可选会话 ID。提供后按 project_id + session_id 作用域处理语音对话。 */
-                    session_id?: string;
-                };
-            };
-        };
-        responses: {
-            /** @description 成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["VoiceMessageResponse"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-        };
-    };
-    postFiles: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description 幂等性密钥，用于防止重复请求。 */
-                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "multipart/form-data": {
-                    /** Format: binary */
-                    file: string;
-                    project_id: string;
-                    /** @description 可选会话 ID。提供后，索引与检索按 project_id + session_id 隔离。 */
-                    session_id?: string;
-                };
-            };
-        };
-        responses: {
-            /** @description 上传成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["UploadResponse"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-        };
-    };
-    deleteFilesByFileId: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                file_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 删除成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SimpleSuccessResponse"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-        };
-    };
-    patchFilesByFileIdIntent: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                file_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdateFileIntentRequest"];
-            };
-        };
-        responses: {
-            /** @description 标注成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["UpdateFileIntentResponse"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-        };
-    };
-    postFilesByFileIdParseMineru: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                file_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    parsed_text: string;
-                    parse_details?: Record<string, never>;
-                    session_id?: string;
-                };
-            };
-        };
-        responses: {
-            /** @description 解析结果同步成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SimpleSuccessResponse"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            500: components["responses"]["InternalServerError"];
-        };
-    };
-    postFilesBatch: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description 幂等性密钥，用于防止重复请求。 */
-                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "multipart/form-data": {
-                    /** @description 多个文件 */
-                    files: string[];
-                    project_id: string;
-                    /** @description 可选会话 ID。提供后，批量上传索引按 project_id + session_id 隔离。 */
-                    session_id?: string;
-                };
-            };
-        };
-        responses: {
-            /** @description 批量上传成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["BatchUploadResponse"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-        };
-    };
-    deleteFilesBatch: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    /** @description 要删除的文件 ID 列表 */
-                    file_ids: string[];
-                };
-            };
-        };
-        responses: {
-            /** @description 批量删除成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["BatchDeleteResponse"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-        };
-    };
-    getGenerateSessions: {
-        parameters: {
-            query: {
-                project_id: string;
-                page?: number;
-                limit?: number;
-            };
-            header?: {
-                /** @description 客户端期望的契约版本；服务端可据此做兼容降级与告警。 */
-                "X-Contract-Version"?: components["parameters"]["ContractVersion"];
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["GenerationSessionListResponseTarget"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-        };
-    };
-    postGenerateSessions: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description 幂等性密钥，用于防止重复请求。 */
-                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
-                /** @description 客户端期望的契约版本；服务端可据此做兼容降级与告警。 */
-                "X-Contract-Version"?: components["parameters"]["ContractVersion"];
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateGenerationSessionRequest"];
-            };
-        };
-        responses: {
-            /** @description 会话创建成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CreateGenerationSessionResponseTarget"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-        };
-    };
-    getGenerateSessionsBySessionId: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description 客户端期望的契约版本；服务端可据此做兼容降级与告警。 */
-                "X-Contract-Version"?: components["parameters"]["ContractVersion"];
-            };
-            path: {
-                session_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["GenerationSessionResponseTarget"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-        };
-    };
-    getGenerateSessionsBySessionIdEvents: {
-        parameters: {
-            query?: {
-                cursor?: string;
-                accept?: "text/event-stream" | "application/json";
-            };
-            header?: {
-                /** @description 客户端期望的契约版本；服务端可据此做兼容降级与告警。 */
-                "X-Contract-Version"?: components["parameters"]["ContractVersion"];
-            };
-            path: {
-                session_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "text/event-stream": string;
-                    "application/json": components["schemas"]["GenerationEventListResponseTarget"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-        };
-    };
-    getGenerateSessionRuns: {
-        parameters: {
-            query?: {
-                page?: number;
-                limit?: number;
-            };
-            header?: {
-                /** @description 客户端期望的契约版本；服务端可据此做兼容降级与告警。 */
-                "X-Contract-Version"?: components["parameters"]["ContractVersion"];
-            };
-            path: {
-                session_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["GenerationSessionRunListResponseTarget"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-        };
-    };
-    getGenerateSessionRunDetail: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description 客户端期望的契约版本；服务端可据此做兼容降级与告警。 */
-                "X-Contract-Version"?: components["parameters"]["ContractVersion"];
-            };
-            path: {
-                session_id: string;
-                run_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["GenerationSessionRunDetailResponseTarget"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-        };
-    };
-    postGenerateSessionsBySessionIdCommands: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description 幂等性密钥，用于防止重复请求。 */
-                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
-                /** @description 客户端期望的契约版本；服务端可据此做兼容降级与告警。 */
-                "X-Contract-Version"?: components["parameters"]["ContractVersion"];
-            };
-            path: {
-                session_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["GenerationSessionCommandRequestTarget"];
-            };
-        };
-        responses: {
-            /** @description 命令已执行或接受 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["GenerationSessionCommandResponseTarget"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
-        };
-    };
-    getGenerateSessionsBySessionIdCandidateChange: {
-        parameters: {
-            query?: {
-                status?: "pending" | "accepted" | "rejected";
-                proposer_user_id?: string;
-            };
-            header?: {
-                /** @description 客户端期望的契约版本；服务端可据此做兼容降级与告警。 */
-                "X-Contract-Version"?: components["parameters"]["ContractVersion"];
-            };
-            path: {
-                session_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 候选变更列表 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CandidateChangesResponse"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-        };
-    };
-    postGenerateSessionsBySessionIdCandidateChange: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description 幂等性密钥，用于防止重复请求。 */
-                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
-                /** @description 客户端期望的契约版本；服务端可据此做兼容降级与告警。 */
-                "X-Contract-Version"?: components["parameters"]["ContractVersion"];
-            };
-            path: {
-                session_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": components["schemas"]["CandidateChangeRequest"];
-            };
-        };
-        responses: {
-            /** @description 候选变更提交成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CandidateChangeResponse"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
-        };
-    };
-    getGenerateCapabilities: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description 客户端期望的契约版本；服务端可据此做兼容降级与告警。 */
-                "X-Contract-Version"?: components["parameters"]["ContractVersion"];
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["GenerationCapabilitiesResponse"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-        };
-    };
-    getGenerateStudioCards: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description 客户端期望的契约版本；服务端可据此做兼容降级与告警。 */
-                "X-Contract-Version"?: components["parameters"]["ContractVersion"];
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["StudioCardsCatalogResponse"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-        };
-    };
-    getGenerateStudioCardById: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description 客户端期望的契约版本；服务端可据此做兼容降级与告警。 */
-                "X-Contract-Version"?: components["parameters"]["ContractVersion"];
-            };
-            path: {
-                card_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["StudioCardDetailResponse"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-        };
-    };
-    getGenerateStudioCardExecutionPlan: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description 客户端期望的契约版本；服务端可据此做兼容降级与告警。 */
-                "X-Contract-Version"?: components["parameters"]["ContractVersion"];
-            };
-            path: {
-                card_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["StudioCardExecutionPlanResponse"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-        };
-    };
-    postGenerateStudioCardExecutionPreview: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description 客户端期望的契约版本；服务端可据此做兼容降级与告警。 */
-                "X-Contract-Version"?: components["parameters"]["ContractVersion"];
-            };
-            path: {
-                card_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["StudioCardExecutionPreviewRequest"];
-            };
-        };
-        responses: {
-            /** @description 成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["StudioCardExecutionPreviewResponse"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-        };
-    };
-    postGenerateStudioCardDraft: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description 客户端期望的契约版本；服务端可据此做兼容降级与告警。 */
-                "X-Contract-Version"?: components["parameters"]["ContractVersion"];
-            };
-            path: {
-                card_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["StudioCardExecutionPreviewRequest"];
-            };
-        };
-        responses: {
-            /** @description 成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["StudioCardExecutionResponse"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
-            502: components["responses"]["BadGateway"];
-            503: components["responses"]["ServiceUnavailable"];
-            504: components["responses"]["GatewayTimeout"];
-        };
-    };
-    postGenerateStudioCardExecute: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description 客户端期望的契约版本；服务端可据此做兼容降级与告警。 */
-                "X-Contract-Version"?: components["parameters"]["ContractVersion"];
-            };
-            path: {
-                card_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["StudioCardExecutionPreviewRequest"];
-            };
-        };
-        responses: {
-            /** @description 成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["StudioCardExecutionResponse"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
-            502: components["responses"]["BadGateway"];
-            503: components["responses"]["ServiceUnavailable"];
-            504: components["responses"]["GatewayTimeout"];
-        };
-    };
-    postGenerateStudioCardRefine: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description 客户端期望的契约版本；服务端可据此做兼容降级与告警。 */
-                "X-Contract-Version"?: components["parameters"]["ContractVersion"];
-            };
-            path: {
-                card_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["StudioCardRefineRequest"];
-            };
-        };
-        responses: {
-            /** @description 成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["StudioCardRefineResponse"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
-            502: components["responses"]["BadGateway"];
-            503: components["responses"]["ServiceUnavailable"];
-            504: components["responses"]["GatewayTimeout"];
-        };
-    };
-    postGenerateStudioCardSimulatorTurn: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description 客户端期望的契约版本；服务端可据此做兼容降级与告警。 */
-                "X-Contract-Version"?: components["parameters"]["ContractVersion"];
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["StudioCardTurnRequest"];
-            };
-        };
-        responses: {
-            /** @description 成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["StudioCardTurnResponse"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
-            502: components["responses"]["BadGateway"];
-            503: components["responses"]["ServiceUnavailable"];
-            504: components["responses"]["GatewayTimeout"];
-        };
-    };
-    getGenerateStudioCardSources: {
-        parameters: {
-            query: {
-                project_id: string;
-            };
-            header?: {
-                /** @description 客户端期望的契约版本；服务端可据此做兼容降级与告警。 */
-                "X-Contract-Version"?: components["parameters"]["ContractVersion"];
-            };
-            path: {
-                card_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["StudioCardSourceOptionsResponse"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            409: components["responses"]["Conflict"];
-        };
-    };
-    getGenerateSessionsBySessionIdPreview: {
-        parameters: {
-            query?: {
-                /** @description 指定预览的成果 ID（可选） */
-                artifact_id?: string;
-                /** @description 指定运行 ID（可选） */
-                run_id?: string;
-            };
-            header?: {
-                /** @description 客户端期望的契约版本；服务端可据此做兼容降级与告警。 */
-                "X-Contract-Version"?: components["parameters"]["ContractVersion"];
-            };
-            path: {
-                session_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PreviewResponse"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-        };
-    };
-    postGenerateSessionsBySessionIdPreviewModify: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description 幂等性密钥，用于防止重复请求。 */
-                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
-                /** @description 客户端期望的契约版本；服务端可据此做兼容降级与告警。 */
-                "X-Contract-Version"?: components["parameters"]["ContractVersion"];
-            };
-            path: {
-                session_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ModifySessionRequest"];
-            };
-        };
-        responses: {
-            /** @description 修改任务已创建 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ModifyResponse"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
-        };
-    };
-    getGenerateSessionsBySessionIdPreviewSlidesBySlideId: {
-        parameters: {
-            query?: {
-                /** @description 指定来源成果 ID（可选） */
-                artifact_id?: string;
-                /** @description 指定运行 ID（可选） */
-                run_id?: string;
-            };
-            header?: {
-                /** @description 客户端期望的契约版本；服务端可据此做兼容降级与告警。 */
-                "X-Contract-Version"?: components["parameters"]["ContractVersion"];
-            };
-            path: {
-                session_id: string;
-                slide_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SlideDetailResponse"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-        };
-    };
-    postGenerateSessionsBySessionIdPreviewExport: {
-        parameters: {
-            query?: {
-                /** @description 指定运行 ID（可选） */
-                run_id?: string;
-            };
-            header?: {
-                /** @description 客户端期望的契约版本；服务端可据此做兼容降级与告警。 */
-                "X-Contract-Version"?: components["parameters"]["ContractVersion"];
-            };
-            path: {
-                session_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ExportRequest"];
-            };
-        };
-        responses: {
-            /** @description 导出成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ExportResponse"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
-        };
-    };
-    postRagSearch: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RAGSearchRequest"];
-            };
-        };
-        responses: {
-            /** @description 检索成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RAGSearchResponse"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-        };
-    };
-    getRagSourcesByChunkId: {
-        parameters: {
-            query?: {
-                project_id?: string;
-            };
-            header?: never;
-            path: {
-                chunk_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SourceDetailResponse"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-        };
-    };
-    getRagSourceImageByChunkId: {
-        parameters: {
-            query: {
-                /** @description 来源压缩包中的图片相对路径 */
-                path: string;
-                project_id?: string;
-            };
-            header?: never;
-            path: {
-                chunk_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 成功返回图片二进制内容 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "image/png": string;
-                    "image/jpeg": string;
-                    "image/webp": string;
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-        };
-    };
-    postRagIndex: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    /** @description 要索引的文件 ID */
-                    file_id: string;
-                    /**
-                     * @description 分块大小
-                     * @default 512
-                     */
-                    chunk_size?: number;
-                    /**
-                     * @description 分块重叠大小
-                     * @default 50
-                     */
-                    chunk_overlap?: number;
-                };
-            };
-        };
-        responses: {
-            /** @description 索引任务已创建 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        data?: {
-                            index_task_id?: string;
-                            /** @enum {string} */
-                            status?: "pending" | "processing" | "completed" | "failed";
-                        };
-                    };
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-        };
-    };
-    postRagSimilar: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    /** @description 要查找相似内容的文本 */
-                    text: string;
-                    /** @default 5 */
-                    top_k?: number;
-                    /**
-                     * Format: float
-                     * @description 相似度阈值
-                     * @default 0.7
-                     */
-                    threshold?: number;
-                };
-            };
-        };
-        responses: {
-            /** @description 成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RAGSearchResponse"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-        };
-    };
-    getHealth: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HealthCheckResponse"];
-                };
-            };
-            503: components["responses"]["ServiceUnavailable"];
-        };
-    };
-    getHealthReady: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HealthCheckResponse"];
-                };
-            };
-            503: components["responses"]["ServiceUnavailable"];
-        };
-    };
-    getHealthLive: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HealthLivenessResponse"];
-                };
-            };
-        };
-    };
-    getHealthCapabilities: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CapabilitiesHealthResponse"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-        };
-    };
-    getSystemSettings: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description 客户端期望的契约版本；服务端可据此做兼容降级与告警。 */
-                "X-Contract-Version"?: components["parameters"]["ContractVersion"];
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SystemSettingsResponse"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-        };
-    };
-    patchSystemSettings: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description 幂等性密钥，用于防止重复请求。 */
-                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
-                /** @description 客户端期望的契约版本；服务端可据此做兼容降级与告警。 */
-                "X-Contract-Version"?: components["parameters"]["ContractVersion"];
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdateSystemSettingsRequest"];
-            };
-        };
-        responses: {
-            /** @description 更新成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SystemSettingsResponse"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-        };
-    };
-    getProjects: {
-        parameters: {
-            query?: {
-                /** @description 页码（从1开始） */
-                page?: components["parameters"]["PageParam"];
-                /** @description 每页数量 */
-                limit?: components["parameters"]["LimitParam"];
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["GetProjectsResponseTarget"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-        };
-    };
-    postProjects: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description 幂等性密钥，用于防止重复请求。 */
-                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ProjectRequestTarget"];
-            };
-        };
-        responses: {
-            /** @description 项目创建成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProjectResponseTarget"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-        };
-    };
-    getProjectsByProjectId: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                project_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProjectResponseTarget"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-        };
-    };
-    putProjectsByProjectId: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description 幂等性密钥，用于防止重复请求。 */
-                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
-            };
-            path: {
-                project_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ProjectRequestTarget"];
-            };
-        };
-        responses: {
-            /** @description 更新成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProjectResponseTarget"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-        };
-    };
-    deleteProjectsByProjectId: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                project_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 删除成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SimpleSuccessResponse"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-        };
-    };
-    getProjectsByProjectIdFiles: {
-        parameters: {
-            query?: {
-                /** @description 页码（从1开始） */
-                page?: components["parameters"]["PageParam"];
-                /** @description 每页数量 */
-                limit?: components["parameters"]["LimitParam"];
-            };
-            header?: never;
-            path: {
-                project_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["GetFilesResponse"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-        };
-    };
-    getProjectsByProjectIdStatistics: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                project_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProjectStatisticsResponse"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-        };
-    };
-    getProjectsSearch: {
-        parameters: {
-            query: {
-                /** @description 搜索关键词 */
-                q: string;
-                /** @description 按状态筛选 */
-                status?: "draft" | "in_progress" | "completed";
-                /** @description 页码（从1开始） */
-                page?: components["parameters"]["PageParam"];
-                /** @description 每页数量 */
-                limit?: components["parameters"]["LimitParam"];
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["GetProjectsResponse"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-        };
-    };
-    getProjectsByProjectIdReferences: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                project_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProjectReferencesResponse"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-        };
-    };
-    postProjectsByProjectIdReferences: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                project_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ProjectReferenceRequest"];
-            };
-        };
-        responses: {
-            /** @description 创建成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProjectReferenceResponse"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            409: components["responses"]["Conflict"];
-        };
-    };
-    deleteProjectsByProjectIdReferencesByReferenceId: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                project_id: string;
-                reference_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 删除成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SimpleSuccessResponse"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
-        };
-    };
-    patchProjectsByProjectIdReferencesByReferenceId: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                project_id: string;
-                reference_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ProjectReferenceUpdateRequest"];
-            };
-        };
-        responses: {
-            /** @description 更新成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProjectReferenceResponse"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
-        };
-    };
-    getProjectsByProjectIdVersions: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                project_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProjectVersionsResponse"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-        };
-    };
-    getProjectsByProjectIdVersionsByVersionId: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                project_id: string;
-                version_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProjectVersionResponse"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-        };
-    };
-    getProjectsByProjectIdArtifacts: {
-        parameters: {
-            query?: {
-                type?: string;
-                visibility?: string;
-                owner_user_id?: string;
-                based_on_version_id?: string;
-            };
-            header?: never;
-            path: {
-                project_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ArtifactsResponse"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-        };
-    };
-    postProjectsByProjectIdArtifacts: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                project_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ArtifactCreateRequest"];
-            };
-        };
-        responses: {
-            /** @description 创建成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ArtifactResponse"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-        };
-    };
-    getProjectsByProjectIdArtifactsByArtifactId: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                project_id: string;
-                artifact_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ArtifactResponse"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-        };
-    };
-    getProjectsByProjectIdArtifactsByArtifactIdDownload: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                project_id: string;
-                artifact_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 文件流 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/octet-stream": string;
-                    "application/json": Record<string, never>;
-                    "application/vnd.openxmlformats-officedocument.presentationml.presentation": string;
-                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": string;
-                    "text/html": string;
-                    "image/gif": string;
-                    "video/mp4": string;
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-        };
-    };
-    getProjectsByProjectIdCandidateChanges: {
-        parameters: {
-            query?: {
-                status?: string;
-                proposer_user_id?: string;
-                session_id?: string;
-            };
-            header?: never;
-            path: {
-                project_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CandidateChangesResponse"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-        };
-    };
-    postProjectsByProjectIdCandidateChanges: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                project_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CandidateChangeRequest"];
-            };
-        };
-        responses: {
-            /** @description 创建成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CandidateChangeResponse"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            409: components["responses"]["Conflict"];
-        };
-    };
-    postProjectsByProjectIdCandidateChangesByChangeIdReview: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                project_id: string;
-                change_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CandidateChangeReviewRequest"];
-            };
-        };
-        responses: {
-            /** @description 成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CandidateChangeResponse"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
-        };
-    };
-    getProjectsByProjectIdMembers: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                project_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProjectMembersResponse"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-        };
-    };
-    postProjectsByProjectIdMembers: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description 幂等性密钥，用于防止重复请求。 */
-                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
-            };
-            path: {
-                project_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ProjectMemberRequest"];
-            };
-        };
-        responses: {
-            /** @description 创建成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProjectMemberResponse"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            409: components["responses"]["Conflict"];
-        };
-    };
-    deleteProjectsByProjectIdMembersByMemberId: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                project_id: string;
-                member_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Delete success */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SimpleSuccessResponse"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-        };
-    };
-    patchProjectsByProjectIdMembersByMemberId: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description 幂等性密钥，用于防止重复请求。 */
-                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
-            };
-            path: {
-                project_id: string;
-                member_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ProjectMemberUpdateRequest"];
-            };
-        };
-        responses: {
-            /** @description 更新成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProjectMemberResponse"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-        };
-    };
+  postAuthRegister: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["RegisterRequest"];
+      };
+    };
+    responses: {
+      /** @description 注册成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AuthResponse"];
+        };
+      };
+      400: components["responses"]["BadRequest"];
+      409: components["responses"]["Conflict"];
+    };
+  };
+  postAuthLogin: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["LoginRequest"];
+      };
+    };
+    responses: {
+      /** @description 登录成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AuthResponse"];
+        };
+      };
+      400: components["responses"]["BadRequest"];
+      401: components["responses"]["Unauthorized"];
+    };
+  };
+  postAuthRefresh: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @description 长期有效的刷新令牌 */
+          refresh_token: string;
+        };
+      };
+    };
+    responses: {
+      /** @description 刷新成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AuthResponse"];
+        };
+      };
+      400: components["responses"]["BadRequest"];
+      401: components["responses"]["Unauthorized"];
+    };
+  };
+  postAuthLogout: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description 退出成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SimpleSuccessResponse"];
+        };
+      };
+      401: components["responses"]["Unauthorized"];
+    };
+  };
+  getAuthMe: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description 成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["UserInfoResponse"];
+        };
+      };
+      401: components["responses"]["Unauthorized"];
+    };
+  };
+  getChatMessages: {
+    parameters: {
+      query: {
+        /** @description 项目 ID。当前实现按 project 维度隔离对话上下文。 */
+        project_id: string;
+        /** @description 可选会话 ID。提供后按 project_id + session_id 作用域读取历史。 */
+        session_id?: string;
+        /** @description 页码（从1开始） */
+        page?: components["parameters"]["PageParam"];
+        /** @description 每页数量 */
+        limit?: components["parameters"]["LimitParam"];
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description 成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["GetMessagesResponse"];
+        };
+      };
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+    };
+  };
+  postChatMessages: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description 幂等性密钥，用于防止重复请求。 */
+        "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SendMessageRequest"];
+      };
+    };
+    responses: {
+      /** @description 成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SendMessageResponseTarget"];
+        };
+      };
+      400: components["responses"]["BadRequest"];
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+    };
+  };
+  postChatVoice: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description 幂等性密钥，用于防止重复请求。 */
+        "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "multipart/form-data": {
+          /**
+           * Format: binary
+           * @description 音频文件（支持 wav, mp3, m4a, ogg）
+           */
+          audio: string;
+          /** @description 项目 ID */
+          project_id: string;
+          /** @description 可选会话 ID。提供后按 project_id + session_id 作用域处理语音对话。 */
+          session_id?: string;
+        };
+      };
+    };
+    responses: {
+      /** @description 成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceMessageResponse"];
+        };
+      };
+      400: components["responses"]["BadRequest"];
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+    };
+  };
+  postFiles: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description 幂等性密钥，用于防止重复请求。 */
+        "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "multipart/form-data": {
+          /** Format: binary */
+          file: string;
+          project_id: string;
+          /** @description 可选会话 ID。提供后，索引与检索按 project_id + session_id 隔离。 */
+          session_id?: string;
+        };
+      };
+    };
+    responses: {
+      /** @description 上传成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["UploadResponse"];
+        };
+      };
+      400: components["responses"]["BadRequest"];
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+    };
+  };
+  deleteFilesByFileId: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        file_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description 删除成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SimpleSuccessResponse"];
+        };
+      };
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+    };
+  };
+  patchFilesByFileIdIntent: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        file_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["UpdateFileIntentRequest"];
+      };
+    };
+    responses: {
+      /** @description 标注成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["UpdateFileIntentResponse"];
+        };
+      };
+      400: components["responses"]["BadRequest"];
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+    };
+  };
+  postFilesByFileIdParseMineru: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        file_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          parsed_text: string;
+          parse_details?: Record<string, never>;
+          session_id?: string;
+        };
+      };
+    };
+    responses: {
+      /** @description 解析结果同步成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SimpleSuccessResponse"];
+        };
+      };
+      400: components["responses"]["BadRequest"];
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+      500: components["responses"]["InternalServerError"];
+    };
+  };
+  postFilesBatch: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description 幂等性密钥，用于防止重复请求。 */
+        "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "multipart/form-data": {
+          /** @description 多个文件 */
+          files: string[];
+          project_id: string;
+          /** @description 可选会话 ID。提供后，批量上传索引按 project_id + session_id 隔离。 */
+          session_id?: string;
+        };
+      };
+    };
+    responses: {
+      /** @description 批量上传成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["BatchUploadResponse"];
+        };
+      };
+      400: components["responses"]["BadRequest"];
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+    };
+  };
+  deleteFilesBatch: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @description 要删除的文件 ID 列表 */
+          file_ids: string[];
+        };
+      };
+    };
+    responses: {
+      /** @description 批量删除成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["BatchDeleteResponse"];
+        };
+      };
+      400: components["responses"]["BadRequest"];
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+    };
+  };
+  getGenerateSessions: {
+    parameters: {
+      query: {
+        project_id: string;
+        page?: number;
+        limit?: number;
+      };
+      header?: {
+        /** @description 客户端期望的契约版本；服务端可据此做兼容降级与告警。 */
+        "X-Contract-Version"?: components["parameters"]["ContractVersion"];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description 成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["GenerationSessionListResponseTarget"];
+        };
+      };
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+    };
+  };
+  postGenerateSessions: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description 幂等性密钥，用于防止重复请求。 */
+        "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+        /** @description 客户端期望的契约版本；服务端可据此做兼容降级与告警。 */
+        "X-Contract-Version"?: components["parameters"]["ContractVersion"];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CreateGenerationSessionRequest"];
+      };
+    };
+    responses: {
+      /** @description 会话创建成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CreateGenerationSessionResponseTarget"];
+        };
+      };
+      400: components["responses"]["BadRequest"];
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+    };
+  };
+  getGenerateSessionsBySessionId: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description 客户端期望的契约版本；服务端可据此做兼容降级与告警。 */
+        "X-Contract-Version"?: components["parameters"]["ContractVersion"];
+      };
+      path: {
+        session_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description 成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["GenerationSessionResponseTarget"];
+        };
+      };
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+    };
+  };
+  getGenerateSessionsBySessionIdEvents: {
+    parameters: {
+      query?: {
+        cursor?: string;
+        accept?: "text/event-stream" | "application/json";
+      };
+      header?: {
+        /** @description 客户端期望的契约版本；服务端可据此做兼容降级与告警。 */
+        "X-Contract-Version"?: components["parameters"]["ContractVersion"];
+      };
+      path: {
+        session_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description 成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/event-stream": string;
+          "application/json": components["schemas"]["GenerationEventListResponseTarget"];
+        };
+      };
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+    };
+  };
+  getGenerateSessionRuns: {
+    parameters: {
+      query?: {
+        page?: number;
+        limit?: number;
+      };
+      header?: {
+        /** @description 客户端期望的契约版本；服务端可据此做兼容降级与告警。 */
+        "X-Contract-Version"?: components["parameters"]["ContractVersion"];
+      };
+      path: {
+        session_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description 成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["GenerationSessionRunListResponseTarget"];
+        };
+      };
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+    };
+  };
+  getGenerateSessionRunDetail: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description 客户端期望的契约版本；服务端可据此做兼容降级与告警。 */
+        "X-Contract-Version"?: components["parameters"]["ContractVersion"];
+      };
+      path: {
+        session_id: string;
+        run_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description 成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["GenerationSessionRunDetailResponseTarget"];
+        };
+      };
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+    };
+  };
+  postGenerateSessionsBySessionIdCommands: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description 幂等性密钥，用于防止重复请求。 */
+        "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+        /** @description 客户端期望的契约版本；服务端可据此做兼容降级与告警。 */
+        "X-Contract-Version"?: components["parameters"]["ContractVersion"];
+      };
+      path: {
+        session_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["GenerationSessionCommandRequestTarget"];
+      };
+    };
+    responses: {
+      /** @description 命令已执行或接受 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["GenerationSessionCommandResponseTarget"];
+        };
+      };
+      400: components["responses"]["BadRequest"];
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+      409: components["responses"]["Conflict"];
+    };
+  };
+  getGenerateSessionsBySessionIdCandidateChange: {
+    parameters: {
+      query?: {
+        status?: "pending" | "accepted" | "rejected";
+        proposer_user_id?: string;
+      };
+      header?: {
+        /** @description 客户端期望的契约版本；服务端可据此做兼容降级与告警。 */
+        "X-Contract-Version"?: components["parameters"]["ContractVersion"];
+      };
+      path: {
+        session_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description 候选变更列表 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CandidateChangesResponse"];
+        };
+      };
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+    };
+  };
+  postGenerateSessionsBySessionIdCandidateChange: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description 幂等性密钥，用于防止重复请求。 */
+        "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+        /** @description 客户端期望的契约版本；服务端可据此做兼容降级与告警。 */
+        "X-Contract-Version"?: components["parameters"]["ContractVersion"];
+      };
+      path: {
+        session_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        "application/json": components["schemas"]["CandidateChangeRequest"];
+      };
+    };
+    responses: {
+      /** @description 候选变更提交成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CandidateChangeResponse"];
+        };
+      };
+      400: components["responses"]["BadRequest"];
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+      409: components["responses"]["Conflict"];
+    };
+  };
+  getGenerateCapabilities: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description 客户端期望的契约版本；服务端可据此做兼容降级与告警。 */
+        "X-Contract-Version"?: components["parameters"]["ContractVersion"];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description 成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["GenerationCapabilitiesResponse"];
+        };
+      };
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+    };
+  };
+  getGenerateStudioCards: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description 客户端期望的契约版本；服务端可据此做兼容降级与告警。 */
+        "X-Contract-Version"?: components["parameters"]["ContractVersion"];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description 成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["StudioCardsCatalogResponse"];
+        };
+      };
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+    };
+  };
+  getGenerateStudioCardById: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description 客户端期望的契约版本；服务端可据此做兼容降级与告警。 */
+        "X-Contract-Version"?: components["parameters"]["ContractVersion"];
+      };
+      path: {
+        card_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description 成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["StudioCardDetailResponse"];
+        };
+      };
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+    };
+  };
+  getGenerateStudioCardExecutionPlan: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description 客户端期望的契约版本；服务端可据此做兼容降级与告警。 */
+        "X-Contract-Version"?: components["parameters"]["ContractVersion"];
+      };
+      path: {
+        card_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description 成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["StudioCardExecutionPlanResponse"];
+        };
+      };
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+    };
+  };
+  postGenerateStudioCardExecutionPreview: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description 客户端期望的契约版本；服务端可据此做兼容降级与告警。 */
+        "X-Contract-Version"?: components["parameters"]["ContractVersion"];
+      };
+      path: {
+        card_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["StudioCardExecutionPreviewRequest"];
+      };
+    };
+    responses: {
+      /** @description 成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["StudioCardExecutionPreviewResponse"];
+        };
+      };
+      400: components["responses"]["BadRequest"];
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+    };
+  };
+  postGenerateStudioCardDraft: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description 客户端期望的契约版本；服务端可据此做兼容降级与告警。 */
+        "X-Contract-Version"?: components["parameters"]["ContractVersion"];
+      };
+      path: {
+        card_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["StudioCardExecutionPreviewRequest"];
+      };
+    };
+    responses: {
+      /** @description 成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["StudioCardExecutionResponse"];
+        };
+      };
+      400: components["responses"]["BadRequest"];
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+      409: components["responses"]["Conflict"];
+      502: components["responses"]["BadGateway"];
+      503: components["responses"]["ServiceUnavailable"];
+      504: components["responses"]["GatewayTimeout"];
+    };
+  };
+  postGenerateStudioCardExecute: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description 客户端期望的契约版本；服务端可据此做兼容降级与告警。 */
+        "X-Contract-Version"?: components["parameters"]["ContractVersion"];
+      };
+      path: {
+        card_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["StudioCardExecutionPreviewRequest"];
+      };
+    };
+    responses: {
+      /** @description 成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["StudioCardExecutionResponse"];
+        };
+      };
+      400: components["responses"]["BadRequest"];
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+      409: components["responses"]["Conflict"];
+      502: components["responses"]["BadGateway"];
+      503: components["responses"]["ServiceUnavailable"];
+      504: components["responses"]["GatewayTimeout"];
+    };
+  };
+  postGenerateStudioCardRefine: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description 客户端期望的契约版本；服务端可据此做兼容降级与告警。 */
+        "X-Contract-Version"?: components["parameters"]["ContractVersion"];
+      };
+      path: {
+        card_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["StudioCardRefineRequest"];
+      };
+    };
+    responses: {
+      /** @description 成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["StudioCardRefineResponse"];
+        };
+      };
+      400: components["responses"]["BadRequest"];
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+      409: components["responses"]["Conflict"];
+      502: components["responses"]["BadGateway"];
+      503: components["responses"]["ServiceUnavailable"];
+      504: components["responses"]["GatewayTimeout"];
+    };
+  };
+  postGenerateStudioCardSimulatorTurn: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description 客户端期望的契约版本；服务端可据此做兼容降级与告警。 */
+        "X-Contract-Version"?: components["parameters"]["ContractVersion"];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["StudioCardTurnRequest"];
+      };
+    };
+    responses: {
+      /** @description 成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["StudioCardTurnResponse"];
+        };
+      };
+      400: components["responses"]["BadRequest"];
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+      409: components["responses"]["Conflict"];
+      502: components["responses"]["BadGateway"];
+      503: components["responses"]["ServiceUnavailable"];
+      504: components["responses"]["GatewayTimeout"];
+    };
+  };
+  getGenerateStudioCardSources: {
+    parameters: {
+      query: {
+        project_id: string;
+      };
+      header?: {
+        /** @description 客户端期望的契约版本；服务端可据此做兼容降级与告警。 */
+        "X-Contract-Version"?: components["parameters"]["ContractVersion"];
+      };
+      path: {
+        card_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description 成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["StudioCardSourceOptionsResponse"];
+        };
+      };
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      409: components["responses"]["Conflict"];
+    };
+  };
+  getGenerateSessionsBySessionIdPreview: {
+    parameters: {
+      query?: {
+        /** @description 指定预览的成果 ID（可选） */
+        artifact_id?: string;
+        /** @description 指定运行 ID（可选） */
+        run_id?: string;
+      };
+      header?: {
+        /** @description 客户端期望的契约版本；服务端可据此做兼容降级与告警。 */
+        "X-Contract-Version"?: components["parameters"]["ContractVersion"];
+      };
+      path: {
+        session_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description 成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PreviewResponse"];
+        };
+      };
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+    };
+  };
+  postGenerateSessionsBySessionIdPreviewModify: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description 幂等性密钥，用于防止重复请求。 */
+        "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+        /** @description 客户端期望的契约版本；服务端可据此做兼容降级与告警。 */
+        "X-Contract-Version"?: components["parameters"]["ContractVersion"];
+      };
+      path: {
+        session_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ModifySessionRequest"];
+      };
+    };
+    responses: {
+      /** @description 修改任务已创建 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ModifyResponse"];
+        };
+      };
+      400: components["responses"]["BadRequest"];
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+      409: components["responses"]["Conflict"];
+    };
+  };
+  getGenerateSessionsBySessionIdPreviewSlidesBySlideId: {
+    parameters: {
+      query?: {
+        /** @description 指定来源成果 ID（可选） */
+        artifact_id?: string;
+        /** @description 指定运行 ID（可选） */
+        run_id?: string;
+      };
+      header?: {
+        /** @description 客户端期望的契约版本；服务端可据此做兼容降级与告警。 */
+        "X-Contract-Version"?: components["parameters"]["ContractVersion"];
+      };
+      path: {
+        session_id: string;
+        slide_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description 成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SlideDetailResponse"];
+        };
+      };
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+    };
+  };
+  postGenerateSessionsBySessionIdPreviewExport: {
+    parameters: {
+      query?: {
+        /** @description 指定运行 ID（可选） */
+        run_id?: string;
+      };
+      header?: {
+        /** @description 客户端期望的契约版本；服务端可据此做兼容降级与告警。 */
+        "X-Contract-Version"?: components["parameters"]["ContractVersion"];
+      };
+      path: {
+        session_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ExportRequest"];
+      };
+    };
+    responses: {
+      /** @description 导出成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ExportResponse"];
+        };
+      };
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+      409: components["responses"]["Conflict"];
+    };
+  };
+  postRagSearch: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["RAGSearchRequest"];
+      };
+    };
+    responses: {
+      /** @description 检索成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["RAGSearchResponse"];
+        };
+      };
+      400: components["responses"]["BadRequest"];
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+    };
+  };
+  getRagSourcesByChunkId: {
+    parameters: {
+      query?: {
+        project_id?: string;
+      };
+      header?: never;
+      path: {
+        chunk_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description 成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SourceDetailResponse"];
+        };
+      };
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+    };
+  };
+  getRagSourceImageByChunkId: {
+    parameters: {
+      query: {
+        /** @description 来源压缩包中的图片相对路径 */
+        path: string;
+        project_id?: string;
+      };
+      header?: never;
+      path: {
+        chunk_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description 成功返回图片二进制内容 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "image/png": string;
+          "image/jpeg": string;
+          "image/webp": string;
+        };
+      };
+      400: components["responses"]["BadRequest"];
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+    };
+  };
+  postRagIndex: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @description 要索引的文件 ID */
+          file_id: string;
+          /**
+           * @description 分块大小
+           * @default 512
+           */
+          chunk_size?: number;
+          /**
+           * @description 分块重叠大小
+           * @default 50
+           */
+          chunk_overlap?: number;
+        };
+      };
+    };
+    responses: {
+      /** @description 索引任务已创建 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            success?: boolean;
+            data?: {
+              index_task_id?: string;
+              /** @enum {string} */
+              status?: "pending" | "processing" | "completed" | "failed";
+            };
+          };
+        };
+      };
+      400: components["responses"]["BadRequest"];
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+    };
+  };
+  postRagSimilar: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @description 要查找相似内容的文本 */
+          text: string;
+          /** @default 5 */
+          top_k?: number;
+          /**
+           * Format: float
+           * @description 相似度阈值
+           * @default 0.7
+           */
+          threshold?: number;
+        };
+      };
+    };
+    responses: {
+      /** @description 成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["RAGSearchResponse"];
+        };
+      };
+      400: components["responses"]["BadRequest"];
+      401: components["responses"]["Unauthorized"];
+    };
+  };
+  getHealth: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description 成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HealthCheckResponse"];
+        };
+      };
+      503: components["responses"]["ServiceUnavailable"];
+    };
+  };
+  getHealthReady: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description 成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HealthCheckResponse"];
+        };
+      };
+      503: components["responses"]["ServiceUnavailable"];
+    };
+  };
+  getHealthLive: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description 成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HealthLivenessResponse"];
+        };
+      };
+    };
+  };
+  getHealthCapabilities: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description 成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CapabilitiesHealthResponse"];
+        };
+      };
+      400: components["responses"]["BadRequest"];
+    };
+  };
+  getSystemSettings: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description 客户端期望的契约版本；服务端可据此做兼容降级与告警。 */
+        "X-Contract-Version"?: components["parameters"]["ContractVersion"];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description 成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SystemSettingsResponse"];
+        };
+      };
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+    };
+  };
+  patchSystemSettings: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description 幂等性密钥，用于防止重复请求。 */
+        "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+        /** @description 客户端期望的契约版本；服务端可据此做兼容降级与告警。 */
+        "X-Contract-Version"?: components["parameters"]["ContractVersion"];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["UpdateSystemSettingsRequest"];
+      };
+    };
+    responses: {
+      /** @description 更新成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SystemSettingsResponse"];
+        };
+      };
+      400: components["responses"]["BadRequest"];
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+    };
+  };
+  getProjects: {
+    parameters: {
+      query?: {
+        /** @description 页码（从1开始） */
+        page?: components["parameters"]["PageParam"];
+        /** @description 每页数量 */
+        limit?: components["parameters"]["LimitParam"];
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description 成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["GetProjectsResponseTarget"];
+        };
+      };
+      401: components["responses"]["Unauthorized"];
+    };
+  };
+  postProjects: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description 幂等性密钥，用于防止重复请求。 */
+        "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ProjectRequestTarget"];
+      };
+    };
+    responses: {
+      /** @description 项目创建成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProjectResponseTarget"];
+        };
+      };
+      400: components["responses"]["BadRequest"];
+      401: components["responses"]["Unauthorized"];
+    };
+  };
+  getProjectsByProjectId: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        project_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description 成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProjectResponseTarget"];
+        };
+      };
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+    };
+  };
+  putProjectsByProjectId: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description 幂等性密钥，用于防止重复请求。 */
+        "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+      };
+      path: {
+        project_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ProjectRequestTarget"];
+      };
+    };
+    responses: {
+      /** @description 更新成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProjectResponseTarget"];
+        };
+      };
+      400: components["responses"]["BadRequest"];
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+    };
+  };
+  deleteProjectsByProjectId: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        project_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description 删除成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SimpleSuccessResponse"];
+        };
+      };
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+    };
+  };
+  getProjectsByProjectIdFiles: {
+    parameters: {
+      query?: {
+        /** @description 页码（从1开始） */
+        page?: components["parameters"]["PageParam"];
+        /** @description 每页数量 */
+        limit?: components["parameters"]["LimitParam"];
+      };
+      header?: never;
+      path: {
+        project_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description 成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["GetFilesResponse"];
+        };
+      };
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+    };
+  };
+  getProjectsByProjectIdStatistics: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        project_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description 成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProjectStatisticsResponse"];
+        };
+      };
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+    };
+  };
+  getProjectsSearch: {
+    parameters: {
+      query: {
+        /** @description 搜索关键词 */
+        q: string;
+        /** @description 按状态筛选 */
+        status?: "draft" | "in_progress" | "completed";
+        /** @description 页码（从1开始） */
+        page?: components["parameters"]["PageParam"];
+        /** @description 每页数量 */
+        limit?: components["parameters"]["LimitParam"];
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description 成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["GetProjectsResponse"];
+        };
+      };
+      401: components["responses"]["Unauthorized"];
+    };
+  };
+  getProjectsByProjectIdReferences: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        project_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description 成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProjectReferencesResponse"];
+        };
+      };
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+    };
+  };
+  postProjectsByProjectIdReferences: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        project_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ProjectReferenceRequest"];
+      };
+    };
+    responses: {
+      /** @description 创建成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProjectReferenceResponse"];
+        };
+      };
+      400: components["responses"]["BadRequest"];
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      409: components["responses"]["Conflict"];
+    };
+  };
+  deleteProjectsByProjectIdReferencesByReferenceId: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        project_id: string;
+        reference_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description 删除成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SimpleSuccessResponse"];
+        };
+      };
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+      409: components["responses"]["Conflict"];
+    };
+  };
+  patchProjectsByProjectIdReferencesByReferenceId: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        project_id: string;
+        reference_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ProjectReferenceUpdateRequest"];
+      };
+    };
+    responses: {
+      /** @description 更新成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProjectReferenceResponse"];
+        };
+      };
+      400: components["responses"]["BadRequest"];
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+      409: components["responses"]["Conflict"];
+    };
+  };
+  getProjectsByProjectIdVersions: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        project_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description 成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProjectVersionsResponse"];
+        };
+      };
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+    };
+  };
+  getProjectsByProjectIdVersionsByVersionId: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        project_id: string;
+        version_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description 成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProjectVersionResponse"];
+        };
+      };
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+    };
+  };
+  getProjectsByProjectIdArtifacts: {
+    parameters: {
+      query?: {
+        type?: string;
+        visibility?: string;
+        owner_user_id?: string;
+        based_on_version_id?: string;
+      };
+      header?: never;
+      path: {
+        project_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description 成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ArtifactsResponse"];
+        };
+      };
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+    };
+  };
+  postProjectsByProjectIdArtifacts: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        project_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ArtifactCreateRequest"];
+      };
+    };
+    responses: {
+      /** @description 创建成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ArtifactResponse"];
+        };
+      };
+      400: components["responses"]["BadRequest"];
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+    };
+  };
+  getProjectsByProjectIdArtifactsByArtifactId: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        project_id: string;
+        artifact_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description 成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ArtifactResponse"];
+        };
+      };
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+    };
+  };
+  getProjectsByProjectIdArtifactsByArtifactIdDownload: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        project_id: string;
+        artifact_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description 文件流 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/octet-stream": string;
+          "application/json": Record<string, never>;
+          "application/vnd.openxmlformats-officedocument.presentationml.presentation": string;
+          "application/vnd.openxmlformats-officedocument.wordprocessingml.document": string;
+          "text/html": string;
+          "image/gif": string;
+          "video/mp4": string;
+        };
+      };
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+    };
+  };
+  getProjectsByProjectIdCandidateChanges: {
+    parameters: {
+      query?: {
+        status?: string;
+        proposer_user_id?: string;
+        session_id?: string;
+      };
+      header?: never;
+      path: {
+        project_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description 成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CandidateChangesResponse"];
+        };
+      };
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+    };
+  };
+  postProjectsByProjectIdCandidateChanges: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        project_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CandidateChangeRequest"];
+      };
+    };
+    responses: {
+      /** @description 创建成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CandidateChangeResponse"];
+        };
+      };
+      400: components["responses"]["BadRequest"];
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      409: components["responses"]["Conflict"];
+    };
+  };
+  postProjectsByProjectIdCandidateChangesByChangeIdReview: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        project_id: string;
+        change_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CandidateChangeReviewRequest"];
+      };
+    };
+    responses: {
+      /** @description 成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CandidateChangeResponse"];
+        };
+      };
+      400: components["responses"]["BadRequest"];
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+      409: components["responses"]["Conflict"];
+    };
+  };
+  getProjectsByProjectIdMembers: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        project_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description 成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProjectMembersResponse"];
+        };
+      };
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+    };
+  };
+  postProjectsByProjectIdMembers: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description 幂等性密钥，用于防止重复请求。 */
+        "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+      };
+      path: {
+        project_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ProjectMemberRequest"];
+      };
+    };
+    responses: {
+      /** @description 创建成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProjectMemberResponse"];
+        };
+      };
+      400: components["responses"]["BadRequest"];
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      409: components["responses"]["Conflict"];
+    };
+  };
+  deleteProjectsByProjectIdMembersByMemberId: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        project_id: string;
+        member_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Delete success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SimpleSuccessResponse"];
+        };
+      };
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+    };
+  };
+  patchProjectsByProjectIdMembersByMemberId: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description 幂等性密钥，用于防止重复请求。 */
+        "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+      };
+      path: {
+        project_id: string;
+        member_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ProjectMemberUpdateRequest"];
+      };
+    };
+    responses: {
+      /** @description 更新成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProjectMemberResponse"];
+        };
+      };
+      400: components["responses"]["BadRequest"];
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+    };
+  };
 }

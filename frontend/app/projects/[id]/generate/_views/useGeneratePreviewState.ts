@@ -663,7 +663,10 @@ export function useGeneratePreviewState({
         void loadSlides();
         continue;
       }
-      if (diegoEventType === "run.failed" || diegoEventType === "slide.failed") {
+      if (
+        diegoEventType === "run.failed" ||
+        diegoEventType === "slide.failed"
+      ) {
         const failedMessage =
           readStringField(payload, "progress_message") ||
           readStringField(payload, "error_message") ||

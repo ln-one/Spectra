@@ -107,4 +107,3 @@ describe("studio ppt history status sync", () => {
     expect(isMatchingSlideReadyEvent(otherRunEvent, "run-1")).toBe(false);
   });
 });
-

@@ -863,7 +863,9 @@ export function StudioPanelContainer({
                 );
                 const generationMode =
                   config.layoutMode === "classic" ? "template" : "scratch";
-                const normalizedPageCount = normalizePageCount(config.pageCount);
+                const normalizedPageCount = normalizePageCount(
+                  config.pageCount
+                );
                 const templateId =
                   generationMode === "template"
                     ? (config.templateId ?? undefined)

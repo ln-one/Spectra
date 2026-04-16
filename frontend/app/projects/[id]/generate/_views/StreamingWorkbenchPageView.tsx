@@ -142,7 +142,9 @@ export default function StreamingWorkbenchPageView() {
   useEffect(() => {
     if (!activeSessionId || !projectId) return;
     if (sessionState !== "AWAITING_OUTLINE_CONFIRM") return;
-    router.replace(`/projects/${projectId}?session=${encodeURIComponent(activeSessionId)}`);
+    router.replace(
+      `/projects/${projectId}?session=${encodeURIComponent(activeSessionId)}`
+    );
   }, [activeSessionId, projectId, router, sessionState]);
 
   const renderedSlides = useMemo(

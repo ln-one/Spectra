@@ -250,10 +250,10 @@ export function useStudioWorkflowHistory(
       sessionId: input.sessionId ?? null,
       step: input.step,
       artifactId: input.artifactId,
-    runId: normalizedInputRunId,
-    runNo: input.runNo ?? null,
-    ppt_status: input.ppt_status,
-  };
+      runId: normalizedInputRunId,
+      runNo: input.runNo ?? null,
+      ppt_status: input.ppt_status,
+    };
 
     setWorkflowItems((prev) => {
       let resolvedItemId = nextItem.id;

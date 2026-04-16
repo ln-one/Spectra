@@ -140,7 +140,11 @@ export function derivePptStatus(params: {
     };
   }
 
-  if (runStep === "generate" || runStep === "preview" || runStatus === "processing") {
+  if (
+    runStep === "generate" ||
+    runStep === "preview" ||
+    runStatus === "processing"
+  ) {
     return {
       status: "processing",
       step: "preview",

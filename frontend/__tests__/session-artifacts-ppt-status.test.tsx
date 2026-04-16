@@ -109,4 +109,3 @@ describe("session artifacts ppt status rendering", () => {
     expect(screen.getByText("单页可预览")).toBeInTheDocument();
   });
 });
-

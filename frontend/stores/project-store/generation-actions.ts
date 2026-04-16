@@ -6,9 +6,7 @@ import {
   buildArtifactDownloadFilename,
   inferArtifactDownloadExt,
 } from "@/lib/project-space/download-filename";
-import {
-  mapSessionsToHistory,
-} from "./generation-actions.helpers";
+import { mapSessionsToHistory } from "./generation-actions.helpers";
 import type {
   Artifact,
   GenerationHistory,

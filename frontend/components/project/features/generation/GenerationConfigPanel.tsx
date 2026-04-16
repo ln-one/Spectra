@@ -114,12 +114,12 @@ export function GenerationConfigPanel({
 
   const openPreview =
     (images: string[], title: string) => (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setPreviewImages(images);
-    setPreviewTitle(title);
-    setPreviewIndex(0);
-    setPreviewOpen(true);
-  };
+      e.stopPropagation();
+      setPreviewImages(images);
+      setPreviewTitle(title);
+      setPreviewIndex(0);
+      setPreviewOpen(true);
+    };
   const currentPreviewImage = previewImages[previewIndex] ?? null;
   const canPreviewPrev = previewIndex > 0;
   const canPreviewNext = previewIndex < previewImages.length - 1;

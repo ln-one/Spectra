@@ -112,7 +112,11 @@ function statusBadgeClass(item: StudioHistoryItem): string {
   if (state === "slides_generating" || state === "processing") {
     return "bg-blue-100 text-blue-700";
   }
-  if (state === "completed" || state === "previewing" || state === "slide_preview_ready") {
+  if (
+    state === "completed" ||
+    state === "previewing" ||
+    state === "slide_preview_ready"
+  ) {
     return "bg-emerald-100 text-emerald-700";
   }
   if (state === "failed") {

@@ -380,7 +380,9 @@ export function OutlineEditorPanel({
       const isDiegoEvent =
         eventType === "progress.updated" ||
         Boolean(normalizeText(sectionPayload?.diego_event_type)) ||
-        DIEGO_EVENT_PREFIXES.some((prefix) => diegoEventType.startsWith(prefix));
+        DIEGO_EVENT_PREFIXES.some((prefix) =>
+          diegoEventType.startsWith(prefix)
+        );
       if (!isDiegoEvent) continue;
 
       const state = normalizeText((event as { state?: string }).state);
@@ -403,9 +405,7 @@ export function OutlineEditorPanel({
       const streamChannelRaw =
         normalizeText(sectionPayload?.stream_channel) ||
         (diegoEventType === "outline.token" ? "diego.outline.token" : "");
-      const streamChannel = streamChannelRaw as
-        | DiegoStreamChannel
-        | undefined;
+      const streamChannel = streamChannelRaw as DiegoStreamChannel | undefined;
       if (
         streamChannel !== "diego.preamble" &&
         streamChannel !== "diego.outline.token" &&
