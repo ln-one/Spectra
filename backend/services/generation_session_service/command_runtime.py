@@ -26,4 +26,3 @@ async def handle_regenerate_slide(
         setattr(exc, "error_code", "RESOURCE_CONFLICT")
         setattr(exc, "details", details)
         raise exc
-

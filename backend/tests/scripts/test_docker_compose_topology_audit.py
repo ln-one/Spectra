@@ -187,7 +187,10 @@ services:
         for message in messages
     )
     assert any("`ourograph` depends on `postgres`" in message for message in messages)
-    assert any("`ourograph` healthcheck targets `/health/ready`" in message for message in messages)
+    assert any(
+        "`ourograph` healthcheck targets `/health/ready`" in message
+        for message in messages
+    )
     assert any(
         "backend mounts shared runtime storage" in message for message in messages
     )

@@ -476,17 +476,17 @@ def test_real_compose_config_keeps_ourograph_database_contract_with_dev_override
         "      - postgres_data:/var/lib/postgresql/data\n"
         "      - ./docker/postgres/initdb:/docker-entrypoint-initdb.d:ro\n"
         "    healthcheck:\n"
-        "      test: [\"CMD-SHELL\", \"pg_isready -U spectra -d spectra\"]\n"
+        '      test: ["CMD-SHELL", "pg_isready -U spectra -d spectra"]\n'
         "  ourograph:\n"
         "    image: example/ourograph:dev\n"
         "    environment:\n"
-        "      PORT: \"8101\"\n"
+        '      PORT: "8101"\n'
         "      OUROGRAPH_DATABASE_URL: postgresql://spectra:spectra@postgres:5432/ourograph\n"
         "    depends_on:\n"
         "      postgres:\n"
         "        condition: service_healthy\n"
         "    healthcheck:\n"
-        "      test: [\"CMD\", \"wget\", \"-q\", \"-O-\", \"http://127.0.0.1:8101/health/ready\"]\n"
+        '      test: ["CMD", "wget", "-q", "-O-", "http://127.0.0.1:8101/health/ready"]\n'
         "volumes:\n"
         "  postgres_data:\n"
         "  runtime_data:\n",
@@ -506,7 +506,9 @@ def test_real_compose_config_keeps_ourograph_database_contract_with_dev_override
         "      - runtime_data:/var/lib/spectra\n",
     )
     _make_file(root / "ourograph/Dockerfile.dev", "FROM gradle:8.10.2-jdk17\n")
-    _make_file(root / "docker/postgres/initdb/10-create-ourograph-db.sql", "SELECT 1;\n")
+    _make_file(
+        root / "docker/postgres/initdb/10-create-ourograph-db.sql", "SELECT 1;\n"
+    )
 
     result = subprocess.run(
         [
@@ -524,7 +526,10 @@ def test_real_compose_config_keeps_ourograph_database_contract_with_dev_override
     )
 
     assert result.returncode == 0, result.stderr
-    assert "OUROGRAPH_DATABASE_URL: postgresql://spectra:spectra@postgres:5432/ourograph" in result.stdout
-    assert "PORT: \"8101\"" in result.stdout
+    assert (
+        "OUROGRAPH_DATABASE_URL: postgresql://spectra:spectra@postgres:5432/ourograph"
+        in result.stdout
+    )
+    assert 'PORT: "8101"' in result.stdout
     assert "http://127.0.0.1:8101/health/ready" in result.stdout
     assert "/docker-entrypoint-initdb.d" in result.stdout

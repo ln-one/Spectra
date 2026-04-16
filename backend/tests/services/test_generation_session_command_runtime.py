@@ -25,4 +25,3 @@ async def test_handle_regenerate_slide_is_removed():
             append_event=append_event,
             conflict_error_cls=RuntimeError,
         )
-

@@ -318,9 +318,7 @@ class TestModifyCourseware:
     @pytest.mark.asyncio
     async def test_modify_courseware_removed(self):
         ai = AIService()
-        with pytest.raises(
-            RuntimeError, match="legacy_courseware_chain_removed"
-        ):
+        with pytest.raises(RuntimeError, match="legacy_courseware_chain_removed"):
             await ai.modify_courseware(
                 current_content=SAMPLE_MARP,
                 instruction="整体改成学术风格",

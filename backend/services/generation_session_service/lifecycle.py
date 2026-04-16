@@ -40,9 +40,7 @@ async def create_session(
     append_event,
 ) -> dict:
     if not bootstrap_only:
-        raise RuntimeError(
-            "legacy_non_bootstrap_generation_session_start_removed"
-        )
+        raise RuntimeError("legacy_non_bootstrap_generation_session_start_removed")
 
     resolved_options = await apply_public_library_inputs(
         db=db,

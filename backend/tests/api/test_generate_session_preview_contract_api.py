@@ -38,9 +38,7 @@ def _snapshot(render_version: int = 3, state: str = GenerationState.SUCCESS.valu
     }
 
 
-def _ppt_snapshot(
-    render_version: int = 3, state: str = GenerationState.SUCCESS.value
-):
+def _ppt_snapshot(render_version: int = 3, state: str = GenerationState.SUCCESS.value):
     snapshot = _snapshot(render_version=render_version, state=state)
     snapshot["current_run"] = {"tool_type": "studio_card:courseware_ppt"}
     return snapshot
@@ -70,6 +68,8 @@ def _preview_session_model(
         displayTitleSource=None,
         displayTitleUpdatedAt=None,
     )
+
+
 def test_get_preview_includes_artifact_binding(client, monkeypatch, _as_user):
     svc = SimpleNamespace(get_session_snapshot=AsyncMock(return_value=_snapshot()))
     monkeypatch.setattr(
@@ -220,6 +220,7 @@ def test_get_preview_with_run_id_returns_run_not_ready_when_no_task(
     assert body["error"]["details"]["reason"] == "run_not_ready"
     assert body["error"]["details"]["run_id"] == "run-001"
 
+
 def test_get_preview_with_run_id_supports_prisma_without_select(
     client, monkeypatch, _as_user
 ):
@@ -272,6 +273,8 @@ def test_get_preview_with_run_id_supports_prisma_without_select(
     body = resp.json()
     assert body["data"]["artifact_id"] == "a-010"
     assert body["data"]["artifact_anchor"]["run_id"] == "run-010"
+
+
 def test_modify_preview_returns_contract_fields(client, monkeypatch, _as_user):
     load_preview_material = AsyncMock(
         return_value=(

@@ -118,7 +118,9 @@ async def sync_diego_generation_until_terminal(
                 last_status = status
 
             if status == _DIEGO_STATUS_SUCCEEDED:
-                pending_slide_numbers.update(_extract_slide_numbers_from_run_detail(detail))
+                pending_slide_numbers.update(
+                    _extract_slide_numbers_from_run_detail(detail)
+                )
                 for attempt in range(_FINAL_PREVIEW_REFRESH_ATTEMPTS):
                     if not pending_slide_numbers:
                         break
@@ -135,7 +137,10 @@ async def sync_diego_generation_until_terminal(
                             preview_payload=preview_payload,
                         )
                     )
-                    if pending_slide_numbers and attempt + 1 < _FINAL_PREVIEW_REFRESH_ATTEMPTS:
+                    if (
+                        pending_slide_numbers
+                        and attempt + 1 < _FINAL_PREVIEW_REFRESH_ATTEMPTS
+                    ):
                         await asyncio.sleep(min(max(poll_interval_seconds, 0.2), 1.0))
                 session = await db.generationsession.find_unique(
                     where={"id": session_id}

@@ -59,8 +59,7 @@ def test_build_outline_requirements_keeps_style_and_pages():
         project,
         {
             "system_prompt_tone": (
-                "[outline_style=workshop]\n"
-                "Please emphasize hands-on practice"
+                "[outline_style=workshop]\n" "Please emphasize hands-on practice"
             ),
             "pages": 12,
         },

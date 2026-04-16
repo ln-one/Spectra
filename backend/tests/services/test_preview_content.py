@@ -219,7 +219,9 @@ async def test_get_or_generate_content_failed_task_uses_outline_preview(monkeypa
 
 
 @pytest.mark.asyncio
-async def test_get_or_generate_content_ppt_task_does_not_trigger_ai_rebuild(monkeypatch):
+async def test_get_or_generate_content_ppt_task_does_not_trigger_ai_rebuild(
+    monkeypatch,
+):
     task = SimpleNamespace(
         id="task-005",
         status="completed",

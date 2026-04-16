@@ -71,9 +71,7 @@ async def test_recover_stale_tasks_updates_session_and_event():
     first_update = db.generationsession.update.await_args_list[0].kwargs["data"]
     assert first_update["state"] == GenerationState.FAILED.value
     assert first_update["errorCode"] == RecoveryErrorCode.WORKER_INTERRUPTED.value
-    assert (
-        first_update["stateReason"] == RecoveryStateReason.WORKER_INTERRUPTED.value
-    )
+    assert first_update["stateReason"] == RecoveryStateReason.WORKER_INTERRUPTED.value
     event_payload = db.sessionevent.create.await_args.kwargs["data"]
     assert event_payload["eventType"] == GenerationEventType.TASK_FAILED.value
     assert event_payload["stateReason"] == RecoveryStateReason.WORKER_INTERRUPTED.value

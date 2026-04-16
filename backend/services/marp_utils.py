@@ -33,4 +33,3 @@ def reassemble_marp(frontmatter: str, slides: list[str]) -> str:
     if not parts:
         return ""
     return "\n\n---\n\n".join(parts) + "\n"
-

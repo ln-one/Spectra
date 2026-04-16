@@ -135,7 +135,11 @@ def _healthcheck_targets_path(service: dict[str, Any], path: str) -> bool:
 
 
 def _postgres_service_database_name(database_url: str | None) -> str | None:
-    if not database_url or "postgresql://" not in database_url or "@postgres:" not in database_url:
+    if (
+        not database_url
+        or "postgresql://" not in database_url
+        or "@postgres:" not in database_url
+    ):
         return None
     parsed = urlparse(database_url)
     path = (parsed.path or "").strip("/")
@@ -185,7 +189,9 @@ def _mounts_runtime_storage(service: dict[str, Any]) -> bool:
 
 
 def _has_volume_target(service: dict[str, Any], target: str) -> bool:
-    return any(_binding_target(binding) == target for binding in _volume_bindings(service))
+    return any(
+        _binding_target(binding) == target for binding in _volume_bindings(service)
+    )
 
 
 def evaluate_compose_topology(
@@ -233,7 +239,10 @@ def evaluate_compose_topology(
         if not service:
             continue
         database_url = _database_url(service)
-        if database_url and _postgres_service_database_name(database_url) == "ourograph":
+        if (
+            database_url
+            and _postgres_service_database_name(database_url) == "ourograph"
+        ):
             messages.append(
                 _format(
                     "FAIL",
@@ -243,7 +252,10 @@ def evaluate_compose_topology(
             failures += 1
         else:
             messages.append(
-                _format("PASS", f"{name} DATABASE_URL is isolated from Ourograph formal-state storage")
+                _format(
+                    "PASS",
+                    f"{name} DATABASE_URL is isolated from Ourograph formal-state storage",
+                )
             )
 
     for name in ("backend", "worker"):
@@ -399,7 +411,9 @@ def evaluate_compose_topology(
     ourograph = _service(base, "ourograph")
     if ourograph:
         messages.append(_format("PASS", "base compose declares `ourograph` service"))
-        ourograph_database_url = _service_database_url(ourograph, "OUROGRAPH_DATABASE_URL")
+        ourograph_database_url = _service_database_url(
+            ourograph, "OUROGRAPH_DATABASE_URL"
+        )
         if _postgres_service_database_name(ourograph_database_url) == "ourograph":
             messages.append(
                 _format(
@@ -419,9 +433,13 @@ def evaluate_compose_topology(
         dependencies = _depends_on_names(ourograph)
         for dependency in ("postgres",):
             if dependency in dependencies:
-                messages.append(_format("PASS", f"`ourograph` depends on `{dependency}`"))
+                messages.append(
+                    _format("PASS", f"`ourograph` depends on `{dependency}`")
+                )
             else:
-                messages.append(_format("FAIL", f"`ourograph` missing `{dependency}` dependency"))
+                messages.append(
+                    _format("FAIL", f"`ourograph` missing `{dependency}` dependency")
+                )
                 failures += 1
 
         if _has_healthcheck(ourograph):
@@ -431,9 +449,13 @@ def evaluate_compose_topology(
             failures += 1
 
         if _healthcheck_targets_path(ourograph, "/health/ready"):
-            messages.append(_format("PASS", "`ourograph` healthcheck targets `/health/ready`"))
+            messages.append(
+                _format("PASS", "`ourograph` healthcheck targets `/health/ready`")
+            )
         else:
-            messages.append(_format("FAIL", "`ourograph` healthcheck must target `/health/ready`"))
+            messages.append(
+                _format("FAIL", "`ourograph` healthcheck must target `/health/ready`")
+            )
             failures += 1
     else:
         messages.append(_format("FAIL", "base compose missing `ourograph` service"))
