@@ -50,7 +50,12 @@ python3 ./scripts/compose_smart.py up
 ```
 
 For more detail, see `docs/guides/docker-setup.md`.
-Runtime configuration should come from `backend/.env`, using `backend/.env.example` as the template.
+Runtime configuration for Spectra should come from `backend/.env`, using `backend/.env.example` as the template.
+Ourograph keeps a separate database contract inside compose and does not reuse Spectra's `DATABASE_URL`.
+When local-source override mode is enabled, `docker-compose.ourograph.dev.yml` is expected to preserve the base
+`OUROGRAPH_DATABASE_URL`, Postgres bootstrap mount, and readiness probe from `docker-compose.yml`.
+With the current bootstrap model, PostgreSQL creates the `ourograph` database during first cluster initialization;
+the old one-shot `ourograph_db_init` service is no longer part of the default stack.
 
 `compose_smart.py up` is now the recommended day-to-day entrypoint: it auto-runs
 `sync` when the compose lock env is missing or stale, and when local private

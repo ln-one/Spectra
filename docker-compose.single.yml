@@ -11,6 +11,7 @@ services:
       POSTGRES_DB: spectra
     volumes:
       - /var/lib/spectra/postgres:/var/lib/postgresql/data
+      - ./docker/postgres/initdb:/docker-entrypoint-initdb.d:ro
     ports:
       - "127.0.0.1:5432:5432"
     healthcheck:
@@ -45,21 +46,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-
-  ourograph_db_init:
-    image: postgres:16-alpine
-    restart: "no"
-    environment:
-      PGPASSWORD: spectra
-    command:
-      [
-        "sh",
-        "-c",
-        "until pg_isready -h postgres -U spectra -d postgres; do sleep 1; done; psql -h postgres -U spectra -d postgres -tc \"SELECT 1 FROM pg_database WHERE datname = 'ourograph'\" | grep -q 1 || psql -h postgres -U spectra -d postgres -c \"CREATE DATABASE ourograph\"",
-      ]
-    depends_on:
-      postgres:
-        condition: service_healthy
 
   backend:
     image: spectra-backend:deploy
@@ -120,10 +106,9 @@ services:
   ourograph:
     image: ${OUROGRAPH_IMAGE:?Run python3 ./scripts/compose_smart.py sync --channel main}
     restart: unless-stopped
-    env_file:
-      - ./backend/.env
     environment:
       PORT: "8101"
+      OUROGRAPH_DATABASE_URL: postgresql://spectra:spectra@postgres:5432/ourograph
     volumes:
       - /var/lib/spectra:/var/lib/spectra
     ports:
@@ -134,8 +119,6 @@ services:
       timeout: 5s
       retries: 6
     depends_on:
-      ourograph_db_init:
-        condition: service_completed_successfully
       redis:
         condition: service_healthy
       postgres:

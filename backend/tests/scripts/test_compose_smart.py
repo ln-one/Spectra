@@ -7,6 +7,8 @@ import stat
 import subprocess
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[3]
 SCRIPT = ROOT / "scripts/compose-smart.sh"
 PYTHON_SCRIPT = ROOT / "scripts/compose_smart.py"
@@ -458,3 +460,71 @@ def test_up_auto_adds_build_when_local_source_exists(tmp_path: Path) -> None:
     assert " -f docker-compose.yml" in result.stdout
     assert "docker-compose.pagevra.dev.yml" in result.stdout
     assert "up --build" in result.stdout
+
+
+@pytest.mark.skipif(shutil.which("docker") is None, reason="docker is required")
+def test_real_compose_config_keeps_ourograph_database_contract_with_dev_override(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "repo"
+    _make_file(
+        root / "docker-compose.yml",
+        "services:\n"
+        "  postgres:\n"
+        "    image: postgres:16-alpine\n"
+        "    volumes:\n"
+        "      - postgres_data:/var/lib/postgresql/data\n"
+        "      - ./docker/postgres/initdb:/docker-entrypoint-initdb.d:ro\n"
+        "    healthcheck:\n"
+        "      test: [\"CMD-SHELL\", \"pg_isready -U spectra -d spectra\"]\n"
+        "  ourograph:\n"
+        "    image: example/ourograph:dev\n"
+        "    environment:\n"
+        "      PORT: \"8101\"\n"
+        "      OUROGRAPH_DATABASE_URL: postgresql://spectra:spectra@postgres:5432/ourograph\n"
+        "    depends_on:\n"
+        "      postgres:\n"
+        "        condition: service_healthy\n"
+        "    healthcheck:\n"
+        "      test: [\"CMD\", \"wget\", \"-q\", \"-O-\", \"http://127.0.0.1:8101/health/ready\"]\n"
+        "volumes:\n"
+        "  postgres_data:\n"
+        "  runtime_data:\n",
+    )
+    _make_file(
+        root / "docker-compose.ourograph.dev.yml",
+        "services:\n"
+        "  ourograph:\n"
+        "    image: spectra-ourograph:dev\n"
+        "    build:\n"
+        "      context: ./ourograph\n"
+        "      dockerfile: Dockerfile.dev\n"
+        "    healthcheck:\n"
+        "      start_period: 180s\n"
+        "    volumes:\n"
+        "      - ./ourograph:/app\n"
+        "      - runtime_data:/var/lib/spectra\n",
+    )
+    _make_file(root / "ourograph/Dockerfile.dev", "FROM gradle:8.10.2-jdk17\n")
+    _make_file(root / "docker/postgres/initdb/10-create-ourograph-db.sql", "SELECT 1;\n")
+
+    result = subprocess.run(
+        [
+            "docker",
+            "compose",
+            "-f",
+            str(root / "docker-compose.yml"),
+            "-f",
+            str(root / "docker-compose.ourograph.dev.yml"),
+            "config",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "OUROGRAPH_DATABASE_URL: postgresql://spectra:spectra@postgres:5432/ourograph" in result.stdout
+    assert "PORT: \"8101\"" in result.stdout
+    assert "http://127.0.0.1:8101/health/ready" in result.stdout
+    assert "/docker-entrypoint-initdb.d" in result.stdout

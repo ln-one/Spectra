@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 import yaml
 
@@ -83,6 +84,13 @@ def _volume_bindings(service: dict[str, Any]) -> list[str]:
     return results
 
 
+def _binding_target(binding: str) -> str:
+    parts = binding.split(":")
+    if len(parts) >= 3:
+        return parts[-2]
+    return parts[-1]
+
+
 def _has_loopback_binding(bindings: list[str]) -> bool:
     return any(binding.startswith(("127.0.0.1:", "localhost:")) for binding in bindings)
 
@@ -102,6 +110,36 @@ def _database_url(service: dict[str, Any]) -> str | None:
             if isinstance(item, str) and item.startswith("DATABASE_URL="):
                 return item.partition("=")[2]
     return None
+
+
+def _service_database_url(service: dict[str, Any], key: str) -> str | None:
+    environment = service.get("environment") or {}
+    if isinstance(environment, dict):
+        value = environment.get(key)
+        return str(value) if value else None
+    if isinstance(environment, list):
+        for item in environment:
+            if isinstance(item, str) and item.startswith(f"{key}="):
+                return item.partition("=")[2]
+    return None
+
+
+def _healthcheck_targets_path(service: dict[str, Any], path: str) -> bool:
+    healthcheck = service.get("healthcheck")
+    if not isinstance(healthcheck, dict):
+        return False
+    test = healthcheck.get("test")
+    if isinstance(test, list):
+        return any(isinstance(item, str) and path in item for item in test)
+    return isinstance(test, str) and path in test
+
+
+def _postgres_service_database_name(database_url: str | None) -> str | None:
+    if not database_url or "postgresql://" not in database_url or "@postgres:" not in database_url:
+        return None
+    parsed = urlparse(database_url)
+    path = (parsed.path or "").strip("/")
+    return path or None
 
 
 def _environment_value(service: dict[str, Any], key: str) -> str | None:
@@ -141,9 +179,13 @@ def _duplicate_keys(keys: list[str]) -> list[str]:
 
 def _mounts_runtime_storage(service: dict[str, Any]) -> bool:
     return any(
-        binding.split(":")[-1] == RUNTIME_STORAGE_TARGET
+        _binding_target(binding) == RUNTIME_STORAGE_TARGET
         for binding in _volume_bindings(service)
     )
+
+
+def _has_volume_target(service: dict[str, Any], target: str) -> bool:
+    return any(_binding_target(binding) == target for binding in _volume_bindings(service))
 
 
 def evaluate_compose_topology(
@@ -185,6 +227,24 @@ def evaluate_compose_topology(
             failures += 1
         else:
             messages.append(_format("PASS", "worker stays internal-only"))
+
+    for name in ("backend", "worker"):
+        service = _service(base, name)
+        if not service:
+            continue
+        database_url = _database_url(service)
+        if database_url and _postgres_service_database_name(database_url) == "ourograph":
+            messages.append(
+                _format(
+                    "FAIL",
+                    f"{name} DATABASE_URL must not point at Ourograph's formal-state database",
+                )
+            )
+            failures += 1
+        else:
+            messages.append(
+                _format("PASS", f"{name} DATABASE_URL is isolated from Ourograph formal-state storage")
+            )
 
     for name in ("backend", "worker"):
         service = _service(base, name)
@@ -318,6 +378,66 @@ def evaluate_compose_topology(
         else:
             messages.append(_format("FAIL", f"{name} missing healthcheck"))
             failures += 1
+
+    postgres = _service(base, "postgres") or _service(shadow, "postgres")
+    if _has_volume_target(postgres, "/docker-entrypoint-initdb.d"):
+        messages.append(
+            _format(
+                "PASS",
+                "`postgres` mounts `/docker-entrypoint-initdb.d` for database bootstrap scripts",
+            )
+        )
+    else:
+        messages.append(
+            _format(
+                "FAIL",
+                "`postgres` must mount `/docker-entrypoint-initdb.d` for Ourograph database bootstrap",
+            )
+        )
+        failures += 1
+
+    ourograph = _service(base, "ourograph")
+    if ourograph:
+        messages.append(_format("PASS", "base compose declares `ourograph` service"))
+        ourograph_database_url = _service_database_url(ourograph, "OUROGRAPH_DATABASE_URL")
+        if _postgres_service_database_name(ourograph_database_url) == "ourograph":
+            messages.append(
+                _format(
+                    "PASS",
+                    "`ourograph` OUROGRAPH_DATABASE_URL points at postgres `ourograph` database",
+                )
+            )
+        else:
+            messages.append(
+                _format(
+                    "FAIL",
+                    "`ourograph` OUROGRAPH_DATABASE_URL must point at postgres `ourograph` database",
+                )
+            )
+            failures += 1
+
+        dependencies = _depends_on_names(ourograph)
+        for dependency in ("postgres",):
+            if dependency in dependencies:
+                messages.append(_format("PASS", f"`ourograph` depends on `{dependency}`"))
+            else:
+                messages.append(_format("FAIL", f"`ourograph` missing `{dependency}` dependency"))
+                failures += 1
+
+        if _has_healthcheck(ourograph):
+            messages.append(_format("PASS", "`ourograph` declares healthcheck"))
+        else:
+            messages.append(_format("FAIL", "`ourograph` missing healthcheck"))
+            failures += 1
+
+        if _healthcheck_targets_path(ourograph, "/health/ready"):
+            messages.append(_format("PASS", "`ourograph` healthcheck targets `/health/ready`"))
+        else:
+            messages.append(_format("FAIL", "`ourograph` healthcheck must target `/health/ready`"))
+            failures += 1
+    else:
+        messages.append(_format("FAIL", "base compose missing `ourograph` service"))
+        failures += 1
 
     if shadow:
         postgres = _service(shadow, "postgres")
