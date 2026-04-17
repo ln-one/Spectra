@@ -438,6 +438,7 @@ export function StudioPanelContainer({
 
   usePptHistoryStatusSync({
     activeSessionId,
+    activeRunId,
     groupedHistory,
     resolvePptRunId: execution.resolvePptRunId,
     recordWorkflowEntry,

@@ -17,7 +17,57 @@ import type {
 
 export type { OutlineEditorConfig, OutlineEditorPanelProps } from "./types";
 
+type DiegoPageType = "cover" | "toc" | "section" | "content" | "summary";
 type DiegoStreamChannel = "diego.preamble" | "diego.outline.token";
+
+const PAGE_TYPE_OPTIONS: Array<{ value: DiegoPageType; label: string }> = [
+  { value: "cover", label: "封面" },
+  { value: "toc", label: "目录" },
+  { value: "section", label: "章节过渡" },
+  { value: "content", label: "内容" },
+  { value: "summary", label: "总结" },
+];
+
+const LAYOUT_OPTIONS_BY_PAGE_TYPE: Record<DiegoPageType, string[]> = {
+  cover: ["cover-asymmetric", "cover-center"],
+  toc: ["toc-list", "toc-grid", "toc-sidebar", "toc-cards"],
+  section: ["section-center", "section-accent-block", "section-split"],
+  content: [
+    "content-two-column",
+    "content-icon-rows",
+    "content-comparison",
+    "content-timeline",
+    "content-stat-callout",
+    "content-showcase",
+  ],
+  summary: [
+    "summary-takeaways",
+    "summary-cta",
+    "summary-thankyou",
+    "summary-split",
+  ],
+};
+
+const DEFAULT_LAYOUT_BY_PAGE_TYPE: Record<DiegoPageType, string> = {
+  cover: "cover-asymmetric",
+  toc: "toc-list",
+  section: "section-center",
+  content: "content-two-column",
+  summary: "summary-takeaways",
+};
+
+const STATE_LABELS: Record<string, string> = {
+  IDLE: "待启动",
+  CONFIGURING: "配置中",
+  ANALYZING: "分析中",
+  DRAFTING_OUTLINE: "大纲生成中",
+  AWAITING_OUTLINE_CONFIRM: "大纲待确认",
+  GENERATING_CONTENT: "课件生成中",
+  RENDERING: "课件渲染中",
+  SUCCESS: "已完成",
+  FAILED: "失败",
+};
+
 const DIEGO_EVENT_PREFIXES = [
   "requirements.",
   "outline.",
@@ -41,19 +91,217 @@ type SlideDraft = {
   title: string;
   keyPoints: string[];
   estimatedMinutes?: number;
+  pageType: DiegoPageType;
+  layoutHint: string;
 };
 
+type StreamLogTone = "info" | "success" | "warn" | "error";
 type StreamLog = {
   id: string;
   ts: string;
-  eventType: string;
-  message: string;
+  title: string;
+  detail?: string;
+  tone: StreamLogTone;
 };
 
 type PanelPhase = "preamble_streaming" | "outline_streaming" | "editing";
+type ParsedOutlineNode = {
+  title?: string;
+  bullets?: string[];
+  pageType?: DiegoPageType;
+  layoutHint?: string;
+};
 
 function normalizeText(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function normalizePageType(
+  value: unknown,
+  fallback: DiegoPageType = "content"
+): DiegoPageType {
+  const normalized = normalizeText(value).toLowerCase();
+  if (normalized === "cover") return "cover";
+  if (normalized === "toc") return "toc";
+  if (normalized === "section") return "section";
+  if (normalized === "content") return "content";
+  if (normalized === "summary") return "summary";
+  return fallback;
+}
+
+function normalizeLayoutHint(value: unknown, pageType: DiegoPageType): string {
+  const normalized = normalizeText(value).toLowerCase();
+  const allowed = LAYOUT_OPTIONS_BY_PAGE_TYPE[pageType];
+  if (normalized && allowed.includes(normalized)) {
+    return normalized;
+  }
+  return DEFAULT_LAYOUT_BY_PAGE_TYPE[pageType];
+}
+
+function defaultPageTypeForOrder(order: number, total: number): DiegoPageType {
+  if (order === 1) return "cover";
+  if (order === 2 && total >= 4) return "toc";
+  if (order === total) return "summary";
+  if (order > 2 && order % 4 === 0) return "section";
+  return "content";
+}
+
+function defaultSlideTitle(order: number): string {
+  return `第 ${order} 页`;
+}
+
+function createEmptySlide(order: number, total: number): SlideDraft {
+  const pageType = defaultPageTypeForOrder(order, total);
+  return {
+    id: `slide-${order}`,
+    order,
+    title: defaultSlideTitle(order),
+    keyPoints: [],
+    pageType,
+    layoutHint: DEFAULT_LAYOUT_BY_PAGE_TYPE[pageType],
+  };
+}
+
+function ensureSlidesCount(slides: SlideDraft[], targetCount: number): SlideDraft[] {
+  if (!Number.isFinite(targetCount) || targetCount <= 0) return slides;
+  const sorted = [...slides].sort((left, right) => left.order - right.order);
+  const next: SlideDraft[] = [];
+  for (let order = 1; order <= targetCount; order += 1) {
+    const current = sorted[order - 1];
+    if (current) {
+      const pageType = normalizePageType(
+        current.pageType,
+        defaultPageTypeForOrder(order, targetCount)
+      );
+      next.push({
+        ...current,
+        id: current.id || `slide-${order}`,
+        order,
+        pageType,
+        layoutHint: normalizeLayoutHint(current.layoutHint, pageType),
+        title: normalizeText(current.title) || defaultSlideTitle(order),
+      });
+      continue;
+    }
+    next.push(createEmptySlide(order, targetCount));
+  }
+  return next;
+}
+
+function decodeJsonString(raw: string): string {
+  return raw
+    .replace(/\\n/g, " ")
+    .replace(/\\t/g, " ")
+    .replace(/\\r/g, " ")
+    .replace(/\\"/g, "\"")
+    .replace(/\\\\/g, "\\")
+    .trim();
+}
+
+function extractQuotedList(raw: string): string[] {
+  const values: string[] = [];
+  const regex = /"((?:\\.|[^"\\])*)"/g;
+  for (const match of raw.matchAll(regex)) {
+    const decoded = decodeJsonString(match[1] || "");
+    if (decoded) values.push(decoded);
+  }
+  return values;
+}
+
+function stripCodeFence(raw: string): string {
+  return raw
+    .replace(/^```json\s*/i, "")
+    .replace(/^```\s*/i, "")
+    .replace(/\s*```$/i, "")
+    .trim();
+}
+
+function parseOutlineNodesFromStream(raw: string): ParsedOutlineNode[] {
+  const cleaned = stripCodeFence(raw);
+  if (!cleaned) return [];
+
+  const start = cleaned.indexOf("{");
+  const end = cleaned.lastIndexOf("}");
+  if (start >= 0 && end > start) {
+    const candidate = cleaned.slice(start, end + 1);
+    try {
+      const parsed = JSON.parse(candidate) as {
+        nodes?: Array<{
+          title?: unknown;
+          bullets?: unknown;
+          page_type?: unknown;
+          layout_hint?: unknown;
+        }>;
+      };
+      if (Array.isArray(parsed.nodes)) {
+        return parsed.nodes.map((node) => {
+          const pageType = normalizePageType(node.page_type);
+          return {
+            title: normalizeText(node.title),
+            bullets: Array.isArray(node.bullets)
+              ? node.bullets.map((item) => normalizeText(item)).filter(Boolean)
+              : [],
+            pageType,
+            layoutHint: normalizeLayoutHint(node.layout_hint, pageType),
+          };
+        });
+      }
+    } catch {
+      // continue with partial parser
+    }
+  }
+
+  const nodesAnchor = cleaned.indexOf("\"nodes\"");
+  if (nodesAnchor < 0) return [];
+  const nodesText = cleaned.slice(nodesAnchor);
+  const chunks = nodesText.split(/\{\s*"title"\s*:/).slice(1);
+  const parsedNodes: ParsedOutlineNode[] = [];
+  for (const chunk of chunks) {
+    const section = `{"title":${chunk}`;
+    const titleMatch = section.match(/"title"\s*:\s*"([^"]*)/);
+    const bulletsBlock = section.match(/"bullets"\s*:\s*\[([\s\S]*?)(?:\]|$)/);
+    const pageTypeMatch = section.match(/"page_type"\s*:\s*"([^"]*)/);
+    const layoutHintMatch = section.match(/"layout_hint"\s*:\s*"([^"]*)/);
+    const pageType = normalizePageType(pageTypeMatch?.[1]);
+    parsedNodes.push({
+      title: titleMatch?.[1] ? decodeJsonString(titleMatch[1]) : undefined,
+      bullets: bulletsBlock?.[1] ? extractQuotedList(bulletsBlock[1]) : undefined,
+      pageType,
+      layoutHint: layoutHintMatch?.[1]
+        ? normalizeLayoutHint(decodeJsonString(layoutHintMatch[1]), pageType)
+        : undefined,
+    });
+  }
+  return parsedNodes;
+}
+
+function mergeParsedNodesIntoSlides(
+  currentSlides: SlideDraft[],
+  parsedNodes: ParsedOutlineNode[],
+  targetCount: number
+): SlideDraft[] {
+  const desiredCount = Math.max(
+    targetCount,
+    parsedNodes.length,
+    currentSlides.length
+  );
+  const base = ensureSlidesCount(currentSlides, desiredCount);
+  return base.map((slide, index) => {
+    const parsed = parsedNodes[index];
+    if (!parsed) return slide;
+    const pageType = parsed.pageType || slide.pageType;
+    return {
+      ...slide,
+      title: parsed.title || slide.title,
+      keyPoints:
+        Array.isArray(parsed.bullets) && parsed.bullets.length > 0
+          ? parsed.bullets
+          : slide.keyPoints,
+      pageType,
+      layoutHint:
+        parsed.layoutHint || normalizeLayoutHint(slide.layoutHint, pageType),
+    };
+  });
 }
 
 function resolveEventKey(event: {
@@ -79,19 +327,25 @@ function resolveHttpStatusHint(reason: unknown): string {
   const match = text.match(/Server error '(\d{3})[^']*'/i);
   if (match?.[1]) return `HTTP ${match[1]}`;
   const fallback = text.match(/(\d{3})/);
-  return fallback?.[1] ? `HTTP ${fallback[1]}` : clipText(text, 80);
+  return fallback?.[1] ? `HTTP ${fallback[1]}` : clipText(text, 64);
 }
 
-function formatDiegoEventMessage(
+function resolveEventLog(
   eventType: string,
   payload: Record<string, unknown>
-): string {
+): Omit<StreamLog, "id" | "ts"> {
   if (eventType === "llm.request.timeout") {
     const phase = normalizeText(payload.phase) || "unknown";
     const attempt = Number(payload.attempt || 0);
     const maxAttempts = Number(payload.max_attempts || 0);
     const reason = resolveHttpStatusHint(payload.reason);
-    return `[事件] LLM 超时 ${phase} (${attempt || 0}/${maxAttempts || 0})${reason ? ` · ${reason}` : ""}`;
+    return {
+      title: "模型请求超时",
+      detail: `${phase} · 第 ${attempt || 0}/${maxAttempts || 0} 次${
+        reason ? ` · ${reason}` : ""
+      }`,
+      tone: "warn",
+    };
   }
   if (eventType === "llm.request.retry") {
     const phase = normalizeText(payload.phase) || "unknown";
@@ -99,47 +353,87 @@ function formatDiegoEventMessage(
     const maxAttempts = Number(payload.max_attempts || 0);
     const delay = Number(payload.next_delay_sec || 0);
     const reason = resolveHttpStatusHint(payload.reason);
-    return `[事件] LLM 重试 ${phase} (${attempt || 0}/${maxAttempts || 0}) · ${delay > 0 ? `${delay.toFixed(1)}s 后重试` : "即将重试"}${reason ? ` · ${reason}` : ""}`;
+    return {
+      title: "准备重试",
+      detail: `${phase} · 第 ${attempt || 0}/${maxAttempts || 0} 次${
+        delay > 0 ? ` · ${delay.toFixed(1)}s 后` : ""
+      }${reason ? ` · ${reason}` : ""}`,
+      tone: "warn",
+    };
   }
   if (eventType === "requirements.analyzing.started") {
     const pages = Number(payload.target_slide_count || 0);
     const hasRag = Boolean(payload.has_rag);
-    return `[事件] 开始需求分析${pages > 0 ? ` · 目标 ${pages} 页` : ""}${hasRag ? " · 已启用 RAG" : ""}`;
+    return {
+      title: "开始需求分析",
+      detail: `${pages > 0 ? `目标 ${pages} 页` : "页数待定"}${
+        hasRag ? " · 启用 RAG" : ""
+      }`,
+      tone: "info",
+    };
   }
-  if (eventType === "requirements.analyzing.completed") {
-    const pages = Number(payload.page_count_fixed || 0);
-    const style = normalizeText(payload.style_reference_name);
-    return `[事件] 需求分析完成${pages > 0 ? ` · 固定 ${pages} 页` : ""}${style ? ` · 风格 ${style}` : ""}`;
-  }
-  if (eventType === "requirements.analyzed") {
-    const preset = normalizeText(payload.style_preset);
-    const palette = normalizeText(payload.palette_name);
-    return `[事件] 需求结构已确定${preset ? ` · preset=${preset}` : ""}${palette ? ` · 配色 ${palette}` : ""}`;
+  if (
+    eventType === "requirements.analyzing.completed" ||
+    eventType === "requirements.analyzed"
+  ) {
+    const details: string[] = [];
+    const pageCount = Number(payload.page_count_fixed || 0);
+    if (pageCount > 0) details.push(`页数 ${pageCount}`);
+    const styleName = normalizeText(payload.style_reference_name);
+    if (styleName) details.push(`风格 ${styleName}`);
+    const audience = clipText(payload.audience, 48);
+    if (audience) details.push(`受众 ${audience}`);
+    const purpose = clipText(payload.purpose, 72);
+    if (purpose) details.push(`目标 ${purpose}`);
+    const tone = clipText(payload.tone, 44);
+    if (tone) details.push(`语气 ${tone}`);
+    return {
+      title: "需求分析结果",
+      detail: details.join(" · "),
+      tone: "success",
+    };
   }
   if (eventType === "outline.completed") {
-    const version = Number(payload.version || 0);
     const sections = Number(payload.sections || 0);
-    return `[事件] 大纲生成完成${version > 0 ? ` · v${version}` : ""}${sections > 0 ? ` · ${sections} 节` : ""}`;
+    const version = Number(payload.version || 0);
+    return {
+      title: "大纲生成完成",
+      detail: `${version > 0 ? `v${version}` : ""}${
+        sections > 0 ? `${version > 0 ? " · " : ""}${sections} 节` : ""
+      }`,
+      tone: "success",
+    };
   }
   if (eventType === "research.completed") {
-    const audience = clipText(payload.audience, 40);
-    const purpose = clipText(payload.purpose, 80);
-    return `[事件] 研究信息已整理${audience ? ` · 受众 ${audience}` : ""}${purpose ? ` · 目标 ${purpose}` : ""}`;
-  }
-  if (eventType === "plan.completed") {
-    return "[事件] 结构规划完成";
+    const details: string[] = [];
+    const audience = clipText(payload.audience, 48);
+    const purpose = clipText(payload.purpose, 72);
+    const tone = clipText(payload.tone, 44);
+    if (audience) details.push(`受众 ${audience}`);
+    if (purpose) details.push(`目标 ${purpose}`);
+    if (tone) details.push(`语气 ${tone}`);
+    return {
+      title: "研究上下文完成",
+      detail: details.join(" · "),
+      tone: "info",
+    };
   }
   if (eventType === "outline.repair.started") {
-    return "[事件] 正在修复大纲结构";
+    return { title: "开始修复大纲", tone: "warn" };
   }
   if (eventType === "outline.repair.completed") {
-    return "[事件] 大纲修复完成";
+    return { title: "大纲修复完成", tone: "success" };
   }
   if (eventType === "outline.repair.failed") {
-    return "[事件] 大纲修复失败，准备重试";
+    return { title: "大纲修复失败", detail: "系统将继续重试", tone: "error" };
   }
-
-  return `[事件] ${eventType}`;
+  if (eventType === "plan.completed") {
+    return { title: "结构规划完成", tone: "success" };
+  }
+  return {
+    title: clipText(payload.progress_message, 96) || eventType,
+    tone: "info",
+  };
 }
 
 function parseSessionSlides(session: unknown): SlideDraft[] {
@@ -147,6 +441,8 @@ function parseSessionSlides(session: unknown): SlideDraft[] {
   const outline = (session as { outline?: { nodes?: unknown } }).outline;
   const nodes = outline?.nodes;
   if (!Array.isArray(nodes)) return [];
+
+  const total = nodes.length;
   const slides: SlideDraft[] = [];
   for (let index = 0; index < nodes.length; index += 1) {
     const node = nodes[index];
@@ -157,22 +453,30 @@ function parseSessionSlides(session: unknown): SlideDraft[] {
       title?: unknown;
       key_points?: unknown;
       estimated_minutes?: unknown;
+      page_type?: unknown;
+      layout_hint?: unknown;
     };
-    const keyPoints = Array.isArray(current.key_points)
-      ? current.key_points.map((item) => normalizeText(item)).filter(Boolean)
-      : [];
+    const order =
+      typeof current.order === "number" && current.order > 0
+        ? current.order
+        : index + 1;
+    const pageType = normalizePageType(
+      current.page_type,
+      defaultPageTypeForOrder(order, total)
+    );
     slides.push({
-      id: normalizeText(current.id) || `slide-${index + 1}`,
-      order:
-        typeof current.order === "number" && current.order > 0
-          ? current.order
-          : index + 1,
-      title: normalizeText(current.title) || `第 ${index + 1} 页`,
-      keyPoints,
+      id: normalizeText(current.id) || `slide-${order}`,
+      order,
+      title: normalizeText(current.title) || defaultSlideTitle(order),
+      keyPoints: Array.isArray(current.key_points)
+        ? current.key_points.map((item) => normalizeText(item)).filter(Boolean)
+        : [],
       estimatedMinutes:
         typeof current.estimated_minutes === "number"
           ? current.estimated_minutes
           : undefined,
+      pageType,
+      layoutHint: normalizeLayoutHint(current.layout_hint, pageType),
     });
   }
   return slides.sort((left, right) => left.order - right.order);
@@ -203,38 +507,69 @@ function buildOutlinePayloadFromSlides(
     nodes: slides.map((slide, index) => ({
       id: slide.id,
       order: index + 1,
-      title: slide.title.trim() || `第 ${index + 1} 页`,
+      title: slide.title.trim() || defaultSlideTitle(index + 1),
       key_points: slide.keyPoints.map((point) => point.trim()).filter(Boolean),
       estimated_minutes:
         typeof slide.estimatedMinutes === "number"
           ? slide.estimatedMinutes
           : undefined,
-    })),
+      page_type: slide.pageType,
+      layout_hint: slide.layoutHint,
+    })) as OutlineDocument["nodes"],
     summary,
   };
 }
 
 function serializeComparableOutline(
   outline: OutlineDocument | null | undefined
-) {
+): string {
   const nodes = Array.isArray(outline?.nodes) ? outline.nodes : [];
   return JSON.stringify(
-    nodes.map((node, index) => ({
-      id: normalizeText(node.id) || `slide-${index + 1}`,
-      order:
-        typeof node.order === "number" && node.order > 0
-          ? node.order
-          : index + 1,
-      title: normalizeText(node.title),
-      key_points: Array.isArray(node.key_points)
-        ? node.key_points.map((item) => normalizeText(item)).filter(Boolean)
-        : [],
-      estimated_minutes:
-        typeof node.estimated_minutes === "number"
-          ? node.estimated_minutes
-          : null,
-    }))
+    nodes.map((node, index) => {
+      const current = node as {
+        id?: unknown;
+        order?: unknown;
+        title?: unknown;
+        key_points?: unknown;
+        estimated_minutes?: unknown;
+        page_type?: unknown;
+        layout_hint?: unknown;
+      };
+      const order =
+        typeof current.order === "number" && current.order > 0
+          ? current.order
+          : index + 1;
+      const pageType = normalizePageType(
+        current.page_type,
+        defaultPageTypeForOrder(order, nodes.length || order)
+      );
+      return {
+        id: normalizeText(current.id) || `slide-${order}`,
+        order,
+        title: normalizeText(current.title),
+        key_points: Array.isArray(current.key_points)
+          ? current.key_points.map((item) => normalizeText(item)).filter(Boolean)
+          : [],
+        estimated_minutes:
+          typeof current.estimated_minutes === "number"
+            ? current.estimated_minutes
+            : null,
+        page_type: pageType,
+        layout_hint: normalizeLayoutHint(current.layout_hint, pageType),
+      };
+    })
   );
+}
+
+function isSlideContentReady(slide: SlideDraft): boolean {
+  return Boolean(normalizeText(slide.title)) && slide.keyPoints.length > 0;
+}
+
+function toneClassName(tone: StreamLogTone): string {
+  if (tone === "success") return "text-emerald-600";
+  if (tone === "warn") return "text-amber-600";
+  if (tone === "error") return "text-rose-600";
+  return "text-sky-600";
 }
 
 export function OutlineEditorPanel({
@@ -268,23 +603,36 @@ export function OutlineEditorPanel({
   const [phase, setPhase] = useState<PanelPhase>("preamble_streaming");
   const [preambleCollapsed, setPreambleCollapsed] = useState(false);
   const [streamLogs, setStreamLogs] = useState<StreamLog[]>([]);
-  const [outlineStreamText, setOutlineStreamText] = useState("");
+  const [_outlineStreamText, setOutlineStreamText] = useState("");
   const [slides, setSlides] = useState<SlideDraft[]>([]);
   const [isConfirming, setIsConfirming] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [analysisPageCount, setAnalysisPageCount] = useState<number>(0);
+
   const processedEventKeysRef = useRef<Set<string>>(new Set());
   const processedDiegoSeqRef = useRef<Set<number>>(new Set());
   const lastLoggedStateRef = useRef<string>("");
-  const lastSessionIdRef = useRef<string>("");
+  const lastRunScopeRef = useRef<string>("");
   const logContainerRef = useRef<HTMLDivElement | null>(null);
+  const targetPageCountRef = useRef<number>(0);
 
-  const { events } = useGenerationEvents({
+  const targetPageCount = analysisPageCount || expectedPages;
+  const snapshotRunId = generationSession?.current_run?.run_id || null;
+  const isSnapshotAlignedToRun =
+    !currentRunId || !snapshotRunId || currentRunId === snapshotRunId;
+
+  const { events, isConnected } = useGenerationEvents({
     sessionId: sessionId || null,
   });
 
   useEffect(() => {
-    if (sessionId === lastSessionIdRef.current) return;
-    lastSessionIdRef.current = sessionId;
+    targetPageCountRef.current = targetPageCount;
+  }, [targetPageCount]);
+
+  useEffect(() => {
+    const runScopeKey = `${sessionId || "no-session"}:${currentRunId || "no-run"}`;
+    if (runScopeKey === lastRunScopeRef.current) return;
+    lastRunScopeRef.current = runScopeKey;
     processedEventKeysRef.current.clear();
     processedDiegoSeqRef.current.clear();
     lastLoggedStateRef.current = "";
@@ -292,30 +640,51 @@ export function OutlineEditorPanel({
     setOutlineStreamText("");
     setErrorMessage(null);
     setPreambleCollapsed(false);
-    const sessionSlides = parseSessionSlides(generationSession);
-    setSlides(sessionSlides);
-    if (
-      sessionSlides.length > 0 &&
-      sessionState === "AWAITING_OUTLINE_CONFIRM"
-    ) {
+    setAnalysisPageCount(0);
+
+    const canSeedFromSnapshot =
+      isSnapshotAlignedToRun &&
+      (sessionState === "AWAITING_OUTLINE_CONFIRM" ||
+        sessionState === "GENERATING_CONTENT" ||
+        sessionState === "RENDERING" ||
+        sessionState === "SUCCESS");
+    const sessionSlides = canSeedFromSnapshot
+      ? parseSessionSlides(generationSession)
+      : [];
+    const baselineCount = sessionSlides.length || expectedPages || 0;
+    setSlides(ensureSlidesCount(sessionSlides, baselineCount));
+
+    if (canSeedFromSnapshot && sessionState === "AWAITING_OUTLINE_CONFIRM") {
       setPhase("editing");
       setPreambleCollapsed(true);
       return;
     }
     setPhase("preamble_streaming");
-  }, [generationSession, sessionId, sessionState]);
+  }, [
+    currentRunId,
+    expectedPages,
+    generationSession,
+    isSnapshotAlignedToRun,
+    sessionId,
+    sessionState,
+  ]);
 
   useEffect(() => {
     const sessionSlides = parseSessionSlides(generationSession);
-    if (
-      sessionSlides.length > 0 &&
-      sessionState === "AWAITING_OUTLINE_CONFIRM"
-    ) {
-      setSlides(sessionSlides);
+    if (isSnapshotAlignedToRun && sessionState === "AWAITING_OUTLINE_CONFIRM") {
+      if (sessionSlides.length > 0) {
+        setSlides((prev) =>
+          ensureSlidesCount(
+            sessionSlides,
+            targetPageCount || prev.length || sessionSlides.length
+          )
+        );
+      }
       setPhase("editing");
       setPreambleCollapsed(true);
     }
-    if (sessionState === "FAILED") {
+
+    if (isSnapshotAlignedToRun && sessionState === "FAILED") {
       const sessionErrorFields = generationSession?.session as
         | {
             error_message?: unknown;
@@ -324,26 +693,22 @@ export function OutlineEditorPanel({
           }
         | null
         | undefined;
-      const legacyErrorMessage =
-        typeof sessionErrorFields?.error_message === "string"
-          ? sessionErrorFields.error_message
-          : null;
-      const camelErrorMessage =
-        typeof sessionErrorFields?.errorMessage === "string"
-          ? sessionErrorFields.errorMessage
-          : null;
-      const stateReasonMessage =
-        typeof sessionErrorFields?.state_reason === "string"
-          ? sessionErrorFields.state_reason
-          : null;
       const message =
-        legacyErrorMessage ||
-        camelErrorMessage ||
-        stateReasonMessage ||
+        (typeof sessionErrorFields?.error_message === "string" &&
+          sessionErrorFields.error_message) ||
+        (typeof sessionErrorFields?.errorMessage === "string" &&
+          sessionErrorFields.errorMessage) ||
+        (typeof sessionErrorFields?.state_reason === "string" &&
+          sessionErrorFields.state_reason) ||
         "大纲生成失败";
       setErrorMessage(message);
     }
-  }, [generationSession, sessionState]);
+  }, [generationSession, isSnapshotAlignedToRun, sessionState, targetPageCount]);
+
+  useEffect(() => {
+    if (targetPageCount <= 0) return;
+    setSlides((prev) => ensureSlidesCount(prev, targetPageCount));
+  }, [targetPageCount]);
 
   useEffect(() => {
     for (const event of events) {
@@ -355,6 +720,7 @@ export function OutlineEditorPanel({
         run_id?: string;
         progress_message?: string;
         section_payload?: {
+          run_id?: string;
           stream_channel?: string;
           diego_event_type?: string;
           token?: string;
@@ -362,27 +728,31 @@ export function OutlineEditorPanel({
           raw_payload?: Record<string, unknown>;
         };
       };
-      const eventRunId =
-        typeof payload.run_id === "string" ? payload.run_id : null;
-      if (currentRunId && eventRunId && currentRunId !== eventRunId) continue;
       const sectionPayload =
         payload.section_payload && typeof payload.section_payload === "object"
           ? payload.section_payload
           : null;
+
+      const eventRunId =
+        normalizeText(payload.run_id) ||
+        normalizeText(sectionPayload?.run_id) ||
+        null;
+      if (currentRunId) {
+        if (!eventRunId || currentRunId !== eventRunId) continue;
+      }
+
       const diegoSeq = Number(sectionPayload?.diego_seq || 0);
       if (diegoSeq > 0) {
         if (processedDiegoSeqRef.current.has(diegoSeq)) continue;
         processedDiegoSeqRef.current.add(diegoSeq);
       }
+
       const eventType = normalizeText(event.event_type);
-      const diegoEventType =
-        normalizeText(sectionPayload?.diego_event_type) || eventType;
+      const diegoEventType = normalizeText(sectionPayload?.diego_event_type) || eventType;
       const isDiegoEvent =
         eventType === "progress.updated" ||
         Boolean(normalizeText(sectionPayload?.diego_event_type)) ||
-        DIEGO_EVENT_PREFIXES.some((prefix) =>
-          diegoEventType.startsWith(prefix)
-        );
+        DIEGO_EVENT_PREFIXES.some((prefix) => diegoEventType.startsWith(prefix));
       if (!isDiegoEvent) continue;
 
       const state = normalizeText((event as { state?: string }).state);
@@ -394,59 +764,90 @@ export function OutlineEditorPanel({
             {
               id: `${key}:state:${state}`,
               ts: event.timestamp,
-              eventType: "state.changed",
-              message: `[状态] ${state}`,
+              title: "状态更新",
+              detail: STATE_LABELS[state] || state,
+              tone: state === "FAILED" ? "error" : "info",
             },
           ];
-          return next.slice(-200);
+          return next.slice(-240);
         });
       }
 
-      const streamChannelRaw =
-        normalizeText(sectionPayload?.stream_channel) ||
-        (diegoEventType === "outline.token" ? "diego.outline.token" : "");
+      const streamChannelRaw = normalizeText(sectionPayload?.stream_channel);
       const streamChannel = streamChannelRaw as DiegoStreamChannel | undefined;
-      if (
-        streamChannel !== "diego.preamble" &&
-        streamChannel !== "diego.outline.token" &&
-        streamChannelRaw
-      ) {
-        continue;
-      }
 
-      if (diegoEventType === "outline.token") {
+      if (
+        diegoEventType === "outline.token" ||
+        (eventType === "outline.token" && streamChannel !== "diego.preamble")
+      ) {
         const token =
           normalizeText(sectionPayload?.token) ||
           normalizeText(payload.progress_message);
         if (!token) continue;
         setPhase("outline_streaming");
         setPreambleCollapsed(true);
-        setOutlineStreamText((prev) => `${prev}${token}`);
+        setOutlineStreamText((prev) => {
+          const merged = `${prev}${token}`.slice(-120000);
+          const parsedNodes = parseOutlineNodesFromStream(merged);
+          if (parsedNodes.length > 0) {
+            const desiredCount =
+              targetPageCountRef.current > 0
+                ? targetPageCountRef.current
+                : Math.max(parsedNodes.length, expectedPages || 0);
+            setSlides((current) =>
+              mergeParsedNodesIntoSlides(current, parsedNodes, desiredCount)
+            );
+          }
+          return merged;
+        });
         continue;
       }
 
-      if (eventType !== "progress.updated" || diegoEventType !== eventType) {
-        const rawPayload =
-          sectionPayload?.raw_payload &&
-          typeof sectionPayload.raw_payload === "object"
-            ? sectionPayload.raw_payload
-            : (payload as Record<string, unknown>);
-        const message = formatDiegoEventMessage(diegoEventType, rawPayload);
-        setStreamLogs((prev) => {
-          const next: StreamLog[] = [
-            ...prev,
-            {
-              id: key,
-              ts: event.timestamp,
-              eventType: diegoEventType,
-              message,
-            },
-          ];
-          return next.slice(-200);
-        });
+      if (
+        streamChannelRaw &&
+        streamChannel !== "diego.preamble" &&
+        streamChannel !== "diego.outline.token"
+      ) {
+        continue;
       }
+
+      const rawPayload =
+        sectionPayload?.raw_payload &&
+        typeof sectionPayload.raw_payload === "object"
+          ? sectionPayload.raw_payload
+          : (payload as Record<string, unknown>);
+
+      if (
+        diegoEventType === "requirements.analyzing.completed" ||
+        diegoEventType === "requirements.analyzed"
+      ) {
+        const fixedPageCount = Number(rawPayload.page_count_fixed || 0);
+        if (fixedPageCount > 0) {
+          setAnalysisPageCount((prev) =>
+            prev === fixedPageCount ? prev : fixedPageCount
+          );
+          setSlides((current) => ensureSlidesCount(current, fixedPageCount));
+        }
+      }
+
+      const normalized = resolveEventLog(diegoEventType, rawPayload);
+      if (!normalized.title) continue;
+
+      setStreamLogs((prev) => {
+        const next: StreamLog[] = [
+          ...prev,
+          {
+            id: key,
+            ts: event.timestamp,
+            title: normalized.title,
+            detail: normalized.detail,
+            tone: normalized.tone,
+          },
+        ];
+        return next.slice(-240);
+      });
     }
-  }, [currentRunId, events]);
+  }, [currentRunId, events, expectedPages]);
 
   useEffect(() => {
     const node = logContainerRef.current;
@@ -454,12 +855,19 @@ export function OutlineEditorPanel({
     node.scrollTop = node.scrollHeight;
   }, [streamLogs]);
 
-  const outlineIncomplete = expectedPages > 0 && slides.length < expectedPages;
+  const readySlidesCount = useMemo(
+    () => slides.filter((slide) => isSlideContentReady(slide)).length,
+    [slides]
+  );
+
+  const outlineIncomplete =
+    targetPageCount > 0 && readySlidesCount < targetPageCount;
   const canGoPreview = ["GENERATING_CONTENT", "RENDERING", "SUCCESS"].includes(
     sessionState
   );
+  const isEditable = phase === "editing";
   const canConfirm =
-    phase === "editing" &&
+    isEditable &&
     slides.length > 0 &&
     !isConfirming &&
     !isBootstrapping &&
@@ -469,11 +877,18 @@ export function OutlineEditorPanel({
     slideId: string,
     updates: Partial<SlideDraft>
   ) => {
-    if (phase !== "editing" || isConfirming) return;
+    if (!isEditable || isConfirming) return;
     setSlides((prev) =>
-      prev.map((slide) =>
-        slide.id === slideId ? { ...slide, ...updates } : slide
-      )
+      prev.map((slide) => {
+        if (slide.id !== slideId) return slide;
+        const next = { ...slide, ...updates };
+        const pageType = normalizePageType(next.pageType, slide.pageType);
+        return {
+          ...next,
+          pageType,
+          layoutHint: normalizeLayoutHint(next.layoutHint, pageType),
+        };
+      })
     );
   };
 
@@ -518,13 +933,14 @@ export function OutlineEditorPanel({
   };
 
   const phaseText = useMemo(() => {
-    if (phase === "preamble_streaming") return "Diego 正在分析需求并准备大纲…";
-    if (phase === "outline_streaming") return "Diego 正在流式生成大纲…";
-    return "大纲已完成，可直接编辑并确认开始生成";
+    if (phase === "preamble_streaming")
+      return "Diego 正在分析需求并准备结构化大纲";
+    if (phase === "outline_streaming")
+      return "Diego 正在逐 token 填充大纲卡片";
+    return "大纲已完成，可编辑并确认开始生成";
   }, [phase]);
 
-  const logTitle =
-    phase === "preamble_streaming" ? "生成过程" : "前置过程（已折叠）";
+  const logTitle = preambleCollapsed ? "前置过程（已折叠）" : "前置过程";
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -594,25 +1010,42 @@ export function OutlineEditorPanel({
           )}
         </button>
         {!preambleCollapsed ? (
-          <div
-            ref={logContainerRef}
-            className="mt-2 max-h-44 space-y-1 overflow-y-auto rounded border border-zinc-200 bg-white p-2"
-          >
-            {streamLogs.length === 0 ? (
-              <div className="flex items-center gap-2 text-xs text-zinc-500">
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                等待 Diego 返回过程信息…
-              </div>
-            ) : (
-              streamLogs.map((item) => (
-                <div key={item.id} className="text-xs leading-5 text-zinc-600">
-                  <span className="mr-2 text-zinc-400">
-                    {new Date(item.ts).toLocaleTimeString()}
-                  </span>
-                  <span>{item.message}</span>
+          <div className="relative mt-2 overflow-hidden rounded-xl border border-zinc-200 bg-white">
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-6 bg-gradient-to-b from-white to-transparent" />
+            <div
+              ref={logContainerRef}
+              className="max-h-44 space-y-2 overflow-y-auto px-3 py-3"
+            >
+              {streamLogs.length === 0 ? (
+                <div className="flex items-center gap-2 text-xs text-zinc-500">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  {isConnected
+                    ? "正在等待 Diego 返回过程信息..."
+                    : "正在连接 Diego 事件流..."}
                 </div>
-              ))
-            )}
+              ) : (
+                streamLogs.map((item) => (
+                  <div key={item.id} className="rounded-lg bg-zinc-50/70 px-2.5 py-2">
+                    <div className="flex items-center gap-2 text-[11px] text-zinc-400">
+                      <span>{new Date(item.ts).toLocaleTimeString()}</span>
+                    </div>
+                    <div
+                      className={`mt-0.5 text-sm font-semibold ${toneClassName(
+                        item.tone
+                      )}`}
+                    >
+                      {item.title}
+                    </div>
+                    {item.detail ? (
+                      <div className="mt-0.5 text-xs leading-5 text-zinc-600">
+                        {item.detail}
+                      </div>
+                    ) : null}
+                  </div>
+                ))
+              )}
+            </div>
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-6 bg-gradient-to-t from-white to-transparent" />
           </div>
         ) : null}
       </div>
@@ -625,33 +1058,39 @@ export function OutlineEditorPanel({
         ) : null}
 
         {phase !== "editing" ? (
-          <div className="space-y-2">
-            <div className="text-xs text-zinc-500">大纲流式输出</div>
-            <Textarea
-              value={outlineStreamText}
-              readOnly
-              placeholder="等待 Diego 开始返回大纲 token..."
-              className="min-h-[320px] resize-none border-zinc-200 bg-white font-mono text-xs leading-6"
-            />
+          <div className="mb-3 rounded border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">
+            Diego 正在流式生成大纲，卡片内容会实时填充。
+            {targetPageCount > 0 ? ` 当前目标页数：${targetPageCount}。` : ""}
           </div>
         ) : (
-          <div className="space-y-3">
-            <div className="rounded border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
-              大纲已完成，当前为可编辑状态。
-            </div>
-            {outlineIncomplete ? (
-              <div className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
-                大纲页数尚未达到预期：{slides.length}/{expectedPages} 页。
-              </div>
-            ) : null}
-            {slides.map((slide, index) => (
+          <div className="mb-3 rounded border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
+            大纲已完成，当前为可编辑状态。
+          </div>
+        )}
+
+        {outlineIncomplete ? (
+          <div className="mb-3 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+            大纲尚未完整：已就绪 {readySlidesCount}/{targetPageCount} 页。
+          </div>
+        ) : null}
+
+        <div className="space-y-3">
+          {slides.map((slide, index) => {
+            const layoutOptions = LAYOUT_OPTIONS_BY_PAGE_TYPE[slide.pageType];
+            return (
               <div
                 key={slide.id}
                 className="rounded-xl border border-zinc-200 bg-white p-3"
               >
-                <div className="mb-2 flex items-center gap-2 text-xs text-zinc-500">
-                  <Pencil className="h-3.5 w-3.5" />第 {index + 1} 页
+                <div className="mb-2 flex items-center justify-between gap-2 text-xs text-zinc-500">
+                  <span className="flex items-center gap-2">
+                    <Pencil className="h-3.5 w-3.5" />第 {index + 1} 页
+                  </span>
+                  <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-[11px]">
+                    {isEditable ? "可编辑" : "流式填充中"}
+                  </span>
                 </div>
+
                 <Input
                   value={slide.title}
                   onChange={(event) =>
@@ -659,8 +1098,60 @@ export function OutlineEditorPanel({
                       title: event.target.value,
                     })
                   }
+                  disabled={!isEditable}
                   className="mb-2 h-9 text-sm"
                 />
+
+                <div className="mb-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <label className="space-y-1">
+                    <span className="text-[11px] text-zinc-500">页面类型</span>
+                    <select
+                      value={slide.pageType}
+                      disabled={!isEditable}
+                      onChange={(event) => {
+                        const nextPageType = normalizePageType(
+                          event.target.value,
+                          slide.pageType
+                        );
+                        handleSlideFieldChange(slide.id, {
+                          pageType: nextPageType,
+                          layoutHint: DEFAULT_LAYOUT_BY_PAGE_TYPE[nextPageType],
+                        });
+                      }}
+                      className="h-9 w-full rounded-md border border-zinc-200 bg-white px-2 text-xs text-zinc-700 disabled:cursor-not-allowed disabled:bg-zinc-50"
+                    >
+                      {PAGE_TYPE_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label className="space-y-1">
+                    <span className="text-[11px] text-zinc-500">布局提示</span>
+                    <select
+                      value={slide.layoutHint}
+                      disabled={!isEditable}
+                      onChange={(event) =>
+                        handleSlideFieldChange(slide.id, {
+                          layoutHint: normalizeLayoutHint(
+                            event.target.value,
+                            slide.pageType
+                          ),
+                        })
+                      }
+                      className="h-9 w-full rounded-md border border-zinc-200 bg-white px-2 text-xs text-zinc-700 disabled:cursor-not-allowed disabled:bg-zinc-50"
+                    >
+                      {layoutOptions.map((layout) => (
+                        <option key={layout} value={layout}>
+                          {layout}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+
                 <Textarea
                   value={slide.keyPoints.join("\n")}
                   onChange={(event) =>
@@ -671,12 +1162,14 @@ export function OutlineEditorPanel({
                         .filter(Boolean),
                     })
                   }
-                  className="min-h-[96px] resize-y text-xs leading-6"
+                  disabled={!isEditable}
+                  placeholder="每行一个要点"
+                  className="min-h-[96px] resize-y text-xs leading-6 disabled:cursor-not-allowed disabled:bg-zinc-50"
                 />
               </div>
-            ))}
-          </div>
-        )}
+            );
+          })}
+        </div>
       </div>
     </div>
   );
