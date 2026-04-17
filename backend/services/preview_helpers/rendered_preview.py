@@ -6,8 +6,8 @@ import struct
 from pathlib import Path
 from typing import Awaitable, Callable, Optional
 
-from services.preview_helpers.cache import load_preview_content
 from services.generation.marp_document import split_marp_document
+from services.preview_helpers.cache import load_preview_content
 from services.preview_helpers.rendering import build_slides
 from services.preview_helpers.slide_mapping import slide_identity
 from services.render_engine_adapter import (
