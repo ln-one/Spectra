@@ -22,7 +22,7 @@ _PAYLOAD_REQUIREMENTS: dict[str, tuple[str, ...]] = {
     "interactive_games": ("title", "html"),
     "classroom_qa_simulator": ("title", "turns"),
     "demonstration_animations": ("title",),
-    "speaker_notes": ("title", "slides"),
+    "speaker_notes": ("title", "slides", "anchors"),
 }
 
 
@@ -127,6 +127,7 @@ def validate_card_payload(card_id: str, payload: dict[str, Any]) -> None:
     elif card_id == "speaker_notes":
         require_non_empty_str(payload, "title")
         require_non_empty_list(payload, "slides")
+        require_non_empty_list(payload, "anchors")
     elif card_id in {"courseware_ppt", "word_document"}:
         require_non_empty_str(payload, "title")
         require_non_empty_str(payload, "summary")
@@ -227,8 +228,10 @@ def build_schema_hint(card_id: str, config: dict[str, Any] | None = None) -> str
             '"scenes":[{"title":"","description":"","emphasis":""}]}'
         ),
         "speaker_notes": (
-            '{"title":"", "summary":"", '
-            '"slides":[{"page":1,"title":"","script":"",'
-            '"action_hint":"","transition_line":""}]}'
+            '{"title":"", "summary":"", "source_artifact_id":"", '
+            '"slides":[{"id":"slide-1","page":1,"title":"",'
+            '"sections":[{"id":"slide-1-section-1","title":"开场","paragraphs":'
+            '[{"id":"slide-1-paragraph-1","anchor_id":"speaker_notes:v2:slide-1:paragraph-1","text":"","role":"script"}]}]}],'
+            '"anchors":[{"scope":"paragraph","anchor_id":"speaker_notes:v2:slide-1:paragraph-1","slide_id":"slide-1","paragraph_id":"slide-1-paragraph-1","label":"第 1 页正文"}]}'
         ),
     }.get(card_id)

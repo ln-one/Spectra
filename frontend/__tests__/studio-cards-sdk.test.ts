@@ -78,6 +78,10 @@ describe("studio cards sdk", () => {
               score: 82,
               next_focus: "受力分解",
             },
+            latest_runnable_state: {
+              primary_carrier: "hybrid",
+              next_action: "follow_up_turn",
+            },
           },
         }),
         { status: 200, headers: { "Content-Type": "application/json" } }
@@ -93,6 +97,7 @@ describe("studio cards sdk", () => {
     });
 
     expect(result.data.turn_result.turn_anchor).toBe("turn-2");
+    expect(result.data.latest_runnable_state?.next_action).toBe("follow_up_turn");
     const request = fetchMock.mock.calls[0]?.[0] as Request;
     expect(request.url).toContain(
       "/api/v1/generate/studio-cards/classroom_qa_simulator/turn"

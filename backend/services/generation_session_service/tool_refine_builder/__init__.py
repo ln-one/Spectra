@@ -14,7 +14,7 @@ from .dispatcher import build_structured_refine_artifact_content
 from .game import _inject_html_section, refine_game_content
 from .mindmap import refine_mindmap_content
 from .quiz import refine_quiz_content
-from .speaker_notes import _resolve_slide_page, refine_speaker_notes_content
+from .speaker_notes import refine_speaker_notes_content
 
 __all__ = [
     "ai_service",

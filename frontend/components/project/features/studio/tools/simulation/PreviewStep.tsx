@@ -1,4 +1,4 @@
-import { MessageSquareText, MessagesSquare } from "lucide-react";
+import { MessageSquareText, MessagesSquare, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CapabilityNotice } from "../CapabilityNotice";
@@ -10,6 +10,7 @@ interface PreviewStepProps {
   lastGeneratedAt: string | null;
   flowContext?: ToolFlowContext;
   isSubmittingTurn?: boolean;
+  turnRuntimeState?: Record<string, unknown> | null;
   turnResult?: {
     studentQuestion?: string;
     score?: number | null;
@@ -132,6 +133,7 @@ export function PreviewStep({
   lastGeneratedAt,
   flowContext,
   isSubmittingTurn = false,
+  turnRuntimeState = null,
   turnResult = null,
   onAnswerChange,
   onSubmitAnswer,
@@ -140,12 +142,23 @@ export function PreviewStep({
     flowContext?.capabilityStatus ?? "backend_placeholder";
   const capabilityReason =
     flowContext?.capabilityReason ??
-    "Waiting for backend classroom simulation content.";
+    "正在等待后端返回真实课堂预演内容。";
   const backendTurns = parseBackendTurns(flowContext);
   const backendSummary = parseBackendSummary(flowContext);
   const activeTurn = backendTurns[backendTurns.length - 1] ?? null;
   const displayJudgeText = judgeText || activeTurn?.feedback || "";
   const canSubmit = capabilityStatus === "backend_ready";
+  const canChatRefine =
+    flowContext?.supportsChatRefine && typeof flowContext?.onRefine === "function";
+  const refineLabel =
+    flowContext?.display?.actionLabels.refine ?? "调整追问方向";
+  const activeFocus = turnResult?.nextFocus ?? backendSummary?.questionFocus ?? null;
+  const nextAction =
+    typeof turnRuntimeState?.next_action === "string"
+      ? turnRuntimeState.next_action
+      : typeof flowContext?.latestRunnableState?.next_action === "string"
+        ? flowContext.latestRunnableState.next_action
+        : null;
 
   return (
     <div className="space-y-4">
@@ -153,15 +166,43 @@ export function PreviewStep({
         <CapabilityNotice status={capabilityStatus} reason={capabilityReason} />
 
         <div className="mt-4">
-          <p className="text-sm font-semibold text-zinc-900">
-            Real-time QA Simulation
-          </p>
-          <p className="mt-1 text-[11px] text-zinc-500">
-            {lastGeneratedAt
-              ? `Last generated: ${new Date(lastGeneratedAt).toLocaleString()}`
-              : "Only real backend content is rendered in this view."}
-          </p>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold text-zinc-900">
+                实时学情预演
+              </p>
+              <p className="mt-1 text-[11px] text-zinc-500">
+                {lastGeneratedAt
+                  ? `最近一次生成：${new Date(lastGeneratedAt).toLocaleString()}`
+                  : "这里只展示后端返回的真实预演内容。"}
+              </p>
+            </div>
+            {canChatRefine ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8 text-xs"
+                onClick={() => void flowContext?.onRefine?.()}
+              >
+                <Sparkles className="mr-1.5 h-3.5 w-3.5" />
+                {refineLabel}
+              </Button>
+            ) : null}
+          </div>
         </div>
+
+        {activeFocus ? (
+          <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-700">
+            当前轮焦点：{activeFocus}
+          </div>
+        ) : null}
+
+        {nextAction === "follow_up_turn" ? (
+          <div className="mt-3 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-[11px] text-sky-700">
+            当前建议动作：继续追问，推进下一轮课堂预演。
+          </div>
+        ) : null}
 
         {activeTurn || backendSummary ? (
           <div className="mt-4 space-y-3 rounded-2xl border border-zinc-200 bg-zinc-50/70 p-4">
@@ -169,19 +210,19 @@ export function PreviewStep({
               <div className="rounded-2xl border border-zinc-200 bg-white p-4">
                 <div className="flex items-center gap-2 text-[11px] text-zinc-500">
                   <MessagesSquare className="h-4 w-4" />
-                  <span>Current student: {activeTurn.student}</span>
+                  <span>当前学生画像：{activeTurn.student}</span>
                 </div>
                 <p className="mt-3 text-sm text-zinc-900">
                   {activeTurn.question}
                 </p>
                 {activeTurn.teacherHint ? (
                   <p className="mt-3 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-[11px] text-sky-700">
-                    Teacher hint: {activeTurn.teacherHint}
+                    教师提示：{activeTurn.teacherHint}
                   </p>
                 ) : null}
                 {typeof activeTurn.score === "number" ? (
                   <p className="mt-2 text-[11px] text-zinc-500">
-                    Current score: {activeTurn.score}
+                    当前得分：{activeTurn.score}
                   </p>
                 ) : null}
               </div>
@@ -191,7 +232,7 @@ export function PreviewStep({
               <div className="rounded-2xl border border-zinc-200 bg-white p-4">
                 {backendSummary.questionFocus ? (
                   <p className="text-xs font-medium text-zinc-500">
-                    Focus: {backendSummary.questionFocus}
+                    追问焦点：{backendSummary.questionFocus}
                   </p>
                 ) : null}
                 {backendSummary.summary ? (
@@ -211,17 +252,17 @@ export function PreviewStep({
 
             {turnResult?.studentQuestion ? (
               <div className="rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs text-indigo-700">
-                New student question: {turnResult.studentQuestion}
+                新一轮学生提问：{turnResult.studentQuestion}
               </div>
             ) : null}
             {typeof turnResult?.score === "number" ? (
               <div className="rounded-lg border border-zinc-200 bg-white px-3 py-2 text-xs text-zinc-700">
-                Turn score: {turnResult.score}
+                本轮得分：{turnResult.score}
               </div>
             ) : null}
             {turnResult?.nextFocus ? (
               <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
-                Next focus: {turnResult.nextFocus}
+                下一轮建议关注：{turnResult.nextFocus}
               </div>
             ) : null}
 
@@ -229,7 +270,7 @@ export function PreviewStep({
               <Input
                 value={answer}
                 onChange={(event) => onAnswerChange(event.target.value)}
-                placeholder="Enter your teacher response"
+                placeholder="输入你的教师回应，继续这轮课堂预演"
                 className="h-9 text-xs"
               />
               <Button
@@ -239,7 +280,7 @@ export function PreviewStep({
                 onClick={onSubmitAnswer}
                 disabled={isSubmittingTurn || !answer.trim() || !canSubmit}
               >
-                {isSubmittingTurn ? "Submitting..." : "Submit"}
+                {isSubmittingTurn ? "提交中..." : "提交回应"}
               </Button>
             </div>
 
@@ -256,7 +297,7 @@ export function PreviewStep({
               暂未收到后端真实预演内容
             </p>
             <p className="mt-1 text-[11px] text-zinc-500">
-              This panel no longer renders frontend mock conversations.
+              当前不再渲染前端模拟对话，只展示后端真实返回结果。
             </p>
           </div>
         )}

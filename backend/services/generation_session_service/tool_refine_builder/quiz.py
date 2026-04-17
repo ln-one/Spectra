@@ -32,8 +32,14 @@ async def refine_quiz_content(
                 "explanation": "",
             }
         ]
+    selection_anchor = (
+        config.get("selection_anchor")
+        if isinstance(config.get("selection_anchor"), dict)
+        else None
+    )
     target_id = str(
-        config.get("current_question_id")
+        (selection_anchor or {}).get("anchor_id")
+        or config.get("current_question_id")
         or config.get("question_id")
         or questions[0].get("id")
         or "quiz-1"

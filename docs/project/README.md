@@ -1,6 +1,6 @@
 # 项目文档入口
 
-> 更新时间：2026-04-10
+> 更新时间：2026-04-17
 > 状态：当前生效
 
 本目录只保留当前仍直接指导实现、竞赛收口和团队协作判断的项目文档。
@@ -43,6 +43,14 @@
    当前阶段“结构块流式事件”和“教案绑定 PPT”的最小契约草稿。
 18. [多模态检索落地决策报告_2026-04-10.md](./多模态检索落地决策报告_2026-04-10.md)
    当前阶段针对 `VRAG / Qwen3-VL-Embedding / ColPali/Byaldi` 的多模态检索落地评估与 PoC 建议。
+19. [studio-foundations/studio-interaction-architecture.md](./studio-foundations/studio-interaction-architecture.md)
+   Studio 的统一工作面、artifact surface 和 control-plane 基线。
+20. [studio-foundations/card-engine-matrix.md](./studio-foundations/card-engine-matrix.md)
+   Studio 各类卡片应直接复用、保留观察或明确拒绝的成熟轮子矩阵。
+21. [studio-foundations/studio-backend-orchestration-model.md](./studio-foundations/studio-backend-orchestration-model.md)
+   Studio 全栈编排模型，明确 `session / artifact / hybrid` 的承载边界。
+22. [studio-foundations/artifact-refine-source-binding-contract-baseline.md](./studio-foundations/artifact-refine-source-binding-contract-baseline.md)
+   Studio 后续实现统一遵循的 artifact / refine / source-binding 目标语义基线。
 
 ## 当前目录的定位
 

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from schemas.project_space import ArtifactType, ArtifactVisibility
 from schemas.studio_cards import (
+    ExecutionCarrier,
+    RefineMode,
     StudioCardExecutionPreview,
     StudioCardReadiness,
     StudioCardResolvedRequest,
@@ -63,6 +65,7 @@ def build_studio_card_execution_preview(
         return StudioCardExecutionPreview(
             card_id=card_id,
             readiness=StudioCardReadiness.FOUNDATION_READY,
+            execution_carrier=ExecutionCarrier.HYBRID,
             initial_request=StudioCardResolvedRequest(
                 method="POST",
                 endpoint="/api/v1/generate/sessions",
@@ -92,6 +95,7 @@ def build_studio_card_execution_preview(
             refine_request=StudioCardResolvedRequest(
                 method="POST",
                 endpoint="/api/v1/chat/messages",
+                refine_mode=RefineMode.CHAT_REFINE,
                 payload={
                     "project_id": project_id,
                     "message": "",
@@ -109,6 +113,7 @@ def build_studio_card_execution_preview(
         return StudioCardExecutionPreview(
             card_id=card_id,
             readiness=StudioCardReadiness.FOUNDATION_READY,
+            execution_carrier=ExecutionCarrier.HYBRID,
             initial_request=StudioCardResolvedRequest(
                 method="POST",
                 endpoint=f"/api/v1/projects/{project_id}/artifacts",
@@ -136,6 +141,7 @@ def build_studio_card_execution_preview(
             refine_request=StudioCardResolvedRequest(
                 method="POST",
                 endpoint="/api/v1/chat/messages",
+                refine_mode=RefineMode.CHAT_REFINE,
                 payload={
                     "project_id": project_id,
                     "message": "",
@@ -155,6 +161,7 @@ def build_studio_card_execution_preview(
         return StudioCardExecutionPreview(
             card_id=card_id,
             readiness=StudioCardReadiness.FOUNDATION_READY,
+            execution_carrier=ExecutionCarrier.ARTIFACT,
             initial_request=StudioCardResolvedRequest(
                 method="POST",
                 endpoint=f"/api/v1/projects/{project_id}/artifacts",
@@ -182,6 +189,7 @@ def build_studio_card_execution_preview(
             refine_request=StudioCardResolvedRequest(
                 method="POST",
                 endpoint="/api/v1/generate/studio-cards/interactive_quick_quiz/refine",
+                refine_mode=RefineMode.STRUCTURED_REFINE,
                 payload={
                     "project_id": project_id,
                     "message": "",
@@ -205,6 +213,7 @@ def build_studio_card_execution_preview(
         return StudioCardExecutionPreview(
             card_id=card_id,
             readiness=StudioCardReadiness.FOUNDATION_READY,
+            execution_carrier=ExecutionCarrier.ARTIFACT,
             initial_request=StudioCardResolvedRequest(
                 method="POST",
                 endpoint=f"/api/v1/projects/{project_id}/artifacts",
@@ -230,6 +239,7 @@ def build_studio_card_execution_preview(
             refine_request=StudioCardResolvedRequest(
                 method="POST",
                 endpoint="/api/v1/generate/studio-cards/knowledge_mindmap/refine",
+                refine_mode=RefineMode.STRUCTURED_REFINE,
                 payload={
                     "project_id": project_id,
                     "message": "",
@@ -265,6 +275,7 @@ def build_studio_card_execution_preview(
         return StudioCardExecutionPreview(
             card_id=card_id,
             readiness=StudioCardReadiness.FOUNDATION_READY,
+            execution_carrier=ExecutionCarrier.ARTIFACT,
             initial_request=StudioCardResolvedRequest(
                 method="POST",
                 endpoint=f"/api/v1/projects/{project_id}/artifacts",
@@ -294,6 +305,7 @@ def build_studio_card_execution_preview(
             refine_request=StudioCardResolvedRequest(
                 method="POST",
                 endpoint="/api/v1/chat/messages",
+                refine_mode=RefineMode.CHAT_REFINE,
                 payload={
                     "project_id": project_id,
                     "message": "",
@@ -311,6 +323,7 @@ def build_studio_card_execution_preview(
         return StudioCardExecutionPreview(
             card_id=card_id,
             readiness=StudioCardReadiness.FOUNDATION_READY,
+            execution_carrier=ExecutionCarrier.HYBRID,
             initial_request=StudioCardResolvedRequest(
                 method="POST",
                 endpoint=f"/api/v1/projects/{project_id}/artifacts",
@@ -320,6 +333,7 @@ def build_studio_card_execution_preview(
                     "rag_source_ids": rag_source_ids or [],
                     "content": {
                         "kind": "speaker_notes",
+                        "schema_version": "speaker_notes.v2",
                         "source_artifact_id": (
                             source_artifact_id or cfg.get("source_artifact_id")
                         ),
@@ -330,20 +344,22 @@ def build_studio_card_execution_preview(
                         "highlight_transition": cfg.get("highlight_transition"),
                     },
                 },
-                notes="说课助手当前通过 summary artifact 直接承载逐页讲稿。",
+                notes="说课助手当前通过结构化 summary artifact 直接承载逐页讲稿。",
             ),
             refine_request=StudioCardResolvedRequest(
                 method="POST",
                 endpoint="/api/v1/generate/studio-cards/speaker_notes/refine",
+                refine_mode=RefineMode.STRUCTURED_REFINE,
                 payload={
                     "project_id": project_id,
                     "message": "",
                     "artifact_id": cfg.get("artifact_id"),
+                    "refine_mode": RefineMode.STRUCTURED_REFINE.value,
+                    "selection_anchor": cfg.get("selection_anchor"),
                     "source_artifact_id": source_artifact_id
                     or cfg.get("source_artifact_id"),
                     "rag_source_ids": rag_source_ids or [],
                     "config": {
-                        "selected_script_segment": cfg.get("selected_script_segment"),
                         "active_page": cfg.get("active_page"),
                         "highlight_transition": cfg.get("highlight_transition"),
                     },
@@ -351,12 +367,12 @@ def build_studio_card_execution_preview(
                         "card_id": card_id,
                         "source_artifact_id": source_artifact_id
                         or cfg.get("source_artifact_id"),
-                        "selected_script_segment": cfg.get("selected_script_segment"),
+                        "selection_anchor": cfg.get("selection_anchor"),
                         "active_page": cfg.get("active_page"),
                         "highlight_transition": cfg.get("highlight_transition"),
                     },
                 },
-                notes="提词器段落级改写通过 refine 触发 replacement artifact，并显式绑定段落锚点。",
+                notes="提词器段落级改写通过结构化 refine 触发 replacement artifact，并显式绑定段落锚点。",
             ),
         )
 
@@ -364,6 +380,7 @@ def build_studio_card_execution_preview(
         return StudioCardExecutionPreview(
             card_id=card_id,
             readiness=StudioCardReadiness.FOUNDATION_READY,
+            execution_carrier=ExecutionCarrier.ARTIFACT,
             initial_request=StudioCardResolvedRequest(
                 method="POST",
                 endpoint=f"/api/v1/projects/{project_id}/artifacts",
@@ -393,6 +410,7 @@ def build_studio_card_execution_preview(
             refine_request=StudioCardResolvedRequest(
                 method="POST",
                 endpoint="/api/v1/generate/studio-cards/interactive_games/refine",
+                refine_mode=RefineMode.STRUCTURED_REFINE,
                 payload={
                     "project_id": project_id,
                     "message": "",
@@ -420,6 +438,7 @@ def build_studio_card_execution_preview(
         return StudioCardExecutionPreview(
             card_id=card_id,
             readiness=StudioCardReadiness.FOUNDATION_READY,
+            execution_carrier=ExecutionCarrier.HYBRID,
             initial_request=StudioCardResolvedRequest(
                 method="POST",
                 endpoint=f"/api/v1/projects/{project_id}/artifacts",
@@ -447,6 +466,7 @@ def build_studio_card_execution_preview(
             refine_request=StudioCardResolvedRequest(
                 method="POST",
                 endpoint="/api/v1/chat/messages",
+                refine_mode=RefineMode.CHAT_REFINE,
                 payload={
                     "project_id": project_id,
                     "message": "",

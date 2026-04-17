@@ -11,6 +11,8 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { GENERATION_TOOLS, type GenerationTool } from "@/stores/projectStore";
+import type { StudioToolKey, ToolDisplayModel } from "./tools/types";
+import { STUDIO_CARD_BY_TOOL } from "./panel/constants";
 
 export const TOOL_ICONS: Record<string, LucideIcon> = {
   ppt: MonitorPlay,
@@ -27,6 +29,132 @@ export const TOOL_ICONS: Record<string, LucideIcon> = {
 export const TOOL_LABELS: Record<string, string> = Object.fromEntries(
   GENERATION_TOOLS.map((tool) => [tool.type, tool.name])
 ) as Record<string, string>;
+
+export const TOOL_DISPLAY_MODELS: Record<StudioToolKey, ToolDisplayModel> = {
+  word: {
+    toolId: "word",
+    productTitle: TOOL_LABELS.word,
+    productDescription: "围绕已生成成果延展正式文档，统一处理来源绑定、文档预览与下载。",
+    studioCardId: STUDIO_CARD_BY_TOOL.word,
+    actionLabels: {
+      preview: "执行预检",
+      loadSources: "刷新来源",
+      execute: "生成正式文档",
+      refine: "打开对话微调",
+    },
+    sourceBinding: {
+      required: "必选：请绑定一个 PPT 成果作为文档来源。",
+      optional: "可选：绑定已有成果后，文档内容会更贴近当前项目上下文。",
+      empty: "当前还没有可绑定成果，点击上方按钮即可刷新。",
+    },
+  },
+  mindmap: {
+    toolId: "mindmap",
+    productTitle: TOOL_LABELS.mindmap,
+    productDescription: "基于真实后端导图成果继续浏览、选择与结构化增补。",
+    studioCardId: STUDIO_CARD_BY_TOOL.mindmap,
+    actionLabels: {
+      preview: "执行预检",
+      loadSources: "刷新来源",
+      execute: "生成导图",
+      refine: "打开对话微调",
+    },
+    sourceBinding: {
+      required: "必选：请先绑定一个来源成果。",
+      optional: "可选：绑定已有成果后，导图结构会更贴近当前上下文。",
+      empty: "当前还没有可绑定成果，点击上方按钮即可刷新。",
+    },
+  },
+  outline: {
+    toolId: "outline",
+    productTitle: TOOL_LABELS.outline,
+    productDescription: "接收真实后端 HTML 游戏结果，统一管理预检、执行与微调入口。",
+    studioCardId: STUDIO_CARD_BY_TOOL.outline,
+    actionLabels: {
+      preview: "执行预检",
+      loadSources: "刷新来源",
+      execute: "生成互动游戏",
+      refine: "打开对话微调",
+    },
+    sourceBinding: {
+      required: "必选：请先绑定一个来源成果。",
+      optional: "可选：绑定已有成果后，游戏内容会更贴近当前项目上下文。",
+      empty: "当前还没有可绑定成果，点击上方按钮即可刷新。",
+    },
+  },
+  quiz: {
+    toolId: "quiz",
+    productTitle: TOOL_LABELS.quiz,
+    productDescription: "把真实后端小测结果放进统一工作台，收敛来源、状态和执行语义。",
+    studioCardId: STUDIO_CARD_BY_TOOL.quiz,
+    actionLabels: {
+      preview: "执行预检",
+      loadSources: "刷新来源",
+      execute: "生成随堂小测",
+      refine: "打开对话微调",
+    },
+    sourceBinding: {
+      required: "必选：请先绑定一个来源成果。",
+      optional: "可选：绑定已有成果后，小测题目会更贴近当前项目上下文。",
+      empty: "当前还没有可绑定成果，点击上方按钮即可刷新。",
+    },
+  },
+  summary: {
+    toolId: "summary",
+    productTitle: TOOL_LABELS.summary,
+    productDescription: "围绕真实说课讲稿成果统一提词器预览、来源绑定和微调入口。",
+    studioCardId: STUDIO_CARD_BY_TOOL.summary,
+    actionLabels: {
+      preview: "执行预检",
+      loadSources: "刷新来源",
+      execute: "生成说课讲稿",
+      refine: "打开对话微调",
+    },
+    sourceBinding: {
+      required: "必选：请绑定一个 PPT 成果作为说课来源。",
+      optional: "可选：绑定已有成果后，说课内容会更贴近当前项目上下文。",
+      empty: "当前还没有可绑定成果，点击上方按钮即可刷新。",
+    },
+  },
+  animation: {
+    toolId: "animation",
+    productTitle: TOOL_LABELS.animation,
+    productDescription: "在统一工作台中管理真实动画成果、版位建议与结果 refine。",
+    studioCardId: STUDIO_CARD_BY_TOOL.animation,
+    actionLabels: {
+      preview: "执行预检",
+      loadSources: "刷新来源",
+      execute: "生成演示动画",
+      refine: "生成新版动画",
+    },
+    sourceBinding: {
+      required: "必选：请先绑定一个来源成果。",
+      optional: "可选：绑定已有成果后，动画内容会更贴近当前项目上下文。",
+      empty: "当前还没有可绑定成果，点击上方按钮即可刷新。",
+    },
+  },
+  handout: {
+    toolId: "handout",
+    productTitle: TOOL_LABELS.handout,
+    productDescription: "围绕真实课堂预演结果统一展示当前轮焦点、追问反馈和二次交互入口。",
+    studioCardId: STUDIO_CARD_BY_TOOL.handout,
+    actionLabels: {
+      preview: "执行预检",
+      loadSources: "刷新来源",
+      execute: "开始课堂预演",
+      refine: "调整追问方向",
+    },
+    sourceBinding: {
+      required: "必选：请先绑定一个来源成果。",
+      optional: "可选：绑定已有成果后，预演提问会更贴近当前项目上下文。",
+      empty: "当前还没有可绑定成果，点击上方按钮即可刷新。",
+    },
+  },
+};
+
+export function getToolDisplayModel(toolId: StudioToolKey): ToolDisplayModel {
+  return TOOL_DISPLAY_MODELS[toolId];
+}
 
 export const TOOL_COLORS: Record<
   string,

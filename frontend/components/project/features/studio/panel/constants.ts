@@ -13,7 +13,7 @@ export const STUDIO_CARD_BY_TOOL: Partial<Record<GenerationToolType, string>> =
   };
 
 export const DEFAULT_CAPABILITY_PENDING_REASON =
-  "Backend capability is syncing. Real backend output will be shown once ready.";
+  "后端能力正在同步中，真实结果就绪后会在这里直接显示。";
 
 export const STUDIO_RUNTIME_ARTIFACTS_STORAGE_PREFIX =
   "spectra:studio:runtime-artifacts";

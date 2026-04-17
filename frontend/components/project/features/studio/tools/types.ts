@@ -57,7 +57,26 @@ export interface ToolArtifactPreviewItem {
   runNo?: number | null;
 }
 
+export interface ToolDisplayModel {
+  toolId: StudioToolKey;
+  productTitle: string;
+  productDescription: string;
+  studioCardId?: string;
+  actionLabels: {
+    preview: string;
+    loadSources: string;
+    execute: string;
+    refine: string;
+  };
+  sourceBinding: {
+    required: string;
+    optional: string;
+    empty: string;
+  };
+}
+
 export interface ToolFlowContext {
+  display?: ToolDisplayModel;
   readiness?: string | null;
   isLoadingProtocol?: boolean;
   isActionRunning?: boolean;
@@ -74,6 +93,9 @@ export interface ToolFlowContext {
   selectedSourceId?: string | null;
   requestedStep?: string | null;
   latestArtifacts?: ToolArtifactPreviewItem[];
+  latestRunnableState?: Record<string, unknown> | null;
+  provenance?: Record<string, unknown> | null;
+  sourceBinding?: Record<string, unknown> | null;
   onStepChange?: (stepId: string) => void;
   onSelectedSourceChange?: (sourceId: string | null) => void;
   onLoadSources?: () => Promise<void> | void;
@@ -87,11 +109,15 @@ export interface ToolFlowContext {
   onStructuredRefine?: (payload: {
     artifactId: string;
     message?: string;
+    refineMode?: "chat_refine" | "structured_refine" | "follow_up_turn";
+    selectionAnchor?: Record<string, unknown>;
     config?: Record<string, unknown>;
   }) => Promise<boolean> | boolean;
   onStructuredRefineArtifact?: (payload: {
     artifactId: string;
     message: string;
+    refineMode?: "chat_refine" | "structured_refine" | "follow_up_turn";
+    selectionAnchor?: Record<string, unknown>;
     config?: Record<string, unknown>;
   }) => Promise<{
     ok: boolean;

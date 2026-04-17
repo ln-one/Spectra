@@ -172,3 +172,49 @@ async def test_classroom_simulator_turn_rejects_non_simulator_artifact(app, _as_
 
     assert response.status_code == 400
     assert response.json()["detail"]["code"] == "INVALID_INPUT"
+
+
+@pytest.mark.anyio
+async def test_classroom_simulator_turn_returns_follow_up_runtime_state(app, _as_user):
+    client = TestClient(app)
+
+    with patch(
+        "routers.generate_sessions.studio_cards.execute_classroom_simulator_turn",
+        AsyncMock(
+            return_value=(
+                {"id": "a-summary-002", "type": "summary"},
+                SimpleNamespace(
+                    model_dump=lambda mode="json": {
+                        "turn_anchor": "turn-2",
+                        "student_profile": "detail_oriented",
+                        "student_question": "为什么这一步不能直接合并？",
+                        "teacher_answer": "先拆开边界条件。",
+                        "feedback": "可以继续追问原因链。",
+                        "score": 86,
+                        "next_focus": "边界条件",
+                    }
+                ),
+                {
+                    "primary_carrier": "hybrid",
+                    "active_artifact_id": "a-summary-002",
+                    "can_refine": True,
+                    "can_follow_up_turn": True,
+                    "source_binding_valid": True,
+                    "next_action": "follow_up_turn",
+                },
+            )
+        ),
+    ):
+        response = client.post(
+            "/api/v1/generate/studio-cards/classroom_qa_simulator/turn",
+            json={
+                "project_id": "p-001",
+                "artifact_id": "a-summary-001",
+                "teacher_answer": "先拆开边界条件。",
+            },
+        )
+
+    assert response.status_code == 200
+    payload = response.json()["data"]
+    assert payload["turn_result"]["turn_anchor"] == "turn-2"
+    assert payload["latest_runnable_state"]["next_action"] == "follow_up_turn"

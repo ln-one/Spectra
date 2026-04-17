@@ -55,6 +55,16 @@ export function GenerateStep({
   const requiresSourceArtifact = Boolean(flowContext?.requiresSourceArtifact);
   const missingRequiredSource =
     requiresSourceArtifact && !flowContext?.selectedSourceId;
+  const display = flowContext?.display;
+  const actionLabels = display?.actionLabels ?? {
+    loadSources: "刷新列表",
+    execute: "交给后端生成",
+  };
+  const sourceBinding = display?.sourceBinding ?? {
+    required: "必选：请绑定一个 PPT 成果作为教案来源。",
+    optional: "可选：绑定已有成果后，生成内容会更贴近当前项目上下文。",
+    empty: "当前还没有可绑定成果，点击上方按钮即可刷新。",
+  };
 
   return (
     <div className="space-y-4">
@@ -89,8 +99,8 @@ export function GenerateStep({
             <p className="text-xs font-semibold text-zinc-800">绑定参考成果</p>
             <p className="mt-1 text-[11px] text-zinc-500">
               {requiresSourceArtifact
-                ? "必选：请绑定一个 PPT 成果作为教案来源。"
-                : "可选：绑定已有成果后，生成内容会更贴近当前项目上下文。"}
+                ? sourceBinding.required
+                : sourceBinding.optional}
             </p>
           </div>
           <Button
@@ -108,7 +118,7 @@ export function GenerateStep({
             ) : (
               <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
             )}
-            刷新列表
+            {actionLabels.loadSources}
           </Button>
         </div>
         {sourceOptions.length > 0 ? (
@@ -134,7 +144,7 @@ export function GenerateStep({
           </div>
         ) : (
           <p className="mt-3 text-[11px] text-zinc-500">
-            当前还没有可绑定成果，点击上方按钮即可刷新。
+            {sourceBinding.empty}
           </p>
         )}
         {missingRequiredSource ? (
@@ -176,7 +186,7 @@ export function GenerateStep({
           ) : (
             <>
               <Sparkles className="mr-1.5 h-3.5 w-3.5" />
-              交给后端生成
+              {actionLabels.execute}
             </>
           )}
         </Button>

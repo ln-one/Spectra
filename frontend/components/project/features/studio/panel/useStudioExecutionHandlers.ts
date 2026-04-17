@@ -741,10 +741,14 @@ export function useStudioExecutionHandlers({
     async ({
       artifactId,
       message,
+      refineMode,
+      selectionAnchor,
       config,
     }: {
       artifactId: string;
       message: string;
+      refineMode?: "chat_refine" | "structured_refine" | "follow_up_turn";
+      selectionAnchor?: Record<string, unknown>;
       config?: Record<string, unknown>;
     }) => {
       if (!project || !currentCardId) {
@@ -763,6 +767,8 @@ export function useStudioExecutionHandlers({
           session_id: activeSessionId ?? undefined,
           artifact_id: artifactId,
           message,
+          refine_mode: refineMode ?? "structured_refine",
+          selection_anchor: selectionAnchor as any,
           config,
           rag_source_ids: resolveEffectiveRagSourceIds(selectedFileIds),
         });

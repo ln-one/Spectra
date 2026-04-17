@@ -14,6 +14,9 @@ from services.generation_session_service.card_execution_runtime_run_helpers impo
 from services.generation_session_service.card_execution_runtime_simulator import (
     normalize_simulator_turn_result,
 )
+from services.generation_session_service.card_execution_runtime_helpers import (
+    build_latest_runnable_state,
+)
 from services.generation_session_service.card_execution_runtime_word import (
     resolve_word_document_title,
 )
@@ -164,3 +167,21 @@ def test_normalize_simulator_turn_result_backfills_required_fields() -> None:
     assert result.feedback == "建议先补条件再给反例。"
     assert result.teacher_answer == "先解释条件，再给反例。"
     assert result.score == 88
+
+
+def test_build_latest_runnable_state_uses_card_specific_next_action() -> None:
+    quiz_state = build_latest_runnable_state(
+        card_id="interactive_quick_quiz",
+        artifact_id="artifact-quiz-1",
+        session_id=None,
+        source_binding_valid=True,
+    )
+    simulation_state = build_latest_runnable_state(
+        card_id="classroom_qa_simulator",
+        artifact_id="artifact-sim-1",
+        session_id="session-1",
+        source_binding_valid=True,
+    )
+
+    assert quiz_state["next_action"] == "answer_or_refine"
+    assert simulation_state["next_action"] == "follow_up_turn"

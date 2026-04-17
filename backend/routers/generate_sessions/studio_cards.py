@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Query, Request
+from schemas.studio_cards import RefineMode
 
 from routers.chat.runtime import process_chat_message
 from services.generation_session_service.card_capabilities import (
@@ -19,6 +20,7 @@ from services.generation_session_service.card_execution_runtime import (
     supports_structured_refine,
 )
 from services.generation_session_service.card_source_bindings import (
+    build_source_binding_candidate_payload,
     get_card_source_artifact_types,
     get_card_source_permission,
     serialize_card_source_artifact,
@@ -179,7 +181,11 @@ async def refine_studio_card(
     project_id = require_project_id(body)
     refine_body = build_refine_request(project_id=project_id, body=body)
 
-    if supports_structured_refine(card_id) and refine_body.artifact_id:
+    if (
+        supports_structured_refine(card_id)
+        and refine_body.artifact_id
+        and refine_body.refine_mode != RefineMode.CHAT_REFINE
+    ):
         result = await execute_studio_card_refine_request(
             card_id=card_id,
             body=refine_body,
@@ -237,7 +243,7 @@ async def advance_classroom_simulator_turn(
         message="teacher_answer 为必填字段",
     )
 
-    artifact_payload, turn_result = await execute_classroom_simulator_turn(
+    artifact_payload, turn_result, latest_runnable_state = await execute_classroom_simulator_turn(
         body=build_turn_request(
             project_id=project_id,
             artifact_id=artifact_id,
@@ -250,6 +256,7 @@ async def advance_classroom_simulator_turn(
         data={
             "artifact": artifact_payload,
             "turn_result": turn_result.model_dump(mode="json"),
+            "latest_runnable_state": latest_runnable_state,
         },
         message="课堂问答模拟推进成功",
     )
@@ -291,12 +298,17 @@ async def get_studio_card_sources(
         return (bool(superseded_by_artifact_id), updated_at)
 
     sources.sort(key=_source_sort_key)
+    serialized_sources = [
+        serialize_card_source_artifact(artifact) for artifact in sources
+    ]
 
     return success_response(
         data={
-            "sources": [
-                serialize_card_source_artifact(artifact) for artifact in sources
-            ]
+            "sources": serialized_sources,
+            "source_binding_candidates": build_source_binding_candidate_payload(
+                card_id=card_id,
+                sources=serialized_sources,
+            ),
         },
         message="Studio 卡片源成果获取成功",
     )

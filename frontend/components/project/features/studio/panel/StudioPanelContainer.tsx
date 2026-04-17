@@ -13,7 +13,12 @@ import { resolveReadySelectedFileIds } from "@/stores/project-store/source-scope
 import type { GenerationToolType } from "@/lib/project-space/artifact-history";
 import { STUDIO_TOOL_COMPONENTS } from "../tools";
 import type { StudioToolKey, ToolDraftState, ToolFlowContext } from "../tools";
-import { TOOL_COLORS, TOOL_ICONS, TOOL_LABELS } from "../constants";
+import {
+  getToolDisplayModel,
+  TOOL_COLORS,
+  TOOL_ICONS,
+  TOOL_LABELS,
+} from "../constants";
 import { useStudioWorkflowHistory } from "../history/useStudioWorkflowHistory";
 import { useStudioCapabilityState } from "./useStudioCapabilityState";
 import { useStudioExecutionHandlers } from "./useStudioExecutionHandlers";
@@ -534,8 +539,16 @@ export function StudioPanelContainer({
     expandedTool === "summary" ||
     expandedTool === "animation" ||
     expandedTool === "handout";
+  const currentDisplayToolKey =
+    expandedTool && expandedTool !== "ppt"
+      ? (expandedTool as StudioToolKey)
+      : null;
 
   const toolFlowContext: ToolFlowContext = {
+    display:
+      currentDisplayToolKey
+        ? getToolDisplayModel(currentDisplayToolKey)
+        : undefined,
     readiness: capability.currentReadiness,
     isLoadingProtocol: capability.isLoadingCardProtocol,
     isActionRunning: execution.isStudioActionRunning,

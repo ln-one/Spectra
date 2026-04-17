@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 
 from schemas.project_space import ArtifactType
+from schemas.studio_cards import ExecutionCarrier, RefineMode
 from services.project_space_service import project_space_service
 from utils.docx_content_sidecar import load_docx_content_sidecar
 from utils.exceptions import APIException, ErrorCode
@@ -28,6 +29,17 @@ STRUCTURED_REFINE_KINDS = {
     "speaker_notes": "speaker_notes",
 }
 
+CARD_EXECUTION_CARRIERS = {
+    "courseware_ppt": ExecutionCarrier.HYBRID,
+    "word_document": ExecutionCarrier.HYBRID,
+    "speaker_notes": ExecutionCarrier.HYBRID,
+    "classroom_qa_simulator": ExecutionCarrier.HYBRID,
+    "interactive_quick_quiz": ExecutionCarrier.ARTIFACT,
+    "knowledge_mindmap": ExecutionCarrier.ARTIFACT,
+    "interactive_games": ExecutionCarrier.ARTIFACT,
+    "demonstration_animations": ExecutionCarrier.ARTIFACT,
+}
+
 
 def supports_structured_refine(card_id: str) -> bool:
     return card_id in STRUCTURED_REFINE_ARTIFACT_TYPES
@@ -42,6 +54,7 @@ def artifact_result_payload(
     *,
     current_version_id: str | None = None,
 ) -> dict:
+    metadata = artifact_metadata_dict(artifact)
     based_on_version_id = artifact.basedOnVersionId
     return {
         "id": artifact.id,
@@ -60,6 +73,10 @@ def artifact_result_payload(
         "storage_path": artifact.storagePath,
         "created_at": artifact.createdAt,
         "updated_at": artifact.updatedAt,
+        "title": metadata.get("title"),
+        "kind": metadata.get("kind"),
+        "replaces_artifact_id": metadata.get("replaces_artifact_id"),
+        "superseded_by_artifact_id": metadata.get("superseded_by_artifact_id"),
     }
 
 
@@ -180,6 +197,72 @@ async def create_replacement_artifact(
         content=content,
         artifact_mode="replace",
     )
+
+
+def build_source_binding_payload(
+    *,
+    card_id: str,
+    source_artifact_id: str | None,
+    accepted_types: tuple[str, ...] = (),
+) -> dict:
+    required = bool(accepted_types and not is_card_source_optional(card_id))
+    selected_ids = [source_artifact_id] if source_artifact_id else []
+    return {
+        "required": required,
+        "mode": "single_artifact" if accepted_types else "none",
+        "accepted_types": list(accepted_types),
+        "selected_ids": selected_ids,
+        "visibility_scope": "project-visible" if selected_ids else None,
+        "status": "bound" if selected_ids else ("required_missing" if required else "optional"),
+    }
+
+
+def build_provenance_payload(
+    *,
+    card_id: str,
+    artifact_id: str | None = None,
+    session_id: str | None = None,
+    source_artifact_id: str | None = None,
+    request_snapshot: dict | None = None,
+    replaces_artifact_id: str | None = None,
+) -> dict:
+    return {
+        "card_id": card_id,
+        "execution_carrier": CARD_EXECUTION_CARRIERS.get(card_id, ExecutionCarrier.ARTIFACT).value,
+        "created_from_session_id": session_id,
+        "created_from_artifact_ids": [source_artifact_id] if source_artifact_id else [],
+        "request_snapshot": request_snapshot or {},
+        "artifact_id": artifact_id,
+        "replaces_artifact_id": replaces_artifact_id,
+    }
+
+
+def build_latest_runnable_state(
+    *,
+    card_id: str,
+    artifact_id: str | None,
+    session_id: str | None,
+    source_binding_valid: bool,
+    refine_mode: RefineMode | None = None,
+) -> dict:
+    carrier = CARD_EXECUTION_CARRIERS.get(card_id, ExecutionCarrier.ARTIFACT).value
+    if card_id == "classroom_qa_simulator":
+        next_action = "follow_up_turn"
+    elif card_id == "interactive_quick_quiz" and (artifact_id or session_id):
+        next_action = "answer_or_refine"
+    elif artifact_id or session_id:
+        next_action = "refine"
+    else:
+        next_action = "execute"
+    return {
+        "primary_carrier": carrier,
+        "active_artifact_id": artifact_id,
+        "active_session_id": session_id,
+        "can_refine": bool(artifact_id or session_id),
+        "can_follow_up_turn": card_id == "classroom_qa_simulator",
+        "source_binding_valid": source_binding_valid,
+        "next_action": next_action,
+    }
 
 
 async def validate_structured_refine_artifact(

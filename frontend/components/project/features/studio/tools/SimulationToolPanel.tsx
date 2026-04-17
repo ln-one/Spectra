@@ -83,6 +83,7 @@ export function SimulationToolPanel({
     nextFocus?: string;
     studentProfile?: string;
   } | null>(null);
+  const [turnRuntimeState, setTurnRuntimeState] = useState<Record<string, unknown> | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSubmittingTurn, setIsSubmittingTurn] = useState(false);
   const [lastGeneratedAt, setLastGeneratedAt] = useState<string | null>(null);
@@ -147,6 +148,7 @@ export function SimulationToolPanel({
     setAnswer("");
     setJudgeText("");
     setTurnResult(null);
+    setTurnRuntimeState(null);
     setActiveStep("preview");
 
     if (!flowContext?.onExecute) {
@@ -207,6 +209,7 @@ export function SimulationToolPanel({
       });
       const latestTurnResult = response.data.turn_result;
       setJudgeText(latestTurnResult.feedback || "");
+      setTurnRuntimeState(response.data.latest_runnable_state ?? null);
       setTurnResult({
         turnAnchor: latestTurnResult.turn_anchor,
         studentQuestion: latestTurnResult.student_question,
@@ -220,7 +223,8 @@ export function SimulationToolPanel({
       await fetchArtifactHistory(project.id, activeSessionId ?? null);
     } catch (error) {
       setTurnResult(null);
-      setJudgeText(`Submit failed: ${formatStudioTurnError(error)}`);
+      setTurnRuntimeState(null);
+      setJudgeText(`提交失败：${formatStudioTurnError(error)}`);
     } finally {
       setIsSubmittingTurn(false);
     }
@@ -251,10 +255,10 @@ export function SimulationToolPanel({
               </div>
               <div>
                 <h3 className="text-sm font-black text-zinc-900 tracking-tight">
-                  {toolName} Workbench
+                  {toolName}智能工作台
                 </h3>
                 <p className="mt-0.5 text-[11px] font-medium leading-relaxed text-zinc-500">
-                  Three-step simulation flow with backend-grounded preview.
+                  三步完成课堂预演，基于真实后端内容持续追问
                 </p>
               </div>
             </div>
@@ -274,7 +278,7 @@ export function SimulationToolPanel({
               currentStep={activeStep}
               steps={SIMULATION_STEPS}
               onStepChange={(stepId) => setActiveStep(stepId as SimulationStep)}
-              title="Simulation Workflow"
+              title="学情预演流程"
               subtitle="Workflow"
             />
             <div className="min-h-0 flex-1 overflow-y-auto pr-1">
@@ -286,7 +290,7 @@ export function SimulationToolPanel({
                   onStepChange={(stepId) =>
                     setActiveStep(stepId as SimulationStep)
                   }
-                  title="Simulation Workflow"
+                  title="学情预演流程"
                   subtitle="Workflow"
                 />
               </div>
@@ -329,6 +333,7 @@ export function SimulationToolPanel({
                   lastGeneratedAt={lastGeneratedAt}
                   flowContext={flowContext}
                   isSubmittingTurn={isSubmittingTurn}
+                  turnRuntimeState={turnRuntimeState}
                   turnResult={turnResult}
                   onAnswerChange={setAnswer}
                   onSubmitAnswer={() => void handleSubmitAnswer()}

@@ -1,6 +1,7 @@
 ﻿import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { FileText, Loader2 } from "lucide-react";
+import { FileText, Loader2, Sparkles } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { CapabilityNotice } from "../CapabilityNotice";
 import type { ToolFlowContext } from "../types";
 
@@ -46,6 +47,12 @@ export function PreviewStep({
   const hasContent =
     capabilityStatus === "backend_ready" &&
     (hasMarkdownContent || hasBackendArtifact);
+  const canChatRefine =
+    flowContext?.supportsChatRefine &&
+    typeof flowContext?.onRefine === "function";
+  const refineLabel =
+    flowContext?.display?.actionLabels.refine ?? "打开对话微调";
+  const hasSourceBinding = Boolean(sourceArtifactId);
 
   return (
     <div className="space-y-4">
@@ -61,25 +68,41 @@ export function PreviewStep({
                 : "这里只展示后端返回的真实文档预览。"}
             </p>
           </div>
-          {hasBackendArtifact ? (
-            <button
-              type="button"
-              className="rounded-lg border border-zinc-200 bg-white px-3 py-2 text-xs text-zinc-600 hover:bg-zinc-50"
-              onClick={() =>
-                void flowContext?.onExportArtifact?.(exportArtifactId)
-              }
-            >
-              下载正式文档
-            </button>
-          ) : null}
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {canChatRefine ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8 text-xs"
+                onClick={() => void flowContext?.onRefine?.()}
+              >
+                <Sparkles className="mr-1.5 h-3.5 w-3.5" />
+                {refineLabel}
+              </Button>
+            ) : null}
+            {hasBackendArtifact ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8 text-xs"
+                onClick={() =>
+                  void flowContext?.onExportArtifact?.(exportArtifactId)
+                }
+              >
+                下载正式文档
+              </Button>
+            ) : null}
+          </div>
         </div>
 
         {sourceArtifactId || exportArtifactId ? (
           <div className="mt-4 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-[11px] text-zinc-600">
-            <p>source_artifact_id：{sourceArtifactId ?? "-"}</p>
-            <p>来源 PPT 标题：{sourceArtifactTitle ?? "未解析到来源标题"}</p>
-            <p>当前 Word artifact_id：{exportArtifactId || "-"}</p>
-            <p>当前 Word 标题：{currentWordArtifactTitle ?? "未命名文档"}</p>
+            <p>当前绑定来源：{hasSourceBinding ? "已绑定" : "未绑定"}</p>
+            <p>来源成果标题：{sourceArtifactTitle ?? "未解析到来源标题"}</p>
+            <p>文档 artifact_id：{exportArtifactId || "-"}</p>
+            <p>文档标题：{currentWordArtifactTitle ?? "未命名文档"}</p>
           </div>
         ) : null}
 

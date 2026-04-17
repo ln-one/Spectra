@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from schemas.chat import SendMessageRequest
 from schemas.studio_cards import (
+    RefineMode,
     StudioCardExecutionPreviewRequest,
     StudioCardRefineRequest,
     StudioCardTurnRequest,
@@ -82,6 +83,8 @@ def build_refine_request(
         artifact_id=body.get("artifact_id"),
         session_id=body.get("session_id"),
         message=str(body.get("message") or ""),
+        refine_mode=RefineMode(str(body.get("refine_mode") or RefineMode.CHAT_REFINE.value)),
+        selection_anchor=body.get("selection_anchor"),
         config=body.get("config") or {},
         visibility=body.get("visibility"),
         source_artifact_id=body.get("source_artifact_id"),

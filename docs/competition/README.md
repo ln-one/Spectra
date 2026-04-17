@@ -52,6 +52,7 @@
 - [Truth-Check 清单](./00-truth-check-checklist.md)
 - [图表规划](./00-figure-plan.md)
 - [章节映射](./00-structure-map.md)
+- [A 类概要介绍](./11-a-class-project-overview.md)
 - [执行摘要](./00-executive-summary.md)
 - [前言与项目综述](./01-overview.md)
 - [可行性分析](./02-feasibility.md)
@@ -67,6 +68,7 @@
 ## 内部维护文件
 
 - [对外证据口径](./00-evidence-policy.md)
+- [A 类概要介绍图文编排说明](../documentation/a-class-overview-visual-brief.md)
 - [第 5 章源稿目录](./05-key-technologies-src/README.md)
 - [内部要求覆盖映射](./93-requirements-coverage.md)
 - [主稿结构建议](./90-submission-manuscript.md)

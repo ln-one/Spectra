@@ -15,6 +15,38 @@ export type StudioCardReadiness =
   | "foundation_ready"
   | "protocol_pending";
 
+export type ArtifactSurfaceType =
+  | "document"
+  | "teleprompter"
+  | "graph"
+  | "flashcard"
+  | "simulator"
+  | "sandbox"
+  | "animation";
+
+export type CapabilityEngine =
+  | "rich_text"
+  | "node_graph"
+  | "single_item"
+  | "simulation_loop"
+  | "sandbox_html"
+  | "media_timeline";
+
+export type RefineMode =
+  | "chat_refine"
+  | "structured_refine"
+  | "follow_up_turn";
+
+export type SelectionScope =
+  | "none"
+  | "page"
+  | "paragraph"
+  | "node"
+  | "question"
+  | "scene";
+
+export type ExecutionCarrier = "session" | "artifact" | "hybrid";
+
 export interface StudioCardAction {
   type: string;
   label: string;
@@ -34,6 +66,12 @@ export interface StudioCardCapability {
   requires_source_artifact: boolean;
   supports_chat_refine: boolean;
   supports_selection_context: boolean;
+  artifact_surface_type?: ArtifactSurfaceType;
+  capability_engine?: CapabilityEngine;
+  execution_carrier?: ExecutionCarrier;
+  supported_refine_modes?: RefineMode[];
+  supported_selection_scopes?: SelectionScope[];
+  source_binding_mode?: "none" | "single_artifact" | "multi_artifact";
   config_fields?: Array<Record<string, unknown>>;
   actions: StudioCardAction[];
   notes?: string;
@@ -51,9 +89,22 @@ export interface StudioCardExecutionBinding {
 export interface StudioCardExecutionPlan {
   card_id: string;
   readiness: StudioCardReadiness;
+  execution_carrier?: ExecutionCarrier;
+  supported_refine_modes?: RefineMode[];
+  supported_selection_scopes?: SelectionScope[];
   initial_binding: StudioCardExecutionBinding;
   refine_binding?: StudioCardExecutionBinding;
   source_binding?: StudioCardExecutionBinding;
+}
+
+export interface StudioSelectionAnchor {
+  scope: SelectionScope;
+  anchor_id: string;
+  artifact_id?: string;
+  version_id?: string;
+  label?: string;
+  path?: Array<string | number>;
+  range?: { start: number; end: number };
 }
 
 export interface StudioCardExecutionPreviewRequest {
@@ -72,6 +123,8 @@ export interface StudioCardRefineRequest {
   artifact_id?: string;
   session_id?: string;
   message?: string;
+  refine_mode?: RefineMode;
+  selection_anchor?: StudioSelectionAnchor;
   config?: Record<string, unknown>;
   visibility?: "private" | "project-visible" | "shared";
   source_artifact_id?: string;
@@ -87,6 +140,16 @@ export interface StudioCardSourceArtifact {
   based_on_version_id?: string;
   session_id?: string;
   updated_at?: string;
+}
+
+export interface StudioCardSourceBindingCandidate {
+  required: boolean;
+  mode: "none" | "single_artifact" | "multi_artifact";
+  accepted_types: string[];
+  selected_ids: string[];
+  visibility_scope?: string;
+  status?: string;
+  sources: StudioCardSourceArtifact[];
 }
 
 export interface StudioCardTurnRequest {
@@ -268,7 +331,12 @@ export const studioCardsApi = {
     cardId: string,
     projectId: string,
     sessionId?: string | null
-  ): Promise<ApiEnvelope<{ sources: StudioCardSourceArtifact[] }>> {
+  ): Promise<
+    ApiEnvelope<{
+      sources: StudioCardSourceArtifact[];
+      source_binding_candidates?: StudioCardSourceBindingCandidate;
+    }>
+  > {
     const params = new URLSearchParams({ project_id: projectId });
     if (sessionId?.trim()) {
       params.set("session_id", sessionId.trim());
@@ -276,16 +344,19 @@ export const studioCardsApi = {
     const response = await apiFetch(
       `/api/v1/generate/studio-cards/${encodeURIComponent(cardId)}/sources?${params.toString()}`
     );
-    return parseResponse<ApiEnvelope<{ sources: StudioCardSourceArtifact[] }>>(
-      response,
-      "获取 Studio 卡片源成果失败"
-    );
+    return parseResponse<
+      ApiEnvelope<{
+        sources: StudioCardSourceArtifact[];
+        source_binding_candidates?: StudioCardSourceBindingCandidate;
+      }>
+    >(response, "获取 Studio 卡片源成果失败");
   },
 
   async turn(body: StudioCardTurnRequest): Promise<
     ApiEnvelope<{
       artifact: Record<string, unknown>;
       turn_result: StudioCardTurnResult;
+      latest_runnable_state?: Record<string, unknown>;
     }>
   > {
     const response = await apiFetch(
@@ -300,6 +371,7 @@ export const studioCardsApi = {
       ApiEnvelope<{
         artifact: Record<string, unknown>;
         turn_result: StudioCardTurnResult;
+        latest_runnable_state?: Record<string, unknown>;
       }>
     >(response, "推进课堂问答模拟失败");
   },
