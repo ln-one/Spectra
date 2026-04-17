@@ -76,11 +76,11 @@ def test_diego_create_payload_uses_target_slide_count_and_mode_alias():
             "style_preset": "auto",
             "visual_policy": "auto",
         },
-        diego_project_id="spectra-run-1",
+        diego_project_id="project-1",
     )
 
     assert payload["topic"] == "概率统计"
-    assert payload["project_id"] == "spectra-run-1"
+    assert payload["project_id"] == "project-1"
     assert payload["target_slide_count"] == 16
     assert payload["generation_mode"] == "scratch"
 
@@ -94,9 +94,10 @@ def test_diego_create_payload_keeps_template_fields():
             "template_id": "template-9",
             "style_preset": "auto",
         },
-        diego_project_id="spectra-run-2",
+        diego_project_id="project-2",
     )
 
+    assert payload["project_id"] == "project-2"
     assert payload["target_slide_count"] == 14
     assert payload["generation_mode"] == "template"
     assert payload["template_id"] == "template-9"

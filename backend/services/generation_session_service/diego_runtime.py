@@ -68,6 +68,7 @@ def should_use_diego_for_courseware(*, card_id: str) -> bool:
 async def start_diego_outline_workflow(
     *,
     db,
+    project_id: str,
     session_id: str,
     run,
     options: dict[str, Any],
@@ -85,10 +86,17 @@ async def start_diego_outline_workflow(
             error_code=ErrorCode.RESOURCE_CONFLICT,
             message="课程 run 尚未建立，无法绑定 Diego 任务",
         )
+    normalized_project_id = str(project_id or "").strip()
+    if not normalized_project_id:
+        raise APIException(
+            status_code=409,
+            error_code=ErrorCode.RESOURCE_CONFLICT,
+            message="缺少 project_id，无法绑定 Diego 任务",
+        )
 
     create_payload = build_diego_create_payload(
         options=options,
-        diego_project_id=run.id,
+        diego_project_id=normalized_project_id,
     )
     response = await client.create_run(create_payload)
     diego_run_id = str(response.get("run_id") or "").strip()
@@ -100,7 +108,7 @@ async def start_diego_outline_workflow(
         )
     diego_trace_id = str(response.get("trace_id") or "").strip() or None
     binding = build_diego_binding(
-        diego_project_id=run.id,
+        diego_project_id=normalized_project_id,
         diego_run_id=diego_run_id,
         diego_trace_id=diego_trace_id or "",
         run=run,

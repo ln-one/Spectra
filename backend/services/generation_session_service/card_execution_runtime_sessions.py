@@ -131,6 +131,7 @@ async def execute_studio_card_session_request(
     try:
         await start_diego_outline_workflow(
             db=session_service._db,
+            project_id=body.project_id,
             session_id=session_ref["session_id"],
             run=run,
             options=(
