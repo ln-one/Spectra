@@ -227,9 +227,7 @@ export function SlideCard({
       data-index={slide.index}
       className={cn(
         "slide-card mx-auto mb-10 w-full max-w-6xl overflow-hidden rounded-2xl border bg-white shadow-sm transition-all duration-300",
-        hasMultipleRenderedPreviews
-          ? "min-h-[420px]"
-          : "md:aspect-[16/9]",
+        hasMultipleRenderedPreviews ? "min-h-[420px]" : "md:aspect-[16/9]",
         isActive ? "ring-2 ring-primary/30 shadow-md" : "hover:shadow-md"
       )}
     >

@@ -88,7 +88,9 @@ def _normalized_rendered_preview(
     rendered = payload.get("rendered_preview")
     if not isinstance(rendered, dict):
         return None
-    pages = [dict(item) for item in (rendered.get("pages") or []) if isinstance(item, dict)]
+    pages = [
+        dict(item) for item in (rendered.get("pages") or []) if isinstance(item, dict)
+    ]
     if not pages:
         return None
     return {

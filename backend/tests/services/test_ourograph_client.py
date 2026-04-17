@@ -29,7 +29,9 @@ async def test_ourograph_client_get_project_state_uses_transport(monkeypatch):
 @pytest.mark.asyncio
 async def test_ourograph_client_create_project_reference_returns_namespace(monkeypatch):
     client = OurographClient()
-    request_mock = AsyncMock(return_value={"reference": {"id": "ref-1", "mode": "follow"}})
+    request_mock = AsyncMock(
+        return_value={"reference": {"id": "ref-1", "mode": "follow"}}
+    )
     monkeypatch.setattr(
         "services.ourograph_client_support.commands.request_json",
         request_mock,

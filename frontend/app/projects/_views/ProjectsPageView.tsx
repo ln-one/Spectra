@@ -133,7 +133,9 @@ export default function ProjectsPage() {
                 >
                   <Avatar className="h-10 w-10">
                     <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-600 text-xs font-bold text-white">
-                      {user?.username?.[0]?.toUpperCase() ?? <User className="h-4 w-4" />}
+                      {user?.username?.[0]?.toUpperCase() ?? (
+                        <User className="h-4 w-4" />
+                      )}
                     </AvatarFallback>
                   </Avatar>
                   <ChevronDown className="h-4 w-4 text-zinc-500" />

@@ -217,7 +217,10 @@ class LimoraClient:
             raise ExternalServiceException(
                 message=_read_error_message(response.payload, "获取 Limora 会话失败"),
                 status_code=502 if response.status_code < 500 else response.status_code,
-                details={"status_code": response.status_code, "limora": response.payload},
+                details={
+                    "status_code": response.status_code,
+                    "limora": response.payload,
+                },
                 retryable=response.status_code >= 500,
             )
 

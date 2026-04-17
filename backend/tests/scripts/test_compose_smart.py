@@ -236,7 +236,7 @@ def _run_compose_smart(
         _make_file(root / "diego/README.md", "# Diego\n")
         _make_file(root / "diego/.git", "gitdir: ../.git/modules/diego\n")
     if limora:
-        _make_file(root / "limora/package.json", "{\n  \"name\": \"limora\"\n}\n")
+        _make_file(root / "limora/package.json", '{\n  "name": "limora"\n}\n')
         _make_file(root / "limora/README.md", "# Limora\n")
         _make_file(root / "limora/.git", "gitdir: ../.git/modules/limora\n")
 

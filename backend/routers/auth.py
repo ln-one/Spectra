@@ -29,7 +29,9 @@ def _build_auth_data(user) -> AuthData:
     return AuthData(user=UserInfo.model_validate(user))
 
 
-def _append_set_cookie_headers(response: Response, set_cookie_headers: list[str]) -> None:
+def _append_set_cookie_headers(
+    response: Response, set_cookie_headers: list[str]
+) -> None:
     for header in set_cookie_headers:
         response.headers.append("set-cookie", header)
 
