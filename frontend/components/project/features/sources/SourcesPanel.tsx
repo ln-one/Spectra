@@ -75,8 +75,8 @@ export function SourcesPanel({
       [...referencedLibraries]
         .filter((reference) => reference.status === "active")
         .sort((a, b) => {
-          if (a.relation_type !== b.relation_type) {
-            return a.relation_type === "base" ? -1 : 1;
+          if (a.relationType !== b.relationType) {
+            return a.relationType === "base" ? -1 : 1;
           }
           return (a.priority ?? 999) - (b.priority ?? 999);
         }),
@@ -86,19 +86,22 @@ export function SourcesPanel({
     () =>
       activeReferencedLibraries.map((reference) => {
         const relationLabel =
-          reference.relation_type === "base" ? "主基底" : "辅助";
+          reference.relationType === "base" ? "主基底" : "辅助";
         const modeLabel = reference.mode === "follow" ? "跟随更新" : "固定版本";
         const statusText = `引用库 · ${relationLabel} · ${modeLabel}`;
         const displayName =
-          reference.target_project_name?.trim() || reference.target_project_id;
+          reference.targetProjectName?.trim() ??
+          reference.targetProjectId ??
+          reference.id;
+        const targetProjectId = reference.targetProjectId ?? reference.id;
         const syntheticFile: UploadedFile = {
           id: `reference-${reference.id}`,
-          filename: `${reference.target_project_id}.library`,
+          filename: `${targetProjectId}.library`,
           file_type: "pdf",
           file_size: 0,
           status: "ready",
-          created_at: reference.created_at,
-          updated_at: reference.updated_at,
+          created_at: reference.createdAt,
+          updated_at: reference.updatedAt,
         };
         return {
           id: reference.id,

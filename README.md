@@ -6,11 +6,11 @@ Spectra is a multimodal AI teaching workspace for real instructional workflows: 
 
 The repository has completed its first major structural convergence:
 
-- frontend APIs are unified in `/Users/ln1/Projects/Spectra/frontend/lib/sdk`
+- frontend APIs are unified in `frontend/lib/sdk`
 - large backend routers and services have been refactored into folder-as-module packages
-- FastAPI application assembly has moved into `/Users/ln1/Projects/Spectra/backend/app_setup/`
+- FastAPI application assembly has moved into `backend/app_setup/`
 - `services/` now follows clearer partitions such as `application`, `generation`, `media`, and `platform`
-- the architecture guard is active at `/Users/ln1/Projects/Spectra/backend/scripts/architecture_guard.py`
+- the architecture guard is active at `backend/scripts/architecture_guard.py`
 
 ## Quick Entry Points
 
@@ -28,38 +28,53 @@ The repository has completed its first major structural convergence:
 
 ### Frontend
 
-- `/Users/ln1/Projects/Spectra/frontend/app/`: page entrypoints
-- `/Users/ln1/Projects/Spectra/frontend/components/`: UI components
-- `/Users/ln1/Projects/Spectra/frontend/lib/sdk/`: unified API SDK
-- `/Users/ln1/Projects/Spectra/frontend/stores/`: state management
+- `frontend/app/`: page entrypoints
+- `frontend/components/`: UI components
+- `frontend/lib/sdk/`: unified API SDK
+- `frontend/stores/`: state management
 
 ### Backend
 
-- `/Users/ln1/Projects/Spectra/backend/routers/`: HTTP entry layer
-- `/Users/ln1/Projects/Spectra/backend/services/`: business and infrastructure capabilities
-- `/Users/ln1/Projects/Spectra/backend/app_setup/`: FastAPI application assembly
-- `/Users/ln1/Projects/Spectra/backend/schemas/`: request/response models
-- `/Users/ln1/Projects/Spectra/backend/tests/`: backend tests
+- `backend/routers/`: HTTP entry layer
+- `backend/services/`: business and infrastructure capabilities
+- `backend/app_setup/`: FastAPI application assembly
+- `backend/schemas/`: request/response models
+- `backend/tests/`: backend tests
 
 ## Local Development
 
 ### Docker
 
 ```bash
-docker-compose up --build
+python3 ./scripts/compose_smart.py up
 ```
 
-For more detail, see `/Users/ln1/Projects/Spectra/docs/guides/docker-setup.md`.
-Runtime configuration should come from `/Users/ln1/Projects/Spectra/backend/.env`, using `/Users/ln1/Projects/Spectra/backend/.env.example` as the template.
+For more detail, see `docs/guides/docker-setup.md`.
+Runtime configuration for Spectra should come from `backend/.env`, using `backend/.env.example` as the template.
+Ourograph keeps a separate database contract inside compose and does not reuse Spectra's `DATABASE_URL`.
+When local-source override mode is enabled, `docker-compose.ourograph.dev.yml` is expected to preserve the base
+`OUROGRAPH_DATABASE_URL`, Postgres bootstrap mount, and readiness probe from `docker-compose.yml`.
+With the current bootstrap model, PostgreSQL creates the `ourograph` database during first cluster initialization;
+the old one-shot `ourograph_db_init` service is no longer part of the default stack.
 
-Dualweave is consumed as a Docker service in two modes:
+`compose_smart.py up` is now the recommended day-to-day entrypoint: it auto-runs
+`sync` when the compose lock env is missing or stale, and when local private
+service source trees are detected it automatically adds `--build` so you do not
+need a separate rebuild step just to pick up source changes.
 
-- default/team mode: `/Users/ln1/Projects/Spectra/docker-compose.yml` pulls `ghcr.io/ln-one/dualweave-service:latest`
-- local Dualweave iteration: add `/Users/ln1/Projects/Spectra/docker-compose.dev.yml` so Spectra builds from your sibling checkout
+The five private microservices are consumed in two modes:
+
+- default/team mode: `docker-compose.yml` pulls the locked GHCR images for `Pagevra`, `Dualweave`, `Ourograph`, `Stratumind`, and `Diego`
+- maintainer mode: initialize the matching submodule and let `python3 ./scripts/compose_smart.py` switch that service to a local source build automatically
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+git submodule update --init --recursive dualweave
+python3 ./scripts/compose_smart.py up --build
 ```
+
+When a service submodule is initialized, the smart compose entrypoint prefers
+that local source tree over the locked image. Locked images remain the default
+path for environments that do not have submodule access.
 
 If Dualweave is used as an external upload orchestration service, configure the
 backend with:
@@ -75,6 +90,47 @@ Dualweave over HTTP rather than embedding the Go runtime directly. Dualweave
 returns a standard upload result plus `processing_artifact.result_url`; Spectra
 still owns downloading that artifact and extracting markdown for indexing, so
 the boundary stays at the artifact reference layer.
+
+Pagevra, Dualweave, Ourograph, Stratumind, and Diego all follow the same pattern:
+normal developers consume the locked image, while maintainers can initialize
+submodules and keep using the same smart compose entrypoint for local builds.
+
+`compose_smart.py` is the only entrypoint for service image orchestration.
+The core commands are:
+
+- `status`: show the current channel, local-source overrides, and the locked image refs
+- `sync --channel develop|main`: pull the currently approved locked images and write `.env.compose.lock` plus a root `.env` mirror for plain `docker compose`
+- `doctor`: validate Docker, lock-file completeness, and compose readiness
+- `up --build`: start the stack with local-source overrides when present
+
+`compose_smart.py status` will print the current mode for each private service:
+
+- `Pagevra`: local source or docker image
+- `Dualweave`: local source or docker image
+- `Ourograph`: local source or docker image
+- `Stratumind`: local source or docker image
+- `Diego`: local source or docker image
+
+Current default behavior:
+
+- Spectra reads `infra/stack-lock.develop.json` on non-`main` branches and `infra/stack-lock.main.json` on `main`
+- base compose consumes the lock-generated image refs, and plain `docker compose` works after `sync` because the same refs are mirrored into the root `.env`
+- if a local `pagevra/`, `dualweave/`, `ourograph/`, `stratumind/`, or `diego/` source checkout exists, `compose_smart.py` adds the matching override file and uses local source mode for that service
+- if a lock entry is still unpublished, `sync` and `doctor` fail explicitly instead of drifting to a floating tag
+
+Recommended onboarding for developers without microservice repo access:
+
+```bash
+python3 ./scripts/compose_smart.py up -d
+```
+
+This path does not require initializing any submodule. The contract is that the
+locked GHCR images must remain anonymously pullable. `sync` and `doctor` now
+verify anonymous GHCR token + manifest access for every image-mode service and
+fail explicitly if a package is still private.
+
+The legacy shell wrapper `scripts/compose-smart.sh`
+now forwards to the Python entrypoint for compatibility.
 
 ### Backend
 
@@ -96,9 +152,9 @@ npm run dev
 
 ## Read These First
 
-1. `/Users/ln1/Projects/Spectra/docs/project/SYSTEM_PHILOSOPHY_2026-03-19.md`
-2. `/Users/ln1/Projects/Spectra/docs/standards/backend.md`
-3. `/Users/ln1/Projects/Spectra/docs/standards/frontend.md`
-4. `/Users/ln1/Projects/Spectra/AGENTS.md`
-5. `/Users/ln1/Projects/Spectra/backend/scripts/architecture_guard.py`
-6. `/Users/ln1/Projects/Spectra/docs/remaining-work-battle-plan.md`
+1. `docs/project/SYSTEM_PHILOSOPHY_2026-03-19.md`
+2. `docs/standards/backend.md`
+3. `docs/standards/frontend.md`
+4. `AGENTS.md`
+5. `backend/scripts/architecture_guard.py`
+6. `docs/remaining-work-battle-plan.md`

@@ -1,68 +1,121 @@
 """
-RAG Service 测试（使用临时 ChromaDB + mock embedding）
+RAG Service tests backed by the Stratumind client contract.
 """
-
-import hashlib
 
 import pytest
 
-from services.media.vector import VectorService
 from services.rag_service import ParsedChunkData, RAGService
 
 
-class MockEmbeddingService:
-    """Mock embedding service，返回固定维度向量"""
+class _StubClient:
+    def __init__(self):
+        self.indexed: dict[str, dict[str, dict]] = {}
+        self.index_calls: list[int] = []
 
-    def __init__(self, dimension=3):
-        self._dim = dimension
-        self._call_count = 0
+    async def index_chunks(self, *, project_id: str, chunks: list[dict]):
+        self.index_calls.append(len(chunks))
+        project_chunks = self.indexed.setdefault(project_id, {})
+        for chunk in chunks:
+            project_chunks[chunk["chunk_id"]] = chunk
+        return {"indexed_count": len(chunks)}
 
-    async def embed_text(self, text: str) -> list[float]:
-        """根据文本内容生成稳定、低碰撞的确定性向量"""
-        self._call_count += 1
-        digest = hashlib.sha256(text.encode("utf-8")).digest()
-        vector = []
-        for i in range(self._dim):
-            start = (i * 4) % len(digest)
-            chunk = digest[start : start + 4]
-            if len(chunk) < 4:
-                chunk += digest[: 4 - len(chunk)]
-            value = int.from_bytes(chunk, "big") / 0xFFFFFFFF
-            vector.append(value)
-        return vector
+    async def search_text(
+        self,
+        *,
+        project_id: str,
+        query: str,
+        top_k: int = 5,
+        session_id: str | None = None,
+        filters: dict | None = None,
+        planning: dict | None = None,
+        response: dict | None = None,
+    ):
+        del query
+        del planning
+        del response
+        filters = filters or {}
+        project_chunks = list(self.indexed.get(project_id, {}).values())
+        results = []
+        for chunk in project_chunks:
+            metadata = dict(chunk.get("metadata") or {})
+            if session_id and metadata.get("session_id") != session_id:
+                continue
+            if (
+                filters.get("file_ids")
+                and metadata.get("upload_id") not in filters["file_ids"]
+            ):
+                continue
+            if (
+                filters.get("file_types")
+                and metadata.get("source_type") not in filters["file_types"]
+            ):
+                continue
+            results.append(
+                {
+                    "chunk_id": chunk["chunk_id"],
+                    "content": chunk["content"],
+                    "score": 0.9,
+                    "project_id": project_id,
+                    "source_scope": "local_session" if session_id else "local_project",
+                    "source_type": metadata.get("source_type", "document"),
+                    "filename": metadata.get("filename", ""),
+                    "file_id": metadata.get("upload_id"),
+                    "page_number": metadata.get("page_number"),
+                    "session_id": metadata.get("session_id"),
+                    "metadata": metadata,
+                }
+            )
+        return {"results": results[:top_k], "total": min(len(results), top_k)}
 
-    async def embed_texts(self, texts: list[str]) -> list[list[float]]:
-        return [await self.embed_text(t) for t in texts]
+    async def get_source_detail(self, *, project_id: str, chunk_id: str):
+        project_chunks = self.indexed.get(project_id, {})
+        chunk = project_chunks.get(chunk_id)
+        if chunk is None:
+            return None
+        metadata = dict(chunk.get("metadata") or {})
+        return {
+            "chunk_id": chunk_id,
+            "content": chunk["content"],
+            "source_type": metadata.get("source_type", "document"),
+            "filename": metadata.get("filename", ""),
+            "page_number": metadata.get("page_number"),
+            "context": {
+                "previous_chunk": "prev" if metadata.get("chunk_index", 0) > 0 else "",
+                "next_chunk": "next",
+            },
+        }
 
-    def get_dimension(self) -> int:
-        return self._dim
+    async def delete_project_index(self, *, project_id: str):
+        self.indexed.pop(project_id, None)
+        return {"deleted": True}
+
+    async def delete_upload_index(self, *, project_id: str, upload_id: str):
+        project_chunks = self.indexed.get(project_id, {})
+        to_delete = [
+            chunk_id
+            for chunk_id, chunk in project_chunks.items()
+            if (chunk.get("metadata") or {}).get("upload_id") == upload_id
+        ]
+        for chunk_id in to_delete:
+            project_chunks.pop(chunk_id, None)
+        return {"deleted": True}
 
 
 @pytest.fixture
-def mock_emb():
-    return MockEmbeddingService()
-
-
-@pytest.fixture
-def vec_svc(tmp_path):
-    return VectorService(persist_dir=str(tmp_path / "chroma_test"))
-
-
-@pytest.fixture
-def rag_svc(vec_svc, mock_emb):
-    return RAGService(vec_service=vec_svc, emb_service=mock_emb)
+def rag_svc():
+    service = RAGService()
+    service._client = _StubClient()
+    return service
 
 
 class TestIndexChunks:
-    """向量化入库测试"""
-
     @pytest.mark.asyncio
     async def test_index_empty_list(self, rag_svc):
         count = await rag_svc.index_chunks("proj-1", [])
         assert count == 0
 
     @pytest.mark.asyncio
-    async def test_index_and_count(self, rag_svc, vec_svc):
+    async def test_index_and_count(self, rag_svc):
         chunks = [
             ParsedChunkData(
                 chunk_id="c1",
@@ -77,157 +130,151 @@ class TestIndexChunks:
         ]
         count = await rag_svc.index_chunks("proj-idx", chunks)
         assert count == 2
-
-        col = vec_svc.get_or_create_collection("proj-idx")
-        assert col.count() == 2
+        assert len(rag_svc._client.indexed["proj-idx"]) == 2
 
     @pytest.mark.asyncio
-    async def test_upsert_idempotent(self, rag_svc, vec_svc):
-        """重复入库同一 chunk 不应报错"""
-        chunk = ParsedChunkData(
-            chunk_id="c-dup",
-            content="重复内容",
-            metadata={"source_type": "pdf", "filename": "dup.pdf"},
-        )
-        await rag_svc.index_chunks("proj-dup", [chunk])
-        await rag_svc.index_chunks("proj-dup", [chunk])
+    async def test_index_chunks_batches_large_requests(self, rag_svc, monkeypatch):
+        monkeypatch.setenv("STRATUMIND_INDEX_BATCH_SIZE", "64")
+        chunks = [
+            ParsedChunkData(
+                chunk_id=f"c{i}",
+                content=f"content {i}",
+                metadata={"source_type": "pdf", "filename": "large.pdf"},
+            )
+            for i in range(65)
+        ]
 
-        col = vec_svc.get_or_create_collection("proj-dup")
-        assert col.count() == 1
+        count = await rag_svc.index_chunks("proj-batch", chunks)
+
+        assert count == 65
+        assert rag_svc._client.index_calls == [64, 1]
 
 
 class TestSearch:
-    """语义检索测试"""
-
     @pytest.mark.asyncio
-    async def test_search_empty_collection(self, rag_svc, vec_svc):
+    async def test_search_empty_collection(self, rag_svc):
         results = await rag_svc.search("proj-empty", "任意查询")
         assert results == []
-        assert vec_svc.get_collection_if_exists("proj-empty") is None
 
     @pytest.mark.asyncio
     async def test_search_returns_results(self, rag_svc):
-        chunks = [
-            ParsedChunkData(
-                chunk_id="s1",
-                content="Python 是一种编程语言",
-                metadata={
-                    "source_type": "document",
-                    "filename": "intro.pdf",
-                },
-            ),
-            ParsedChunkData(
-                chunk_id="s2",
-                content="Java 也是一种编程语言",
-                metadata={
-                    "source_type": "document",
-                    "filename": "intro.pdf",
-                },
-            ),
-        ]
-        await rag_svc.index_chunks("proj-search", chunks)
+        await rag_svc.index_chunks(
+            "proj-search",
+            [
+                ParsedChunkData(
+                    chunk_id="s1",
+                    content="Python 是一种编程语言",
+                    metadata={"source_type": "document", "filename": "intro.pdf"},
+                ),
+                ParsedChunkData(
+                    chunk_id="s2",
+                    content="Java 也是一种编程语言",
+                    metadata={"source_type": "document", "filename": "intro.pdf"},
+                ),
+            ],
+        )
         results = await rag_svc.search("proj-search", "编程语言", top_k=2)
         assert len(results) == 2
-        assert all(r.chunk_id in ("s1", "s2") for r in results)
-        assert all(r.score > 0 for r in results)
+        assert {r.chunk_id for r in results} == {"s1", "s2"}
 
     @pytest.mark.asyncio
-    async def test_search_top_k(self, rag_svc):
-        chunks = [
-            ParsedChunkData(
-                chunk_id=f"tk-{i}",
-                content=f"内容片段 {i}",
-                metadata={"source_type": "pdf", "filename": "f.pdf"},
-            )
-            for i in range(5)
-        ]
-        await rag_svc.index_chunks("proj-topk", chunks)
-        results = await rag_svc.search("proj-topk", "内容", top_k=2)
-        assert len(results) <= 2
+    async def test_search_filters_by_session_and_file(self, rag_svc):
+        await rag_svc.index_chunks(
+            "proj-session",
+            [
+                ParsedChunkData(
+                    chunk_id="s1",
+                    content="session content",
+                    metadata={
+                        "source_type": "pdf",
+                        "filename": "a.pdf",
+                        "session_id": "sess-1",
+                        "upload_id": "file-1",
+                    },
+                ),
+                ParsedChunkData(
+                    chunk_id="s2",
+                    content="project content",
+                    metadata={
+                        "source_type": "pdf",
+                        "filename": "b.pdf",
+                        "session_id": "sess-2",
+                        "upload_id": "file-2",
+                    },
+                ),
+            ],
+        )
+        results = await rag_svc.search(
+            "proj-session",
+            "content",
+            top_k=5,
+            session_id="sess-1",
+            filters={"file_ids": ["file-1"]},
+        )
+        assert [r.chunk_id for r in results] == ["s1"]
 
 
 class TestGetChunkDetail:
-    """分块详情测试"""
-
     @pytest.mark.asyncio
     async def test_get_existing_chunk(self, rag_svc):
-        chunks = [
-            ParsedChunkData(
-                chunk_id="d1",
-                content="详情测试内容",
-                metadata={
-                    "source_type": "pdf",
-                    "filename": "test.pdf",
-                    "chunk_index": 0,
-                    "upload_id": "u1",
-                },
-            ),
-        ]
-        await rag_svc.index_chunks("proj-detail", chunks)
+        await rag_svc.index_chunks(
+            "proj-detail",
+            [
+                ParsedChunkData(
+                    chunk_id="d1",
+                    content="详情测试内容",
+                    metadata={
+                        "source_type": "pdf",
+                        "filename": "test.pdf",
+                        "chunk_index": 1,
+                        "upload_id": "u1",
+                    },
+                ),
+            ],
+        )
         detail = await rag_svc.get_chunk_detail("d1", project_id="proj-detail")
         assert detail is not None
         assert detail.chunk_id == "d1"
-        assert detail.content == "详情测试内容"
+        assert detail.source.filename == "test.pdf"
+        assert detail.context is not None
 
     @pytest.mark.asyncio
     async def test_get_nonexistent_chunk(self, rag_svc):
         detail = await rag_svc.get_chunk_detail("nonexistent", project_id="proj-none")
         assert detail is None
 
+
+class TestDeleteIndex:
     @pytest.mark.asyncio
-    async def test_chunk_context(self, rag_svc):
-        """测试前后 chunk 上下文"""
-        chunks = [
-            ParsedChunkData(
-                chunk_id=f"ctx-{i}",
-                content=f"第 {i} 段内容",
-                metadata={
-                    "source_type": "pdf",
-                    "filename": "ctx.pdf",
-                    "chunk_index": i,
-                    "upload_id": "u-ctx",
-                },
-            )
-            for i in range(3)
-        ]
-        await rag_svc.index_chunks("proj-ctx", chunks)
-        detail = await rag_svc.get_chunk_detail("ctx-1", project_id="proj-ctx")
-        assert detail is not None
-        if detail.context:
-            assert detail.context.previous_chunk is not None
-            assert detail.context.next_chunk is not None
-
-
-class TestDeleteProjectIndex:
-    """删除项目索引测试"""
-
-    @pytest.mark.asyncio
-    async def test_delete_existing(self, rag_svc, vec_svc):
-        chunks = [
-            ParsedChunkData(
-                chunk_id="del-1",
-                content="待删除",
-                metadata={"source_type": "pdf", "filename": "d.pdf"},
-            ),
-        ]
-        await rag_svc.index_chunks("proj-del", chunks)
+    async def test_delete_existing(self, rag_svc):
+        await rag_svc.index_chunks(
+            "proj-del",
+            [
+                ParsedChunkData(
+                    chunk_id="del-1",
+                    content="待删除",
+                    metadata={"source_type": "pdf", "filename": "d.pdf"},
+                ),
+            ],
+        )
         assert await rag_svc.delete_project_index("proj-del") is True
+        assert rag_svc._client.indexed.get("proj-del") is None
 
 
 class TestScoreThreshold:
-    """score_threshold 过滤测试（D-5.3）"""
-
     @pytest.fixture
     async def indexed_svc(self, rag_svc):
-        chunks = [
-            ParsedChunkData(
-                chunk_id=f"thr-{i}",
-                content=f"内容片段{i}",
-                metadata={"source_type": "pdf", "filename": "test.pdf"},
-            )
-            for i in range(5)
-        ]
-        await rag_svc.index_chunks("proj-thr", chunks)
+        await rag_svc.index_chunks(
+            "proj-thr",
+            [
+                ParsedChunkData(
+                    chunk_id=f"thr-{i}",
+                    content=f"内容片段{i}",
+                    metadata={"source_type": "pdf", "filename": "test.pdf"},
+                )
+                for i in range(5)
+            ],
+        )
         return rag_svc
 
     @pytest.mark.asyncio
@@ -238,28 +285,8 @@ class TestScoreThreshold:
         assert len(results) == 5
 
     @pytest.mark.asyncio
-    async def test_threshold_one_returns_none(self, indexed_svc):
-        """阈值为 1.0 时，除完全匹配外应全部过滤"""
-        results = await indexed_svc.search(
-            "proj-thr", "完全不相关的查询xyz", top_k=5, score_threshold=1.0
-        )
-        assert len(results) == 0
-
-    @pytest.mark.asyncio
     async def test_threshold_filters_low_scores(self, indexed_svc):
-        """高阈值应比低阈值返回更少结果"""
-        low = await indexed_svc.search("proj-thr", "内容", top_k=5, score_threshold=0.0)
-        high = await indexed_svc.search(
-            "proj-thr", "内容", top_k=5, score_threshold=0.9
-        )
-        assert len(high) <= len(low)
-
-    @pytest.mark.asyncio
-    async def test_results_above_threshold(self, indexed_svc):
-        """返回的结果 score 均应 >= threshold"""
-        threshold = 0.5
         results = await indexed_svc.search(
-            "proj-thr", "内容片段", top_k=5, score_threshold=threshold
+            "proj-thr", "内容", top_k=5, score_threshold=0.95
         )
-        for r in results:
-            assert r.score >= threshold
+        assert results == []

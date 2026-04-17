@@ -5,6 +5,11 @@ from typing import Optional
 from fastapi import BackgroundTasks, Request
 
 from services.database import db_service
+from services.file_upload_service.remote_parse import (
+    enqueue_remote_parse_reconcile,
+    is_deferred_parse_result,
+    reconcile_remote_parse_until_terminal,
+)
 from services.task_queue.status import inspect_worker_availability
 from services.task_queue.status_constants import QueueWorkerAvailability
 from utils.upstream_failures import describe_upstream_failure
@@ -32,6 +37,7 @@ async def index_upload_for_rag(
     session_id: Optional[str] = None,
     parse_provider_override: Optional[str] = None,
     fallback_triggered: bool = False,
+    task_queue_service=None,
 ):
     try:
         from services.media.rag_indexing import (
@@ -49,6 +55,27 @@ async def index_upload_for_rag(
             parse_provider_override=parse_provider_override,
             fallback_triggered=fallback_triggered,
         )
+        if is_deferred_parse_result(parse_result):
+            await db_service.update_upload_status(
+                upload.id,
+                status=UploadStatus.PARSING.value,
+                parse_result=parse_result,
+                error_message=None,
+            )
+            if task_queue_service is not None:
+                enqueue_remote_parse_reconcile(
+                    task_queue_service=task_queue_service,
+                    file_id=upload.id,
+                    project_id=project_id,
+                    session_id=session_id,
+                )
+            else:
+                await reconcile_remote_parse_until_terminal(
+                    db=db_service,
+                    file_id=upload.id,
+                    session_id=session_id,
+                )
+            return
         await db_service.update_upload_status(
             upload.id,
             status=UploadStatus.READY.value,
@@ -117,4 +144,5 @@ def dispatch_rag_indexing(
         session_id,
         parse_provider_override,
         fallback_triggered,
+        None,
     )

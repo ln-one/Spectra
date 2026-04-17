@@ -112,16 +112,17 @@ async def _post_with_retry(
     raise RuntimeError(f"POST 请求失败: url={url}, error={last_exc}")
 
 
-async def _resolve_api_token(
+async def _ensure_api_session(
     client: httpx.AsyncClient,
     api_base_url: str,
     token: str | None,
     email: str | None,
     password: str | None,
     username: str | None,
-) -> str:
+) -> None:
     if token:
-        return token
+        client.headers["Authorization"] = f"Bearer {token}"
+        return
 
     if not email or not password:
         raise ValueError(
@@ -140,11 +141,7 @@ async def _resolve_api_token(
         json=register_payload,
     )
     if 200 <= register.status_code < 300:
-        data = _parse_json_safely(register).get("data", {})
-        resolved = data.get("access_token")
-        if resolved:
-            return resolved
-        raise RuntimeError("register 成功但响应缺少 access_token")
+        return
 
     login = await _post_with_retry(
         client,
@@ -159,17 +156,12 @@ async def _resolve_api_token(
             f"login_status={login.status_code}, login_body={_short_body(login)}"
         )
 
-    data = _parse_json_safely(login).get("data", {})
-    resolved = data.get("access_token")
-    if not resolved:
-        raise RuntimeError("login 成功但响应缺少 access_token")
-    return resolved
+    return
 
 
 async def run_single_case_via_api(
     client: httpx.AsyncClient,
     api_base_url: str,
-    token: str,
     case: dict,
     top_k: int,
 ) -> EvalResult:
@@ -179,7 +171,6 @@ async def run_single_case_via_api(
         resp = await _post_with_retry(
             client,
             f"{api_base_url}/rag/search",
-            headers={"Authorization": f"Bearer {token}"},
             json={
                 "project_id": case["project_id"],
                 "query": case["query"],
@@ -259,7 +250,7 @@ async def run_eval(
     if api_base_url:
         normalized_base = api_base_url.rstrip("/")
         async with httpx.AsyncClient(timeout=30.0) as client:
-            token = await _resolve_api_token(
+            await _ensure_api_session(
                 client=client,
                 api_base_url=normalized_base,
                 token=api_token,
@@ -271,7 +262,6 @@ async def run_eval(
                 result = await run_single_case_via_api(
                     client=client,
                     api_base_url=normalized_base,
-                    token=token,
                     case=case,
                     top_k=top_k,
                 )

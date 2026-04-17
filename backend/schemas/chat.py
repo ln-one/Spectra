@@ -146,6 +146,9 @@ class ChatObservability(BaseModel):
     )
     fallback_triggered: bool = Field(..., description="是否触发了降级回退")
     latency_ms: Optional[float] = Field(None, description="链路耗时（毫秒）")
+    total_duration_ms: Optional[float] = Field(
+        None, description="整个聊天请求总耗时（毫秒）"
+    )
     provider_model: Optional[str] = Field(None, description="底层 provider 模型")
     prompt_hash: Optional[str] = Field(None, description="提示词摘要")
     response_hash: Optional[str] = Field(None, description="响应摘要")
@@ -160,6 +163,10 @@ class ChatObservability(BaseModel):
     retrieval_mode: Optional[str] = Field(None, description="检索语义模式")
     policy_version: Optional[str] = Field(None, description="提示词/规则策略版本")
     baseline_id: Optional[str] = Field(None, description="提示词评测基线版本")
+    stage_timings_ms: Optional[Dict[str, float]] = Field(
+        None,
+        description="聊天请求各阶段耗时（毫秒）",
+    )
 
     @field_validator("route_task", mode="before")
     @classmethod

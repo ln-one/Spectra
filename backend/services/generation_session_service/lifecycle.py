@@ -15,15 +15,7 @@ from services.generation_session_service.session_history import (
 from services.platform.generation_event_constants import GenerationEventType
 from services.platform.state_transition_guard import GenerationState
 
-from .helpers import _to_session_ref
-
-_REUSABLE_SESSION_STATES = {
-    GenerationState.IDLE.value,
-    GenerationState.CONFIGURING.value,
-    GenerationState.AWAITING_OUTLINE_CONFIRM.value,
-    GenerationState.FAILED.value,
-    GenerationState.SUCCESS.value,
-}
+from .serialization_helpers import _to_session_ref
 
 
 async def _resolve_next_default_session_title(db, project_id: str) -> str:
@@ -43,12 +35,13 @@ async def create_session(
     client_session_id: Optional[str],
     bootstrap_only: bool,
     allow_create: bool,
-    task_queue_service,
     contract_version: str,
     schema_version: int,
     append_event,
-    schedule_outline_draft_task,
 ) -> dict:
+    if not bootstrap_only:
+        raise RuntimeError("legacy_non_bootstrap_generation_session_start_removed")
+
     resolved_options = await apply_public_library_inputs(
         db=db,
         project_id=project_id,
@@ -89,49 +82,6 @@ async def create_session(
         ):
             update_data["baseVersionId"] = project_base_version_id
 
-        if bootstrap_only:
-            session = await db.generationsession.update(
-                where={"id": existing_session.id},
-                data=update_data,
-            )
-            return _to_session_ref(session, contract_version, schema_version)
-
-        if existing_session.state in _REUSABLE_SESSION_STATES:
-            update_data.update(
-                {
-                    "state": GenerationState.DRAFTING_OUTLINE.value,
-                    "stateReason": SessionLifecycleReason.SESSION_REUSED.value,
-                    "progress": 0,
-                    "renderVersion": 0,
-                    "currentOutlineVersion": 0,
-                    "resumable": True,
-                    "pptUrl": None,
-                    "wordUrl": None,
-                    "errorCode": None,
-                    "errorMessage": None,
-                    "errorRetryable": False,
-                }
-            )
-            session = await db.generationsession.update(
-                where={"id": existing_session.id},
-                data=update_data,
-            )
-            await append_event(
-                session_id=session.id,
-                event_type=GenerationEventType.STATE_CHANGED.value,
-                state=GenerationState.DRAFTING_OUTLINE.value,
-                state_reason=SessionLifecycleReason.SESSION_REUSED.value,
-                progress=0,
-                payload={"reason": SessionLifecycleReason.SESSION_REUSED.value},
-            )
-            await schedule_outline_draft_task(
-                session_id=session.id,
-                project_id=project_id,
-                options=resolved_options,
-                task_queue_service=task_queue_service,
-            )
-            return _to_session_ref(session, contract_version, schema_version)
-
         session = await db.generationsession.update(
             where={"id": existing_session.id},
             data=update_data,
@@ -143,11 +93,7 @@ async def create_session(
             "Existing generation session is required when allow_create is False"
         )
 
-    initial_state = (
-        GenerationState.IDLE.value
-        if bootstrap_only
-        else GenerationState.DRAFTING_OUTLINE.value
-    )
+    initial_state = GenerationState.IDLE.value
     session_id = str(uuid4())
     default_display_title = await _resolve_next_default_session_title(db, project_id)
     session = await db.generationsession.create(
@@ -175,13 +121,5 @@ async def create_session(
         progress=0,
         payload={"reason": SessionLifecycleReason.SESSION_CREATED.value},
     )
-
-    if not bootstrap_only:
-        await schedule_outline_draft_task(
-            session_id=session.id,
-            project_id=project_id,
-            options=resolved_options,
-            task_queue_service=task_queue_service,
-        )
 
     return _to_session_ref(session, contract_version, schema_version)

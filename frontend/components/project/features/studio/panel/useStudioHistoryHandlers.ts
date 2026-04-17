@@ -5,7 +5,11 @@ import type { GenerationToolType } from "@/lib/project-space/artifact-history";
 import { useProjectStore } from "@/stores/projectStore";
 import type { StudioChatContext } from "@/stores/project-store/types";
 import { TOOL_LABELS, type StudioTool } from "../constants";
-import type { StudioHistoryItem, StudioHistoryStep } from "../history/types";
+import type {
+  StudioHistoryItem,
+  StudioHistoryStep,
+  StudioPptHistoryStatus,
+} from "../history/types";
 import type { StudioToolKey } from "../tools";
 import { normalizeHistoryStep } from "./utils";
 
@@ -48,6 +52,7 @@ interface UseStudioHistoryHandlersArgs {
       | "completed"
       | "failed";
     step: StudioHistoryStep;
+    ppt_status?: StudioPptHistoryStatus;
     sessionId?: string | null;
     runId?: string;
     runNo?: number;
@@ -157,8 +162,9 @@ export function useStudioHistoryHandlers({
               toolType: "ppt",
               title:
                 item.title || (isFinished ? "PPT Preview" : "PPT Generating"),
-              status: isFinished ? "previewing" : "processing",
+              status: isFinished ? "completed" : "processing",
               step: "preview",
+              ppt_status: isFinished ? undefined : "slides_generating",
               sessionId,
               runId,
               toolLabel: TOOL_LABELS.ppt,
@@ -177,10 +183,31 @@ export function useStudioHistoryHandlers({
       }
 
       if (item.toolType === "ppt") {
+        const hasPinnedPreviewAnchor = Boolean(item.artifactId || item.runId);
+        const shouldPreferPinnedPreview =
+          sessionId &&
+          hasPinnedPreviewAnchor &&
+          (item.origin === "artifact" ||
+            item.step === "preview" ||
+            item.status === "previewing" ||
+            item.status === "completed" ||
+            item.status === "failed");
+        if (shouldPreferPinnedPreview) {
+          const previewHref = openPptPreviewPage(
+            sessionId,
+            item.artifactId,
+            item.runId || undefined
+          );
+          if (previewHref) {
+            router.push(previewHref);
+            return;
+          }
+        }
         const canOpenPreviewDirectly =
           Boolean(item.artifactId) ||
           item.status === "previewing" ||
-          item.status === "completed";
+          item.status === "completed" ||
+          item.status === "failed";
         if (
           (item.origin === "artifact" || item.step === "preview") &&
           canOpenPreviewDirectly

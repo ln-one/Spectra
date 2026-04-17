@@ -169,11 +169,6 @@ export interface ProjectState {
     projectId?: string | null
   ) => Promise<void>;
   clearActiveSource: () => void;
-  startGeneration: (
-    projectId: string,
-    tool: GenerationTool,
-    options?: GenerationOptions
-  ) => Promise<string | null>;
   fetchGenerationHistory: (projectId: string) => Promise<void>;
   fetchArtifactHistory: (
     projectId: string,

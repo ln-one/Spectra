@@ -15,7 +15,6 @@ LOCAL_RUNTIME_DEFAULTS = {
     "UPLOAD_DIR": "uploads",
     "ARTIFACT_STORAGE_DIR": "uploads/artifacts",
     "GENERATED_DIR": "generated",
-    "CHROMA_PERSIST_DIR": "chroma_data",
 }
 
 
@@ -70,12 +69,7 @@ def evaluate_storage_readiness(env: Mapping[str, str]) -> tuple[list[str], int]:
     messages = ["Storage deployment readiness audit"]
     failures = 0
 
-    for name in (
-        "UPLOAD_DIR",
-        "ARTIFACT_STORAGE_DIR",
-        "GENERATED_DIR",
-        "CHROMA_PERSIST_DIR",
-    ):
+    for name in ("UPLOAD_DIR", "ARTIFACT_STORAGE_DIR", "GENERATED_DIR"):
         path_messages, path_failures = _check_storage_path(name, env.get(name))
         messages.extend(path_messages)
         failures += path_failures

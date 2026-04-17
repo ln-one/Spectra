@@ -4,9 +4,13 @@ import json
 import logging
 from typing import Optional
 
-from services.database.prisma_compat import find_many_with_select_fallback
-
 logger = logging.getLogger(__name__)
+
+
+def _read_field(record, field_name: str):
+    if isinstance(record, dict):
+        return record.get(field_name)
+    return getattr(record, field_name, None)
 
 
 async def build_user_requirements(
@@ -39,11 +43,17 @@ async def build_user_requirements(
 
     if rag_source_ids:
         try:
-            selected_uploads = await find_many_with_select_fallback(
-                model=db_service.db.upload,
-                where={"projectId": project_id, "id": {"in": rag_source_ids}},
-                select={"filename": True, "status": True},
-            )
+            # Try to select only required fields for performance
+            try:
+                selected_uploads = await db_service.db.upload.find_many(
+                    where={"projectId": project_id, "id": {"in": rag_source_ids}},
+                    select={"filename": True, "status": True},
+                )
+            except TypeError:
+                # Fallback if select is not supported
+                selected_uploads = await db_service.db.upload.find_many(
+                    where={"projectId": project_id, "id": {"in": rag_source_ids}},
+                )
         except Exception as exc:
             logger.warning(
                 "Failed to resolve selected uploads for requirements: %s",
@@ -54,7 +64,10 @@ async def build_user_requirements(
                 requirements_parts.append("\n本次限定参考资料：")
                 for upload in selected_uploads:
                     requirements_parts.append(
-                        f"- {upload.filename}（状态：{upload.status}）"
+                        (
+                            f"- {_read_field(upload, 'filename')}"
+                            f"（状态：{_read_field(upload, 'status')}）"
+                        )
                     )
 
     return "\n".join(requirements_parts)

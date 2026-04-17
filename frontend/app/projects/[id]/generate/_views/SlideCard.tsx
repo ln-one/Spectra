@@ -5,7 +5,16 @@ import remarkGfm from "remark-gfm";
 import { cn } from "@/lib/utils";
 import type { components } from "@/lib/sdk/types";
 
-type Slide = components["schemas"]["Slide"];
+type Slide = components["schemas"]["Slide"] & {
+  rendered_html_preview?: string | null;
+  rendered_previews?: RenderedPreviewFrame[];
+};
+type RenderedPreviewFrame = {
+  image_url?: string | null;
+  html_preview?: string | null;
+  split_index: number;
+  split_count: number;
+};
 
 type MarkdownTable = {
   headers: string[];
@@ -162,14 +171,42 @@ export function SlideCard({
   onModify,
   isRegenerating = false,
   onOpenPreview,
+  isPreviewTerminalFailed = false,
 }: {
   slide: Slide;
   isActive: boolean;
   onModify?: (slide: Slide) => void;
   isRegenerating?: boolean;
   onOpenPreview?: (slide: Slide) => void;
+  isPreviewTerminalFailed?: boolean;
 }) {
-  const hasRenderedPreview = Boolean(slide.thumbnail_url);
+  const renderedPreviews = useMemo(() => {
+    if (
+      Array.isArray(slide.rendered_previews) &&
+      slide.rendered_previews.length
+    ) {
+      return [...slide.rendered_previews].sort(
+        (a, b) => (a.split_index ?? 0) - (b.split_index ?? 0)
+      );
+    }
+    if (slide.thumbnail_url || slide.rendered_html_preview) {
+      return [
+        {
+          image_url: slide.thumbnail_url,
+          html_preview: slide.rendered_html_preview,
+          split_index: 0,
+          split_count: 1,
+        },
+      ];
+    }
+    return [];
+  }, [
+    slide.rendered_html_preview,
+    slide.rendered_previews,
+    slide.thumbnail_url,
+  ]);
+  const hasRenderedPreview = renderedPreviews.length > 0;
+  const hasMultipleRenderedPreviews = renderedPreviews.length > 1;
   const table = useMemo(
     () => extractFirstMarkdownTable(slide.content || ""),
     [slide.content]
@@ -189,8 +226,10 @@ export function SlideCard({
       id={slide.id || `slide-${slide.index}`}
       data-index={slide.index}
       className={cn(
-        "slide-card mb-10 w-full overflow-hidden rounded-2xl border bg-white shadow-sm transition-all duration-300",
-        "min-h-[420px] md:aspect-[16/9]",
+        "slide-card mx-auto mb-10 w-full max-w-6xl overflow-hidden rounded-2xl border bg-white shadow-sm transition-all duration-300",
+        hasMultipleRenderedPreviews
+          ? "min-h-[420px]"
+          : "md:aspect-[16/9]",
         isActive ? "ring-2 ring-primary/30 shadow-md" : "hover:shadow-md"
       )}
     >
@@ -224,25 +263,21 @@ export function SlideCard({
           )}
         >
           {hasRenderedPreview ? (
-            <div
-              className={cn(
-                "relative min-h-0 overflow-hidden rounded-xl border bg-zinc-100",
-                onOpenPreview ? "cursor-zoom-in" : ""
-              )}
-              onClick={() => onOpenPreview?.(slide)}
-            >
-              <div className="absolute left-3 top-3 z-10 flex items-center gap-2">
-                <div className="rounded-full bg-white/92 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-zinc-600 shadow-sm">
+            <div className="flex min-h-0 flex-col gap-3 overflow-auto">
+              <div className="flex items-center gap-2">
+                <div className="rounded-full bg-zinc-100 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-zinc-600 shadow-sm">
                   Slide {slide.index + 1}
                 </div>
+                {hasMultipleRenderedPreviews ? (
+                  <div className="rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-medium text-amber-700">
+                    已展开 {renderedPreviews.length} 页
+                  </div>
+                ) : null}
                 {isActive && onModify ? (
                   <button
                     type="button"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      onModify(slide);
-                    }}
-                    className="inline-flex items-center gap-1.5 rounded-full border border-zinc-200 bg-white/95 px-3 py-1 text-[11px] font-medium text-zinc-700 shadow-sm transition hover:bg-white hover:text-zinc-900"
+                    onClick={() => onModify(slide)}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-zinc-200 bg-white px-3 py-1 text-[11px] font-medium text-zinc-700 shadow-sm transition hover:bg-white hover:text-zinc-900"
                     disabled={isRegenerating}
                     title={`修改第 ${slide.index + 1} 页`}
                   >
@@ -255,12 +290,54 @@ export function SlideCard({
                   </button>
                 ) : null}
               </div>
-              <img
-                src={slide.thumbnail_url ?? undefined}
-                alt={slide.title || `Slide ${slide.index + 1}`}
-                className="h-full w-full object-contain bg-white"
-                loading="lazy"
-              />
+              {renderedPreviews.map((preview, previewIndex) => (
+                <div
+                  key={`${slide.id || slide.index}-preview-${preview.split_index ?? previewIndex}`}
+                  className={cn(
+                    "relative aspect-[16/9] w-full overflow-hidden rounded-xl border bg-zinc-100",
+                    preview.image_url && onOpenPreview ? "cursor-zoom-in" : ""
+                  )}
+                  onClick={() => {
+                    if (preview.image_url) onOpenPreview?.(slide);
+                  }}
+                >
+                  {hasMultipleRenderedPreviews ? (
+                    <div className="absolute left-3 top-3 z-10 rounded-full bg-white/92 px-2.5 py-1 text-[11px] font-semibold text-zinc-600 shadow-sm">
+                      分页 {previewIndex + 1} / {renderedPreviews.length}
+                    </div>
+                  ) : null}
+                  {preview.image_url ? (
+                    <img
+                      src={preview.image_url ?? undefined}
+                      alt={
+                        renderedPreviews.length > 1
+                          ? `${slide.title || `Slide ${slide.index + 1}`} - page ${previewIndex + 1}`
+                          : slide.title || `Slide ${slide.index + 1}`
+                      }
+                      className="h-full w-full bg-white object-contain"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-white px-6 text-center text-sm text-zinc-500">
+                      {isPreviewTerminalFailed ? null : (
+                        <Loader2 className="h-6 w-6 animate-spin text-zinc-400" />
+                      )}
+                      <div>
+                        <p className="font-medium text-zinc-700">
+                          {isPreviewTerminalFailed
+                            ? "预览图片未生成"
+                            : "预览图片生成中"}
+                        </p>
+                        <p className="mt-1 text-xs text-zinc-500">
+                          {isPreviewTerminalFailed
+                            ? "本次生成已失败，未产出可展示的 slide 图片。"
+                            : "已收到结构预览，正在等待最终 slide 图片。"}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
           ) : (
             <>

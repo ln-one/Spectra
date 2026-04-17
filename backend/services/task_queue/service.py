@@ -6,9 +6,8 @@ from redis import Redis
 from rq import Queue
 
 from services.task_queue.enqueue import (
-    enqueue_generation_task,
-    enqueue_outline_draft_task,
     enqueue_rag_indexing_task,
+    enqueue_remote_parse_reconcile_task,
 )
 from services.task_queue.status import (
     cancel_job,
@@ -29,25 +28,6 @@ class TaskQueueService:
         self.default_queue = Queue("default", connection=redis_conn)
         self.low_queue = Queue("low", connection=redis_conn)
         logger.info("Task queue service initialized with 3 priority queues")
-
-    def enqueue_generation_task(
-        self,
-        task_id: str,
-        project_id: str,
-        task_type: str,
-        template_config=None,
-        priority: str = "default",
-        timeout: int = 1800,
-    ):
-        return enqueue_generation_task(
-            self,
-            task_id=task_id,
-            project_id=project_id,
-            task_type=task_type,
-            template_config=template_config,
-            priority=priority,
-            timeout=timeout,
-        )
 
     def enqueue_rag_indexing_task(
         self,
@@ -70,20 +50,22 @@ class TaskQueueService:
             timeout=timeout,
         )
 
-    def enqueue_outline_draft_task(
+    def enqueue_remote_parse_reconcile_task(
         self,
-        session_id: str,
+        file_id: str,
         project_id: str,
-        options=None,
+        session_id=None,
         priority: str = "default",
-        timeout: int = 300,
+        delay_seconds: int = 5,
+        timeout: int = 1800,
     ):
-        return enqueue_outline_draft_task(
+        return enqueue_remote_parse_reconcile_task(
             self,
-            session_id=session_id,
+            file_id=file_id,
             project_id=project_id,
-            options=options,
+            session_id=session_id,
             priority=priority,
+            delay_seconds=delay_seconds,
             timeout=timeout,
         )
 

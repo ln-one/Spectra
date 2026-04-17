@@ -1,0 +1,6 @@
+services:
+  dualweave:
+    image: dualweave-service:dev
+    build:
+      context: ./dualweave
+      dockerfile: Dockerfile

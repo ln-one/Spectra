@@ -1,5 +1,8 @@
 # Agent Memory
 
+> Status: `current`
+> Role: operational memory for confirmed recurring patterns and pitfalls.
+
 > Purpose: capture confirmed, reusable repository knowledge that matters to AI agents,
 > but is not yet broad enough to become a permanent standard.
 >
@@ -29,7 +32,7 @@
 
 - Status: `confirmed`
 - Meaning:
-  - text retrieval should use `text-embedding-v4`
+  - text retrieval should use `text-embedding-v3`
   - multimodal embedding should use `qwen3-vl-embedding`
 - Why it matters: using the wrong DashScope interface caused broken embedding calls and opaque performance degradation.
 
@@ -51,19 +54,17 @@
 - Meaning: final PPT/Word URLs should bind to project-space artifact downloads, not text preview/export endpoints.
 - Why it matters: preview/export and final binary download are different contracts and must not be mixed.
 
-### 2.6 Rendering path depends on Marp CLI and Pandoc
+### 2.6 Backend-local Marp/Pandoc rendering is retired as a formal path
+
+- Status: `retired`
+- Meaning: Spectra no longer treats backend-local Marp CLI / Pandoc as the formal PPT/DOC generation path. AI PPT generation belongs to Diego and render/export belongs to Pagevra.
+- Why it matters: if a backend-local Marp/Pandoc path appears again in production code, it is architecture drift rather than a valid recovery path.
+
+### 2.7 Office and media rendering must fail explicitly
 
 - Status: `confirmed`
-- Meaning:
-  - PPT generation depends on Marp CLI-based rendering
-  - Word generation depends on Pandoc
-- Why it matters: generation debugging must distinguish AI/content failure from render-toolchain failure.
-
-### 2.7 Office placeholder artifacts must stay explicit
-
-- Status: `confirmed`
-- Meaning: placeholder PPTX/DOCX output is a development-only degradation path and should not be the default production behavior.
-- Why it matters: fake Office files hide render-toolchain failures and make success semantics misleading.
+- Meaning: placeholder PPTX/DOCX/MP4 output is no longer an accepted recovery path; render failures should surface as explicit failures.
+- Why it matters: fake artifacts hide render-toolchain failures and make success semantics misleading.
 
 ### 2.8 Project owner is implicit, not a managed member concept
 
@@ -136,6 +137,30 @@
 - Status: `confirmed`
 - Meaning: low-level `create_artifact()` must reject `session_id` that does not belong to the same project and must reject `based_on_version_id` that does not belong to the same project.
 - Why it matters: artifact lineage is formal system state; if the DB boundary accepts foreign session/version anchors, later preview, download, and review flows can look successful while the underlying project-space graph is already inconsistent.
+
+### 2.20 Low-quality courseware fallback is worse than explicit failure
+
+- Status: `confirmed`
+- Meaning: courseware generation and render flows must not silently substitute user-visible junk output such as raw filenames, OCR residue, source dumps, or generic filler sentences just to keep the pipeline returning “success”.
+- Why it matters: this creates semantic corruption that is harder to detect than an explicit failure, and it makes render/debug work look broken when the real problem is degraded upstream content.
+
+### 2.21 Studio card content generation must fail explicitly
+
+- Status: `confirmed`
+- Meaning: `generation_session_service` studio card content generation must not fabricate artifact content or simulator turns from fallback templates when AI generation, JSON parsing, or schema validation fails. `STUDIO_TOOL_FALLBACK_MODE=allow` may relax logging posture, but it must not redefine failure into synthetic success.
+- Why it matters: fake quiz/game/mindmap/animation/speaker-notes/simulator payloads make Studio look healthy while hiding the real provider or contract failure, which is worse for debugging than an explicit structured error.
+
+### 2.22 Python Prisma runtime does not reliably support JS-style `select`
+
+- Status: `confirmed`
+- Meaning: Docker/backend runtime uses the Python Prisma client, and `find_unique()` / `find_many()` calls in hot paths must not assume JS-style `select=` support unless the generated client signature explicitly supports it.
+- Why it matters: preview/runtime queries have already failed in Docker with `unexpected keyword argument 'select'`, which surfaced to users as generic `INVALID_INPUT` instead of the real query incompatibility.
+
+### 2.23 The six external services are the only capability authorities
+
+- Status: `confirmed`
+- Meaning: Spectra runtime should treat `diego`, `pagevra`, `ourograph`, `dualweave`, `stratumind`, and `limora` as the only formal capability authorities for AI PPT generation, render/preview/export, formal project-space state, upload/parse, retrieval, and identity.
+- Why it matters: once backend keeps alternate local paths, duplicate env names, or second render/state semantics alive, product behavior drifts and debugging turns into tracing which compatibility layer actually answered the request.
 
 ## 3. Watch List
 

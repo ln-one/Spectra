@@ -5,7 +5,7 @@
     description: 返回项目内生成会话列表（按更新时间倒序），包含展示标题字段。
     tags: [Generate]
     security:
-      - BearerAuth: []
+      - SessionAuth: []
     parameters:
       - name: project_id
         in: query
@@ -45,7 +45,7 @@
     description: 创建可中断、可恢复的课件生成会话，并初始化会话展示标题。
     tags: [Generate]
     security:
-      - BearerAuth: []
+      - SessionAuth: []
     parameters:
       - $ref: '../components/parameters.yaml#/IdempotencyKey'
       - $ref: '../components/parameters.yaml#/ContractVersion'
@@ -75,7 +75,7 @@
     operationId: getGenerateSessionsBySessionId
     tags: [Generate]
     security:
-      - BearerAuth: []
+      - SessionAuth: []
     parameters:
       - name: session_id
         in: path
@@ -106,7 +106,7 @@
       返回短轮询事件列表。目标契约中事件 payload 需要支持 run 追踪、大纲逐条输出、PPT 逐页输出与单页局部修改进展。
     tags: [Generate]
     security:
-      - BearerAuth: []
+      - SessionAuth: []
     parameters:
       - name: session_id
         in: path
@@ -151,7 +151,7 @@
     description: 返回当前生成会话的运行历史，支持分页。
     tags: [Generate]
     security:
-      - BearerAuth: []
+      - SessionAuth: []
     parameters:
       - name: session_id
         in: path
@@ -195,7 +195,7 @@
     description: 返回某次运行的结构化详情。
     tags: [Generate]
     security:
-      - BearerAuth: []
+      - SessionAuth: []
     parameters:
       - name: session_id
         in: path
@@ -221,41 +221,3 @@
         $ref: '../components/responses.yaml#/Forbidden'
       '404':
         $ref: '../components/responses.yaml#/NotFound'
-
-/api/v1/generate/sessions/{session_id}/resume:
-  post:
-    summary: 恢复中断会话
-    operationId: postGenerateSessionsBySessionIdResume
-    description: 兼容别名，等价于 command_type=RESUME_SESSION
-    deprecated: true
-    tags: [Generate]
-    security:
-      - BearerAuth: []
-    parameters:
-      - name: session_id
-        in: path
-        required: true
-        schema:
-          type: string
-      - $ref: '../components/parameters.yaml#/ContractVersion'
-    requestBody:
-      required: false
-      content:
-        application/json:
-          schema:
-            $ref: '../schemas/generate-session-requests.yaml#/ResumeSessionRequest'
-    responses:
-      '200':
-        description: 恢复成功
-        content:
-          application/json:
-            schema:
-              $ref: '../schemas/generate-session-requests-target.yaml#/ResumeSessionResponseTarget'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '403':
-        $ref: '../components/responses.yaml#/Forbidden'
-      '404':
-        $ref: '../components/responses.yaml#/NotFound'
-      '409':
-        $ref: '../components/responses.yaml#/Conflict'

@@ -5,7 +5,6 @@ import {
   sdkClient,
   unwrap,
 } from "./client";
-import { TokenStorage } from "../auth";
 import type { components } from "./types";
 
 export type UploadedFile = components["schemas"]["UploadedFile"];
@@ -103,11 +102,7 @@ export const filesApi = {
 
       const xhr = new XMLHttpRequest();
       xhr.open("POST", `${API_BASE_URL}/api/v1/files`);
-
-      const token = TokenStorage.getAccessToken();
-      if (token) {
-        xhr.setRequestHeader("Authorization", `Bearer ${token}`);
-      }
+      xhr.withCredentials = true;
 
       const idempotencyKey = generateIdempotencyKey();
       xhr.setRequestHeader("Idempotency-Key", idempotencyKey);
@@ -240,11 +235,7 @@ export const filesApi = {
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
       xhr.open("POST", `${API_BASE_URL}/api/v1/files/batch`);
-
-      const token = TokenStorage.getAccessToken();
-      if (token) {
-        xhr.setRequestHeader("Authorization", `Bearer ${token}`);
-      }
+      xhr.withCredentials = true;
 
       const idempotencyKey = generateIdempotencyKey();
       xhr.setRequestHeader("Idempotency-Key", idempotencyKey);

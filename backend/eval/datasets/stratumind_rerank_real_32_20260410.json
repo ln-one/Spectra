@@ -1,0 +1,198 @@
+{
+  "name": "stratumind_rerank_real_32_20260410",
+  "description": "Expanded real Chinese retrieval queries sampled from the Spectra prompt engineering document set on 2026-04-10.",
+  "cases": [
+    {
+      "id": "core_adv",
+      "query": "提示词工程的核心优势是什么",
+      "expected_keywords": ["核心优势", "结构化合同", "系统级语义控制层", "规划导向", "可验证优化"],
+      "relevant_chunk_ids": ["004c1693-16b0-45e8-a65f-82227071b2ac"]
+    },
+    {
+      "id": "plan_first",
+      "query": "为什么要先规划再生成",
+      "expected_keywords": ["先规划", "后生成", "Outline", "页面目标", "结构推进"],
+      "relevant_chunk_ids": ["53ea8939-6ba4-434d-828a-ec35d8fd9555"]
+    },
+    {
+      "id": "shared_context",
+      "query": "共享 RAG / History / Session 上下文层有什么作用",
+      "expected_keywords": ["共享上下文层", "RAG", "历史消息", "会话状态", "语义漂移"],
+      "relevant_chunk_ids": ["c347d609-075b-48d9-bd3e-39233e4dc779", "bf0223e7-7479-460e-8efc-9a94eea9adfd"]
+    },
+    {
+      "id": "validation_result",
+      "query": "本轮提示词工程优化的验证方式与结果是什么",
+      "expected_keywords": ["验证方式与结果", "回归测试", "89 项", "静态检查"],
+      "relevant_chunk_ids": ["64bd653c-8115-4617-b61f-65a998e9be86"]
+    },
+    {
+      "id": "intent_fix",
+      "query": "意图分类这轮优化主要解决了什么问题",
+      "expected_keywords": ["意图分类", "边界模糊", "互斥关系", "修改意图解析"],
+      "relevant_chunk_ids": ["5a52bf81-c09d-4d3d-aea1-bdc072f03396"]
+    },
+    {
+      "id": "courseware_prompt",
+      "query": "课件生成与修改 Prompt 的主要问题是什么",
+      "expected_keywords": ["课件生成", "修改 Prompt", "任务", "规划规则", "输出格式", "显式 contract"],
+      "relevant_chunk_ids": ["01000d11-ccd7-424f-80bb-592d7aed56bd"]
+    },
+    {
+      "id": "validate_chain",
+      "query": "为什么提示词变更必须进入验证链路",
+      "expected_keywords": ["提示词变更", "验证链路", "工程验证", "回归测试", "静态检查"],
+      "relevant_chunk_ids": ["904a07d0-0b6e-4357-964f-546a584ddb3e", "64bd653c-8115-4617-b61f-65a998e9be86"]
+    },
+    {
+      "id": "semantic_control",
+      "query": "系统级语义控制层是什么意思",
+      "expected_keywords": ["系统级语义控制层", "结构化合同", "语义一致性", "多模块协作"],
+      "relevant_chunk_ids": ["4c935c84-df3a-439f-99f4-78a2802b56ef", "9778b5a9-6106-4278-b62e-9024b64e364d"]
+    },
+    {
+      "id": "background_goal",
+      "query": "研究背景与技术目标是什么",
+      "expected_keywords": ["研究背景", "技术目标", "任务边界", "语义框架", "可验证性"],
+      "relevant_chunk_ids": ["004c1693-16b0-45e8-a65f-82227071b2ac", "c4c2c6eb-80bb-45a4-bb72-4259d4e6af25"]
+    },
+    {
+      "id": "method_sources",
+      "query": "方法来源与设计依据有哪些",
+      "expected_keywords": ["方法来源", "设计依据", "OpenAI", "Anthropic", "DSPy", "TeachMaster"],
+      "relevant_chunk_ids": ["2b7791d6-7e6e-46b5-adf0-a6f2d84719a8"]
+    },
+    {
+      "id": "structured_contract",
+      "query": "为什么要从自由表达提升为结构化合同",
+      "expected_keywords": ["自由表达", "结构化合同", "任务目标", "输入材料", "约束", "输出格式"],
+      "relevant_chunk_ids": ["31e3dbb0-a9d9-49c2-9055-70fcc3f7ef48", "4c935c84-df3a-439f-99f4-78a2802b56ef"]
+    },
+    {
+      "id": "task_modeling",
+      "query": "为什么说不是润色提示语而是任务建模",
+      "expected_keywords": ["润色提示语", "任务建模", "上下文组织", "输出约束"],
+      "relevant_chunk_ids": ["c4c2c6eb-80bb-45a4-bb72-4259d4e6af25"]
+    },
+    {
+      "id": "planning_orientation",
+      "query": "从结果导向转向规划导向是什么意思",
+      "expected_keywords": ["结果导向", "规划导向", "先规划", "后生成", "过程控制"],
+      "relevant_chunk_ids": ["9778b5a9-6106-4278-b62e-9024b64e364d", "53ea8939-6ba4-434d-828a-ec35d8fd9555"]
+    },
+    {
+      "id": "verifiable_design",
+      "query": "为什么说提示词设计要可验证",
+      "expected_keywords": ["可验证", "回归测试", "基线核对", "prompt evaluation", "工程纪律"],
+      "relevant_chunk_ids": ["a3f42336-d777-48af-b1db-21ad87378086", "64bd653c-8115-4617-b61f-65a998e9be86"]
+    },
+    {
+      "id": "structured_context",
+      "query": "结构化上下文优先于措辞堆叠是什么意思",
+      "expected_keywords": ["结构化上下文", "措辞堆叠", "任务理解", "语义一致性"],
+      "relevant_chunk_ids": ["bf0223e7-7479-460e-8efc-9a94eea9adfd", "4c935c84-df3a-439f-99f4-78a2802b56ef"]
+    },
+    {
+      "id": "split_templates",
+      "query": "为什么要按任务拆模板而不是一套大提示词",
+      "expected_keywords": ["按任务拆模板", "一套大提示词", "success criteria", "不同性质任务"],
+      "relevant_chunk_ids": ["bf0223e7-7479-460e-8efc-9a94eea9adfd", "53ea8939-6ba4-434d-828a-ec35d8fd9555"]
+    },
+    {
+      "id": "chat_prompt",
+      "query": "Chat 回复 Prompt 这轮优化重点是什么",
+      "expected_keywords": ["Chat 回复 Prompt", "推进问题解决", "资料不足", "引用要求", "任务上下文"],
+      "relevant_chunk_ids": ["cb5a4633-b42a-49be-aa8f-fc7c77b1f76f"]
+    },
+    {
+      "id": "courseware_gen_focus",
+      "query": "Courseware 生成 Prompt 这轮优化重点是什么",
+      "expected_keywords": ["Courseware", "任务目标", "输入材料", "规划约束", "输出块格式"],
+      "relevant_chunk_ids": ["01000d11-ccd7-424f-80bb-592d7aed56bd"]
+    },
+    {
+      "id": "outline_focus",
+      "query": "Outline 生成 Prompt 这轮优化重点是什么",
+      "expected_keywords": ["Outline", "教学结构规划", "章节教学任务", "页数分配"],
+      "relevant_chunk_ids": ["f74f02cf-0953-4341-93aa-1bc126a480da"]
+    },
+    {
+      "id": "modify_intent",
+      "query": "Modify-Intent 识别为什么重要",
+      "expected_keywords": ["Modify-Intent", "结构化输出", "意图解析", "稳定结果"],
+      "relevant_chunk_ids": ["5a52bf81-c09d-4d3d-aea1-bdc072f03396"]
+    },
+    {
+      "id": "system_value",
+      "query": "技术效果与系统价值体现在哪",
+      "expected_keywords": ["技术效果", "系统价值", "语义漂移", "可解释性", "可演化性"],
+      "relevant_chunk_ids": ["9988a0dc-59f2-44b5-8226-68ab58b7b3df"]
+    },
+    {
+      "id": "conclusion",
+      "query": "结论怎么总结这轮提示词工程",
+      "expected_keywords": ["结论", "结构化升级", "可解释", "可验证", "可回归"],
+      "relevant_chunk_ids": ["01b86286-33ed-4259-8d2b-17d9c1cef85c"]
+    },
+    {
+      "id": "source_openai_anthropic",
+      "query": "OpenAI 和 Anthropic 的资料给这轮优化带来了什么启发",
+      "expected_keywords": ["OpenAI", "Anthropic", "结构化指令", "任务分解", "模板化"],
+      "relevant_chunk_ids": ["2b7791d6-7e6e-46b5-adf0-a6f2d84719a8"]
+    },
+    {
+      "id": "prompt_contract_shape",
+      "query": "显式 prompt contract 的结构是什么",
+      "expected_keywords": ["任务目标", "输入材料", "约束", "输出格式", "显式 prompt contract"],
+      "relevant_chunk_ids": ["31e3dbb0-a9d9-49c2-9055-70fcc3f7ef48"]
+    },
+    {
+      "id": "success_criteria",
+      "query": "为什么说不同任务必须有不同的 success criteria",
+      "expected_keywords": ["不同任务", "success criteria", "模板建议", "任务拆分"],
+      "relevant_chunk_ids": ["53ea8939-6ba4-434d-828a-ec35d8fd9555"]
+    },
+    {
+      "id": "page_goal_layout",
+      "query": "页面目标、材料吸收和内容布局为什么重要",
+      "expected_keywords": ["页面目标", "材料吸收", "内容布局", "可教性", "可解释性"],
+      "relevant_chunk_ids": ["a3f42336-d777-48af-b1db-21ad87378086"]
+    },
+    {
+      "id": "local_modify_priority",
+      "query": "为什么修改 prompt 要强调局部修改优先",
+      "expected_keywords": ["局部修改优先", "修改 prompt", "教学结构保持", "局部修改"],
+      "relevant_chunk_ids": ["01000d11-ccd7-424f-80bb-592d7aed56bd"]
+    },
+    {
+      "id": "teaching_structure_preserve",
+      "query": "为什么修改时要保持教学结构",
+      "expected_keywords": ["教学结构保持", "修改 prompt", "局部修改优先", "教学推进"],
+      "relevant_chunk_ids": ["01000d11-ccd7-424f-80bb-592d7aed56bd"]
+    },
+    {
+      "id": "page_list_to_teaching_structure",
+      "query": "为什么大纲生成要从页面列表升级为教学结构规划",
+      "expected_keywords": ["页面列表", "教学结构规划", "大纲生成", "更稳定"],
+      "relevant_chunk_ids": ["f74f02cf-0953-4341-93aa-1bc126a480da"]
+    },
+    {
+      "id": "chapter_task_allocation",
+      "query": "大纲生成为什么强调章节教学任务和页数分配",
+      "expected_keywords": ["章节教学任务", "页数分配", "内容推进", "大纲结构"],
+      "relevant_chunk_ids": ["f74f02cf-0953-4341-93aa-1bc126a480da"]
+    },
+    {
+      "id": "semantic_drift_boundary",
+      "query": "上下文边界处的语义漂移是怎么被压下去的",
+      "expected_keywords": ["上下文边界", "语义漂移", "稳定分块", "任务目标组织"],
+      "relevant_chunk_ids": ["bf0223e7-7479-460e-8efc-9a94eea9adfd"]
+    },
+    {
+      "id": "stable_intent_parse",
+      "query": "为什么要让后续链路依赖更稳定的意图解析结果",
+      "expected_keywords": ["后续链路", "稳定的意图解析结果", "结构化输出合同", "再次猜测"],
+      "relevant_chunk_ids": ["5a52bf81-c09d-4d3d-aea1-bdc072f03396"]
+    }
+  ]
+}

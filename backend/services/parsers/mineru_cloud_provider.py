@@ -20,8 +20,6 @@ from urllib.parse import urljoin
 
 import httpx
 
-from services.platform.dualweave_client import build_dualweave_client
-
 from .base import BaseParseProvider, ProviderNotAvailableError
 
 logger = logging.getLogger(__name__)
@@ -53,19 +51,7 @@ class MineruCloudProvider(BaseParseProvider):
     supported_types = {"pdf", "word", "ppt"}
 
     def __init__(self) -> None:
-        self.dualweave_client = build_dualweave_client()
         self.timeout_seconds = float(os.getenv("MINERU_CLOUD_TIMEOUT_SECONDS", "600"))
-
-        if self.dualweave_client is not None:
-            self.api_token = ""
-            self.base_url = ""
-            self.model_version = ""
-            self.language = ""
-            self.enable_formula = True
-            self.enable_table = True
-            self.is_ocr = False
-            self.poll_interval_seconds = 0.0
-            return
 
         self.api_token = os.getenv("MINERU_CLOUD_API_TOKEN", "").strip()
         if not self.api_token:
@@ -178,132 +164,9 @@ class MineruCloudProvider(BaseParseProvider):
         response.raise_for_status()
         return _extract_markdown_from_zip(response.content)
 
-    def _download_markdown_from_result_url(self, result_url: str) -> str:
-        with httpx.Client(timeout=self.timeout_seconds) as client:
-            logger.info(
-                "dualweave_result_download_started: result_url=%s",
-                result_url,
-            )
-            response = client.get(result_url)
-            response.raise_for_status()
-            logger.info(
-                "dualweave_result_download_completed: result_url=%s bytes=%d",
-                result_url,
-                len(response.content),
-            )
-            return _extract_markdown_from_zip(response.content)
-
-    def _extract_via_dualweave(
-        self, filepath: str, filename: str, file_type: str
-    ) -> tuple[str, dict[str, Any]]:
-        assert self.dualweave_client is not None
-
-        details: dict[str, Any] = {
-            "pages_extracted": 0,
-            "text_length": 0,
-            "provider_error": None,
-            "provider_error_type": None,
-        }
-
-        try:
-            logger.info(
-                (
-                    "dualweave_parse_started: filename=%s file_type=%s "
-                    "filepath=%s base_url=%s"
-                ),
-                filename,
-                file_type,
-                filepath,
-                self.dualweave_client.base_url,
-            )
-            result = self.dualweave_client.upload_file_sync(
-                filepath=filepath,
-                filename=filename,
-                mime_type=_mime_type_for_file_type(file_type),
-                metadata={"source_provider": "mineru_cloud"},
-            )
-            processing_artifact = result.get("processing_artifact") or {}
-            result_url = str(processing_artifact.get("result_url") or "").strip()
-            logger.info(
-                (
-                    "dualweave_upload_completed: filename=%s upload_id=%s "
-                    "status=%s stage=%s processing_status=%s has_result_url=%s"
-                ),
-                filename,
-                result.get("upload_id"),
-                result.get("status"),
-                result.get("stage"),
-                result.get("processing_status"),
-                bool(result_url),
-            )
-            if not result_url:
-                raise RuntimeError("dualweave_missing_result_url")
-
-            text = self._download_markdown_from_result_url(result_url)
-            details.update(
-                {
-                    "provider_used": "dualweave_mineru",
-                    "dualweave_upload_id": result.get("upload_id"),
-                    "dualweave_status": result.get("status"),
-                    "dualweave_stage": result.get("stage"),
-                    "dualweave_result_url": result_url,
-                    "text_length": len(text),
-                }
-            )
-
-            if text:
-                logger.info(
-                    (
-                        "dualweave_markdown_extracted: filename=%s "
-                        "upload_id=%s text_length=%d"
-                    ),
-                    filename,
-                    result.get("upload_id"),
-                    len(text),
-                )
-                logger.info(
-                    "Dualweave-backed MinerU parsed %s successfully: text_length=%d",
-                    filename,
-                    details["text_length"],
-                )
-                return text, details
-
-            details["provider_error"] = "empty_output"
-            details["provider_error_type"] = "empty_output"
-            return "", details
-        except Exception as exc:
-            raw_error = str(exc).strip()
-            details.update(
-                {
-                    "provider_used": "dualweave_mineru",
-                    "provider_error": (
-                        raw_error or "dualweave_exception_without_message"
-                    ),
-                    "provider_error_type": "upstream_exception",
-                    "provider_raw_error": raw_error,
-                }
-            )
-            logger.error(
-                (
-                    "Dualweave-backed MinerU failed for %s: %s "
-                    "(upload_id=%s status=%s stage=%s result_url=%s)"
-                ),
-                filename,
-                exc,
-                details.get("dualweave_upload_id"),
-                details.get("dualweave_status"),
-                details.get("dualweave_stage"),
-                details.get("dualweave_result_url"),
-                exc_info=True,
-            )
-            return "", details
-
     def extract_text(
         self, filepath: str, filename: str, file_type: str
     ) -> tuple[str, dict[str, Any]]:
-        if self.dualweave_client is not None:
-            return self._extract_via_dualweave(filepath, filename, file_type)
-
         details: dict[str, Any] = {"pages_extracted": 0, "text_length": 0}
 
         try:
@@ -351,16 +214,3 @@ class MineruCloudProvider(BaseParseProvider):
                 exc_info=True,
             )
             return "", details
-
-
-def _mime_type_for_file_type(file_type: str) -> str:
-    normalized = str(file_type or "").strip().lower()
-    if normalized == "pdf":
-        return "application/pdf"
-    if normalized == "word":
-        return "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-    if normalized == "ppt":
-        return (
-            "application/vnd.openxmlformats-officedocument.presentationml.presentation"
-        )
-    return "application/octet-stream"

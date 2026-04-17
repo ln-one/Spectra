@@ -173,7 +173,9 @@ export function MindmapCanvas({
           if (event.target !== event.currentTarget) {
             return;
           }
-          event.currentTarget.setPointerCapture(event.pointerId);
+          if (typeof event.currentTarget.setPointerCapture === "function") {
+            event.currentTarget.setPointerCapture(event.pointerId);
+          }
           setDragState({
             pointerId: event.pointerId,
             x: event.clientX,
@@ -197,7 +199,11 @@ export function MindmapCanvas({
           if (dragState?.pointerId === event.pointerId) {
             setDragState(null);
           }
-          if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+          if (
+            typeof event.currentTarget.hasPointerCapture === "function" &&
+            event.currentTarget.hasPointerCapture(event.pointerId) &&
+            typeof event.currentTarget.releasePointerCapture === "function"
+          ) {
             event.currentTarget.releasePointerCapture(event.pointerId);
           }
         }}

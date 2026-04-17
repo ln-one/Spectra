@@ -191,6 +191,11 @@ async def process_chat_message(
 
         user_message_metadata = {
             **(body.metadata or {}),
+            **(
+                {"rag_source_ids": body.rag_source_ids}
+                if body.rag_source_ids is not None
+                else {}
+            ),
             **({"idempotency_key": key_str} if key_str else {}),
             **({"session_id": session_id} if session_id else {}),
         } or None
@@ -366,8 +371,9 @@ async def process_chat_message(
         observability_metadata["prompt_template_version"] = PROMPT_TEMPLATE_VERSION
         observability_metadata["few_shot_version"] = FEW_SHOT_VERSION
         observability_metadata.update(
-            build_prompt_traceability(rag_source_ids=body.rag_source_ids)
+            build_prompt_traceability(rag_source_ids=effective_rag_source_ids)
         )
+        observability_metadata["stage_timings_ms"] = stage_timings_ms
 
         observability_with_rag = {
             "rag_hit": rag_hit,
@@ -385,6 +391,7 @@ async def process_chat_message(
         )
         stage_timings_ms["persist_ms"] = persist_ms
         total_duration_ms = round((time.perf_counter() - request_started) * 1000, 2)
+        observability_metadata["total_duration_ms"] = total_duration_ms
         logger.info(
             "chat_pipeline project=%s session=%s rag_hit=%s "
             "image_analysis_applied=%s image_analysis_reason=%s vision_model=%s "

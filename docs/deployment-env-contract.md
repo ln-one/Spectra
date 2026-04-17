@@ -106,22 +106,11 @@
 - 建议在 `backend api` 明确配置（例如 `8`）
 - 值应为正数；超时后接口应快速降级返回
 
-### `TOOL_CHECK_CACHE_TTL_SECONDS`
+### `HEALTH_SERVICE_AUTHORITY_TIMEOUT_SECONDS`
 
 用途：
 
-- 缓存 Marp/Pandoc 可用性探测结果，减少高频渲染时重复子进程检查开销
-
-要求：
-
-- 建议在 `backend api` 与 `worker` 保持一致
-- 设为 `0` 可关闭缓存（仅用于排障）
-
-### `HEALTH_TOOL_TIMEOUT_SECONDS`
-
-用途：
-
-- 控制 `/health` 对 Marp/Pandoc 工具链探测的超时时间
+- 控制 `/health` 对六个正式能力源配置状态探测的超时时间
 
 要求：
 
@@ -137,30 +126,6 @@
 要求：
 
 - 演示环境默认不建议开启，除非明确接受降级演示
-
-### `ALLOW_OFFICE_PLACEHOLDER_ARTIFACTS`
-
-用途：
-
-- Office 产物渲染彻底失败时是否允许生成占位 DOCX/PPTX
-
-要求：
-
-- 默认关闭
-- 仅在显式开发调试场景建议开启
-- 若关闭则应让渲染失败显式暴露，而不是静默产出假文件
-
-### `ALLOW_MEDIA_PLACEHOLDER_ARTIFACTS`
-
-用途：
-
-- GIF / MP4 等尚未正式渲染接入的 media 产物是否允许生成占位二进制
-
-要求：
-
-- 默认关闭
-- 仅在显式开发调试场景建议开启
-- 若关闭则应明确失败，而不是静默产出假媒体文件
 
 ### `DASHSCOPE_API_KEY`
 
@@ -235,29 +200,30 @@
 
 ---
 
-## 五、Vector / Retrieval / Chroma
+## 五、Retrieval / Stratumind / Qdrant
 
-### `CHROMA_HOST`
-### `CHROMA_PORT`
-
-用途：
-
-- 远程 Chroma 连接
-
-要求：
-
-- 如果使用独立 Chroma 服务，则 `backend api` 与 `worker` 都应配置
-
-### `CHROMA_PERSIST_DIR`
+### `STRATUMIND_BASE_URL`
+### `STRATUMIND_TIMEOUT_SECONDS`
 
 用途：
 
-- 本地持久化目录
+- backend / worker 调用 `Stratumind` 文本检索服务
 
 要求：
 
-- 单机或本地开发使用
-- 多机远程 Chroma 部署时可不依赖
+- `backend api` 与 `worker` 都应配置
+- 必须指向独立 `Stratumind` 服务
+
+### `QDRANT_URL`
+
+用途：
+
+- `Stratumind` 使用的向量存储底盘地址
+
+要求：
+
+- 部署 `Stratumind` 的环境必须配置
+- backend 不直接依赖它的业务语义
 
 ## 六、文件与产物存储
 
@@ -463,7 +429,7 @@
 
 ### `DB_REQUIRED`
 ### `REDIS_REQUIRED`
-### `GENERATION_TOOLS_REQUIRED`
+### `SERVICE_AUTHORITIES_REQUIRED`
 
 用途：
 
@@ -472,7 +438,7 @@
 要求：
 
 - 演示环境建议按真实依赖设置，不要全部放松
-- 若演示链路依赖 PPT/Word 真实生成，建议 `GENERATION_TOOLS_REQUIRED=true`
+- 若演示链路依赖六个正式能力源，建议 `SERVICE_AUTHORITIES_REQUIRED=true`
 
 ---
 
@@ -489,13 +455,18 @@
 - `SMALL_MODEL`
 - `AI_REQUEST_TIMEOUT_SECONDS`
 - `PREVIEW_REBUILD_TIMEOUT_SECONDS`
-- `TOOL_CHECK_CACHE_TTL_SECONDS`
-- `HEALTH_TOOL_TIMEOUT_SECONDS`
-- `GENERATION_TOOLS_REQUIRED`
+- `HEALTH_SERVICE_AUTHORITY_TIMEOUT_SECONDS`
+- `SERVICE_AUTHORITIES_REQUIRED`
 - `REDIS_HOST`
 - `REDIS_PORT`
-- `CHROMA_HOST`
-- `CHROMA_PORT`
+- `DIEGO_BASE_URL`
+- `PAGEVRA_BASE_URL`
+- `OUROGRAPH_BASE_URL`
+- `DUALWEAVE_BASE_URL`
+- `STRATUMIND_BASE_URL`
+- `LIMORA_BASE_URL`
+- `STRATUMIND_TIMEOUT_SECONDS`
+- `QDRANT_URL`
 
 ### Worker
 
@@ -507,15 +478,20 @@
 - `LARGE_MODEL`
 - `SMALL_MODEL`
 - `AI_REQUEST_TIMEOUT_SECONDS`
-- `TOOL_CHECK_CACHE_TTL_SECONDS`
 - `REDIS_HOST`
 - `REDIS_PORT`
-- `CHROMA_HOST`
-- `CHROMA_PORT`
+- `DIEGO_BASE_URL`
+- `PAGEVRA_BASE_URL`
+- `OUROGRAPH_BASE_URL`
+- `DUALWEAVE_BASE_URL`
+- `STRATUMIND_BASE_URL`
+- `LIMORA_BASE_URL`
+- `STRATUMIND_TIMEOUT_SECONDS`
+- `QDRANT_URL`
 - `WORKER_NAME`
 - `WORKER_RECOVERY_SCAN`
 
-### Chroma / Redis / Postgres
+### Stratumind / Qdrant / Redis / Postgres
 
 这些服务应优先使用：
 

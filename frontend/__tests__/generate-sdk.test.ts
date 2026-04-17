@@ -31,7 +31,10 @@ describe("generate sdk createSession compatibility", () => {
     mockedPost.mockResolvedValue({
       data: {
         success: true,
-        data: { session: { session_id: "sess_1" } },
+        data: {
+          session: { session_id: "sess_1" },
+          run: { run_id: "run_1", session_id: "sess_1" },
+        },
         message: "ok",
       },
     });
@@ -55,7 +58,10 @@ describe("generate sdk createSession compatibility", () => {
     mockedPost.mockResolvedValue({
       data: {
         success: true,
-        data: { session: { session_id: "sess_2" } },
+        data: {
+          session: { session_id: "sess_2" },
+          run: { run_id: "run_2", session_id: "sess_2" },
+        },
         message: "ok",
       },
     });

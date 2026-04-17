@@ -185,8 +185,8 @@ export function useSourcesPanelController({
             const displayProgress = normalizeUploadingProgress(progress);
             updateNotification(notificationId, {
               progress: displayProgress,
-              status: displayProgress >= 95 ? "parsing" : "uploading",
-              description: displayProgress >= 95 ? "处理中" : "上传中",
+              status: "uploading",
+              description: "上传中",
               duration: 0,
             });
           },

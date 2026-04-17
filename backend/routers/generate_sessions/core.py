@@ -271,6 +271,13 @@ async def create_generation_session(
             error_code=ErrorCode.INVALID_INPUT,
             message=f"output_type 必须是 {sorted(allowed_output_types)} 之一",
         )
+    if not bootstrap_only:
+        raise APIException(
+            status_code=status.HTTP_409_CONFLICT,
+            error_code=ErrorCode.RESOURCE_CONFLICT,
+            message="旧版直连生成会话启动已下线，请通过 Studio 的 Diego PPT 流程发起。",
+            details={"reason": "direct_generation_start_removed"},
+        )
 
     try:
         await get_owned_project(project_id, user_id)
@@ -365,21 +372,14 @@ async def get_session_events(
     request: Request,
     session_id: str,
     cursor: Optional[str] = Query(None, description="断线续传游标"),
+    limit: int = Query(50, ge=1, le=500, description="返回事件数量上限"),
     accept: Optional[str] = Query(None),
     accept_header: Optional[str] = Header(None, alias="Accept"),
-    token: Optional[str] = Query(
-        None, description="SSE token (when Authorization header is unavailable)"
-    ),
     user_id: Optional[str] = Depends(get_current_user_optional),
 ):
     """获取生成事件流，支持 SSE 或短轮询。"""
     if not user_id:
-        if token:
-            from services.auth_service import auth_service
-
-            user_id = auth_service.verify_token(token)
-        if not user_id:
-            raise UnauthorizedException(message="缺少认证信息")
+        raise UnauthorizedException(message="缺少认证信息")
     svc = get_session_service()
 
     await load_session_runtime_or_raise(svc, session_id, user_id)
@@ -390,7 +390,12 @@ async def get_session_events(
     )
 
     if mode == _EVENTS_ACCEPT_JSON:
-        events = await svc.get_events(session_id, user_id, cursor=cursor)
+        events = await svc.get_events(
+            session_id,
+            user_id,
+            cursor=cursor,
+            limit=limit,
+        )
         return success_response(data={"events": events}, message="获取事件成功")
 
     async def sse_generator():

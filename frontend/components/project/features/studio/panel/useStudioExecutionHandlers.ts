@@ -7,12 +7,7 @@ import type {
   GenerationToolType,
 } from "@/lib/project-space/artifact-history";
 import { toast } from "@/hooks/use-toast";
-import type {
-  StudioToolKey,
-  ToolDraftState,
-  ToolStructuredRefineRequest,
-  ToolStructuredRefineResult,
-} from "../tools";
+import type { StudioToolKey, ToolDraftState } from "../tools";
 import { TOOL_LABELS } from "../constants";
 import type { StudioExecutionResult, StudioSourceOption } from "./types";
 
@@ -256,9 +251,9 @@ export function useStudioExecutionHandlers({
 
   const handleStudioPreviewExecution = useCallback(async () => {
     const cardId = currentCardId;
-    if (!cardId || isStudioActionRunning) return;
+    if (!cardId || isStudioActionRunning) return null;
     const requestBody = buildStudioExecutionRequest();
-    if (!requestBody) return;
+    if (!requestBody) return null;
     if (
       isRestrictedRagModeEnabled(currentToolDraft) &&
       requestBody.rag_source_ids.length === 0
@@ -268,7 +263,7 @@ export function useStudioExecutionHandlers({
         description: "Restricted mode requires at least one selected source.",
         variant: "destructive",
       });
-      return;
+      return null;
     }
     try {
       startCardAction(cardId);
@@ -297,12 +292,14 @@ export function useStudioExecutionHandlers({
         title: "Execution preview generated",
         description: endpoint,
       });
+      return preview;
     } catch (error) {
       toast({
         title: "Execution preview failed",
         description: formatStudioExecutionError(error),
         variant: "destructive",
       });
+      return null;
     } finally {
       endCardAction(cardId);
     }
@@ -317,13 +314,16 @@ export function useStudioExecutionHandlers({
 
   const resolvePptRunId = useCallback(
     (fallback?: string | null) => {
+      const explicitRunId =
+        typeof fallback === "string" && fallback.trim() ? fallback : null;
+      if (explicitRunId) return explicitRunId;
       const stateRunId = activeRunId;
       if (stateRunId) return stateRunId;
       const sessionRunId = (
         generationSession as { current_run?: { run_id?: string } } | null
       )?.current_run?.run_id;
       if (sessionRunId) return sessionRunId;
-      return fallback ?? null;
+      return null;
     },
     [activeRunId, generationSession]
   );
@@ -737,50 +737,17 @@ export function useStudioExecutionHandlers({
     syncStudioChatContextByStep,
   ]);
 
-  const handleStudioStructuredRefineArtifact = useCallback(
-    async (
-      request: ToolStructuredRefineRequest
-    ): Promise<ToolStructuredRefineResult> => {
-      if (
-        !project ||
-        !currentCardId ||
-        !expandedTool ||
-        expandedTool === "ppt"
-      ) {
-        return {
-          ok: false,
-          artifactId: null,
-          effectiveSessionId: activeSessionId ?? null,
-          insertedNodeId: null,
-        };
-      }
-      if (!request.artifactId) {
-        toast({
-          title: "缺少可编辑导图",
-          description: "未定位到当前思维导图 artifact，请刷新后重试。",
-          variant: "destructive",
-        });
-        return {
-          ok: false,
-          artifactId: null,
-          effectiveSessionId: activeSessionId ?? null,
-          insertedNodeId: null,
-        };
-      }
-      if (!canRefine) {
-        toast({
-          title: "当前不可编辑",
-          description: "请先进入预览态并等待后端真实导图加载完成。",
-          variant: "destructive",
-        });
-        return {
-          ok: false,
-          artifactId: null,
-          effectiveSessionId: activeSessionId ?? null,
-          insertedNodeId: null,
-        };
-      }
-      if (isStudioActionRunning) {
+  const handleStructuredRefineArtifact = useCallback(
+    async ({
+      artifactId,
+      message,
+      config,
+    }: {
+      artifactId: string;
+      message: string;
+      config?: Record<string, unknown>;
+    }) => {
+      if (!project || !currentCardId) {
         return {
           ok: false,
           artifactId: null,
@@ -794,102 +761,44 @@ export function useStudioExecutionHandlers({
         const response = await studioCardsApi.refineArtifact(currentCardId, {
           project_id: project.id,
           session_id: activeSessionId ?? undefined,
-          artifact_id: request.artifactId,
-          message: request.message,
-          source_artifact_id:
-            selectedSourceId || draftSourceArtifactId || undefined,
-          config: {
-            ...currentToolDraft,
-            ...(request.config ?? {}),
-          },
+          artifact_id: artifactId,
+          message,
+          config,
           rag_source_ids: resolveEffectiveRagSourceIds(selectedFileIds),
         });
         const executionResult = response?.data?.execution_result ?? {};
-        const session =
-          typeof executionResult.session === "object" &&
-          executionResult.session !== null
-            ? (executionResult.session as Record<string, unknown>)
-            : null;
         const artifact =
           typeof executionResult.artifact === "object" &&
           executionResult.artifact !== null
             ? (executionResult.artifact as Record<string, unknown>)
             : null;
-        const run =
-          typeof executionResult.run === "object" &&
-          executionResult.run !== null
-            ? (executionResult.run as Record<string, unknown>)
-            : null;
-
         const effectiveSessionId =
-          (typeof session?.session_id === "string" && session.session_id) ||
-          (typeof session?.id === "string" && session.id) ||
-          activeSessionId ||
-          null;
-        const nextArtifactId =
-          (typeof artifact?.id === "string" && artifact.id) ||
-          (typeof artifact?.artifact_id === "string" && artifact.artifact_id) ||
-          null;
-        const runId =
-          (typeof run?.run_id === "string" && run.run_id) ||
-          (typeof run?.id === "string" && run.id) ||
-          null;
-        const runNo = resolveExecutionRunNo(run);
-        const artifactMetadata =
-          typeof artifact?.metadata === "object" && artifact.metadata !== null
-            ? (artifact.metadata as Record<string, unknown>)
-            : null;
-        const insertedNodeId =
-          (typeof artifactMetadata?.inserted_node_id === "string" &&
-            artifactMetadata.inserted_node_id) ||
-          null;
+          (typeof executionResult.session === "object" &&
+          executionResult.session !== null
+            ? ((executionResult.session as Record<string, unknown>)
+                .session_id ??
+              (executionResult.session as Record<string, unknown>).id)
+            : null) ?? activeSessionId;
 
-        if (effectiveSessionId && effectiveSessionId !== activeSessionId) {
-          setActiveSessionId(effectiveSessionId);
+        if (effectiveSessionId) {
+          await fetchArtifactHistory(project.id, String(effectiveSessionId));
+          scheduleArtifactRefresh(project.id, String(effectiveSessionId));
         }
-
-        if (nextArtifactId) {
-          appendRuntimeArtifact(expandedTool as StudioToolKey, {
-            artifactId: nextArtifactId,
-            sessionId: effectiveSessionId,
-            toolType: expandedTool,
-            artifactType:
-              (artifact?.type as
-                | ArtifactHistoryItem["artifactType"]
-                | undefined) ?? "mindmap",
-            artifactKind: undefined,
-            sourceArtifactId: selectedSourceId || draftSourceArtifactId || null,
-            title:
-              (artifact?.title as string | undefined) ||
-              TOOL_LABELS[expandedTool] + " - Updated",
-            status: "completed",
-            createdAt:
-              (artifact?.updated_at as string | undefined) ||
-              (artifact?.created_at as string | undefined) ||
-              new Date().toISOString(),
-            basedOnVersionId: null,
-            runId,
-            runNo,
-          });
-        }
-
-        await fetchArtifactHistory(project.id, effectiveSessionId);
-        scheduleArtifactRefresh(project.id, effectiveSessionId);
-
-        toast({
-          title: "子节点已添加",
-          description: "思维导图已生成新的替换版本并刷新预览。",
-        });
 
         return {
           ok: true,
-          artifactId: nextArtifactId,
-          effectiveSessionId,
-          insertedNodeId,
+          artifactId:
+            (typeof artifact?.id === "string" && artifact.id) || artifactId,
+          effectiveSessionId:
+            typeof effectiveSessionId === "string" ? effectiveSessionId : null,
+          insertedNodeId:
+            (typeof artifact?.inserted_node_id === "string" &&
+              artifact.inserted_node_id) ||
+            null,
         };
       } catch (error) {
         toast({
-          title: "添加子节点失败",
+          title: "Structured refine failed",
           description: formatStudioExecutionError(error),
           variant: "destructive",
         });
@@ -905,20 +814,12 @@ export function useStudioExecutionHandlers({
     },
     [
       activeSessionId,
-      appendRuntimeArtifact,
-      canRefine,
       currentCardId,
-      currentToolDraft,
-      draftSourceArtifactId,
       endCardAction,
-      expandedTool,
       fetchArtifactHistory,
-      isStudioActionRunning,
       project,
       scheduleArtifactRefresh,
       selectedFileIds,
-      selectedSourceId,
-      setActiveSessionId,
       startCardAction,
     ]
   );
@@ -945,8 +846,8 @@ export function useStudioExecutionHandlers({
     handleStudioPreviewExecution,
     handleStudioPrepareDraft,
     handleStudioExecute,
-    handleStudioStructuredRefineArtifact,
     handleOpenChatRefine,
+    handleStructuredRefineArtifact,
     openPptPreviewPage,
     resolvePptRunId,
   };

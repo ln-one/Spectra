@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import json
 
-from services.generation import generation_service
-from services.generation.types import CoursewareContent
+from services.generation_session_service.capability_helpers import (
+    resolve_template_config_from_options_dict,
+)
 from services.generation_session_service.session_history import (
     RUN_STATUS_COMPLETED,
     RUN_STEP_COMPLETED,
@@ -17,18 +18,26 @@ from services.preview_helpers.slide_mapping import (
     resolve_slide_index,
     slide_identity,
 )
+from services.render_engine_adapter import (
+    build_render_engine_input,
+    invoke_render_engine,
+    normalize_render_engine_result,
+)
 from services.task_executor.runtime_helpers import build_project_space_download_url
-from services.template import TemplateConfig
 
 
 def resolve_target_slide_index(
     command: dict,
     *,
     preview_payload: dict | None = None,
+    render_job_id: str | None = None,
     task_id: str | None = None,
 ) -> int | None:
     payload = preview_payload if isinstance(preview_payload, dict) else {}
-    resolved_task_id = str(task_id or payload.get("task_id") or "").strip() or "preview"
+    resolved_render_job_id = (
+        str(render_job_id or task_id or payload.get("render_job_id") or "").strip()
+        or "preview"
+    )
     markdown_content = str(
         command.get("_preview_markdown_content")
         or payload.get("markdown_content")
@@ -45,7 +54,7 @@ def resolve_target_slide_index(
         rendered_preview = None
 
     slide_id_index_map = build_slide_id_index_map(
-        task_id=resolved_task_id,
+        task_id=resolved_render_job_id,
         markdown_content=markdown_content,
         image_metadata=image_metadata,
         render_markdown=render_markdown,
@@ -59,7 +68,12 @@ def resolve_target_slide_index(
     )
 
 
-def extract_template_config(*, session, task) -> dict | None:
+def extract_template_config(
+    *,
+    session,
+    artifact_metadata: dict | None = None,
+    run_data: dict | None = None,
+) -> dict | None:
     def _load_json(raw: object) -> dict:
         if not isinstance(raw, str) or not raw.strip():
             return {}
@@ -70,24 +84,30 @@ def extract_template_config(*, session, task) -> dict | None:
         return parsed if isinstance(parsed, dict) else {}
 
     session_options = _load_json(getattr(session, "options", None))
-    if isinstance(session_options.get("template_config"), dict):
-        return session_options.get("template_config")
+    session_template_config = resolve_template_config_from_options_dict(session_options)
+    if session_template_config:
+        return session_template_config
 
-    task_input = _load_json(getattr(task, "inputData", None))
-    if isinstance(task_input.get("template_config"), dict):
-        return task_input.get("template_config")
+    if isinstance(run_data, dict):
+        run_template_config = resolve_template_config_from_options_dict(run_data)
+        if run_template_config:
+            return run_template_config
 
-    task_template = _load_json(getattr(task, "templateConfig", None))
-    return task_template or None
+    artifact_template = (
+        artifact_metadata.get("template_config")
+        if isinstance(artifact_metadata, dict)
+        else None
+    )
+    return artifact_template if isinstance(artifact_template, dict) else None
 
 
 async def refresh_rendered_preview(
     *,
-    task,
+    render_job_id: str,
     preview_payload: dict,
     template_config: dict | None,
 ) -> dict:
-    task_id = str(getattr(task, "id", "") or "").strip() or "preview"
+    resolved_render_job_id = str(render_job_id or "").strip() or "preview"
     render_markdown = (
         str(preview_payload.get("render_markdown") or "")
         if isinstance(preview_payload, dict)
@@ -101,26 +121,37 @@ async def refresh_rendered_preview(
     if not isinstance(image_metadata, dict):
         image_metadata = None
     slide_models = build_slides(
-        task_id,
+        resolved_render_job_id,
         str(preview_payload.get("markdown_content") or ""),
         image_metadata,
         render_markdown,
     )
     rendered_preview = await build_rendered_preview_payload(
-        task_id=task_id,
+        task_id=resolved_render_job_id,
         title=str(preview_payload.get("title") or ""),
         markdown_content=str(preview_payload.get("markdown_content") or ""),
         template_config=template_config,
         slide_ids=[
-            slide_identity(slide, index, task_id=task_id)
+            slide_identity(slide, index, task_id=resolved_render_job_id)
             for index, slide in enumerate(slide_models)
         ],
         render_markdown=render_markdown,
         style_manifest=preview_payload.get("style_manifest"),
         extra_css=preview_payload.get("extra_css"),
         page_class_plan=preview_payload.get("page_class_plan"),
+        preview_payload=preview_payload,
     )
     next_payload = dict(preview_payload)
+    if isinstance(rendered_preview, dict):
+        resolved_markdown_content = rendered_preview.pop(
+            "_resolved_markdown_content", None
+        )
+        if (
+            isinstance(resolved_markdown_content, str)
+            and resolved_markdown_content.strip()
+        ):
+            next_payload["resolved_markdown_content"] = resolved_markdown_content
+    next_payload["render_job_id"] = resolved_render_job_id
     next_payload["rendered_preview"] = rendered_preview
     return next_payload
 
@@ -129,7 +160,8 @@ async def persist_modified_pptx_artifact(
     *,
     db,
     session,
-    task,
+    render_job_id: str,
+    source_artifact_id: str | None,
     run,
     preview_payload: dict,
     template_config: dict | None,
@@ -149,20 +181,31 @@ async def persist_modified_pptx_artifact(
             )
         return None, {}
 
-    courseware = CoursewareContent(
-        title=str(preview_payload.get("title") or "璇句欢棰勮"),
-        markdown_content=markdown_content,
-        lesson_plan_markdown=str(preview_payload.get("lesson_plan_markdown") or ""),
+    resolved_render_job_id = str(render_job_id or "").strip() or f"session-{session.id}"
+    render_artifact_job_id = f"{resolved_render_job_id}-rv{render_version}"
+    render_input = build_render_engine_input(
+        {
+            "title": str(preview_payload.get("title") or "课件预览"),
+            "markdown_content": markdown_content,
+            "lesson_plan_markdown": str(
+                preview_payload.get("lesson_plan_markdown") or ""
+            ),
+            "render_markdown": str(preview_payload.get("render_markdown") or ""),
+            "style_manifest": preview_payload.get("style_manifest"),
+            "extra_css": preview_payload.get("extra_css"),
+            "page_class_plan": preview_payload.get("page_class_plan"),
+        },
+        template_config,
+        ["pptx"],
+        render_job_id=render_artifact_job_id,
     )
-    normalized_template = (
-        TemplateConfig(**template_config) if template_config is not None else None
-    )
-    render_task_id = f"{task.id}-rv{render_version}"
-    pptx_path = await generation_service.generate_pptx(
-        courseware,
-        render_task_id,
-        normalized_template,
-    )
+    render_result = await invoke_render_engine(render_input)
+    normalized_result = normalize_render_engine_result(render_result)
+    pptx_path = str(
+        (normalized_result.get("artifact_paths") or {}).get("pptx") or ""
+    ).strip()
+    if not pptx_path:
+        raise RuntimeError("render_engine_missing_pptx_artifact")
 
     artifact = await db.artifact.create(
         data={
@@ -178,9 +221,9 @@ async def persist_modified_pptx_artifact(
                     "mode": "modify",
                     "status": "completed",
                     "output_type": "ppt",
-                    "title": f"PPTX 路 slide modify 路 {render_task_id[:16]}",
-                    "task_id": render_task_id,
-                    "source_task_id": task.id,
+                    "title": f"PPTX 路 slide modify 路 {render_artifact_job_id[:16]}",
+                    "render_job_id": render_artifact_job_id,
+                    "source_artifact_id": source_artifact_id,
                     "is_current": True,
                     **(serialize_session_run(run) or {}),
                 },
@@ -205,7 +248,12 @@ async def persist_modified_pptx_artifact(
     return artifact.id, output_urls
 
 
-def extract_rag_source_ids(*, session, task) -> list[str]:
+def extract_rag_source_ids(
+    *,
+    session,
+    artifact_metadata: dict | None = None,
+    run_data: dict | None = None,
+) -> list[str]:
     source_ids: list[str] = []
 
     def _merge(raw_value: object) -> None:
@@ -231,19 +279,22 @@ def extract_rag_source_ids(*, session, task) -> list[str]:
             )
             _merge(template_config.get("rag_source_ids"))
 
-    input_data_raw = getattr(task, "inputData", None)
-    if isinstance(input_data_raw, str) and input_data_raw.strip():
-        try:
-            input_data = json.loads(input_data_raw)
-        except (TypeError, json.JSONDecodeError):
-            input_data = None
-        if isinstance(input_data, dict):
-            _merge(input_data.get("rag_source_ids"))
-            template_config = (
-                input_data.get("template_config")
-                if isinstance(input_data.get("template_config"), dict)
-                else {}
-            )
-            _merge(template_config.get("rag_source_ids"))
+    if isinstance(run_data, dict):
+        _merge(run_data.get("rag_source_ids"))
+        template_config = (
+            run_data.get("template_config")
+            if isinstance(run_data.get("template_config"), dict)
+            else {}
+        )
+        _merge(template_config.get("rag_source_ids"))
+
+    if isinstance(artifact_metadata, dict):
+        _merge(artifact_metadata.get("rag_source_ids"))
+        artifact_template = (
+            artifact_metadata.get("template_config")
+            if isinstance(artifact_metadata.get("template_config"), dict)
+            else {}
+        )
+        _merge(artifact_template.get("rag_source_ids"))
 
     return source_ids

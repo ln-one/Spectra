@@ -1,15 +1,15 @@
+x-backend-runtime-env: &backend-runtime-env
+  - PYTHONUNBUFFERED=1
+
 services:
   dualweave:
-    image: ghcr.io/ln-one/dualweave-service:latest
+    image: ${DUALWEAVE_IMAGE:?Run python3 ./scripts/compose_smart.py sync --channel develop}
     env_file:
       - ./backend/.env
     ports:
       - "127.0.0.1:8080:8080"
     volumes:
       - dualweave_data:/var/lib/dualweave/uploads
-    environment:
-      - DUALWEAVE_ADDR=:8080
-      - DUALWEAVE_LOCAL_DIR=/var/lib/dualweave/uploads
 
   postgres:
     image: postgres:16-alpine
@@ -21,6 +21,7 @@ services:
       POSTGRES_DB: spectra
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/initdb:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U spectra -d spectra"]
       interval: 5s
@@ -40,6 +41,45 @@ services:
       timeout: 3s
       retries: 5
 
+  limora:
+    image: ${LIMORA_IMAGE:?Run python3 ./scripts/compose_smart.py sync --channel develop}
+    ports:
+      - "127.0.0.1:3001:3001"
+    environment:
+      - PORT=3001
+      - DATABASE_URL=postgresql://spectra:spectra@postgres:5432/limora
+      - BETTER_AUTH_SECRET=spectra-limora-local-secret-please-change
+      - LIMORA_PUBLIC_BASE_URL=http://localhost:3001
+      - LIMORA_ALLOWED_HOSTS=localhost:3001,localhost,limora:3001,limora
+      - LIMORA_TRUSTED_ORIGINS=http://localhost:3000,http://frontend:3000,http://backend:8000,http://localhost:8000
+      - LIMORA_COOKIE_MODE=local
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3001/health/ready').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+  qdrant:
+    image: qdrant/qdrant:v1.13.2
+    ports:
+      - "127.0.0.1:6333:6333"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    healthcheck:
+      test: ["CMD-SHELL", "bash -lc 'exec 3<>/dev/tcp/127.0.0.1/6333'"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   frontend:
     build:
       context: ./frontend
@@ -53,11 +93,109 @@ services:
     environment:
       - NODE_ENV=development
       - NEXT_PUBLIC_API_URL=http://localhost:8000
+      - INTERNAL_API_URL=http://backend:8000
       - NEXT_PUBLIC_API_TIMEOUT_MS=30000
-      - NEXT_PUBLIC_CHAT_TIMEOUT_MS=90000
+      - NEXT_PUBLIC_CHAT_TIMEOUT_MS=300000
     command: npm run dev
     depends_on:
       - backend
+
+  pagevra:
+    image: ${PAGEVRA_IMAGE:?Run python3 ./scripts/compose_smart.py sync --channel develop}
+    env_file:
+      - ./backend/.env
+    ports:
+      - "127.0.0.1:8090:8090"
+    volumes:
+      - runtime_data:/var/lib/spectra
+    environment:
+      - PORT=8090
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:8090/health/ready').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+  diego:
+    image: ${DIEGO_IMAGE:?Run python3 ./scripts/compose_smart.py sync --channel develop}
+    env_file:
+      - ./backend/.env
+    ports:
+      - "127.0.0.1:8120:8000"
+    environment:
+      - PYTHONUNBUFFERED=1
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=3)",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+  stratumind:
+    image: ${STRATUMIND_IMAGE:?Run python3 ./scripts/compose_smart.py sync --channel develop}
+    env_file:
+      - ./backend/.env
+    ports:
+      - "127.0.0.1:8110:8110"
+    environment:
+      - PORT=8110
+    depends_on:
+      dualweave:
+        condition: service_started
+      qdrant:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "-q",
+          "-O-",
+          "http://127.0.0.1:8110/health/ready",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+  ourograph:
+    image: ${OUROGRAPH_IMAGE:?Run python3 ./scripts/compose_smart.py sync --channel develop}
+    ports:
+      - "127.0.0.1:8101:8101"
+    volumes:
+      - runtime_data:/var/lib/spectra
+    environment:
+      - PORT=8101
+      - OUROGRAPH_DATABASE_URL=postgresql://spectra:spectra@postgres:5432/ourograph
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "-q",
+          "-O-",
+          "http://127.0.0.1:8101/health/ready",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      stratumind:
+        condition: service_healthy
 
   backend:
     build:
@@ -72,45 +210,23 @@ services:
       - /app/venv
       - runtime_data:/var/lib/spectra
     environment:
-      - PYTHONUNBUFFERED=1
-      - DATABASE_URL=postgresql://spectra:spectra@postgres:5432/spectra
-      - JWT_SECRET_KEY=spectra-local-dev-jwt-secret
-      - AI_REQUEST_TIMEOUT_SECONDS=90
-      - CHAT_RAG_TIMEOUT_SECONDS=5
-      - OUTLINE_DRAFT_TIMEOUT_SECONDS=90
-      - PREVIEW_REBUILD_TIMEOUT_SECONDS=8
-      - TOOL_CHECK_CACHE_TTL_SECONDS=300
-      - HEALTH_TOOL_TIMEOUT_SECONDS=2
-      - GENERATION_TOOLS_REQUIRED=true
-      - RQ_WORKER_HEARTBEAT_FRESHNESS_SECONDS=420
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - CHROMA_MODE=persistent
-      - CHROMA_HOST=chromadb
-      - CHROMA_PORT=8000
-      - CHROMA_PERSIST_DIR=/var/lib/spectra/chroma
-      - UPLOAD_DIR=/var/lib/spectra/uploads
-      - ARTIFACT_STORAGE_DIR=/var/lib/spectra/artifacts
-      - GENERATED_DIR=/var/lib/spectra/generated
-      - POSTGRES_BACKUP_DIR=/var/lib/spectra/backups
-      - POSTGRES_RESTORE_STAGING_DIR=/var/lib/spectra/restore-staging
-      - POSTGRES_BACKUP_RETENTION_DAYS=14
-      - POSTGRES_BACKUP_PREFIX=spectra-dev
-      - DUALWEAVE_ENABLED=true
-      - DUALWEAVE_BASE_URL=http://dualweave:8080
-      - DB_REQUIRED=true
-      - REDIS_REQUIRED=false
-      - UVICORN_RELOAD=false
+      *backend-runtime-env
     command: sh -c "prisma migrate deploy && prisma generate && if [ \"$${UVICORN_RELOAD:-false}\" = \"true\" ]; then uvicorn main:app --host 0.0.0.0 --port 8000 --reload; else uvicorn main:app --host 0.0.0.0 --port 8000; fi"
     depends_on:
       redis:
         condition: service_healthy
-      chromadb:
-        condition: service_started
       postgres:
+        condition: service_healthy
+      limora:
         condition: service_healthy
       dualweave:
         condition: service_started
+      stratumind:
+        condition: service_healthy
+      pagevra:
+        condition: service_healthy
+      ourograph:
+        condition: service_healthy
     healthcheck:
       test:
         [
@@ -135,64 +251,25 @@ services:
       - /app/venv
       - runtime_data:/var/lib/spectra
     environment:
-      - PYTHONUNBUFFERED=1
-      - DATABASE_URL=postgresql://spectra:spectra@postgres:5432/spectra
-      - JWT_SECRET_KEY=spectra-local-dev-jwt-secret
-      - AI_REQUEST_TIMEOUT_SECONDS=90
-      - CHAT_RAG_TIMEOUT_SECONDS=5
-      - OUTLINE_DRAFT_TIMEOUT_SECONDS=90
-      - PREVIEW_REBUILD_TIMEOUT_SECONDS=8
-      - TOOL_CHECK_CACHE_TTL_SECONDS=300
-      - HEALTH_TOOL_TIMEOUT_SECONDS=2
-      - GENERATION_TOOLS_REQUIRED=true
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - CHROMA_MODE=persistent
-      - CHROMA_HOST=chromadb
-      - CHROMA_PORT=8000
-      - CHROMA_PERSIST_DIR=/var/lib/spectra/chroma
-      - UPLOAD_DIR=/var/lib/spectra/uploads
-      - ARTIFACT_STORAGE_DIR=/var/lib/spectra/artifacts
-      - GENERATED_DIR=/var/lib/spectra/generated
-      - POSTGRES_BACKUP_DIR=/var/lib/spectra/backups
-      - POSTGRES_RESTORE_STAGING_DIR=/var/lib/spectra/restore-staging
-      - POSTGRES_BACKUP_RETENTION_DAYS=14
-      - POSTGRES_BACKUP_PREFIX=spectra-dev
-      - DUALWEAVE_ENABLED=true
-      - DUALWEAVE_BASE_URL=http://dualweave:8080
-      - WORKER_NAME=worker-1
-      - WORKER_RECOVERY_SCAN=true
-      - RQ_WORKER_HEARTBEAT_FRESHNESS_SECONDS=420
-    command: sh -c "prisma migrate deploy && prisma generate && python worker.py"
+      *backend-runtime-env
+    command: sh -c "prisma migrate deploy && prisma generate && count=$${RQ_WORKER_COUNT:-1}; i=1; while [ $$i -le $$count ]; do WORKER_NAME=worker-$$i python worker.py & i=$$((i+1)); done; wait"
     depends_on:
       redis:
         condition: service_healthy
-      chromadb:
-        condition: service_started
       postgres:
         condition: service_healthy
       dualweave:
         condition: service_started
-
-  chromadb:
-    image: chromadb/chroma:0.5.2
-    ports:
-      - "127.0.0.1:8001:8000"
-    volumes:
-      - chroma_data:/chroma/chroma
-    environment:
-      - IS_PERSISTENT=TRUE
-      - PERSIST_DIRECTORY=/chroma/chroma
-      - ANONYMIZED_TELEMETRY=FALSE
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
+      stratumind:
+        condition: service_healthy
+      pagevra:
+        condition: service_healthy
+      ourograph:
+        condition: service_healthy
 
 volumes:
   dualweave_data:
   postgres_data:
   redis_data:
-  chroma_data:
+  qdrant_data:
   runtime_data:

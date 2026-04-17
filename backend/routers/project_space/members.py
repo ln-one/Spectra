@@ -14,7 +14,7 @@ from schemas.project_space import (
     ProjectMemberUpdate,
     SimpleSuccessResponse,
 )
-from services.project_space_service import project_space_service
+from services.project_space_service.service import project_space_service
 from utils.dependencies import get_current_user
 
 from .shared import COMMON_ERROR_RESPONSES, to_project_member_model
@@ -36,9 +36,7 @@ async def get_project_members(
             project_id=project_id, user_id=user_id
         )
         return ProjectMembersResponse(
-            success=True,
-            data={"members": [to_project_member_model(member) for member in members]},
-            message="获取成员列表成功",
+            members=[to_project_member_model(member) for member in members]
         )
     except Exception as exc:
         logger.error(f"get_project_members error: {exc}")
@@ -78,11 +76,7 @@ async def create_project_member(
             permissions=permissions_dict,
         )
 
-        response_payload = ProjectMemberResponse(
-            success=True,
-            data={"member": to_project_member_model(member)},
-            message="添加成员成功",
-        )
+        response_payload = ProjectMemberResponse(member=to_project_member_model(member))
         if cache_key:
             await project_space_service.save_idempotency_response(
                 cache_key, jsonable_encoder(response_payload)
@@ -128,9 +122,7 @@ async def update_project_member(
         )
 
         response_payload = ProjectMemberResponse(
-            success=True,
-            data={"member": to_project_member_model(updated_member)},
-            message="更新成员成功",
+            member=to_project_member_model(updated_member)
         )
         if cache_key:
             await project_space_service.save_idempotency_response(
@@ -154,7 +146,7 @@ async def delete_project_member(
         await project_space_service.delete_project_member(
             project_id=project_id, member_id=member_id, user_id=user_id
         )
-        return SimpleSuccessResponse(success=True, data={}, message="删除成员成功")
+        return SimpleSuccessResponse(ok=True)
     except Exception as exc:
         logger.error(f"delete_project_member error: {exc}")
         raise

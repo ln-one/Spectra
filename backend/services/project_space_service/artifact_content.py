@@ -196,6 +196,27 @@ def build_artifact_metadata(
     kind = str(content.get("kind") or "").strip()
     if kind:
         metadata["kind"] = kind
+    if kind == "animation_storyboard" or artifact_type in {
+        ArtifactType.GIF.value,
+        ArtifactType.MP4.value,
+    }:
+        metadata["content_snapshot"] = dict(content)
+        for key in (
+            "format",
+            "render_mode",
+            "cloud_video_provider",
+            "cloud_video_prompt",
+            "duration_seconds",
+            "rhythm",
+            "focus",
+            "visual_type",
+            "topic",
+            "summary",
+            "placements",
+            "render_spec",
+        ):
+            if key in content:
+                metadata[key] = content[key]
     title = content.get("title")
     if isinstance(title, str) and title.strip():
         metadata["title"] = title.strip()

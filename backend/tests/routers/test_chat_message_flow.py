@@ -76,24 +76,20 @@ async def test_load_rag_context_keeps_rag_when_selected_upload_lookup_fails(
 
 
 @pytest.mark.asyncio
-async def test_load_rag_context_falls_back_when_upload_select_not_supported(
+async def test_load_rag_context_keeps_rag_when_selected_upload_query_rejects_select(
     monkeypatch,
 ):
-    upload_calls = []
-
-    async def _find_many(**kwargs):
-        upload_calls.append(kwargs)
-        if "select" in kwargs:
-            raise TypeError(
-                "UploadActions.find_many() got an unexpected keyword argument 'select'"
-            )
-        return [SimpleNamespace(filename="physics.pdf", status="indexed")]
-
     monkeypatch.setattr(
         message_flow.db_service,
         "db",
         SimpleNamespace(
-            upload=SimpleNamespace(find_many=AsyncMock(side_effect=_find_many))
+            upload=SimpleNamespace(
+                find_many=AsyncMock(
+                    side_effect=TypeError(
+                        "UploadActions.find_many() got an unexpected keyword argument 'select'"
+                    )
+                )
+            )
         ),
     )
     rag_item = SimpleNamespace(
@@ -119,10 +115,7 @@ async def test_load_rag_context_falls_back_when_upload_select_not_supported(
 
     assert rag_hit is True
     assert len(rag_results) == 1
-    assert "physics.pdf(indexed)" in selected_files_hint
-    assert len(upload_calls) == 2
-    assert "select" in upload_calls[0]
-    assert "select" not in upload_calls[1]
+    assert selected_files_hint == ""
     assert rag_failure is None
 
 

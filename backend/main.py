@@ -3,6 +3,7 @@ import logging
 import os
 import time
 from pathlib import Path
+from typing import Any
 
 try:
     from dotenv import load_dotenv
@@ -25,11 +26,6 @@ from fastapi.responses import JSONResponse  # noqa: E402
 from app_setup import create_app  # noqa: E402
 from app_setup.lifespan import redis_manager  # noqa: E402
 from services.database import db_service  # noqa: E402
-from services.generation.tool_checker import (  # noqa: E402
-    check_marp_installed,
-    check_pandoc_installed,
-)
-from utils.generation_exceptions import ToolNotFoundError  # noqa: E402
 from utils.logger import setup_logging  # noqa: E402
 from utils.middleware import RequestContextFilter, get_request_id  # noqa: E402
 from utils.responses import error_response  # noqa: E402
@@ -56,7 +52,7 @@ def _dependency_timeout_seconds() -> float:
 
 
 def _tool_timeout_seconds() -> float:
-    raw = os.getenv("HEALTH_TOOL_TIMEOUT_SECONDS", "2").strip()
+    raw = os.getenv("HEALTH_SERVICE_AUTHORITY_TIMEOUT_SECONDS", "2").strip()
     try:
         parsed = float(raw)
         return parsed if parsed > 0 else 2.0
@@ -64,8 +60,8 @@ def _tool_timeout_seconds() -> float:
         return 2.0
 
 
-def _generation_tools_required() -> bool:
-    return os.getenv("GENERATION_TOOLS_REQUIRED", "false").lower() == "true"
+def _service_authorities_required() -> bool:
+    return os.getenv("SERVICE_AUTHORITIES_REQUIRED", "false").lower() == "true"
 
 
 async def _probe_database(timeout_seconds: float) -> tuple[bool, float]:
@@ -86,42 +82,47 @@ async def _probe_redis(timeout_seconds: float) -> tuple[bool, float]:
         return False, round((time.perf_counter() - started_at) * 1000, 2)
 
 
-def _safe_probe_generation_tool(checker) -> str:
-    try:
-        return "available" if checker() else "unavailable"
-    except ToolNotFoundError:
-        return "unavailable"
-    except Exception as exc:  # pragma: no cover - defensive runtime path
-        logger.warning("Generation tool probe failed: %s", exc)
-        return "unavailable"
-
-
-def _collect_generation_tools_status() -> dict[str, object]:
-    marp_status = _safe_probe_generation_tool(check_marp_installed)
-    pandoc_status = _safe_probe_generation_tool(check_pandoc_installed)
-    healthy = marp_status == "available" and pandoc_status == "available"
+def _collect_service_authorities_status() -> dict[str, Any]:
+    required = _service_authorities_required()
+    specs = {
+        "diego": "DIEGO_BASE_URL",
+        "pagevra": "PAGEVRA_BASE_URL",
+        "ourograph": "OUROGRAPH_BASE_URL",
+        "dualweave": "DUALWEAVE_BASE_URL",
+        "stratumind": "STRATUMIND_BASE_URL",
+        "limora": "LIMORA_BASE_URL",
+    }
+    services: dict[str, dict[str, Any]] = {}
+    for name, env_name in specs.items():
+        base_url = os.getenv(env_name, "").strip()
+        services[name] = {
+            "configured": bool(base_url),
+            "env": env_name,
+            "base_url": base_url or None,
+        }
+    healthy = all(item["configured"] for item in services.values())
     return {
-        "marp": marp_status,
-        "pandoc": pandoc_status,
+        "required": required,
         "healthy": healthy,
+        "services": services,
         "timed_out": False,
     }
 
 
-async def _probe_generation_tools(timeout_seconds: float) -> tuple[dict, float]:
+async def _probe_service_authorities(timeout_seconds: float) -> tuple[dict, float]:
     started_at = time.perf_counter()
     try:
         status_payload = await asyncio.wait_for(
-            asyncio.to_thread(_collect_generation_tools_status),
+            asyncio.to_thread(_collect_service_authorities_status),
             timeout=timeout_seconds,
         )
         return status_payload, round((time.perf_counter() - started_at) * 1000, 2)
     except asyncio.TimeoutError:
         return (
             {
-                "marp": "unknown",
-                "pandoc": "unknown",
+                "required": _service_authorities_required(),
                 "healthy": False,
+                "services": {},
                 "timed_out": True,
             },
             round((time.perf_counter() - started_at) * 1000, 2),
@@ -129,9 +130,9 @@ async def _probe_generation_tools(timeout_seconds: float) -> tuple[dict, float]:
     except Exception:  # pragma: no cover - defensive runtime path
         return (
             {
-                "marp": "unknown",
-                "pandoc": "unknown",
+                "required": _service_authorities_required(),
                 "healthy": False,
+                "services": {},
                 "timed_out": False,
             },
             round((time.perf_counter() - started_at) * 1000, 2),
@@ -142,18 +143,18 @@ async def _build_health_payload() -> tuple[dict, bool]:
     timeout_seconds = _dependency_timeout_seconds()
     db_healthy, db_latency_ms = await _probe_database(timeout_seconds)
     redis_healthy, redis_latency_ms = await _probe_redis(timeout_seconds)
-    tool_timeout_seconds = _tool_timeout_seconds()
-    generation_tools, tools_latency_ms = await _probe_generation_tools(
-        tool_timeout_seconds
+    service_authority_timeout_seconds = _tool_timeout_seconds()
+    service_authorities, services_latency_ms = await _probe_service_authorities(
+        service_authority_timeout_seconds
     )
     db_required = os.getenv("DB_REQUIRED", "false").lower() == "true"
     redis_required = os.getenv("REDIS_REQUIRED", "false").lower() == "true"
-    tools_required = _generation_tools_required()
-    tools_healthy = bool(generation_tools.get("healthy"))
+    services_required = bool(service_authorities.get("required"))
+    services_healthy = bool(service_authorities.get("healthy"))
     overall_healthy = (
         (db_healthy or not db_required)
         and (redis_healthy or not redis_required)
-        and (tools_healthy or not tools_required)
+        and (services_healthy or not services_required)
     )
 
     payload = {
@@ -162,19 +163,13 @@ async def _build_health_payload() -> tuple[dict, bool]:
         "redis": "connected" if redis_healthy else "disconnected",
         "db_required": db_required,
         "redis_required": redis_required,
-        "generation_tools": {
-            "marp": generation_tools.get("marp", "unknown"),
-            "pandoc": generation_tools.get("pandoc", "unknown"),
-            "required": tools_required,
-            "healthy": tools_healthy,
-            "timed_out": bool(generation_tools.get("timed_out")),
-        },
+        "service_authorities": service_authorities,
         "dependency_timeout_seconds": timeout_seconds,
-        "tool_timeout_seconds": tool_timeout_seconds,
+        "service_authority_timeout_seconds": service_authority_timeout_seconds,
         "latency_ms": {
             "database": db_latency_ms,
             "redis": redis_latency_ms,
-            "generation_tools": tools_latency_ms,
+            "service_authorities": services_latency_ms,
         },
     }
     return payload, overall_healthy
@@ -198,7 +193,7 @@ async def health_check():
     if not overall_healthy and (
         payload["db_required"]
         or payload["redis_required"]
-        or payload["generation_tools"]["required"]
+        or payload["service_authorities"]["required"]
     ):
         request_id = get_request_id()
         error_payload = error_response(

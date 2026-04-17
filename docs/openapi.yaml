@@ -58,44 +58,12 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
-  /api/v1/auth/refresh:
-    post:
-      summary: 刷新 Access Token
-      operationId: postAuthRefresh
-      tags:
-        - Auth
-      security: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - refresh_token
-              properties:
-                refresh_token:
-                  type: string
-                  description: 长期有效的刷新令牌
-      responses:
-        '200':
-          description: 刷新成功
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AuthResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
   /api/v1/auth/logout:
     post:
       summary: 退出登录
       operationId: postAuthLogout
       tags:
         - Auth
-      security:
-        - BearerAuth: []
       responses:
         '200':
           description: 退出成功
@@ -111,8 +79,6 @@ paths:
       operationId: getAuthMe
       tags:
         - Auth
-      security:
-        - BearerAuth: []
       responses:
         '200':
           description: 成功
@@ -129,7 +95,7 @@ paths:
       tags:
         - Chat
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -157,7 +123,7 @@ paths:
       tags:
         - Chat
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - name: project_id
           in: query
@@ -192,7 +158,7 @@ paths:
       tags:
         - Chat
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -235,7 +201,7 @@ paths:
       tags:
         - Files
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -276,7 +242,7 @@ paths:
       tags:
         - Files
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - name: file_id
           in: path
@@ -303,7 +269,7 @@ paths:
       tags:
         - Files
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - name: file_id
           in: path
@@ -331,6 +297,52 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+  /api/v1/files/{file_id}/parse/mineru:
+    post:
+      summary: 同步 MinerU 解析结果
+      operationId: postFilesByFileIdParseMineru
+      tags:
+        - Files
+      security:
+        - SessionAuth: []
+      parameters:
+        - name: file_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - parsed_text
+              properties:
+                parsed_text:
+                  type: string
+                parse_details:
+                  type: object
+                session_id:
+                  type: string
+      responses:
+        '200':
+          description: 解析结果同步成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SimpleSuccessResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
   /api/v1/files/batch:
     post:
       summary: 批量上传文件
@@ -339,7 +351,7 @@ paths:
       tags:
         - Files
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -382,7 +394,7 @@ paths:
       tags:
         - Files
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       requestBody:
         required: true
         content:
@@ -418,7 +430,7 @@ paths:
       tags:
         - Generate
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - name: project_id
           in: query
@@ -459,7 +471,7 @@ paths:
       tags:
         - Generate
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
         - $ref: '#/components/parameters/ContractVersion'
@@ -489,7 +501,7 @@ paths:
       tags:
         - Generate
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - name: session_id
           in: path
@@ -520,7 +532,7 @@ paths:
       tags:
         - Generate
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - name: session_id
           in: path
@@ -560,47 +572,6 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
-  /api/v1/generate/sessions/{session_id}/outline:
-    put:
-      summary: 更新大纲并回写会话
-      operationId: putGenerateSessionsBySessionIdOutline
-      description: 兼容别名，等价于 command_type=UPDATE_OUTLINE
-      deprecated: true
-      tags:
-        - Generate
-      security:
-        - BearerAuth: []
-      parameters:
-        - name: session_id
-          in: path
-          required: true
-          schema:
-            type: string
-        - $ref: '#/components/parameters/IdempotencyKey'
-        - $ref: '#/components/parameters/ContractVersion'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/UpdateOutlineRequest'
-      responses:
-        '200':
-          description: 大纲更新成功
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/UpdateOutlineResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
   /api/v1/generate/sessions/{session_id}/commands:
     post:
       summary: 执行会话命令（唯一写入口）
@@ -611,7 +582,7 @@ paths:
       tags:
         - Generate
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - name: session_id
           in: path
@@ -643,47 +614,6 @@ paths:
           $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/Conflict'
-  /api/v1/generate/sessions/{session_id}/confirm:
-    post:
-      summary: 确认大纲并继续生成
-      operationId: postGenerateSessionsBySessionIdConfirm
-      description: 兼容别名，等价于 command_type=CONFIRM_OUTLINE
-      deprecated: true
-      tags:
-        - Generate
-      security:
-        - BearerAuth: []
-      parameters:
-        - name: session_id
-          in: path
-          required: true
-          schema:
-            type: string
-        - $ref: '#/components/parameters/IdempotencyKey'
-        - $ref: '#/components/parameters/ContractVersion'
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ConfirmOutlineRequest'
-      responses:
-        '200':
-          description: 已进入内容生成
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ConfirmOutlineResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
   /api/v1/generate/sessions/{session_id}/candidate-change:
     post:
       summary: 为当前会话提交候选变更
@@ -691,7 +621,7 @@ paths:
       tags:
         - Generate
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - name: session_id
           in: path
@@ -729,7 +659,7 @@ paths:
       tags:
         - Generate
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - name: session_id
           in: path
@@ -764,137 +694,6 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
-  /api/v1/generate/sessions/{session_id}/outline/redraft:
-    post:
-      summary: 请求 AI 重写大纲
-      operationId: postGenerateSessionsBySessionIdOutlineRedraft
-      description: 兼容别名，等价于 command_type=REDRAFT_OUTLINE
-      deprecated: true
-      tags:
-        - Generate
-      security:
-        - BearerAuth: []
-      parameters:
-        - name: session_id
-          in: path
-          required: true
-          schema:
-            type: string
-        - $ref: '#/components/parameters/IdempotencyKey'
-        - $ref: '#/components/parameters/ContractVersion'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/RedraftOutlineRequest'
-      responses:
-        '200':
-          description: 已进入大纲重写阶段
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RedraftOutlineResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
-  /api/v1/generate/sessions/{session_id}/resume:
-    post:
-      summary: 恢复中断会话
-      operationId: postGenerateSessionsBySessionIdResume
-      description: 兼容别名，等价于 command_type=RESUME_SESSION
-      deprecated: true
-      tags:
-        - Generate
-      security:
-        - BearerAuth: []
-      parameters:
-        - name: session_id
-          in: path
-          required: true
-          schema:
-            type: string
-        - $ref: '#/components/parameters/ContractVersion'
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ResumeSessionRequest'
-      responses:
-        '200':
-          description: 恢复成功
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ResumeSessionResponse'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '502':
-          $ref: '#/components/responses/BadGateway'
-        '503':
-          $ref: '#/components/responses/ServiceUnavailable'
-        '504':
-          $ref: '#/components/responses/GatewayTimeout'
-  /api/v1/generate/sessions/{session_id}/slides/{slide_id}/regenerate:
-    post:
-      summary: 局部重绘单页
-      operationId: postGenerateSessionsBySessionIdSlidesBySlideIdRegenerate
-      description: 兼容别名，等价于 command_type=REGENERATE_SLIDE
-      deprecated: true
-      tags:
-        - Generate
-      security:
-        - BearerAuth: []
-      parameters:
-        - name: session_id
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: slide_id
-          in: path
-          required: true
-          schema:
-            type: string
-        - $ref: '#/components/parameters/IdempotencyKey'
-        - $ref: '#/components/parameters/ContractVersion'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/RegenerateSlideRequest'
-      responses:
-        '200':
-          description: 局部重绘成功
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RegenerateSlideResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
   /api/v1/generate/capabilities:
     get:
       summary: 获取生成域能力声明
@@ -903,7 +702,7 @@ paths:
       tags:
         - Generate
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - $ref: '#/components/parameters/ContractVersion'
       responses:
@@ -925,7 +724,7 @@ paths:
       tags:
         - Generate
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - $ref: '#/components/parameters/ContractVersion'
       responses:
@@ -947,7 +746,7 @@ paths:
       tags:
         - Generate
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - name: card_id
           in: path
@@ -976,7 +775,7 @@ paths:
       tags:
         - Generate
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - name: card_id
           in: path
@@ -1005,7 +804,7 @@ paths:
       tags:
         - Generate
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - name: card_id
           in: path
@@ -1042,7 +841,7 @@ paths:
       tags:
         - Generate
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - name: card_id
           in: path
@@ -1087,7 +886,7 @@ paths:
       tags:
         - Generate
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - name: card_id
           in: path
@@ -1132,7 +931,7 @@ paths:
       tags:
         - Generate
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - $ref: '#/components/parameters/ContractVersion'
       requestBody:
@@ -1172,7 +971,7 @@ paths:
       tags:
         - Generate
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - name: card_id
           in: path
@@ -1205,7 +1004,7 @@ paths:
       tags:
         - Preview
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - name: session_id
           in: path
@@ -1245,7 +1044,7 @@ paths:
       tags:
         - Preview
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - name: session_id
           in: path
@@ -1284,7 +1083,7 @@ paths:
       tags:
         - Preview
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - name: session_id
           in: path
@@ -1329,7 +1128,7 @@ paths:
       tags:
         - Preview
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - name: session_id
           in: path
@@ -1371,7 +1170,7 @@ paths:
       tags:
         - RAG
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       requestBody:
         required: true
         content:
@@ -1398,7 +1197,7 @@ paths:
       tags:
         - RAG
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - name: chunk_id
           in: path
@@ -1423,6 +1222,56 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+  /api/v1/rag/sources/{chunk_id}/image:
+    get:
+      summary: 读取来源图片资源
+      operationId: getRagSourceImageByChunkId
+      description: 读取来源分块中的图片资源（按需缓存）。
+      tags:
+        - RAG
+      security:
+        - SessionAuth: []
+      parameters:
+        - name: chunk_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: path
+          in: query
+          required: true
+          schema:
+            type: string
+          description: 来源压缩包中的图片相对路径
+        - name: project_id
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功返回图片二进制内容
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+            image/webp:
+              schema:
+                type: string
+                format: binary
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
   /api/v1/rag/index:
     post:
       summary: 索引新文件到知识库
@@ -1431,7 +1280,7 @@ paths:
       tags:
         - RAG
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       requestBody:
         required: true
         content:
@@ -1488,7 +1337,7 @@ paths:
       tags:
         - RAG
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       requestBody:
         required: true
         content:
@@ -1530,7 +1379,7 @@ paths:
       tags:
         - RAG
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - name: query
           in: query
@@ -1576,7 +1425,7 @@ paths:
       tags:
         - RAG
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       requestBody:
         required: true
         content:
@@ -1618,7 +1467,7 @@ paths:
       tags:
         - RAG
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       requestBody:
         required: true
         content:
@@ -1721,7 +1570,7 @@ paths:
       tags:
         - Project
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -1747,7 +1596,7 @@ paths:
       tags:
         - Project
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - $ref: '#/components/parameters/PageParam'
         - $ref: '#/components/parameters/LimitParam'
@@ -1767,7 +1616,7 @@ paths:
       tags:
         - Project
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - name: project_id
           in: path
@@ -1793,7 +1642,7 @@ paths:
       tags:
         - Project
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - name: project_id
           in: path
@@ -1828,7 +1677,7 @@ paths:
       tags:
         - Project
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - name: project_id
           in: path
@@ -1856,7 +1705,7 @@ paths:
         - Project
         - Files
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - name: project_id
           in: path
@@ -1886,7 +1735,7 @@ paths:
       tags:
         - Project
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - name: project_id
           in: path
@@ -1914,7 +1763,7 @@ paths:
       tags:
         - Project
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - name: q
           in: query
@@ -1944,11 +1793,13 @@ paths:
           $ref: '#/components/responses/Unauthorized'
 components:
   securitySchemes:
-    BearerAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
-      description: JWT 认证令牌
+    SessionAuth:
+      type: apiKey
+      in: cookie
+      name: better-auth.session_token
+      description: |
+        浏览器会话 Cookie 认证。当前 Spectra 登录态由 Limora cookie session 驱动；
+        联调与 Swagger 调试应优先复用浏览器当前登录会话，而不是手动填写 Bearer Token。
   schemas:
     RegisterRequest:
       type: object
@@ -2006,13 +1857,9 @@ components:
           type: boolean
         data:
           type: object
+          required:
+            - user
           properties:
-            access_token:
-              type: string
-            refresh_token:
-              type: string
-            expires_in:
-              type: integer
             user:
               $ref: '#/components/schemas/UserInfo'
         message:
@@ -2240,9 +2087,17 @@ components:
         latency_ms:
           type: number
           format: float
+        total_duration_ms:
+          type: number
+          format: float
         route_decision:
           type: object
           additionalProperties: true
+        stage_timings_ms:
+          type: object
+          additionalProperties:
+            type: number
+            format: float
     SendMessageResponse:
       type: object
       required:
@@ -2753,13 +2608,6 @@ components:
         bootstrap_only:
           type: boolean
           default: false
-    GenerateTaskStatus:
-      type: string
-      enum:
-        - pending
-        - processing
-        - completed
-        - failed
     SessionRef:
       type: object
       required:
@@ -2772,16 +2620,11 @@ components:
           type: string
         project_id:
           type: string
-        task_id:
-          type: string
-          description: 兼容旧任务模型时可返回
         state:
           $ref: '#/components/schemas/GenerationState'
         state_reason:
           type: string
           description: 状态附加语义（用于未知状态或灰度状态说明）
-        status:
-          $ref: '#/components/schemas/GenerateTaskStatus'
         contract_version:
           type: string
           example: 2026-03
@@ -3087,10 +2930,66 @@ components:
         - progress.updated
         - outline.ready
         - outline.updated
+        - outline.started
+        - outline.section.generated
+        - outline.completed
+        - slides.started
+        - slide.generating
+        - slide.generated
+        - slides.completed
+        - generation.completed
+        - generation.failed
+        - ppt.started
+        - ppt.slide.generated
+        - ppt.completed
         - slide.updated
+        - slide.modify.started
+        - slide.modify.processing
+        - slide.modify.failed
         - task.completed
         - task.failed
         - session.recovered
+        - requirements.analyzing.started
+        - requirements.analyzing.completed
+        - requirements.analyzed
+        - outline.token
+        - compile.completed
+        - run.failed
+        - slide.started
+        - compile.started
+        - plan.completed
+        - slide.reviewed
+        - qa.completed
+        - repair.started
+        - slot.mapping.completed
+        - slide.preview.qa
+        - chart.truth.checked
+        - repair.round.completed
+        - slide.codegen.started
+        - slide.codegen.completed
+        - slide.spec.generated
+        - slide.spec.repaired
+        - slide.critic.completed
+        - slide.repair.completed
+        - artifact.cleanup.completed
+        - slide.plan.completed
+        - slide.quality.gate.completed
+        - slide.repair.directives.generated
+        - research.completed
+        - slide.candidate.generated
+        - slide.selection.completed
+        - template.layout.reflow.completed
+        - template.fidelity.checked
+        - outline.repair.started
+        - outline.repair.completed
+        - outline.repair.failed
+        - llm.request.retry
+        - llm.request.timeout
+        - slide.failed
+        - slide.failure.diagnostics
+        - slide.auto.fix.applied
+        - slide.retry.context.built
+        - run.finalized
     RunTracePayload:
       type: object
       properties:
@@ -3109,8 +3008,6 @@ components:
           $ref: '#/components/schemas/RunStatus'
         run_step:
           $ref: '#/components/schemas/RunStep'
-        task_id:
-          type: string
         error:
           type: string
     GenerationEvent:
@@ -3162,39 +3059,6 @@ components:
               type: array
               items:
                 $ref: '#/components/schemas/GenerationEvent'
-        message:
-          type: string
-    UpdateOutlineRequest:
-      type: object
-      required:
-        - outline
-        - base_version
-      properties:
-        base_version:
-          type: integer
-          minimum: 1
-          description: 客户端编辑所基于的大纲版本（并发控制）
-        outline:
-          $ref: '#/components/schemas/OutlineDocument'
-        change_reason:
-          type: string
-          maxLength: 1000
-    UpdateOutlineResponse:
-      type: object
-      required:
-        - success
-        - data
-        - message
-      properties:
-        success:
-          type: boolean
-        data:
-          type: object
-          properties:
-            session:
-              $ref: '#/components/schemas/SessionRef'
-            outline:
-              $ref: '#/components/schemas/OutlineDocument'
         message:
           type: string
     UpdateOutlineCommand:
@@ -3345,6 +3209,13 @@ components:
         - $ref: '#/components/schemas/SetSessionTitleCommand'
       discriminator:
         propertyName: command_type
+        mapping:
+          UPDATE_OUTLINE: '#/components/schemas/UpdateOutlineCommand'
+          REDRAFT_OUTLINE: '#/components/schemas/RedraftOutlineCommand'
+          CONFIRM_OUTLINE: '#/components/schemas/ConfirmOutlineCommand'
+          REGENERATE_SLIDE: '#/components/schemas/RegenerateSlideCommand'
+          RESUME_SESSION: '#/components/schemas/ResumeSessionCommand'
+          SET_SESSION_TITLE: '#/components/schemas/SetSessionTitleCommand'
     GenerationSessionCommandRequest:
       type: object
       required:
@@ -3410,37 +3281,6 @@ components:
                 type: string
         message:
           type: string
-    CandidateChangeRequest:
-      type: object
-      required:
-        - title
-      properties:
-        session_id:
-          type: string
-          nullable: true
-        base_version_id:
-          type: string
-          nullable: true
-        title:
-          type: string
-        summary:
-          type: string
-        payload:
-          type: object
-          additionalProperties: true
-    ConfirmOutlineRequest:
-      type: object
-      properties:
-        continue_from_retrieval:
-          type: boolean
-          default: true
-          description: 是否复用 ANALYZING 阶段上下文
-        expected_state:
-          allOf:
-            - $ref: '#/components/schemas/GenerationState'
-          description: 乐观并发控制，默认应为 AWAITING_OUTLINE_CONFIRM
-        candidate_change:
-          $ref: '#/components/schemas/CandidateChangeRequest'
     CandidateChange:
       type: object
       required:
@@ -3489,24 +3329,6 @@ components:
         updated_at:
           type: string
           format: date-time
-    ConfirmOutlineResponse:
-      type: object
-      required:
-        - success
-        - data
-        - message
-      properties:
-        success:
-          type: boolean
-        data:
-          type: object
-          properties:
-            session:
-              $ref: '#/components/schemas/SessionRef'
-            candidate_change:
-              $ref: '#/components/schemas/CandidateChange'
-        message:
-          type: string
     CandidateChangesResponse:
       type: object
       required:
@@ -3525,6 +3347,24 @@ components:
                 $ref: '#/components/schemas/CandidateChange'
         message:
           type: string
+    CandidateChangeRequest:
+      type: object
+      required:
+        - title
+      properties:
+        session_id:
+          type: string
+          nullable: true
+        base_version_id:
+          type: string
+          nullable: true
+        title:
+          type: string
+        summary:
+          type: string
+        payload:
+          type: object
+          additionalProperties: true
     CandidateChangeResponse:
       type: object
       required:
@@ -3541,137 +3381,6 @@ components:
           properties:
             change:
               $ref: '#/components/schemas/CandidateChange'
-        message:
-          type: string
-    RedraftOutlineRequest:
-      type: object
-      required:
-        - instruction
-        - base_version
-      properties:
-        instruction:
-          type: string
-          minLength: 1
-          maxLength: 1000
-          description: 用户要求重写大纲的指导语
-        base_version:
-          type: integer
-          minimum: 1
-          description: 当前确认页所见大纲版本
-    RedraftOutlineResponse:
-      type: object
-      required:
-        - success
-        - data
-        - message
-      properties:
-        success:
-          type: boolean
-        data:
-          type: object
-          properties:
-            session:
-              $ref: '#/components/schemas/SessionRef'
-        message:
-          type: string
-    ResumeSessionRequest:
-      type: object
-      properties:
-        cursor:
-          type: string
-          description: 上次消费到的事件游标
-        last_known_state:
-          $ref: '#/components/schemas/GenerationState'
-    ResumeSessionResponse:
-      type: object
-      required:
-        - success
-        - data
-        - message
-      properties:
-        success:
-          type: boolean
-        data:
-          type: object
-          properties:
-            session:
-              $ref: '#/components/schemas/SessionRef'
-            latest_event:
-              $ref: '#/components/schemas/GenerationEvent'
-        message:
-          type: string
-    RegenerateSlideRequest:
-      type: object
-      required:
-        - patch
-      properties:
-        instruction:
-          type: string
-          minLength: 1
-          maxLength: 2000
-          description: 可选自然语言补充说明，最终以结构化 patch 为准
-        slide_index:
-          type: integer
-          minimum: 1
-        patch:
-          $ref: '#/components/schemas/StructuredSlidePatch'
-        expected_render_version:
-          type: integer
-          minimum: 1
-          description: 防止并发覆盖的版本控制字段
-    preview_SourceReference:
-      type: object
-      required:
-        - chunk_id
-        - source_type
-        - filename
-      properties:
-        chunk_id:
-          type: string
-          description: 来源片段唯一标识，可用于查询来源详情
-        source_type:
-          type: string
-          enum:
-            - video
-            - document
-            - ai_generated
-        filename:
-          type: string
-        page_number:
-          type: integer
-        timestamp:
-          type: string
-        preview_text:
-          type: string
-    RegenerateSlideResponse:
-      type: object
-      required:
-        - success
-        - data
-        - message
-      properties:
-        success:
-          type: boolean
-        data:
-          type: object
-          properties:
-            session:
-              $ref: '#/components/schemas/SessionRef'
-            updated_slide:
-              type: object
-              properties:
-                slide_id:
-                  type: string
-                slide_index:
-                  type: integer
-                content_markdown:
-                  type: string
-                sources:
-                  type: array
-                  items:
-                    $ref: '#/components/schemas/preview_SourceReference'
-                render_version:
-                  type: integer
         message:
           type: string
     StudioCardConfigOption:
@@ -4348,6 +4057,123 @@ components:
         run_id:
           type: string
           nullable: true
+    RenderedPreviewPage:
+      type: object
+      required:
+        - index
+        - slide_id
+      properties:
+        index:
+          type: integer
+          minimum: 0
+        slide_id:
+          type: string
+        image_url:
+          type: string
+          nullable: true
+        html_preview:
+          type: string
+          nullable: true
+        status:
+          type: string
+          nullable: true
+        split_index:
+          type: integer
+          minimum: 0
+          default: 0
+        split_count:
+          type: integer
+          minimum: 1
+          default: 1
+        width:
+          type: integer
+          minimum: 1
+          nullable: true
+        height:
+          type: integer
+          minimum: 1
+          nullable: true
+    RenderedPreview:
+      type: object
+      properties:
+        format:
+          type: string
+          default: png
+        page_count:
+          type: integer
+          minimum: 0
+          default: 0
+        pages:
+          type: array
+          items:
+            $ref: '#/components/schemas/RenderedPreviewPage'
+    preview_SourceReference:
+      type: object
+      required:
+        - chunk_id
+        - source_type
+        - filename
+      properties:
+        chunk_id:
+          type: string
+          description: 来源片段唯一标识，可用于查询来源详情
+        source_type:
+          type: string
+          enum:
+            - video
+            - document
+            - ai_generated
+        filename:
+          type: string
+        page_number:
+          type: integer
+        timestamp:
+          type: string
+        preview_text:
+          type: string
+    ImageInsertionMetadata:
+      type: object
+      description: 插图决策元数据
+      properties:
+        retrieval_mode:
+          type: string
+          enum:
+            - default_library
+            - strict_sources
+          description: 检索模式
+        page_semantic_type:
+          type: string
+          description: 页面语义类型
+        image_insertion_decision:
+          type: string
+          enum:
+            - insert
+            - skip
+          description: 插图决策
+        image_count:
+          type: integer
+          minimum: 0
+          description: 插图数量
+        image_slot:
+          type: string
+          enum:
+            - left_split
+            - right_split
+            - bottom_panel
+          description: 图位
+        layout_risk_level:
+          type: string
+          enum:
+            - low
+            - medium
+            - high
+          description: 版式风险等级
+        image_match_reason:
+          type: string
+          description: 插图匹配原因
+        skip_reason:
+          type: string
+          description: 跳过插图原因
     Slide:
       type: object
       required:
@@ -4372,6 +4198,15 @@ components:
             $ref: '#/components/schemas/preview_SourceReference'
         thumbnail_url:
           type: string
+        rendered_html_preview:
+          type: string
+          nullable: true
+        rendered_previews:
+          type: array
+          items:
+            $ref: '#/components/schemas/RenderedPreviewPage'
+        image_metadata:
+          $ref: '#/components/schemas/ImageInsertionMetadata'
     SlidePlan:
       type: object
       required:
@@ -4423,10 +4258,6 @@ components:
             session_id:
               type: string
               description: 会话级预览上下文 ID（session-first）
-            task_id:
-              type: string
-              description: 兼容旧任务流的执行 ID
-              nullable: true
             artifact_id:
               type: string
               description: 当前预览对应的成果 ID
@@ -4448,6 +4279,8 @@ components:
               description: 当前可预览渲染版本
             artifact_anchor:
               $ref: '#/components/schemas/ArtifactAnchor'
+            rendered_preview:
+              $ref: '#/components/schemas/RenderedPreview'
             slides:
               type: array
               items:
@@ -4520,8 +4353,6 @@ components:
             session_id:
               type: string
               description: 修改任务实际作用的会话
-            modify_task_id:
-              type: string
             status:
               type: string
               enum:
@@ -4660,10 +4491,6 @@ components:
             session_id:
               type: string
               description: 导出时绑定的会话 ID
-            task_id:
-              type: string
-              description: 兼容旧任务执行 ID
-              nullable: true
             artifact_id:
               type: string
               description: 导出对应的成果 ID
@@ -4914,9 +4741,9 @@ components:
         - redis
         - db_required
         - redis_required
-        - generation_tools
+        - service_authorities
         - dependency_timeout_seconds
-        - tool_timeout_seconds
+        - service_authority_timeout_seconds
         - latency_ms
       properties:
         status:
@@ -4938,37 +4765,39 @@ components:
           type: boolean
         redis_required:
           type: boolean
-        generation_tools:
+        service_authorities:
           type: object
           required:
-            - marp
-            - pandoc
             - required
             - healthy
+            - services
             - timed_out
           properties:
-            marp:
-              type: string
-              enum:
-                - available
-                - unavailable
-                - unknown
-            pandoc:
-              type: string
-              enum:
-                - available
-                - unavailable
-                - unknown
             required:
               type: boolean
             healthy:
               type: boolean
+            services:
+              type: object
+              additionalProperties:
+                type: object
+                required:
+                  - configured
+                  - env
+                properties:
+                  configured:
+                    type: boolean
+                  env:
+                    type: string
+                  base_url:
+                    type: string
+                    nullable: true
             timed_out:
               type: boolean
         dependency_timeout_seconds:
           type: number
           format: float
-        tool_timeout_seconds:
+        service_authority_timeout_seconds:
           type: number
           format: float
         latency_ms:
@@ -4976,7 +4805,7 @@ components:
           required:
             - database
             - redis
-            - generation_tools
+            - service_authorities
           properties:
             database:
               type: number
@@ -4984,7 +4813,7 @@ components:
             redis:
               type: number
               format: float
-            generation_tools:
+            service_authorities:
               type: number
               format: float
     HealthLivenessResponse:
@@ -5197,6 +5026,12 @@ components:
             $ref: '#/components/schemas/ErrorResponse'
     NotFound:
       description: 请求的资源不存在
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    InternalServerError:
+      description: 服务端内部错误
       content:
         application/json:
           schema:

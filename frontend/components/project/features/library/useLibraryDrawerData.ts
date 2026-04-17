@@ -120,6 +120,24 @@ function parsePriority(value: string): number {
   return Number.isFinite(parsed) ? parsed : 10;
 }
 
+function enrichReferenceLabels(
+  references: ProjectReference[],
+  libraries: AvailableLibraryProject[]
+): ProjectReference[] {
+  const nameById = new Map(
+    libraries.map((library) => [library.id, library.name])
+  );
+  return references.map((reference) => {
+    const targetId = reference.targetProjectId;
+    const targetName =
+      reference.targetProjectName ??
+      (targetId ? (nameById.get(targetId) ?? null) : null);
+    return targetName
+      ? { ...reference, targetProjectName: targetName }
+      : reference;
+  });
+}
+
 export function useLibraryDrawerData(projectId: string, open: boolean) {
   const [activeTab, setActiveTab] = useState("references");
   const [references, setReferences] = useState<ProjectReference[]>([]);
@@ -210,7 +228,7 @@ export function useLibraryDrawerData(projectId: string, open: boolean) {
     setReferencesState({ loading: true, error: null });
     try {
       const response = await projectSpaceApi.getReferences(projectId);
-      setReferences(response.data.references ?? []);
+      setReferences(response.references ?? []);
       setReferencesState({ loading: false, error: null });
     } catch (error) {
       setReferencesState({
@@ -246,6 +264,12 @@ export function useLibraryDrawerData(projectId: string, open: boolean) {
       });
     }
   }, [projectId]);
+
+  useEffect(() => {
+    setReferences((current) =>
+      enrichReferenceLabels(current, availableLibraries)
+    );
+  }, [availableLibraries]);
 
   const loadCurrentLibrarySettings = useCallback(async () => {
     setCurrentLibraryState({ loading: true, error: null });
@@ -293,7 +317,7 @@ export function useLibraryDrawerData(projectId: string, open: boolean) {
     setVersionsState({ loading: true, error: null });
     try {
       const response = await projectSpaceApi.getVersions(projectId);
-      setVersions(response.data.versions ?? []);
+      setVersions(response.versions ?? []);
       setVersionsState({ loading: false, error: null });
     } catch (error) {
       setVersionsState({
@@ -307,7 +331,7 @@ export function useLibraryDrawerData(projectId: string, open: boolean) {
     setArtifactsState({ loading: true, error: null });
     try {
       const response = await projectSpaceApi.getArtifacts(projectId);
-      setArtifacts(response.data.artifacts ?? []);
+      setArtifacts(response.artifacts ?? []);
       setArtifactsState({ loading: false, error: null });
     } catch (error) {
       setArtifactsState({
@@ -321,7 +345,7 @@ export function useLibraryDrawerData(projectId: string, open: boolean) {
     setMembersState({ loading: true, error: null });
     try {
       const response = await projectSpaceApi.getMembers(projectId);
-      setMembers(response.data.members ?? []);
+      setMembers(response.members ?? []);
       setMembersState({ loading: false, error: null });
     } catch (error) {
       setMembersState({
@@ -335,7 +359,7 @@ export function useLibraryDrawerData(projectId: string, open: boolean) {
     setChangesState({ loading: true, error: null });
     try {
       const response = await projectSpaceApi.getCandidateChanges(projectId);
-      setChanges(response.data.changes ?? []);
+      setChanges(response.changes ?? []);
       setChangesState({ loading: false, error: null });
     } catch (error) {
       setChangesState({

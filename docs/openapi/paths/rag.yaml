@@ -4,7 +4,7 @@
     operationId: postRagSearch
     tags: [RAG]
     security:
-      - BearerAuth: []
+      - SessionAuth: []
     requestBody:
       required: true
       content:
@@ -31,7 +31,7 @@
     operationId: getRagSourcesByChunkId
     tags: [RAG]
     security:
-      - BearerAuth: []
+      - SessionAuth: []
     parameters:
       - name: chunk_id
         in: path
@@ -57,6 +57,56 @@
       '404':
         $ref: '../components/responses.yaml#/NotFound'
 
+/api/v1/rag/sources/{chunk_id}/image:
+  get:
+    summary: 读取来源图片资源
+    operationId: getRagSourceImageByChunkId
+    description: 读取来源分块中的图片资源（按需缓存）。
+    tags: [RAG]
+    security:
+      - SessionAuth: []
+    parameters:
+      - name: chunk_id
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: path
+        in: query
+        required: true
+        schema:
+          type: string
+        description: 来源压缩包中的图片相对路径
+      - name: project_id
+        in: query
+        required: false
+        schema:
+          type: string
+    responses:
+      '200':
+        description: 成功返回图片二进制内容
+        content:
+          image/png:
+            schema:
+              type: string
+              format: binary
+          image/jpeg:
+            schema:
+              type: string
+              format: binary
+          image/webp:
+            schema:
+              type: string
+              format: binary
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+
 /api/v1/rag/index:
   post:
     summary: 索引新文件到知识库
@@ -64,7 +114,7 @@
     description: 将上传的文件添加到 RAG 知识库索引
     tags: [RAG]
     security:
-      - BearerAuth: []
+      - SessionAuth: []
     requestBody:
       required: true
       content:
@@ -116,7 +166,7 @@
     description: 基于给定文本查找知识库中的相似内容
     tags: [RAG]
     security:
-      - BearerAuth: []
+      - SessionAuth: []
     requestBody:
       required: true
       content:
@@ -157,7 +207,7 @@
     summary: 搜索网络资源并可选入库
     tags: [RAG]
     security:
-      - BearerAuth: []
+      - SessionAuth: []
     parameters:
       - name: query
         in: query
@@ -203,7 +253,7 @@
     summary: 音频转录并可选入库
     tags: [RAG]
     security:
-      - BearerAuth: []
+      - SessionAuth: []
     requestBody:
       required: true
       content:
@@ -244,7 +294,7 @@
     summary: 视频分析并可选入库
     tags: [RAG]
     security:
-      - BearerAuth: []
+      - SessionAuth: []
     requestBody:
       required: true
       content:

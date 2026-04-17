@@ -1,0 +1,6 @@
+services:
+  diego:
+    image: spectra-diego:dev
+    build:
+      context: .
+      dockerfile: Dockerfile.diego.dev

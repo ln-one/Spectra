@@ -1,15 +1,33 @@
 import createClient, { type FetchOptions } from "openapi-fetch";
-import { TokenStorage } from "../auth";
 
-export const API_BASE_URL =
+const PUBLIC_API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const INTERNAL_API_BASE_URL = process.env.INTERNAL_API_URL || "";
+
+function trimTrailingSlash(value: string): string {
+  return value.replace(/\/+$/, "");
+}
+
+export function resolveApiBaseUrl(runtime?: "browser" | "server"): string {
+  const effectiveRuntime =
+    runtime ?? (typeof window !== "undefined" ? "browser" : "server");
+  if (effectiveRuntime === "browser") {
+    return trimTrailingSlash(PUBLIC_API_BASE_URL);
+  }
+  if (INTERNAL_API_BASE_URL) {
+    return trimTrailingSlash(INTERNAL_API_BASE_URL);
+  }
+  return trimTrailingSlash(PUBLIC_API_BASE_URL);
+}
+
+export const API_BASE_URL = resolveApiBaseUrl();
 export const API_VERSION = "/api/v1";
 export const DEFAULT_CONTRACT_VERSION = "2026-03";
 const REQUEST_TIMEOUT_MS = Number(
   process.env.NEXT_PUBLIC_API_TIMEOUT_MS ?? 180000
 );
 const CHAT_REQUEST_TIMEOUT_MS = Number(
-  process.env.NEXT_PUBLIC_CHAT_TIMEOUT_MS ?? 90000
+  process.env.NEXT_PUBLIC_CHAT_TIMEOUT_MS ?? 300000
 );
 
 function generateUuidFallback(): string {
@@ -148,82 +166,22 @@ function normalizePath(input: string): string {
   }
 }
 
+export function buildApiUrl(path: string): string {
+  if (/^https?:\/\//i.test(path)) {
+    return path;
+  }
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  return `${API_BASE_URL}${normalizedPath}`;
+}
+
 export function shouldSkipAuth(path: string): boolean {
   const pathname = normalizePath(path);
   return (
     pathname === "/api/v1/auth/login" ||
     pathname === "/api/v1/auth/register" ||
-    pathname === "/api/v1/auth/refresh" ||
     pathname === "/auth/login" ||
     pathname === "/auth/register"
   );
-}
-
-let isRefreshing = false;
-let refreshSubscribers: Array<(token: string) => void> = [];
-
-function subscribeTokenRefresh(callback: (token: string) => void): void {
-  refreshSubscribers.push(callback);
-}
-
-function onTokenRefreshed(token: string): void {
-  refreshSubscribers.forEach((callback) => callback(token));
-  refreshSubscribers = [];
-}
-
-async function refreshAccessToken(): Promise<boolean> {
-  if (isRefreshing) {
-    return new Promise((resolve) => {
-      subscribeTokenRefresh((token: string) => resolve(!!token));
-    });
-  }
-
-  const refreshToken = TokenStorage.getRefreshToken();
-  if (!refreshToken) return false;
-
-  isRefreshing = true;
-  let refreshSuccess = false;
-
-  try {
-    const refreshRequest = new Request(`${API_BASE_URL}/api/v1/auth/refresh`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Contract-Version": DEFAULT_CONTRACT_VERSION,
-      },
-      body: JSON.stringify({ refresh_token: refreshToken }),
-    });
-    const response = await timedFetch(refreshRequest);
-    if (!response.ok) {
-      return false;
-    }
-    const payload = (await response.json()) as {
-      data?: {
-        access_token?: string;
-        refresh_token?: string;
-        expires_in?: number;
-      };
-    };
-    const accessToken = payload?.data?.access_token;
-    if (accessToken) {
-      TokenStorage.setAccessToken(accessToken, payload.data?.expires_in);
-      if (payload.data?.refresh_token) {
-        TokenStorage.setRefreshToken(payload.data.refresh_token);
-      }
-      refreshSuccess = true;
-      onTokenRefreshed(accessToken);
-    }
-    return refreshSuccess;
-  } catch {
-    TokenStorage.clearTokens();
-    return false;
-  } finally {
-    isRefreshing = false;
-    if (!refreshSuccess) {
-      TokenStorage.clearTokens();
-      onTokenRefreshed("");
-    }
-  }
 }
 
 async function fetchWithAuth(
@@ -232,28 +190,16 @@ async function fetchWithAuth(
 ): Promise<Response> {
   const baseRequest =
     input instanceof Request ? input : new Request(input, init);
-  const url = baseRequest.url;
   const headers = new Headers(baseRequest.headers);
-  const shouldAttachAuth = !shouldSkipAuth(url);
 
   if (!headers.has("X-Contract-Version")) {
     headers.set("X-Contract-Version", DEFAULT_CONTRACT_VERSION);
   }
 
-  if (shouldAttachAuth) {
-    let token = TokenStorage.getAccessToken();
-    if (!token && TokenStorage.getRefreshToken()) {
-      const refreshed = await refreshAccessToken();
-      if (refreshed) {
-        token = TokenStorage.getAccessToken();
-      }
-    }
-    if (token) {
-      headers.set("Authorization", `Bearer ${token}`);
-    }
-  }
-
-  const authedRequest = new Request(baseRequest, { headers });
+  const authedRequest = new Request(baseRequest, {
+    headers,
+    credentials: "include",
+  });
   const timeoutMs = resolveTimeoutMs(authedRequest);
   let response: Response;
   try {
@@ -275,19 +221,6 @@ async function fetchWithAuth(
       },
       true
     );
-  }
-
-  if (response.status === 401 && shouldAttachAuth) {
-    const refreshed = await refreshAccessToken();
-    if (refreshed) {
-      const retryHeaders = new Headers(headers);
-      const newToken = TokenStorage.getAccessToken();
-      if (newToken) {
-        retryHeaders.set("Authorization", `Bearer ${newToken}`);
-      }
-      const retryRequest = new Request(baseRequest, { headers: retryHeaders });
-      return timedFetch(retryRequest, resolveTimeoutMs(retryRequest));
-    }
   }
   return response;
 }
@@ -339,9 +272,7 @@ export async function apiFetch(
   path: string,
   init?: RequestInit
 ): Promise<Response> {
-  const url = path.startsWith("http")
-    ? path
-    : `${API_BASE_URL}${path.startsWith("/") ? path : `/${path}`}`;
+  const url = buildApiUrl(path);
   return fetchWithAuth(url, init);
 }
 

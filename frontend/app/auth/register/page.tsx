@@ -42,7 +42,7 @@ function normalizeRedirectPath(input: string | null | undefined): string {
 function RegisterForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { register: registerUser, isLoading } = useAuthStore();
+  const { register: registerUser, isSubmitting } = useAuthStore();
   const { toast } = useToast();
 
   const redirect = normalizeRedirectPath(searchParams?.get("redirect"));
@@ -94,7 +94,7 @@ function RegisterForm() {
               type="email"
               placeholder="your@email.com"
               {...register("email")}
-              disabled={isLoading}
+              disabled={isSubmitting}
               className="w-full px-3 py-2 border rounded-md text-sm"
             />
             {errors.email && (
@@ -111,7 +111,7 @@ function RegisterForm() {
               type="text"
               placeholder="username"
               {...register("username")}
-              disabled={isLoading}
+              disabled={isSubmitting}
               className="w-full px-3 py-2 border rounded-md text-sm"
             />
             {errors.username && (
@@ -128,7 +128,7 @@ function RegisterForm() {
               type="text"
               placeholder="您的全名"
               {...register("fullName")}
-              disabled={isLoading}
+              disabled={isSubmitting}
               className="w-full px-3 py-2 border rounded-md text-sm"
             />
             {errors.fullName && (
@@ -145,7 +145,7 @@ function RegisterForm() {
               type="password"
               placeholder="••••••••"
               {...register("password")}
-              disabled={isLoading}
+              disabled={isSubmitting}
               className="w-full px-3 py-2 border rounded-md text-sm"
             />
             {errors.password && (
@@ -162,7 +162,7 @@ function RegisterForm() {
               type="password"
               placeholder="••••••••"
               {...register("confirmPassword")}
-              disabled={isLoading}
+              disabled={isSubmitting}
               className="w-full px-3 py-2 border rounded-md text-sm"
             />
             {errors.confirmPassword && (
@@ -174,10 +174,10 @@ function RegisterForm() {
 
           <button
             type="submit"
-            disabled={isLoading}
+            disabled={isSubmitting}
             className="w-full py-2 bg-black text-white rounded-md text-sm disabled:opacity-50"
           >
-            {isLoading ? "注册中..." : "注册"}
+            {isSubmitting ? "注册中..." : "注册"}
           </button>
 
           <div className="text-center text-sm">

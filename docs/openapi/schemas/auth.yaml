@@ -40,13 +40,8 @@ AuthResponse:
       type: boolean
     data:
       type: object
+      required: [user]
       properties:
-        access_token:
-          type: string
-        refresh_token:
-          type: string
-        expires_in:
-          type: integer
         user:
           $ref: '#/UserInfo'
     message:

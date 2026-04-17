@@ -4,7 +4,7 @@
     operationId: postProjectsByProjectIdReferences
     tags: [Project, Reference]
     security:
-      - BearerAuth: []
+      - SessionAuth: []
     parameters:
       - name: project_id
         in: path
@@ -38,7 +38,7 @@
     operationId: getProjectsByProjectIdReferences
     tags: [Project, Reference]
     security:
-      - BearerAuth: []
+      - SessionAuth: []
     parameters:
       - name: project_id
         in: path
@@ -63,7 +63,7 @@
     operationId: patchProjectsByProjectIdReferencesByReferenceId
     tags: [Project, Reference]
     security:
-      - BearerAuth: []
+      - SessionAuth: []
     parameters:
       - name: project_id
         in: path
@@ -104,7 +104,7 @@
     operationId: deleteProjectsByProjectIdReferencesByReferenceId
     tags: [Project, Reference]
     security:
-      - BearerAuth: []
+      - SessionAuth: []
     parameters:
       - name: project_id
         in: path
@@ -138,7 +138,7 @@
     operationId: getProjectsByProjectIdVersions
     tags: [Project, Version]
     security:
-      - BearerAuth: []
+      - SessionAuth: []
     parameters:
       - name: project_id
         in: path
@@ -163,7 +163,7 @@
     operationId: getProjectsByProjectIdVersionsByVersionId
     tags: [Project, Version]
     security:
-      - BearerAuth: []
+      - SessionAuth: []
     parameters:
       - name: project_id
         in: path
@@ -195,7 +195,7 @@
     operationId: getProjectsByProjectIdArtifacts
     tags: [Project, Artifact]
     security:
-      - BearerAuth: []
+      - SessionAuth: []
     parameters:
       - name: project_id
         in: path
@@ -239,7 +239,7 @@
     operationId: postProjectsByProjectIdArtifacts
     tags: [Project, Artifact]
     security:
-      - BearerAuth: []
+      - SessionAuth: []
     parameters:
       - name: project_id
         in: path
@@ -272,7 +272,7 @@
     operationId: getProjectsByProjectIdArtifactsByArtifactId
     tags: [Project, Artifact]
     security:
-      - BearerAuth: []
+      - SessionAuth: []
     parameters:
       - name: project_id
         in: path
@@ -304,7 +304,7 @@
     operationId: getProjectsByProjectIdArtifactsByArtifactIdDownload
     tags: [Project, Artifact]
     security:
-      - BearerAuth: []
+      - SessionAuth: []
     parameters:
       - name: project_id
         in: path
@@ -359,7 +359,7 @@
     operationId: postProjectsByProjectIdCandidateChanges
     tags: [Project, CandidateChange]
     security:
-      - BearerAuth: []
+      - SessionAuth: []
     parameters:
       - name: project_id
         in: path
@@ -393,7 +393,7 @@
     operationId: getProjectsByProjectIdCandidateChanges
     tags: [Project, CandidateChange]
     security:
-      - BearerAuth: []
+      - SessionAuth: []
     parameters:
       - name: project_id
         in: path
@@ -433,7 +433,7 @@
     operationId: postProjectsByProjectIdCandidateChangesByChangeIdReview
     tags: [Project, CandidateChange]
     security:
-      - BearerAuth: []
+      - SessionAuth: []
     parameters:
       - name: project_id
         in: path
@@ -475,7 +475,7 @@
     operationId: getProjectsByProjectIdMembers
     tags: [Project, Member]
     security:
-      - BearerAuth: []
+      - SessionAuth: []
     parameters:
       - name: project_id
         in: path
@@ -499,7 +499,7 @@
     operationId: postProjectsByProjectIdMembers
     tags: [Project, Member]
     security:
-      - BearerAuth: []
+      - SessionAuth: []
     parameters:
       - name: project_id
         in: path
@@ -535,7 +535,7 @@
     operationId: patchProjectsByProjectIdMembersByMemberId
     tags: [Project, Member]
     security:
-      - BearerAuth: []
+      - SessionAuth: []
     parameters:
       - name: project_id
         in: path
@@ -575,7 +575,7 @@
     operationId: deleteProjectsByProjectIdMembersByMemberId
     tags: [Project, Member]
     security:
-      - BearerAuth: []
+      - SessionAuth: []
     parameters:
       - name: project_id
         in: path

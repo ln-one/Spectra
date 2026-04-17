@@ -10,7 +10,6 @@ from services.ai.model_resolution import _resolve_model_name
 from services.ai.model_router import ModelRouteTask
 from services.chat import resolve_effective_rag_source_ids
 from services.database import db_service
-from services.database.prisma_compat import find_many_with_select_fallback
 from services.prompt_service import contains_mechanical_option_pattern, prompt_service
 
 from .message_flow import build_history_payload, load_rag_context
@@ -27,6 +26,21 @@ _IMAGE_EXTENSIONS = {
     ".tiff",
     ".svg",
 }
+
+
+def _project_upload_fields(upload, *, select: dict | None = None) -> dict | object:
+    if not select:
+        return upload
+
+    projected: dict[str, object] = {}
+    for field_name, enabled in select.items():
+        if not enabled:
+            continue
+        if isinstance(upload, dict):
+            projected[field_name] = upload.get(field_name)
+        else:
+            projected[field_name] = getattr(upload, field_name, None)
+    return projected
 
 
 def _is_image_path(value: str) -> bool:
@@ -161,15 +175,20 @@ async def build_image_analysis_hint(
         return None, None, None
 
     try:
-        upload_rows = await find_many_with_select_fallback(
-            model=db_service.db.upload,
+        upload_rows = await db_service.db.upload.find_many(
             where={
                 "projectId": project_id,
                 "id": {"in": image_upload_ids},
                 "status": "ready",
             },
-            select={"id": True, "filename": True, "filepath": True},
         )
+        upload_rows = [
+            _project_upload_fields(
+                upload,
+                select={"id": True, "filename": True, "filepath": True},
+            )
+            for upload in upload_rows or []
+        ]
     except Exception as exc:
         logger.warning("chat image lookup failed: project=%s error=%s", project_id, exc)
         return None, "image_lookup_error", None

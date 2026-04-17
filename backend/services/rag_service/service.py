@@ -1,27 +1,19 @@
-"""RAG service."""
+"""RAG service facade backed by Stratumind."""
 
-from typing import Optional
-
-from services.media.embedding import EmbeddingService, embedding_service
-from services.media.vector import VectorService, vector_service
 from services.rag_service.indexing import (
     delete_project_index,
     delete_upload_index,
     index_chunks,
 )
 from services.rag_service.retrieval import get_chunk_detail, search
+from services.stratumind_client import stratumind_client
 
 
 class RAGService:
     """RAG 检索增强生成服务。"""
 
-    def __init__(
-        self,
-        vec_service: Optional[VectorService] = None,
-        emb_service: Optional[EmbeddingService] = None,
-    ):
-        self._vector = vec_service or vector_service
-        self._embedding = emb_service or embedding_service
+    def __init__(self):
+        self._client = stratumind_client
 
     async def index_chunks(
         self,
@@ -42,9 +34,9 @@ class RAGService:
         project_id: str,
         query: str,
         top_k: int = 5,
-        filters: Optional[dict] = None,
+        filters: dict | None = None,
         score_threshold: float = 0.0,
-        session_id: Optional[str] = None,
+        session_id: str | None = None,
     ):
         return await search(
             self,
@@ -56,7 +48,7 @@ class RAGService:
             session_id=session_id,
         )
 
-    async def get_chunk_detail(self, chunk_id: str, project_id: Optional[str] = None):
+    async def get_chunk_detail(self, chunk_id: str, project_id: str | None = None):
         return await get_chunk_detail(self, chunk_id, project_id)
 
     async def delete_project_index(self, project_id: str) -> bool:

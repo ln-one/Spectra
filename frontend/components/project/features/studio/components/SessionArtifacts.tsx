@@ -42,32 +42,93 @@ function getToolAccentColor(toolKey: string): string {
   );
 }
 
-function statusText(status: StudioHistoryItem["status"]) {
-  if (status === "completed") return "可预览";
-  if (status === "failed") return "失败";
-  if (status === "processing") return "生成中";
-  if (status === "previewing") return "可预览";
-  if (status === "pending") return "排队中";
+type HistoryDisplayState =
+  | "outline_generating"
+  | "outline_pending_confirm"
+  | "slides_generating"
+  | "slide_preview_ready"
+  | "completed"
+  | "failed"
+  | "processing"
+  | "previewing"
+  | "pending"
+  | "draft";
+
+function resolveDisplayState(item: StudioHistoryItem): HistoryDisplayState {
+  if (item.toolType === "ppt") {
+    if (item.status === "failed") return "failed";
+    if (item.status === "completed") return "completed";
+    if (item.ppt_status) return item.ppt_status;
+    if (item.status === "previewing") return "slide_preview_ready";
+    if (item.status === "processing") return "slides_generating";
+    if (item.status === "draft") return "outline_generating";
+  }
+  if (item.status === "completed") return "completed";
+  if (item.status === "failed") return "failed";
+  if (item.status === "processing") return "processing";
+  if (item.status === "previewing") return "previewing";
+  if (item.status === "pending") return "pending";
+  return "draft";
+}
+
+function statusText(item: StudioHistoryItem): string {
+  const state = resolveDisplayState(item);
+  if (state === "outline_generating") return "大纲生成中";
+  if (state === "outline_pending_confirm") return "大纲待确认";
+  if (state === "slides_generating") return "课件生成中";
+  if (state === "slide_preview_ready") return "单页可预览";
+  if (state === "completed") {
+    return item.toolType === "ppt" ? "已完成" : "可预览";
+  }
+  if (state === "failed") return "失败";
+  if (state === "processing") return "生成中";
+  if (state === "previewing") return "可预览";
+  if (state === "pending") return "排队中";
   return "草稿中";
 }
 
-function statusIcon(status: StudioHistoryItem["status"]) {
-  if (status === "completed") {
+function statusIcon(item: StudioHistoryItem) {
+  const state = resolveDisplayState(item);
+  if (state === "completed" || state === "slide_preview_ready") {
     return <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />;
   }
-  if (status === "failed") {
+  if (state === "failed") {
     return <XCircle className="h-3.5 w-3.5 text-red-500" />;
   }
-  if (status === "processing") {
+  if (state === "slides_generating" || state === "processing") {
     return <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-500" />;
   }
-  if (status === "previewing") {
-    return <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />;
+  if (state === "outline_pending_confirm") {
+    return <Clock3 className="h-3.5 w-3.5 text-orange-500" />;
   }
-  if (status === "pending") {
+  if (state === "pending") {
     return <Clock3 className="h-3.5 w-3.5 text-zinc-500" />;
   }
   return <Clock3 className="h-3.5 w-3.5 text-amber-500" />;
+}
+
+function statusBadgeClass(item: StudioHistoryItem): string {
+  const state = resolveDisplayState(item);
+  if (state === "slides_generating" || state === "processing") {
+    return "bg-blue-100 text-blue-700";
+  }
+  if (
+    state === "completed" ||
+    state === "previewing" ||
+    state === "slide_preview_ready"
+  ) {
+    return "bg-emerald-100 text-emerald-700";
+  }
+  if (state === "failed") {
+    return "bg-red-100 text-red-700";
+  }
+  if (state === "pending") {
+    return "bg-zinc-100 text-zinc-700";
+  }
+  if (state === "outline_pending_confirm") {
+    return "bg-orange-100 text-orange-700";
+  }
+  return "bg-amber-100 text-amber-700";
 }
 
 function formatHistoryTime(value: string): string {
@@ -164,7 +225,7 @@ export function SessionArtifacts({
                           className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[var(--project-surface-elevated)] shadow-sm"
                           onClick={() => onOpenHistoryItem(item)}
                         >
-                          {statusIcon(item.status)}
+                          {statusIcon(item)}
                         </button>
                         <div className="flex flex-1 flex-col justify-center min-w-0">
                           <p className="truncate text-[11px] font-medium text-[var(--project-text-primary)] w-full">
@@ -174,20 +235,10 @@ export function SessionArtifacts({
                             <span
                               className={cn(
                                 "shrink-0 rounded-full px-1.5 py-0.5 whitespace-nowrap",
-                                item.status === "processing"
-                                  ? "bg-blue-100 text-blue-700"
-                                  : item.status === "previewing"
-                                    ? "bg-emerald-100 text-emerald-700"
-                                    : item.status === "pending"
-                                      ? "bg-zinc-100 text-zinc-700"
-                                      : item.status === "draft"
-                                        ? "bg-amber-100 text-amber-700"
-                                        : item.status === "failed"
-                                          ? "bg-red-100 text-red-700"
-                                          : "bg-emerald-100 text-emerald-700"
+                                statusBadgeClass(item)
                               )}
                             >
-                              {statusText(item.status)}
+                              {statusText(item)}
                             </span>
                             <span
                               className="inline-block h-1.5 w-1.5 shrink-0 rounded-full"

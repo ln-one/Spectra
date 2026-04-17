@@ -2,16 +2,14 @@
   groupArtifactsByTool,
   mapArtifactToToolType,
 } from "@/lib/project-space";
-import type { components } from "@/lib/sdk/types";
-
-type Artifact = components["schemas"]["Artifact"];
+import type { ArtifactRecord as Artifact } from "@/lib/sdk/project-space/types";
 
 describe("artifact history mapper", () => {
   const baseArtifact = {
-    project_id: "proj_1",
+    projectId: "proj_1",
     visibility: "private",
-    created_at: "2026-03-12T10:00:00.000Z",
-    updated_at: "2026-03-12T10:00:00.000Z",
+    createdAt: "2026-03-12T10:00:00.000Z",
+    updatedAt: "2026-03-12T10:00:00.000Z",
   } as const;
 
   it("maps artifact type to tool type", () => {
@@ -55,22 +53,22 @@ describe("artifact history mapper", () => {
         ...baseArtifact,
         id: "art_a",
         type: "summary",
-        session_id: "sess_1",
-        created_at: "2026-03-12T10:00:00.000Z",
+        sessionId: "sess_1",
+        createdAt: "2026-03-12T10:00:00.000Z",
       },
       {
         ...baseArtifact,
         id: "art_b",
         type: "summary",
-        session_id: "sess_1",
-        created_at: "2026-03-12T11:00:00.000Z",
+        sessionId: "sess_1",
+        createdAt: "2026-03-12T11:00:00.000Z",
       },
       {
         ...baseArtifact,
         id: "art_c",
         type: "pptx",
-        session_id: "sess_2",
-        created_at: "2026-03-12T12:00:00.000Z",
+        sessionId: "sess_2",
+        createdAt: "2026-03-12T12:00:00.000Z",
       },
     ];
     const grouped = groupArtifactsByTool(artifacts, "sess_1");

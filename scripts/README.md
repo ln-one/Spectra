@@ -1,4 +1,4 @@
-# Pre-commit 检查脚本
+# Git 检查脚本
 
 ## 跨平台兼容
 
@@ -7,8 +7,6 @@
 ## Git Hooks 流程
 
 ```
-git commit → pre-commit (完整检查: 格式 + lint + 测试)
- ↓
 git push → pre-push (完整检查: 构建 + Prisma)
  ↓
 GitHub → CI (最终验证)
@@ -16,9 +14,8 @@ GitHub → CI (最终验证)
 
 ## 使用方式
 
-### 自动触发（推荐）
+### 自动触发
 ```bash
-git commit -m "your message" # 触发 pre-commit
 git push # 触发 pre-push
 ```
 
@@ -43,7 +40,7 @@ node scripts/validate-contract-target.js
 
 ## 检查项目
 
-### Pre-commit（每次 commit）
+### Pre-commit（手动运行）
 **Frontend**
 - Prettier 格式检查
 - ESLint 代码检查
@@ -84,8 +81,8 @@ node scripts/validate-contract-target.js
 
 ## 为什么分两步？
 
-**Pre-commit（每次 commit）**：1-5 秒
-- 频繁触发，必须快
+**Pre-commit（手动）**：1-5 秒
+- 作为本地自检脚本保留
 - 主要检查代码质量 + 核心单元测试
 
 **Pre-push（慢）**：10-30 秒
@@ -117,12 +114,8 @@ prisma generate
 npm run pre-commit:quick # 自动修复 + 快速检查
 ```
 
-## 跳过检查（不推荐）
+## 当前策略
 
-紧急情况下可以跳过：
-```bash
-git commit --no-verify
-git push --no-verify
-```
-
-但这样会导致 CI 失败，需要额外的 fix commit。
+- `git commit` 不自动跑 hook
+- `git push` 会自动跑 `pre-push`
+- `pre-commit:full` / `pre-commit:quick` 保留为手动脚本

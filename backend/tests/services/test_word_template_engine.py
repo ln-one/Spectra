@@ -4,8 +4,8 @@ import pytest
 
 from services.generation_session_service.word_template_engine import (
     build_word_fallback_payload,
-    build_word_schema_hint,
     build_word_payload,
+    build_word_schema_hint,
     validate_word_layout_payload,
 )
 

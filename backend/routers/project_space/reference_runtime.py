@@ -6,8 +6,6 @@ import asyncio
 import logging
 from typing import Any
 
-from services.database.prisma_compat import find_many_with_select_fallback
-
 logger = logging.getLogger(__name__)
 
 
@@ -32,8 +30,7 @@ async def resolve_target_project_runtime_maps(
     project_model = getattr(prisma, "project", None)
     if project_model is not None and hasattr(project_model, "find_many"):
         try:
-            rows = await find_many_with_select_fallback(
-                model=project_model,
+            rows = await project_model.find_many(
                 where={"id": {"in": target_project_ids}},
                 select={"id": True, "currentVersionId": True, "name": True},
             )

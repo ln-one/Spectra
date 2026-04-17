@@ -26,18 +26,19 @@ export interface ResolvedArtifactPayload {
   contentKind: ResolvedArtifactContentKind;
   content: unknown;
   blob?: Blob;
+  artifactMetadata?: Record<string, unknown> | null;
 }
 
 export interface ToolStructuredRefineRequest {
-  artifactId?: string | null;
+  artifactId: string;
   message: string;
   config?: Record<string, unknown>;
 }
 
 export interface ToolStructuredRefineResult {
   ok: boolean;
-  artifactId: string | null;
-  effectiveSessionId: string | null;
+  artifactId?: string | null;
+  effectiveSessionId?: string | null;
   insertedNodeId?: string | null;
 }
 
@@ -53,6 +54,7 @@ export type ToolDraftState = Record<string, ToolDraftValue>;
 
 export interface ToolSourceOption {
   id: string;
+  projectId?: string;
   title?: string;
   type?: string;
   sessionId?: string | null;
@@ -89,13 +91,37 @@ export interface ToolFlowContext {
   onStepChange?: (stepId: string) => void;
   onSelectedSourceChange?: (sourceId: string | null) => void;
   onLoadSources?: () => Promise<void> | void;
-  onPreviewExecution?: () => Promise<void> | void;
+  onPreviewExecution?: () =>
+    | Promise<Record<string, unknown> | null>
+    | Record<string, unknown>
+    | null;
   onPrepareGenerate?: () => Promise<boolean> | boolean;
   onExecute?: () => Promise<boolean> | boolean;
   onRefine?: () => Promise<void> | void;
+  onStructuredRefine?: (payload: {
+    artifactId: string;
+    message?: string;
+    config?: Record<string, unknown>;
+  }) => Promise<boolean> | boolean;
   onStructuredRefineArtifact?: (
-    request: ToolStructuredRefineRequest
+    payload: ToolStructuredRefineRequest
   ) => Promise<ToolStructuredRefineResult>;
+  onRecommendAnimationPlacement?: (payload: {
+    artifactId: string;
+    pptArtifactId: string;
+  }) =>
+    | Promise<Record<string, unknown> | null>
+    | Record<string, unknown>
+    | null;
+  onConfirmAnimationPlacement?: (payload: {
+    artifactId: string;
+    pptArtifactId: string;
+    pageNumbers: number[];
+    slot: string;
+  }) =>
+    | Promise<Record<string, unknown> | null>
+    | Record<string, unknown>
+    | null;
   onExportArtifact?: (artifactId: string) => Promise<void> | void;
 }
 

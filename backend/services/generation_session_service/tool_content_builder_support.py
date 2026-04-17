@@ -21,7 +21,7 @@ _PAYLOAD_REQUIREMENTS: dict[str, tuple[str, ...]] = {
     "interactive_quick_quiz": ("title", "questions"),
     "interactive_games": ("title", "html"),
     "classroom_qa_simulator": ("title", "turns"),
-    "demonstration_animations": ("title", "html"),
+    "demonstration_animations": ("title",),
     "speaker_notes": ("title", "slides"),
 }
 
@@ -123,7 +123,7 @@ def validate_card_payload(card_id: str, payload: dict[str, Any]) -> None:
         require_non_empty_list(payload, "turns")
     elif card_id == "demonstration_animations":
         require_non_empty_str(payload, "title")
-        require_non_empty_str(payload, "html")
+        require_non_empty_list(payload, "scenes")
     elif card_id == "speaker_notes":
         require_non_empty_str(payload, "title")
         require_non_empty_list(payload, "slides")
@@ -220,8 +220,11 @@ def build_schema_hint(card_id: str, config: dict[str, Any] | None = None) -> str
             '"feedback":""}]}'
         ),
         "demonstration_animations": (
-            '{"title":"", "html":"", "summary":"", '
-            '"scenes":[{"title":"","description":""}]}'
+            '{"title":"", "summary":"", "format":"gif|mp4", '
+            '"render_mode":"gif|cloud_video_wan", '
+            '"style_pack":"teaching_ppt_cartoon|teaching_ppt_fresh_green|teaching_ppt_deep_blue|teaching_ppt_warm_orange|teaching_ppt_minimal_gray", '
+            '"visual_type":"process_flow", '
+            '"scenes":[{"title":"","description":"","emphasis":""}]}'
         ),
         "speaker_notes": (
             '{"title":"", "summary":"", '

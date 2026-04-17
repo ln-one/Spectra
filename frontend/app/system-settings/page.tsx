@@ -8,7 +8,11 @@ import {
   type SystemSettingsPayload,
   type SystemSettingsUpdateRequest,
 } from "@/lib/sdk";
-import { getErrorMessage } from "@/lib/sdk/errors";
+import {
+  getChatLatencyNotice,
+  getChatRequestErrorMessage,
+  getErrorMessage,
+} from "@/lib/sdk/errors";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/hooks/use-toast";
@@ -171,14 +175,17 @@ export default function SystemSettingsPage() {
             : null,
         observability: response?.data?.observability ?? null,
       });
+      const latencyNotice = getChatLatencyNotice(
+        response?.data?.observability ?? null
+      );
       toast({
         title: "验证请求已发送",
-        description: "下方可查看 request trace。",
+        description: latencyNotice ?? "下方可查看 request trace。",
       });
     } catch (error) {
       toast({
         title: "验证请求失败",
-        description: getErrorMessage(error),
+        description: getChatRequestErrorMessage(error),
         variant: "destructive",
       });
     } finally {

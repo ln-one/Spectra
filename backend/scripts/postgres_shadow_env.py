@@ -41,8 +41,13 @@ def build_shadow_env_overlay(
         "JWT_SECRET_KEY": (env.get("JWT_SECRET_KEY") or DEFAULT_JWT_SECRET).strip(),
         "REDIS_HOST": (env.get("REDIS_HOST") or "redis").strip(),
         "REDIS_PORT": (env.get("REDIS_PORT") or "6379").strip(),
-        "CHROMA_HOST": (env.get("CHROMA_HOST") or "chromadb").strip(),
-        "CHROMA_PORT": (env.get("CHROMA_PORT") or "8000").strip(),
+        "STRATUMIND_BASE_URL": (
+            env.get("STRATUMIND_BASE_URL") or "http://stratumind:8110"
+        ).strip(),
+        "STRATUMIND_TIMEOUT_SECONDS": (
+            env.get("STRATUMIND_TIMEOUT_SECONDS") or "15"
+        ).strip(),
+        "QDRANT_URL": (env.get("QDRANT_URL") or "http://qdrant:6333").strip(),
         "UPLOAD_DIR": (
             env.get("UPLOAD_DIR") or f"{DEFAULT_RUNTIME_ROOT}/uploads"
         ).strip(),
@@ -51,9 +56,6 @@ def build_shadow_env_overlay(
         ).strip(),
         "GENERATED_DIR": (
             env.get("GENERATED_DIR") or f"{DEFAULT_RUNTIME_ROOT}/generated"
-        ).strip(),
-        "CHROMA_PERSIST_DIR": (
-            env.get("CHROMA_PERSIST_DIR") or f"{DEFAULT_RUNTIME_ROOT}/chroma"
         ).strip(),
         "POSTGRES_BACKUP_DIR": (env.get("POSTGRES_BACKUP_DIR") or backup_dir).strip(),
         "POSTGRES_RESTORE_STAGING_DIR": (

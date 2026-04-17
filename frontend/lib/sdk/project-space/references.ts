@@ -1,22 +1,21 @@
-﻿import { MOCK_MODE, sdkClient, unwrap, withIdempotency } from "./base";
+import { MOCK_MODE, sdkClient, unwrap, withIdempotency } from "./base";
 import { createMockReference } from "./mocks";
 import type {
-  ProjectReferenceRequest,
   ProjectReferenceResponse,
-  ProjectReferenceUpdateRequest,
   ProjectReferencesResponse,
   SimpleSuccessResponse,
 } from "./types";
+import type { components } from "@/lib/sdk/types";
+
+type ProjectReferenceRequest = components["schemas"]["ProjectReferenceRequest"];
+type ProjectReferenceUpdateRequest =
+  components["schemas"]["ProjectReferenceUpdateRequest"];
 
 export async function getReferences(
   projectId: string
 ): Promise<ProjectReferencesResponse> {
   if (MOCK_MODE) {
-    return {
-      success: true,
-      data: { references: [createMockReference(projectId)] },
-      message: "mock references",
-    };
+    return { references: [createMockReference(projectId)] };
   }
   const result = await sdkClient.GET(
     "/api/v1/projects/{project_id}/references",
@@ -24,7 +23,7 @@ export async function getReferences(
       params: { path: { project_id: projectId } },
     }
   );
-  return unwrap<ProjectReferencesResponse>(result);
+  return await unwrap<ProjectReferencesResponse>(result);
 }
 
 export async function createReference(
@@ -33,19 +32,15 @@ export async function createReference(
 ): Promise<ProjectReferenceResponse> {
   if (MOCK_MODE) {
     return {
-      success: true,
-      data: {
-        reference: {
-          ...createMockReference(projectId),
-          id: `ref_mock_${Date.now()}`,
-          target_project_id: data.target_project_id,
-          relation_type: data.relation_type,
-          mode: data.mode,
-          pinned_version_id: data.pinned_version_id ?? null,
-          priority: data.priority ?? 0,
-        },
+      reference: {
+        ...createMockReference(projectId),
+        id: `ref_mock_${Date.now()}`,
+        targetProjectId: data.target_project_id,
+        relationType: data.relation_type,
+        mode: data.mode,
+        pinnedVersionId: data.pinned_version_id ?? null,
+        priority: data.priority ?? 0,
       },
-      message: "mock create reference",
     };
   }
   const headers = withIdempotency({}, true);
@@ -57,7 +52,7 @@ export async function createReference(
       headers,
     }
   );
-  return unwrap<ProjectReferenceResponse>(result);
+  return await unwrap<ProjectReferenceResponse>(result);
 }
 
 export async function updateReference(
@@ -67,15 +62,14 @@ export async function updateReference(
 ): Promise<ProjectReferenceResponse> {
   if (MOCK_MODE) {
     return {
-      success: true,
-      data: {
-        reference: {
-          ...createMockReference(projectId),
-          id: referenceId,
-          ...data,
-        },
+      reference: {
+        ...createMockReference(projectId),
+        id: referenceId,
+        mode: data.mode ?? "follow",
+        pinnedVersionId: data.pinned_version_id ?? null,
+        priority: data.priority ?? 0,
+        status: data.status ?? "active",
       },
-      message: "mock update reference",
     };
   }
   const result = await sdkClient.PATCH(
@@ -87,7 +81,7 @@ export async function updateReference(
       body: data,
     }
   );
-  return unwrap<ProjectReferenceResponse>(result);
+  return await unwrap<ProjectReferenceResponse>(result);
 }
 
 export async function deleteReference(
@@ -95,13 +89,9 @@ export async function deleteReference(
   referenceId: string
 ): Promise<SimpleSuccessResponse> {
   if (MOCK_MODE) {
-    return {
-      success: true,
-      data: {},
-      message: "mock delete reference",
-    };
+    return { ok: true };
   }
-  const result = await sdkClient.DELETE(
+  await sdkClient.DELETE(
     "/api/v1/projects/{project_id}/references/{reference_id}",
     {
       params: {
@@ -109,5 +99,5 @@ export async function deleteReference(
       },
     }
   );
-  return unwrap<SimpleSuccessResponse>(result);
+  return { ok: true };
 }

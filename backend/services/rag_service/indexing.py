@@ -1,7 +1,17 @@
 import logging
-import time
+import os
 
 logger = logging.getLogger(__name__)
+
+
+def _index_batch_size() -> int:
+    raw = os.getenv("STRATUMIND_INDEX_BATCH_SIZE", "").strip()
+    if not raw:
+        return 64
+    try:
+        return max(1, int(raw))
+    except ValueError:
+        return 64
 
 
 async def index_chunks(
@@ -15,66 +25,56 @@ async def index_chunks(
         return (
             {
                 "indexed_count": 0,
-                "embedding_ms": 0.0,
-                "vector_upsert_ms": 0.0,
-                "index_ms": 0.0,
             }
             if return_details
             else 0
         )
 
-    started_at = time.perf_counter()
-    collection = service._vector.get_or_create_collection(project_id)
-    texts = [c.content for c in chunks]
-    ids = [c.chunk_id for c in chunks]
-    metadatas = [c.metadata for c in chunks]
-    embedding_started_at = time.perf_counter()
-    embeddings = await service._embedding.embed_texts(texts)
-    embedding_ms = round((time.perf_counter() - embedding_started_at) * 1000, 2)
-    upsert_started_at = time.perf_counter()
-    collection.upsert(
-        ids=ids,
-        embeddings=embeddings,
-        documents=texts,
-        metadatas=metadatas,
-    )
-    vector_upsert_ms = round((time.perf_counter() - upsert_started_at) * 1000, 2)
-    index_ms = round((time.perf_counter() - started_at) * 1000, 2)
+    batch_size = _index_batch_size()
+    indexed_count = 0
     details = {
-        "indexed_count": len(chunks),
-        "embedding_ms": embedding_ms,
-        "vector_upsert_ms": vector_upsert_ms,
-        "index_ms": index_ms,
+        "indexed_count": 0,
+        "embedding_ms": 0.0,
+        "index_ms": 0.0,
+        "batch_count": 0,
     }
+    for start in range(0, len(chunks), batch_size):
+        batch = chunks[start : start + batch_size]
+        response = await service._client.index_chunks(
+            project_id=project_id,
+            chunks=[
+                {
+                    "chunk_id": chunk.chunk_id,
+                    "content": chunk.content,
+                    "metadata": dict(chunk.metadata or {}),
+                }
+                for chunk in batch
+            ],
+        )
+        indexed_count += int(response.get("indexed_count") or 0)
+        details["embedding_ms"] += float(response.get("embedding_ms") or 0.0)
+        details["index_ms"] += float(response.get("index_ms") or 0.0)
+        details["batch_count"] += 1
+    details["indexed_count"] = indexed_count
     logger.info(
         "rag_index_chunks_completed",
         extra={
             "project_id": project_id,
             "chunk_count": len(chunks),
+            "batch_size": batch_size,
             **details,
         },
     )
-    return details if return_details else len(chunks)
+    return details if return_details else indexed_count
 
 
 async def delete_project_index(service, project_id: str) -> bool:
-    return service._vector.delete_collection(project_id)
+    await service._client.delete_project_index(project_id=project_id)
+    return True
 
 
 async def delete_upload_index(service, project_id: str, upload_id: str) -> int:
-    collection = service._vector.get_collection_if_exists(project_id)
-    if collection is None:
-        return 0
-    try:
-        existing = collection.get(where={"upload_id": upload_id}, include=[])
-        count = len(existing.get("ids", []))
-        if count > 0:
-            collection.delete(where={"upload_id": upload_id})
-        return count
-    except Exception:
-        logger.warning(
-            "Failed to delete upload index",
-            extra={"project_id": project_id, "upload_id": upload_id},
-            exc_info=True,
-        )
-        return 0
+    await service._client.delete_upload_index(
+        project_id=project_id, upload_id=upload_id
+    )
+    return 0

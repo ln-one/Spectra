@@ -12,10 +12,21 @@ import {
   SlidersHorizontal,
   Bell,
   User,
+  LogOut,
+  ChevronDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   ProjectCard,
   ProjectListItem,
@@ -28,6 +39,7 @@ import { useProjectsPageState } from "./useProjectsPageState";
 export default function ProjectsPage() {
   const {
     router,
+    user,
     projects,
     isLoading,
     deletingProjectId,
@@ -38,6 +50,7 @@ export default function ProjectsPage() {
     setViewMode,
     filteredProjects,
     handleDeleteProject,
+    handleLogout,
     fetchProjects,
   } = useProjectsPageState();
 
@@ -112,9 +125,45 @@ export default function ProjectsPage() {
             >
               <Grid className="w-5 h-5 text-zinc-600" />
             </Button>
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-xs font-bold border-4 border-white shadow-sm cursor-pointer">
-              JD
-            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className="flex items-center gap-2 rounded-full border-4 border-white bg-white/80 pr-2 shadow-sm transition-all hover:shadow-md"
+                >
+                  <Avatar className="h-10 w-10">
+                    <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-600 text-xs font-bold text-white">
+                      {user?.username?.[0]?.toUpperCase() ?? <User className="h-4 w-4" />}
+                    </AvatarFallback>
+                  </Avatar>
+                  <ChevronDown className="h-4 w-4 text-zinc-500" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="end"
+                className="w-56 rounded-2xl border-zinc-100 p-2 shadow-2xl"
+              >
+                <DropdownMenuLabel className="rounded-xl bg-zinc-50 px-3 py-2.5">
+                  <div className="text-sm font-semibold text-zinc-900 break-words">
+                    {user?.username ?? "用户"}
+                  </div>
+                  <div className="mt-0.5 text-xs font-medium text-zinc-500 break-words">
+                    {user?.email ?? ""}
+                  </div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator className="my-1 bg-zinc-100" />
+                <DropdownMenuItem
+                  onSelect={(event) => {
+                    event.preventDefault();
+                    void handleLogout();
+                  }}
+                  className="gap-2 rounded-xl py-2.5 text-[13px] font-medium text-red-600 focus:bg-red-50 focus:text-red-600"
+                >
+                  <LogOut className="h-4 w-4" />
+                  退出登录
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </header>

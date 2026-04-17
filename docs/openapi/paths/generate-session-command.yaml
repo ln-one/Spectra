@@ -7,7 +7,7 @@
       服务层必须通过统一状态转换校验器（StateTransitionGuard）决定是否允许执行。
     tags: [Generate]
     security:
-      - BearerAuth: []
+      - SessionAuth: []
     parameters:
       - name: session_id
         in: path

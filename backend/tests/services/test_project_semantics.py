@@ -1,7 +1,8 @@
 from types import SimpleNamespace
 
-from schemas.project_vocabulary import ProjectReferenceMode, ProjectVisibility
-from services.project_space_service.project_semantics import (
+import pytest
+
+from schemas.project_semantics import (
     allows_cross_owner_reference,
     is_project_referenceable,
     is_project_shared,
@@ -10,6 +11,7 @@ from services.project_space_service.project_semantics import (
     normalize_project_visibility,
     validate_project_sharing_rules,
 )
+from schemas.project_vocabulary import ProjectReferenceMode, ProjectVisibility
 
 
 def test_normalize_project_visibility_defaults_private():
@@ -44,8 +46,6 @@ def test_allows_cross_owner_reference_requires_shared_for_other_owner():
 
 
 def test_validate_project_sharing_rules_rejects_private_referenceable():
-    import pytest
-
     with pytest.raises(ValueError, match="private 项目不能直接设置为可引用"):
         validate_project_sharing_rules(ProjectVisibility.PRIVATE, True)
 

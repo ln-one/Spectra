@@ -6,7 +6,6 @@ import {
   unwrap,
   withIdempotency,
 } from "./client";
-import { TokenStorage } from "../auth";
 import type { components } from "./types";
 
 export type Message = components["schemas"]["Message"];
@@ -52,11 +51,7 @@ export const chatApi = {
 
       const xhr = new XMLHttpRequest();
       xhr.open("POST", `${API_BASE_URL}/api/v1/chat/voice`);
-
-      const token = TokenStorage.getAccessToken();
-      if (token) {
-        xhr.setRequestHeader("Authorization", `Bearer ${token}`);
-      }
+      xhr.withCredentials = true;
 
       xhr.setRequestHeader("Idempotency-Key", generateIdempotencyKey());
       xhr.setRequestHeader("X-Contract-Version", DEFAULT_CONTRACT_VERSION);

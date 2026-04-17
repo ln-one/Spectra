@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import argparse
 import os
-import shutil
 import socket
 from dataclasses import dataclass
 from typing import Callable, Iterable, Mapping
@@ -44,33 +43,34 @@ ENV_CHECKS: tuple[EnvCheck, ...] = (
         "preview rebuild timeout seconds",
     ),
     EnvCheck(
-        "TOOL_CHECK_CACHE_TTL_SECONDS",
+        "HEALTH_SERVICE_AUTHORITY_TIMEOUT_SECONDS",
         False,
-        "generation tool check cache TTL seconds",
+        "health endpoint service authority check timeout seconds",
     ),
-    EnvCheck(
-        "HEALTH_TOOL_TIMEOUT_SECONDS",
-        False,
-        "health endpoint generation tool probe timeout seconds",
-    ),
-    EnvCheck(
-        "GENERATION_TOOLS_REQUIRED",
-        False,
-        "whether /health should enforce Marp/Pandoc availability",
-    ),
+    EnvCheck("SERVICE_AUTHORITIES_REQUIRED", False, "whether /health requires URLs"),
     EnvCheck("DASHSCOPE_API_KEY", False, "provider key for video/LLM/embedding"),
     EnvCheck("REDIS_HOST", False, "queue/cache host"),
     EnvCheck("REDIS_PORT", False, "queue/cache port"),
-    EnvCheck("CHROMA_HOST", False, "remote Chroma host"),
-    EnvCheck("CHROMA_PORT", False, "remote Chroma port"),
+    EnvCheck("DIEGO_BASE_URL", False, "Diego AI PPT generation service URL"),
+    EnvCheck("PAGEVRA_BASE_URL", False, "Pagevra render/export service URL"),
+    EnvCheck("OUROGRAPH_BASE_URL", False, "Ourograph formal state service URL"),
+    EnvCheck("DUALWEAVE_BASE_URL", False, "Dualweave upload/parse service URL"),
+    EnvCheck("STRATUMIND_BASE_URL", False, "Stratumind retrieval service URL"),
+    EnvCheck("LIMORA_BASE_URL", False, "Limora identity service URL"),
+    EnvCheck("STRATUMIND_TIMEOUT_SECONDS", False, "Stratumind request timeout seconds"),
+    EnvCheck("QDRANT_URL", False, "Qdrant base URL"),
     EnvCheck("UPLOAD_DIR", False, "upload file root path"),
     EnvCheck("ARTIFACT_STORAGE_DIR", False, "artifact storage root path"),
     EnvCheck("GENERATED_DIR", False, "generated files root path"),
 )
 
-TOOL_CHECKS: tuple[tuple[str, str], ...] = (
-    ("marp", "Marp CLI for PPTX rendering"),
-    ("pandoc", "Pandoc for DOCX rendering"),
+SERVICE_AUTHORITY_URLS = (
+    "DIEGO_BASE_URL",
+    "PAGEVRA_BASE_URL",
+    "OUROGRAPH_BASE_URL",
+    "DUALWEAVE_BASE_URL",
+    "STRATUMIND_BASE_URL",
+    "LIMORA_BASE_URL",
 )
 
 
@@ -291,29 +291,18 @@ def _validate_runtime_env_contract(
                 )
             )
 
-    health_tool_timeout = env_get("HEALTH_TOOL_TIMEOUT_SECONDS")
-    if health_tool_timeout:
-        if _is_positive_number(health_tool_timeout):
-            messages.append(_format("PASS", "HEALTH_TOOL_TIMEOUT_SECONDS is valid"))
-        else:
-            failures += 1
+    service_authority_timeout = env_get("HEALTH_SERVICE_AUTHORITY_TIMEOUT_SECONDS")
+    if service_authority_timeout:
+        if _is_positive_number(service_authority_timeout):
             messages.append(
-                _format(
-                    "FAIL",
-                    "HEALTH_TOOL_TIMEOUT_SECONDS must be a positive number",
-                )
+                _format("PASS", "HEALTH_SERVICE_AUTHORITY_TIMEOUT_SECONDS is valid")
             )
-
-    tool_cache_ttl = env_get("TOOL_CHECK_CACHE_TTL_SECONDS")
-    if tool_cache_ttl:
-        if _is_non_negative_number(tool_cache_ttl):
-            messages.append(_format("PASS", "TOOL_CHECK_CACHE_TTL_SECONDS is valid"))
         else:
             failures += 1
             messages.append(
                 _format(
                     "FAIL",
-                    "TOOL_CHECK_CACHE_TTL_SECONDS must be a non-negative number",
+                    "HEALTH_SERVICE_AUTHORITY_TIMEOUT_SECONDS must be a positive number",
                 )
             )
 
@@ -370,31 +359,18 @@ def evaluate_preflight(
     messages.extend(contract_messages)
     failures += contract_failures
 
-    resolved_tools: dict[str, str | None] = {}
-    for binary, description in TOOL_CHECKS:
-        resolved = shutil.which(binary)
-        resolved_tools[binary] = resolved
-        if resolved:
-            messages.append(_format("PASS", f"{binary} available at {resolved}"))
-        else:
-            messages.append(
-                _format(
-                    "WARN",
-                    f"{binary} missing ({description}); generation chain may degrade",
-                )
-            )
-    if _looks_truthy(env.get("GENERATION_TOOLS_REQUIRED")):
-        missing_required_tools = [
-            binary for binary, resolved in resolved_tools.items() if not resolved
-        ]
-        if missing_required_tools:
+    missing_authorities = [
+        key for key in SERVICE_AUTHORITY_URLS if not str(env.get(key) or "").strip()
+    ]
+    if _looks_truthy(env.get("SERVICE_AUTHORITIES_REQUIRED")):
+        if missing_authorities:
             failures += 1
-            missing_text = ", ".join(missing_required_tools)
+            missing_text = ", ".join(missing_authorities)
             messages.append(
                 _format(
                     "FAIL",
                     (
-                        "GENERATION_TOOLS_REQUIRED=true but required tools are "
+                        "SERVICE_AUTHORITIES_REQUIRED=true but service URLs are "
                         "missing: "
                         f"{missing_text}"
                     ),
@@ -404,8 +380,7 @@ def evaluate_preflight(
             messages.append(
                 _format(
                     "PASS",
-                    "GENERATION_TOOLS_REQUIRED=true and all required tools "
-                    "are available",
+                    "SERVICE_AUTHORITIES_REQUIRED=true and all service URLs are configured",
                 )
             )
 
@@ -433,13 +408,25 @@ def evaluate_preflight(
         if not ok:
             failures += 1
 
-    chroma_host = env.get("CHROMA_HOST")
-    chroma_port = env.get("CHROMA_PORT")
-    if chroma_host and chroma_port:
-        ok, message = tcp_check(chroma_host, int(chroma_port), timeout_seconds)
-        messages.append(message)
-        if not ok:
-            failures += 1
+    for service_url_key in SERVICE_AUTHORITY_URLS:
+        service_url = env.get(service_url_key)
+        if not service_url:
+            continue
+        parsed = urlparse(service_url)
+        if parsed.hostname and parsed.port:
+            ok, message = tcp_check(parsed.hostname, int(parsed.port), timeout_seconds)
+            messages.append(f"{service_url_key} {message}")
+            if not ok:
+                failures += 1
+
+    qdrant_url = env.get("QDRANT_URL")
+    if qdrant_url:
+        parsed = urlparse(qdrant_url)
+        if parsed.hostname and parsed.port:
+            ok, message = tcp_check(parsed.hostname, int(parsed.port), timeout_seconds)
+            messages.append(message)
+            if not ok:
+                failures += 1
 
     return messages, failures
 

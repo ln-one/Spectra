@@ -109,6 +109,16 @@ class TestProjectsContract:
         _m(monkeypatch, db_service, "save_idempotency_response", None)
         monkeypatch.setattr(
             project_api,
+            "_create_formal_project",
+            AsyncMock(return_value=None),
+        )
+        monkeypatch.setattr(
+            project_api,
+            "_create_base_reference_if_needed",
+            AsyncMock(return_value=None),
+        )
+        monkeypatch.setattr(
+            project_api,
             "_bootstrap_default_session",
             AsyncMock(return_value=None),
         )

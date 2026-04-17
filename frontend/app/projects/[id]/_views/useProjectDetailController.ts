@@ -1,6 +1,6 @@
 ﻿import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { authService, TokenStorage } from "@/lib/auth";
+import { authService } from "@/lib/auth";
 import { generateApi, projectSpaceApi } from "@/lib/sdk";
 import { getErrorMessage } from "@/lib/sdk/errors";
 import { toast } from "@/hooks/use-toast";
@@ -129,11 +129,11 @@ export function useProjectDetailController() {
   const loadActiveReferences = useCallback(async () => {
     try {
       const response = await projectSpaceApi.getReferences(projectId);
-      const references = (response.data.references ?? [])
+      const references = (response.references ?? [])
         .filter((reference) => reference.status === "active")
         .sort((a, b) => {
-          if (a.relation_type !== b.relation_type) {
-            return a.relation_type === "base" ? -1 : 1;
+          if (a.relationType !== b.relationType) {
+            return a.relationType === "base" ? -1 : 1;
           }
           return (a.priority ?? 999) - (b.priority ?? 999);
         });
@@ -290,17 +290,9 @@ export function useProjectDetailController() {
     let cancelled = false;
 
     const bootstrap = async () => {
+      reset();
       setIsBootstrapping(true);
-      let token = TokenStorage.getAccessToken();
-      if (!token && TokenStorage.getRefreshToken()) {
-        const refreshed = await authService.refreshToken();
-        if (cancelled) return;
-        if (refreshed) {
-          token = TokenStorage.getAccessToken();
-        }
-      }
-
-      if (!token) {
+      if (!(await authService.hasActiveSession())) {
         router.push("/auth/login");
         return;
       }
@@ -313,6 +305,17 @@ export function useProjectDetailController() {
       ]);
 
       if (cancelled) return;
+
+      const currentProject = useProjectStore.getState().project;
+      if (!currentProject || currentProject.id !== projectId) {
+        setActiveSessionId(null);
+        useProjectStore.setState({
+          generationSession: null,
+          activeRunId: null,
+        });
+        router.replace("/projects");
+        return;
+      }
 
       const history = useProjectStore.getState().generationHistory;
       if (history.length > 0) {
@@ -334,7 +337,6 @@ export function useProjectDetailController() {
 
     return () => {
       cancelled = true;
-      reset();
     };
   }, [
     projectId,
@@ -352,6 +354,9 @@ export function useProjectDetailController() {
 
   useEffect(() => {
     let cancelled = false;
+    if (!project || project.id !== projectId) {
+      return;
+    }
     const preferredSessionId = resolvePreferredSessionId(
       querySessionId,
       visibleGenerationHistory,
@@ -437,6 +442,7 @@ export function useProjectDetailController() {
     fetchArtifactHistory,
     fetchMessages,
     loadSessionSnapshot,
+    project,
     projectId,
     setActiveSessionId,
     updateSessionInUrl,

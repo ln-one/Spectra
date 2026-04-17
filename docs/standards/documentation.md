@@ -12,7 +12,9 @@
 - 单一事实源优先：
   - 技术栈：`docs/architecture/tech-stack.md`
   - 架构入口：`docs/README.md`
+- 当前系统总索引：`docs/documentation/source-of-truth.md`
 - 规划项必须标注“规划中”。
+- 重要文档应显式标记状态：`current` / `active design` / `compatibility` / `historical` / `retired`
 - 删除文档后必须修复引用。
 
 ## 图表规则（Mermaid）

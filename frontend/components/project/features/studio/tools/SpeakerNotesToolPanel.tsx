@@ -25,7 +25,14 @@ import type {
 import { useWorkflowStepSync } from "./useWorkflowStepSync";
 
 type Slide = components["schemas"]["Slide"];
-type RenderedPreview = components["schemas"]["RenderedPreview"];
+type RenderedPreviewPage = {
+  slide_id: string;
+  index?: number;
+  image_url?: string | null;
+};
+type RenderedPreview = {
+  pages?: RenderedPreviewPage[];
+};
 
 export function SpeakerNotesToolPanel({
   toolName,
@@ -121,8 +128,12 @@ export function SpeakerNotesToolPanel({
           artifact_id: selectedDeckId,
         });
         if (cancelled) return;
-        const slides = (response.data?.slides ?? []) as Slide[];
-        const renderedPreview = response.data?.rendered_preview as
+        const previewData = (response.data ?? null) as {
+          slides?: Slide[];
+          rendered_preview?: RenderedPreview | null;
+        } | null;
+        const slides = (previewData?.slides ?? []) as Slide[];
+        const renderedPreview = previewData?.rendered_preview as
           | RenderedPreview
           | undefined;
         const renderedPages = renderedPreview?.pages ?? [];

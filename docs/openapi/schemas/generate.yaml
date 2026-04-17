@@ -66,12 +66,3 @@ GenerationSessionCommandRequest:
   $ref: './generate-session.yaml#/GenerationSessionCommandRequest'
 GenerationSessionCommandResponse:
   $ref: './generate-session.yaml#/GenerationSessionCommandResponse'
-
-GenerateRequest:
-  $ref: './generate-legacy.yaml#/GenerateRequest'
-GenerateResponse:
-  $ref: './generate-legacy.yaml#/GenerateResponse'
-GenerateStatusResponse:
-  $ref: './generate-legacy.yaml#/GenerateStatusResponse'
-VersionsResponse:
-  $ref: './generate-legacy.yaml#/VersionsResponse'

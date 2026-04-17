@@ -20,7 +20,9 @@ def test_distributed_readiness_accepts_split_stack_inputs():
         "DATABASE_URL": "postgresql://spectra:pass@postgres.internal:5432/spectra",
         "JWT_SECRET_KEY": "real-secret",
         "REDIS_HOST": "redis.internal",
-        "CHROMA_HOST": "chroma.internal",
+        "STRATUMIND_BASE_URL": "http://stratumind.internal:8110",
+        "STRATUMIND_TIMEOUT_SECONDS": "15",
+        "QDRANT_URL": "http://qdrant.internal:6333",
         "NEXT_PUBLIC_API_URL": "https://api.ln1.fun",
         "SYNC_RAG_INDEXING": "false",
         "UPLOAD_DIR": "/var/lib/spectra/uploads",
@@ -53,8 +55,8 @@ services:
     depends_on:
       redis:
         condition: service_healthy
-      chromadb:
-        condition: service_started
+      stratumind:
+        condition: service_healthy
   worker:
     command: python worker.py
     volumes:
@@ -68,18 +70,23 @@ services:
     depends_on:
       redis:
         condition: service_healthy
-      chromadb:
-        condition: service_started
+      stratumind:
+        condition: service_healthy
   redis:
     ports:
       - "127.0.0.1:6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
-  chromadb:
+  stratumind:
     ports:
-      - "127.0.0.1:8001:8000"
+      - "127.0.0.1:8110:8110"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
+      test: ["CMD", "wget", "-q", "-O-", "http://localhost:8110/health/ready"]
+  qdrant:
+    ports:
+      - "127.0.0.1:6333:6333"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O-", "http://localhost:6333/healthz"]
 """
     shadow_compose = """
 services:
@@ -140,7 +147,8 @@ def test_distributed_readiness_prefers_compose_service_env_over_local_env():
         "DATABASE_URL": "postgresql://spectra:pass@localhost:5432/spectra",
         "JWT_SECRET_KEY": "real-secret",
         "REDIS_HOST": "localhost",
-        "CHROMA_HOST": "localhost",
+        "STRATUMIND_BASE_URL": "http://localhost:8110",
+        "QDRANT_URL": "http://localhost:6333",
         "UPLOAD_DIR": "/var/lib/spectra/uploads",
         "ARTIFACT_STORAGE_DIR": "/var/lib/spectra/artifacts",
         "GENERATED_DIR": "/var/lib/spectra/generated",
@@ -165,7 +173,8 @@ services:
     environment:
       DATABASE_URL: postgresql://spectra:spectra@postgres:5432/spectra
       REDIS_HOST: redis
-      CHROMA_HOST: chromadb
+      STRATUMIND_BASE_URL: http://stratumind:8110
+      QDRANT_URL: http://qdrant:6333
       UPLOAD_DIR: /var/lib/spectra/uploads
       ARTIFACT_STORAGE_DIR: /var/lib/spectra/artifacts
       GENERATED_DIR: /var/lib/spectra/generated
@@ -174,8 +183,8 @@ services:
     depends_on:
       redis:
         condition: service_healthy
-      chromadb:
-        condition: service_started
+      stratumind:
+        condition: service_healthy
   worker:
     command: python worker.py
     volumes:
@@ -183,7 +192,8 @@ services:
     environment:
       DATABASE_URL: postgresql://spectra:spectra@postgres:5432/spectra
       REDIS_HOST: redis
-      CHROMA_HOST: chromadb
+      STRATUMIND_BASE_URL: http://stratumind:8110
+      QDRANT_URL: http://qdrant:6333
       UPLOAD_DIR: /var/lib/spectra/uploads
       ARTIFACT_STORAGE_DIR: /var/lib/spectra/artifacts
       GENERATED_DIR: /var/lib/spectra/generated
@@ -192,18 +202,23 @@ services:
     depends_on:
       redis:
         condition: service_healthy
-      chromadb:
-        condition: service_started
+      stratumind:
+        condition: service_healthy
   redis:
     ports:
       - "127.0.0.1:6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
-  chromadb:
+  stratumind:
     ports:
-      - "127.0.0.1:8001:8000"
+      - "127.0.0.1:8110:8110"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
+      test: ["CMD", "wget", "-q", "-O-", "http://localhost:8110/health/ready"]
+  qdrant:
+    ports:
+      - "127.0.0.1:6333:6333"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O-", "http://localhost:6333/healthz"]
 """
 
     messages, failures = evaluate_distributed_readiness(
@@ -219,7 +234,11 @@ services:
         for message in messages
     )
     assert any(
-        "[docker] PASS CHROMA_HOST points to distributed host `chromadb`" in message
+        "[docker] PASS STRATUMIND_BASE_URL host points to distributed host `stratumind`"
+        for message in messages
+    )
+    assert any(
+        "[docker] PASS QDRANT_URL host points to distributed host `qdrant`" in message
         for message in messages
     )
     assert not any(
@@ -227,6 +246,7 @@ services:
         for message in messages
     )
     assert not any(
-        "[docker] WARN CHROMA_HOST still points to local-only host" in message
+        "[docker] WARN STRATUMIND_BASE_URL host still points to local-only host"
+        in message
         for message in messages
     )

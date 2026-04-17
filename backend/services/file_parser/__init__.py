@@ -1,9 +1,8 @@
-"""File Parser Service — 可插拔解析器的统一入口。
+"""File Parser Service — local parsing and parser-provider fallback only.
 
-通过 ``DOCUMENT_PARSER`` 环境变量切换解析 provider（与 ADR-005 一致）。
-默认使用 ``local`` provider（pypdf / python-docx / python-pptx）。
-
-本模块实现完整的 fallback chain 与降级信息返回。
+Remote parse orchestration belongs to the upload workflow. This module still
+consumes deferred parse markers so RAG/indexing can recognize pending remote
+results, but it does not decide whether an upload should enter Dualweave.
 """
 
 from __future__ import annotations
@@ -14,6 +13,7 @@ import uuid
 from typing import Any
 
 from services.file_upload_service.access import FileType, normalize_file_type
+from services.file_upload_service.remote_parse import is_deferred_parse_result
 from services.parsers import get_parser
 
 from .constants import AUTO_PARSER_MODE
@@ -35,7 +35,7 @@ def _resolve_configured_parser_mode() -> str:
 def _resolve_primary_provider(
     parser_mode: str, file_type: FileType, parser_override: str | None = None
 ) -> str:
-    """Resolve runtime provider from parser mode and normalized file type."""
+    """Resolve runtime provider for local parsing and fallback paths."""
     override = (parser_override or "").strip().lower()
     if override:
         return override
@@ -43,8 +43,6 @@ def _resolve_primary_provider(
     if parser_mode != AUTO_PARSER_MODE:
         return parser_mode
 
-    if file_type == FileType.PDF:
-        return "mineru_cloud"
     return "local"
 
 
@@ -99,6 +97,9 @@ def extract_text_for_rag(
             filepath, filename, normalized_file_type.value
         )
         details.update(parse_details)
+        if is_deferred_parse_result(parse_details):
+            details["provider_used"] = parse_details.get("provider_used") or parser.name
+            return "", details
         if text and len(text.strip()) > 0:
             details["provider_used"] = parser.name
             details["capability_status"] = build_available_status(parser.name, trace_id)

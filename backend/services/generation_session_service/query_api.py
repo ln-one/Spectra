@@ -7,13 +7,13 @@ from services.generation_session_service.preview_queries import (
 )
 from services.generation_session_service.queries import get_events as query_events
 from services.generation_session_service.queries import (
-    get_session_artifact_history as query_session_artifact_history,
-)
-from services.generation_session_service.queries import (
     get_session_runtime_state as query_session_runtime_state,
 )
 from services.generation_session_service.queries import (
     get_session_snapshot as query_session_snapshot,
+)
+from services.generation_session_service.session_artifacts import (
+    get_session_artifact_history as query_session_artifact_history,
 )
 from services.generation_session_service.snapshot_consistency import (
     SnapshotContractError,

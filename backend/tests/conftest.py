@@ -1,3 +1,6 @@
+import os
+import tempfile
+
 import pytest
 from starlette.testclient import TestClient
 
@@ -6,9 +9,20 @@ from services.prisma_runtime import ensure_generated_prisma_client_path
 
 ensure_generated_prisma_client_path()
 
+_TEST_RUNTIME_ROOT = tempfile.mkdtemp(prefix="spectra-test-runtime-")
+os.environ.setdefault("UPLOAD_DIR", os.path.join(_TEST_RUNTIME_ROOT, "uploads"))
+os.environ.setdefault(
+    "ARTIFACT_STORAGE_DIR", os.path.join(_TEST_RUNTIME_ROOT, "artifacts")
+)
+os.environ.setdefault("GENERATED_DIR", os.path.join(_TEST_RUNTIME_ROOT, "generated"))
+
 
 @pytest.fixture
-def client():
+def client(monkeypatch, tmp_path_factory):
+    runtime_root = tmp_path_factory.mktemp("runtime")
+    monkeypatch.setenv("UPLOAD_DIR", str(runtime_root / "uploads"))
+    monkeypatch.setenv("ARTIFACT_STORAGE_DIR", str(runtime_root / "artifacts"))
+    monkeypatch.setenv("GENERATED_DIR", str(runtime_root / "generated"))
     from main import app
 
     return TestClient(app)

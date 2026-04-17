@@ -23,7 +23,6 @@ MIGRATION_LOCK = ROOT / "backend/prisma/migrations/migration_lock.toml"
 TARGET_MODELS = {
     "Project",
     "GenerationSession",
-    "GenerationTask",
     "Conversation",
     "Upload",
     "ParsedChunk",
@@ -38,16 +37,17 @@ HOTSPOT_PATTERNS = {
     "idempotency": [
         ROOT / "backend/services/database/files.py",
         ROOT / "backend/services/database/projects.py",
-        ROOT / "backend/services/project_space_service/member_api.py",
+        ROOT / "backend/routers/project_space/members.py",
     ],
     "project_space_review": [
-        ROOT / "backend/services/project_space_service/review.py",
-        ROOT / "backend/services/database/project_space_changes.py",
-        ROOT / "backend/services/database/project_space_references.py",
+        ROOT / "backend/services/project_space_service/service.py",
+        ROOT / "backend/services/project_space_service/references.py",
+        ROOT / "backend/services/project_space_service/candidate_change_semantics.py",
     ],
     "generation_session": [
-        ROOT / "backend/services/generation_session_service/task_dispatch.py",
-        ROOT / "backend/services/generation_session_service/outline_draft/execution.py",
+        ROOT / "backend/services/generation_session_service/task_runtime.py",
+        ROOT
+        / "backend/services/generation_session_service/diego_runtime_sync/generation_sync.py",
         ROOT / "backend/services/generation_session_service/command_execution.py",
     ],
 }
@@ -142,6 +142,8 @@ def analyze_hotspots() -> dict[str, HotspotRisk]:
     for name, files in HOTSPOT_PATTERNS.items():
         risk = HotspotRisk(name=name)
         for path in files:
+            if not path.exists():
+                continue
             text = path.read_text(encoding="utf-8")
             risk.composite_operations += (
                 text.count("find_")

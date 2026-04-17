@@ -1,4 +1,8 @@
-"""Helpers for normalizing and splitting Marp markdown consistently."""
+"""Compatibility helpers for splitting and normalizing Marp-flavored markdown.
+
+These helpers support local preview metadata parsing and render-input cleanup.
+They do not make ``services.generation`` a render backend.
+"""
 
 from __future__ import annotations
 

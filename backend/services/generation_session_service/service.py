@@ -96,11 +96,9 @@ class GenerationSessionService(
             client_session_id=client_session_id,
             bootstrap_only=bootstrap_only,
             allow_create=allow_create,
-            task_queue_service=task_queue_service,
             contract_version=self.CONTRACT_VERSION,
             schema_version=self.SCHEMA_VERSION,
             append_event=self._append_event,
-            schedule_outline_draft_task=self._schedule_outline_draft_task,
         )
         logger.info("Session created for project %s", project_id)
         return session_ref

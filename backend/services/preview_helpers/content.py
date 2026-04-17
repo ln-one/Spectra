@@ -1,22 +1,30 @@
-﻿import inspect
 import json
 import logging
 import re
 from pathlib import Path
 from typing import Optional
 
-from services.file_parser import extract_text_for_rag
 from services.database import db_service
+from services.file_parser import extract_text_for_rag
 from utils.docx_content_sidecar import load_docx_content_sidecar
 
 from .cache import load_preview_content, save_preview_content
 from .content_generation import get_or_generate_content as _get_or_generate_content
-from .material_lookup import resolve_preview_task
-from .rendered_preview import build_rendered_preview_payload
+from .material_lookup import resolve_preview_material_context
 from .rendering import build_lesson_plan, build_slides
 from .slide_mapping import slide_identity
 
 logger = logging.getLogger(__name__)
+
+
+async def get_or_generate_content(task, project) -> dict:
+    return await _get_or_generate_content(
+        task,
+        project,
+        db_service,
+        load_preview_content_fn=load_preview_content,
+        save_preview_content_fn=save_preview_content,
+    )
 
 
 def _parse_artifact_metadata(raw_metadata) -> dict:
@@ -50,20 +58,8 @@ def _normalize_docx_preview_markdown(title: str, text: str) -> str:
     paragraphs = [_clean_line(line) for line in normalized_text.split("\n")]
     paragraphs = [line for line in paragraphs if line]
     normalized_title = _clean_line(title)
-
     if normalized_title and paragraphs and paragraphs[0] == normalized_title:
         paragraphs = paragraphs[1:]
-    elif normalized_title and paragraphs:
-        first_line = paragraphs[0]
-        if first_line.endswith(normalized_title):
-            leading = first_line[: -len(normalized_title)].strip()
-            if not leading or re.fullmatch(r"[#>*\-\d\.\)\s]+", leading):
-                paragraphs = paragraphs[1:]
-
-    paragraphs = [
-        "## 摘要" if line.lower() == "summary" else line for line in paragraphs
-    ]
-
     body = "\n\n".join(paragraphs).strip()
     if normalized_title and body:
         return f"# {normalized_title}\n\n{body}"
@@ -78,7 +74,6 @@ async def _load_docx_artifact_preview_content(
 ) -> dict:
     if not artifact_id:
         return {}
-
     artifact = await db_service.get_artifact(artifact_id)
     if not artifact or getattr(artifact, "projectId", None) != project_id:
         return {}
@@ -103,17 +98,12 @@ async def _load_docx_artifact_preview_content(
         return sidecar_content
 
     filename = Path(storage_path).name or f"{artifact_id}.docx"
-    extracted_text, _ = extract_text_for_rag(
-        storage_path,
-        filename,
-        "word",
-    )
+    extracted_text, _ = extract_text_for_rag(storage_path, filename, "word")
     metadata = _parse_artifact_metadata(getattr(artifact, "metadata", None))
     title = str(metadata.get("title") or "").strip()
     markdown_content = _normalize_docx_preview_markdown(title, extracted_text)
     if not markdown_content.strip():
         return {}
-
     return {
         "title": title or filename,
         "markdown_content": markdown_content,
@@ -121,71 +111,88 @@ async def _load_docx_artifact_preview_content(
     }
 
 
-def _build_slides_compatible(
-    task_id: str,
-    markdown_content: str,
-    image_metadata,
-    render_markdown,
-):
-    """
-    Backward-compatible build_slides invocation.
-
-    Some tests / legacy monkeypatches still expose old 2/3-arg signatures.
-    This helper adapts call arity without relying on keyword names.
-    """
+def _normalized_slide_id(render_job_id: str, page_index: object) -> str:
     try:
-        signature = inspect.signature(build_slides)
+        index = int(page_index)
     except (TypeError, ValueError):
-        signature = None
+        index = 0
+    return f"{render_job_id}-slide-{max(index, 0)}"
 
-    if signature:
-        params = list(signature.parameters.values())
-        if any(p.kind == inspect.Parameter.VAR_POSITIONAL for p in params):
-            return build_slides(
-                task_id,
-                markdown_content,
-                image_metadata,
-                render_markdown,
-            )
 
-        positional_capacity = sum(
-            1
-            for p in params
-            if p.kind
-            in (
-                inspect.Parameter.POSITIONAL_ONLY,
-                inspect.Parameter.POSITIONAL_OR_KEYWORD,
-            )
+def _normalize_rendered_preview(
+    *,
+    rendered_preview: dict | None,
+    render_job_id: str,
+) -> dict | None:
+    if not isinstance(rendered_preview, dict):
+        return None
+
+    normalized_pages: list[dict] = []
+    changed = False
+    for fallback_index, page in enumerate(rendered_preview.get("pages", []) or []):
+        if not isinstance(page, dict):
+            continue
+        page_copy = dict(page)
+        normalized_slide_id = _normalized_slide_id(
+            render_job_id,
+            page_copy.get("index", fallback_index),
         )
-        if positional_capacity >= 4:
-            return build_slides(
-                task_id,
-                markdown_content,
-                image_metadata,
-                render_markdown,
-            )
-        if positional_capacity >= 3:
-            return build_slides(task_id, markdown_content, image_metadata)
-        return build_slides(task_id, markdown_content)
+        if page_copy.get("slide_id") != normalized_slide_id:
+            page_copy["slide_id"] = normalized_slide_id
+            changed = True
+        normalized_pages.append(page_copy)
 
-    # Fallback if signature introspection is unavailable.
-    try:
-        return build_slides(task_id, markdown_content, image_metadata, render_markdown)
-    except TypeError:
-        try:
-            return build_slides(task_id, markdown_content, image_metadata)
-        except TypeError:
-            return build_slides(task_id, markdown_content)
+    normalized = dict(rendered_preview)
+    normalized["pages"] = normalized_pages
+    normalized["page_count"] = len(normalized_pages)
+    return normalized if changed or normalized != rendered_preview else rendered_preview
 
 
-async def get_or_generate_content(task, project) -> dict:
-    return await _get_or_generate_content(
-        task,
-        project,
-        db_service,
-        load_preview_content_fn=load_preview_content,
-        save_preview_content_fn=save_preview_content,
-    )
+async def _load_content_for_context(
+    *,
+    material_context: dict,
+) -> dict:
+    render_job_id = str(material_context.get("render_job_id") or "").strip()
+    if render_job_id:
+        cached = await load_preview_content(render_job_id)
+        if isinstance(cached, dict):
+            return cached
+
+    artifact_metadata = material_context.get("artifact_metadata")
+    if isinstance(artifact_metadata, dict):
+        preview_content = artifact_metadata.get("preview_content")
+        if isinstance(preview_content, dict):
+            if render_job_id:
+                await save_preview_content(render_job_id, preview_content)
+            return preview_content
+
+    return {}
+
+
+def _attach_rendered_preview_to_slides(
+    *,
+    slide_models,
+    rendered_preview: dict | None,
+    render_job_id: str,
+) -> list[dict]:
+    page_by_slide_id: dict[str, dict] = {}
+    if isinstance(rendered_preview, dict):
+        for page in rendered_preview.get("pages", []) or []:
+            slide_id = str(page.get("slide_id") or "").strip()
+            if slide_id and slide_id not in page_by_slide_id:
+                page_by_slide_id[slide_id] = page
+
+    slides: list[dict] = []
+    for index, slide in enumerate(slide_models):
+        page = page_by_slide_id.get(slide_identity(slide, index, task_id=render_job_id))
+        if page and page.get("image_url"):
+            slide.thumbnail_url = page.get("image_url")
+
+        dumped = slide.model_dump()
+        if page and page.get("html_preview"):
+            dumped["rendered_html_preview"] = page.get("html_preview")
+        slides.append(dumped)
+    return slides
 
 
 async def load_preview_material(
@@ -195,79 +202,76 @@ async def load_preview_material(
     task_id: Optional[str] = None,
     run_id: Optional[str] = None,
 ):
-    task = await resolve_preview_task(
-        db_service, session_id, artifact_id, task_id, run_id
+    material_context = await resolve_preview_material_context(
+        db_service,
+        session_id,
+        artifact_id,
+        run_id,
     )
-
-    slides: list[dict] = []
-    lesson_plan: Optional[dict] = None
-    content: dict = {}
-    if task is None:
+    if material_context is None:
         try:
-            content = await _load_docx_artifact_preview_content(project_id, artifact_id)
+            docx_content = await _load_docx_artifact_preview_content(
+                project_id, artifact_id
+            )
         except Exception as preview_err:
             logger.warning(
                 "Docx artifact preview extraction failed: %s",
                 preview_err,
                 exc_info=True,
             )
-        if content:
-            return task, slides, lesson_plan, content
+            docx_content = {}
+        return None, [], None, docx_content
 
-    if task:
-        try:
-            project = await db_service.get_project(project_id)
-            if not project:
-                raise ValueError("project not found for preview")
-            content = await get_or_generate_content(task, project)
-            slide_models = _build_slides_compatible(
-                task_id=task.id,
-                markdown_content=content.get("markdown_content", ""),
-                image_metadata=content.get("_image_metadata")
-                or content.get("image_metadata"),
-                render_markdown=content.get("render_markdown"),
+    slides: list[dict] = []
+    lesson_plan: Optional[dict] = None
+    content: dict = {}
+    try:
+        content = await _load_content_for_context(
+            material_context=material_context,
+        )
+        render_job_id = str(material_context.get("render_job_id") or "").strip()
+        rendered_preview = _normalize_rendered_preview(
+            rendered_preview=(
+                content.get("rendered_preview")
+                if isinstance(content.get("rendered_preview"), dict)
+                else None
+            ),
+            render_job_id=render_job_id,
+        )
+        if rendered_preview is not None:
+            content = dict(content)
+            content["rendered_preview"] = rendered_preview
+            if render_job_id:
+                await save_preview_content(render_job_id, content)
+
+        markdown_content = str(content.get("markdown_content") or "").strip()
+        if markdown_content:
+            slide_models = build_slides(
+                render_job_id,
+                markdown_content,
+                content.get("_image_metadata") or content.get("image_metadata"),
+                content.get("render_markdown"),
             )
-            rendered_preview = content.get("rendered_preview")
-            if not isinstance(rendered_preview, dict):
-                rendered_preview = await build_rendered_preview_payload(
-                    task_id=task.id,
-                    title=content.get("title", ""),
-                    markdown_content=content.get("markdown_content", ""),
-                    slide_ids=[
-                        slide_identity(slide, index, task_id=task.id)
-                        for index, slide in enumerate(slide_models)
-                    ],
-                    render_markdown=content.get("render_markdown"),
-                    style_manifest=content.get("style_manifest"),
-                    extra_css=content.get("extra_css"),
-                    page_class_plan=content.get("page_class_plan"),
+            if rendered_preview is None:
+                logger.info(
+                    "Preview cache miss on read path: render_job=%s session=%s",
+                    render_job_id,
+                    session_id,
                 )
-                if rendered_preview:
-                    content["rendered_preview"] = rendered_preview
-                    await save_preview_content(task.id, content)
 
-            page_by_slide_id = {}
-            if isinstance(rendered_preview, dict):
-                for page in rendered_preview.get("pages", []) or []:
-                    slide_id = str(page.get("slide_id") or "").strip()
-                    if slide_id:
-                        page_by_slide_id[slide_id] = page
-
-            for index, slide in enumerate(slide_models):
-                page = page_by_slide_id.get(
-                    slide_identity(slide, index, task_id=task.id)
-                )
-                if page and page.get("image_url"):
-                    slide.thumbnail_url = page.get("image_url")
-            slides = [slide.model_dump() for slide in slide_models]
+            slides = _attach_rendered_preview_to_slides(
+                slide_models=slide_models,
+                rendered_preview=rendered_preview,
+                render_job_id=render_job_id,
+            )
             lesson_plan = build_lesson_plan(
                 slide_models,
                 content.get("lesson_plan_markdown", ""),
             ).model_dump()
-        except Exception as preview_err:
-            logger.warning(
-                "Session preview content generation failed, using fallback: %s",
-                preview_err,
-                exc_info=True,
-            )
-    return task, slides, lesson_plan, content
+    except Exception as preview_err:
+        logger.warning(
+            "Session preview content generation failed: %s",
+            preview_err,
+            exc_info=True,
+        )
+    return material_context, slides, lesson_plan, content

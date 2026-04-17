@@ -3,11 +3,13 @@
 ## 系统要求
 
 **硬件要求**：
+
 - CPU: 4 核心及以上
 - 内存: 8GB 及以上
 - 磁盘: 20GB 可用空间
 
 **软件要求**：
+
 - Docker Desktop 4.0+
 - Node.js 18+ (可选)
 - Python 3.11+ (可选)
@@ -44,6 +46,7 @@ docker-compose down
 ### 方式二：本地运行
 
 **后端启动**：
+
 ```bash
 cd backend
 
@@ -66,6 +69,7 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 **前端启动**：
+
 ```bash
 cd frontend
 
@@ -118,19 +122,28 @@ services:
 
 ## 数据持久化
 
+说明：
+
+- 浏览器端 API 正式直连 `NEXT_PUBLIC_API_URL`
+- `INTERNAL_API_URL` 只用于前端 server-side/internal 请求
+- Next.js `/api/v1/*` rewrite 仍保留，但不建议承载长聊天请求
+
 **PostgreSQL 数据库**：
+
 - 本机开发默认连接: `postgresql://spectra:spectra@127.0.0.1:5432/spectra`
 - Docker Compose 容器内连接: `postgresql://spectra:spectra@postgres:5432/spectra`
 - 通过 Docker Compose 启动并持久化到 `postgres_data` 卷
 
 **文件存储**：
+
 - 位置: `backend/uploads/`
 - 支持热重载
 
-**向量数据库**：
-- 本地直跑默认位置: `backend/chroma_data/`
-- Docker 运行推荐位置: `/var/lib/spectra/chroma`
-- ChromaDB 本地持久化
+**检索服务**：
+
+- 本地直跑: `Stratumind` 监听 `http://127.0.0.1:8110`
+- 向量存储: `Qdrant` 监听 `http://127.0.0.1:6333`
+- Docker 运行推荐通过 Compose 同时启动 `stratumind + qdrant`
 
 ## 热重载
 

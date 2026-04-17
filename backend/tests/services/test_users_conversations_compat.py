@@ -12,21 +12,10 @@ class _ConversationService(UserConversationMixin):
 
 
 @pytest.mark.asyncio
-async def test_get_recent_conversation_messages_falls_back_when_select_not_supported():
-    calls = []
-
-    async def _find_many(**kwargs):
-        calls.append(kwargs)
-        if "select" in kwargs:
-            raise TypeError(
-                "ConversationActions.find_many() got an unexpected keyword argument 'select'"
-            )
-        return [SimpleNamespace(role="user", content="u1")]
-
+async def test_get_recent_conversation_messages_projects_fields_without_select_query():
+    find_many = AsyncMock(return_value=[SimpleNamespace(role="user", content="u1")])
     service = _ConversationService(
-        db=SimpleNamespace(
-            conversation=SimpleNamespace(find_many=AsyncMock(side_effect=_find_many))
-        )
+        db=SimpleNamespace(conversation=SimpleNamespace(find_many=find_many))
     )
 
     messages = await service.get_recent_conversation_messages(
@@ -38,6 +27,8 @@ async def test_get_recent_conversation_messages_falls_back_when_select_not_suppo
 
     assert len(messages) == 1
     assert messages[0].role == "user"
-    assert len(calls) == 2
-    assert "select" in calls[0]
-    assert "select" not in calls[1]
+    find_many.assert_awaited_once_with(
+        where={"projectId": "p-001", "sessionId": "s-001"},
+        take=6,
+        order={"createdAt": "desc"},
+    )

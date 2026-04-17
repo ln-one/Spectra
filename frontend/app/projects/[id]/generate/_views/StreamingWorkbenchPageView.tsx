@@ -14,6 +14,47 @@ import { PreviewHeader } from "./components/PreviewHeader";
 import { PreviewSlideStrip } from "./components/PreviewSlideStrip";
 import { PreviewFloatingTools } from "./components/PreviewFloatingTools";
 
+function hasRenderablePreview(slide: {
+  thumbnail_url?: string | null;
+  rendered_previews?: Array<{
+    image_url?: string | null;
+  }>;
+}): boolean {
+  const frames = Array.isArray(slide.rendered_previews)
+    ? slide.rendered_previews
+    : [];
+  if (frames.some((frame) => Boolean(frame?.image_url))) {
+    return true;
+  }
+  return Boolean(slide.thumbnail_url);
+}
+
+function hasPreviewShell(slide: {
+  thumbnail_url?: string | null;
+  rendered_html_preview?: string | null;
+  rendered_previews?: Array<{
+    image_url?: string | null;
+    html_preview?: string | null;
+  }>;
+}): boolean {
+  if (hasRenderablePreview(slide)) return true;
+  const frames = Array.isArray(slide.rendered_previews)
+    ? slide.rendered_previews
+    : [];
+  if (
+    frames.some(
+      (frame) =>
+        typeof frame?.html_preview === "string" && frame.html_preview.trim()
+    )
+  ) {
+    return true;
+  }
+  return (
+    typeof slide.rendered_html_preview === "string" &&
+    Boolean(slide.rendered_html_preview.trim())
+  );
+}
+
 export default function StreamingWorkbenchPageView() {
   const router = useRouter();
   const params = useParams();
@@ -54,9 +95,8 @@ export default function StreamingWorkbenchPageView() {
     regeneratingSlideId,
     previewBlockedReason,
     isSessionGenerating,
+    sessionState,
     sessionFailureMessage,
-    isOutlineGenerating,
-    outlineSections,
     slidesContentMarkdown,
     activeSessionId,
     handleExport,
@@ -110,12 +150,20 @@ export default function StreamingWorkbenchPageView() {
     activeSlideIndexRef.current = activeSlideIndex;
   }, [activeSlideIndex]);
 
+  useEffect(() => {
+    if (!activeSessionId || !projectId) return;
+    if (sessionState !== "AWAITING_OUTLINE_CONFIRM") return;
+    router.replace(
+      `/projects/${projectId}?session=${encodeURIComponent(activeSessionId)}`
+    );
+  }, [activeSessionId, projectId, router, sessionState]);
+
   const renderedSlides = useMemo(
-    () => orderedSlides.filter((slide) => Boolean(slide.thumbnail_url)),
+    () => orderedSlides.filter((slide) => hasPreviewShell(slide)),
     [orderedSlides]
   );
   const pendingSlide = useMemo(
-    () => orderedSlides.find((slide) => !slide.thumbnail_url) ?? null,
+    () => orderedSlides.find((slide) => !hasRenderablePreview(slide)) ?? null,
     [orderedSlides]
   );
   const hasRenderableContent =
@@ -184,6 +232,37 @@ export default function StreamingWorkbenchPageView() {
     if (fullscreenSlideIndex === null) return null;
     return renderedSlides.find((slide) => slide.index === fullscreenSlideIndex);
   }, [fullscreenSlideIndex, renderedSlides]);
+  const fullscreenPreviews = useMemo(() => {
+    if (!fullscreenSlide) return [];
+    if (
+      Array.isArray(
+        (fullscreenSlide as { rendered_previews?: unknown }).rendered_previews
+      )
+    ) {
+      const imagePreviews = (
+        (
+          fullscreenSlide as {
+            rendered_previews?: Array<{
+              image_url?: string | null;
+              split_index?: number;
+            }>;
+          }
+        ).rendered_previews ?? []
+      )
+        .filter((preview) => Boolean(preview.image_url))
+        .sort((a, b) => (a.split_index ?? 0) - (b.split_index ?? 0));
+      if (imagePreviews.length) return imagePreviews;
+    }
+    if (fullscreenSlide.thumbnail_url) {
+      return [
+        {
+          image_url: fullscreenSlide.thumbnail_url,
+          split_index: 0,
+        },
+      ];
+    }
+    return [];
+  }, [fullscreenSlide]);
 
   return (
     <TooltipProvider delayDuration={300}>
@@ -215,25 +294,6 @@ export default function StreamingWorkbenchPageView() {
                 ref={leftScrollRef}
                 className="h-full overflow-y-auto pr-1 md:pr-2"
               >
-                {isOutlineGenerating ? (
-                  <div className="mb-4 rounded-xl border bg-white p-3 shadow-sm">
-                    <p className="mb-2 text-xs font-semibold text-zinc-700">
-                      Outline streaming
-                    </p>
-                    <div className="space-y-1 text-xs text-zinc-600">
-                      {outlineSections.length === 0 ? (
-                        <p>Waiting outline sections...</p>
-                      ) : (
-                        outlineSections.map((section, index) => (
-                          <p key={`${index}-${section}`}>
-                            {index + 1}. {section}
-                          </p>
-                        ))
-                      )}
-                    </div>
-                  </div>
-                ) : null}
-
                 {sessionFailureMessage ? (
                   <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
                     Generation failed: {sessionFailureMessage}
@@ -277,6 +337,7 @@ export default function StreamingWorkbenchPageView() {
                         <SlideCard
                           slide={slide}
                           isActive={activeSlideIndex === slide.index}
+                          isPreviewTerminalFailed={sessionState === "FAILED"}
                           onModify={(target) => {
                             void handleRegenerateSlide(target);
                           }}
@@ -290,7 +351,8 @@ export default function StreamingWorkbenchPageView() {
                         />
                       </motion.div>
                     ))}
-                    {isSessionGenerating && pendingSlide ? (
+                    {pendingSlide &&
+                    (isSessionGenerating || renderedSlides.length === 0) ? (
                       <motion.div
                         key={pendingSlide.id || `pending-${pendingSlide.index}`}
                         initial={{ opacity: 0, y: 10 }}
@@ -358,11 +420,15 @@ export default function StreamingWorkbenchPageView() {
                       : "border-transparent"
                   }`}
                 >
-                  <img
-                    src={slide.thumbnail_url || undefined}
-                    alt={slide.title || `Slide ${slide.index + 1}`}
-                    className="h-auto w-full object-cover"
-                  />
+                  {slide.thumbnail_url ? (
+                    <img
+                      src={slide.thumbnail_url || undefined}
+                      alt={slide.title || `Slide ${slide.index + 1}`}
+                      className="h-auto w-full object-cover"
+                    />
+                  ) : (
+                    <div className="aspect-[16/9] w-full bg-gradient-to-br from-zinc-100 via-white to-zinc-200" />
+                  )}
                 </button>
               ))}
             </aside>
@@ -374,13 +440,32 @@ export default function StreamingWorkbenchPageView() {
               >
                 <X className="h-5 w-5" />
               </button>
-              <img
-                src={fullscreenSlide.thumbnail_url || undefined}
-                alt={
-                  fullscreenSlide.title || `Slide ${fullscreenSlide.index + 1}`
-                }
-                className="max-h-full max-w-full rounded-lg bg-white object-contain shadow-2xl"
-              />
+              <div className="flex max-h-full w-full max-w-6xl flex-col gap-6 overflow-auto">
+                {fullscreenPreviews.map((preview, previewIndex) => (
+                  <div
+                    key={`${fullscreenSlide.id || fullscreenSlide.index}-fullscreen-${preview.split_index ?? previewIndex}`}
+                    className="relative"
+                  >
+                    {fullscreenPreviews.length > 1 ? (
+                      <div className="mb-3 text-sm font-medium text-white/80">
+                        分页 {previewIndex + 1} / {fullscreenPreviews.length}
+                      </div>
+                    ) : null}
+                    <div className="aspect-[16/9] max-h-[82vh] w-full overflow-hidden rounded-lg bg-white shadow-2xl">
+                      <img
+                        src={preview.image_url || undefined}
+                        alt={
+                          fullscreenPreviews.length > 1
+                            ? `${fullscreenSlide.title || `Slide ${fullscreenSlide.index + 1}`} - page ${previewIndex + 1}`
+                            : fullscreenSlide.title ||
+                              `Slide ${fullscreenSlide.index + 1}`
+                        }
+                        className="h-full w-full object-contain"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         ) : null}

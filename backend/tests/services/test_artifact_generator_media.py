@@ -75,28 +75,3 @@ async def test_generate_video_uses_cv2_writer(
     assert path.exists()
     assert path.suffix == ".mp4"
     assert path.stat().st_size > 0
-
-
-@pytest.mark.asyncio
-async def test_generate_video_placeholder_fails_explicitly_when_placeholder_disabled(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-):
-    generator = _MediaGenerator(tmp_path)
-    monkeypatch.delenv("ALLOW_MEDIA_PLACEHOLDER_ARTIFACTS", raising=False)
-
-    with pytest.raises(RuntimeError, match="media placeholder artifacts are disabled"):
-        await generator.generate_video_placeholder("project-1", "artifact-mp4")
-
-
-@pytest.mark.asyncio
-async def test_generate_video_placeholder_respects_explicit_dev_flag(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-):
-    generator = _MediaGenerator(tmp_path)
-    monkeypatch.setenv("ALLOW_MEDIA_PLACEHOLDER_ARTIFACTS", "true")
-
-    output = await generator.generate_video_placeholder("project-1", "artifact-mp4")
-    path = Path(output)
-    assert path.exists()
-    assert path.suffix == ".mp4"
-    assert path.stat().st_size > 0

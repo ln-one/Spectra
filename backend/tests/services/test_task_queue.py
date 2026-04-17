@@ -39,88 +39,26 @@ class TestTaskQueueService:
         assert task_queue_service.default_queue.name == "default"
         assert task_queue_service.low_queue.name == "low"
 
-    def test_enqueue_generation_task_default_priority(self, task_queue_service):
-        """测试提交任务到默认优先级队列"""
-        with patch("services.task_queue.Queue.enqueue") as mock_enqueue:
+    def test_enqueue_remote_parse_reconcile_task_uses_direct_enqueue(
+        self, task_queue_service
+    ):
+        with patch("services.task_queue.enqueue._resolve_queue") as mock_resolve_queue:
             mock_job = Mock(spec=Job)
-            mock_job.id = "job-123"
-            mock_enqueue.return_value = mock_job
+            mock_job.id = "job-remote-1"
+            mock_queue = Mock()
+            mock_queue.enqueue.return_value = mock_job
+            mock_resolve_queue.return_value = mock_queue
 
-            job = task_queue_service.enqueue_generation_task(
-                task_id="test-task-1",
-                project_id="test-project-1",
-                task_type="pptx",
-                priority="default",
-                timeout=1800,
+            job = task_queue_service.enqueue_remote_parse_reconcile_task(
+                file_id="file-123",
+                project_id="project-123",
+                session_id="session-123",
+                delay_seconds=5,
             )
 
             assert job is not None
-            assert mock_enqueue.called
-
-    def test_enqueue_generation_task_high_priority(self, task_queue_service):
-        """测试提交任务到高优先级队列"""
-        with patch("services.task_queue.Queue.enqueue") as mock_enqueue:
-            mock_job = Mock(spec=Job)
-            mock_job.id = "job-456"
-            mock_enqueue.return_value = mock_job
-
-            job = task_queue_service.enqueue_generation_task(
-                task_id="test-task-2",
-                project_id="test-project-1",
-                task_type="docx",
-                priority="high",
-                timeout=3600,
-            )
-
-            assert job is not None
-            assert mock_enqueue.called
-
-    def test_enqueue_generation_task_low_priority(self, task_queue_service):
-        """测试提交任务到低优先级队列"""
-        with patch("services.task_queue.Queue.enqueue") as mock_enqueue:
-            mock_job = Mock(spec=Job)
-            mock_job.id = "job-789"
-            mock_enqueue.return_value = mock_job
-
-            job = task_queue_service.enqueue_generation_task(
-                task_id="test-task-3",
-                project_id="test-project-1",
-                task_type="both",
-                priority="low",
-                timeout=900,
-            )
-
-            assert job is not None
-            assert mock_enqueue.called
-
-    def test_enqueue_generation_task_invalid_priority(self, task_queue_service):
-        """测试无效优先级参数"""
-        with pytest.raises(ValueError, match="Invalid priority"):
-            task_queue_service.enqueue_generation_task(
-                task_id="test-task-4",
-                project_id="test-project-1",
-                task_type="pptx",
-                priority="invalid",
-            )
-
-    def test_enqueue_generation_task_with_template_config(self, task_queue_service):
-        """测试提交任务时传递模板配置"""
-        with patch("services.task_queue.Queue.enqueue") as mock_enqueue:
-            mock_job = Mock(spec=Job)
-            mock_job.id = "job-999"
-            mock_enqueue.return_value = mock_job
-
-            template_config = {"theme": "default", "layout": "standard"}
-
-            job = task_queue_service.enqueue_generation_task(
-                task_id="test-task-5",
-                project_id="test-project-1",
-                task_type="pptx",
-                template_config=template_config,
-            )
-
-            assert job is not None
-            assert mock_enqueue.called
+            assert mock_queue.enqueue.called
+            assert mock_queue.enqueue.call_args.kwargs["initial_delay_seconds"] == 5
 
     @patch("services.task_queue.Job.fetch")
     def test_get_job_status_queued(self, mock_fetch, task_queue_service):

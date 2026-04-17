@@ -105,13 +105,13 @@ export function ArtifactsTab({
         <Input
           value={newArtifactSessionId}
           onChange={(event) => setNewArtifactSessionId(event.target.value)}
-          placeholder="session_id（可选）"
+          placeholder="sessionId（可选）"
           className="col-span-3 h-9 rounded-xl border-zinc-200/60 bg-white/50 text-xs"
         />
         <Input
           value={newArtifactBasedVersionId}
           onChange={(event) => setNewArtifactBasedVersionId(event.target.value)}
-          placeholder="based_on_version_id（可选）"
+          placeholder="basedOnVersionId（可选）"
           className="col-span-2 h-9 rounded-xl border-zinc-200/60 bg-white/50 text-xs"
         />
         <Button
@@ -138,7 +138,7 @@ export function ArtifactsTab({
               key={item.id}
               icon={FileText}
               title={`${item.type} · ${item.id.slice(0, 8)}`}
-              subtitle={`session=${item.session_id ?? "-"} · version=${item.based_on_version_id ?? "-"} · ${item.visibility}`}
+              subtitle={`session=${item.sessionId ?? "-"} · version=${item.basedOnVersionId ?? "-"} · ${item.visibility}`}
               action={
                 <Button
                   variant="ghost"

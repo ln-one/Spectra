@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from typing import Awaitable, Callable, Optional
 from uuid import UUID
@@ -25,14 +25,19 @@ async def load_preview_material_for_snapshot(
     anchor = await resolve_preview_anchor(session_id, snapshot, artifact_id, run_id)
     project_id = snapshot["session"]["project_id"]
     task_id = snapshot["session"].get("task_id")
-    task, slides, lesson_plan, content = await load_preview_material(
+    resolved_run_id = anchor.get("run_id") or (
+        (snapshot.get("current_run") or {}).get("run_id")
+        if isinstance(snapshot.get("current_run"), dict)
+        else None
+    )
+    material_context, slides, lesson_plan, content = await load_preview_material(
         session_id,
         project_id,
         anchor.get("artifact_id"),
         task_id,
-        anchor.get("run_id"),
+        resolved_run_id,
     )
-    return anchor, task, slides, lesson_plan, content
+    return anchor, material_context, slides, lesson_plan, content
 
 
 async def attach_candidate_change_if_needed(

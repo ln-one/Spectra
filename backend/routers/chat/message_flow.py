@@ -6,7 +6,6 @@ from schemas.common import (
     extract_source_reference_payload,
 )
 from services.database import db_service
-from services.database.prisma_compat import find_many_with_select_fallback
 from services.system_settings_service import system_settings_service
 from utils.upstream_failures import classify_upstream_failure
 
@@ -35,6 +34,21 @@ def _normalize_requested_source_ids(source_ids) -> list[str]:
 
 def _normalize_upload_status(status) -> str:
     return str(status or "").strip().lower()
+
+
+def _project_upload_fields(upload, *, select: dict | None = None) -> dict | object:
+    if not select:
+        return upload
+
+    projected: dict[str, object] = {}
+    for field_name, enabled in select.items():
+        if not enabled:
+            continue
+        if isinstance(upload, dict):
+            projected[field_name] = upload.get(field_name)
+        else:
+            projected[field_name] = getattr(upload, field_name, None)
+    return projected
 
 
 async def _search_rag_with_timeout(
@@ -91,14 +105,23 @@ async def load_rag_context(
 
         selected_uploads_task = None
         if requested_source_ids:
-            selected_uploads_task = find_many_with_select_fallback(
-                model=db_service.db.upload,
-                where={
-                    "projectId": project_id,
-                    "id": {"in": requested_source_ids},
-                },
-                select={"id": True, "filename": True, "status": True},
-            )
+            # Try to select only required fields for performance
+            try:
+                selected_uploads_task = db_service.db.upload.find_many(
+                    where={
+                        "projectId": project_id,
+                        "id": {"in": requested_source_ids},
+                    },
+                    select={"id": True, "filename": True, "status": True},
+                )
+            except TypeError:
+                # Fallback if select is not supported
+                selected_uploads_task = db_service.db.upload.find_many(
+                    where={
+                        "projectId": project_id,
+                        "id": {"in": requested_source_ids},
+                    },
+                )
 
         rag_search_task = _search_rag_with_timeout(
             rag_service=_rag,
@@ -125,9 +148,16 @@ async def load_rag_context(
                     selected_uploads_result,
                 )
             elif selected_uploads_result:
-                selected_uploads = list(selected_uploads_result)
+                selected_uploads = [
+                    _project_upload_fields(
+                        upload,
+                        select={"id": True, "filename": True, "status": True},
+                    )
+                    for upload in selected_uploads_result
+                ]
                 names = [
-                    f"{upload.filename}({upload.status})" for upload in selected_uploads
+                    f"{upload.get('filename')}({upload.get('status')})"
+                    for upload in selected_uploads
                 ]
                 selected_files_hint = (
                     "Selected files (with parse status): " + ", ".join(names)
@@ -142,12 +172,12 @@ async def load_rag_context(
             not_ready_uploads = []
             has_complete_source_ids = True
             for upload in selected_uploads:
-                upload_id = str(getattr(upload, "id", "") or "").strip()
+                upload_id = str(upload.get("id", "") or "").strip()
                 if upload_id:
                     found_source_ids.add(upload_id)
                 else:
                     has_complete_source_ids = False
-                if _normalize_upload_status(getattr(upload, "status", "")) != "ready":
+                if _normalize_upload_status(upload.get("status", "")) != "ready":
                     not_ready_uploads.append(upload)
 
             missing_source_ids = [

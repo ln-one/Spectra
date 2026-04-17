@@ -93,6 +93,20 @@ def test_chat_route_uses_chat_specific_timeout():
     assert ai_service._resolve_timeout_seconds("outline_generation") == 60
 
 
+def test_resolve_vision_model_prefers_existing_qwen_vl_env(monkeypatch):
+    monkeypatch.delenv("VISION_MODEL", raising=False)
+    monkeypatch.setenv("QWEN_VL_MODEL", "qwen3.5-flash")
+
+    assert AIService._resolve_vision_model("qwen3.5-plus") == "qwen3.5-flash"
+
+
+def test_resolve_vision_model_prefers_vision_model_over_qwen_vl(monkeypatch):
+    monkeypatch.setenv("VISION_MODEL", "qwen3.6-plus")
+    monkeypatch.setenv("QWEN_VL_MODEL", "qwen3.5-flash")
+
+    assert AIService._resolve_vision_model("qwen3.5-plus") == "qwen3.6-plus"
+
+
 @pytest.mark.asyncio
 async def test_generate_completion_error_returns_stub_with_canonical_reason(
     monkeypatch,

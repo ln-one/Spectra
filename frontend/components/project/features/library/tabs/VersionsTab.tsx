@@ -41,7 +41,7 @@ export function VersionsTab({ versions, state, onReload }: VersionsTabProps) {
               key={item.id}
               icon={GitMerge}
               title={item.summary || "无摘要"}
-              subtitle={`${item.change_type} 路 ${formatTime(item.created_at)}`}
+              subtitle={`${item.changeType} 路 ${formatTime(item.createdAt)}`}
             />
           ))}
         </div>

@@ -46,7 +46,7 @@ function normalizeRedirectPath(input: string | null | undefined): string {
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { login, isLoading } = useAuthStore();
+  const { login, isSubmitting } = useAuthStore();
   const { success, error } = useNotification();
   const prefersReducedMotion = useReducedMotion() ?? false;
 
@@ -142,7 +142,7 @@ function LoginForm() {
                           <Input
                             placeholder="your@email.com"
                             type="email"
-                            disabled={isLoading}
+                            disabled={isSubmitting}
                             {...field}
                           />
                         </FormControl>
@@ -168,7 +168,7 @@ function LoginForm() {
                           <Input
                             placeholder="••••••••"
                             type="password"
-                            disabled={isLoading}
+                            disabled={isSubmitting}
                             {...field}
                           />
                         </FormControl>
@@ -184,8 +184,12 @@ function LoginForm() {
                   animate="visible"
                   transition={{ delay: prefersReducedMotion ? 0 : 0.4 }}
                 >
-                  <Button type="submit" className="w-full" disabled={isLoading}>
-                    {isLoading ? (
+                  <Button
+                    type="submit"
+                    className="w-full"
+                    disabled={isSubmitting}
+                  >
+                    {isSubmitting ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                         登录中...

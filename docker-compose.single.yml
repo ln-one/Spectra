@@ -1,3 +1,6 @@
+x-backend-runtime-env: &backend-runtime-env
+  PYTHONUNBUFFERED: "1"
+
 services:
   postgres:
     image: postgres:16-alpine
@@ -8,6 +11,7 @@ services:
       POSTGRES_DB: spectra
     volumes:
       - /var/lib/spectra/postgres:/var/lib/postgresql/data
+      - ./docker/postgres/initdb:/docker-entrypoint-initdb.d:ro
     ports:
       - "127.0.0.1:5432:5432"
     healthcheck:
@@ -30,22 +34,18 @@ services:
       timeout: 3s
       retries: 5
 
-  chromadb:
-    image: chromadb/chroma:0.5.2
+  qdrant:
+    image: qdrant/qdrant:v1.13.2
     restart: unless-stopped
-    environment:
-      IS_PERSISTENT: "TRUE"
-      PERSIST_DIRECTORY: /chroma/chroma
-      ANONYMIZED_TELEMETRY: "FALSE"
     volumes:
-      - /var/lib/spectra/chroma:/chroma/chroma
+      - /var/lib/spectra/qdrant:/qdrant/storage
     ports:
-      - "127.0.0.1:8001:8000"
+      - "127.0.0.1:6333:6333"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
+      test: ["CMD-SHELL", "bash -lc 'exec 3<>/dev/tcp/127.0.0.1/6333'"]
       interval: 10s
       timeout: 5s
-      retries: 3
+      retries: 5
 
   backend:
     image: spectra-backend:deploy
@@ -56,21 +56,7 @@ services:
     env_file:
       - ./backend/.env
     environment:
-      PYTHONUNBUFFERED: "1"
-      DATABASE_URL: postgresql://spectra:spectra@postgres:5432/spectra
-      REDIS_HOST: redis
-      REDIS_PORT: "6379"
-      CHROMA_HOST: chromadb
-      CHROMA_PORT: "8000"
-      CHROMA_PERSIST_DIR: /var/lib/spectra/chroma
-      UPLOAD_DIR: /var/lib/spectra/uploads
-      ARTIFACT_STORAGE_DIR: /var/lib/spectra/artifacts
-      GENERATED_DIR: /var/lib/spectra/generated
-      POSTGRES_BACKUP_DIR: /var/lib/spectra/backups
-      POSTGRES_RESTORE_STAGING_DIR: /var/lib/spectra/restore-staging
-      DB_REQUIRED: "true"
-      REDIS_REQUIRED: "false"
-      UVICORN_RELOAD: "false"
+      <<: *backend-runtime-env
     volumes:
       - /var/lib/spectra:/var/lib/spectra
     ports:
@@ -80,9 +66,13 @@ services:
     depends_on:
       redis:
         condition: service_healthy
-      chromadb:
-        condition: service_started
       postgres:
+        condition: service_healthy
+      stratumind:
+        condition: service_healthy
+      pagevra:
+        condition: service_healthy
+      ourograph:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/ready', timeout=3)"]
@@ -96,20 +86,7 @@ services:
     env_file:
       - ./backend/.env
     environment:
-      PYTHONUNBUFFERED: "1"
-      DATABASE_URL: postgresql://spectra:spectra@postgres:5432/spectra
-      REDIS_HOST: redis
-      REDIS_PORT: "6379"
-      CHROMA_HOST: chromadb
-      CHROMA_PORT: "8000"
-      CHROMA_PERSIST_DIR: /var/lib/spectra/chroma
-      UPLOAD_DIR: /var/lib/spectra/uploads
-      ARTIFACT_STORAGE_DIR: /var/lib/spectra/artifacts
-      GENERATED_DIR: /var/lib/spectra/generated
-      POSTGRES_BACKUP_DIR: /var/lib/spectra/backups
-      POSTGRES_RESTORE_STAGING_DIR: /var/lib/spectra/restore-staging
-      WORKER_NAME: worker-1
-      WORKER_RECOVERY_SCAN: "true"
+      <<: *backend-runtime-env
     volumes:
       - /var/lib/spectra:/var/lib/spectra
     command: >-
@@ -117,10 +94,87 @@ services:
     depends_on:
       redis:
         condition: service_healthy
-      chromadb:
-        condition: service_started
       postgres:
         condition: service_healthy
+      stratumind:
+        condition: service_healthy
+      pagevra:
+        condition: service_healthy
+      ourograph:
+        condition: service_healthy
+
+  ourograph:
+    image: ${OUROGRAPH_IMAGE:?Run python3 ./scripts/compose_smart.py sync --channel main}
+    restart: unless-stopped
+    environment:
+      PORT: "8101"
+      OUROGRAPH_DATABASE_URL: postgresql://spectra:spectra@postgres:5432/ourograph
+    volumes:
+      - /var/lib/spectra:/var/lib/spectra
+    ports:
+      - "127.0.0.1:8101:8101"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O-", "http://127.0.0.1:8101/health/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+  pagevra:
+    image: ${PAGEVRA_IMAGE:?Run python3 ./scripts/compose_smart.py sync --channel main}
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env
+    environment:
+      PORT: "8090"
+    volumes:
+      - /var/lib/spectra:/var/lib/spectra
+    ports:
+      - "127.0.0.1:8090:8090"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8090/health/ready').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+  diego:
+    image: ${DIEGO_IMAGE:?Run python3 ./scripts/compose_smart.py sync --channel main}
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env
+    environment:
+      PYTHONUNBUFFERED: "1"
+    ports:
+      - "127.0.0.1:8120:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+  stratumind:
+    image: ${STRATUMIND_IMAGE:?Run python3 ./scripts/compose_smart.py sync --channel main}
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env
+    environment:
+      PORT: "8110"
+    ports:
+      - "127.0.0.1:8110:8110"
+    depends_on:
+      dualweave:
+        condition: service_started
+      qdrant:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O-", "http://127.0.0.1:8110/health/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
 
   frontend:
     image: spectra-frontend:deploy
@@ -139,3 +193,13 @@ services:
     depends_on:
       backend:
         condition: service_healthy
+
+  dualweave:
+    image: ${DUALWEAVE_IMAGE:?Run python3 ./scripts/compose_smart.py sync --channel main}
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env
+    volumes:
+      - /var/lib/spectra/dualweave:/var/lib/dualweave/uploads
+    ports:
+      - "127.0.0.1:8080:8080"

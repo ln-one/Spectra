@@ -6,14 +6,13 @@ Flow:
 2) Create project
 3) Upload one real file
 4) Poll file status until ready/failed
-5) Verify ParsedChunk + Chroma collection existence locally
+5) Verify ParsedChunk state and remote retrieval readiness hints locally
 """
 
 from __future__ import annotations
 
 import argparse
 import json
-import sqlite3
 import time
 from datetime import datetime
 from pathlib import Path
@@ -80,7 +79,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--skip-local-verify",
         action="store_true",
-        help="Skip sqlite/chroma local verification.",
+        help="Skip local runtime verification after upload/index smoke completes.",
     )
     return parser
 
@@ -104,7 +103,7 @@ def _raise_for_status(resp: httpx.Response, action: str) -> None:
 
 def _register_or_login(
     client: httpx.Client, base_url: str, email: str, password: str, username: str
-) -> str:
+) -> None:
     register_payload = {
         "email": email,
         "password": password,
@@ -113,8 +112,7 @@ def _register_or_login(
     }
     register = client.post(f"{base_url}/auth/register", json=register_payload)
     if register.status_code in (200, 201):
-        data = register.json()["data"]
-        return data["access_token"]
+        return
 
     if register.status_code not in (400, 409):
         _raise_for_status(register, "register")
@@ -122,14 +120,12 @@ def _register_or_login(
     login_payload = {"email": email, "password": password}
     login = client.post(f"{base_url}/auth/login", json=login_payload)
     _raise_for_status(login, "login")
-    data = login.json()["data"]
-    return data["access_token"]
+    return
 
 
 def _create_project(
     client: httpx.Client,
     base_url: str,
-    token: str,
     project_name: str,
     description: str,
 ) -> str:
@@ -141,7 +137,6 @@ def _create_project(
     resp = client.post(
         f"{base_url}/projects",
         json=payload,
-        headers={"Authorization": f"Bearer {token}"},
     )
     _raise_for_status(resp, "create project")
     return resp.json()["data"]["project"]["id"]
@@ -150,7 +145,6 @@ def _create_project(
 def _upload_file(
     client: httpx.Client,
     base_url: str,
-    token: str,
     project_id: str,
     file_path: Path,
 ) -> tuple[str, str]:
@@ -162,7 +156,6 @@ def _upload_file(
         data = {"project_id": project_id}
         resp = client.post(
             f"{base_url}/files",
-            headers={"Authorization": f"Bearer {token}"},
             files=files,
             data=data,
         )
@@ -175,7 +168,6 @@ def _upload_file(
 def _poll_file_status(
     client: httpx.Client,
     base_url: str,
-    token: str,
     project_id: str,
     file_id: str,
     timeout_seconds: int,
@@ -186,7 +178,6 @@ def _poll_file_status(
     while time.time() < deadline:
         resp = client.get(
             f"{base_url}/projects/{project_id}/files",
-            headers={"Authorization": f"Bearer {token}"},
             params={"page": 1, "limit": 100},
         )
         _raise_for_status(resp, "query project files")
@@ -203,54 +194,16 @@ def _poll_file_status(
     raise TimeoutError("poll timeout: target file not found in project files list")
 
 
-def _resolve_chroma_sqlite(repo_root: Path) -> Optional[Path]:
-    backend_dir = repo_root / "backend"
-    chroma_dir = backend_dir / "chroma_data"
-    env_path = backend_dir / ".env"
-    if env_path.exists():
-        for line in env_path.read_text(encoding="utf-8").splitlines():
-            raw = line.strip()
-            if raw.startswith("CHROMA_PERSIST_DIR="):
-                value = raw.split("=", 1)[1].strip().strip('"').strip("'")
-                if value:
-                    candidate = (backend_dir / value).resolve()
-                    if candidate.is_dir():
-                        sqlite_file = candidate / "chroma.sqlite3"
-                        if sqlite_file.exists():
-                            return sqlite_file
-    default_file = chroma_dir / "chroma.sqlite3"
-    if default_file.exists():
-        return default_file
-    root_file = repo_root / "chroma_data" / "chroma.sqlite3"
-    if root_file.exists():
-        return root_file
-    return None
-
-
 def _local_verify(repo_root: Path, project_id: str) -> dict[str, Any]:
+    del repo_root, project_id
     result: dict[str, Any] = {
         "db_path": "n/a-postgresql",
         "project_exists": "n/a-postgresql",
         "upload_ready": "n/a-postgresql",
         "parsed_chunk_count_for_file": "n/a-postgresql",
         "parsed_chunk_count_for_project": "n/a-postgresql",
-        "chroma_path": None,
-        "chroma_collection_exists": None,
+        "stratumind_project_index": "n/a-remote-service",
     }
-
-    chroma_path = _resolve_chroma_sqlite(repo_root)
-    if chroma_path:
-        result["chroma_path"] = str(chroma_path)
-        conn = sqlite3.connect(chroma_path)
-        cur = conn.cursor()
-        name = f"spectra_project_{project_id}"
-        exists = cur.execute(
-            "SELECT COUNT(*) FROM collections WHERE name = ?",
-            (name,),
-        ).fetchone()[0]
-        result["chroma_collection_exists"] = bool(exists)
-        conn.close()
-
     return result
 
 
@@ -260,7 +213,7 @@ def main() -> int:
     file_path = Path(args.file).expanduser().resolve()
 
     with httpx.Client(timeout=30.0) as client:
-        token = _register_or_login(
+        _register_or_login(
             client=client,
             base_url=args.base_url.rstrip("/"),
             email=args.email,
@@ -270,21 +223,18 @@ def main() -> int:
         project_id = _create_project(
             client=client,
             base_url=args.base_url.rstrip("/"),
-            token=token,
             project_name=args.project_name,
             description=args.project_description,
         )
         file_id, initial_status = _upload_file(
             client=client,
             base_url=args.base_url.rstrip("/"),
-            token=token,
             project_id=project_id,
             file_path=file_path,
         )
         final_file = _poll_file_status(
             client=client,
             base_url=args.base_url.rstrip("/"),
-            token=token,
             project_id=project_id,
             file_id=file_id,
             timeout_seconds=args.timeout_seconds,

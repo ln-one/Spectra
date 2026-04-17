@@ -100,17 +100,13 @@ class ProjectVersion(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: str
-    project_id: str
-    parent_version_id: Optional[str] = None
+    projectId: str
+    parentVersionId: Optional[str] = None
     summary: Optional[str] = None
-    change_type: ChangeType
-    snapshot_data: Optional[Dict[str, Any]] = None
-    base_version_context: Optional[Dict[str, Any]] = None
-    reference_summary: Optional[List[Dict[str, Any]]] = None
-    current_version_id: Optional[str] = None
-    is_current: bool = False
-    created_by: Optional[str] = None
-    created_at: datetime
+    changeType: ChangeType
+    snapshotData: Optional[Dict[str, Any]] = None
+    createdBy: Optional[str] = None
+    createdAt: datetime
 
 
 class ProjectVersionResponseData(BaseModel):
@@ -118,19 +114,12 @@ class ProjectVersionResponseData(BaseModel):
 
 
 class ProjectVersionResponse(BaseModel):
-    success: bool = True
-    data: ProjectVersionResponseData
-    message: str = "操作成功"
-
-
-class ProjectVersionsResponseData(BaseModel):
-    versions: List[ProjectVersion]
+    version: ProjectVersion
 
 
 class ProjectVersionsResponse(BaseModel):
-    success: bool = True
-    data: ProjectVersionsResponseData
-    message: str = "操作成功"
+    versions: List[ProjectVersion]
+    currentVersionId: Optional[str] = None
 
 
 class ArtifactBase(BaseModel):
@@ -149,43 +138,24 @@ class Artifact(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: str
-    project_id: str
-    session_id: Optional[str] = None
-    based_on_version_id: Optional[str] = None
-    owner_user_id: Optional[str] = None
+    projectId: str
+    sessionId: Optional[str] = None
+    basedOnVersionId: Optional[str] = None
+    ownerUserId: Optional[str] = None
     type: ArtifactType
     visibility: ArtifactVisibility
-    storage_path: Optional[str] = None
+    storagePath: Optional[str] = None
     metadata: Optional[Dict[str, Any]] = None
-    mode: Optional[ArtifactMutationMode] = None
-    replaces_artifact_id: Optional[str] = None
-    superseded_by_artifact_id: Optional[str] = None
-    is_current: bool = True
-    current_version_id: Optional[str] = None
-    upstream_updated: bool = False
-    upstream_update_reason: Optional[str] = None
-    created_at: datetime
-    updated_at: datetime
-
-
-class ArtifactResponseData(BaseModel):
-    artifact: Artifact
+    createdAt: datetime
+    updatedAt: datetime
 
 
 class ArtifactResponse(BaseModel):
-    success: bool = True
-    data: ArtifactResponseData
-    message: str = "操作成功"
-
-
-class ArtifactsResponseData(BaseModel):
-    artifacts: List[Artifact]
+    artifact: Optional[Artifact] = None
 
 
 class ArtifactsResponse(BaseModel):
-    success: bool = True
-    data: ArtifactsResponseData
-    message: str = "操作成功"
+    artifacts: List[Artifact]
 
 
 class ProjectReferenceBase(BaseModel):
@@ -207,45 +177,32 @@ class ProjectReferenceUpdate(BaseModel):
     status: Optional[ReferenceStatus] = None
 
 
-class ProjectReference(ProjectReferenceBase):
+class ProjectReference(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: str
-    project_id: str
-    target_project_name: Optional[str] = None
+    projectId: str
+    targetProjectId: str
+    relationType: ReferenceRelationType
+    mode: ReferenceMode
+    pinnedVersionId: Optional[str] = None
+    priority: int = 0
     status: ReferenceStatus = ReferenceStatus.ACTIVE
-    effective_target_version_id: Optional[str] = None
-    upstream_current_version_id: Optional[str] = None
-    upstream_updated: bool = False
-    created_by: Optional[str] = None
-    created_at: datetime
-    updated_at: datetime
-
-
-class ProjectReferenceResponseData(BaseModel):
-    reference: ProjectReference
+    createdBy: Optional[str] = None
+    createdAt: datetime
+    updatedAt: datetime
 
 
 class ProjectReferenceResponse(BaseModel):
-    success: bool = True
-    data: ProjectReferenceResponseData
-    message: str = "操作成功"
-
-
-class ProjectReferencesResponseData(BaseModel):
-    references: List[ProjectReference]
+    reference: ProjectReference
 
 
 class ProjectReferencesResponse(BaseModel):
-    success: bool = True
-    data: ProjectReferencesResponseData
-    message: str = "操作成功"
+    references: List[ProjectReference]
 
 
 class SimpleSuccessResponse(BaseModel):
-    success: bool = True
-    data: Dict[str, Any] = Field(default_factory=dict)
-    message: str = "操作成功"
+    ok: bool = True
 
 
 class CandidateChangeBase(BaseModel):
@@ -265,39 +222,35 @@ class CandidateChangeReview(BaseModel):
     review_comment: Optional[str] = None
 
 
-class CandidateChange(CandidateChangeBase):
+class CandidateChange(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: str
-    project_id: str
+    projectId: str
+    sessionId: Optional[str] = None
+    baseVersionId: Optional[str] = None
+    title: str
+    summary: Optional[str] = None
+    payload: Optional[Dict[str, Any]] = None
+    changeKind: Optional[str] = None
+    changeContext: Optional[Dict[str, Any]] = None
+    acceptedSnapshot: Optional[Dict[str, Any]] = None
     status: CandidateChangeStatus = CandidateChangeStatus.PENDING
-    review_comment: Optional[str] = None
-    reviewed_by: Optional[str] = None
-    reviewed_at: Optional[datetime] = None
-    accepted_version_id: Optional[str] = None
-    proposer_user_id: Optional[str] = None
-    created_at: datetime
-    updated_at: datetime
-
-
-class CandidateChangeResponseData(BaseModel):
-    change: CandidateChange
+    reviewComment: Optional[str] = None
+    reviewedBy: Optional[str] = None
+    reviewedAt: Optional[datetime] = None
+    acceptedVersionId: Optional[str] = None
+    proposerUserId: Optional[str] = None
+    createdAt: datetime
+    updatedAt: datetime
 
 
 class CandidateChangeResponse(BaseModel):
-    success: bool = True
-    data: CandidateChangeResponseData
-    message: str = "操作成功"
-
-
-class CandidateChangesResponseData(BaseModel):
-    changes: List[CandidateChange]
+    change: CandidateChange
 
 
 class CandidateChangesResponse(BaseModel):
-    success: bool = True
-    data: CandidateChangesResponseData
-    message: str = "操作成功"
+    changes: List[CandidateChange]
 
 
 class ProjectMemberPermissions(BaseModel):
@@ -326,30 +279,21 @@ class ProjectMemberUpdate(BaseModel):
     status: Optional[ProjectMemberStatus] = None
 
 
-class ProjectMember(ProjectMemberBase):
+class ProjectMember(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: str
-    project_id: str
+    projectId: str
+    userId: str
+    role: ProjectMemberRole = ProjectMemberRole.VIEWER
+    permissions: Optional[ProjectMemberPermissions] = None
     status: ProjectMemberStatus = ProjectMemberStatus.ACTIVE
-    created_at: datetime
-
-
-class ProjectMemberResponseData(BaseModel):
-    member: ProjectMember
+    createdAt: datetime
 
 
 class ProjectMemberResponse(BaseModel):
-    success: bool = True
-    data: ProjectMemberResponseData
-    message: str = "操作成功"
-
-
-class ProjectMembersResponseData(BaseModel):
-    members: List[ProjectMember]
+    member: ProjectMember
 
 
 class ProjectMembersResponse(BaseModel):
-    success: bool = True
-    data: ProjectMembersResponseData
-    message: str = "操作成功"
+    members: List[ProjectMember]

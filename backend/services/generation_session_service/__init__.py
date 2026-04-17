@@ -1,3 +1,12 @@
+"""Session orchestration kernel for generation workflows.
+
+``generation_session_service`` remains a Spectra-owned kernel organ. It owns
+session/run/event orchestration, command/query flow, artifact binding, and
+Diego runtime coordination, but it is not the formal PPT generation authority.
+
+Formal PPT outline/generation authority lives in Diego.
+"""
+
 from importlib import import_module
 
 from .service import (

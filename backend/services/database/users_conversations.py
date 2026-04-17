@@ -1,14 +1,28 @@
 import json
+from types import SimpleNamespace
 from typing import Optional
-
-from services.database.prisma_compat import find_many_with_select_fallback
 
 
 class UserConversationMixin:
+    @staticmethod
+    def _project_message_fields(record, select: Optional[dict] = None):
+        if not select:
+            return record
+
+        projected: dict = {}
+        for field_name, enabled in select.items():
+            if not enabled:
+                continue
+            if isinstance(record, dict):
+                projected[field_name] = record.get(field_name)
+            else:
+                projected[field_name] = getattr(record, field_name, None)
+        return SimpleNamespace(**projected)
+
     async def create_user(
         self,
         email: str,
-        password_hash: str,
+        password_hash: Optional[str],
         username: str,
         full_name: Optional[str] = None,
     ):
@@ -21,6 +35,44 @@ class UserConversationMixin:
             }
         )
 
+    async def upsert_user_identity(
+        self,
+        *,
+        identity_id: str,
+        email: str,
+        username: str,
+        full_name: Optional[str] = None,
+    ):
+        existing = await self.db.user.find_first(
+            where={
+                "OR": [
+                    {"identityId": identity_id},
+                    {"email": email},
+                ]
+            }
+        )
+
+        if existing:
+            return await self.db.user.update(
+                where={"id": existing.id},
+                data={
+                    "identityId": identity_id,
+                    "email": email,
+                    "username": username,
+                    "fullName": full_name,
+                },
+            )
+
+        return await self.db.user.create(
+            data={
+                "identityId": identity_id,
+                "email": email,
+                "password": None,
+                "username": username,
+                "fullName": full_name,
+            },
+        )
+
     async def get_user_by_email(self, email: str):
         return await self.db.user.find_unique(where={"email": email})
 
@@ -29,6 +81,9 @@ class UserConversationMixin:
 
     async def get_user_by_id(self, user_id: str):
         return await self.db.user.find_unique(where={"id": user_id})
+
+    async def get_user_by_identity_id(self, identity_id: str):
+        return await self.db.user.find_unique(where={"identityId": identity_id})
 
     async def create_conversation_message(
         self,
@@ -81,14 +136,15 @@ class UserConversationMixin:
             "take": limit,
             "order": {"createdAt": "desc"},
         }
-        messages = await find_many_with_select_fallback(
-            model=self.db.conversation,
+        messages = await self.db.conversation.find_many(
             where=query["where"],
             take=query["take"],
             order=query["order"],
-            select=select,
         )
-        return list(reversed(messages))
+        projected = [
+            self._project_message_fields(message, select=select) for message in messages
+        ]
+        return list(reversed(projected))
 
     async def get_messages(self, project_id: str, limit: int = 10):
         return await self.get_recent_conversation_messages(

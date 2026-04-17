@@ -1,23 +1,15 @@
 ﻿import { generateApi, previewApi, projectSpaceApi } from "@/lib/sdk";
 import { createApiError, getErrorMessage } from "@/lib/sdk/errors";
 import { toast } from "@/hooks/use-toast";
-import { parseActiveRunConflict } from "@/lib/project/generation-run-conflict";
 import { groupArtifactsByTool } from "@/lib/project-space/artifact-history";
 import {
   buildArtifactDownloadFilename,
   inferArtifactDownloadExt,
 } from "@/lib/project-space/download-filename";
-import {
-  mapSessionsToHistory,
-  normalizeGenerationOptions,
-  resolveOutputType,
-  resolveReusableGenerationSessionId,
-} from "./generation-actions.helpers";
+import { mapSessionsToHistory } from "./generation-actions.helpers";
 import type {
   Artifact,
   GenerationHistory,
-  GenerationOptions,
-  GenerationTool,
   OutlineDocument,
   ProjectStoreContext,
   ProjectState,
@@ -72,7 +64,6 @@ export function createGenerationActions({
   get,
 }: ProjectStoreContext): Pick<
   ProjectState,
-  | "startGeneration"
   | "fetchGenerationHistory"
   | "fetchArtifactHistory"
   | "exportArtifact"
@@ -83,129 +74,6 @@ export function createGenerationActions({
   | "confirmOutline"
 > {
   return {
-    startGeneration: async (
-      projectId: string,
-      tool: GenerationTool,
-      options?: GenerationOptions
-    ) => {
-      try {
-        const { selectedFileIds, activeSessionId, generationSession } = get();
-        if (!activeSessionId) {
-          toast({
-            title: "请先创建会话",
-            description: "会话只能通过会话选择器中的“新建会话”创建。",
-            variant: "destructive",
-          });
-          return null;
-        }
-        const currentSessionId = resolveReusableGenerationSessionId(
-          activeSessionId,
-          generationSession
-        );
-        const normalizedOptions = normalizeGenerationOptions(options);
-        const response = await generateApi.createSession({
-          project_id: projectId,
-          output_type: resolveOutputType(tool),
-          options: {
-            ...normalizedOptions,
-            rag_source_ids:
-              selectedFileIds.length > 0 ? selectedFileIds : undefined,
-          },
-          client_session_id: currentSessionId,
-          bootstrap_only: false,
-        });
-
-        if (response?.data?.session) {
-          const sessionId = response.data.session.session_id;
-          const runId = extractRunId(response.data.run);
-          const previousHistoryTitle =
-            get().generationHistory.find((item) => item.id === sessionId)
-              ?.title || "";
-          const sessionDisplayTitle = String(
-            (
-              response.data.session as {
-                display_title?: string | null;
-              }
-            ).display_title || ""
-          ).trim();
-          const resolvedHistoryTitle =
-            previousHistoryTitle.trim() ||
-            sessionDisplayTitle ||
-            `会话 ${sessionId.slice(-6)}`;
-
-          set({
-            activeSessionId: sessionId,
-            activeRunId: runId,
-            generationSession: {
-              session: response.data.session,
-              options: normalizedOptions,
-            } as SessionStatePayload,
-          });
-
-          const historyItem: GenerationHistory = {
-            id: sessionId,
-            toolId: tool.id,
-            toolName: tool.name,
-            status: "processing",
-            sessionState: "CONFIGURING",
-            createdAt: new Date().toISOString(),
-            title: resolvedHistoryTitle,
-          };
-          set((state) => ({
-            generationHistory: [
-              historyItem,
-              ...state.generationHistory.filter(
-                (item) => item.id !== sessionId
-              ),
-            ],
-          }));
-
-          try {
-            const sessionResponse = await generateApi.getSessionSnapshot(
-              sessionId,
-              { run_id: runId }
-            );
-            const latestSessionPayload = sessionResponse?.data ?? null;
-            set({
-              generationSession: latestSessionPayload,
-              activeRunId: extractCurrentRunId(latestSessionPayload) || runId,
-            });
-            await get().fetchArtifactHistory(projectId, sessionId);
-          } catch (sessionError) {
-            const message = getErrorMessage(sessionError);
-            set((state) => ({
-              generationHistory: state.generationHistory.map((h) => {
-                if (h.id !== sessionId) return h;
-                if (h.status === "failed") return h;
-                return { ...h, status: "processing" as const };
-              }),
-              error: createApiError({ code: "SESSION_FETCH_FAILED", message }),
-            }));
-            toast({
-              title: "会话状态同步延迟",
-              description: `生成任务已创建，正在继续同步会话状态：${message}`,
-            });
-          }
-
-          return sessionId;
-        }
-
-        return null;
-      } catch (error) {
-        const message = getErrorMessage(error);
-        set({ error: createApiError({ code: "GENERATION_FAILED", message }) });
-        const runConflict = parseActiveRunConflict(error);
-        if (!runConflict) {
-          toast({
-            title: "创建生成任务失败",
-            description: message,
-            variant: "destructive",
-          });
-        }
-        throw error;
-      }
-    },
-
     fetchGenerationHistory: async (projectId: string) => {
       try {
         const response = await generateApi.listSessions({
@@ -271,8 +139,7 @@ export function createGenerationActions({
         const response = await projectSpaceApi.getArtifacts(projectId, {
           session_id: effectiveSessionId,
         });
-        const artifacts =
-          ((response?.data?.artifacts ?? []) as Artifact[]) || [];
+        const artifacts = ((response?.artifacts ?? []) as Artifact[]) || [];
         const sessionHistoryByTool = groupArtifactsByTool(artifacts);
         const sessionArtifacts = Object.values(sessionHistoryByTool)
           .flat()
@@ -426,9 +293,12 @@ export function createGenerationActions({
       const session = get().generationSession;
       const baseVersion = resolveOutlineBaseVersion(session);
       try {
-        await generateApi.updateOutline(sessionId, {
-          base_version: baseVersion,
-          outline,
+        await generateApi.sendCommand(sessionId, {
+          command: {
+            command_type: "UPDATE_OUTLINE",
+            base_version: baseVersion,
+            outline,
+          },
         });
         const preferredRunId = get().activeRunId;
         const sessionResponse = await generateApi.getSessionSnapshot(
@@ -471,10 +341,13 @@ export function createGenerationActions({
           resolveOutlineBaseVersion(
             latestBeforePayload as SessionStatePayload | null
           ) || 1;
-        const redraftResponse = await generateApi.redraftOutline(sessionId, {
-          instruction,
-          base_version: preflightBaseVersion,
-          run_id: currentRunId || undefined,
+        const redraftResponse = await generateApi.sendCommand(sessionId, {
+          command: {
+            command_type: "REDRAFT_OUTLINE",
+            instruction,
+            base_version: preflightBaseVersion,
+            run_id: currentRunId || undefined,
+          },
         });
         const redraftRunId = extractRunId(
           (redraftResponse as { data?: { run?: unknown } }).data?.run
@@ -512,9 +385,12 @@ export function createGenerationActions({
     confirmOutline: async (sessionId: string) => {
       try {
         const requestedRunId = get().activeRunId ?? undefined;
-        const confirmResponse = await generateApi.confirmOutline(sessionId, {
-          continue_from_retrieval: true,
-          run_id: requestedRunId,
+        const confirmResponse = await generateApi.sendCommand(sessionId, {
+          command: {
+            command_type: "CONFIRM_OUTLINE",
+            continue_from_retrieval: true,
+            run_id: requestedRunId,
+          },
         });
         const confirmedRunId = extractRunId(
           (confirmResponse as { data?: { run?: unknown } }).data?.run

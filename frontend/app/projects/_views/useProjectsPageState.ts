@@ -1,13 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { authService, TokenStorage } from "@/lib/auth";
+import { authService } from "@/lib/auth";
 import { toast } from "@/hooks/use-toast";
 import { projectsApi } from "@/lib/sdk";
 import { getErrorMessage } from "@/lib/sdk/errors";
+import { useAuthStore } from "@/stores/authStore";
 import type { Project } from "./project-types";
 
 export function useProjectsPageState() {
   const router = useRouter();
+  const { user, logout } = useAuthStore();
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [deletingProjectId, setDeletingProjectId] = useState<string | null>(
@@ -36,16 +38,7 @@ export function useProjectsPageState() {
     let cancelled = false;
 
     const bootstrap = async () => {
-      let token = TokenStorage.getAccessToken();
-      if (!token && TokenStorage.getRefreshToken()) {
-        const refreshed = await authService.refreshToken();
-        if (cancelled) return;
-        if (refreshed) {
-          token = TokenStorage.getAccessToken();
-        }
-      }
-
-      if (!token) {
+      if (!(await authService.hasActiveSession())) {
         router.push("/auth/login");
         return;
       }
@@ -97,8 +90,18 @@ export function useProjectsPageState() {
     }
   }, []);
 
+  const handleLogout = useCallback(async () => {
+    logout();
+    toast({
+      title: "已退出登录",
+      description: "正在返回登录页...",
+    });
+    router.push("/auth/login");
+  }, [logout, router]);
+
   return {
     router,
+    user,
     projects,
     isLoading,
     deletingProjectId,
@@ -109,6 +112,7 @@ export function useProjectsPageState() {
     setViewMode,
     filteredProjects,
     handleDeleteProject,
+    handleLogout,
     fetchProjects,
   };
 }

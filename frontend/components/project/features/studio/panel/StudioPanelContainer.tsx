@@ -5,9 +5,11 @@ import { LayoutGroup } from "framer-motion";
 import { Sparkles } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
 import { Card, CardContent } from "@/components/ui/card";
+import { toast } from "@/hooks/use-toast";
 import { studioCardsApi } from "@/lib/sdk/studio-cards";
 import { cn } from "@/lib/utils";
 import { useProjectStore, GENERATION_TOOLS } from "@/stores/projectStore";
+import { resolveReadySelectedFileIds } from "@/stores/project-store/source-scope";
 import type { GenerationToolType } from "@/lib/project-space/artifact-history";
 import { STUDIO_TOOL_COMPONENTS } from "../tools";
 import type { StudioToolKey, ToolDraftState, ToolFlowContext } from "../tools";
@@ -16,6 +18,7 @@ import { useStudioWorkflowHistory } from "../history/useStudioWorkflowHistory";
 import { useStudioCapabilityState } from "./useStudioCapabilityState";
 import { useStudioExecutionHandlers } from "./useStudioExecutionHandlers";
 import { useStudioHistoryHandlers } from "./useStudioHistoryHandlers";
+import { usePptHistoryStatusSync } from "./usePptHistoryStatusSync";
 import type { StudioPanelProps } from "./types";
 import {
   isDraftStateEqual,
@@ -96,6 +99,34 @@ function extractRunIdFromExecutionResult(
     : null;
 }
 
+function mapVisualStyleToDiegoPreset(styleId: string): string {
+  const normalized = String(styleId || "")
+    .trim()
+    .toLowerCase();
+  const mapping: Record<string, string> = {
+    free: "auto",
+    wabi: "wabi-sabi",
+    brutalist: "neo-brutalism",
+    electro: "electro-pop",
+    geometric: "geo-bold",
+    modernacademic: "contemporary-academic",
+    curatorial: "academic-curation",
+    warmvc: "warm-vc",
+    coolblue: "rational-blue",
+    nordic: "nordic-research",
+    fluid: "emotional-flow",
+    cinema: "cinema-minimal",
+    "8bit": "8bit",
+  };
+  return mapping[normalized] || normalized || "auto";
+}
+
+function normalizePageCount(value: unknown): number {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return 12;
+  return Math.min(50, Math.max(1, Math.round(parsed)));
+}
+
 export function StudioPanelContainer({
   onToolClick,
   onPptStep2LayoutChange,
@@ -105,6 +136,7 @@ export function StudioPanelContainer({
 }: StudioPanelProps) {
   const {
     project,
+    files,
     layoutMode,
     expandedTool,
     artifactHistoryByTool,
@@ -124,6 +156,7 @@ export function StudioPanelContainer({
   } = useProjectStore(
     useShallow((state) => ({
       project: state.project,
+      files: state.files,
       layoutMode: state.layoutMode,
       expandedTool: state.expandedTool,
       artifactHistoryByTool: state.artifactHistoryByTool,
@@ -403,6 +436,13 @@ export function StudioPanelContainer({
     pushStudioStageHint,
   });
 
+  usePptHistoryStatusSync({
+    activeSessionId,
+    groupedHistory,
+    resolvePptRunId: execution.resolvePptRunId,
+    recordWorkflowEntry,
+  });
+
   useEffect(() => {
     const handleOpenHistoryItemFromChat = (event: Event) => {
       const customEvent = event as CustomEvent<StudioHistoryItem>;
@@ -520,7 +560,6 @@ export function StudioPanelContainer({
       runId: item.runId ?? null,
       runNo: item.runNo ?? null,
     })),
-    cardConfigFields: capability.currentCapability?.config_fields,
     onStepChange: historyHandlers.handleManagedToolStepChange,
     onSelectedSourceChange: (sourceId) => {
       capability.setSelectedSourceForCurrentCard(sourceId);
@@ -626,8 +665,82 @@ export function StudioPanelContainer({
       return false;
     },
     onRefine: () => execution.handleOpenChatRefine(),
-    onStructuredRefineArtifact: (request) =>
-      execution.handleStudioStructuredRefineArtifact(request),
+    onStructuredRefine: async (payload) => {
+      const result = await execution.handleStructuredRefineArtifact({
+        artifactId: payload.artifactId,
+        message: payload.message ?? "",
+        config: payload.config,
+      });
+      if (result.ok) {
+        toast({
+          title: "动画 refine 已提交",
+          description: "新的动画 artifact 正在刷新。",
+        });
+      }
+      return result.ok;
+    },
+    onStructuredRefineArtifact: (payload) =>
+      execution.handleStructuredRefineArtifact(payload),
+    onRecommendAnimationPlacement: async (payload) => {
+      if (!project) return null;
+      try {
+        const response = await studioCardsApi.recommendAnimationPlacement({
+          project_id: project.id,
+          artifact_id: payload.artifactId,
+          ppt_artifact_id: payload.pptArtifactId,
+        });
+        toast({
+          title: "已生成推荐页",
+          description: "你可以直接采用推荐，也可以改选其他页。",
+        });
+        return response?.data?.recommendation ?? null;
+      } catch (error) {
+        toast({
+          title: "获取推荐页失败",
+          description: error instanceof Error ? error.message : "请稍后重试。",
+          variant: "destructive",
+        });
+        return null;
+      }
+    },
+    onConfirmAnimationPlacement: async (payload) => {
+      if (!project) return null;
+      try {
+        const response = await studioCardsApi.confirmAnimationPlacement({
+          project_id: project.id,
+          artifact_id: payload.artifactId,
+          ppt_artifact_id: payload.pptArtifactId,
+          page_numbers: payload.pageNumbers,
+          slot: payload.slot,
+        });
+        const responseData = response?.data ?? null;
+        const pptArtifact =
+          responseData &&
+          typeof responseData.ppt_artifact === "object" &&
+          responseData.ppt_artifact
+            ? (responseData.ppt_artifact as Record<string, unknown>)
+            : null;
+        const refreshSessionId =
+          (typeof pptArtifact?.session_id === "string" &&
+            pptArtifact.session_id.trim()) ||
+          activeSessionId;
+        if (refreshSessionId) {
+          await fetchArtifactHistory(project.id, refreshSessionId);
+        }
+        toast({
+          title: "已记录插入关系",
+          description: "动画 artifact 与 PPT 页面绑定关系已更新。",
+        });
+        return responseData;
+      } catch (error) {
+        toast({
+          title: "记录插入关系失败",
+          description: error instanceof Error ? error.message : "请稍后重试。",
+          variant: "destructive",
+        });
+        return null;
+      }
+    },
     onExportArtifact: (artifactId) => exportArtifact(artifactId),
   };
 
@@ -685,6 +798,7 @@ export function StudioPanelContainer({
                     title: "PPT Outline Draft",
                     status: "draft",
                     step: "outline",
+                    ppt_status: "outline_generating",
                     sessionId: resolvedSessionId,
                     runId,
                     titleSource: "PPT Outline Draft",
@@ -708,6 +822,7 @@ export function StudioPanelContainer({
                     title: "PPT Generating",
                     status: "processing",
                     step: "preview",
+                    ppt_status: "slides_generating",
                     sessionId: resolvedSessionId,
                     runId,
                     toolLabel: TOOL_LABELS.ppt,
@@ -742,6 +857,23 @@ export function StudioPanelContainer({
                   activeSessionId ??
                   undefined;
                 const liveRunId = liveStoreState.activeRunId ?? undefined;
+                const readySelectedFileIds = resolveReadySelectedFileIds(
+                  files,
+                  selectedFileIds
+                );
+                const generationMode =
+                  config.layoutMode === "classic" ? "template" : "scratch";
+                const normalizedPageCount = normalizePageCount(
+                  config.pageCount
+                );
+                const templateId =
+                  generationMode === "template"
+                    ? (config.templateId ?? undefined)
+                    : undefined;
+                const stylePreset =
+                  generationMode === "scratch"
+                    ? mapVisualStyleToDiegoPreset(config.visualStyle)
+                    : "auto";
                 const executeResponse = await studioCardsApi.execute(
                   "courseware_ppt",
                   {
@@ -749,18 +881,17 @@ export function StudioPanelContainer({
                     client_session_id: liveSessionId,
                     run_id: liveRunId,
                     rag_source_ids:
-                      selectedFileIds.length > 0 ? selectedFileIds : undefined,
+                      readySelectedFileIds.length > 0
+                        ? readySelectedFileIds
+                        : undefined,
                     config: {
-                      template: "default",
-                      pages: Number(config.pageCount) || 15,
-                      audience: "intermediate",
-                      include_animations: false,
-                      include_games: false,
-                      system_prompt_tone: [
-                        `[outline_style=${config.outlineStyle}]`,
-                        config.prompt,
-                        "Keep a clear teaching structure and slide pacing.",
-                      ].join("\n"),
+                      topic: config.prompt,
+                      pages: normalizedPageCount,
+                      target_slide_count: normalizedPageCount,
+                      generation_mode: generationMode,
+                      template_id: templateId,
+                      style_preset: stylePreset,
+                      visual_policy: config.visualPolicy,
                     },
                   }
                 );
@@ -800,7 +931,9 @@ export function StudioPanelContainer({
               canRefine={canRefine}
               canExecute={canExecute}
               onOpenChatRefine={execution.handleOpenChatRefine}
-              onPreviewExecution={execution.handleStudioPreviewExecution}
+              onPreviewExecution={async () => {
+                await execution.handleStudioPreviewExecution();
+              }}
               onLoadSources={execution.handleStudioLoadSources}
               onExecute={async () => {
                 await execution.handleStudioExecute();

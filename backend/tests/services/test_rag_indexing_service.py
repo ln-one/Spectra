@@ -139,6 +139,39 @@ async def test_index_upload_file_for_rag_parse_error_fallback(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_index_upload_file_for_rag_short_circuits_deferred_parse(monkeypatch):
+    upload = _fake_upload(filename="remote.pdf", fileType="pdf")
+    monkeypatch.setattr(
+        rag_indexing_service,
+        "extract_text_for_rag",
+        lambda filepath, filename, file_type, parser_override=None: (
+            "",
+            {
+                "deferred_parse": True,
+                "provider_used": "dualweave_remote",
+                "dualweave": {"upload_id": "upl-123", "status": "pending_remote"},
+            },
+        ),
+    )
+    create_chunks_mock = AsyncMock()
+    monkeypatch.setattr(
+        rag_indexing_service.db_service,
+        "create_parsed_chunks",
+        create_chunks_mock,
+    )
+    index_mock = AsyncMock()
+    monkeypatch.setattr(rag_indexing_service.rag_service, "index_chunks", index_mock)
+
+    result = await rag_indexing_service.index_upload_file_for_rag(upload, "p-001")
+
+    assert result["deferred_parse"] is True
+    assert result["chunk_count"] == 0
+    assert result["indexed_count"] == 0
+    create_chunks_mock.assert_not_called()
+    index_mock.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_index_upload_file_for_rag_reindex_deletes_old_data(monkeypatch):
     upload = _fake_upload()
     monkeypatch.setattr(
@@ -346,3 +379,45 @@ async def test_index_upload_file_for_rag_marks_fallback_used_when_triggered(
     assert result["fallback_used"] is True
     assert result["capability_status"]["fallback_used"] is True
     assert result["capability_status"]["fallback_target"] == "local"
+
+
+@pytest.mark.asyncio
+async def test_index_upload_file_for_rag_remote_preparsed_ignores_deferred_flag(
+    monkeypatch,
+):
+    upload = _fake_upload(filename="remote.pdf", fileType="pdf")
+    monkeypatch.setattr(
+        rag_indexing_service,
+        "split_text",
+        lambda text, chunk_size, chunk_overlap: ["remote line one", "remote line two"],
+    )
+    create_chunks_mock = AsyncMock(
+        return_value=[SimpleNamespace(id="chunk-1"), SimpleNamespace(id="chunk-2")]
+    )
+    monkeypatch.setattr(
+        rag_indexing_service.db_service,
+        "create_parsed_chunks",
+        create_chunks_mock,
+    )
+    index_mock = AsyncMock(return_value=2)
+    monkeypatch.setattr(rag_indexing_service.rag_service, "index_chunks", index_mock)
+
+    result = await rag_indexing_service.index_upload_file_for_rag(
+        upload=upload,
+        project_id="p-001",
+        preparsed_text="remote line one\nremote line two",
+        preparsed_details={
+            "deferred_parse": True,
+            "provider_used": "mineru_remote",
+            "dualweave_result_url": "https://example.com/result.zip",
+        },
+        provider_override="mineru_remote",
+    )
+
+    assert result["chunk_count"] == 2
+    assert result["indexed_count"] == 2
+    assert result["provider"] == "mineru_remote"
+    assert result["parse_mode"] == "remote_preparsed"
+    assert "deferred_parse" not in result
+    create_chunks_mock.assert_awaited_once()
+    index_mock.assert_awaited_once()

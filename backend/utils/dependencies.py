@@ -2,39 +2,38 @@
 
 from typing import Optional
 
-from fastapi import Depends
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from fastapi import Depends, Request
 
-from services.auth_service import auth_service
+from services.identity_service import identity_service
+from services.platform.limora_client import build_limora_client
 from utils.exceptions import ErrorCode, UnauthorizedException
 from utils.middleware import set_context_user_id
 
-_security = HTTPBearer(auto_error=False, scheme_name="BearerAuth")
-
 
 async def get_current_user(
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(_security),
+    request: Request,
 ) -> str:
-    """Extract and verify bearer token from Authorization header."""
-    if not credentials:
+    """Resolve the current user through the Limora cookie session."""
+    cookie_header = request.headers.get("cookie")
+    if not cookie_header:
         raise UnauthorizedException(
-            message="缺少认证头",
+            message="登录可能过期（缺少会话 Cookie）",
             error_code=ErrorCode.UNAUTHORIZED,
         )
 
-    token = credentials.credentials
-    if not token:
+    client = build_limora_client()
+    if client is None:
         raise UnauthorizedException(
-            message="认证头格式错误",
-            error_code=ErrorCode.INVALID_TOKEN,
+            message="Limora 身份服务未启用",
+            error_code=ErrorCode.UNAUTHORIZED,
         )
-
-    user_id = auth_service.verify_token(token)
-    if not user_id:
-        raise UnauthorizedException(
-            message="令牌无效或已过期",
-            error_code=ErrorCode.INVALID_TOKEN,
-        )
+    current = await client.get_current_session(cookie_header=cookie_header)
+    user = await identity_service.upsert_identity_user(
+        identity_id=current.identity_id,
+        email=current.email,
+        display_name=current.name,
+    )
+    user_id = str(getattr(user, "id", "") or current.identity_id)
 
     # Publish user_id into the request context for logging
     set_context_user_id(user_id)
@@ -43,12 +42,12 @@ async def get_current_user(
 
 
 async def get_current_user_optional(
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(_security),
+    request: Request,
 ) -> Optional[str]:
     """Return current user id for valid token, otherwise None."""
-    if not credentials:
+    if not request.headers.get("cookie"):
         return None
     try:
-        return await get_current_user(credentials)
+        return await get_current_user(request)
     except UnauthorizedException:
         return None

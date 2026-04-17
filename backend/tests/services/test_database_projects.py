@@ -3,43 +3,63 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from services.database.projects import ProjectMixin
-from services.library_semantics import SILENT_ACCRETION_USAGE_INTENT
-
-
-class _ProjectDb(ProjectMixin):
-    def __init__(self):
-        self.db = SimpleNamespace(
-            project=SimpleNamespace(
-                find_unique=AsyncMock(
-                    return_value=SimpleNamespace(
-                        createdAt="created",
-                        updatedAt="updated",
-                    )
-                )
-            ),
-            upload=SimpleNamespace(
-                count=AsyncMock(return_value=2),
-                aggregate=AsyncMock(return_value={"_sum": {"size": 256}}),
-            ),
-            conversation=SimpleNamespace(count=AsyncMock(return_value=3)),
-            generationtask=SimpleNamespace(count=AsyncMock(side_effect=[4, 2])),
-        )
+from schemas.projects import ProjectCreate
+from services.database import DatabaseService
 
 
 @pytest.mark.asyncio
-async def test_project_statistics_excludes_silent_accretion_uploads():
-    db = _ProjectDb()
+async def test_create_project_persists_validated_project_fields():
+    service = DatabaseService()
+    created_project = SimpleNamespace(
+        id="p-new", visibility="shared", isReferenceable=True
+    )
+    create_mock = AsyncMock(return_value=created_project)
+    service.db = SimpleNamespace(project=SimpleNamespace(create=create_mock))
 
-    stats = await db.get_project_statistics("p-001")
+    body = ProjectCreate(
+        name="new project",
+        description="desc",
+        visibility="shared",
+        is_referenceable=True,
+        base_project_id="p-base",
+        reference_mode="follow",
+    )
 
-    upload_count_where = db.db.upload.count.await_args.kwargs["where"]
-    upload_sum_where = db.db.upload.aggregate.await_args.kwargs["where"]
-    assert upload_count_where["projectId"] == "p-001"
-    assert {"usageIntent": None} in upload_count_where["OR"]
-    assert {
-        "usageIntent": {"not": SILENT_ACCRETION_USAGE_INTENT}
-    } in upload_count_where["OR"]
-    assert upload_sum_where == upload_count_where
-    assert stats["files_count"] == 2
-    assert stats["total_file_size"] == 256
+    result = await service.create_project(body, user_id="u-1")
+
+    assert result is created_project
+    create_mock.assert_awaited_once_with(
+        data={
+            "name": "new project",
+            "description": "desc",
+            "userId": "u-1",
+            "visibility": "shared",
+            "isReferenceable": True,
+        }
+    )
+
+
+@pytest.mark.asyncio
+async def test_create_project_includes_grade_level_when_present():
+    service = DatabaseService()
+    create_mock = AsyncMock(return_value=SimpleNamespace(id="p-new"))
+    service.db = SimpleNamespace(project=SimpleNamespace(create=create_mock))
+
+    body = ProjectCreate(
+        name="new project",
+        description="desc",
+        grade_level="高中",
+    )
+
+    await service.create_project(body, user_id="u-1")
+
+    create_mock.assert_awaited_once_with(
+        data={
+            "name": "new project",
+            "description": "desc",
+            "userId": "u-1",
+            "gradeLevel": "高中",
+            "visibility": "private",
+            "isReferenceable": False,
+        }
+    )

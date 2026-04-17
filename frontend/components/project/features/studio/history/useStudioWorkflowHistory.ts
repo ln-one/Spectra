@@ -8,6 +8,7 @@ import type {
 } from "@/lib/project-space/artifact-history";
 import type {
   StudioHistoryItem,
+  StudioPptHistoryStatus,
   StudioHistoryStatus,
   StudioHistoryStep,
 } from "./types";
@@ -30,6 +31,7 @@ type WorkflowEntryInput = {
   title: string;
   status: StudioHistoryStatus;
   step: StudioHistoryStep;
+  ppt_status?: StudioPptHistoryStatus;
   sessionId?: string | null;
   artifactId?: string;
   createdAt?: string;
@@ -250,6 +252,7 @@ export function useStudioWorkflowHistory(
       artifactId: input.artifactId,
       runId: normalizedInputRunId,
       runNo: input.runNo ?? null,
+      ppt_status: input.ppt_status,
     };
 
     setWorkflowItems((prev) => {

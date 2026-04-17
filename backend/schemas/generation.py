@@ -9,6 +9,7 @@ class TemplateStyle(str, Enum):
     """模板风格枚举"""
 
     DEFAULT = "default"
+    TEACH = "teach"
     GAIA = "gaia"
     UNCOVER = "uncover"
     ACADEMIC = "academic"
@@ -207,10 +208,10 @@ class StyleManifest(BaseModel):
 
 class CoursewareContent(BaseModel):
     """
-    课件内容 - GenerationService 与 AI Service 的接口契约
+    课件内容 - render pipeline 与 AI service 的接口契约
 
-    AI Service（成员 D）负责生成符合此格式的内容
-    GenerationService（成员 A）负责将内容转换为文件
+    AI service 负责生成符合此格式的内容
+    渲染链路负责将内容转换为文件
     """
 
     title: str = Field(..., description="课件标题")

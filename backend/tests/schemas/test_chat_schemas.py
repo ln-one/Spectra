@@ -82,6 +82,26 @@ def test_chat_observability_supports_retrieval_and_policy_traceability():
     assert payload.baseline_id == "prompt-baseline-v1"
 
 
+def test_chat_observability_supports_stage_timings_and_total_duration():
+    payload = ChatObservability(
+        request_id="req-005",
+        route_task=ChatRouteTask.CHAT_RESPONSE,
+        selected_model="qwen3.5-plus",
+        has_rag_context=True,
+        fallback_triggered=False,
+        total_duration_ms=38429.63,
+        stage_timings_ms={
+            "verify_project": 2.1,
+            "rag_ms": 512.4,
+            "ai_generate_ms": 36100.0,
+        },
+    )
+
+    assert payload.total_duration_ms == 38429.63
+    assert payload.stage_timings_ms is not None
+    assert payload.stage_timings_ms["ai_generate_ms"] == 36100.0
+
+
 def test_send_message_response_supports_contract_fields():
     message = Message(
         id="msg-1",

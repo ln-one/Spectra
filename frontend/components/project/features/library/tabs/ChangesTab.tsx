@@ -91,7 +91,7 @@ export function ChangesTab({
               key={item.id}
               icon={GitPullRequest}
               title={item.title}
-              subtitle={`${item.status} 路 ${formatTime(item.created_at)}`}
+              subtitle={`${item.status} 路 ${formatTime(item.createdAt)}`}
               action={
                 item.status === "pending" ? (
                   <div className="flex items-center gap-1">

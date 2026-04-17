@@ -7,12 +7,16 @@ from services.project_space_service import project_space_service
 from utils.docx_content_sidecar import load_docx_content_sidecar
 from utils.exceptions import APIException, ErrorCode
 
-from .card_source_bindings import get_card_source_artifact_types
+from .card_source_bindings import (
+    get_card_source_artifact_types,
+    is_card_source_optional,
+)
 
 STRUCTURED_REFINE_ARTIFACT_TYPES = {
     "knowledge_mindmap": ArtifactType.MINDMAP.value,
     "interactive_quick_quiz": ArtifactType.EXERCISE.value,
     "interactive_games": ArtifactType.HTML.value,
+    "demonstration_animations": "animation_media",
     "speaker_notes": ArtifactType.SUMMARY.value,
 }
 
@@ -20,12 +24,17 @@ STRUCTURED_REFINE_KINDS = {
     "knowledge_mindmap": "mindmap",
     "interactive_quick_quiz": "quiz",
     "interactive_games": "interactive_game",
+    "demonstration_animations": "animation_storyboard",
     "speaker_notes": "speaker_notes",
 }
 
 
 def supports_structured_refine(card_id: str) -> bool:
     return card_id in STRUCTURED_REFINE_ARTIFACT_TYPES
+
+
+def _is_animation_artifact_type(artifact_type: str | None) -> bool:
+    return artifact_type in {ArtifactType.GIF.value, ArtifactType.MP4.value}
 
 
 def artifact_result_payload(
@@ -91,7 +100,7 @@ async def validate_source_artifact(
             )
         return
 
-    if allowed_types:
+    if allowed_types and not is_card_source_optional(card_id):
         raise APIException(
             status_code=400,
             error_code=ErrorCode.INVALID_INPUT,
@@ -100,10 +109,48 @@ async def validate_source_artifact(
 
 
 async def load_artifact_content(artifact) -> dict:
+    artifact_type = str(getattr(artifact, "type", None) or "").strip().lower()
+    if _is_animation_artifact_type(getattr(artifact, "type", None)):
+        metadata = artifact_metadata_dict(artifact)
+        snapshot = metadata.get("content_snapshot")
+        if isinstance(snapshot, dict):
+            return snapshot
+        render_spec = metadata.get("render_spec")
+        scenes = []
+        if isinstance(render_spec, dict):
+            raw_scenes = render_spec.get("scenes")
+            if isinstance(raw_scenes, list):
+                scenes = [dict(item) for item in raw_scenes if isinstance(item, dict)]
+        return {
+            "kind": "animation_storyboard",
+            "format": (
+                str(metadata.get("format") or getattr(artifact, "type", None) or "gif")
+                .strip()
+                .lower()
+                or "gif"
+            ),
+            "title": str(metadata.get("title") or "教学动画").strip(),
+            "summary": str(metadata.get("summary") or "").strip(),
+            "topic": str(metadata.get("topic") or "").strip(),
+            "scene": str(metadata.get("scene") or "").strip(),
+            "duration_seconds": metadata.get("duration_seconds") or 6,
+            "rhythm": str(metadata.get("rhythm") or "balanced").strip() or "balanced",
+            "focus": str(metadata.get("focus") or "").strip(),
+            "visual_type": str(metadata.get("visual_type") or "").strip(),
+            "scenes": scenes,
+            "render_spec": render_spec if isinstance(render_spec, dict) else {},
+            "placements": list(metadata.get("placements") or []),
+            "render_mode": (
+                str(metadata.get("render_mode") or "gif").strip().lower() or "gif"
+            ),
+            "cloud_video_provider": str(
+                metadata.get("cloud_video_provider") or ""
+            ).strip(),
+            "cloud_video_prompt": str(metadata.get("cloud_video_prompt") or "").strip(),
+        }
     storage_path = getattr(artifact, "storagePath", None)
     if not storage_path:
         return {}
-    artifact_type = str(getattr(artifact, "type", "") or "").strip().lower()
     if artifact_type == ArtifactType.DOCX.value:
         return load_docx_content_sidecar(storage_path)
     with open(storage_path, "r", encoding="utf-8") as handle:
@@ -149,8 +196,12 @@ async def validate_structured_refine_artifact(
             message="待 refine 的成果不存在",
         )
 
-    expected_type = STRUCTURED_REFINE_ARTIFACT_TYPES[card_id]
-    if artifact.type != expected_type:
+    expected_type = STRUCTURED_REFINE_ARTIFACT_TYPES.get(card_id)
+    if card_id == "demonstration_animations":
+        type_matches = _is_animation_artifact_type(getattr(artifact, "type", None))
+    else:
+        type_matches = artifact.type == expected_type
+    if not type_matches:
         raise APIException(
             status_code=400,
             error_code=ErrorCode.INVALID_INPUT,

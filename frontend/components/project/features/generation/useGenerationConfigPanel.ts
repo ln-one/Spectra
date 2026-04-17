@@ -6,6 +6,7 @@ import { generateApi, ragApi } from "@/lib/sdk";
 import { useNotification } from "@/hooks/use-notification";
 import { useProjectStore } from "@/stores/projectStore";
 import { useShallow } from "zustand/react/shallow";
+import { LAYOUT_MODES, TEMPLATE_CARDS } from "./constants";
 
 function pickRandom<T>(arr: T[], count: number): T[] {
   const copy = [...arr];
@@ -91,6 +92,21 @@ function buildRagGuidedSuggestions(args: {
   return uniqueNonEmpty([...dynamic, ...focused]);
 }
 
+function resolveExpectedPages(options: unknown): number {
+  if (!options || typeof options !== "object") return 0;
+  const sessionOptions = options as {
+    pages?: unknown;
+    target_slide_count?: unknown;
+    page_count?: unknown;
+  };
+  const raw =
+    sessionOptions.pages ??
+    sessionOptions.target_slide_count ??
+    sessionOptions.page_count;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed > 0 ? Math.round(parsed) : 0;
+}
+
 const wait = (ms: number) =>
   new Promise<void>((resolve) => {
     setTimeout(resolve, ms);
@@ -100,6 +116,10 @@ export interface GenerationConfig {
   prompt: string;
   pageCount: number;
   outlineStyle: "structured" | "story" | "problem" | "workshop";
+  visualStyle: string;
+  layoutMode: "smart" | "classic";
+  templateId: string | null;
+  visualPolicy: "auto" | "media_required" | "basic_graphics_only";
 }
 
 interface UseGenerationConfigPanelArgs {
@@ -145,11 +165,63 @@ export function useGenerationConfigPanel({
   const [pageCount, setPageCount] = useState<number>(12);
   const [outlineStyle, setOutlineStyle] =
     useState<GenerationConfig["outlineStyle"]>("structured");
+  const [visualStyle, setVisualStyle] = useState<string>("free");
+  const [visualPolicy, setVisualPolicy] = useState<
+    "auto" | "media_required" | "basic_graphics_only"
+  >("auto");
+  const [layoutMode, setLayoutMode] = useState<"smart" | "classic">("smart");
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>(
+    TEMPLATE_CARDS[0].id
+  );
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const [isCreatingSession, setIsCreatingSession] = useState(false);
   const [showOutlineEditor, setShowOutlineEditor] = useState(false);
   const [showRegenerateHint, setShowRegenerateHint] = useState(false);
+
+  useEffect(() => {
+    const mapping = LAYOUT_MODES.find((m) => m.id === layoutMode);
+    if (mapping) {
+      setOutlineStyle(mapping.outlineStyle as GenerationConfig["outlineStyle"]);
+    }
+  }, [layoutMode]);
+
+  useEffect(() => {
+    if (layoutMode === "classic") {
+      const isTemplate = TEMPLATE_CARDS.some((t) => t.id === visualStyle);
+      if (!isTemplate) {
+        setVisualStyle(selectedTemplateId);
+      }
+    } else {
+      const isStyle =
+        visualStyle &&
+        [
+          "free",
+          "academic",
+          "minimal",
+          "professional",
+          "botanical",
+          "wabi",
+          "memphis",
+          "constructivism",
+          "brutalist",
+          "8bit",
+          "electro",
+          "geometric",
+          "morandi",
+          "nordic",
+          "fluid",
+          "cinema",
+          "coolblue",
+          "warmvc",
+          "modernacademic",
+          "curatorial",
+        ].includes(visualStyle);
+      if (!isStyle) {
+        setVisualStyle("free");
+      }
+    }
+  }, [layoutMode, selectedTemplateId, visualStyle]);
 
   const sessionId =
     activeSessionId || generationSession?.session?.session_id || "";
@@ -292,6 +364,10 @@ export function useGenerationConfigPanel({
         prompt: prompt.trim(),
         pageCount,
         outlineStyle,
+        visualStyle,
+        layoutMode,
+        templateId: layoutMode === "classic" ? selectedTemplateId : null,
+        visualPolicy,
       });
 
       const sessionIdFromCallback =
@@ -359,9 +435,8 @@ export function useGenerationConfigPanel({
             transientPollErrorCount = 0;
             const state = latestSession?.session?.state;
             const currentPages = latestSession?.outline?.nodes?.length || 0;
-            const targetPages = Number(
-              latestSession?.options?.pages || pageCount
-            );
+            const targetPages =
+              resolveExpectedPages(latestSession?.options) || pageCount;
             const latestRunId =
               targetRunId || extractRunIdFromSessionPayload(latestSession);
 
@@ -450,6 +525,10 @@ export function useGenerationConfigPanel({
     pageCount,
     prompt,
     showRegenerateHint,
+    layoutMode,
+    selectedTemplateId,
+    visualStyle,
+    visualPolicy,
   ]);
 
   const handleBackToConfigFromOutline = useCallback(() => {
@@ -483,6 +562,14 @@ export function useGenerationConfigPanel({
     setPageCount,
     outlineStyle,
     setOutlineStyle,
+    visualStyle,
+    setVisualStyle,
+    visualPolicy,
+    setVisualPolicy,
+    layoutMode,
+    setLayoutMode,
+    selectedTemplateId,
+    setSelectedTemplateId,
     suggestions,
     loadingSuggestions,
     isCreatingSession,

@@ -4,7 +4,7 @@
     operationId: postProjects
     tags: [Project]
     security:
-      - BearerAuth: []
+      - SessionAuth: []
     parameters:
       - $ref: '../components/parameters.yaml#/IdempotencyKey'
     requestBody:
@@ -30,7 +30,7 @@
     operationId: getProjects
     tags: [Project]
     security:
-      - BearerAuth: []
+      - SessionAuth: []
     parameters:
       - $ref: '../components/parameters.yaml#/PageParam'
       - $ref: '../components/parameters.yaml#/LimitParam'
@@ -50,7 +50,7 @@
     operationId: getProjectsByProjectId
     tags: [Project]
     security:
-      - BearerAuth: []
+      - SessionAuth: []
     parameters:
       - name: project_id
         in: path
@@ -76,7 +76,7 @@
     operationId: putProjectsByProjectId
     tags: [Project]
     security:
-      - BearerAuth: []
+      - SessionAuth: []
     parameters:
       - name: project_id
         in: path
@@ -111,7 +111,7 @@
     operationId: deleteProjectsByProjectId
     tags: [Project]
     security:
-      - BearerAuth: []
+      - SessionAuth: []
     parameters:
       - name: project_id
         in: path
@@ -138,7 +138,7 @@
     operationId: getProjectsByProjectIdFiles
     tags: [Project, Files]
     security:
-      - BearerAuth: []
+      - SessionAuth: []
     parameters:
       - name: project_id
         in: path
@@ -168,7 +168,7 @@
     description: 获取项目的文件数、对话数、生成任务数等统计信息
     tags: [Project]
     security:
-      - BearerAuth: []
+      - SessionAuth: []
     parameters:
       - name: project_id
         in: path
@@ -196,7 +196,7 @@
     description: 根据关键词搜索项目
     tags: [Project]
     security:
-      - BearerAuth: []
+      - SessionAuth: []
     parameters:
       - name: q
         in: query

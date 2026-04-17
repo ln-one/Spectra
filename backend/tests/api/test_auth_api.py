@@ -1,4 +1,4 @@
-"""Auth API endpoint tests (Batch C3)."""
+"""Auth API endpoint tests."""
 
 from datetime import datetime, timezone
 from types import SimpleNamespace
@@ -6,8 +6,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from main import app
-from services.auth_service import auth_service
+import routers.auth as auth_router_module
 from utils.dependencies import get_current_user
 
 _NOW = datetime.now(timezone.utc)
@@ -20,155 +19,148 @@ _LOGIN = {"email": "test@example.com", "password": "StrongPwd123"}
 
 
 def _fake_user(**kw):
-    d = dict(
+    payload = dict(
         id="u-001",
         email="test@example.com",
         username="testuser",
         fullName="Test User",
         createdAt=_NOW,
-        password="hashed",
     )
-    d.update(kw)
-    return SimpleNamespace(**d)
+    payload.update(kw)
+    return SimpleNamespace(**payload)
 
 
-def _mock(mp, attr, rv=None):
-    """Shorthand: monkeypatch auth_service.<attr> with AsyncMock."""
-    mp.setattr(auth_service, attr, AsyncMock(return_value=rv))
+def _fake_client(status_code=200, payload=None, set_cookie_headers=None):
+    body = payload or {"data": {"ok": True}}
+    cookies = set_cookie_headers or ["better-auth.session_token=test; Path=/; HttpOnly"]
+
+    return SimpleNamespace(
+        sign_up_email=AsyncMock(
+            return_value=SimpleNamespace(
+                status_code=status_code,
+                payload=body,
+                set_cookie_headers=cookies,
+            )
+        ),
+        sign_in_email=AsyncMock(
+            return_value=SimpleNamespace(
+                status_code=status_code,
+                payload=body,
+                set_cookie_headers=cookies,
+            )
+        ),
+        revoke_current_session=AsyncMock(
+            return_value=SimpleNamespace(
+                status_code=status_code,
+                payload=body,
+                set_cookie_headers=["better-auth.session_token=; Max-Age=0; Path=/"],
+            )
+        ),
+        get_current_session=AsyncMock(
+            return_value=SimpleNamespace(
+                identity_id="u-001",
+                email="test@example.com",
+                name="Test User",
+                email_verified=True,
+                session_id="sess-1",
+                memberships=[],
+            )
+        ),
+    )
 
 
 @pytest.fixture()
-def _as_user():
-    """Override get_current_user → 'u-001'."""
-    app.dependency_overrides[get_current_user] = lambda: "u-001"
+def _as_user(client):
+    client.app.dependency_overrides[get_current_user] = lambda: "u-001"
     yield
-    app.dependency_overrides.pop(get_current_user, None)
-
-
-# Register
+    client.app.dependency_overrides.pop(get_current_user, None)
 
 
 def test_register_success(client, monkeypatch):
-    _mock(monkeypatch, "get_user_by_email")
-    _mock(monkeypatch, "get_user_by_username")
-    _mock(monkeypatch, "create_user", _fake_user())
+    limora = _fake_client()
+    monkeypatch.setattr(auth_router_module, "build_limora_client", lambda: limora)
+    monkeypatch.setattr(
+        auth_router_module.identity_service,
+        "upsert_identity_user",
+        AsyncMock(return_value=_fake_user()),
+    )
+
     resp = client.post("/api/v1/auth/register", json=_REG)
     assert resp.status_code == 200
     body = resp.json()
     assert body["success"] is True
-    assert "access_token" in body["data"]
-    assert "refresh_token" in body["data"]
-    assert body["data"]["expires_in"] > 0
     assert body["data"]["user"]["id"] == "u-001"
+    assert "set-cookie" in resp.headers
 
 
-def test_register_dup_email_409(client, monkeypatch):
-    _mock(monkeypatch, "get_user_by_email", _fake_user())
-    resp = client.post("/api/v1/auth/register", json={**_REG, "username": "new"})
+def test_register_conflict_passthrough(client, monkeypatch):
+    limora = _fake_client(
+        status_code=409,
+        payload={"error": {"message": "邮箱已注册"}},
+        set_cookie_headers=[],
+    )
+    monkeypatch.setattr(auth_router_module, "build_limora_client", lambda: limora)
+
+    resp = client.post("/api/v1/auth/register", json=_REG)
     assert resp.status_code == 409
     assert resp.json()["error"]["code"] == "ALREADY_EXISTS"
-
-
-def test_register_dup_username_409(client, monkeypatch):
-    _mock(monkeypatch, "get_user_by_email")
-    _mock(monkeypatch, "get_user_by_username", _fake_user())
-    resp = client.post("/api/v1/auth/register", json={**_REG, "email": "n@e.com"})
-    assert resp.status_code == 409
-    assert resp.json()["error"]["code"] == "ALREADY_EXISTS"
-
-
-def test_register_short_password_400(client):
-    resp = client.post("/api/v1/auth/register", json={**_REG, "password": "short"})
-    assert resp.status_code == 400
-
-
-# Login
 
 
 def test_login_success(client, monkeypatch):
-    _mock(monkeypatch, "authenticate_user", _fake_user())
+    limora = _fake_client()
+    monkeypatch.setattr(auth_router_module, "build_limora_client", lambda: limora)
+    monkeypatch.setattr(
+        auth_router_module.identity_service,
+        "upsert_identity_user",
+        AsyncMock(return_value=_fake_user()),
+    )
+
     resp = client.post("/api/v1/auth/login", json=_LOGIN)
     assert resp.status_code == 200
-    body = resp.json()
-    assert body["success"] is True
-    assert "access_token" in body["data"]
-    assert "refresh_token" in body["data"]
+    assert resp.json()["data"]["user"]["id"] == "u-001"
 
 
 def test_login_wrong_credentials_401(client, monkeypatch):
-    _mock(monkeypatch, "authenticate_user")
+    limora = _fake_client(
+        status_code=401,
+        payload={"error": {"message": "邮箱或密码错误"}},
+        set_cookie_headers=[],
+    )
+    monkeypatch.setattr(auth_router_module, "build_limora_client", lambda: limora)
+
     resp = client.post("/api/v1/auth/login", json=_LOGIN)
     assert resp.status_code == 401
     assert resp.json()["error"]["code"] == "INVALID_CREDENTIALS"
 
 
-# Me
-
-
 def test_me_success(client, monkeypatch, _as_user):
-    _mock(monkeypatch, "get_user_by_id", _fake_user())
+    monkeypatch.setattr(
+        auth_router_module.identity_service,
+        "get_user_by_id",
+        AsyncMock(return_value=_fake_user()),
+    )
     resp = client.get("/api/v1/auth/me")
     assert resp.status_code == 200
-    body = resp.json()
-    assert body["success"] is True
-    assert body["data"]["user"]["id"] == "u-001"
-    assert body["data"]["user"]["email"] == "test@example.com"
+    assert resp.json()["data"]["user"]["email"] == "test@example.com"
 
 
-def test_me_no_token_401(client):
+def test_me_without_cookie_returns_401(client):
     resp = client.get("/api/v1/auth/me")
     assert resp.status_code == 401
     assert resp.json()["error"]["code"] == "UNAUTHORIZED"
 
 
-def test_me_bad_token_401(client):
+def test_me_does_not_accept_bearer_only(client):
     resp = client.get("/api/v1/auth/me", headers={"Authorization": "Bearer x"})
     assert resp.status_code == 401
-    assert resp.json()["error"]["code"] == "INVALID_TOKEN"
+    assert resp.json()["error"]["code"] == "UNAUTHORIZED"
 
 
-def test_me_user_not_found_401(client, monkeypatch):
-    app.dependency_overrides[get_current_user] = lambda: "gone"
-    _mock(monkeypatch, "get_user_by_id")
-    try:
-        resp = client.get("/api/v1/auth/me")
-    finally:
-        app.dependency_overrides.pop(get_current_user, None)
-    assert resp.status_code == 401
-    assert resp.json()["error"]["code"] == "INVALID_TOKEN"
+def test_logout_success(client, monkeypatch, _as_user):
+    limora = _fake_client()
+    monkeypatch.setattr(auth_router_module, "build_limora_client", lambda: limora)
 
-
-# Refresh
-
-
-def test_refresh_success(client, monkeypatch):
-    monkeypatch.setattr(auth_service, "verify_refresh_token", lambda t: "u-001")
-    _mock(monkeypatch, "get_user_by_id", _fake_user())
-    resp = client.post("/api/v1/auth/refresh", json={"refresh_token": "ok"})
-    assert resp.status_code == 200
-    body = resp.json()
-    assert body["success"] is True
-    assert "access_token" in body["data"]
-    assert "refresh_token" in body["data"]
-
-
-def test_refresh_invalid_token_401(client, monkeypatch):
-    monkeypatch.setattr(auth_service, "verify_refresh_token", lambda t: None)
-    resp = client.post("/api/v1/auth/refresh", json={"refresh_token": "bad"})
-    assert resp.status_code == 401
-    assert resp.json()["error"]["code"] == "INVALID_TOKEN"
-
-
-# Logout
-
-
-def test_logout_success(client, _as_user):
     resp = client.post("/api/v1/auth/logout")
     assert resp.status_code == 200
     assert resp.json()["success"] is True
-
-
-def test_logout_no_token_401(client):
-    resp = client.post("/api/v1/auth/logout")
-    assert resp.status_code == 401
-    assert resp.json()["error"]["code"] == "UNAUTHORIZED"
+    assert "set-cookie" in resp.headers

@@ -1,0 +1,24 @@
+[submodule "pagevra"]
+	path = pagevra
+	url = https://github.com/ln-one/Pagevra.git
+	branch = main
+[submodule "dualweave"]
+	path = dualweave
+	url = https://github.com/ln-one/Dualweave.git
+	branch = main
+[submodule "ourograph"]
+	path = ourograph
+	url = https://github.com/ln-one/Ourograph.git
+	branch = main
+[submodule "stratumind"]
+	path = stratumind
+	url = https://github.com/ln-one/Stratumind.git
+	branch = main
+[submodule "diego"]
+	path = diego
+	url = https://github.com/watermelon551/ppt-agent-service.git
+	branch = master
+[submodule "limora"]
+	path = limora
+	url = git@github.com:ln-one/Limora.git
+	branch = main

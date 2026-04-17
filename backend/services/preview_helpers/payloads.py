@@ -1,4 +1,4 @@
-﻿import html
+import html
 import json
 from typing import Optional
 
@@ -68,6 +68,36 @@ def strip_sources(
     return slides_clean, lesson_plan_clean
 
 
+def _resolved_export_markdown(content: dict) -> str:
+    resolved = content.get("resolved_markdown_content")
+    if isinstance(resolved, str) and resolved.strip():
+        return resolved
+
+    markdown_content = content.get("markdown_content")
+    if isinstance(markdown_content, str) and markdown_content.strip():
+        return markdown_content
+
+    render_markdown = content.get("render_markdown")
+    if isinstance(render_markdown, str) and render_markdown.strip():
+        return render_markdown
+
+    return ""
+
+
+def _material_context_id(material_context) -> Optional[str]:
+    if not material_context:
+        return None
+    if isinstance(material_context, dict):
+        value = (
+            material_context.get("id")
+            or material_context.get("task_id")
+            or material_context.get("render_job_id")
+        )
+        return str(value) if value else None
+    value = getattr(material_context, "id", None)
+    return str(value) if value else None
+
+
 def build_preview_payload(
     session_id: str,
     snapshot: dict,
@@ -79,14 +109,12 @@ def build_preview_payload(
     rendered_preview: Optional[dict] = None,
 ) -> dict:
     content = content or {}
-    slides_content_markdown = content.get("markdown_content")
-    if not isinstance(slides_content_markdown, str):
-        slides_content_markdown = ""
+    slides_content_markdown = _resolved_export_markdown(content)
     return {
         "session_id": session_id,
         "session_state": snapshot["session"].get("state"),
         "session_state_reason": snapshot["session"].get("stateReason"),
-        "task_id": task.id if task else None,
+        "task_id": _material_context_id(task),
         "artifact_id": anchor["artifact_id"],
         "based_on_version_id": anchor["based_on_version_id"],
         "current_version_id": snapshot.get("current_version_id"),
@@ -165,7 +193,7 @@ def build_export_payload(
     source_content = (
         content.get("render_markdown")
         or content.get("lesson_plan_markdown")
-        or content.get("markdown_content", "")
+        or _resolved_export_markdown(content)
     )
 
     normalized_format = export_format.lower()
@@ -176,13 +204,6 @@ def build_export_payload(
                 "slides": slides,
                 "lesson_plan": lesson_plan,
                 "markdown_content": source_content,
-                "title": content.get("title"),
-                "summary": content.get("summary"),
-                "document_variant": content.get("document_variant"),
-                "layout_version": content.get("layout_version"),
-                "layout_payload": content.get("layout_payload"),
-                "preview_html": preview_html,
-                "doc_source_html": content.get("doc_source_html"),
             },
             ensure_ascii=False,
         )
@@ -203,7 +224,7 @@ def build_export_payload(
     )
     return {
         "session_id": session_id,
-        "task_id": task.id if task else None,
+        "task_id": _material_context_id(task),
         "artifact_id": anchor["artifact_id"],
         "based_on_version_id": anchor["based_on_version_id"],
         "current_version_id": snapshot.get("current_version_id"),

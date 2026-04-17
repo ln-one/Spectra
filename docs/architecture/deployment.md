@@ -77,8 +77,8 @@ REFRESH_TOKEN_EXPIRE_DAYS=7 # 新增：确保长效会话稳定性
 
 ```bash
 # backend/.env
-CHROMA_MODE="persistent" # 开发/演示环境：本地持久化
-# CHROMA_MODE="http" # 生产环境：连接独立服务
+STRATUMIND_BASE_URL="http://stratumind:8110"
+QDRANT_URL="http://qdrant:6333"
 ```
 
 ### CORS 配置

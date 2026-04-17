@@ -67,7 +67,14 @@ class Slide(BaseModel):
 class RenderedPreviewPage(BaseModel):
     index: int = Field(..., ge=0)
     slide_id: str
-    image_url: str
+    image_url: Optional[str] = None
+    html_preview: Optional[str] = Field(
+        None,
+        description="完整且可直接用于 iframe srcDoc 的安全 HTML 页面字符串",
+    )
+    status: Optional[str] = None
+    split_index: int = Field(default=0, ge=0, description="该逻辑 slide 的第几分页")
+    split_count: int = Field(default=1, ge=1, description="该逻辑 slide 展开的总分页数")
     width: Optional[int] = Field(None, ge=1)
     height: Optional[int] = Field(None, ge=1)
 
@@ -118,7 +125,6 @@ class ModifyResponse(BaseModel):
     """修改响应 data 部分"""
 
     session_id: Optional[str] = None
-    modify_task_id: str
     status: TaskStatus = TaskStatus.PENDING
     render_version: Optional[int] = Field(None, ge=1)
     artifact_id: Optional[str] = None
@@ -158,7 +164,6 @@ class ExportData(BaseModel):
     """导出响应 data 部分"""
 
     session_id: Optional[str] = None
-    task_id: Optional[str] = None
     artifact_id: Optional[str] = None
     based_on_version_id: Optional[str] = None
     current_version_id: Optional[str] = None

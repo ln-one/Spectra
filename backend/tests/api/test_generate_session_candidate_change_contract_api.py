@@ -10,7 +10,7 @@ from main import app
 from schemas.project_space import CandidateChangeStatus
 from services.database import db_service
 from services.platform.state_transition_guard import GenerationState
-from services.project_space_service import project_space_service
+from services.project_space_service.service import project_space_service
 from utils.dependencies import get_current_user
 from utils.exceptions import ErrorCode
 
@@ -182,12 +182,16 @@ def test_confirm_outline_can_attach_candidate_change(client, monkeypatch, _as_us
     monkeypatch.setattr(project_space_service, "create_candidate_change", create_change)
 
     resp = client.post(
-        "/api/v1/generate/sessions/s-candidate-001/confirm",
+        "/api/v1/generate/sessions/s-candidate-001/commands",
         json={
+            "command": {
+                "command_type": "CONFIRM_OUTLINE",
+                "continue_from_retrieval": True,
+            },
             "candidate_change": {
                 "title": "confirm-change",
                 "summary": "submit after confirm",
-            }
+            },
         },
     )
     assert resp.status_code == 200
@@ -210,8 +214,14 @@ def test_confirm_outline_rejects_non_object_candidate_change(
     )
 
     resp = client.post(
-        "/api/v1/generate/sessions/s-candidate-001/confirm",
-        json={"candidate_change": "invalid"},
+        "/api/v1/generate/sessions/s-candidate-001/commands",
+        json={
+            "command": {
+                "command_type": "CONFIRM_OUTLINE",
+                "continue_from_retrieval": True,
+            },
+            "candidate_change": "invalid",
+        },
     )
     assert resp.status_code == 400
     assert resp.json()["error"]["code"] == "INVALID_INPUT"
@@ -219,7 +229,7 @@ def test_confirm_outline_rejects_non_object_candidate_change(
 
 def test_modify_preview_can_attach_candidate_change(client, monkeypatch, _as_user):
     svc = SimpleNamespace(
-        execute_command=AsyncMock(return_value={"task_id": "modify-task-001"}),
+        execute_command=AsyncMock(return_value={}),
         get_session_snapshot=AsyncMock(return_value=_snapshot()),
     )
     monkeypatch.setattr(

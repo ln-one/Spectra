@@ -34,15 +34,19 @@ async def test_build_image_analysis_hint_skips_when_no_image_rag(monkeypatch):
 @pytest.mark.asyncio
 async def test_build_image_analysis_hint_returns_hint_when_image_available(monkeypatch):
     monkeypatch.setattr(
-        "routers.chat.runtime_helpers.find_many_with_select_fallback",
-        AsyncMock(
-            return_value=[
-                {
-                    "id": "u-img-1",
-                    "filename": "ip-header.png",
-                    "filepath": "/tmp/ip-header.png",
-                }
-            ]
+        "routers.chat.runtime_helpers.db_service.db",
+        SimpleNamespace(
+            upload=SimpleNamespace(
+                find_many=AsyncMock(
+                    return_value=[
+                        {
+                            "id": "u-img-1",
+                            "filename": "ip-header.png",
+                            "filepath": "/tmp/ip-header.png",
+                        }
+                    ]
+                )
+            )
         ),
     )
     analyze_mock = AsyncMock(
@@ -80,15 +84,19 @@ async def test_build_image_analysis_hint_uses_requested_source_ids_when_rag_miss
     monkeypatch,
 ):
     monkeypatch.setattr(
-        "routers.chat.runtime_helpers.find_many_with_select_fallback",
-        AsyncMock(
-            return_value=[
-                {
-                    "id": "u-img-2",
-                    "filename": "diagram.jpg",
-                    "filepath": "/tmp/diagram.jpg",
-                }
-            ]
+        "routers.chat.runtime_helpers.db_service.db",
+        SimpleNamespace(
+            upload=SimpleNamespace(
+                find_many=AsyncMock(
+                    return_value=[
+                        {
+                            "id": "u-img-2",
+                            "filename": "diagram.jpg",
+                            "filepath": "/tmp/diagram.jpg",
+                        }
+                    ]
+                )
+            )
         ),
     )
     analyze_mock = AsyncMock(

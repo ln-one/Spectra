@@ -1,7 +1,5 @@
-import asyncio
 import json
 import logging
-import os
 from typing import Optional
 
 from schemas.generation import TaskStatus
@@ -9,15 +7,6 @@ from schemas.generation import TaskStatus
 from .cache import load_preview_content, save_preview_content
 
 logger = logging.getLogger(__name__)
-
-
-def preview_rebuild_timeout_seconds() -> float:
-    raw = os.getenv("PREVIEW_REBUILD_TIMEOUT_SECONDS", "8").strip()
-    try:
-        parsed = float(raw)
-        return parsed if parsed > 0 else 8.0
-    except ValueError:
-        return 8.0
 
 
 def build_fallback_preview_payload(project_name: str) -> dict:
@@ -116,6 +105,9 @@ def parse_preview_content_from_input_data(raw_input_data: object) -> Optional[di
     render_markdown = preview_content.get("render_markdown")
     if isinstance(render_markdown, str) and render_markdown.strip():
         normalized["render_markdown"] = render_markdown
+    resolved_markdown_content = preview_content.get("resolved_markdown_content")
+    if isinstance(resolved_markdown_content, str) and resolved_markdown_content.strip():
+        normalized["resolved_markdown_content"] = resolved_markdown_content
     style_manifest = preview_content.get("style_manifest")
     if isinstance(style_manifest, dict):
         normalized["style_manifest"] = style_manifest
@@ -147,6 +139,14 @@ def parse_task_input_data(raw_input_data: object) -> dict:
     except (TypeError, json.JSONDecodeError):
         return {}
     return payload if isinstance(payload, dict) else {}
+
+
+def _is_ppt_task(task: object) -> bool:
+    output_type = str(getattr(task, "outputType", "") or "").strip().lower()
+    if output_type in {"ppt", "both"}:
+        return True
+    tool_type = str(getattr(task, "toolType", "") or "").strip().lower()
+    return tool_type in {"courseware_ppt", "studio_card:courseware_ppt"}
 
 
 async def get_or_generate_content(
@@ -238,48 +238,61 @@ async def get_or_generate_content(
             return outline_preview
         return build_fallback_preview_payload(project.name)
 
-    messages = await db_service.get_recent_conversation_messages(
-        project.id,
-        limit=5,
-        session_id=session_id,
+    if _is_ppt_task(task):
+        outline_preview = build_outline_preview_payload(project.name, outline_document)
+        if outline_preview:
+            logger.info(
+                "legacy_ppt_preview_rebuild_removed_use_outline session_id=%s task_id=%s",
+                session_id,
+                getattr(task, "id", None),
+                extra={
+                    "session_id": session_id,
+                    "task_id": getattr(task, "id", None),
+                    "tool_type": getattr(task, "toolType", None),
+                    "reason": "legacy_ppt_preview_rebuild_removed",
+                },
+            )
+            try:
+                await save_preview_content_fn(task.id, outline_preview)
+            except Exception as exc:  # pragma: no cover
+                logger.warning(
+                    "Failed to cache outline preview for PPT task %s: %s",
+                    task.id,
+                    exc,
+                )
+            return outline_preview
+        logger.info(
+            "legacy_ppt_preview_rebuild_removed_waiting_diego session_id=%s task_id=%s",
+            session_id,
+            getattr(task, "id", None),
+            extra={
+                "session_id": session_id,
+                "task_id": getattr(task, "id", None),
+                "tool_type": getattr(task, "toolType", None),
+                "reason": "legacy_ppt_preview_rebuild_removed",
+            },
+        )
+        return build_fallback_preview_payload(project.name)
+
+    logger.info(
+        "legacy_preview_ai_rebuild_removed task_id=%s session_id=%s",
+        getattr(task, "id", None),
+        session_id,
+        extra={
+            "task_id": getattr(task, "id", None),
+            "session_id": session_id,
+            "reason": "legacy_preview_ai_rebuild_removed",
+        },
     )
-    user_msgs = [message.content for message in messages if message.role == "user"]
-    user_requirements = "\n".join(user_msgs) if user_msgs else project.name
-
-    from services.ai import ai_service
-
-    try:
-        courseware = await asyncio.wait_for(
-            ai_service.generate_courseware_content(
-                project_id=project.id,
-                user_requirements=user_requirements,
-                outline_document=outline_document,
-                outline_version=outline_version,
-                session_id=session_id,
-                rag_source_ids=(template_config or {}).get("rag_source_ids"),
-            ),
-            timeout=preview_rebuild_timeout_seconds(),
-        )
-    except asyncio.TimeoutError:
-        logger.warning(
-            "Preview AI rebuild timed out for task %s, project %s",
-            task.id,
-            project.id,
-        )
-        return build_fallback_preview_payload(project.name)
-    except Exception as exc:
-        logger.warning(
-            "Preview AI rebuild failed for task %s, project %s: %s",
-            task.id,
-            project.id,
-            exc,
-        )
-        return build_fallback_preview_payload(project.name)
-
-    data = {
-        "title": courseware.title,
-        "markdown_content": courseware.markdown_content,
-        "lesson_plan_markdown": courseware.lesson_plan_markdown,
-    }
-    await save_preview_content_fn(task.id, data)
-    return data
+    outline_preview = build_outline_preview_payload(project.name, outline_document)
+    if outline_preview:
+        try:
+            await save_preview_content_fn(task.id, outline_preview)
+        except Exception as exc:  # pragma: no cover
+            logger.warning(
+                "Failed to cache outline fallback preview for task %s: %s",
+                task.id,
+                exc,
+            )
+        return outline_preview
+    return build_fallback_preview_payload(project.name)

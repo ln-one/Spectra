@@ -1,16 +1,16 @@
 from __future__ import annotations
 
-import json
 from typing import Any, Optional
 
 from services.generation_session_service.command_execution import (
-    build_command_response,
-    dispatch_created_task,
     load_and_validate_session,
     load_cached_command_response,
     save_cached_command_response,
 )
 from services.generation_session_service.command_handlers import dispatch_command
+from services.generation_session_service.command_response import (
+    build_command_response,
+)
 from services.generation_session_service.session_history import (
     generate_semantic_run_title,
     spawn_background_task,
@@ -54,42 +54,17 @@ class SessionCommandMixin:
         )
 
         dispatch_result = await self._dispatch_command(session, command, result)
-        created_task_id = (
-            dispatch_result.get("task_id")
-            if isinstance(dispatch_result, dict)
-            else (dispatch_result if isinstance(dispatch_result, str) else None)
-        )
         run_data = (
             dispatch_result.get("run") if isinstance(dispatch_result, dict) else None
-        )
-        if command_type == GenerationCommandType.REDRAFT_OUTLINE.value:
-            await self._schedule_outline_draft_task(
-                session_id=session.id,
-                project_id=session.projectId,
-                options=_build_redraft_outline_options(session, command),
-                task_queue_service=task_queue_service,
-            )
-        warnings = await dispatch_created_task(
-            db=self._db,
-            conflict_error_cls=self.conflict_error_cls,
-            session_id=session_id,
-            session=session,
-            created_task_id=created_task_id,
-            task_queue_service=task_queue_service,
-            schedule_local_execution=self._schedule_local_execution,
-            mark_dispatch_failed=self._mark_dispatch_failed,
-            schedule_enqueued_task_watchdog=self._schedule_enqueued_task_watchdog,
-            append_event=self._append_event,
         )
 
         response_data = await build_command_response(
             db=self._db,
             session_id=session_id,
             command_type=command_type,
-            created_task_id=created_task_id,
             run_data=run_data,
             result=result,
-            warnings=warnings,
+            warnings=[],
             contract_version=self.CONTRACT_VERSION,
             schema_version=self.SCHEMA_VERSION,
         )
@@ -129,23 +104,3 @@ class SessionCommandMixin:
             append_event=self._append_event,
             conflict_error_cls=self.conflict_error_cls,
         )
-
-
-def _build_redraft_outline_options(session, command: dict) -> Optional[dict]:
-    options_raw = getattr(session, "options", None)
-    options: dict = {}
-    if options_raw:
-        try:
-            parsed = json.loads(options_raw)
-            if isinstance(parsed, dict):
-                options = parsed
-        except (TypeError, json.JSONDecodeError):
-            options = {}
-
-    instruction = str(command.get("instruction") or "").strip()
-    if instruction:
-        options = {
-            **options,
-            "outline_redraft_instruction": instruction,
-        }
-    return options or None

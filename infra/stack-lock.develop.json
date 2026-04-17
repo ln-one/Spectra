@@ -1,0 +1,55 @@
+{
+  "channel": "develop",
+  "generated_at": "2026-04-12T00:00:00Z",
+  "updated_by": "codex",
+  "services": {
+    "pagevra": {
+      "image": "ghcr.io/ln-one/pagevra",
+      "tag": "latest",
+      "digest": "sha256:7094cabbc0fdd592fa88309250de9ef2cd0739aafad14665c94112e14caf5178",
+      "source_branch": "develop",
+      "published": true,
+      "notes": "Pinned from GHCR public latest manifest on 2026-04-11 after pagevra commit e1ec732."
+    },
+    "dualweave": {
+      "image": "ghcr.io/ln-one/dualweave-service",
+      "tag": "latest",
+      "digest": "sha256:ec93a35dcc14a4bcdb2ef1c998aa167336f2b7df4b01d1520d26c6d3b62d533a",
+      "source_branch": "develop",
+      "published": true,
+      "notes": "Pinned from GHCR public latest manifest on 2026-04-12 after dualweave commit dbe1538."
+    },
+    "ourograph": {
+      "image": "ghcr.io/ln-one/ourograph",
+      "tag": "latest",
+      "digest": "sha256:385c48528d37e2733b16e1a0b8b557bd8580fe5d09de4cfaea01c095f2efaa73",
+      "source_branch": "develop",
+      "published": true,
+      "notes": "Pinned from GHCR public latest manifest on 2026-04-11."
+    },
+    "stratumind": {
+      "image": "ghcr.io/ln-one/stratumind",
+      "tag": "latest",
+      "digest": "sha256:c73532ab9c933fc85b89a2b1e2beab0d2cb2d884efb57b2073ab218aa4330334",
+      "source_branch": "develop",
+      "published": true,
+      "notes": "Pinned from GHCR public latest manifest on 2026-04-12 after stratumind commit 14e9058. Lock-only mode requires the package to remain anonymously pullable."
+    },
+    "diego": {
+      "image": "ghcr.io/watermelon551/diego",
+      "tag": "master",
+      "digest": "sha256:41c6b4d73fcbbc98a32b253b9e6a08725bf25ea9be27b6826b0790414999ec02",
+      "source_branch": "develop",
+      "published": true,
+      "notes": "Pinned from GHCR public master manifest on 2026-04-13."
+    },
+    "limora": {
+      "image": "ghcr.io/ln-one/limora",
+      "tag": "latest",
+      "digest": null,
+      "source_branch": "develop",
+      "published": false,
+      "notes": "Current Spectra integration expects local-source mode for Limora until a public image is published."
+    }
+  }
+}

@@ -17,9 +17,9 @@
 - 提交“重写请求”让 AI 回到草拟阶段。
 
 关键动作：
-- 保存用户编辑：`PUT /generate/sessions/{session_id}/outline`
-- 请求 AI 重写：`POST /generate/sessions/{session_id}/outline/redraft`
-- 确认继续生成：`POST /generate/sessions/{session_id}/confirm`
+- 保存用户编辑：`POST /generate/sessions/{session_id}/commands` with `command_type=UPDATE_OUTLINE`
+- 请求 AI 重写：`POST /generate/sessions/{session_id}/commands` with `command_type=REDRAFT_OUTLINE`
+- 确认继续生成：`POST /generate/sessions/{session_id}/commands` with `command_type=CONFIRM_OUTLINE`
 
 ## 阶段三：预览与局部微调（Living Preview）
 
@@ -29,7 +29,7 @@
 - 右侧指令助理对单页发起修改。
 
 关键动作：
-- 单页局部重绘：`POST /generate/sessions/{session_id}/slides/{slide_id}/regenerate`
+- 单页局部重绘：`POST /generate/sessions/{session_id}/commands` with `command_type=REGENERATE_SLIDE`
 
 约束：
 - 局部重绘不得触发全量闪烁刷新。

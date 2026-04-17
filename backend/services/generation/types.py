@@ -1,5 +1,8 @@
-"""
-课件生成服务 - 数据类型定义
+"""Compatibility data shapes for markdown/render-adjacent helpers.
+
+These models remain in ``services.generation`` only as a narrow compatibility
+surface shared by local shell code and tests. They are not evidence that
+Spectra still owns formal PPT generation or render authority.
 """
 
 from typing import Dict, List, Optional
@@ -28,10 +31,11 @@ class StyleManifest(BaseModel):
 
 class CoursewareContent(BaseModel):
     """
-    课件内容 - GenerationService 与 AI Service 的接口契约
+    Compatibility contract for courseware-shaped markdown payloads.
 
-    AI 服务（成员 D）输出课件正文级 Markdown 与教案 Markdown。
-    生成服务（成员 A）在渲染前补充 Marp frontmatter 与模板样式，再转换为文件。
+    The local shell may still carry正文级 markdown、lesson-plan markdown and
+    optional render-ready markdown, but formal PPT generation belongs to Diego
+    and formal render/export belongs to Pagevra.
     """
 
     title: str

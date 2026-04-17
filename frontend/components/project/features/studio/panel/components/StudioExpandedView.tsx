@@ -33,6 +33,10 @@ interface StudioExpandedViewProps {
     pageCount: number;
     outlineStyle: "structured" | "story" | "problem" | "workshop";
     prompt: string;
+    visualStyle: string;
+    layoutMode: "smart" | "classic";
+    templateId: string | null;
+    visualPolicy: "auto" | "media_required" | "basic_graphics_only";
   }) => Promise<string | null | undefined>;
   isCardManagedFlowExpanded: boolean;
   currentCardId: string | null;

@@ -8,6 +8,12 @@ export type StudioHistoryStatus =
   | "failed"
   | "pending";
 
+export type StudioPptHistoryStatus =
+  | "outline_generating"
+  | "outline_pending_confirm"
+  | "slides_generating"
+  | "slide_preview_ready";
+
 export type StudioHistoryStep = "config" | "generate" | "preview" | "outline";
 
 export interface StudioHistoryItem {
@@ -22,4 +28,5 @@ export interface StudioHistoryItem {
   artifactId?: string;
   runId?: string | null;
   runNo?: number | null;
+  ppt_status?: StudioPptHistoryStatus;
 }

@@ -1,52 +1,90 @@
 import logging
 from typing import Optional
 
-try:
-    from prisma.errors import ClientNotConnectedError
-except Exception:  # pragma: no cover - prisma may be unavailable in some test envs
-
-    class ClientNotConnectedError(Exception):
-        pass
-
-
-from schemas.rag import RAGResult
-from services.database import db_service
+from schemas.rag import ChunkContext, RAGResult, SourceDetail, SourceReference
 from services.rag_service.retrieval_helpers import (
-    build_rag_results,
-    build_where_clause,
-    get_chunk_from_collection,
-    query_collection,
+    list_active_reference_targets,
     sort_key,
 )
+from services.stratumind_client import StratumindClientError
 
 logger = logging.getLogger(__name__)
 
 
-async def _list_active_reference_targets(project_id: str) -> list[dict]:
-    try:
-        references = await db_service.get_project_references(project_id)
-    except ClientNotConnectedError:
-        return []
-    except Exception as exc:
-        logger.warning(
-            "reference target lookup failed for project %s: %s", project_id, exc
-        )
-        return []
-    return [
-        {
-            "source_project_id": reference.targetProjectId,
-            "source_scope": (
-                "reference_base"
-                if reference.relationType == "base"
-                else "reference_auxiliary"
-            ),
-            "relation_type": reference.relationType,
-            "reference_mode": reference.mode,
-            "reference_priority": reference.priority,
-            "pinned_version_id": getattr(reference, "pinnedVersionId", None),
-        }
-        for reference in references
-    ]
+def _search_response_options() -> dict:
+    return {
+        "include_evidence": True,
+        "include_planning_trace": True,
+        "include_rewrite_trace": True,
+    }
+
+
+def _search_planning_hints(*, source_scope: str, session_id: Optional[str]) -> dict:
+    # Current Stratumind indexes do not expose stable local_session/local_project
+    # scope labels, so hint-constrained retrieval can incorrectly hide valid hits.
+    return {}
+
+
+def _diagnostics_from_response(payload: dict) -> dict:
+    telemetry = payload.get("telemetry") or {}
+    planning_trace = payload.get("planning_trace") or {}
+    evidence = payload.get("evidence") or {}
+    rewrite = payload.get("rewrite") or {}
+    diagnostics = {
+        "ranking_stage": payload.get("ranking_stage"),
+        "degraded": bool(payload.get("degraded")),
+        "degrade_reason": payload.get("degrade_reason"),
+        "selected_profile": telemetry.get("selected_profile_name"),
+        "query_buckets": telemetry.get("query_buckets") or [],
+        "evidence_chunk_ids": telemetry.get("evidence_chunk_ids") or [],
+        "planning_confidence": planning_trace.get("confidence"),
+        "matched_buckets": planning_trace.get("matched_buckets") or [],
+        "rewrite_rules": rewrite.get("applied_rules") or [],
+        "evidence_mode": evidence.get("mode"),
+    }
+    return {
+        key: value for key, value in diagnostics.items() if value not in (None, [], "")
+    }
+
+
+def _normalize_result(
+    payload: dict,
+    *,
+    source_project_id: str,
+    source_scope: str,
+    retrieval_diagnostics: Optional[dict] = None,
+    relation_type: Optional[str] = None,
+    reference_mode: Optional[str] = None,
+    reference_priority: Optional[int] = None,
+    pinned_version_id: Optional[str] = None,
+) -> RAGResult:
+    metadata = dict(payload.get("metadata") or {})
+    metadata.setdefault("source_project_id", source_project_id)
+    metadata.setdefault("source_scope", source_scope)
+    if retrieval_diagnostics:
+        metadata.setdefault("stratumind_diagnostics", retrieval_diagnostics)
+    if relation_type is not None:
+        metadata.setdefault("reference_relation_type", relation_type)
+    if reference_mode is not None:
+        metadata.setdefault("reference_mode", reference_mode)
+    if reference_priority is not None:
+        metadata.setdefault("reference_priority", reference_priority)
+    if pinned_version_id is not None:
+        metadata.setdefault("pinned_version_id", pinned_version_id)
+    return RAGResult(
+        chunk_id=str(payload.get("chunk_id") or ""),
+        content=str(payload.get("content") or ""),
+        score=float(payload.get("score") or 0.0),
+        source=SourceReference(
+            chunk_id=str(payload.get("chunk_id") or ""),
+            source_type=payload.get("source_type")
+            or metadata.get("source_type")
+            or "document",
+            filename=str(payload.get("filename") or ""),
+            page_number=payload.get("page_number"),
+        ),
+        metadata=metadata,
+    )
 
 
 async def search(
@@ -58,84 +96,103 @@ async def search(
     score_threshold: float = 0.0,
     session_id: Optional[str] = None,
 ) -> list[RAGResult]:
-    collection = service._vector.get_collection_if_exists(project_id)
-    collection_size = 0
-    if collection is not None:
-        collection_size = collection.count()
-    if collection is None or collection_size == 0:
-        collection = None
-
-    query_embedding = await service._embedding.embed_text(query)
-    base_where = build_where_clause(filters=filters)
     result_sets = []
-    session_where = build_where_clause(session_id=session_id, filters=filters)
-
-    if collection is not None and session_where is not None:
-        local_session_result = query_collection(
-            collection,
-            query_embedding,
-            top_k,
-            session_where,
-            collection_size=collection_size,
-        )
-        if local_session_result is not None:
-            result_sets.append(
-                (
-                    local_session_result,
-                    {
-                        "source_project_id": project_id,
-                        "source_scope": "local_session",
-                    },
-                )
+    if session_id:
+        try:
+            local_session_result = await service._client.search_text(
+                project_id=project_id,
+                query=query,
+                top_k=top_k,
+                session_id=session_id,
+                filters=filters,
+                planning=_search_planning_hints(
+                    source_scope="local_session", session_id=session_id
+                ),
+                response=_search_response_options(),
             )
-    if collection is not None:
-        local_project_result = query_collection(
-            collection,
-            query_embedding,
-            top_k,
-            base_where,
-            collection_size=collection_size,
+            if local_session_result.get("results"):
+                result_sets.append(
+                    (
+                        local_session_result["results"],
+                        {
+                            "source_project_id": project_id,
+                            "source_scope": "local_session",
+                            "retrieval_diagnostics": _diagnostics_from_response(
+                                local_session_result
+                            ),
+                        },
+                    )
+                )
+        except StratumindClientError as exc:
+            if exc.code != "PROJECT_NOT_INDEXED":
+                raise
+
+    try:
+        local_project_result = await service._client.search_text(
+            project_id=project_id,
+            query=query,
+            top_k=top_k,
+            session_id=None,
+            filters=filters,
+            planning=_search_planning_hints(
+                source_scope="local_project", session_id=None
+            ),
+            response=_search_response_options(),
         )
-        if local_project_result is not None:
+        if local_project_result.get("results"):
             result_sets.append(
                 (
-                    local_project_result,
+                    local_project_result["results"],
                     {
                         "source_project_id": project_id,
                         "source_scope": "local_project",
+                        "retrieval_diagnostics": _diagnostics_from_response(
+                            local_project_result
+                        ),
                     },
                 )
             )
+    except StratumindClientError as exc:
+        if exc.code != "PROJECT_NOT_INDEXED":
+            raise
 
     if not (filters and filters.get("file_ids")):
-        for target in await _list_active_reference_targets(project_id):
-            target_collection = service._vector.get_collection_if_exists(
-                target["source_project_id"]
-            )
-            if target_collection is None:
-                continue
-            target_collection_size = target_collection.count()
-            if target_collection_size == 0:
-                continue
-            target_result = query_collection(
-                target_collection,
-                query_embedding,
-                top_k,
-                base_where,
-                collection_size=target_collection_size,
-            )
-            if target_result is None:
+        for target in await list_active_reference_targets(project_id):
+            try:
+                target_result = await service._client.search_text(
+                    project_id=target["source_project_id"],
+                    query=query,
+                    top_k=top_k,
+                    session_id=None,
+                    filters=filters,
+                    planning=_search_planning_hints(
+                        source_scope=str(target.get("source_scope") or ""),
+                        session_id=None,
+                    ),
+                    response=_search_response_options(),
+                )
+            except StratumindClientError as exc:
+                if exc.code == "PROJECT_NOT_INDEXED":
+                    continue
+                raise
+            if not target_result.get("results"):
                 continue
             result_sets.append(
                 (
-                    target_result,
-                    target,
+                    target_result["results"],
+                    {
+                        **target,
+                        "retrieval_diagnostics": _diagnostics_from_response(
+                            target_result
+                        ),
+                    },
                 )
             )
 
     merged_by_chunk: dict[str, RAGResult] = {}
-    for raw_result, source_info in result_sets:
-        for item in build_rag_results(raw_result, **source_info):
+    for payloads, source_info in result_sets:
+        for payload in payloads:
+            item = _normalize_result(payload, **source_info)
             existing = merged_by_chunk.get(item.chunk_id)
             if existing is None or sort_key(item) < sort_key(existing):
                 merged_by_chunk[item.chunk_id] = item
@@ -149,14 +206,77 @@ async def search(
 
 async def get_chunk_detail(service, chunk_id: str, project_id: Optional[str] = None):
     if project_id:
-        detail = await get_chunk_from_collection(service, chunk_id, project_id)
-        if detail is not None:
-            return detail
-        for target in await _list_active_reference_targets(project_id):
-            detail = await get_chunk_from_collection(
-                service, chunk_id, target["source_project_id"]
+        try:
+            detail_payload = await service._client.get_source_detail(
+                project_id=project_id,
+                chunk_id=chunk_id,
             )
-            if detail is not None:
+        except StratumindClientError as exc:
+            if exc.code != "NOT_FOUND":
+                raise
+            detail_payload = None
+        if detail_payload is not None:
+            return SourceDetail(
+                chunk_id=str(detail_payload.get("chunk_id") or chunk_id),
+                content=str(detail_payload.get("content") or ""),
+                source=SourceReference(
+                    chunk_id=str(detail_payload.get("chunk_id") or chunk_id),
+                    source_type=detail_payload.get("source_type") or "document",
+                    filename=str(detail_payload.get("filename") or ""),
+                    page_number=detail_payload.get("page_number"),
+                ),
+                context=(
+                    ChunkContext(
+                        previous_chunk=str(
+                            (detail_payload.get("context") or {}).get("previous_chunk")
+                            or ""
+                        ),
+                        next_chunk=str(
+                            (detail_payload.get("context") or {}).get("next_chunk")
+                            or ""
+                        ),
+                    )
+                    if detail_payload.get("context")
+                    else None
+                ),
+            )
+        for target in await list_active_reference_targets(project_id):
+            try:
+                detail_payload = await service._client.get_source_detail(
+                    project_id=target["source_project_id"],
+                    chunk_id=chunk_id,
+                )
+            except StratumindClientError as exc:
+                if exc.code == "NOT_FOUND":
+                    continue
+                raise
+            if detail_payload is not None:
+                detail = SourceDetail(
+                    chunk_id=str(detail_payload.get("chunk_id") or chunk_id),
+                    content=str(detail_payload.get("content") or ""),
+                    source=SourceReference(
+                        chunk_id=str(detail_payload.get("chunk_id") or chunk_id),
+                        source_type=detail_payload.get("source_type") or "document",
+                        filename=str(detail_payload.get("filename") or ""),
+                        page_number=detail_payload.get("page_number"),
+                    ),
+                    context=(
+                        ChunkContext(
+                            previous_chunk=str(
+                                (detail_payload.get("context") or {}).get(
+                                    "previous_chunk"
+                                )
+                                or ""
+                            ),
+                            next_chunk=str(
+                                (detail_payload.get("context") or {}).get("next_chunk")
+                                or ""
+                            ),
+                        )
+                        if detail_payload.get("context")
+                        else None
+                    ),
+                )
                 if detail.file_info is None:
                     detail.file_info = {}
                 detail.file_info.update(

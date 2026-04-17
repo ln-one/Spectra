@@ -13,17 +13,13 @@ from fastapi import (
 )
 
 from services.file_upload_service import (
-    apply_mineru_parse_result_response,
     batch_upload_files_response,
-    trigger_fallback_parse_response,
     upload_file_response,
 )
 from utils.dependencies import get_current_user
 from utils.exceptions import APIException, InternalServerException
 
 from .shared import (
-    MineruParseResultRequest,
-    TriggerFallbackParseRequest,
     logger,
 )
 
@@ -37,7 +33,6 @@ async def upload_file(
     file: UploadFile = File(...),
     project_id: str = Form(...),
     session_id: Optional[str] = Form(None),
-    defer_parse: bool = Form(False),
     user_id: str = Depends(get_current_user),
     idempotency_key: Optional[UUID] = Header(None, alias="Idempotency-Key"),
 ):
@@ -50,7 +45,6 @@ async def upload_file(
             session_id=session_id,
             user_id=user_id,
             idempotency_key=str(idempotency_key) if idempotency_key else None,
-            defer_parse=defer_parse,
         )
         logger.info(
             "file_uploaded",
@@ -59,7 +53,6 @@ async def upload_file(
                 "project_id": project_id,
                 "upload_filename": file.filename,
                 "session_id": session_id,
-                "defer_parse": defer_parse,
                 "idempotency_key": bool(idempotency_key),
             },
         )
@@ -86,7 +79,6 @@ async def batch_upload_files(
     files: list[UploadFile] = File(...),
     project_id: str = Form(...),
     session_id: Optional[str] = Form(None),
-    defer_parse: bool = Form(False),
     user_id: str = Depends(get_current_user),
     idempotency_key: Optional[UUID] = Header(None, alias="Idempotency-Key"),
 ):
@@ -99,7 +91,6 @@ async def batch_upload_files(
             session_id=session_id,
             user_id=user_id,
             idempotency_key=str(idempotency_key) if idempotency_key else None,
-            defer_parse=defer_parse,
         )
         payload = response["data"]
         logger.info(
@@ -110,7 +101,6 @@ async def batch_upload_files(
                 "success_count": payload["total"],
                 "failed_count": len(payload["failed"] or []),
                 "session_id": session_id,
-                "defer_parse": defer_parse,
                 "idempotency_key": bool(idempotency_key),
             },
         )
@@ -127,64 +117,4 @@ async def batch_upload_files(
         raise InternalServerException(
             message="批量上传文件失败",
             details={"project_id": project_id, "session_id": session_id},
-        )
-
-
-@router.post("/{file_id}/parse/mineru")
-async def apply_mineru_parse_result(
-    file_id: str,
-    payload: MineruParseResultRequest,
-    user_id: str = Depends(get_current_user),
-):
-    try:
-        return await apply_mineru_parse_result_response(
-            file_id=file_id,
-            user_id=user_id,
-            parsed_text=payload.parsed_text,
-            parse_details=payload.parse_details,
-            session_id=payload.session_id,
-        )
-    except APIException:
-        raise
-    except Exception as exc:
-        logger.error(
-            "Failed to apply MinerU parse result: %s",
-            exc,
-            extra={"user_id": user_id, "file_id": file_id},
-            exc_info=True,
-        )
-        raise InternalServerException(
-            message="MinerU 解析结果同步失败",
-            details={"file_id": file_id},
-        )
-
-
-@router.post("/{file_id}/parse/fallback")
-async def trigger_fallback_parse(
-    request: Request,
-    background_tasks: BackgroundTasks,
-    file_id: str,
-    payload: TriggerFallbackParseRequest,
-    user_id: str = Depends(get_current_user),
-):
-    try:
-        return await trigger_fallback_parse_response(
-            request=request,
-            background_tasks=background_tasks,
-            file_id=file_id,
-            user_id=user_id,
-            session_id=payload.session_id,
-        )
-    except APIException:
-        raise
-    except Exception as exc:
-        logger.error(
-            "Failed to trigger fallback parse: %s",
-            exc,
-            extra={"user_id": user_id, "file_id": file_id},
-            exc_info=True,
-        )
-        raise InternalServerException(
-            message="触发降级解析失败",
-            details={"file_id": file_id},
         )

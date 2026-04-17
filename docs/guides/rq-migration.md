@@ -1,5 +1,8 @@
 # RQ 任务队列迁移指南
 
+> Status: `historical`
+> Warning: this document describes an older migration stage. It is useful as queue migration context, but it is not the source of truth for the current generation model.
+
 > 从 FastAPI BackgroundTasks 升级到 RQ (Redis Queue) 异步任务队列系统
 
 ## 概述
@@ -106,6 +109,8 @@ RQ_FAILURE_TTL=604800  # 失败记录保留 7 天
 #### 2.1 更新 Prisma Schema
 
 已在 `GenerationTask` 模型中添加新字段：
+
+> 注：`GenerationTask` 现仅应理解为历史执行基础设施术语，不是当前产品主模型。
 ```prisma
 model GenerationTask {
   // ... 其他字段

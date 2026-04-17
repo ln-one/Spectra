@@ -1,7 +1,7 @@
 """
 Embedding Service - 文本向量化
 
-支持 DashScope text-embedding-v4 / qwen3-vl-embedding 和 sentence-transformers 本地模型（备选）。
+支持 DashScope text-embedding-v3 / qwen3-vl-embedding 和 sentence-transformers 本地模型（备选）。
 """
 
 import logging
@@ -34,11 +34,11 @@ _NO_FALLBACK_LOG_MESSAGE = (
 
 
 def _resolve_embedding_model() -> str:
-    return os.getenv("EMBEDDING_MODEL", "text-embedding-v4")
+    return os.getenv("EMBEDDING_MODEL", "text-embedding-v3")
 
 
 def _resolve_embedding_dimension() -> int:
-    return int(os.getenv("EMBEDDING_DIMENSION", "1536"))
+    return int(os.getenv("EMBEDDING_DIMENSION", "1024"))
 
 
 def _resolve_dashscope_api_key() -> str:
@@ -99,7 +99,7 @@ class EmbeddingService:
         model_name = (self._model or "").strip().lower()
         if _is_multimodal_embedding_model(model_name):
             return MULTIMODAL_EMBEDDING_BATCH_LIMIT
-        if model_name == "text-embedding-v4":
+        if model_name in {"text-embedding-v3", "text-embedding-v4"}:
             return TEXT_EMBEDDING_V4_BATCH_LIMIT
         return DEFAULT_DASHSCOPE_BATCH_LIMIT
 

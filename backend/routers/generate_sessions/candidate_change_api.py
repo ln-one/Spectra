@@ -16,7 +16,7 @@ from routers.generate_sessions.shared import (
     parse_idempotency_key,
 )
 from services.database import db_service
-from services.project_space_service import project_space_service
+from services.project_space_service.service import project_space_service
 from utils.dependencies import get_current_user
 from utils.responses import success_response
 

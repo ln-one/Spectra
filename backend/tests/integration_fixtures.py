@@ -6,7 +6,7 @@
 
 import pytest
 
-from services.generation import CoursewareContent
+from services.generation.types import CoursewareContent
 
 
 @pytest.fixture

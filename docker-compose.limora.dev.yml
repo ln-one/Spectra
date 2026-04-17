@@ -1,0 +1,9 @@
+services:
+  limora:
+    image: spectra-limora:dev
+    build:
+      context: ./limora
+      dockerfile: Dockerfile.dev
+    volumes:
+      - ./limora:/app
+      - /app/node_modules

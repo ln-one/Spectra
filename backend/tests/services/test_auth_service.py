@@ -1,157 +1,18 @@
-"""Unit tests for auth service and user database methods (Batch C2)."""
+"""Tests for local identity mirror helpers."""
 
-from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
-import jwt
 import pytest
 
-import services.auth_service as auth_module
 from services.auth_service import AuthService
 from services.database import DatabaseService
-
-
-@pytest.fixture
-def auth_service() -> AuthService:
-    return AuthService()
-
-
-def test_hash_and_verify_password_success(auth_service: AuthService):
-    password = "StrongPwd123!"
-    hashed = auth_service.hash_password(password)
-
-    assert hashed != password
-    assert auth_service.verify_password(password, hashed) is True
-
-
-def test_verify_password_fail_for_wrong_password(auth_service: AuthService):
-    hashed = auth_service.hash_password("StrongPwd123!")
-
-    assert auth_service.verify_password("WrongPwd999!", hashed) is False
-
-
-def test_create_and_verify_token_success(auth_service: AuthService):
-    token = auth_service.create_token("user-001")
-    token_pair = auth_service.create_auth_tokens("user-001")
-
-    assert isinstance(token, str)
-    assert auth_service.verify_token(token) == "user-001"
-    assert auth_service.verify_refresh_token(token_pair["refresh_token"]) == "user-001"
-    assert token_pair["expires_in"] > 0
-
-
-def test_verify_token_returns_none_for_expired(auth_service: AuthService):
-    expired_payload = {
-        "sub": "user-expired",
-        "exp": datetime.now(timezone.utc) - timedelta(minutes=1),
-    }
-    token = jwt.encode(
-        expired_payload,
-        auth_module.JWT_SECRET_KEY,
-        algorithm=auth_module.JWT_ALGORITHM,
-    )
-
-    assert auth_service.verify_token(token) is None
-
-
-def test_verify_token_returns_none_for_tampered(auth_service: AuthService):
-    token = auth_service.create_token("user-001")
-
-    assert auth_service.verify_token(f"{token}tampered") is None
+from services.identity_service import IdentityService
+from services.identity_service.usernames import normalize_username
 
 
 @pytest.mark.asyncio
-async def test_create_user_hashes_password_and_calls_db(monkeypatch):
-    fake_db_service = SimpleNamespace(
-        create_user=AsyncMock(
-            return_value=SimpleNamespace(id="u1", email="u@test.com", username="u1")
-        )
-    )
-    monkeypatch.setattr(auth_module, "db_service", fake_db_service)
-
-    user = await auth_module.auth_service.create_user(
-        email="u@test.com",
-        password="StrongPwd123!",
-        username="u1",
-        full_name="User One",
-    )
-
-    assert user.email == "u@test.com"
-    fake_db_service.create_user.assert_awaited_once()
-    kwargs = fake_db_service.create_user.await_args.kwargs
-    assert kwargs["email"] == "u@test.com"
-    assert kwargs["username"] == "u1"
-    assert kwargs["full_name"] == "User One"
-    assert kwargs["password_hash"] != "StrongPwd123!"
-
-
-@pytest.mark.asyncio
-async def test_authenticate_user_success(monkeypatch):
-    service = AuthService()
-    hashed = service.hash_password("StrongPwd123!")
-    fake_user = SimpleNamespace(
-        id="u1",
-        email="u@test.com",
-        username="u1",
-        password=hashed,
-    )
-    fake_db_service = SimpleNamespace(
-        get_user_by_email=AsyncMock(return_value=fake_user)
-    )
-    monkeypatch.setattr(auth_module, "db_service", fake_db_service)
-
-    user = await service.authenticate_user("u@test.com", "StrongPwd123!")
-
-    assert user is not None
-    assert user.id == "u1"
-
-
-@pytest.mark.asyncio
-async def test_authenticate_user_fail_for_wrong_password(monkeypatch):
-    service = AuthService()
-    hashed = service.hash_password("StrongPwd123!")
-    fake_user = SimpleNamespace(
-        id="u1",
-        email="u@test.com",
-        username="u1",
-        password=hashed,
-    )
-    fake_db_service = SimpleNamespace(
-        get_user_by_email=AsyncMock(return_value=fake_user)
-    )
-    monkeypatch.setattr(auth_module, "db_service", fake_db_service)
-
-    user = await service.authenticate_user("u@test.com", "WrongPwd999!")
-
-    assert user is None
-
-
-@pytest.mark.asyncio
-async def test_authenticate_user_fail_for_missing_user(monkeypatch):
-    service = AuthService()
-    fake_db_service = SimpleNamespace(get_user_by_email=AsyncMock(return_value=None))
-    monkeypatch.setattr(auth_module, "db_service", fake_db_service)
-
-    user = await service.authenticate_user("missing@test.com", "StrongPwd123!")
-
-    assert user is None
-
-
-@pytest.mark.asyncio
-async def test_get_user_by_id_calls_db(monkeypatch):
-    fake_user = SimpleNamespace(id="u1", email="u@test.com", username="u1")
-    fake_db_service = SimpleNamespace(get_user_by_id=AsyncMock(return_value=fake_user))
-    monkeypatch.setattr(auth_module, "db_service", fake_db_service)
-
-    user = await auth_module.auth_service.get_user_by_id("u1")
-
-    assert user.id == "u1"
-    fake_db_service.get_user_by_id.assert_awaited_once_with("u1")
-
-
-@pytest.mark.asyncio
-async def test_database_create_user_maps_fields():
+async def test_database_create_user_accepts_nullable_password():
     service = DatabaseService()
     mock_user_model = SimpleNamespace(
         create=AsyncMock(return_value=SimpleNamespace(id="u1"))
@@ -160,40 +21,94 @@ async def test_database_create_user_maps_fields():
 
     await service.create_user(
         email="u@test.com",
-        password_hash="hashed-pass",
+        password_hash=None,
         username="u1",
         full_name="User One",
     )
 
-    mock_user_model.create.assert_awaited_once()
     data = mock_user_model.create.await_args.kwargs["data"]
-    assert data["email"] == "u@test.com"
-    assert data["password"] == "hashed-pass"
-    assert data["username"] == "u1"
-    assert data["fullName"] == "User One"
+    assert data["password"] is None
 
 
 @pytest.mark.asyncio
-async def test_database_get_user_helpers():
+async def test_database_upsert_user_identity_maps_fields():
     service = DatabaseService()
-    mock_user_model = SimpleNamespace(find_unique=AsyncMock(return_value=None))
+    mock_user_model = SimpleNamespace(
+        find_first=AsyncMock(return_value=None),
+        create=AsyncMock(return_value=SimpleNamespace(id="local-uuid-1")),
+    )
     service.db = SimpleNamespace(user=mock_user_model)
 
+    await service.upsert_user_identity(
+        identity_id="id-001",
+        email="u@test.com",
+        username="user_one",
+        full_name="User One",
+    )
+
+    data = mock_user_model.create.await_args.kwargs["data"]
+    assert data["identityId"] == "id-001"
+    assert data["password"] is None
+    assert data["username"] == "user_one"
+
+
+@pytest.mark.asyncio
+async def test_identity_service_reuses_existing_username(monkeypatch):
+    service = IdentityService()
+    existing = SimpleNamespace(id="id-001", username="stable_name")
+    monkeypatch.setattr(
+        service, "get_user_by_identity_id", AsyncMock(return_value=existing)
+    )
+    monkeypatch.setattr(service, "get_user_by_username", AsyncMock())
+
+    username = await service._resolve_username(
+        identity_id="id-001",
+        preferred_username="preferred",
+        email="user@example.com",
+    )
+
+    assert username == "stable_name"
+
+
+@pytest.mark.asyncio
+async def test_identity_service_adds_suffix_on_username_collision(monkeypatch):
+    service = IdentityService()
+    monkeypatch.setattr(
+        service, "get_user_by_identity_id", AsyncMock(return_value=None)
+    )
+    monkeypatch.setattr(
+        service,
+        "get_user_by_username",
+        AsyncMock(return_value=SimpleNamespace(id="other")),
+    )
+
+    username = await service._resolve_username(
+        identity_id="id-001",
+        preferred_username="teacher",
+        email="teacher@example.com",
+    )
+
+    assert username.startswith("teacher-")
+
+
+def test_identity_username_normalization_keeps_local_mirror_safe():
+    assert normalize_username(" teacher@example.com ") == "teacher_example_com"
+
+
+@pytest.mark.asyncio
+async def test_auth_service_getters_delegate_to_db(monkeypatch):
+    service = AuthService()
+    fake_db = SimpleNamespace(
+        get_user_by_email=AsyncMock(return_value=None),
+        get_user_by_username=AsyncMock(return_value=None),
+        get_user_by_id=AsyncMock(return_value=None),
+    )
+    monkeypatch.setattr("services.auth_service.db_service", fake_db)
+
     await service.get_user_by_email("u@test.com")
-    await service.get_user_by_username("u1")
+    await service.get_user_by_username("user")
     await service.get_user_by_id("id-001")
 
-    calls = [
-        call.kwargs["where"] for call in mock_user_model.find_unique.await_args_list
-    ]
-    assert {"email": "u@test.com"} in calls
-    assert {"username": "u1"} in calls
-    assert {"id": "id-001"} in calls
-
-
-def test_verify_token_rejects_type_mismatch(auth_service: AuthService):
-    access = auth_service.create_access_token("user-001")
-    refresh = auth_service.create_refresh_token("user-001")
-
-    assert auth_service.verify_token(refresh, expected_type="access") is None
-    assert auth_service.verify_token(access, expected_type="refresh") is None
+    fake_db.get_user_by_email.assert_awaited_once_with("u@test.com")
+    fake_db.get_user_by_username.assert_awaited_once_with("user")
+    fake_db.get_user_by_id.assert_awaited_once_with("id-001")

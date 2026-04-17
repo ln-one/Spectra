@@ -1,20 +1,19 @@
 import asyncio
 from typing import Optional
 
-from schemas.generation import TaskStatus
-from schemas.project_semantics import (
-    normalize_project_reference_mode,
-    validate_project_sharing_rules,
-)
-from schemas.project_space import ReferenceRelationType
-from schemas.project_vocabulary import ProjectReferenceMode
+from schemas.project_semantics import validate_project_sharing_rules
 from schemas.projects import ProjectCreate
-from services.database.prisma_compat import find_many_with_select_fallback
 from services.library_semantics import SILENT_ACCRETION_USAGE_INTENT
-from utils.exceptions import APIException, NotFoundException, ValidationException
+from utils.exceptions import NotFoundException
 
 
 class ProjectMixin:
+    @staticmethod
+    def _read_field(record, field_name: str):
+        if isinstance(record, dict):
+            return record.get(field_name)
+        return getattr(record, field_name, None)
+
     @staticmethod
     def _project_file_where(project_id: str) -> dict:
         return {
@@ -42,50 +41,7 @@ class ProjectMixin:
         if getattr(project_data, "is_referenceable", None) is not None:
             data["isReferenceable"] = is_referenceable
 
-        project = await self.db.project.create(data=data)
-
-        base_project_id = getattr(project_data, "base_project_id", None)
-        if base_project_id:
-            try:
-                base_project = await self.get_project(base_project_id)
-                if not base_project:
-                    raise NotFoundException(
-                        message=f"基底项目不存在: {base_project_id}"
-                    )
-
-                reference_mode = normalize_project_reference_mode(
-                    getattr(project_data, "reference_mode", ProjectReferenceMode.FOLLOW)
-                )
-                reference_mode_value = reference_mode.value
-
-                pinned_version_id = None
-                if reference_mode_value == ProjectReferenceMode.PINNED.value:
-                    pinned_version_id = getattr(base_project, "currentVersionId", None)
-                    if not pinned_version_id:
-                        raise ValidationException(
-                            message=(
-                                "reference_mode=pinned 时，"
-                                "基底项目必须存在 current_version_id"
-                            )
-                        )
-
-                await self.create_project_reference(
-                    project_id=project.id,
-                    target_project_id=base_project_id,
-                    relation_type=ReferenceRelationType.BASE.value,
-                    mode=reference_mode_value,
-                    pinned_version_id=pinned_version_id,
-                    priority=0,
-                    created_by=user_id,
-                )
-            except APIException:
-                await self.delete_project(project.id)
-                raise
-            except Exception as exc:
-                await self.delete_project(project.id)
-                raise ValidationException(message=f"创建基底引用失败: {exc}")
-
-        return project
+        return await self.db.project.create(data=data)
 
     async def get_project(self, project_id: str):
         return await self.db.project.find_unique(where={"id": project_id})
@@ -176,14 +132,14 @@ class ProjectMixin:
 
     async def get_project_statistics(self, project_id: str) -> dict:
         file_where = self._project_file_where(project_id)
-        project, files_count, messages_count, tasks_count, completed_count = (
+        project, files_count, messages_count, session_count, success_count = (
             await asyncio.gather(
                 self.db.project.find_unique(where={"id": project_id}),
                 self.db.upload.count(where=file_where),
                 self.db.conversation.count(where={"projectId": project_id}),
-                self.db.generationtask.count(where={"projectId": project_id}),
-                self.db.generationtask.count(
-                    where={"projectId": project_id, "status": TaskStatus.COMPLETED}
+                self.db.generationsession.count(where={"projectId": project_id}),
+                self.db.generationsession.count(
+                    where={"projectId": project_id, "state": "SUCCESS"}
                 ),
             )
         )
@@ -207,21 +163,18 @@ class ProjectMixin:
             except (TypeError, ValueError, AttributeError):
                 aggregate_available = False
         if not aggregate_available:
-            uploads = await find_many_with_select_fallback(
-                model=self.db.upload,
+            uploads = await self.db.upload.find_many(
                 where=file_where,
-                select={"size": True},
             )
             total_file_size = sum(
-                int((item.get("size") if isinstance(item, dict) else item.size) or 0)
-                for item in uploads
+                int((self._read_field(item, "size")) or 0) for item in uploads
             )
         return {
             "project_id": project_id,
             "files_count": files_count,
             "messages_count": messages_count,
-            "generation_tasks_count": tasks_count,
-            "completed_tasks_count": completed_count,
+            "generation_tasks_count": session_count,
+            "completed_tasks_count": success_count,
             "total_file_size": total_file_size,
             "last_activity": project.updatedAt if project else None,
             "created_at": project.createdAt if project else None,

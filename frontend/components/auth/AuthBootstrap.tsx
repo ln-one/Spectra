@@ -1,24 +1,20 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useAuthStore } from "@/stores/authStore";
-import { AUTH_STATE_CHANGE_EVENT, authService, TokenStorage } from "@/lib/auth";
+import { AUTH_STATE_CHANGE_EVENT } from "@/lib/auth";
 
 export function AuthBootstrap() {
-  const { user, isLoading, checkAuth, setUser } = useAuthStore();
+  const { isCheckingSession, checkAuth } = useAuthStore();
+  const hasBootstrappedRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
-    if (user || isLoading) return;
+    if (hasBootstrappedRef.current) return;
+    hasBootstrappedRef.current = true;
 
     const bootstrap = async () => {
-      let token = TokenStorage.getAccessToken();
-      if (!token && TokenStorage.getRefreshToken()) {
-        const refreshed = await authService.refreshToken();
-        if (!refreshed || cancelled) return;
-        token = TokenStorage.getAccessToken();
-      }
-      if (token && !cancelled) {
+      if (!cancelled) {
         await checkAuth();
       }
     };
@@ -27,25 +23,16 @@ export function AuthBootstrap() {
     return () => {
       cancelled = true;
     };
-  }, [checkAuth, isLoading, user]);
+  }, [checkAuth]);
 
   useEffect(() => {
     const syncAuthState = () => {
+      if (isCheckingSession) {
+        return;
+      }
+
       const sync = async () => {
-        let token = TokenStorage.getAccessToken();
-        if (!token && TokenStorage.getRefreshToken()) {
-          const refreshed = await authService.refreshToken();
-          if (refreshed) {
-            token = TokenStorage.getAccessToken();
-          }
-        }
-        if (!token) {
-          setUser(null);
-          return;
-        }
-        if (!user && !isLoading) {
-          await checkAuth();
-        }
+        await checkAuth();
       };
 
       void sync();
@@ -58,7 +45,7 @@ export function AuthBootstrap() {
       window.removeEventListener(AUTH_STATE_CHANGE_EVENT, syncAuthState);
       window.removeEventListener("storage", syncAuthState);
     };
-  }, [checkAuth, isLoading, setUser, user]);
+  }, [checkAuth, isCheckingSession]);
 
   return null;
 }

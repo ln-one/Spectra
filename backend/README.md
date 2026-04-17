@@ -1,6 +1,22 @@
 # Backend
 
-The FastAPI backend has moved from a flat, oversized structure into a package-oriented layout with clearer partitions and stronger semantic boundaries.
+> Status: `current`
+> Role: backend runtime entry for the Spectra workflow shell.
+
+The FastAPI backend is now the Spectra workflow shell. It owns Session, events,
+task orchestration, API aggregation, download binding, and anti-corruption
+layers around the six authority services; formal product capabilities live in
+those external services.
+
+More precisely, Spectra backend should now be read as:
+
+- a `workflow shell`
+- an `orchestration kernel`
+- a `contract surface`
+
+It is not a traditional monolith, and it is not a hollow gateway. It still
+retains a few local support organs, but they must remain explicitly classified
+and must not regrow into second capability authorities.
 
 ## Key Directories
 
@@ -13,36 +29,47 @@ The FastAPI backend has moved from a flat, oversized structure into a package-or
 
 ## Current Service Partitions
 
-### application
-- `file_upload_service/`
+### workflow shell
+- `ai/`
+- `prompt_service/`
+- `generation_session_service/`
+- `platform/`
+- `preview_helpers/`
+- `task_queue/`
+- `task_executor/`
 - `application/project_api.py`
 - `application/file_management.py`
-- `rag_api_service/`
-- `project_space_service/`
 
-### generation
-- `generation_session_service/`
-- `courseware_ai/`
-- `preview_helpers/`
-- `artifact_generator/`
-- `task_executor/`
+These are kernel organs that Spectra should continue to own.
 
-### media
-- `media/audio.py`
-- `media/video.py`
-- `media/web_search.py`
-- `media/embedding.py`
-- `media/vector.py`
-- `media/rag_indexing.py`
+### external capability adapters
+- `diego_client.py`: Diego AI PPT generation
+- `render_engine_adapter.py`: Pagevra legacy structured compatibility adapter for `/render/*`
+- `ourograph_client.py`: Ourograph formal project-space state
+- `platform/dualweave_client.py`: Dualweave upload/parse workflow
+- `stratumind_client.py`: Stratumind retrieval/vector recall
+- `platform/limora_client.py`: Limora identity container
+- `project_space_service/`: thin Ourograph facade only
 
-### platform
-- `platform/`
-- `ai/`
-- `ai/model_router.py`
-- `prompt_service/`
+These are anti-corruption layers, not upstream domain owners.
+
+### transitional local support
 - `database/`
-- `task_queue/`
-- `auth_service.py`
+- `media/`
+- `rag_api_service/`
+- `file_parser/`
+- `artifact_generator/`: non-office file helpers only
+
+These are allowed only as local support organs. They must not redefine formal
+product truth or bypass the six authority services.
+
+### residual legacy watchlist
+
+- `generation/`
+- `generation_session_service/outline_draft/` residual shadow area; current source should not regrow there
+- any module that makes backend look like it still owns formal render / state / identity truth
+
+Do not add backend-local replacements for the six authority services.
 
 ## Common Commands
 
@@ -68,9 +95,11 @@ cd backend
 ## Development Constraints
 
 - routers should not accumulate complex business orchestration
-- new production code should prefer explicit imports over `from services import ...`
+- new production code must use explicit imports; `from services import ...` is tests-only compatibility
 - files above `300` lines deserve review; above `500` lines should normally be split
 - new modules should prefer the folder-as-module pattern when complexity warrants it
+- backend-local Marp/Pandoc/PPTX/DOCX generation is not a production path; prefer Diego authority artifacts and Pagevra compile/preview outputs before any structured compatibility render
+- `project_space_service` is a facade over Ourograph, not a formal-state implementation
 
 ## Read Alongside This
 

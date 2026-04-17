@@ -103,7 +103,7 @@ class SystemSettingsService:
 
     def _build_default_payload(self) -> dict[str, Any]:
         default_model = os.getenv("DEFAULT_MODEL", "qwen3.5-flash")
-        chat_timeout_seconds = _env_int("CHAT_RESPONSE_TIMEOUT_SECONDS", 90)
+        chat_timeout_seconds = _env_int("CHAT_RESPONSE_TIMEOUT_SECONDS", 300)
         return {
             "models": {
                 "default_model": default_model,

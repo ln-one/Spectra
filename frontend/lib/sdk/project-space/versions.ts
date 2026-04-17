@@ -1,4 +1,4 @@
-﻿import { MOCK_MODE, sdkClient, unwrap } from "./base";
+import { MOCK_MODE, sdkClient, unwrap } from "./base";
 import { createMockVersion } from "./mocks";
 import type { ProjectVersionResponse, ProjectVersionsResponse } from "./types";
 
@@ -7,21 +7,18 @@ export async function getVersions(
 ): Promise<ProjectVersionsResponse> {
   if (MOCK_MODE) {
     return {
-      success: true,
-      data: {
-        versions: [
-          createMockVersion(projectId, 3),
-          createMockVersion(projectId, 2),
-          createMockVersion(projectId, 1),
-        ],
-      },
-      message: "mock versions",
+      versions: [
+        createMockVersion(projectId, 3),
+        createMockVersion(projectId, 2),
+        createMockVersion(projectId, 1),
+      ],
+      currentVersionId: "ver_mock_3",
     };
   }
   const result = await sdkClient.GET("/api/v1/projects/{project_id}/versions", {
     params: { path: { project_id: projectId } },
   });
-  return unwrap<ProjectVersionsResponse>(result);
+  return await unwrap<ProjectVersionsResponse>(result);
 }
 
 export async function getVersion(
@@ -30,11 +27,7 @@ export async function getVersion(
 ): Promise<ProjectVersionResponse> {
   if (MOCK_MODE) {
     return {
-      success: true,
-      data: {
-        version: { ...createMockVersion(projectId, 3), id: versionId },
-      },
-      message: "mock version detail",
+      version: { ...createMockVersion(projectId, 3), id: versionId },
     };
   }
   const result = await sdkClient.GET(
@@ -43,5 +36,5 @@ export async function getVersion(
       params: { path: { project_id: projectId, version_id: versionId } },
     }
   );
-  return unwrap<ProjectVersionResponse>(result);
+  return await unwrap<ProjectVersionResponse>(result);
 }

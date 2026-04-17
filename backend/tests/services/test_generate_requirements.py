@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
@@ -100,3 +101,30 @@ async def test_build_user_requirements_missing_project_returns_default():
     db_service.get_project.return_value = None
     requirement = await _build_user_requirements(db_service, "proj_404")
     assert requirement == "生成课件"
+
+
+@pytest.mark.asyncio
+async def test_build_user_requirements_loads_selected_uploads_with_select():
+    project = MockProject(name="项目名", description="基础描述")
+    db_service = AsyncMock()
+    db_service.get_project.return_value = project
+    db_service.get_recent_conversation_messages.return_value = []
+    db_service.db.upload.find_many = AsyncMock(
+        return_value=[
+            {"filename": "chapter-1.pdf", "status": "ready"},
+            SimpleNamespace(filename="chapter-2.pdf", status="processing"),
+        ]
+    )
+
+    requirement = await _build_user_requirements(
+        db_service,
+        "proj_1",
+        rag_source_ids=["u-1", "u-2"],
+    )
+
+    assert "chapter-1.pdf（状态：ready）" in requirement
+    assert "chapter-2.pdf（状态：processing）" in requirement
+    db_service.db.upload.find_many.assert_awaited_once_with(
+        where={"projectId": "proj_1", "id": {"in": ["u-1", "u-2"]}},
+        select={"filename": True, "status": True},
+    )

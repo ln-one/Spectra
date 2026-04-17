@@ -34,7 +34,7 @@
 6. 提交前校验
 - Mermaid 语法可解析。
 - 关键链接存在。
-- pre-commit 全部通过。
+- 至少完成与改动相关的手动校验；`pre-commit` 脚本按需手动运行。
 
 ## 3. 文档状态定义
 
@@ -53,4 +53,3 @@
 
 - 按主题提交：`docs(architecture)`、`docs(standards)`。
 - 一次提交只包含一个目标（例如“修 Mermaid + 对齐入口”）。
-

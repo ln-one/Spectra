@@ -1,0 +1,11 @@
+services:
+  ourograph:
+    image: spectra-ourograph:dev
+    build:
+      context: ./ourograph
+      dockerfile: Dockerfile.dev
+    healthcheck:
+      start_period: 180s
+    volumes:
+      - ./ourograph:/app
+      - runtime_data:/var/lib/spectra
