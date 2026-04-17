@@ -8,10 +8,17 @@ import {
   ChevronLeft,
   ChevronRight,
   Download,
-  Expand,
+  LayoutGrid,
   Loader2,
+  Menu,
+  MonitorPlay,
   Play,
-  RefreshCw,
+  Save,
+  Square,
+  Table,
+  Type,
+  Image as ImageIcon,
+  FunctionSquare,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { HtmlPreviewFrame } from "./components/HtmlPreviewFrame";
@@ -108,12 +115,10 @@ export default function StreamingWorkbenchPageView() {
     isResuming,
     previewBlockedReason,
     isSessionGenerating,
-    sessionState,
     sessionFailureMessage,
     activeSessionId,
     activeRunId,
     diegoPreviewContext,
-    loadSlides,
     handleExport,
     handleResume,
   } = useGeneratePreviewState({
@@ -226,223 +231,246 @@ export default function StreamingWorkbenchPageView() {
     !isLoading &&
     previewableSlides.length === 0;
 
+  const totalSlides = previewableSlides.length;
+  const currentSlideNumber = activeSlidePos >= 0 ? activeSlidePos + 1 : 0;
+
   return (
     <div
       style={stageVars}
-      className="min-h-screen bg-[radial-gradient(110%_160%_at_8%_2%,_rgba(255,255,255,0.22)_0%,_rgba(255,255,255,0)_58%),linear-gradient(145deg,var(--deck-primary)_0%,#05070b_52%,#000_100%)] text-white"
+      className="flex h-screen w-full flex-col overflow-hidden bg-[#f5f5f7] text-[#1d1d1f]"
     >
-      <div className="relative mx-auto flex min-h-screen w-full max-w-[1680px] flex-col px-4 pb-6 pt-5 md:px-8 md:pb-8 md:pt-7">
-        <header className="mb-5 rounded-2xl border border-white/15 bg-white/5 px-4 py-3 backdrop-blur md:px-5 md:py-4">
-          <div className="flex flex-wrap items-center gap-3">
+      {/* Top header */}
+      <header className="flex h-14 shrink-0 items-center justify-between border-b border-black/5 bg-white px-4">
+        <div className="flex items-center gap-3 min-w-0">
+          <button
+            type="button"
+            onClick={() => router.push(projectBackHref(activeSessionId))}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-[#1d1d1f] transition hover:bg-black/5"
+            title="返回会话"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </button>
+
+          <div className="hidden h-5 w-px bg-black/10 sm:block" />
+
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="shrink-0 rounded bg-[#3b82f6]/10 px-1.5 py-0.5 text-[11px] font-medium text-[#3b82f6]">
+              智能
+            </span>
+            <h1 className="truncate text-sm font-medium text-[#1d1d1f] sm:text-base">
+              区块链已死？ ——为什么联盟链救不了区块链
+            </h1>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-black/10 bg-white px-3 text-sm font-medium text-[#1d1d1f] transition hover:bg-black/5"
+          >
+            <Save className="h-4 w-4" />
+            <span className="hidden sm:inline">保存</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setIsFullscreen(true)}
+            disabled={!activeSlide || !activeFrame}
+            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-black/10 bg-white px-3 text-sm font-medium text-[#1d1d1f] transition hover:bg-black/5 disabled:opacity-40"
+          >
+            <MonitorPlay className="h-4 w-4" />
+            <span className="hidden sm:inline">放映</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => void handleExport()}
+            disabled={!activeRunId || isExporting}
+            className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-[#1d1d1f] px-3 text-sm font-medium text-white transition hover:bg-black/80 disabled:opacity-50"
+          >
+            <Download className="h-4 w-4" />
+            <span className="hidden sm:inline">
+              {isExporting ? "导出中" : "导出"}
+            </span>
+          </button>
+        </div>
+      </header>
+
+      <div className="flex flex-1 overflow-hidden">
+        {/* Left sidebar */}
+        <aside className="flex w-60 shrink-0 flex-col border-r border-black/5 bg-white">
+          {/* Slide count + grid toggle */}
+          <div className="flex items-center justify-between px-4 py-3">
+            <div className="text-sm font-medium text-[#1d1d1f]">
+              {totalSlides > 0 ? (
+                <>
+                  <span className="text-[#3b82f6]">
+                    {String(currentSlideNumber).padStart(2, "0")}
+                  </span>
+                  <span className="text-black/30"> / </span>
+                  <span className="text-black/60">
+                    {String(totalSlides).padStart(2, "0")}
+                  </span>
+                </>
+              ) : (
+                <span className="text-black/40">-- / --</span>
+              )}
+            </div>
             <button
               type="button"
-              onClick={() => router.push(projectBackHref(activeSessionId))}
-              className="inline-flex h-10 items-center gap-2 rounded-full border border-white/20 bg-black/35 px-3 text-sm font-medium text-white transition hover:bg-black/55"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-black/50 transition hover:bg-black/5 hover:text-black"
             >
-              <ArrowLeft className="h-4 w-4" />
-              返回
+              <LayoutGrid className="h-4 w-4" />
             </button>
-
-            <div className="min-w-[280px] flex-1">
-              <p
-                className="text-[11px] uppercase tracking-[0.24em] text-white/65"
-                style={{ fontFamily: '"Courier New", "SFMono-Regular", monospace' }}
-              >
-                Diego Preview Stage
-              </p>
-              <h1
-                className="mt-1 text-xl font-semibold md:text-2xl"
-                style={{
-                  fontFamily:
-                    '"Noto Serif SC","Source Han Serif SC","Palatino Linotype",serif',
-                }}
-              >
-                /generate PPT 预览
-              </h1>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2">
-              <label className="text-xs text-white/70">Run</label>
-              <select
-                value={activeRunId ?? ""}
-                onChange={(event) => updateRunInQuery(event.target.value)}
-                disabled={!activeSessionId || currentRunOptions.length === 0}
-                className="h-10 min-w-[230px] rounded-xl border border-white/20 bg-black/45 px-3 text-sm text-white outline-none transition focus:border-[var(--deck-accent)]"
-              >
-                <option value="">选择 run</option>
-                {currentRunOptions.map((item) => (
-                  <option key={item.value} value={item.value}>
-                    {item.label} · {item.status}
-                  </option>
-                ))}
-              </select>
-
-              <button
-                type="button"
-                onClick={() => {
-                  void loadSlides();
-                }}
-                className="inline-flex h-10 items-center gap-2 rounded-full border border-white/20 bg-black/35 px-3 text-sm font-medium text-white transition hover:bg-black/55"
-              >
-                <RefreshCw className="h-4 w-4" />
-                刷新
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  void handleResume();
-                }}
-                disabled={!activeSessionId || isResuming}
-                className="inline-flex h-10 items-center gap-2 rounded-full border border-white/20 bg-black/35 px-3 text-sm font-medium text-white transition hover:bg-black/55 disabled:opacity-45"
-              >
-                {isResuming ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Play className="h-4 w-4" />
-                )}
-                {isResuming ? "恢复中" : "继续会话"}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  void handleExport();
-                }}
-                disabled={!activeRunId || isExporting}
-                className="inline-flex h-10 items-center gap-2 rounded-full border border-white/20 bg-black/35 px-3 text-sm font-medium text-white transition hover:bg-black/55 disabled:opacity-45"
-              >
-                <Download className="h-4 w-4" />
-                {isExporting ? "导出中" : "导出 HTML"}
-              </button>
-            </div>
           </div>
 
-          <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-white/70">
-            <span className="rounded-full border border-white/15 bg-black/25 px-2.5 py-1">
-              session: {activeSessionId ? activeSessionId.slice(0, 12) : "n/a"}
-            </span>
-            <span className="rounded-full border border-white/15 bg-black/25 px-2.5 py-1">
-              run: {activeRunId ? activeRunId.slice(0, 12) : "未选择"}
-            </span>
-            <span className="rounded-full border border-white/15 bg-black/25 px-2.5 py-1">
-              state: {sessionState ?? "unknown"}
-            </span>
-            <span
-              className={cn(
-                "rounded-full border px-2.5 py-1",
-                isSessionGenerating
-                  ? "border-amber-200/40 bg-amber-300/15 text-amber-100"
-                  : "border-emerald-200/35 bg-emerald-300/15 text-emerald-100"
-              )}
+          {/* Run selector */}
+          <div className="px-4 pb-3">
+            <select
+              value={activeRunId ?? ""}
+              onChange={(event) => updateRunInQuery(event.target.value)}
+              disabled={!activeSessionId || currentRunOptions.length === 0}
+              className="h-8 w-full rounded-lg border border-black/10 bg-white px-2 text-xs text-[#1d1d1f] outline-none transition focus:border-[var(--deck-accent)]"
             >
-              {isSessionGenerating ? "Diego 运行中" : "Diego 已同步"}
-            </span>
-            {diegoPreviewContext?.palette ? (
-              <span className="rounded-full border border-white/15 bg-black/25 px-2.5 py-1">
-                palette: {diegoPreviewContext.palette}
-              </span>
-            ) : null}
-            {diegoPreviewContext?.style ? (
-              <span className="rounded-full border border-white/15 bg-black/25 px-2.5 py-1">
-                style: {diegoPreviewContext.style}
-              </span>
-            ) : null}
-            <span className="inline-flex items-center gap-1 rounded-full border border-white/15 bg-black/25 px-2.5 py-1">
-              <i
-                className="inline-block h-2.5 w-2.5 rounded-full border border-white/35"
-                style={{ background: themedColors.primary }}
-              />
-              <i
-                className="inline-block h-2.5 w-2.5 rounded-full border border-white/35"
-                style={{ background: themedColors.secondary }}
-              />
-              <i
-                className="inline-block h-2.5 w-2.5 rounded-full border border-white/35"
-                style={{ background: themedColors.accent }}
-              />
-              theme
-            </span>
+              <option value="">选择 run</option>
+              {currentRunOptions.map((item) => (
+                <option key={item.value} value={item.value}>
+                  {item.label} · {item.status}
+                </option>
+              ))}
+            </select>
           </div>
-        </header>
 
-        <main className="grid flex-1 grid-rows-[1fr_auto] gap-4 md:gap-5">
-          <section className="relative overflow-hidden rounded-[24px] border border-white/15 bg-black/35">
-            {sessionFailureMessage ? (
-              <div className="absolute left-4 right-4 top-4 z-20 rounded-xl border border-red-200/35 bg-red-900/35 px-3 py-2 text-sm text-red-100">
-                run 失败: {sessionFailureMessage}
-              </div>
-            ) : null}
+          {/* Thumbnails */}
+          <div className="flex-1 overflow-y-auto px-3 pb-3">
+            <div className="flex flex-col gap-2">
+              {previewableSlides.map((slide) => {
+                const slideFrames = buildSlideFrames(slide);
+                const isActive = activeSlide?.index === slide.index;
+                const firstFrame = slideFrames[0] || null;
+                return (
+                  <motion.button
+                    key={slide.id || `thumb-${slide.index}`}
+                    type="button"
+                    onClick={() => {
+                      setActiveSlideIndex(slide.index);
+                      setActiveFrameIndex(0);
+                    }}
+                    whileTap={{ scale: 0.98 }}
+                    className={cn(
+                      "group relative w-full overflow-hidden rounded-xl border text-left transition",
+                      isActive
+                        ? "border-[#3b82f6] shadow-[0_0_0_1px_rgba(59,130,246,0.15)]"
+                        : "border-black/10 hover:border-black/25"
+                    )}
+                  >
+                    <div className="aspect-video w-full bg-[#f5f5f7]">
+                      {(firstFrame?.image_url || slide.thumbnail_url) ? (
+                        <img
+                          src={firstFrame?.image_url || slide.thumbnail_url || undefined}
+                          alt={slide.title || `Slide ${slide.index + 1}`}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : firstFrame?.html_preview ? (
+                        <div className="h-full w-full">
+                          <HtmlPreviewFrame
+                            title={slide.title || `Slide ${slide.index + 1}`}
+                            html={firstFrame.html_preview}
+                            className="h-full"
+                          />
+                        </div>
+                      ) : (
+                        <div className="h-full w-full bg-gradient-to-br from-zinc-100 to-zinc-200" />
+                      )}
+                    </div>
+                    <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
+                    <span className="absolute left-2 top-2 rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+                      {String(slide.index + 1).padStart(2, "0")}
+                    </span>
+                    {slideFrames.length > 1 ? (
+                      <span className="absolute right-2 top-2 rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+                        +{slideFrames.length - 1}
+                      </span>
+                    ) : null}
+                    <span className="absolute bottom-2 left-2 right-2 line-clamp-1 text-[11px] font-medium text-white/90">
+                      {slide.title || `Slide ${slide.index + 1}`}
+                    </span>
+                  </motion.button>
+                );
+              })}
+            </div>
+          </div>
 
+
+
+          {/* Compact status footer */}
+          <div className="border-t border-black/5 px-4 py-2">
+            <div className="flex flex-wrap items-center gap-2 text-[10px] text-black/50">
+              <span
+                className={cn(
+                  "inline-flex h-1.5 w-1.5 rounded-full",
+                  isSessionGenerating ? "animate-pulse bg-amber-500" : "bg-emerald-500"
+                )}
+              />
+              <span>{isSessionGenerating ? "生成中" : "已同步"}</span>
+              {diegoPreviewContext?.palette ? (
+                <span className="rounded bg-black/5 px-1 py-0.5">
+                  {diegoPreviewContext.palette}
+                </span>
+              ) : null}
+            </div>
+          </div>
+        </aside>
+
+        {/* Main stage */}
+        <main className="relative flex flex-1 flex-col overflow-hidden bg-[#ebebed]">
+          {sessionFailureMessage ? (
+            <div className="absolute left-4 right-4 top-4 z-20 rounded-xl border border-red-200/35 bg-red-900/60 px-3 py-2 text-sm text-red-100 backdrop-blur">
+              run 失败: {sessionFailureMessage}
+            </div>
+          ) : null}
+
+          {/* Canvas */}
+          <section className="relative flex flex-1 items-center justify-center p-6">
             {isLoading ? (
-              <div className="flex h-full min-h-[420px] flex-col items-center justify-center gap-3 text-white/75">
+              <div className="flex flex-col items-center justify-center gap-3 text-white/70">
                 <Loader2 className="h-10 w-10 animate-spin text-[var(--deck-accent)]" />
                 <p className="text-sm">正在同步 Diego 预览...</p>
               </div>
             ) : runSelectionBlocked ? (
-              <div className="flex h-full min-h-[420px] flex-col items-center justify-center gap-3 px-6 text-center text-white/75">
+              <div className="flex flex-col items-center justify-center gap-3 px-6 text-center text-white/70">
                 <p className="text-lg font-semibold text-white">请选择 run</p>
-                <p className="max-w-[460px] text-sm text-white/65">
+                <p className="max-w-[460px] text-sm text-white/60">
                   当前页面已切换为严格 Diego 预览链路，不再自动回退到 session 最新产物。
                 </p>
               </div>
             ) : previewBlockedReason ? (
-              <div className="flex h-full min-h-[420px] flex-col items-center justify-center gap-3 px-6 text-center text-white/75">
+              <div className="flex flex-col items-center justify-center gap-3 px-6 text-center text-white/70">
                 <p className="text-lg font-semibold text-white">预览不可用</p>
-                <p className="max-w-[520px] text-sm text-white/65">
+                <p className="max-w-[520px] text-sm text-white/60">
                   {previewBlockedReason}
                 </p>
+                <button
+                  type="button"
+                  onClick={() => void handleResume()}
+                  disabled={!activeSessionId || isResuming}
+                  className="mt-2 inline-flex h-9 items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 text-sm text-white transition hover:bg-white/15 disabled:opacity-45"
+                >
+                  {isResuming ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Play className="h-4 w-4" />
+                  )}
+                  {isResuming ? "恢复中" : "继续会话"}
+                </button>
               </div>
             ) : showWaitingState ? (
-              <div className="flex h-full min-h-[420px] flex-col items-center justify-center gap-3 text-white/75">
+              <div className="flex flex-col items-center justify-center gap-3 text-white/70">
                 <Loader2 className="h-10 w-10 animate-spin text-[var(--deck-accent)]" />
                 <p className="text-sm">run 已绑定，等待第一页渲染...</p>
               </div>
             ) : activeSlide && activeFrame ? (
-              <div className="flex h-full flex-col">
-                <div className="flex items-center justify-between border-b border-white/10 px-3 py-2.5 md:px-4">
-                  <div className="min-w-0">
-                    <p className="text-[11px] uppercase tracking-[0.2em] text-white/55">
-                      Slide {activeSlide.index + 1}
-                    </p>
-                    <h2
-                      className="truncate text-sm font-semibold text-white md:text-base"
-                      style={{
-                        fontFamily:
-                          '"Noto Serif SC","Source Han Serif SC","Palatino Linotype",serif',
-                      }}
-                    >
-                      {activeSlide.title || `Untitled ${activeSlide.index + 1}`}
-                    </h2>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => moveSlide(-1)}
-                      disabled={activeSlidePos <= 0}
-                      className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-white/20 bg-black/30 text-white transition hover:bg-black/55 disabled:opacity-35"
-                    >
-                      <ChevronLeft className="h-4 w-4" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => moveSlide(1)}
-                      disabled={activeSlidePos < 0 || activeSlidePos >= previewableSlides.length - 1}
-                      className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-white/20 bg-black/30 text-white transition hover:bg-black/55 disabled:opacity-35"
-                    >
-                      <ChevronRight className="h-4 w-4" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setIsFullscreen(true)}
-                      className="inline-flex h-8 items-center justify-center rounded-full border border-white/20 bg-black/30 px-3 text-xs text-white transition hover:bg-black/55"
-                    >
-                      <Expand className="mr-1.5 h-3.5 w-3.5" />
-                      全屏
-                    </button>
-                  </div>
-                </div>
-
-                <div className="relative flex-1 p-2.5 md:p-4">
-                  <div className="h-full overflow-hidden rounded-2xl border border-white/15 bg-black/30">
+              <>
+                <div className="relative w-full max-w-[1100px] overflow-hidden rounded-lg bg-white shadow-[0_24px_70px_-12px_rgba(0,0,0,0.35)]">
+                  <div className="aspect-video w-full bg-white">
                     {activeFrame.html_preview ? (
                       <HtmlPreviewFrame
                         title={activeSlide.title || `Slide ${activeSlide.index + 1}`}
@@ -456,130 +484,174 @@ export default function StreamingWorkbenchPageView() {
                         className="h-full w-full object-contain bg-white"
                       />
                     ) : (
-                      <div className="flex h-full items-center justify-center text-sm text-white/65">
+                      <div className="flex h-full items-center justify-center text-sm text-black/50">
                         当前页预览仍在生成中
                       </div>
                     )}
                   </div>
                 </div>
 
-                {activeSlideFrames.length > 1 ? (
-                  <div className="flex gap-2 overflow-x-auto border-t border-white/10 px-3 py-2 md:px-4">
-                    {activeSlideFrames.map((frame, idx) => (
-                      <button
-                        key={`${frame.slide_id}-${frame.split_index ?? idx}`}
-                        type="button"
-                        onClick={() => setActiveFrameIndex(idx)}
-                        className={cn(
-                          "rounded-full border px-3 py-1 text-xs transition",
-                          idx === resolvedActiveFrameIndex
-                            ? "border-[var(--deck-accent)] bg-[color:var(--deck-accent)]/20 text-white"
-                            : "border-white/20 bg-black/25 text-white/70 hover:bg-black/40"
-                        )}
-                      >
-                        分页 {idx + 1}
-                      </button>
-                    ))}
-                  </div>
-                ) : null}
-              </div>
+                {/* Date watermark */}
+                <div className="pointer-events-none absolute bottom-6 right-6 rounded bg-black/40 px-3 py-1.5 text-xs font-medium text-white/90 backdrop-blur">
+                  2026.04.06
+                </div>
+              </>
             ) : null}
           </section>
 
-          {previewableSlides.length > 0 ? (
-            <section className="rounded-2xl border border-white/15 bg-black/35 px-3 py-3 md:px-4 md:py-4">
-              <div className="flex gap-2 overflow-x-auto pb-1">
-                {previewableSlides.map((slide) => {
-                  const slideFrames = buildSlideFrames(slide);
-                  const isActive = activeSlide?.index === slide.index;
-                  const firstFrame = slideFrames[0] || null;
-                  return (
-                    <motion.button
-                      key={slide.id || `thumb-${slide.index}`}
-                      type="button"
-                      onClick={() => {
-                        setActiveSlideIndex(slide.index);
-                        setActiveFrameIndex(0);
-                      }}
-                      whileTap={{ scale: 0.97 }}
-                      className={cn(
-                        "group relative h-20 w-40 shrink-0 overflow-hidden rounded-xl border text-left transition",
-                        isActive
-                          ? "border-[var(--deck-accent)] shadow-[0_0_0_1px_rgba(255,255,255,0.08)]"
-                          : "border-white/15 hover:border-white/35"
-                      )}
-                    >
-                      {firstFrame?.image_url ? (
-                        <img
-                          src={firstFrame.image_url}
-                          alt={slide.title || `Slide ${slide.index + 1}`}
-                          className="absolute inset-0 h-full w-full object-cover"
-                        />
-                      ) : (
-                        <div
-                          className="absolute inset-0 bg-[linear-gradient(130deg,var(--deck-secondary)_0%,var(--deck-primary)_50%,#0B1020_100%)]"
-                          aria-hidden
-                        />
-                      )}
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/35 to-transparent" />
-                      <span className="absolute left-2 top-2 rounded bg-black/55 px-1.5 py-0.5 text-[10px] font-semibold text-white">
-                        {slide.index + 1}
-                      </span>
-                      {slideFrames.length > 1 ? (
-                        <span className="absolute right-2 top-2 rounded bg-black/55 px-1.5 py-0.5 text-[10px] font-semibold text-white">
-                          +{slideFrames.length - 1}
-                        </span>
-                      ) : null}
-                      <span className="absolute bottom-2 left-2 right-2 line-clamp-1 text-[11px] font-medium text-white/90">
-                        {slide.title || `Slide ${slide.index + 1}`}
-                      </span>
-                    </motion.button>
-                  );
-                })}
-              </div>
-            </section>
-          ) : null}
-        </main>
-
-        <AnimatePresence>
-          {isFullscreen && activeSlide && activeFrame ? (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 z-50 flex bg-black/88 p-4 md:p-8"
-            >
+          {/* Floating bottom toolbar */}
+          <div className="pointer-events-none absolute bottom-5 left-0 right-0 z-10 flex items-end justify-center px-4">
+            <div className="pointer-events-auto flex items-center gap-2 rounded-2xl border border-white/10 bg-[#111]/80 px-3 py-2 shadow-2xl backdrop-blur-md">
               <button
                 type="button"
-                onClick={() => setIsFullscreen(false)}
-                className="absolute right-5 top-5 z-10 rounded-full border border-white/30 bg-black/45 px-3 py-1.5 text-sm text-white"
+                onClick={() => setIsFullscreen(true)}
+                disabled={!activeSlide || !activeFrame}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-white/80 transition hover:bg-white/10 hover:text-white disabled:opacity-30"
+                title="放映"
               >
-                关闭
+                <Play className="h-4 w-4" />
               </button>
-              <div className="mx-auto w-full max-w-[1500px] overflow-hidden rounded-2xl border border-white/15 bg-black/35">
-                {activeFrame.html_preview ? (
-                  <HtmlPreviewFrame
-                    title={activeSlide.title || `Slide ${activeSlide.index + 1}`}
-                    html={activeFrame.html_preview}
-                    className="h-full"
-                    interactive
-                  />
-                ) : activeFrame.image_url ? (
-                  <img
-                    src={activeFrame.image_url}
-                    alt={activeSlide.title || `Slide ${activeSlide.index + 1}`}
-                    className="h-full w-full object-contain bg-white"
-                  />
-                ) : (
-                  <div className="flex h-full items-center justify-center text-white/65">
-                    当前页预览仍在生成中
-                  </div>
-                )}
+              <div className="mx-1 h-4 w-px bg-white/10" />
+              <button
+                type="button"
+                className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-white/80 transition hover:bg-white/10 hover:text-white"
+                title="文本"
+              >
+                <Type className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-white/80 transition hover:bg-white/10 hover:text-white"
+                title="形状"
+              >
+                <Square className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-white/80 transition hover:bg-white/10 hover:text-white"
+                title="图片"
+              >
+                <ImageIcon className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-white/80 transition hover:bg-white/10 hover:text-white"
+                title="表格"
+              >
+                <Table className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-white/80 transition hover:bg-white/10 hover:text-white"
+                title="公式"
+              >
+                <FunctionSquare className="h-4 w-4" />
+              </button>
+
+              <div className="mx-1 h-4 w-px bg-white/10" />
+
+              {/* Split frame chips */}
+              {activeSlideFrames.length > 1 ? (
+                <div className="hidden items-center gap-1 sm:flex">
+                  {activeSlideFrames.map((frame, idx) => (
+                    <button
+                      key={`${frame.slide_id}-${frame.split_index ?? idx}`}
+                      type="button"
+                      onClick={() => setActiveFrameIndex(idx)}
+                      className={cn(
+                        "rounded-full border px-2 py-0.5 text-[11px] transition",
+                        idx === resolvedActiveFrameIndex
+                          ? "border-[var(--deck-accent)] bg-[color:var(--deck-accent)]/20 text-white"
+                          : "border-white/20 bg-black/30 text-white/70 hover:bg-black/40"
+                      )}
+                    >
+                      {idx + 1}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+
+              <div className="flex items-center gap-1 pl-1 text-xs text-white/70">
+                <span>113%</span>
+                <button
+                  type="button"
+                  className="inline-flex h-7 w-7 items-center justify-center rounded-xl transition hover:bg-white/10 hover:text-white"
+                >
+                  <Menu className="h-4 w-4" />
+                </button>
               </div>
-            </motion.div>
-          ) : null}
-        </AnimatePresence>
+            </div>
+          </div>
+        </main>
       </div>
+
+      {/* Fullscreen modal */}
+      <AnimatePresence>
+        {isFullscreen && activeSlide && activeFrame ? (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex bg-black/95 p-4 md:p-8"
+          >
+            <div className="flex w-full items-center justify-between gap-4">
+              <button
+                type="button"
+                onClick={() => moveSlide(-1)}
+                disabled={activeSlidePos <= 0}
+                className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/20 bg-black/45 text-white transition hover:bg-black/60 disabled:opacity-30"
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </button>
+
+              <div className="relative flex-1 overflow-hidden rounded-xl border border-white/15 bg-black/40">
+                <div className="aspect-video w-full">
+                  {activeFrame.html_preview ? (
+                    <HtmlPreviewFrame
+                      title={activeSlide.title || `Slide ${activeSlide.index + 1}`}
+                      html={activeFrame.html_preview}
+                      className="h-full"
+                      interactive
+                    />
+                  ) : activeFrame.image_url ? (
+                    <img
+                      src={activeFrame.image_url}
+                      alt={activeSlide.title || `Slide ${activeSlide.index + 1}`}
+                      className="h-full w-full object-contain bg-white"
+                    />
+                  ) : (
+                    <div className="flex h-full items-center justify-center text-white/65">
+                      当前页预览仍在生成中
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => moveSlide(1)}
+                disabled={activeSlidePos < 0 || activeSlidePos >= previewableSlides.length - 1}
+                className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/20 bg-black/45 text-white transition hover:bg-black/60 disabled:opacity-30"
+              >
+                <ChevronRight className="h-5 w-5" />
+              </button>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setIsFullscreen(false)}
+              className="absolute right-5 top-5 z-10 rounded-full border border-white/30 bg-black/45 px-4 py-1.5 text-sm text-white transition hover:bg-black/60"
+            >
+              关闭
+            </button>
+
+            {/* Fullscreen bottom info */}
+            <div className="absolute bottom-5 left-1/2 z-10 -translate-x-1/2 rounded-full border border-white/10 bg-black/50 px-4 py-1.5 text-xs text-white/80 backdrop-blur">
+              {activeSlide.title || `Slide ${activeSlide.index + 1}`} · {currentSlideNumber} / {totalSlides}
+            </div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
     </div>
   );
 }
