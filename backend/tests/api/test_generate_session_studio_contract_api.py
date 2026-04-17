@@ -41,7 +41,7 @@ class _ExecutionResult:
         return self._payload
 
 
-def test_get_studio_card_sources_contract_omits_legacy_flags(app, _as_user):
+def test_get_studio_card_sources_contract_includes_version_flags(app, _as_user):
     client = TestClient(app)
     current_artifact = SimpleNamespace(
         id="a-ppt-010",
@@ -85,9 +85,9 @@ def test_get_studio_card_sources_contract_omits_legacy_flags(app, _as_user):
     assert [source["id"] for source in sources] == ["a-ppt-010", "a-ppt-009"]
     assert sources[0]["based_on_version_id"] == "v-current"
     assert sources[1]["superseded_by_artifact_id"] == "a-ppt-010"
-    assert "is_current" not in sources[0]
-    assert "current_version_id" not in sources[0]
-    assert "upstream_updated" not in sources[0]
+    assert sources[0]["is_current"] is True
+    assert sources[0]["current_version_id"] is None
+    assert sources[0]["upstream_updated"] is False
 
 
 def test_execute_studio_card_contract_omits_legacy_flags(app, _as_user):
@@ -109,9 +109,15 @@ def test_execute_studio_card_contract_omits_legacy_flags(app, _as_user):
         }
     )
 
-    with patch(
-        "routers.generate_sessions.studio_cards.execute_studio_card_initial_request",
-        AsyncMock(return_value=execution_result),
+    with (
+        patch(
+            "routers.generate_sessions.studio_cards.execute_studio_card_initial_request",
+            AsyncMock(return_value=execution_result),
+        ),
+        patch(
+            "routers.generate_sessions.studio_cards.get_session_service",
+            return_value=SimpleNamespace(),
+        ),
     ):
         response = client.post(
             "/api/v1/generate/studio-cards/speaker_notes/execute",

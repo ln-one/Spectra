@@ -391,7 +391,7 @@ async def test_build_studio_tool_artifact_content_interactive_games_template_val
     exc = exc_info.value
     assert exc.status_code == 400
     assert exc.error_code == ErrorCode.INVALID_INPUT
-    assert exc.details["phase"] == "validate_game_data"
+    assert exc.details["phase"] == "validate"
 
 
 @pytest.mark.asyncio

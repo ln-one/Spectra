@@ -34,7 +34,7 @@ class TestRequestIDMiddleware:
     """Verify request_id lifecycle."""
 
     def test_generates_request_id_header(self, client: TestClient):
-        resp = client.get("/health")
+        resp = client.get("/health/live")
         assert resp.status_code == 200
         assert "X-Request-ID" in resp.headers
         assert "X-Process-Time" in resp.headers
@@ -45,7 +45,7 @@ class TestRequestIDMiddleware:
 
     def test_echoes_caller_request_id(self, client: TestClient):
         custom_rid = "my-trace-id-12345"
-        resp = client.get("/health", headers={"X-Request-ID": custom_rid})
+        resp = client.get("/health/live", headers={"X-Request-ID": custom_rid})
         assert resp.headers.get("X-Request-ID") == custom_rid
 
     def test_request_id_in_error_response(self, client: TestClient):

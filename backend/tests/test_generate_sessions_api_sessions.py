@@ -51,7 +51,7 @@ async def test_create_session_rejects_direct_non_bootstrap_start(app, _as_user):
 
     assert response.status_code == 409
     payload = response.json()
-    assert payload["error"]["details"]["reason"] == "direct_generation_start_removed"
+    assert payload["detail"]["details"]["reason"] == "direct_generation_start_removed"
 
 
 @pytest.mark.anyio
