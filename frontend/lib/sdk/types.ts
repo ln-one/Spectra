@@ -38,6 +38,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 刷新 Access Token */
+        post: operations["postAuthRefresh"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/logout": {
         parameters: {
             query?: never;
@@ -1270,7 +1287,10 @@ export interface components {
         AuthResponse: {
             success: boolean;
             data: {
-                user: components["schemas"]["UserInfo"];
+                access_token?: string;
+                refresh_token?: string;
+                expires_in?: number;
+                user?: components["schemas"]["UserInfo"];
             };
             message: string;
         };
@@ -3092,6 +3112,35 @@ export interface operations {
         };
         responses: {
             /** @description 登录成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    postAuthRefresh: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description 长期有效的刷新令牌 */
+                    refresh_token: string;
+                };
+            };
+        };
+        responses: {
+            /** @description 刷新成功 */
             200: {
                 headers: {
                     [name: string]: unknown;

@@ -85,6 +85,31 @@ class RenderedPreview(BaseModel):
     pages: list[RenderedPreviewPage] = Field(default_factory=list)
 
 
+class DiegoPreviewTheme(BaseModel):
+    primary: Optional[str] = None
+    secondary: Optional[str] = None
+    accent: Optional[str] = None
+    light: Optional[str] = None
+    bg: Optional[str] = None
+
+
+class DiegoPreviewFonts(BaseModel):
+    title: Optional[str] = None
+    body: Optional[str] = None
+
+
+class DiegoPreviewContext(BaseModel):
+    provider: str = "diego"
+    run_id: Optional[str] = None
+    palette: Optional[str] = None
+    style: Optional[str] = None
+    style_dna_id: Optional[str] = None
+    effective_template_style: Optional[str] = None
+    source_event_seq: Optional[int] = Field(None, ge=1)
+    theme: Optional[DiegoPreviewTheme] = None
+    fonts: Optional[DiegoPreviewFonts] = None
+
+
 class SlidePlan(BaseModel):
     """单页教学计划"""
 

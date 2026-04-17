@@ -5090,6 +5090,47 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/RenderedPreviewPage'
+    DiegoPreviewContext:
+      type: object
+      properties:
+        provider:
+          type: string
+          enum:
+            - diego
+          default: diego
+        run_id:
+          type: string
+        palette:
+          type: string
+        style:
+          type: string
+        style_dna_id:
+          type: string
+        effective_template_style:
+          type: string
+        source_event_seq:
+          type: integer
+          minimum: 1
+        theme:
+          type: object
+          properties:
+            primary:
+              type: string
+            secondary:
+              type: string
+            accent:
+              type: string
+            light:
+              type: string
+            bg:
+              type: string
+        fonts:
+          type: object
+          properties:
+            title:
+              type: string
+            body:
+              type: string
     preview_SourceReference:
       type: object
       required:
@@ -5264,6 +5305,8 @@ components:
               $ref: '#/components/schemas/ArtifactAnchor'
             rendered_preview:
               $ref: '#/components/schemas/RenderedPreview'
+            diego_preview_context:
+              $ref: '#/components/schemas/DiegoPreviewContext'
             slides:
               type: array
               items:

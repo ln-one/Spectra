@@ -4,7 +4,7 @@ import {
 } from "@/app/projects/[id]/generate/_views/useGeneratePreviewState";
 
 describe("resolveActivePreviewRunId", () => {
-  it("does not reuse a store run from another session", () => {
+  it("returns null when URL run id is missing", () => {
     expect(
       resolveActivePreviewRunId({
         activeSessionId: "session-b",
@@ -13,13 +13,12 @@ describe("resolveActivePreviewRunId", () => {
         storeActiveRunId: "run-a",
         generationSession: {
           session: { session_id: "session-a" },
-          current_run: { run_id: "run-a" },
         },
       })
     ).toBeNull();
   });
 
-  it("keeps the current session run when store session matches", () => {
+  it("does not auto-adopt store run ids without URL run", () => {
     expect(
       resolveActivePreviewRunId({
         activeSessionId: "session-a",
@@ -28,7 +27,7 @@ describe("resolveActivePreviewRunId", () => {
         storeActiveRunId: "run-a",
         generationSession: null,
       })
-    ).toBe("run-a");
+    ).toBeNull();
   });
 
   it("prefers the explicit query run id", () => {

@@ -117,7 +117,7 @@ async def resolve_session_artifact_binding(
         run_bound = _select_run_bound_artifact(artifact_list, run_id)
         if run_bound is not None:
             return run_bound
-        return _select_latest_artifact(artifact_list)
+        return None
 
     if artifact_id:
         artifact = await project_space_service.get_artifact(

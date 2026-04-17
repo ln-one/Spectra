@@ -98,6 +98,71 @@ def _material_context_id(material_context) -> Optional[str]:
     return str(value) if value else None
 
 
+def _resolved_diego_preview_context(
+    *,
+    content: dict,
+    snapshot: dict,
+    anchor: dict,
+) -> Optional[dict]:
+    raw = content.get("diego_preview_context")
+    if not isinstance(raw, dict):
+        return None
+
+    context = dict(raw)
+    context["provider"] = "diego"
+
+    run_id = (
+        str(context.get("run_id") or "").strip()
+        or str(anchor.get("run_id") or "").strip()
+        or str(((snapshot.get("current_run") or {}).get("run_id") or "")).strip()
+    )
+    if run_id:
+        context["run_id"] = run_id
+
+    theme_raw = context.get("theme")
+    if isinstance(theme_raw, dict):
+        theme = {}
+        for key in ("primary", "secondary", "accent", "light", "bg"):
+            value = str(theme_raw.get(key) or "").strip()
+            if value:
+                theme[key] = value
+        if theme:
+            context["theme"] = theme
+        else:
+            context.pop("theme", None)
+    else:
+        context.pop("theme", None)
+
+    fonts_raw = context.get("fonts")
+    if isinstance(fonts_raw, dict):
+        fonts = {}
+        for key in ("title", "body"):
+            value = str(fonts_raw.get(key) or "").strip()
+            if value:
+                fonts[key] = value
+        if fonts:
+            context["fonts"] = fonts
+        else:
+            context.pop("fonts", None)
+    else:
+        context.pop("fonts", None)
+
+    for key in ("palette", "style", "style_dna_id", "effective_template_style"):
+        value = str(context.get(key) or "").strip()
+        if value:
+            context[key] = value
+        else:
+            context.pop(key, None)
+
+    if "source_event_seq" in context:
+        try:
+            context["source_event_seq"] = int(context.get("source_event_seq") or 0)
+        except (TypeError, ValueError):
+            context.pop("source_event_seq", None)
+
+    return context
+
+
 def build_preview_payload(
     session_id: str,
     snapshot: dict,
@@ -110,6 +175,11 @@ def build_preview_payload(
 ) -> dict:
     content = content or {}
     slides_content_markdown = _resolved_export_markdown(content)
+    diego_preview_context = _resolved_diego_preview_context(
+        content=content,
+        snapshot=snapshot,
+        anchor=anchor,
+    )
     return {
         "session_id": session_id,
         "session_state": snapshot["session"].get("state"),
@@ -126,6 +196,7 @@ def build_preview_payload(
         "slides_content_markdown": slides_content_markdown,
         "slides_content_ready": bool(slides_content_markdown.strip()),
         "rendered_preview": rendered_preview,
+        "diego_preview_context": diego_preview_context,
     }
 
 

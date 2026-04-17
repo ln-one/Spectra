@@ -33,6 +33,8 @@ PreviewResponse:
           $ref: "#/ArtifactAnchor"
         rendered_preview:
           $ref: '#/RenderedPreview'
+        diego_preview_context:
+          $ref: '#/DiegoPreviewContext'
         slides:
           type: array
           items:
@@ -120,6 +122,47 @@ RenderedPreview:
       type: array
       items:
         $ref: '#/RenderedPreviewPage'
+
+DiegoPreviewContext:
+  type: object
+  properties:
+    provider:
+      type: string
+      enum: [diego]
+      default: diego
+    run_id:
+      type: string
+    palette:
+      type: string
+    style:
+      type: string
+    style_dna_id:
+      type: string
+    effective_template_style:
+      type: string
+    source_event_seq:
+      type: integer
+      minimum: 1
+    theme:
+      type: object
+      properties:
+        primary:
+          type: string
+        secondary:
+          type: string
+        accent:
+          type: string
+        light:
+          type: string
+        bg:
+          type: string
+    fonts:
+      type: object
+      properties:
+        title:
+          type: string
+        body:
+          type: string
 
 ImageInsertionMetadata:
   type: object
