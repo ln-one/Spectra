@@ -1,10 +1,11 @@
 [flake8]
 max-line-length = 88
-extend-ignore = E203, W503, E402, F541, F841, W293
+extend-ignore = E203, W503, E402, F541, F841, W293, E501
 exclude =
     venv,
     .venv,
     .venv-wsl,
+    generated,
     __pycache__,
     .git,
     .eggs,
@@ -16,5 +17,6 @@ exclude =
     test_phase*.py,
     test_generation_standalone.py
 per-file-ignores =
+    __init__.py:F401
     test_*.py:E501,E402,F541,F841
     *_test.py:E501,E402,F541,F841

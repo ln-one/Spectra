@@ -176,7 +176,7 @@ jobs:
       
       - name: Lint
         working-directory: backend
-        run: flake8 . --max-line-length=88 --extend-ignore=E203
+        run: flake8 .
 
       - name: Test
         working-directory: backend

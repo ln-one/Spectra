@@ -53,11 +53,17 @@ export function WordToolPanel({
   const [outputRequirements, setOutputRequirements] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [lastGeneratedAt, setLastGeneratedAt] = useState<string | null>(null);
+  const [backendPreviewHtml, setBackendPreviewHtml] = useState("");
   const [backendMarkdown, setBackendMarkdown] = useState("");
   const [isBackendPreviewLoading, setIsBackendPreviewLoading] = useState(false);
   const [backendPreviewError, setBackendPreviewError] = useState<string | null>(
     null
   );
+  const autoLoadSources = flowContext?.onLoadSources;
+  const requiresSourceArtifact = Boolean(flowContext?.requiresSourceArtifact);
+  const sourceOptionCount = flowContext?.sourceOptions?.length ?? 0;
+  const isProtocolLoading = Boolean(flowContext?.isLoadingProtocol);
+  const isActionRunning = Boolean(flowContext?.isActionRunning);
 
   const { suggestions, summary, isLoading } = useStudioRagRecommendations({
     query:
@@ -130,7 +136,6 @@ export function WordToolPanel({
     const latestArtifact = flowContext?.latestArtifacts?.[0];
     const previewArtifactId =
       flowContext?.resolvedArtifact?.artifactId ?? latestArtifact?.artifactId;
-    const previewRunId = latestArtifact?.runId ?? null;
     if (!previewArtifactId) return;
 
     let cancelled = false;
@@ -142,16 +147,23 @@ export function WordToolPanel({
           activeSessionId,
           {
             artifact_id: previewArtifactId,
-            run_id: previewRunId ?? undefined,
-            format: "markdown",
+            format: "html",
             include_sources: true,
           }
         );
         if (cancelled) return;
-        setBackendMarkdown(response.data.content || "");
+        const payload = response.data.content || "";
+        if (response.data.format === "html") {
+          setBackendPreviewHtml(payload);
+          setBackendMarkdown("");
+        } else {
+          setBackendPreviewHtml("");
+          setBackendMarkdown(payload);
+        }
       } catch (error) {
         if (cancelled) return;
         setBackendPreviewError(getErrorMessage(error));
+        setBackendPreviewHtml("");
         setBackendMarkdown("");
       } finally {
         if (!cancelled) {
@@ -172,7 +184,23 @@ export function WordToolPanel({
     flowContext?.resolvedArtifact?.artifactId,
   ]);
 
+  useEffect(() => {
+    if (activeStep !== "generate") return;
+    if (!requiresSourceArtifact) return;
+    if (sourceOptionCount > 0) return;
+    if (isProtocolLoading || isActionRunning) return;
+    void autoLoadSources?.();
+  }, [
+    activeStep,
+    autoLoadSources,
+    isActionRunning,
+    isProtocolLoading,
+    requiresSourceArtifact,
+    sourceOptionCount,
+  ]);
+
   const handleGenerate = async () => {
+    setBackendPreviewHtml("");
     setBackendMarkdown("");
     setBackendPreviewError(null);
     setActiveStep("preview");
@@ -195,13 +223,7 @@ export function WordToolPanel({
     }
   };
 
-  const handlePrepareGenerate = async () => {
-    if (!flowContext?.onPrepareGenerate) {
-      setActiveStep("generate");
-      return;
-    }
-    const prepared = await flowContext.onPrepareGenerate();
-    if (!prepared) return;
+  const handlePrepareGenerate = () => {
     setActiveStep("generate");
   };
 
@@ -317,6 +339,7 @@ export function WordToolPanel({
 
               {activeStep === "preview" ? (
                 <PreviewStep
+                  html={backendPreviewHtml}
                   markdown={backendMarkdown}
                   isGenerating={isGenerating}
                   lastGeneratedAt={lastGeneratedAt}

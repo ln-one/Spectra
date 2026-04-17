@@ -5,6 +5,7 @@ from services.platform.dualweave_execution import (
 
 
 def test_dualweave_execution_builds_document_template(monkeypatch):
+    monkeypatch.delenv("DUALWEAVE_DOCUMENT_WORKFLOW_URL", raising=False)
     monkeypatch.setenv("DUALWEAVE_DOCUMENT_BASE_URL", "https://mineru.example")
     monkeypatch.setenv("DUALWEAVE_DOCUMENT_TOKEN_ENV", "MINERU_TOKEN")
 

@@ -7,10 +7,7 @@ import json as _json
 import os
 from typing import Any
 
-from services.artifact_generator.animation_compiler import (
-    compile_animation_plan_from_json,
-    preflight_check,
-)
+from services.artifact_generator.animation_compiler import preflight_check
 from services.artifact_generator.animation_ir import AnimationPlan
 
 from .code_utils import (

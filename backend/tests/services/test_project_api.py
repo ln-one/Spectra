@@ -6,7 +6,11 @@ import pytest
 from schemas.projects import ProjectCreate
 from services.application import project_api
 from services.database import db_service
-from utils.exceptions import ConflictException, InternalServerException, ValidationException
+from utils.exceptions import (
+    ConflictException,
+    InternalServerException,
+    ValidationException,
+)
 
 
 def _project(**overrides):
@@ -252,7 +256,10 @@ async def test_create_base_reference_if_needed_requires_referenceable_target(
     with pytest.raises(ValidationException) as exc_info:
         await project_api._create_base_reference_if_needed(project, body, "u-1")
 
-    assert exc_info.value.message == "所选基底项目当前不可引用，请选择标记为“可引用”的项目。"
+    assert (
+        exc_info.value.message
+        == "所选基底项目当前不可引用，请选择标记为“可引用”的项目。"
+    )
     create_reference.assert_not_awaited()
 
 
@@ -282,7 +289,9 @@ async def test_update_project_response_syncs_formal_governance_after_db(monkeypa
     update_db = AsyncMock(return_value=updated)
     update_governance = AsyncMock(return_value=None)
 
-    monkeypatch.setattr(project_api, "get_owned_project", AsyncMock(return_value=existing))
+    monkeypatch.setattr(
+        project_api, "get_owned_project", AsyncMock(return_value=existing)
+    )
     monkeypatch.setattr(
         db_service, "get_idempotency_response", AsyncMock(return_value=None)
     )
@@ -347,7 +356,9 @@ async def test_update_project_response_rolls_back_db_when_formal_governance_fail
         ]
     )
 
-    monkeypatch.setattr(project_api, "get_owned_project", AsyncMock(return_value=existing))
+    monkeypatch.setattr(
+        project_api, "get_owned_project", AsyncMock(return_value=existing)
+    )
     monkeypatch.setattr(
         db_service, "get_idempotency_response", AsyncMock(return_value=None)
     )

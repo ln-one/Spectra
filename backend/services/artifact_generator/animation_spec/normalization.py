@@ -4,11 +4,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from .constants import _SHOT_TYPES
 from .default_scenes import _default_scenes
 from .scenes import _enforce_scene_progression, _normalize_scene
 from .semantics import (
-    _build_object_details,
     _build_semantic_objects,
     _enrich_scene_semantics,
     infer_layout_type,
@@ -18,8 +16,6 @@ from .semantics import (
 from .text import (
     _clamp_int,
     _clean_text,
-    _extract_scene_count_constraint,
-    _resolve_scene_budget,
     _sanitize_display_copy,
     derive_animation_title,
 )

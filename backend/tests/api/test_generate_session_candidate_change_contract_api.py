@@ -24,6 +24,19 @@ def _as_user():
     app.dependency_overrides.pop(get_current_user, None)
 
 
+@pytest.fixture(autouse=True)
+def _stub_db_models():
+    previous_instance = db_service._instance
+    db_service._instance = SimpleNamespace(
+        db=SimpleNamespace(artifact=None, sessionrun=None),
+        get_project=None,
+        get_idempotency_response=None,
+        save_idempotency_response=None,
+    )
+    yield
+    db_service._instance = previous_instance
+
+
 def _snapshot():
     return {
         "session": {
@@ -283,13 +296,12 @@ def test_modify_preview_can_attach_candidate_change(client, monkeypatch, _as_use
             },
         },
     )
-    assert resp.status_code == 200
+    assert resp.status_code == 409
     body = resp.json()
-    assert body["data"]["candidate_change"]["session_id"] == "s-candidate-001"
-    kwargs = create_change.await_args.kwargs
-    assert kwargs["payload"]["generation_command"]["command_type"] == "REGENERATE_SLIDE"
-    assert kwargs["payload"]["generation_command"]["slide_id"] == "slide-001"
-    assert kwargs["payload"]["trigger"] == "preview_modify"
+    assert body["success"] is False
+    assert body["error"]["code"] == ErrorCode.RESOURCE_CONFLICT.value
+    assert body["error"]["details"]["reason"] == "legacy_courseware_modify_removed"
+    create_change.assert_not_awaited()
 
 
 def test_export_preview_candidate_change_idempotency_hit_returns_cached(

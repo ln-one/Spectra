@@ -1,631 +1,73 @@
-"""
-CoursewareAIMixin 测试
-
-测试大纲生成、结构化内容提取、解析和 fallback 逻辑。
-使用 mock LLM 响应，不依赖真实 API。
-"""
-
-import json
-from unittest.mock import AsyncMock, patch
+﻿"""Regression tests for removed legacy courseware chain APIs."""
 
 import pytest
 
-from schemas.generation import CoursewareContent
-from schemas.outline import CoursewareOutline, OutlineSection
 from services.ai import AIService
 
 
-class TestGenerateOutline:
-    """generate_outline() 测试"""
-
+class TestLegacyCoursewareChainRemoved:
     @pytest.mark.asyncio
-    async def test_successful_outline_generation(self):
-        """LLM 返回合法 JSON 时正确解析大纲"""
+    async def test_generate_outline_removed(self):
         ai = AIService()
-        mock_json = json.dumps(
-            {
-                "title": "Python 入门",
-                "sections": [
-                    {"title": "导入", "key_points": ["背景", "目标"], "slide_count": 2},
-                    {"title": "核心", "key_points": ["语法", "实践"], "slide_count": 4},
-                    {"title": "总结", "key_points": ["回顾"], "slide_count": 1},
-                ],
-                "summary": "Python 基础教学大纲",
-            }
-        )
-        with (
-            patch.object(
-                ai,
-                "generate",
-                new_callable=AsyncMock,
-                return_value={"content": mock_json},
-            ) as mock_gen,
-            patch.object(
-                ai, "_retrieve_rag_context", new_callable=AsyncMock, return_value=None
+        with pytest.raises(
+            RuntimeError,
+            match=(
+                "legacy_courseware_chain_removed: outline generation "
+                "must run via Diego."
             ),
         ):
-            outline = await ai.generate_outline("proj1", "Python 入门")
-
-        assert isinstance(outline, CoursewareOutline)
-        assert outline.title == "Python 入门"
-        assert len(outline.sections) >= 3
-        section_titles = [section.title for section in outline.sections]
-        assert "导入" in section_titles
-        assert "核心" in section_titles
-        assert "总结" in section_titles
-        # sparse-outline enrichment may expand sections/slides,
-        # but should keep baseline size
-        assert outline.total_slides >= 2 + 4 + 1
-        assert outline.summary == "Python 基础教学大纲"
-        prompt_arg = mock_gen.call_args.kwargs["prompt"]
-        assert "<outline_task>" in prompt_arg
-        assert "<teacher_requirements>" in prompt_arg
-        assert "<outline_contract>" in prompt_arg
+            await ai.generate_outline("proj1", "测试")
 
     @pytest.mark.asyncio
-    async def test_outline_with_rag_context(self):
-        """有 RAG 上下文时注入到 prompt"""
+    async def test_generate_courseware_content_removed(self):
         ai = AIService()
-        mock_json = json.dumps(
-            {
-                "title": "光合作用",
-                "sections": [
-                    {"title": "概念", "key_points": ["定义"], "slide_count": 3},
-                ],
-                "summary": "光合作用教学",
-            }
-        )
-        rag_results = [{"content": "光合作用是...", "source": {"filename": "bio.pdf"}}]
-
-        with (
-            patch.object(
-                ai,
-                "generate",
-                new_callable=AsyncMock,
-                return_value={"content": mock_json},
-            ) as mock_gen,
-            patch.object(
-                ai,
-                "_retrieve_rag_context",
-                new_callable=AsyncMock,
-                return_value=rag_results,
+        with pytest.raises(
+            RuntimeError,
+            match=(
+                "legacy_courseware_chain_removed: courseware content generation "
+                "must run via Diego."
             ),
         ):
-            outline = await ai.generate_outline("proj2", "光合作用")
-
-        # prompt 中应包含 RAG 上下文
-        prompt_arg = mock_gen.call_args[1]["prompt"]
-        assert "参考内容" in prompt_arg
-        assert "优先吸收与当前教学目标直接相关的内容" in prompt_arg
-        assert isinstance(outline, CoursewareOutline)
-
-    @pytest.mark.asyncio
-    async def test_outline_rag_failure_degrades_to_prompt_only_mode(self):
-        ai = AIService()
-        mock_json = json.dumps(
-            {
-                "title": "函数极值",
-                "sections": [
-                    {
-                        "title": "导入",
-                        "key_points": ["问题情境", "互动提问", "板书逻辑"],
-                        "slide_count": 2,
-                    },
-                    {
-                        "title": "例题训练",
-                        "key_points": ["关键例题", "易错点澄清", "课堂追问"],
-                        "slide_count": 2,
-                    },
-                    {
-                        "title": "总结",
-                        "key_points": ["知识地图", "方法归纳", "作业延伸"],
-                        "slide_count": 1,
-                    },
-                ],
-                "summary": "函数极值教学大纲",
-            }
-        )
-
-        with (
-            patch.object(
-                ai,
-                "generate",
-                new_callable=AsyncMock,
-                return_value={"content": mock_json},
-            ) as mock_generate,
-            patch.object(
-                ai,
-                "_retrieve_rag_context",
-                new_callable=AsyncMock,
-                side_effect=TimeoutError("rag slow"),
-            ),
-        ):
-            outline = await ai.generate_outline("proj-rag-fail", "函数极值")
-
-        assert isinstance(outline, CoursewareOutline)
-        assert outline.title == "函数极值"
-        assert mock_generate.await_count == 1
-        prompt_arg = mock_generate.call_args.kwargs["prompt"]
-        assert "参考内容" not in prompt_arg
-
-    @pytest.mark.asyncio
-    async def test_outline_empty_sections_raises_failure(self):
-        """LLM 返回空 sections 时应显式失败，不再静默 fallback。"""
-        ai = AIService()
-        mock_json = json.dumps({"title": "空大纲", "sections": [], "summary": "无"})
-
-        with (
-            patch.object(
-                ai,
-                "generate",
-                new_callable=AsyncMock,
-                return_value={"content": mock_json},
-            ),
-            patch.object(
-                ai, "_retrieve_rag_context", new_callable=AsyncMock, return_value=None
-            ),
-        ):
-            with pytest.raises(ValueError, match="empty sections"):
-                await ai.generate_outline("proj3", "测试空大纲")
-
-    @pytest.mark.asyncio
-    async def test_outline_sparse_sections_are_enriched(self):
-        """过于单薄的大纲应补齐完整教学结构，而不是原样放过"""
-        ai = AIService()
-        sparse_json = json.dumps(
-            {
-                "title": "牛顿第二定律",
-                "sections": [
-                    {
-                        "title": "导入",
-                        "key_points": ["主题引入", "学习动机"],
-                        "slide_count": 1,
-                    }
-                ],
-                "summary": "非常简短",
-            }
-        )
-
-        with (
-            patch.object(
-                ai,
-                "generate",
-                new_callable=AsyncMock,
-                return_value={"content": sparse_json},
-            ),
-            patch.object(
-                ai, "_retrieve_rag_context", new_callable=AsyncMock, return_value=None
-            ),
-        ):
-            outline = await ai.generate_outline("proj-sparse", "牛顿第二定律")
-
-        assert len(outline.sections) >= 4
-        titles = [section.title for section in outline.sections]
-        assert "核心概念" in titles
-        assert "案例与应用" in titles
-        assert "练习与总结" in titles
-        assert outline.total_slides >= 10
-
-    @pytest.mark.asyncio
-    async def test_outline_aligns_with_target_pages_and_focus_anchors(self):
-        """当需求包含目标页数时，应尽量对齐并覆盖核心教学锚点。"""
-        ai = AIService()
-        mock_json = json.dumps(
-            {
-                "title": "电路分析",
-                "sections": [
-                    {
-                        "title": "电路基础",
-                        "key_points": ["概念定义", "基础公式"],
-                        "slide_count": 2,
-                    },
-                    {
-                        "title": "典型题型",
-                        "key_points": ["题型识别", "解题步骤"],
-                        "slide_count": 2,
-                    },
-                ],
-                "summary": "电路分析教学大纲",
-            }
-        )
-
-        with (
-            patch.object(
-                ai,
-                "generate",
-                new_callable=AsyncMock,
-                return_value={"content": mock_json},
-            ),
-            patch.object(
-                ai, "_retrieve_rag_context", new_callable=AsyncMock, return_value=None
-            ),
-        ):
-            outline = await ai.generate_outline(
-                "proj-pages",
-                "高一物理，目标页数：12，强调知识地图、关键例题、易错点澄清",
+            await ai.generate_courseware_content(
+                project_id="proj1",
+                user_requirements="测试",
             )
 
-        total_section_slides = sum(section.slide_count for section in outline.sections)
-        assert total_section_slides == 12
-        merged_points = " ".join(
-            point
-            for section in outline.sections
-            for point in (section.key_points or [])
-        )
-        assert "知识地图" in merged_points
-        assert "关键例题" in merged_points
-        assert "易错点澄清" in merged_points
-
     @pytest.mark.asyncio
-    async def test_outline_no_json_raises_failure(self):
-        """LLM 返回非 JSON 时应显式失败，不再静默 fallback。"""
+    async def test_extract_structured_content_removed(self):
         ai = AIService()
-
-        with (
-            patch.object(
-                ai,
-                "generate",
-                new_callable=AsyncMock,
-                return_value={"content": "这不是 JSON 内容"},
-            ),
-            patch.object(
-                ai, "_retrieve_rag_context", new_callable=AsyncMock, return_value=None
+        with pytest.raises(
+            RuntimeError,
+            match=(
+                "legacy_courseware_chain_removed: structured content extraction "
+                "must run via Diego."
             ),
         ):
-            with pytest.raises(ValueError, match="No JSON found"):
-                await ai.generate_outline("proj4", "测试非JSON")
+            await ai.extract_structured_content("proj1", "测试")
 
     @pytest.mark.asyncio
-    async def test_outline_llm_exception_raises_failure(self):
-        """LLM 调用异常时应显式失败，不再静默 fallback。"""
+    async def test_modify_courseware_removed(self):
         ai = AIService()
+        with pytest.raises(
+            RuntimeError,
+            match="legacy_courseware_chain_removed: slide modify must run via Diego.",
+        ):
+            await ai.modify_courseware(current_content="# demo", instruction="更新")
 
-        with (
-            patch.object(
-                ai,
-                "generate",
-                new_callable=AsyncMock,
-                side_effect=RuntimeError("API down"),
-            ),
-            patch.object(
-                ai, "_retrieve_rag_context", new_callable=AsyncMock, return_value=None
+    def test_fallback_outline_removed(self):
+        with pytest.raises(
+            RuntimeError,
+            match="legacy_courseware_chain_removed: fallback outline is removed.",
+        ):
+            AIService._get_fallback_outline("测试课件")
+
+    def test_parse_courseware_response_removed(self):
+        ai = AIService()
+        with pytest.raises(
+            RuntimeError,
+            match=(
+                "legacy_courseware_chain_removed: "
+                "courseware response parsing is removed."
             ),
         ):
-            with pytest.raises(RuntimeError, match="API down"):
-                await ai.generate_outline("proj5", "测试异常")
-
-    @pytest.mark.asyncio
-    async def test_outline_generic_placeholder_sections_raise_failure(self):
-        """当 LLM 返回低质量占位结构时，应显式失败，不再自动重建。"""
-        ai = AIService()
-        generic_json = json.dumps(
-            {
-                "title": "测试大纲",
-                "sections": [
-                    {
-                        "title": f"核心知识点{i}",
-                        "key_points": ["要点1", "要点2", "要点3"],
-                        "slide_count": 1,
-                    }
-                    for i in range(1, 7)
-                ],
-                "summary": "占位结构",
-            }
-        )
-
-        with (
-            patch.object(
-                ai,
-                "generate",
-                new_callable=AsyncMock,
-                return_value={"content": generic_json},
-            ),
-            patch.object(
-                ai, "_retrieve_rag_context", new_callable=AsyncMock, return_value=None
-            ),
-        ):
-            with pytest.raises(ValueError, match="quality is too low"):
-                await ai.generate_outline(
-                    "proj-generic",
-                    "生成“知识地图 + 关键例题 + 易错点澄清”风格大纲，12 页，强调课堂互动提问与板书逻辑。",
-                )
-
-    def test_fallback_outline_structure(self):
-        """fallback 大纲结构完整"""
-        outline = AIService._get_fallback_outline("数学课件")
-        assert outline.title == "数学课件"
-        assert len(outline.sections) >= 5
-        assert outline.total_slides == 12
-        section_titles = [s.title for s in outline.sections]
-        assert "导入与目标" in section_titles
-        assert "知识地图构建" in section_titles
-        assert "关键例题精讲" in section_titles
-        assert "易错点澄清" in section_titles
-
-    @pytest.mark.asyncio
-    async def test_generate_courseware_content_uses_outline_based_fallback_on_timeout(
-        self,
-    ):
-        """课件生成超时时，应基于确认大纲兜底并保持页数与教学要素。"""
-        ai = AIService()
-        outline_document = {
-            "title": "二次函数图像与性质",
-            "nodes": [
-                {
-                    "order": 1,
-                    "title": "知识地图构建",
-                    "key_points": ["知识地图", "概念关系梳理", "核心原理拆解"],
-                },
-                {
-                    "order": 2,
-                    "title": "关键例题精讲",
-                    "key_points": ["关键例题", "分步求解", "易错点澄清"],
-                },
-            ],
-        }
-        with (
-            patch.object(
-                ai,
-                "generate",
-                new_callable=AsyncMock,
-                side_effect=TimeoutError("provider timeout"),
-            ),
-            patch.object(
-                ai, "_retrieve_rag_context", new_callable=AsyncMock, return_value=None
-            ),
-        ):
-            result = await ai.generate_courseware_content(
-                project_id="proj-outline-fallback",
-                user_requirements="高一数学：二次函数",
-                outline_document=outline_document,
-                outline_version=3,
-            )
-
-        assert isinstance(result, CoursewareContent)
-        slides = [
-            block
-            for block in result.markdown_content.split("\n\n---\n\n")
-            if block.strip()
-        ]
-        assert len(slides) == 2
-        assert "知识地图构建" in result.markdown_content
-        assert "关键例题精讲" in result.markdown_content
-        assert "互动提问" in result.markdown_content
-        assert "讲解主线" in result.lesson_plan_markdown
-
-    @pytest.mark.asyncio
-    async def test_generate_courseware_content_prefers_rag_grounded_fallback_on_timeout(
-        self,
-    ):
-        ai = AIService()
-        outline_document = {
-            "title": "RAG fallback test",
-            "nodes": [
-                {
-                    "order": 1,
-                    "title": "Selected Evidence",
-                    "key_points": ["point-a", "point-b", "point-c"],
-                },
-                {
-                    "order": 2,
-                    "title": "Teaching Plan",
-                    "key_points": ["point-d", "point-e", "point-f"],
-                },
-            ],
-        }
-        rag_results = [
-            {
-                "content": "Only from selected source: Newton's second law describes F=ma.",
-                "source": {"filename": "selected.pdf"},
-                "metadata": {"upload_id": "file-1"},
-            },
-            {
-                "content": "Only from selected source: free-body diagram should include all forces.",
-                "source": {"filename": "selected.pdf"},
-                "metadata": {"upload_id": "file-1"},
-            },
-        ]
-        with (
-            patch.object(
-                ai,
-                "generate",
-                new_callable=AsyncMock,
-                side_effect=TimeoutError("provider timeout"),
-            ),
-            patch.object(
-                ai,
-                "_retrieve_rag_context",
-                new_callable=AsyncMock,
-                return_value=rag_results,
-            ),
-        ):
-            result = await ai.generate_courseware_content(
-                project_id="proj-rag-fallback",
-                user_requirements="physics lesson",
-                outline_document=outline_document,
-                outline_version=1,
-                rag_source_ids=["file-1"],
-            )
-
-        assert isinstance(result, CoursewareContent)
-        assert "F=ma" in result.markdown_content
-        assert "selected.pdf" not in result.markdown_content
-        assert (
-            "Follow-up discussion based on selected sources"
-            not in result.markdown_content
-        )
-        assert "讲解要求" in result.lesson_plan_markdown
-
-
-class TestExtractStructuredContent:
-    """extract_structured_content() 测试"""
-
-    @pytest.mark.asyncio
-    async def test_with_provided_outline(self):
-        """传入 outline 时不再调用 generate_outline"""
-        ai = AIService()
-        outline = CoursewareOutline(
-            title="预设大纲",
-            sections=[
-                OutlineSection(title="章节1", key_points=["点1"], slide_count=3),
-            ],
-            total_slides=5,
-        )
-        mock_response = (
-            "===PPT_CONTENT_START===\n# 预设大纲\n内容\n===PPT_CONTENT_END===\n"
-            "===LESSON_PLAN_START===\n# 教学目标\n目标\n===LESSON_PLAN_END==="
-        )
-
-        with (
-            patch.object(
-                ai,
-                "generate",
-                new_callable=AsyncMock,
-                return_value={"content": mock_response},
-            ),
-            patch.object(
-                ai, "_retrieve_rag_context", new_callable=AsyncMock, return_value=None
-            ),
-            patch.object(
-                ai, "generate_outline", new_callable=AsyncMock
-            ) as mock_outline,
-        ):
-            result = await ai.extract_structured_content(
-                "proj1", "测试", outline=outline
-            )
-
-        mock_outline.assert_not_called()
-        assert isinstance(result, CoursewareContent)
-
-    @pytest.mark.asyncio
-    async def test_without_outline_generates_one(self):
-        """未传入 outline 时自动生成"""
-        ai = AIService()
-        fallback_outline = AIService._get_fallback_outline("自动大纲")
-        mock_response = (
-            "===PPT_CONTENT_START===\n# 自动大纲\n内容\n===PPT_CONTENT_END===\n"
-            "===LESSON_PLAN_START===\n# 教学目标\n目标\n===LESSON_PLAN_END==="
-        )
-
-        with (
-            patch.object(
-                ai,
-                "generate",
-                new_callable=AsyncMock,
-                return_value={"content": mock_response},
-            ),
-            patch.object(
-                ai, "_retrieve_rag_context", new_callable=AsyncMock, return_value=None
-            ),
-            patch.object(
-                ai,
-                "generate_outline",
-                new_callable=AsyncMock,
-                return_value=fallback_outline,
-            ) as mock_outline,
-        ):
-            result = await ai.extract_structured_content("proj2", "自动大纲")
-
-        mock_outline.assert_called_once()
-        assert isinstance(result, CoursewareContent)
-
-    @pytest.mark.asyncio
-    async def test_rag_context_injected(self):
-        """RAG 上下文被注入到 prompt"""
-        ai = AIService()
-        outline = CoursewareOutline(
-            title="RAG测试",
-            sections=[
-                OutlineSection(title="章节1", key_points=["点1"], slide_count=2),
-            ],
-            total_slides=4,
-        )
-        rag_results = [{"content": "参考内容", "source": {"filename": "ref.pdf"}}]
-        mock_response = (
-            "===PPT_CONTENT_START===\n# RAG测试\n内容\n===PPT_CONTENT_END===\n"
-            "===LESSON_PLAN_START===\n# 教学目标\n目标\n===LESSON_PLAN_END==="
-        )
-
-        with (
-            patch.object(
-                ai,
-                "generate",
-                new_callable=AsyncMock,
-                return_value={"content": mock_response},
-            ) as mock_gen,
-            patch.object(
-                ai,
-                "_retrieve_rag_context",
-                new_callable=AsyncMock,
-                return_value=rag_results,
-            ),
-        ):
-            await ai.extract_structured_content("proj3", "RAG测试", outline=outline)
-
-        prompt_arg = mock_gen.call_args[1]["prompt"]
-        assert "参考资料" in prompt_arg
-
-
-class TestParseCoursewareResponse:
-    """_parse_courseware_response() 解析健壮性测试"""
-
-    def test_parse_with_outer_markdown_code_fence(self):
-        ai = AIService()
-        raw = """```markdown
-===PPT_CONTENT_START===
-# 线性代数
-
----
-
-# 向量空间
-- 基本定义
-===PPT_CONTENT_END===
-
-===LESSON_PLAN_START===
-# 教学目标
-- 理解向量空间定义
-===LESSON_PLAN_END===
-```"""
-        result = ai._parse_courseware_response(raw, "线性代数")
-        assert "向量空间" in result.markdown_content
-        assert "教学目标" in result.lesson_plan_markdown
-
-    def test_parse_with_relaxed_markers(self):
-        ai = AIService()
-        raw = """
-===== PPT_CONTENT_START =====
-# 计算机网络
----
-# TCP/IP
-===== PPT_CONTENT_END =====
-
-===== LESSON_PLAN_START =====
-# 教学目标
-- 理解分层模型
-===== LESSON_PLAN_END =====
-"""
-        result = ai._parse_courseware_response(raw, "计算机网络")
-        assert "TCP/IP" in result.markdown_content
-        assert "分层模型" in result.lesson_plan_markdown
-
-    def test_parse_without_markers_uses_heading_split(self):
-        ai = AIService()
-        raw = """---
-marp: true
-theme: default
----
-
-# 数据库系统
-
----
-
-# 事务隔离级别
-- RU / RC / RR / Serializable
-
-# 教学目标
-- 认识事务 ACID
-- 理解隔离级别差异
-"""
-        result = ai._parse_courseware_response(raw, "数据库系统")
-        assert "事务隔离级别" in result.markdown_content
-        assert "ACID" in result.lesson_plan_markdown
+            ai._parse_courseware_response("# demo", "测试")

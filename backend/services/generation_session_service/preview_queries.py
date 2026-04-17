@@ -97,9 +97,7 @@ async def _reconcile_diego_failed_session(
     error_message = "Diego run failed"
     if isinstance(error_details, dict):
         error_message = str(
-            error_details.get("message")
-            or error_details.get("reason")
-            or error_message
+            error_details.get("message") or error_details.get("reason") or error_message
         )
 
     await mark_diego_failed(

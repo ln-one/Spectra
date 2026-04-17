@@ -50,9 +50,13 @@ TOP_LEVEL_SERVICE_ALLOWLIST = {
     BACKEND_ROOT / "services" / "auth_service.py",
 }
 IDENTITY_SERVICE_ROOT_FILE = BACKEND_ROOT / "services" / "identity_service.py"
-RENDER_ADAPTER_HELPERS_ROOT = BACKEND_ROOT / "services" / "render_engine_adapter_helpers"
+RENDER_ADAPTER_HELPERS_ROOT = (
+    BACKEND_ROOT / "services" / "render_engine_adapter_helpers"
+)
 GENERATION_ROOT = BACKEND_ROOT / "services" / "generation"
-OUTLINE_DRAFT_ROOT = BACKEND_ROOT / "services" / "generation_session_service" / "outline_draft"
+OUTLINE_DRAFT_ROOT = (
+    BACKEND_ROOT / "services" / "generation_session_service" / "outline_draft"
+)
 
 SERVICE_BOUNDARIES_DOC = REPO_ROOT / "docs" / "architecture" / "service-boundaries.md"
 REQUIRED_CAPABILITY_AUTHORITIES = {
@@ -220,7 +224,9 @@ def check_six_service_boundaries_doc() -> list[Finding]:
     text = SERVICE_BOUNDARIES_DOC.read_text(encoding="utf-8").lower()
     findings: list[Finding] = []
     missing = [
-        name for name in sorted(REQUIRED_CAPABILITY_AUTHORITIES) if f"`{name}`" not in text
+        name
+        for name in sorted(REQUIRED_CAPABILITY_AUTHORITIES)
+        if f"`{name}`" not in text
     ]
     if missing:
         findings.append(
@@ -272,9 +278,7 @@ def check_legacy_render_authority(paths: list[Path]) -> list[Finding]:
 def check_residual_legacy_boundaries(paths: list[Path]) -> list[Finding]:
     findings: list[Finding] = []
 
-    generation_files = [
-        path for path in paths if path.is_relative_to(GENERATION_ROOT)
-    ]
+    generation_files = [path for path in paths if path.is_relative_to(GENERATION_ROOT)]
     allowed_generation_files = {
         GENERATION_ROOT / "__init__.py",
         GENERATION_ROOT / "marp_document.py",

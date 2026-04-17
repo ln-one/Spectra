@@ -6,8 +6,8 @@ import struct
 from pathlib import Path
 from typing import Awaitable, Callable, Optional
 
-from services.preview_helpers.cache import load_preview_content
 from services.generation.marp_document import split_marp_document
+from services.preview_helpers.cache import load_preview_content
 from services.preview_helpers.rendering import build_slides
 from services.preview_helpers.slide_mapping import slide_identity
 from services.render_engine_adapter import (
@@ -88,7 +88,9 @@ def _normalized_rendered_preview(
     rendered = payload.get("rendered_preview")
     if not isinstance(rendered, dict):
         return None
-    pages = [dict(item) for item in (rendered.get("pages") or []) if isinstance(item, dict)]
+    pages = [
+        dict(item) for item in (rendered.get("pages") or []) if isinstance(item, dict)
+    ]
     if not pages:
         return None
     return {

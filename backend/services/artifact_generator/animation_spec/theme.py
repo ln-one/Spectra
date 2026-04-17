@@ -9,7 +9,6 @@ from .constants import (
     _DEFAULT_STYLE_PACK,
     _STYLE_PACK_ALIASES,
     _STYLE_PACK_THEMES,
-    DEFAULT_THEME,
 )
 from .text import _clean_text
 

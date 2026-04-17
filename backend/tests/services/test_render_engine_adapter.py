@@ -8,7 +8,10 @@ from services.render_engine_adapter import (
     normalize_render_engine_page_result,
     normalize_render_engine_result,
 )
-from services.render_engine_adapter_helpers.parsing import build_page_markdown, parse_document_pages
+from services.render_engine_adapter_helpers.parsing import (
+    build_page_markdown,
+    parse_document_pages,
+)
 
 
 def test_legacy_build_render_engine_input_maps_courseware_content_to_structured_payload():
@@ -294,7 +297,9 @@ def test_normalize_render_engine_page_result_preserves_split_previews():
     ]
 
 
-def test_legacy_invoke_render_engine_uses_http_api_when_base_url_is_configured(monkeypatch):
+def test_legacy_invoke_render_engine_uses_http_api_when_base_url_is_configured(
+    monkeypatch,
+):
     class FakeResponse:
         def __init__(self, payload):
             self._payload = payload

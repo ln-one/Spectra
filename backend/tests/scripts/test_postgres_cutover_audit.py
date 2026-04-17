@@ -6,6 +6,8 @@ services:
     image: postgres:16-alpine
     ports:
       - \"127.0.0.1:5432:5432\"
+    volumes:
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: [\"CMD-SHELL\", \"pg_isready -U spectra -d spectra_shadow\"]
   backend:
@@ -151,6 +153,14 @@ services:
       - "127.0.0.1:6333:6333"
     healthcheck:
       test: ["CMD", "wget", "-q", "-O-", "http://localhost:6333/healthz"]
+  ourograph:
+    environment:
+      OUROGRAPH_DATABASE_URL: postgresql://spectra:spectra@postgres:5432/ourograph
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O-", "http://localhost:8081/health/ready"]
 """,
         shadow_compose_text=SHADOW_COMPOSE,
         migration_lock_provider="postgresql",
@@ -315,6 +325,14 @@ services:
       - "127.0.0.1:6333:6333"
     healthcheck:
       test: ["CMD", "wget", "-q", "-O-", "http://localhost:6333/healthz"]
+  ourograph:
+    environment:
+      OUROGRAPH_DATABASE_URL: postgresql://spectra:spectra@postgres:5432/ourograph
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O-", "http://localhost:8081/health/ready"]
 """,
         shadow_compose_text=SHADOW_COMPOSE,
         migration_lock_provider="postgresql",

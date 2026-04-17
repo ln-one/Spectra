@@ -6,7 +6,6 @@ from typing import Any
 
 from .semantics import (
     _build_object_details,
-    _extract_network_layers,
     _extract_structure_parts,
 )
 from .text import (

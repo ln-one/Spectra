@@ -17,7 +17,9 @@ async def test_is_session_already_running_true():
     db = SimpleNamespace(
         generationsession=SimpleNamespace(
             find_unique=AsyncMock(
-                return_value=SimpleNamespace(state=GenerationState.GENERATING_CONTENT)
+                return_value=SimpleNamespace(
+                    state=GenerationState.GENERATING_CONTENT.value
+                )
             )
         )
     )

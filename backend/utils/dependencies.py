@@ -2,7 +2,7 @@
 
 from typing import Optional
 
-from fastapi import Depends, Request
+from fastapi import Request
 
 from services.identity_service import identity_service
 from services.platform.limora_client import build_limora_client

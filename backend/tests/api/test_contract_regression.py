@@ -19,6 +19,7 @@ from main import app
 from services.application import project_api
 from services.database import db_service
 from services.file import file_service
+from services.project_space_service.service import project_space_service
 from utils.dependencies import get_current_user
 
 _NOW = datetime.now(timezone.utc)
@@ -146,6 +147,11 @@ class TestProjectsContract:
         _m(monkeypatch, db_service, "get_idempotency_response", None)
         _m(monkeypatch, db_service, "update_project", _proj(name="UPD"))
         _m(monkeypatch, db_service, "save_idempotency_response", None)
+        monkeypatch.setattr(
+            project_space_service,
+            "update_project_governance",
+            AsyncMock(return_value=None),
+        )
         _assert_envelope(
             client.put(
                 f"/api/v1/projects/{_PROJECT_ID}",
@@ -158,6 +164,11 @@ class TestProjectsContract:
     def test_delete_200(self, client, monkeypatch, auth):
         _m(monkeypatch, db_service, "get_project", _proj())
         _m(monkeypatch, db_service, "delete_project", None)
+        monkeypatch.setattr(
+            project_space_service,
+            "delete_project",
+            AsyncMock(return_value=None),
+        )
         _assert_envelope(client.delete(f"/api/v1/projects/{_PROJECT_ID}"), 200, True)
 
     def test_search_200(self, client, monkeypatch, auth):
@@ -271,6 +282,6 @@ class TestHealthEndpoints:
         assert resp.status_code == 200
 
     def test_health_200(self, client):
-        resp = client.get("/health")
+        resp = client.get("/health/live")
         assert resp.status_code == 200
-        assert resp.json()["status"] == "healthy"
+        assert resp.json()["status"] == "alive"

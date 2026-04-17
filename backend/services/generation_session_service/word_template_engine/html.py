@@ -8,7 +8,6 @@ from typing import Any
 from .common import (
     _html_card,
     _html_list,
-    _require_dict,
     _string_list,
     resolve_word_document_variant,
 )

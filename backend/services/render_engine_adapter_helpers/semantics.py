@@ -241,11 +241,7 @@ def infer_page_semantics(
                     "takeaway": (
                         derived_paragraphs[-1]
                         if len(derived_paragraphs) > 1
-                        else (
-                            derived_bullet_items[0]
-                            if derived_bullet_items
-                            else None
-                        )
+                        else (derived_bullet_items[0] if derived_bullet_items else None)
                     ),
                 }
             },

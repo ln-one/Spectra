@@ -8,7 +8,7 @@ from typing import Any
 from .concept_match import _concept_match_template
 from .fill_in_blank import _fill_in_blank_template
 from .quiz_challenge import _quiz_challenge_template
-from .schema import is_template_game_pattern, resolve_game_pattern, validate_game_data
+from .schema import is_template_game_pattern, validate_game_data
 from .timeline_sort import _timeline_sort_template
 
 

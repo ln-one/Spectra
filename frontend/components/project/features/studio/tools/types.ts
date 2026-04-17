@@ -29,6 +29,19 @@ export interface ResolvedArtifactPayload {
   artifactMetadata?: Record<string, unknown> | null;
 }
 
+export interface ToolStructuredRefineRequest {
+  artifactId: string;
+  message: string;
+  config?: Record<string, unknown>;
+}
+
+export interface ToolStructuredRefineResult {
+  ok: boolean;
+  artifactId?: string | null;
+  effectiveSessionId?: string | null;
+  insertedNodeId?: string | null;
+}
+
 export type ToolDraftValue =
   | string
   | number
@@ -74,6 +87,7 @@ export interface ToolFlowContext {
   selectedSourceId?: string | null;
   requestedStep?: string | null;
   latestArtifacts?: ToolArtifactPreviewItem[];
+  cardConfigFields?: Array<Record<string, unknown>>;
   onStepChange?: (stepId: string) => void;
   onSelectedSourceChange?: (sourceId: string | null) => void;
   onLoadSources?: () => Promise<void> | void;
@@ -89,16 +103,9 @@ export interface ToolFlowContext {
     message?: string;
     config?: Record<string, unknown>;
   }) => Promise<boolean> | boolean;
-  onStructuredRefineArtifact?: (payload: {
-    artifactId: string;
-    message: string;
-    config?: Record<string, unknown>;
-  }) => Promise<{
-    ok: boolean;
-    artifactId?: string | null;
-    effectiveSessionId?: string | null;
-    insertedNodeId?: string | null;
-  }>;
+  onStructuredRefineArtifact?: (
+    payload: ToolStructuredRefineRequest
+  ) => Promise<ToolStructuredRefineResult>;
   onRecommendAnimationPlacement?: (payload: {
     artifactId: string;
     pptArtifactId: string;

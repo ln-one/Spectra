@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from .schema import is_template_game_pattern, resolve_game_pattern, validate_game_data
+from .schema import is_template_game_pattern, validate_game_data
 
 
 def build_game_fallback_data(
