@@ -23,6 +23,8 @@ export type {
   ToolDraftState,
   ToolFlowContext,
   ToolPanelProps,
+  ToolStructuredRefineRequest,
+  ToolStructuredRefineResult,
   ToolSourceOption,
   StudioToolKey,
 } from "./types";

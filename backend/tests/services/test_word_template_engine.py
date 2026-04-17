@@ -19,7 +19,9 @@ from services.generation_session_service.word_template_engine import (
         ("lab_guide", '"experiment_meta"'),
     ],
 )
-def test_build_word_schema_hint_is_variant_aware(variant: str, required_token: str) -> None:
+def test_build_word_schema_hint_is_variant_aware(
+    variant: str, required_token: str
+) -> None:
     schema_hint = build_word_schema_hint(variant)
     assert '"layout_payload"' in schema_hint
     assert required_token in schema_hint

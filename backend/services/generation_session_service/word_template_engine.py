@@ -212,7 +212,9 @@ def validate_word_layout_payload(
     if variant == "layered_lesson_plan":
         _require_non_empty_str(layout.get("teaching_context"), "teaching_context")
         _require_non_empty_str(layout.get("learner_profile"), "learner_profile")
-        objectives = _require_dict(layout.get("learning_objectives"), "learning_objectives")
+        objectives = _require_dict(
+            layout.get("learning_objectives"), "learning_objectives"
+        )
         _require_string_list(objectives.get("a_level"), "learning_objectives_a_level")
         _require_string_list(objectives.get("b_level"), "learning_objectives_b_level")
         _require_string_list(objectives.get("c_level"), "learning_objectives_c_level")
@@ -220,7 +222,9 @@ def validate_word_layout_payload(
         for index, item in enumerate(flows, start=1):
             step = _require_dict(item, f"lesson_flow_{index}")
             _require_non_empty_str(step.get("phase"), f"lesson_flow_{index}_phase")
-            _require_non_empty_str(step.get("duration"), f"lesson_flow_{index}_duration")
+            _require_non_empty_str(
+                step.get("duration"), f"lesson_flow_{index}_duration"
+            )
             _require_string_list(
                 step.get("teacher_actions"),
                 f"lesson_flow_{index}_teacher_actions",
@@ -358,7 +362,9 @@ def validate_word_layout_payload(
         experiment_meta.get("estimated_time"),
         "experiment_meta_estimated_time",
     )
-    _require_non_empty_str(experiment_meta.get("difficulty"), "experiment_meta_difficulty")
+    _require_non_empty_str(
+        experiment_meta.get("difficulty"), "experiment_meta_difficulty"
+    )
     _require_string_list(layout.get("objectives"), "objectives")
     _require_string_list(layout.get("materials"), "materials")
     _require_string_list(layout.get("safety_notes"), "safety_notes")
@@ -382,7 +388,9 @@ def validate_word_layout_payload(
     for index, row in enumerate(rows, start=1):
         _require_string_list(row, f"observation_table_rows_{index}")
     _require_string_list(layout.get("reflection_questions"), "reflection_questions")
-    _require_string_list(layout.get("submission_requirements"), "submission_requirements")
+    _require_string_list(
+        layout.get("submission_requirements"), "submission_requirements"
+    )
 
 
 def _string_list(value: Any) -> list[str]:
@@ -415,7 +423,9 @@ def build_word_sections(
     layout = _require_dict(payload.get("layout_payload"), "layout_payload")
 
     if variant == "layered_lesson_plan":
-        objectives = _require_dict(layout.get("learning_objectives"), "learning_objectives")
+        objectives = _require_dict(
+            layout.get("learning_objectives"), "learning_objectives"
+        )
         return [
             {
                 "title": "教学定位",
@@ -430,9 +440,12 @@ def build_word_sections(
                 "title": "分层目标",
                 "content": "\n".join(
                     [
-                        "A层目标：" + "；".join(_string_list(objectives.get("a_level"))),
-                        "B层目标：" + "；".join(_string_list(objectives.get("b_level"))),
-                        "C层目标：" + "；".join(_string_list(objectives.get("c_level"))),
+                        "A层目标："
+                        + "；".join(_string_list(objectives.get("a_level"))),
+                        "B层目标："
+                        + "；".join(_string_list(objectives.get("b_level"))),
+                        "C层目标："
+                        + "；".join(_string_list(objectives.get("c_level"))),
                     ]
                 ),
             },
@@ -446,7 +459,9 @@ def build_word_sections(
                             f"学生活动：{'；'.join(_string_list(item.get('student_actions')))}\n"
                             f"产出：{'；'.join(_string_list(item.get('outputs')))}"
                         )
-                        for item in _require_list(layout.get("lesson_flow"), "lesson_flow")
+                        for item in _require_list(
+                            layout.get("lesson_flow"), "lesson_flow"
+                        )
                     ]
                 ),
             },
@@ -454,9 +469,12 @@ def build_word_sections(
                 "title": "评价与拓展",
                 "content": "\n".join(
                     [
-                        "关键问题：" + "；".join(_string_list(layout.get("key_questions"))),
+                        "关键问题："
+                        + "；".join(_string_list(layout.get("key_questions"))),
                         "差异化支持："
-                        + "；".join(_string_list(layout.get("differentiation_strategies"))),
+                        + "；".join(
+                            _string_list(layout.get("differentiation_strategies"))
+                        ),
                         "评价方式："
                         + "；".join(_string_list(layout.get("assessment_methods"))),
                         "作业建议：" + "；".join(_string_list(layout.get("homework"))),
@@ -484,8 +502,11 @@ def build_word_sections(
                 "title": "核心知识",
                 "content": "\n\n".join(
                     [
-                        f"{item['heading']}\n" + "；".join(_string_list(item.get("bullets")))
-                        for item in _require_list(layout.get("core_concepts"), "core_concepts")
+                        f"{item['heading']}\n"
+                        + "；".join(_string_list(item.get("bullets")))
+                        for item in _require_list(
+                            layout.get("core_concepts"), "core_concepts"
+                        )
                     ]
                 ),
             },
@@ -493,10 +514,16 @@ def build_word_sections(
                 "title": "例题与练习",
                 "content": "\n\n".join(
                     [
-                        f"{item['title']}\n" + "\n".join(_string_list(item.get("steps")))
-                        for item in _require_list(layout.get("worked_examples"), "worked_examples")
+                        f"{item['title']}\n"
+                        + "\n".join(_string_list(item.get("steps")))
+                        for item in _require_list(
+                            layout.get("worked_examples"), "worked_examples"
+                        )
                     ]
-                    + ["练习任务：" + "；".join(_string_list(layout.get("practice_tasks")))]
+                    + [
+                        "练习任务："
+                        + "；".join(_string_list(layout.get("practice_tasks")))
+                    ]
                 ),
             },
             {
@@ -504,7 +531,8 @@ def build_word_sections(
                 "content": "\n".join(
                     [
                         f"总结：{layout['summary_box']}",
-                        "课后记录：" + "；".join(_string_list(layout.get("after_class_notes"))),
+                        "课后记录："
+                        + "；".join(_string_list(layout.get("after_class_notes"))),
                     ]
                 ),
             },
@@ -520,7 +548,8 @@ def build_word_sections(
                     [
                         f"时长：{exam_meta['duration_minutes']} 分钟",
                         f"总分：{exam_meta['total_score']} 分",
-                        "作答说明：" + "；".join(_string_list(exam_meta.get("instructions"))),
+                        "作答说明："
+                        + "；".join(_string_list(exam_meta.get("instructions"))),
                     ]
                 ),
             },
@@ -548,9 +577,12 @@ def build_word_sections(
                 "title": "阅卷提示",
                 "content": "\n".join(
                     [
-                        "评分说明：" + "；".join(_string_list(layout.get("grading_notes"))),
+                        "评分说明："
+                        + "；".join(_string_list(layout.get("grading_notes"))),
                         "答案栏："
-                        + "；".join(_string_list(layout.get("answer_sheet")) or ["按题号填写"]),
+                        + "；".join(
+                            _string_list(layout.get("answer_sheet")) or ["按题号填写"]
+                        ),
                     ]
                 ),
             },
@@ -583,7 +615,9 @@ def build_word_sections(
             "content": "\n\n".join(
                 [
                     f"步骤 {item['step_no']}：{item['action']}\n预期结果：{item['expected_result']}"
-                    for item in _require_list(layout.get("procedure_steps"), "procedure_steps")
+                    for item in _require_list(
+                        layout.get("procedure_steps"), "procedure_steps"
+                    )
                 ]
             ),
         },
@@ -591,7 +625,8 @@ def build_word_sections(
             "title": "记录与反思",
             "content": "\n".join(
                 [
-                    "观察指标：" + "；".join(
+                    "观察指标："
+                    + "；".join(
                         _string_list(
                             _require_dict(
                                 layout.get("observation_table"),
@@ -599,7 +634,8 @@ def build_word_sections(
                             ).get("columns")
                         )
                     ),
-                    "反思问题：" + "；".join(_string_list(layout.get("reflection_questions"))),
+                    "反思问题："
+                    + "；".join(_string_list(layout.get("reflection_questions"))),
                     "提交要求："
                     + "；".join(_string_list(layout.get("submission_requirements"))),
                 ]
@@ -639,13 +675,27 @@ def _render_layout_body(document_variant: str, payload: dict[str, Any]) -> str:
         return (
             summary_html
             + '<div class="meta-grid">'
-            + _html_card("教学情境", f"<p>{html.escape(layout['teaching_context'])}</p>")
+            + _html_card(
+                "教学情境", f"<p>{html.escape(layout['teaching_context'])}</p>"
+            )
             + _html_card("学情画像", f"<p>{html.escape(layout['learner_profile'])}</p>")
             + "</div>"
             + '<div class="triple-grid">'
-            + _html_card("A层目标", f"<ul>{_html_list(_string_list(objectives.get('a_level')))}</ul>", "accent-a")
-            + _html_card("B层目标", f"<ul>{_html_list(_string_list(objectives.get('b_level')))}</ul>", "accent-b")
-            + _html_card("C层目标", f"<ul>{_html_list(_string_list(objectives.get('c_level')))}</ul>", "accent-c")
+            + _html_card(
+                "A层目标",
+                f"<ul>{_html_list(_string_list(objectives.get('a_level')))}</ul>",
+                "accent-a",
+            )
+            + _html_card(
+                "B层目标",
+                f"<ul>{_html_list(_string_list(objectives.get('b_level')))}</ul>",
+                "accent-b",
+            )
+            + _html_card(
+                "C层目标",
+                f"<ul>{_html_list(_string_list(objectives.get('c_level')))}</ul>",
+                "accent-c",
+            )
             + "</div>"
             + _html_card(
                 "教学流程",
@@ -656,7 +706,10 @@ def _render_layout_body(document_variant: str, payload: dict[str, Any]) -> str:
                 ),
             )
             + '<div class="two-grid">'
-            + _html_card("关键问题", f"<ul>{_html_list(_string_list(layout.get('key_questions')))}</ul>")
+            + _html_card(
+                "关键问题",
+                f"<ul>{_html_list(_string_list(layout.get('key_questions')))}</ul>",
+            )
             + _html_card(
                 "差异化与评价",
                 (
@@ -702,13 +755,18 @@ def _render_layout_body(document_variant: str, payload: dict[str, Any]) -> str:
         )
         return (
             summary_html
-            + _html_card("学习目标", f"<ul>{_html_list(_string_list(layout.get('learning_goals')))}</ul>")
+            + _html_card(
+                "学习目标",
+                f"<ul>{_html_list(_string_list(layout.get('learning_goals')))}</ul>",
+            )
             + _html_card(
                 "关键术语",
                 "<table><thead><tr><th>术语</th><th>解释</th></tr></thead>"
                 f"<tbody>{terms_rows}</tbody></table>",
             )
-            + '<div class="card-stack">' + concept_cards + "</div>"
+            + '<div class="card-stack">'
+            + concept_cards
+            + "</div>"
             + '<div class="two-grid">'
             + _html_card("例题拆解", example_cards)
             + _html_card(
@@ -812,13 +870,18 @@ def _render_layout_body(document_variant: str, payload: dict[str, Any]) -> str:
             ),
         )
         + '<div class="two-grid">'
-        + _html_card("实验目标", f"<ul>{_html_list(_string_list(layout.get('objectives')))}</ul>")
-        + _html_card("材料与安全", (
-            "<p><strong>实验材料：</strong>"
-            f"{html.escape('；'.join(_string_list(layout.get('materials'))))}</p>"
-            "<p><strong>安全提醒：</strong>"
-            f"{html.escape('；'.join(_string_list(layout.get('safety_notes'))))}</p>"
-        ))
+        + _html_card(
+            "实验目标", f"<ul>{_html_list(_string_list(layout.get('objectives')))}</ul>"
+        )
+        + _html_card(
+            "材料与安全",
+            (
+                "<p><strong>实验材料：</strong>"
+                f"{html.escape('；'.join(_string_list(layout.get('materials'))))}</p>"
+                "<p><strong>安全提醒：</strong>"
+                f"{html.escape('；'.join(_string_list(layout.get('safety_notes'))))}</p>"
+            ),
+        )
         + "</div>"
         + _html_card(
             "实验步骤",
@@ -857,7 +920,9 @@ def _render_layout_body(document_variant: str, payload: dict[str, Any]) -> str:
     )
 
 
-def _render_word_html(document_variant: str, payload: dict[str, Any], *, printable: bool) -> str:
+def _render_word_html(
+    document_variant: str, payload: dict[str, Any], *, printable: bool
+) -> str:
     body = _render_layout_body(document_variant, payload)
     printable_class = " printable" if printable else ""
     return f"""<!doctype html>
@@ -967,7 +1032,9 @@ def build_word_payload(
     variant = resolve_word_document_variant(document_variant)
     title = _require_non_empty_str(payload.get("title"), "title")
     summary = _require_non_empty_str(payload.get("summary"), "summary")
-    layout_payload = copy.deepcopy(_require_dict(payload.get("layout_payload"), "layout_payload"))
+    layout_payload = copy.deepcopy(
+        _require_dict(payload.get("layout_payload"), "layout_payload")
+    )
     validate_word_layout_payload(variant, layout_payload)
     normalized = {
         "kind": "word_document",
@@ -996,11 +1063,17 @@ def build_word_fallback_payload(
     grade_band = str(config.get("grade_band") or "high").strip()
     difficulty_layer = str(config.get("difficulty_layer") or "B").strip()
     learning_goal = str(config.get("learning_goal") or "帮助学生掌握核心知识点").strip()
-    teaching_context = str(config.get("teaching_context") or "围绕课程重点组织分层教学活动").strip()
+    teaching_context = str(
+        config.get("teaching_context") or "围绕课程重点组织分层教学活动"
+    ).strip()
     student_needs = str(config.get("student_needs") or "兼顾基础巩固与应用迁移").strip()
-    output_requirements = str(config.get("output_requirements") or "输出结构清晰、可直接使用的教学文档").strip()
+    output_requirements = str(
+        config.get("output_requirements") or "输出结构清晰、可直接使用的教学文档"
+    ).strip()
     snippet_1 = str(rag_snippets[0] or "").strip()[:180] if rag_snippets else ""
-    snippet_2 = str(rag_snippets[1] or "").strip()[:180] if len(rag_snippets) > 1 else ""
+    snippet_2 = (
+        str(rag_snippets[1] or "").strip()[:180] if len(rag_snippets) > 1 else ""
+    )
 
     if variant == "layered_lesson_plan":
         return build_word_payload(
@@ -1015,7 +1088,10 @@ def build_word_fallback_payload(
                     "teaching_context": teaching_context,
                     "learner_profile": student_needs,
                     "learning_objectives": {
-                        "a_level": [f"说出 {topic} 的基础概念", "完成基础识记与判断任务"],
+                        "a_level": [
+                            f"说出 {topic} 的基础概念",
+                            "完成基础识记与判断任务",
+                        ],
                         "b_level": [f"解释 {topic} 的关键机制", "能够结合案例分析过程"],
                         "c_level": [f"迁移应用 {topic} 解决实际问题", "形成结构化表达"],
                     },
@@ -1080,8 +1156,14 @@ def build_word_fallback_payload(
                         "完成基础到应用的练习任务",
                     ],
                     "key_terms": [
-                        {"term": topic, "explanation": snippet_1 or "课程主题对应的核心知识单元"},
-                        {"term": "关键机制", "explanation": "支撑主题运行或成立的主要过程"},
+                        {
+                            "term": topic,
+                            "explanation": snippet_1 or "课程主题对应的核心知识单元",
+                        },
+                        {
+                            "term": "关键机制",
+                            "explanation": "支撑主题运行或成立的主要过程",
+                        },
                     ],
                     "core_concepts": [
                         {
@@ -1121,7 +1203,8 @@ def build_word_fallback_payload(
                         "完成课堂练习",
                         "尝试用自己的语言讲给同伴听",
                     ],
-                    "summary_box": snippet_2 or f"{topic} 的学习关键在于抓住概念边界、过程逻辑与实际应用。",
+                    "summary_box": snippet_2
+                    or f"{topic} 的学习关键在于抓住概念边界、过程逻辑与实际应用。",
                     "after_class_notes": [
                         "记录尚未掌握的概念",
                         "整理一条可迁移的解题策略",
@@ -1167,7 +1250,8 @@ def build_word_fallback_payload(
                                 {
                                     "prompt": f"结合课堂内容说明 {topic} 的关键机制。",
                                     "score": 20,
-                                    "answer": snippet_1 or "从定义、过程、结果三个维度作答。",
+                                    "answer": snippet_1
+                                    or "从定义、过程、结果三个维度作答。",
                                     "analysis": "答案应体现结构化表达。",
                                 }
                             ],

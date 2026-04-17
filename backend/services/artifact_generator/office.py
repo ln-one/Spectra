@@ -125,7 +125,9 @@ class ArtifactOfficeMixin:
             temp_md.unlink(missing_ok=True)
         return output_path.exists() and output_path.stat().st_size > 0
 
-    async def _render_docx_with_pandoc_html(self, storage_path: str, html_content: str) -> bool:
+    async def _render_docx_with_pandoc_html(
+        self, storage_path: str, html_content: str
+    ) -> bool:
         try:
             from services.generation.pandoc_generator import call_pandoc
         except Exception as exc:
@@ -138,7 +140,9 @@ class ArtifactOfficeMixin:
         try:
             await call_pandoc(temp_html, output_path)
         except Exception as exc:
-            logger.warning("Pandoc HTML render failed, fallback to local generator: %s", exc)
+            logger.warning(
+                "Pandoc HTML render failed, fallback to local generator: %s", exc
+            )
             return False
         finally:
             temp_html.unlink(missing_ok=True)
