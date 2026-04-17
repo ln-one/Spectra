@@ -46,42 +46,11 @@
       '401':
         $ref: '../components/responses.yaml#/Unauthorized'
 
-/api/v1/auth/refresh:
-  post:
-    summary: 刷新 Access Token
-    operationId: postAuthRefresh
-    tags: [Auth]
-    security: []
-    requestBody:
-      required: true
-      content:
-        application/json:
-          schema:
-            type: object
-            required: [refresh_token]
-            properties:
-              refresh_token:
-                type: string
-                description: 长期有效的刷新令牌
-    responses:
-      '200':
-        description: 刷新成功
-        content:
-          application/json:
-            schema:
-              $ref: '../schemas/auth.yaml#/AuthResponse'
-      '400':
-        $ref: '../components/responses.yaml#/BadRequest'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-
 /api/v1/auth/logout:
   post:
     summary: 退出登录
     operationId: postAuthLogout
     tags: [Auth]
-    security:
-      - BearerAuth: []
     responses:
       '200':
         description: 退出成功
@@ -97,8 +66,6 @@
     summary: 获取当前用户信息
     operationId: getAuthMe
     tags: [Auth]
-    security:
-      - BearerAuth: []
     responses:
       '200':
         description: 成功

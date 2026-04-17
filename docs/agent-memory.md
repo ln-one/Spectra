@@ -1,5 +1,8 @@
 # Agent Memory
 
+> Status: `current`
+> Role: operational memory for confirmed recurring patterns and pitfalls.
+
 > Purpose: capture confirmed, reusable repository knowledge that matters to AI agents,
 > but is not yet broad enough to become a permanent standard.
 >
@@ -51,13 +54,11 @@
 - Meaning: final PPT/Word URLs should bind to project-space artifact downloads, not text preview/export endpoints.
 - Why it matters: preview/export and final binary download are different contracts and must not be mixed.
 
-### 2.6 Rendering path depends on Marp CLI and Pandoc
+### 2.6 Backend-local Marp/Pandoc rendering is retired as a formal path
 
-- Status: `confirmed`
-- Meaning:
-  - PPT generation depends on Marp CLI-based rendering
-  - Word generation depends on Pandoc
-- Why it matters: generation debugging must distinguish AI/content failure from render-toolchain failure.
+- Status: `retired`
+- Meaning: Spectra no longer treats backend-local Marp CLI / Pandoc as the formal PPT/DOC generation path. AI PPT generation belongs to Diego and render/export belongs to Pagevra.
+- Why it matters: if a backend-local Marp/Pandoc path appears again in production code, it is architecture drift rather than a valid recovery path.
 
 ### 2.7 Office and media rendering must fail explicitly
 
@@ -155,10 +156,10 @@
 - Meaning: Docker/backend runtime uses the Python Prisma client, and `find_unique()` / `find_many()` calls in hot paths must not assume JS-style `select=` support unless the generated client signature explicitly supports it.
 - Why it matters: preview/runtime queries have already failed in Docker with `unexpected keyword argument 'select'`, which surfaced to users as generic `INVALID_INPUT` instead of the real query incompatibility.
 
-### 2.23 The four external services are the only capability authorities
+### 2.23 The six external services are the only capability authorities
 
 - Status: `confirmed`
-- Meaning: Spectra runtime should treat `dualweave`, `stratumind`, `pagevra`, and `ourograph` as the only formal capability authorities for upload/parse, retrieval, render/preview/export, and formal project-space state.
+- Meaning: Spectra runtime should treat `diego`, `pagevra`, `ourograph`, `dualweave`, `stratumind`, and `limora` as the only formal capability authorities for AI PPT generation, render/preview/export, formal project-space state, upload/parse, retrieval, and identity.
 - Why it matters: once backend keeps alternate local paths, duplicate env names, or second render/state semantics alive, product behavior drifts and debugging turns into tracing which compatibility layer actually answered the request.
 
 ## 3. Watch List

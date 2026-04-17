@@ -58,44 +58,12 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
-  /api/v1/auth/refresh:
-    post:
-      summary: 刷新 Access Token
-      operationId: postAuthRefresh
-      tags:
-        - Auth
-      security: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - refresh_token
-              properties:
-                refresh_token:
-                  type: string
-                  description: 长期有效的刷新令牌
-      responses:
-        '200':
-          description: 刷新成功
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AuthResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
   /api/v1/auth/logout:
     post:
       summary: 退出登录
       operationId: postAuthLogout
       tags:
         - Auth
-      security:
-        - BearerAuth: []
       responses:
         '200':
           description: 退出成功
@@ -111,8 +79,6 @@ paths:
       operationId: getAuthMe
       tags:
         - Auth
-      security:
-        - BearerAuth: []
       responses:
         '200':
           description: 成功
@@ -129,7 +95,7 @@ paths:
       tags:
         - Chat
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -157,7 +123,7 @@ paths:
       tags:
         - Chat
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - name: project_id
           in: query
@@ -192,7 +158,7 @@ paths:
       tags:
         - Chat
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -235,7 +201,7 @@ paths:
       tags:
         - Files
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -276,7 +242,7 @@ paths:
       tags:
         - Files
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - name: file_id
           in: path
@@ -303,7 +269,7 @@ paths:
       tags:
         - Files
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - name: file_id
           in: path
@@ -338,7 +304,7 @@ paths:
       tags:
         - Files
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - name: file_id
           in: path
@@ -385,7 +351,7 @@ paths:
       tags:
         - Files
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -428,7 +394,7 @@ paths:
       tags:
         - Files
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       requestBody:
         required: true
         content:
@@ -464,7 +430,7 @@ paths:
       tags:
         - Generate
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - name: project_id
           in: query
@@ -505,7 +471,7 @@ paths:
       tags:
         - Generate
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
         - $ref: '#/components/parameters/ContractVersion'
@@ -535,7 +501,7 @@ paths:
       tags:
         - Generate
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - name: session_id
           in: path
@@ -566,7 +532,7 @@ paths:
       tags:
         - Generate
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - name: session_id
           in: path
@@ -613,7 +579,7 @@ paths:
       tags:
         - Generate
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - name: session_id
           in: path
@@ -657,7 +623,7 @@ paths:
       tags:
         - Generate
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - name: session_id
           in: path
@@ -693,7 +659,7 @@ paths:
       tags:
         - Generate
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - name: session_id
           in: path
@@ -732,7 +698,7 @@ paths:
       tags:
         - Generate
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - name: session_id
           in: path
@@ -770,7 +736,7 @@ paths:
       tags:
         - Generate
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - name: session_id
           in: path
@@ -813,7 +779,7 @@ paths:
       tags:
         - Generate
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - $ref: '#/components/parameters/ContractVersion'
       responses:
@@ -835,7 +801,7 @@ paths:
       tags:
         - Generate
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - $ref: '#/components/parameters/ContractVersion'
       responses:
@@ -857,7 +823,7 @@ paths:
       tags:
         - Generate
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - name: card_id
           in: path
@@ -886,7 +852,7 @@ paths:
       tags:
         - Generate
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - name: card_id
           in: path
@@ -915,7 +881,7 @@ paths:
       tags:
         - Generate
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - name: card_id
           in: path
@@ -952,7 +918,7 @@ paths:
       tags:
         - Generate
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - name: card_id
           in: path
@@ -997,7 +963,7 @@ paths:
       tags:
         - Generate
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - name: card_id
           in: path
@@ -1042,7 +1008,7 @@ paths:
       tags:
         - Generate
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - name: card_id
           in: path
@@ -1087,7 +1053,7 @@ paths:
       tags:
         - Generate
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - $ref: '#/components/parameters/ContractVersion'
       requestBody:
@@ -1127,7 +1093,7 @@ paths:
       tags:
         - Generate
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - name: card_id
           in: path
@@ -1160,7 +1126,7 @@ paths:
       tags:
         - Preview
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - name: session_id
           in: path
@@ -1200,7 +1166,7 @@ paths:
       tags:
         - Preview
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - name: session_id
           in: path
@@ -1239,7 +1205,7 @@ paths:
       tags:
         - Preview
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - name: session_id
           in: path
@@ -1284,7 +1250,7 @@ paths:
       tags:
         - Preview
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - name: session_id
           in: path
@@ -1326,7 +1292,7 @@ paths:
       tags:
         - RAG
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       requestBody:
         required: true
         content:
@@ -1353,7 +1319,7 @@ paths:
       tags:
         - RAG
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - name: chunk_id
           in: path
@@ -1386,7 +1352,7 @@ paths:
       tags:
         - RAG
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - name: chunk_id
           in: path
@@ -1436,7 +1402,7 @@ paths:
       tags:
         - RAG
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       requestBody:
         required: true
         content:
@@ -1493,7 +1459,7 @@ paths:
       tags:
         - RAG
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       requestBody:
         required: true
         content:
@@ -1535,7 +1501,7 @@ paths:
       tags:
         - RAG
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - name: query
           in: query
@@ -1581,7 +1547,7 @@ paths:
       tags:
         - RAG
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       requestBody:
         required: true
         content:
@@ -1623,7 +1589,7 @@ paths:
       tags:
         - RAG
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       requestBody:
         required: true
         content:
@@ -1727,7 +1693,7 @@ paths:
       tags:
         - SystemSettings
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - $ref: '#/components/parameters/ContractVersion'
       responses:
@@ -1751,7 +1717,7 @@ paths:
       tags:
         - SystemSettings
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
         - $ref: '#/components/parameters/ContractVersion'
@@ -1781,7 +1747,7 @@ paths:
       tags:
         - Project
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -1807,7 +1773,7 @@ paths:
       tags:
         - Project
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - $ref: '#/components/parameters/PageParam'
         - $ref: '#/components/parameters/LimitParam'
@@ -1827,7 +1793,7 @@ paths:
       tags:
         - Project
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - name: project_id
           in: path
@@ -1853,7 +1819,7 @@ paths:
       tags:
         - Project
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - name: project_id
           in: path
@@ -1888,7 +1854,7 @@ paths:
       tags:
         - Project
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - name: project_id
           in: path
@@ -1916,7 +1882,7 @@ paths:
         - Project
         - Files
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - name: project_id
           in: path
@@ -1946,7 +1912,7 @@ paths:
       tags:
         - Project
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - name: project_id
           in: path
@@ -1974,7 +1940,7 @@ paths:
       tags:
         - Project
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - name: q
           in: query
@@ -2010,7 +1976,7 @@ paths:
         - Project
         - Reference
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - name: project_id
           in: path
@@ -2045,7 +2011,7 @@ paths:
         - Project
         - Reference
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - name: project_id
           in: path
@@ -2071,7 +2037,7 @@ paths:
         - Project
         - Reference
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - name: project_id
           in: path
@@ -2113,7 +2079,7 @@ paths:
         - Project
         - Reference
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - name: project_id
           in: path
@@ -2148,7 +2114,7 @@ paths:
         - Project
         - Version
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - name: project_id
           in: path
@@ -2174,7 +2140,7 @@ paths:
         - Project
         - Version
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - name: project_id
           in: path
@@ -2207,7 +2173,7 @@ paths:
         - Project
         - Artifact
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - name: project_id
           in: path
@@ -2252,7 +2218,7 @@ paths:
         - Project
         - Artifact
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - name: project_id
           in: path
@@ -2286,7 +2252,7 @@ paths:
         - Project
         - Artifact
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - name: project_id
           in: path
@@ -2319,7 +2285,7 @@ paths:
         - Project
         - Artifact
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - name: project_id
           in: path
@@ -2375,7 +2341,7 @@ paths:
         - Project
         - CandidateChange
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - name: project_id
           in: path
@@ -2410,7 +2376,7 @@ paths:
         - Project
         - CandidateChange
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - name: project_id
           in: path
@@ -2451,7 +2417,7 @@ paths:
         - Project
         - CandidateChange
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - name: project_id
           in: path
@@ -2494,7 +2460,7 @@ paths:
         - Project
         - Member
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - name: project_id
           in: path
@@ -2519,7 +2485,7 @@ paths:
         - Project
         - Member
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - name: project_id
           in: path
@@ -2556,7 +2522,7 @@ paths:
         - Project
         - Member
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - name: project_id
           in: path
@@ -2597,7 +2563,7 @@ paths:
         - Project
         - Member
       security:
-        - BearerAuth: []
+        - SessionAuth: []
       parameters:
         - name: project_id
           in: path
@@ -2624,11 +2590,13 @@ paths:
           $ref: '#/components/responses/NotFound'
 components:
   securitySchemes:
-    BearerAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
-      description: JWT 认证令牌
+    SessionAuth:
+      type: apiKey
+      in: cookie
+      name: better-auth.session_token
+      description: |
+        浏览器会话 Cookie 认证。当前 Spectra 登录态由 Limora cookie session 驱动；
+        联调与 Swagger 调试应优先复用浏览器当前登录会话，而不是手动填写 Bearer Token。
   schemas:
     RegisterRequest:
       type: object
@@ -2686,13 +2654,9 @@ components:
           type: boolean
         data:
           type: object
+          required:
+            - user
           properties:
-            access_token:
-              type: string
-            refresh_token:
-              type: string
-            expires_in:
-              type: integer
             user:
               $ref: '#/components/schemas/UserInfo'
         message:
@@ -5724,9 +5688,9 @@ components:
         - redis
         - db_required
         - redis_required
-        - generation_tools
+        - service_authorities
         - dependency_timeout_seconds
-        - tool_timeout_seconds
+        - service_authority_timeout_seconds
         - latency_ms
       properties:
         status:
@@ -5748,37 +5712,39 @@ components:
           type: boolean
         redis_required:
           type: boolean
-        generation_tools:
+        service_authorities:
           type: object
           required:
-            - marp
-            - pandoc
             - required
             - healthy
+            - services
             - timed_out
           properties:
-            marp:
-              type: string
-              enum:
-                - available
-                - unavailable
-                - unknown
-            pandoc:
-              type: string
-              enum:
-                - available
-                - unavailable
-                - unknown
             required:
               type: boolean
             healthy:
               type: boolean
+            services:
+              type: object
+              additionalProperties:
+                type: object
+                required:
+                  - configured
+                  - env
+                properties:
+                  configured:
+                    type: boolean
+                  env:
+                    type: string
+                  base_url:
+                    type: string
+                    nullable: true
             timed_out:
               type: boolean
         dependency_timeout_seconds:
           type: number
           format: float
-        tool_timeout_seconds:
+        service_authority_timeout_seconds:
           type: number
           format: float
         latency_ms:
@@ -5786,7 +5752,7 @@ components:
           required:
             - database
             - redis
-            - generation_tools
+            - service_authorities
           properties:
             database:
               type: number
@@ -5794,7 +5760,7 @@ components:
             redis:
               type: number
               format: float
-            generation_tools:
+            service_authorities:
               type: number
               format: float
     HealthLivenessResponse:

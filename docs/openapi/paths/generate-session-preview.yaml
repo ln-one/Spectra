@@ -4,7 +4,7 @@
     operationId: getGenerateSessionsBySessionIdPreview
     tags: [Preview]
     security:
-      - BearerAuth: []
+      - SessionAuth: []
     parameters:
       - name: session_id
         in: path
@@ -44,7 +44,7 @@
     operationId: postGenerateSessionsBySessionIdPreviewModify
     tags: [Preview]
     security:
-      - BearerAuth: []
+      - SessionAuth: []
     parameters:
       - name: session_id
         in: path
@@ -83,7 +83,7 @@
     operationId: getGenerateSessionsBySessionIdPreviewSlidesBySlideId
     tags: [Preview]
     security:
-      - BearerAuth: []
+      - SessionAuth: []
     parameters:
       - name: session_id
         in: path
@@ -128,7 +128,7 @@
     operationId: postGenerateSessionsBySessionIdPreviewExport
     tags: [Preview]
     security:
-      - BearerAuth: []
+      - SessionAuth: []
     parameters:
       - name: session_id
         in: path

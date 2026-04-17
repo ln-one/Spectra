@@ -5,7 +5,7 @@
     description: 返回全局生效的业务运行配置，主要用于开发调试和前后端联调。
     tags: [SystemSettings]
     security:
-      - BearerAuth: []
+      - SessionAuth: []
     parameters:
       - $ref: '../components/parameters.yaml#/ContractVersion'
     responses:
@@ -29,7 +29,7 @@
       但不会替代持久化配置中心，也不保证跨进程、跨 worker 或重启后继续生效。
     tags: [SystemSettings]
     security:
-      - BearerAuth: []
+      - SessionAuth: []
     parameters:
       - $ref: '../components/parameters.yaml#/IdempotencyKey'
       - $ref: '../components/parameters.yaml#/ContractVersion'

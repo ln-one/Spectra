@@ -5,7 +5,7 @@
     description: 返回项目内生成会话列表（按更新时间倒序）
     tags: [Generate]
     security:
-      - BearerAuth: []
+      - SessionAuth: []
     parameters:
       - name: project_id
         in: query
@@ -45,7 +45,7 @@
     description: 创建可中断、可恢复的课件生成会话（契约优先主入口）
     tags: [Generate]
     security:
-      - BearerAuth: []
+      - SessionAuth: []
     parameters:
       - $ref: '../components/parameters.yaml#/IdempotencyKey'
       - $ref: '../components/parameters.yaml#/ContractVersion'
@@ -75,7 +75,7 @@
     operationId: getGenerateSessionsBySessionId
     tags: [Generate]
     security:
-      - BearerAuth: []
+      - SessionAuth: []
     parameters:
       - name: session_id
         in: path
@@ -106,7 +106,7 @@
       返回短轮询事件列表。
     tags: [Generate]
     security:
-      - BearerAuth: []
+      - SessionAuth: []
     parameters:
       - name: session_id
         in: path
@@ -152,7 +152,7 @@
     description: 返回服务端当前支持的契约版本、特性开关与弃用信息。
     tags: [Generate]
     security:
-      - BearerAuth: []
+      - SessionAuth: []
     parameters:
       - $ref: '../components/parameters.yaml#/ContractVersion'
     responses:
@@ -174,7 +174,7 @@
     description: 返回 Studio 卡片目录、成熟度、配置字段与上下文协议。
     tags: [Generate]
     security:
-      - BearerAuth: []
+      - SessionAuth: []
     parameters:
       - $ref: '../components/parameters.yaml#/ContractVersion'
     responses:
@@ -196,7 +196,7 @@
     description: 返回单张 Studio 卡片的后端协议细节。
     tags: [Generate]
     security:
-      - BearerAuth: []
+      - SessionAuth: []
     parameters:
       - name: card_id
         in: path
@@ -225,7 +225,7 @@
     description: 返回单张 Studio 卡片当前可落地的后端执行绑定、缺口与结果字段。
     tags: [Generate]
     security:
-      - BearerAuth: []
+      - SessionAuth: []
     parameters:
       - name: card_id
         in: path
@@ -254,7 +254,7 @@
     description: 根据卡片配置返回当前可以直接调用的后端请求预览。
     tags: [Generate]
     security:
-      - BearerAuth: []
+      - SessionAuth: []
     parameters:
       - name: card_id
         in: path
@@ -291,7 +291,7 @@
     description: 为卡片创建 draft run，不触发最终生成结果落地。
     tags: [Generate]
     security:
-      - BearerAuth: []
+      - SessionAuth: []
     parameters:
       - name: card_id
         in: path
@@ -336,7 +336,7 @@
     description: 对已达到 foundation-ready 的卡片直接执行初始动作，返回实际落地的 session 或 artifact。
     tags: [Generate]
     security:
-      - BearerAuth: []
+      - SessionAuth: []
     parameters:
       - name: card_id
         in: path
@@ -381,7 +381,7 @@
     description: 通过统一 chat 通道执行已暴露 refine 协议的卡片局部改写。
     tags: [Generate]
     security:
-      - BearerAuth: []
+      - SessionAuth: []
     parameters:
       - name: card_id
         in: path
@@ -426,7 +426,7 @@
     description: 基于已有 classroom_qa_simulator artifact 追加或替换一轮问答模拟。
     tags: [Generate]
     security:
-      - BearerAuth: []
+      - SessionAuth: []
     parameters:
       - $ref: '../components/parameters.yaml#/ContractVersion'
     requestBody:
@@ -466,7 +466,7 @@
     description: 返回当前卡片可选的源成果列表，优先用于 source-artifact 驱动的组合型卡片。
     tags: [Generate]
     security:
-      - BearerAuth: []
+      - SessionAuth: []
     parameters:
       - name: card_id
         in: path

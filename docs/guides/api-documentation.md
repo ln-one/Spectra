@@ -150,11 +150,10 @@ async def register(request: RegisterRequest):
 
 对于需要认证的接口：
 
-1. 先调用 `/api/v1/auth/login` 获取 token
-2. 点击页面右上角的 "Authorize" 按钮
-3. 输入 `Bearer <your_token>`
-4. 点击 "Authorize"
-5. 现在可以测试需要认证的接口了
+1. 先在同一浏览器中调用 `/api/v1/auth/login` 或 `/api/v1/auth/register`
+2. 确认响应成功并已建立当前站点的登录 Cookie
+3. 直接测试需要认证的接口
+4. 若接口仍返回 `401`，优先检查 Limora session cookie 是否已建立，而不是查找 Bearer token
 
 ## 前端集成
 

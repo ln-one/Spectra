@@ -4,7 +4,7 @@
     operationId: postChatMessages
     tags: [Chat]
     security:
-      - BearerAuth: []
+      - SessionAuth: []
     parameters:
       - $ref: '../components/parameters.yaml#/IdempotencyKey'
     requestBody:

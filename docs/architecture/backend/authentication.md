@@ -6,21 +6,21 @@
 
 - 注册：`POST /api/v1/auth/register`
 - 登录：`POST /api/v1/auth/login`
-- 刷新：`POST /api/v1/auth/refresh`
+- 当前登录态基于 Limora cookie session；Spectra 不再提供 `POST /api/v1/auth/refresh`
 - 当前用户：`GET /api/v1/auth/me`
 - 登出：`POST /api/v1/auth/logout`
 
 ## 认证机制
 
-- JWT（`Authorization: Bearer <token>`）
-- 密码哈希：`passlib[bcrypt]`
-- token 解析与用户注入：`utils/dependencies.py`
+- Limora cookie session
+- Spectra backend 通过 Limora BFF 做 identity mirror
+- 用户注入：`utils/dependencies.py` 通过请求 Cookie 解析当前身份
 
 ## 访问约束
 
 - 未认证请求返回 `401`
 - 资源不属于当前用户返回 `403`
-- token 无效或过期返回 `401`
+- Cookie 缺失、会话无效或已过期返回 `401`
 
 ## 开发要点
 
