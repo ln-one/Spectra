@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, ChevronUp, Loader2, Pencil, Play } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
+import { generateApi } from "@/lib/sdk";
 import { getErrorMessage } from "@/lib/sdk/errors";
 import { useGenerationEvents } from "@/hooks/useGenerationEvents";
 import { useProjectStore } from "@/stores/projectStore";
@@ -84,6 +85,8 @@ const DIEGO_EVENT_PREFIXES = [
   "template.",
   "llm.",
 ];
+const EVENT_PAGE_LIMIT = 200;
+const EVENT_PAGE_CAP = 20;
 
 type SlideDraft = {
   id: string;
@@ -102,6 +105,14 @@ type StreamLog = {
   title: string;
   detail?: string;
   tone: StreamLogTone;
+};
+type SessionEventLike = {
+  event_id?: string;
+  cursor?: string;
+  timestamp: string;
+  event_type?: string;
+  state?: string;
+  payload?: unknown;
 };
 
 type PanelPhase = "preamble_streaming" | "outline_streaming" | "editing";
@@ -313,6 +324,36 @@ function resolveEventKey(event: {
   if (event.event_id) return `id:${event.event_id}`;
   if (event.cursor) return `cursor:${event.cursor}`;
   return `fallback:${event.timestamp ?? ""}:${event.event_type ?? ""}`;
+}
+
+function extractCurrentRunIdFromSnapshot(snapshot: unknown): string | null {
+  if (!snapshot || typeof snapshot !== "object") return null;
+  const currentRun = (snapshot as { current_run?: { run_id?: unknown } })
+    .current_run;
+  const runId = currentRun?.run_id;
+  return typeof runId === "string" && runId.trim() ? runId : null;
+}
+
+function resolveSessionFailureMessage(
+  session: unknown,
+  fallback = "大纲生成失败"
+): string {
+  if (!session || typeof session !== "object") return fallback;
+  const payload = session as {
+    error_message?: unknown;
+    errorMessage?: unknown;
+    state_reason?: unknown;
+  };
+  if (typeof payload.error_message === "string" && payload.error_message.trim()) {
+    return payload.error_message;
+  }
+  if (typeof payload.errorMessage === "string" && payload.errorMessage.trim()) {
+    return payload.errorMessage;
+  }
+  if (typeof payload.state_reason === "string" && payload.state_reason.trim()) {
+    return payload.state_reason;
+  }
+  return fallback;
 }
 
 function clipText(value: unknown, max = 120): string {
@@ -608,6 +649,8 @@ export function OutlineEditorPanel({
   const [isConfirming, setIsConfirming] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [analysisPageCount, setAnalysisPageCount] = useState<number>(0);
+  const [editingTitleId, setEditingTitleId] = useState<string | null>(null);
+  const [editingContentId, setEditingContentId] = useState<string | null>(null);
 
   const processedEventKeysRef = useRef<Set<string>>(new Set());
   const processedDiegoSeqRef = useRef<Set<number>>(new Set());
@@ -621,7 +664,7 @@ export function OutlineEditorPanel({
   const isSnapshotAlignedToRun =
     !currentRunId || !snapshotRunId || currentRunId === snapshotRunId;
 
-  const { events, isConnected } = useGenerationEvents({
+  const { events, isConnected, error: streamError } = useGenerationEvents({
     sessionId: sessionId || null,
   });
 
@@ -685,22 +728,7 @@ export function OutlineEditorPanel({
     }
 
     if (isSnapshotAlignedToRun && sessionState === "FAILED") {
-      const sessionErrorFields = generationSession?.session as
-        | {
-            error_message?: unknown;
-            errorMessage?: unknown;
-            state_reason?: unknown;
-          }
-        | null
-        | undefined;
-      const message =
-        (typeof sessionErrorFields?.error_message === "string" &&
-          sessionErrorFields.error_message) ||
-        (typeof sessionErrorFields?.errorMessage === "string" &&
-          sessionErrorFields.errorMessage) ||
-        (typeof sessionErrorFields?.state_reason === "string" &&
-          sessionErrorFields.state_reason) ||
-        "大纲生成失败";
+      const message = resolveSessionFailureMessage(generationSession?.session);
       setErrorMessage(message);
     }
   }, [generationSession, isSnapshotAlignedToRun, sessionState, targetPageCount]);
@@ -710,10 +738,10 @@ export function OutlineEditorPanel({
     setSlides((prev) => ensureSlidesCount(prev, targetPageCount));
   }, [targetPageCount]);
 
-  useEffect(() => {
-    for (const event of events) {
+  const consumeDiegoEvent = useCallback(
+    (event: SessionEventLike) => {
       const key = resolveEventKey(event as never);
-      if (processedEventKeysRef.current.has(key)) continue;
+      if (processedEventKeysRef.current.has(key)) return;
       processedEventKeysRef.current.add(key);
 
       const payload = (event.payload ?? {}) as {
@@ -738,24 +766,25 @@ export function OutlineEditorPanel({
         normalizeText(sectionPayload?.run_id) ||
         null;
       if (currentRunId) {
-        if (!eventRunId || currentRunId !== eventRunId) continue;
+        if (!eventRunId || currentRunId !== eventRunId) return;
       }
 
       const diegoSeq = Number(sectionPayload?.diego_seq || 0);
       if (diegoSeq > 0) {
-        if (processedDiegoSeqRef.current.has(diegoSeq)) continue;
+        if (processedDiegoSeqRef.current.has(diegoSeq)) return;
         processedDiegoSeqRef.current.add(diegoSeq);
       }
 
       const eventType = normalizeText(event.event_type);
-      const diegoEventType = normalizeText(sectionPayload?.diego_event_type) || eventType;
+      const diegoEventType =
+        normalizeText(sectionPayload?.diego_event_type) || eventType;
       const isDiegoEvent =
         eventType === "progress.updated" ||
         Boolean(normalizeText(sectionPayload?.diego_event_type)) ||
         DIEGO_EVENT_PREFIXES.some((prefix) => diegoEventType.startsWith(prefix));
-      if (!isDiegoEvent) continue;
+      if (!isDiegoEvent) return;
 
-      const state = normalizeText((event as { state?: string }).state);
+      const state = normalizeText(event.state);
       if (state && state !== lastLoggedStateRef.current) {
         lastLoggedStateRef.current = state;
         setStreamLogs((prev) => {
@@ -783,7 +812,7 @@ export function OutlineEditorPanel({
         const token =
           normalizeText(sectionPayload?.token) ||
           normalizeText(payload.progress_message);
-        if (!token) continue;
+        if (!token) return;
         setPhase("outline_streaming");
         setPreambleCollapsed(true);
         setOutlineStreamText((prev) => {
@@ -800,7 +829,7 @@ export function OutlineEditorPanel({
           }
           return merged;
         });
-        continue;
+        return;
       }
 
       if (
@@ -808,7 +837,7 @@ export function OutlineEditorPanel({
         streamChannel !== "diego.preamble" &&
         streamChannel !== "diego.outline.token"
       ) {
-        continue;
+        return;
       }
 
       const rawPayload =
@@ -831,7 +860,7 @@ export function OutlineEditorPanel({
       }
 
       const normalized = resolveEventLog(diegoEventType, rawPayload);
-      if (!normalized.title) continue;
+      if (!normalized.title) return;
 
       setStreamLogs((prev) => {
         const next: StreamLog[] = [
@@ -846,8 +875,91 @@ export function OutlineEditorPanel({
         ];
         return next.slice(-240);
       });
+    },
+    [currentRunId, expectedPages]
+  );
+
+  useEffect(() => {
+    for (const event of events) {
+      consumeDiegoEvent(event as SessionEventLike);
     }
-  }, [currentRunId, events, expectedPages]);
+  }, [consumeDiegoEvent, events]);
+
+  useEffect(() => {
+    if (!streamError || !sessionId) return;
+
+    let cancelled = false;
+    setErrorMessage((prev) =>
+      prev || "Diego 事件流连接失败，正在同步任务状态..."
+    );
+
+    void (async () => {
+      try {
+        const preferredRunId = currentRunId || undefined;
+        const response = await generateApi.getSessionSnapshot(sessionId, {
+          run_id: preferredRunId,
+        });
+        const latestSession = response?.data ?? null;
+        if (cancelled || !latestSession) return;
+
+        const latestRunId = extractCurrentRunIdFromSnapshot(latestSession);
+        const previousRunId = useProjectStore.getState().activeRunId;
+        useProjectStore.setState({
+          generationSession: latestSession,
+          activeRunId: latestRunId || previousRunId || null,
+        });
+
+        const latestState =
+          typeof latestSession?.session?.state === "string"
+            ? latestSession.session.state
+            : "";
+        if (latestState === "FAILED") {
+          setErrorMessage(resolveSessionFailureMessage(latestSession.session));
+        }
+      } catch {
+        if (cancelled) return;
+        setErrorMessage((prev) => prev || "Diego 事件流连接失败，请稍后重试");
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentRunId, sessionId, streamError]);
+
+  useEffect(() => {
+    if (!sessionId) return;
+    let cancelled = false;
+    void (async () => {
+      let cursor: string | null = null;
+      let pageCount = 0;
+      while (!cancelled && pageCount < EVENT_PAGE_CAP) {
+        const response = await generateApi.listEvents(sessionId, {
+          cursor,
+          limit: EVENT_PAGE_LIMIT,
+        });
+        const pageEvents = (response?.data?.events ?? []) as SessionEventLike[];
+        if (!pageEvents.length) break;
+        let nextCursor: string | null = cursor;
+        for (const event of pageEvents) {
+          consumeDiegoEvent(event);
+          const eventCursor = normalizeText(event.cursor);
+          if (eventCursor) {
+            nextCursor = eventCursor;
+          }
+        }
+        if (!nextCursor || nextCursor === cursor) break;
+        cursor = nextCursor;
+        if (pageEvents.length < EVENT_PAGE_LIMIT) break;
+        pageCount += 1;
+      }
+    })().catch(() => {
+      // Keep live stream resilient if catch-up query fails.
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [consumeDiegoEvent, currentRunId, sessionId]);
 
   useEffect(() => {
     const node = logContainerRef.current;
@@ -1019,28 +1131,32 @@ export function OutlineEditorPanel({
               {streamLogs.length === 0 ? (
                 <div className="flex items-center gap-2 text-xs text-zinc-500">
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  {isConnected
-                    ? "正在等待 Diego 返回过程信息..."
-                    : "正在连接 Diego 事件流..."}
+                  {streamError
+                    ? "Diego 事件流连接失败，正在同步任务状态..."
+                    : !isConnected
+                      ? "正在连接 Diego 事件流..."
+                      : phase === "editing"
+                        ? "当前 run 暂无可展示过程日志"
+                        : "正在等待 Diego 返回过程信息..."}
                 </div>
               ) : (
                 streamLogs.map((item) => (
-                  <div key={item.id} className="rounded-lg bg-zinc-50/70 px-2.5 py-2">
-                    <div className="flex items-center gap-2 text-[11px] text-zinc-400">
-                      <span>{new Date(item.ts).toLocaleTimeString()}</span>
+                  <div key={item.id} className="flex gap-2 text-sm">
+                    <span className="shrink-0 text-[11px] text-zinc-400">
+                      {new Date(item.ts).toLocaleTimeString()}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <span
+                        className={`font-medium ${toneClassName(item.tone)}`}
+                      >
+                        {item.title}
+                      </span>
+                      {item.detail ? (
+                        <span className="ml-1 text-xs text-zinc-600">
+                          · {item.detail}
+                        </span>
+                      ) : null}
                     </div>
-                    <div
-                      className={`mt-0.5 text-sm font-semibold ${toneClassName(
-                        item.tone
-                      )}`}
-                    >
-                      {item.title}
-                    </div>
-                    {item.detail ? (
-                      <div className="mt-0.5 text-xs leading-5 text-zinc-600">
-                        {item.detail}
-                      </div>
-                    ) : null}
                   </div>
                 ))
               )}
@@ -1077,95 +1193,163 @@ export function OutlineEditorPanel({
         <div className="space-y-3">
           {slides.map((slide, index) => {
             const layoutOptions = LAYOUT_OPTIONS_BY_PAGE_TYPE[slide.pageType];
+            const pageTypeLabel =
+              PAGE_TYPE_OPTIONS.find((o) => o.value === slide.pageType)?.label ||
+              slide.pageType;
+            const keyPointsText = slide.keyPoints.join("\n");
             return (
               <div
                 key={slide.id}
-                className="rounded-xl border border-zinc-200 bg-white p-3"
+                className="rounded-xl border border-zinc-200 bg-white p-4"
               >
-                <div className="mb-2 flex items-center justify-between gap-2 text-xs text-zinc-500">
-                  <span className="flex items-center gap-2">
-                    <Pencil className="h-3.5 w-3.5" />第 {index + 1} 页
-                  </span>
-                  <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-[11px]">
-                    {isEditable ? "可编辑" : "流式填充中"}
-                  </span>
+                <div className="flex gap-3">
+                  <div className="flex-shrink-0 select-none pt-0.5 text-sm font-medium text-zinc-400">
+                    {String(index + 1).padStart(2, "0")}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="mb-1 flex items-start gap-2">
+                      {editingTitleId === slide.id ? (
+                        <Input
+                          autoFocus
+                          value={slide.title}
+                          onChange={(event) =>
+                            handleSlideFieldChange(slide.id, {
+                              title: event.target.value,
+                            })
+                          }
+                          onBlur={() => setEditingTitleId(null)}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter") {
+                              setEditingTitleId(null);
+                            }
+                          }}
+                          disabled={!isEditable}
+                          className="h-7 py-1 text-[15px] font-semibold"
+                        />
+                      ) : (
+                        <div
+                          className="group relative flex-1 cursor-pointer"
+                          onClick={() =>
+                            isEditable && setEditingTitleId(slide.id)
+                          }
+                          title={isEditable ? "点击编辑标题" : undefined}
+                        >
+                          <span className="text-[15px] font-semibold text-zinc-900">
+                            {slide.title}
+                          </span>
+                          {isEditable ? (
+                            <span className="pointer-events-none absolute -right-5 top-1 opacity-0 transition-opacity group-hover:opacity-100">
+                              <Pencil className="h-3 w-3 text-zinc-400" />
+                            </span>
+                          ) : null}
+                        </div>
+                      )}
+                      <span className="mt-0.5 shrink-0 rounded bg-blue-50 px-1.5 py-0.5 text-[11px] font-medium text-blue-600">
+                        {pageTypeLabel}
+                      </span>
+                    </div>
+
+                    {editingContentId === slide.id ? (
+                      <Textarea
+                        autoFocus
+                        value={keyPointsText}
+                        onChange={(event) =>
+                          handleSlideFieldChange(slide.id, {
+                            keyPoints: event.target.value
+                              .split("\n")
+                              .map((line) => line.trim())
+                              .filter(Boolean),
+                          })
+                        }
+                        onBlur={() => setEditingContentId(null)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" && event.ctrlKey) {
+                            setEditingContentId(null);
+                          }
+                        }}
+                        disabled={!isEditable}
+                        placeholder="每行一个要点"
+                        className="min-h-[80px] resize-y text-sm leading-6 disabled:cursor-not-allowed disabled:bg-zinc-50"
+                      />
+                    ) : (
+                      <div
+                        className="group relative cursor-pointer"
+                        onClick={() =>
+                          isEditable && setEditingContentId(slide.id)
+                        }
+                        title={isEditable ? "点击编辑内容" : undefined}
+                      >
+                        <p className="whitespace-pre-wrap text-sm leading-6 text-zinc-500">
+                          {slide.keyPoints.length > 0
+                            ? slide.keyPoints.join("；")
+                            : isEditable
+                              ? "点击添加内容描述..."
+                              : "暂无内容"}
+                        </p>
+                        {isEditable ? (
+                          <span className="pointer-events-none absolute -right-5 top-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+                            <Pencil className="h-3 w-3 text-zinc-400" />
+                          </span>
+                        ) : null}
+                      </div>
+                    )}
+
+                    <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      <label className="space-y-1">
+                        <span className="text-[11px] text-zinc-500">
+                          页面类型
+                        </span>
+                        <select
+                          value={slide.pageType}
+                          disabled={!isEditable}
+                          onChange={(event) => {
+                            const nextPageType = normalizePageType(
+                              event.target.value,
+                              slide.pageType
+                            );
+                            handleSlideFieldChange(slide.id, {
+                              pageType: nextPageType,
+                              layoutHint:
+                                DEFAULT_LAYOUT_BY_PAGE_TYPE[nextPageType],
+                            });
+                          }}
+                          className="h-8 w-full rounded-md border border-zinc-200 bg-white px-2 text-xs text-zinc-700 disabled:cursor-not-allowed disabled:bg-zinc-50"
+                        >
+                          {PAGE_TYPE_OPTIONS.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+
+                      <label className="space-y-1">
+                        <span className="text-[11px] text-zinc-500">
+                          布局提示
+                        </span>
+                        <select
+                          value={slide.layoutHint}
+                          disabled={!isEditable}
+                          onChange={(event) =>
+                            handleSlideFieldChange(slide.id, {
+                              layoutHint: normalizeLayoutHint(
+                                event.target.value,
+                                slide.pageType
+                              ),
+                            })
+                          }
+                          className="h-8 w-full rounded-md border border-zinc-200 bg-white px-2 text-xs text-zinc-700 disabled:cursor-not-allowed disabled:bg-zinc-50"
+                        >
+                          {layoutOptions.map((layout) => (
+                            <option key={layout} value={layout}>
+                              {layout}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    </div>
+                  </div>
                 </div>
-
-                <Input
-                  value={slide.title}
-                  onChange={(event) =>
-                    handleSlideFieldChange(slide.id, {
-                      title: event.target.value,
-                    })
-                  }
-                  disabled={!isEditable}
-                  className="mb-2 h-9 text-sm"
-                />
-
-                <div className="mb-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  <label className="space-y-1">
-                    <span className="text-[11px] text-zinc-500">页面类型</span>
-                    <select
-                      value={slide.pageType}
-                      disabled={!isEditable}
-                      onChange={(event) => {
-                        const nextPageType = normalizePageType(
-                          event.target.value,
-                          slide.pageType
-                        );
-                        handleSlideFieldChange(slide.id, {
-                          pageType: nextPageType,
-                          layoutHint: DEFAULT_LAYOUT_BY_PAGE_TYPE[nextPageType],
-                        });
-                      }}
-                      className="h-9 w-full rounded-md border border-zinc-200 bg-white px-2 text-xs text-zinc-700 disabled:cursor-not-allowed disabled:bg-zinc-50"
-                    >
-                      {PAGE_TYPE_OPTIONS.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-
-                  <label className="space-y-1">
-                    <span className="text-[11px] text-zinc-500">布局提示</span>
-                    <select
-                      value={slide.layoutHint}
-                      disabled={!isEditable}
-                      onChange={(event) =>
-                        handleSlideFieldChange(slide.id, {
-                          layoutHint: normalizeLayoutHint(
-                            event.target.value,
-                            slide.pageType
-                          ),
-                        })
-                      }
-                      className="h-9 w-full rounded-md border border-zinc-200 bg-white px-2 text-xs text-zinc-700 disabled:cursor-not-allowed disabled:bg-zinc-50"
-                    >
-                      {layoutOptions.map((layout) => (
-                        <option key={layout} value={layout}>
-                          {layout}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                </div>
-
-                <Textarea
-                  value={slide.keyPoints.join("\n")}
-                  onChange={(event) =>
-                    handleSlideFieldChange(slide.id, {
-                      keyPoints: event.target.value
-                        .split("\n")
-                        .map((line) => line.trim())
-                        .filter(Boolean),
-                    })
-                  }
-                  disabled={!isEditable}
-                  placeholder="每行一个要点"
-                  className="min-h-[96px] resize-y text-xs leading-6 disabled:cursor-not-allowed disabled:bg-zinc-50"
-                />
               </div>
             );
           })}
