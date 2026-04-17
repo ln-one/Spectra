@@ -54,6 +54,9 @@ These may contain valuable context, but they are not current runtime truth:
 - `docs/guides/rq-migration.md`
 - `docs/postgres-migration-checklist.md`
 - older migration / rollout / compatibility docs that still mention `GenerationTask` as a live model
+- `docs/documentation/legacy-docx-study/*`
+  - role: legacy study pack for proposal format, tone, and completeness signals only
+  - not allowed role: current architecture, implementation, deployment, database, benchmark, or business truth source
 
 ## Important Exception
 
@@ -71,3 +74,4 @@ Still worth tightening before large-scale formal documentation work:
 - a few operational guides still need clearer `historical` / `compatibility` labels
 - competition-draft chapters must continue using chapter-level truth-check before
   they are treated as reliable explanation surfaces
+- legacy `docx` reference material must stay constrained to expression-layer borrowing only

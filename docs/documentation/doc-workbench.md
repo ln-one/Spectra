@@ -183,6 +183,56 @@ Additional writing rule for the external main document:
 - do not rely on repo paths, markdown links, file jumps, or “see code/test/README”
 - all important claims must be self-contained through prose, figures, and tables
 
+### 2.6.1 Legacy DOCX boundary
+
+The legacy `docs_output/Spectra.docx` and the derived study pack under
+`docs/documentation/legacy-docx-study/` are allowed to influence only:
+
+- title style
+- chapter pacing
+- completeness signals
+- formal proposal tone
+
+They are not allowed to influence:
+
+- current architecture truth
+- service-boundary truth
+- deployment truth
+- database/state/contract truth
+- benchmark or business truth
+
+Working rule:
+
+- if a legacy passage helps the manuscript feel more like a mature formal submission, it may be studied
+- if it pulls the manuscript toward stale system understanding, drop it immediately
+
+Default reviewer-adaptation rule:
+
+- for conservative reviewers, legacy material may still be used as a reference for title naming, chapter pacing, completeness signals, and steadier submission tone
+- those gains must stay at the expression layer only; they must never override current system truth
+
+### 2.6.2 Conservative reviewer completeness signals
+
+When using the legacy study pack to make the outward-facing manuscript feel more
+complete to conservative reviewers, prefer borrowing only these signal classes:
+
+- visible system design coverage
+- visible implementation grouping
+- visible data/state/runtime/contract coverage
+- visible testing/evidence coverage
+- visible governance/risk/completion coverage
+
+Do not borrow legacy material merely because it contains more sections.
+
+The threshold question is:
+
+- does this addition improve completeness perception for an external reviewer while preserving current architecture truth?
+
+If yes, it may be used.
+
+If the addition mainly reintroduces stale deployment detail, flat backend
+thinking, fake single-database neatness, or contest-template tone, reject it.
+
 ### 2.7 Long-chapter control for the commercial proposal
 
 For large technical chapters, especially `05-key-technologies`, use a dual-layer structure:
