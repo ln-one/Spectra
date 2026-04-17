@@ -20,5 +20,5 @@
 	branch = master
 [submodule "limora"]
 	path = limora
-	url = git@github.com:ln-one/Limora.git
+	url = https://github.com/ln-one/Limora.git
 	branch = main
