@@ -6,7 +6,6 @@ import re
 from typing import Any
 
 from .constants import (
-    _LAYOUT_TYPES,
     _NETWORK_LAYER_DETAILS,
     _NETWORK_LAYER_ORDER,
     _OSI_LAYER_ORDER,

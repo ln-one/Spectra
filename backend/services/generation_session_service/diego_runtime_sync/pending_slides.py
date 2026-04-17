@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Optional
 
 from services.platform.generation_event_constants import GenerationEventType
+from utils.exceptions import ExternalServiceException
 
 from .constants import _SCHEMA_VERSION, logger
 from .dependencies import active

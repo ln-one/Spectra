@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import Any
 
 from .constants import _SHOT_TYPES
-from .semantics import _enrich_scene_semantics
 from .text import (
     _clean_text,
     _clip_text,

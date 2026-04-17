@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from .code_utils import _extract_error_context
+
 _FEWSHOT_EXAMPLES = """
 === 示例1：流程步骤（process_flow / pipeline_sequence） ===
 主题：编译器的四个阶段

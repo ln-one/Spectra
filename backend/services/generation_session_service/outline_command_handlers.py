@@ -28,7 +28,6 @@ from services.generation_session_service.session_history import (
     RUN_STEP_OUTLINE,
     SESSION_TITLE_SOURCE_MANUAL,
     create_session_run,
-    serialize_session_run,
     update_session_run,
 )
 from services.platform.generation_event_constants import GenerationEventType

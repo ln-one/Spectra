@@ -177,8 +177,6 @@ def _build_prompt(content: dict[str, Any], rag_snippets: list[str]) -> tuple[str
 
 async def _call_llm(system_prompt: str, user_prompt: str) -> str:
     """Call the project's AI service and return raw text."""
-    from services.ai import ai_service
-
     messages = [
         {"role": "system", "content": system_prompt},
         {"role": "user", "content": user_prompt},

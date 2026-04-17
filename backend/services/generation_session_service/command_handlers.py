@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import Awaitable, Callable, Optional
 
-from services.generation_session_service.command_runtime import handle_regenerate_slide
 from services.generation_session_service.outline_command_handlers import (
     handle_confirm_outline,
     handle_redraft_outline,

@@ -5,13 +5,9 @@ Phase 4 测试 - 预览、修改、质量评估
 使用 mock，不依赖真实 API。
 """
 
-import json
-from unittest.mock import AsyncMock, patch
-
 import pytest
 
 from schemas.generation import TaskStatus
-from schemas.intent import ModifyIntent, ModifyType
 from schemas.outline import CoursewareOutline, OutlineSection
 from schemas.preview import (
     ExportData,
