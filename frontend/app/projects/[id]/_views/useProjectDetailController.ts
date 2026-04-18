@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { authService } from "@/lib/auth";
 import { generateApi, projectSpaceApi } from "@/lib/sdk";
@@ -123,6 +123,13 @@ export function useProjectDetailController() {
   const [activeReferences, setActiveReferences] = useState<ProjectReference[]>(
     []
   );
+  const consumedQueryRunKeysRef = useRef<Set<string>>(new Set());
+  const lastFetchedMessagesSessionRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    consumedQueryRunKeysRef.current.clear();
+    lastFetchedMessagesSessionRef.current = null;
+  }, [projectId]);
 
   const panelLayout = useProjectPanelLayout({ layoutMode, isLoading });
 
@@ -325,6 +332,7 @@ export function useProjectDetailController() {
       // Do not auto-create bootstrap sessions. Session creation should be explicit.
       setActiveSessionId(null);
       useProjectStore.setState({ generationSession: null });
+      lastFetchedMessagesSessionRef.current = null;
       void fetchMessages(projectId, null);
       void fetchArtifactHistory(projectId, null);
     };
@@ -368,21 +376,38 @@ export function useProjectDetailController() {
         setActiveSessionId(null);
       }
       useProjectStore.setState({ generationSession: null });
+      lastFetchedMessagesSessionRef.current = null;
       void fetchMessages(projectId, null);
       void fetchArtifactHistory(projectId, null);
       return;
     }
 
     const nextSessionId = preferredSessionId;
+    const normalizedQueryRunId = String(queryRunId ?? "").trim();
+    const queryRunKey = normalizedQueryRunId
+      ? `${nextSessionId}:${normalizedQueryRunId}`
+      : "";
+    const canConsumeQueryRunIntent =
+      Boolean(queryRunKey) && !consumedQueryRunKeysRef.current.has(queryRunKey);
+    const consumeQueryRunIntent = () => {
+      if (!queryRunKey) return;
+      consumedQueryRunKeysRef.current.add(queryRunKey);
+    };
 
     if (nextSessionId && nextSessionId !== activeSessionId) {
       setActiveSessionId(nextSessionId);
       void fetchArtifactHistory(projectId, nextSessionId);
+      if (canConsumeQueryRunIntent) {
+        consumeQueryRunIntent();
+      }
+      const bootstrapRunId = canConsumeQueryRunIntent
+        ? normalizedQueryRunId
+        : null;
       void (async () => {
         try {
           const { snapshot, runId } = await loadSessionSnapshot(
             nextSessionId,
-            queryRunId
+            bootstrapRunId
           );
           if (cancelled) return;
           useProjectStore.setState({
@@ -399,21 +424,27 @@ export function useProjectDetailController() {
       })();
     }
 
-    if (nextSessionId) {
+    if (
+      nextSessionId &&
+      lastFetchedMessagesSessionRef.current !== nextSessionId
+    ) {
+      lastFetchedMessagesSessionRef.current = nextSessionId;
       void fetchMessages(projectId, nextSessionId);
     }
 
-    if (
+    if (nextSessionId && nextSessionId === activeSessionId && activeRunId) {
+      if (queryRunId !== activeRunId) updateSessionInUrl(nextSessionId, activeRunId);
+    } else if (
       nextSessionId &&
       nextSessionId === activeSessionId &&
-      queryRunId &&
-      queryRunId !== activeRunId
+      canConsumeQueryRunIntent
     ) {
+      consumeQueryRunIntent();
       void (async () => {
         try {
           const { snapshot, runId } = await loadSessionSnapshot(
             nextSessionId,
-            queryRunId
+            normalizedQueryRunId
           );
           if (cancelled) return;
           useProjectStore.setState({
@@ -421,7 +452,7 @@ export function useProjectDetailController() {
             activeRunId: runId,
           });
         } catch {
-          // keep current snapshot when run-scoped sync fails
+          // Keep current snapshot when run-scoped sync fails.
         }
       })();
     }
@@ -456,6 +487,7 @@ export function useProjectDetailController() {
     async (sessionId: string) => {
       if (!sessionId || sessionId === "empty") return;
       setActiveSessionId(sessionId);
+      lastFetchedMessagesSessionRef.current = sessionId;
       updateSessionInUrl(sessionId, null);
       const [messagesResult, artifactsResult, sessionResult] =
         await Promise.allSettled([
@@ -646,3 +678,4 @@ export function useProjectDetailController() {
     handleToggleExpandedSources: panelLayout.handleToggleExpandedSources,
   };
 }
+

@@ -14,14 +14,6 @@ function pickRandom<T>(arr: T[], count: number): T[] {
   return copy.slice(0, count);
 }
 
-function extractRunIdFromSessionPayload(payload: unknown): string | null {
-  if (!payload || typeof payload !== "object") return null;
-  const currentRun = (payload as { current_run?: { run_id?: unknown } })
-    .current_run;
-  const runId = currentRun?.run_id;
-  return typeof runId === "string" && runId.trim() ? runId : null;
-}
-
 function extractKeywords(input: string): string[] {
   return input
     .replace(/[^\u4e00-\u9fa5a-zA-Z0-9]/g, " ")
@@ -125,7 +117,11 @@ export interface GenerationConfig {
 interface UseGenerationConfigPanelArgs {
   onGenerate?: (
     config: GenerationConfig
-  ) => Promise<string | void | null> | string | void | null;
+  ) =>
+    | Promise<{ sessionId: string; runId: string } | void | null>
+    | { sessionId: string; runId: string }
+    | void
+    | null;
   resumeStage?: "config" | "outline" | null;
   resumeSignal?: number;
   onWorkflowStageChange?: (
@@ -151,6 +147,7 @@ export function useGenerationConfigPanel({
     selectedFileIds,
     generationSession,
     activeSessionId,
+    activeRunId,
   } = useProjectStore(
     useShallow((state) => ({
       project: state.project,
@@ -158,6 +155,7 @@ export function useGenerationConfigPanel({
       selectedFileIds: state.selectedFileIds,
       generationSession: state.generationSession,
       activeSessionId: state.activeSessionId,
+      activeRunId: state.activeRunId,
     }))
   );
 
@@ -249,7 +247,7 @@ export function useGenerationConfigPanel({
         isCreatingSession ? "generating_outline" : "outline",
         {
           sessionId: sessionId || null,
-          runId: useProjectStore.getState().activeRunId ?? null,
+          runId: activeRunId ?? null,
         }
       );
       return;
@@ -257,7 +255,7 @@ export function useGenerationConfigPanel({
     workflowStageChangeRef.current?.("config", {
       sessionId: sessionId || null,
     });
-  }, [isCreatingSession, sessionId, showOutlineEditor]);
+  }, [activeRunId, isCreatingSession, sessionId, showOutlineEditor]);
 
   const pageLabel = useMemo(() => {
     if (pageCount <= 10) return "Concise";
@@ -351,15 +349,6 @@ export function useGenerationConfigPanel({
     setIsCreatingSession(true);
 
     try {
-      const shouldReuseExistingRun = showRegenerateHint;
-      if (!shouldReuseExistingRun) {
-        // Card entry should always start a fresh run chain.
-        // Keep existing snapshot until new run binding is confirmed,
-        // to avoid blanking other history entries in the same session.
-        useProjectStore.setState({
-          activeRunId: null,
-        });
-      }
       const creationResult = await onGenerate?.({
         prompt: prompt.trim(),
         pageCount,
@@ -371,26 +360,50 @@ export function useGenerationConfigPanel({
       });
 
       const sessionIdFromCallback =
-        typeof creationResult === "string" ? creationResult : null;
-      if (!sessionIdFromCallback) {
-        throw new Error("generation session was not created");
+        creationResult &&
+        typeof creationResult === "object" &&
+        typeof creationResult.sessionId === "string"
+          ? creationResult.sessionId.trim()
+          : "";
+      const runIdFromCallback =
+        creationResult &&
+        typeof creationResult === "object" &&
+        typeof creationResult.runId === "string"
+          ? creationResult.runId.trim()
+          : "";
+      if (!sessionIdFromCallback || !runIdFromCallback) {
+        throw new Error("generation run was not created");
       }
 
       const sessionIdFromStore = sessionIdFromCallback;
-      const latestStoreState = useProjectStore.getState();
-      const initialRunId =
-        latestStoreState.activeRunId ||
-        extractRunIdFromSessionPayload(latestStoreState.generationSession);
-
       useProjectStore.setState({
-        activeRunId: initialRunId || null,
+        activeSessionId: sessionIdFromStore,
+        activeRunId: runIdFromCallback,
       });
 
+      // Enter outline panel immediately after run binding.
       setShowOutlineEditor(true);
-      workflowStageChangeRef.current?.("outline", {
+      workflowStageChangeRef.current?.("generating_outline", {
         sessionId: sessionIdFromStore,
-        runId: initialRunId,
+        runId: runIdFromCallback,
       });
+
+      try {
+        const sessionSnapshotResponse = await generateApi.getSessionSnapshot(
+          sessionIdFromStore,
+          { run_id: runIdFromCallback }
+        );
+        const runScopedSnapshot = sessionSnapshotResponse?.data ?? null;
+        if (runScopedSnapshot) {
+          useProjectStore.setState({
+            generationSession: runScopedSnapshot,
+            activeSessionId: sessionIdFromStore,
+            activeRunId: runIdFromCallback,
+          });
+        }
+      } catch {
+        // Keep run binding and let run-scoped polling continue syncing snapshot.
+      }
 
       void (async () => {
         const maxAttempts = 60;
@@ -404,13 +417,11 @@ export function useGenerationConfigPanel({
           for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
             if (outlinePollRequestIdRef.current !== requestId) return;
 
-            const targetRunId =
-              useProjectStore.getState().activeRunId || initialRunId || null;
             let latestSession: any = null;
             try {
               const sessionResponse = await generateApi.getSessionSnapshot(
                 sessionIdFromStore,
-                { run_id: targetRunId }
+                { run_id: runIdFromCallback }
               );
               latestSession = sessionResponse?.data ?? null;
             } catch (snapshotError) {
@@ -437,12 +448,11 @@ export function useGenerationConfigPanel({
             const currentPages = latestSession?.outline?.nodes?.length || 0;
             const targetPages =
               resolveExpectedPages(latestSession?.options) || pageCount;
-            const latestRunId =
-              targetRunId || extractRunIdFromSessionPayload(latestSession);
 
             useProjectStore.setState({
               generationSession: latestSession,
-              activeRunId: latestRunId,
+              activeSessionId: sessionIdFromStore,
+              activeRunId: runIdFromCallback,
             });
             lastSessionState = state;
 
@@ -524,7 +534,6 @@ export function useGenerationConfigPanel({
     outlineStyle,
     pageCount,
     prompt,
-    showRegenerateHint,
     layoutMode,
     selectedTemplateId,
     visualStyle,
@@ -539,10 +548,8 @@ export function useGenerationConfigPanel({
   const handleGoToPreview = useCallback(() => {
     if (!projectId || !sessionId) return;
 
-    const latestState = useProjectStore.getState();
-    const latestRunId =
-      latestState.activeRunId ||
-      extractRunIdFromSessionPayload(latestState.generationSession);
+    const latestRunId = useProjectStore.getState().activeRunId;
+    if (!latestRunId) return;
 
     workflowStageChangeRef.current?.("preview", {
       sessionId: sessionId || null,
