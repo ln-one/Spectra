@@ -73,6 +73,7 @@ export interface OutlineStreamStateResult {
   setEditingTitleId: React.Dispatch<React.SetStateAction<string | null>>;
   setEditingContentId: React.Dispatch<React.SetStateAction<string | null>>;
   handleSlideFieldChange: (slideId: string, updates: Partial<SlideDraft>) => void;
+  handleReorderSlides: (newSlides: SlideDraft[]) => void;
   handleConfirm: () => Promise<void>;
 }
 
@@ -685,6 +686,7 @@ export function useOutlineStreamState({
     setEditingTitleId,
     setEditingContentId,
     handleSlideFieldChange,
+    handleReorderSlides: setSlides,
     handleConfirm,
   };
 }
