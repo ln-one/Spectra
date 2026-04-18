@@ -54,7 +54,11 @@ async def get_source_detail_response(
     if not detail:
         raise NotFoundException(message=f"分块不存在: {chunk_id}")
 
-    file_info = await load_chunk_upload_info(chunk_id, parsed=parsed)
+    file_info = (
+        await load_chunk_upload_info(chunk_id, parsed=parsed)
+        if parsed is not None
+        else None
+    )
     payload = detail.model_dump()
     if file_info:
         payload["file_info"] = file_info
@@ -72,7 +76,10 @@ async def get_source_image_response(
         chunk_id=chunk_id,
         project_id=project_id,
         user_id=user_id,
+        allow_scope_fallback=False,
     )
+    if parsed is None:
+        raise NotFoundException(message=f"分块不存在: {chunk_id}")
     return await load_source_image_payload(
         chunk_id=chunk_id,
         image_path=image_path,

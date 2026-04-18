@@ -42,6 +42,27 @@ async def test_resolve_and_validate_chunk_access_rejects_missing_chunk(monkeypat
 
 
 @pytest.mark.asyncio
+async def test_resolve_and_validate_chunk_access_allows_scope_fallback(monkeypatch):
+    ensure_access = AsyncMock()
+    monkeypatch.setattr(
+        access,
+        "resolve_chunk_project_and_upload",
+        AsyncMock(return_value=(None, None)),
+    )
+    monkeypatch.setattr(access, "ensure_project_access", ensure_access)
+
+    resolved_project_id, parsed = await access.resolve_and_validate_chunk_access(
+        chunk_id="chunk-1",
+        project_id="proj-request",
+        user_id="user-1",
+    )
+
+    assert resolved_project_id == "proj-request"
+    assert parsed is None
+    ensure_access.assert_awaited_once_with("proj-request", "user-1")
+
+
+@pytest.mark.asyncio
 async def test_resolve_and_validate_chunk_access_checks_owner(monkeypatch):
     ensure_access = AsyncMock()
     monkeypatch.setattr(
@@ -91,3 +112,24 @@ async def test_get_source_image_response_passes_resolved_project(monkeypatch):
         project_id="proj-real",
         parsed="parsed-record",
     )
+
+
+@pytest.mark.asyncio
+async def test_get_source_image_response_rejects_scope_only_chunk(monkeypatch):
+    monkeypatch.setattr(
+        core,
+        "resolve_and_validate_chunk_access",
+        AsyncMock(return_value=("proj-real", None)),
+    )
+    load_payload = AsyncMock()
+    monkeypatch.setattr(core, "load_source_image_payload", load_payload)
+
+    with pytest.raises(NotFoundException):
+        await core.get_source_image_response(
+            chunk_id="chunk-1",
+            image_path="assets/figure.png",
+            user_id="user-1",
+            project_id="proj-real",
+        )
+
+    load_payload.assert_not_awaited()

@@ -37,24 +37,28 @@ async def resolve_and_validate_chunk_access(
     chunk_id: str,
     user_id: str,
     project_id: Optional[str] = None,
+    allow_scope_fallback: bool = True,
 ):
     resolved_project_id, parsed = await resolve_chunk_project_and_upload(chunk_id)
-    if not resolved_project_id:
-        raise NotFoundException(message=f"分块不存在: {chunk_id}")
-
     requested_project_id = str(project_id or "").strip()
-    if requested_project_id and requested_project_id != resolved_project_id:
-        raise ForbiddenException(
-            message="来源分块与请求项目不一致",
-            details={
-                "chunk_id": chunk_id,
-                "requested_project_id": requested_project_id,
-                "resolved_project_id": resolved_project_id,
-            },
-        )
+    if resolved_project_id:
+        if requested_project_id and requested_project_id != resolved_project_id:
+            raise ForbiddenException(
+                message="来源分块与请求项目不一致",
+                details={
+                    "chunk_id": chunk_id,
+                    "requested_project_id": requested_project_id,
+                    "resolved_project_id": resolved_project_id,
+                },
+            )
+        await ensure_project_access(resolved_project_id, user_id)
+        return resolved_project_id, parsed
 
-    await ensure_project_access(resolved_project_id, user_id)
-    return resolved_project_id, parsed
+    if allow_scope_fallback and requested_project_id:
+        await ensure_project_access(requested_project_id, user_id)
+        return requested_project_id, None
+
+    raise NotFoundException(message=f"分块不存在: {chunk_id}")
 
 
 async def load_chunk_upload_info(chunk_id: str, parsed=None):
