@@ -19,6 +19,32 @@ import {
   useProjectPanelLayout,
 } from "./useProjectPanelLayout";
 
+const SESSION_CHECK_TIMEOUT_MS = 8_000;
+const PROJECT_BOOTSTRAP_TIMEOUT_MS = 12_000;
+
+async function withTimeout<T>(
+  task: Promise<T>,
+  timeoutMs: number,
+  onTimeout?: () => void
+): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+  try {
+    return await Promise.race([
+      task,
+      new Promise<T>((_, reject) => {
+        timeoutId = setTimeout(() => {
+          onTimeout?.();
+          reject(new Error("PROJECT_BOOTSTRAP_TIMEOUT"));
+        }, timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+  }
+}
+
 function readRecordFromStorage<T extends Record<string, unknown>>(
   raw: string | null
 ): T {
@@ -299,16 +325,29 @@ export function useProjectDetailController() {
     const bootstrap = async () => {
       reset();
       setIsBootstrapping(true);
-      if (!(await authService.hasActiveSession())) {
-        router.push("/auth/login");
+      const hasSession = await authService.hasActiveSession({
+        timeoutMs: SESSION_CHECK_TIMEOUT_MS,
+      });
+      if (!hasSession) {
+        useProjectStore.setState({ isLoading: false });
+        router.replace("/auth/login");
         return;
       }
 
-      await Promise.all([
-        fetchProject(projectId),
-        fetchFiles(projectId),
-        fetchGenerationHistory(projectId),
-        loadActiveReferences(),
+      await Promise.allSettled([
+        withTimeout(
+          fetchProject(projectId),
+          PROJECT_BOOTSTRAP_TIMEOUT_MS,
+          () => {
+            useProjectStore.setState({ isLoading: false });
+          }
+        ),
+        withTimeout(fetchFiles(projectId), PROJECT_BOOTSTRAP_TIMEOUT_MS),
+        withTimeout(
+          fetchGenerationHistory(projectId),
+          PROJECT_BOOTSTRAP_TIMEOUT_MS
+        ),
+        withTimeout(loadActiveReferences(), PROJECT_BOOTSTRAP_TIMEOUT_MS),
       ]);
 
       if (cancelled) return;
