@@ -125,6 +125,11 @@ export function useOutlineStreamState({
   const logContainerRef = useRef<HTMLDivElement>(null!);
   const targetPageCountRef = useRef<number>(0);
 
+  // When true, the outline is already complete (loaded from snapshot or cache
+  // in editing phase). Prevents catch-up event replay from regressing phase,
+  // re-processing outline tokens, and duplicating slides.
+  const outlineLockedRef = useRef(false);
+
   const targetPageCount = analysisPageCount || expectedPages;
   const snapshotRunId = generationSession?.current_run?.run_id || null;
   const isSnapshotAlignedToRun =
@@ -148,6 +153,7 @@ export function useOutlineStreamState({
     processedDiegoSeqRef.current.clear();
     requirementsResultLoggedRef.current = false;
     lastLoggedStateRef.current = "";
+    outlineLockedRef.current = false;
     setErrorMessage(null);
     runScopedSnapshotSyncRef.current = "";
 
@@ -162,6 +168,10 @@ export function useOutlineStreamState({
       setSlides(ensureSlidesCount(cached.slides, cachedTargetCount));
       setPhase(cached.phase);
       setPreambleCollapsed(cached.preambleCollapsed);
+      // If cached phase is already editing, lock outline to prevent replay
+      if (cached.phase === "editing") {
+        outlineLockedRef.current = true;
+      }
     } else {
       setStreamLogs([]);
       setOutlineStreamText("");
@@ -196,6 +206,10 @@ export function useOutlineStreamState({
     if (canSeedFromSnapshot && sessionState === "AWAITING_OUTLINE_CONFIRM") {
       setPhase("editing");
       setPreambleCollapsed(true);
+      outlineLockedRef.current = true;
+      // Clear accumulated outline stream text to prevent duplication on
+      // subsequent re-entries. Slides are already loaded from snapshot.
+      setOutlineStreamText("");
       return;
     }
     if (!cached) {
@@ -342,6 +356,11 @@ export function useOutlineStreamState({
         diegoEventType === "outline.token" ||
         (eventType === "outline.token" && streamChannel !== "diego.preamble")
       ) {
+        // Skip outline token replay when outline is already loaded from
+        // snapshot/cache. This prevents phase regression, outlineStreamText
+        // accumulation, and slide duplication on re-entry.
+        if (outlineLockedRef.current) return;
+
         const token =
           normalizeText(sectionPayload?.token) ||
           normalizeText(payload.progress_message);
@@ -404,6 +423,7 @@ export function useOutlineStreamState({
       if (diegoEventType === "outline.completed") {
         setPhase("editing");
         setPreambleCollapsed(true);
+        outlineLockedRef.current = true;
       }
 
       const normalized = resolveEventLog(diegoEventType, rawPayload);
@@ -468,9 +488,13 @@ export function useOutlineStreamState({
     };
   }, [currentRunId, sessionId, streamError]);
 
-  // Catch-up: paginate historical events
+  // Catch-up: paginate historical events.
+  // Skip entirely when outline is already locked (session confirmed, slides
+  // loaded from snapshot/cache). Replaying events at that point only causes
+  // phase regression, log duplication, and slide multiplication.
   useEffect(() => {
     if (!sessionId || !currentRunId) return;
+    if (outlineLockedRef.current) return;
     let cancelled = false;
     void (async () => {
       let cursor: string | null = null;
