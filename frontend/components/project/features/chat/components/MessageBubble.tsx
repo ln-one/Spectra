@@ -175,24 +175,6 @@ export function MessageBubble({
           ) : (
             <div className="relative">
               <MarkdownContent content={body} isUser={isUser} />
-              {citations.length > 0 && (
-                <div className="mt-1.5 flex flex-wrap gap-1">
-                  {citations.map((citation, i) => (
-                    <button
-                      key={`${citation.chunkId}-${i}`}
-                      onClick={() =>
-                        focusSourceByChunk(citation.chunkId, projectId)
-                      }
-                      className="text-[10px] leading-none text-[var(--project-text-muted)] transition-colors hover:text-[var(--project-text-primary)]"
-                      aria-label={`引用 ${i + 1}`}
-                    >
-                      <sup className="rounded border border-[var(--project-border)] bg-[var(--project-surface-muted)] px-1 py-0.5">
-                        {i + 1}
-                      </sup>
-                    </button>
-                  ))}
-                </div>
-              )}
             </div>
           )}
         </motion.div>

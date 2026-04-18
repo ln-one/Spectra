@@ -2,6 +2,8 @@
 文本分块策略测试
 """
 
+import re
+
 from services.chunking import _estimate_tokens, split_text
 
 
@@ -83,6 +85,21 @@ class TestSplitText:
 
         with pytest.raises(ValueError, match="chunk_overlap must be less"):
             split_text("一些文本内容。" * 50, chunk_size=50, chunk_overlap=50)
+
+    def test_split_text_avoids_cutting_inside_html_tags(self):
+        text = (
+            "<table><tr><td>1</td><td>0</td><td>0</td><td>黑</td></tr>"
+            "<tr><td>2</td><td>0</td><td>0</td><td>1</td><td>蓝</td></tr>"
+            "<tr><td>3</td><td>0</td><td>1</td><td>0</td><td>绿</td></tr>"
+            "<tr><td>4</td><td>0</td><td>1</td><td>1</td><td>青</td></tr>"
+            "<tr><td>5</td><td>1</td><td>0</td><td>0</td><td>红</td></tr>"
+            "<tr><td>6</td><td>1</td><td>0</td><td>1</td><td>品红</td></tr></table>"
+        )
+        result = split_text(text, chunk_size=25, chunk_overlap=3)
+        assert len(result) >= 2
+        for chunk in result:
+            assert re.search(r"<[^>]*$", chunk) is None
+            assert not chunk.startswith(("td>", "/td>", "tr>", "/tr>", "table>"))
 
 
 class TestChinesePunctuationSeparators:

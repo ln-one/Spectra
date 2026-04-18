@@ -11,7 +11,7 @@ from utils.responses import success_response
 from .access import (
     ensure_project_access,
     load_chunk_upload_info,
-    resolve_chunk_project_and_upload,
+    resolve_and_validate_chunk_access,
 )
 from .source_images import load_source_image_payload
 
@@ -36,11 +36,16 @@ async def search_knowledge_base_response(request: RAGSearchRequest):
     )
 
 
-async def get_source_detail_response(chunk_id: str, project_id: Optional[str]):
-    resolved_project_id = project_id
-    parsed = None
-    if not resolved_project_id:
-        resolved_project_id, parsed = await resolve_chunk_project_and_upload(chunk_id)
+async def get_source_detail_response(
+    chunk_id: str,
+    project_id: Optional[str],
+    user_id: str,
+):
+    resolved_project_id, parsed = await resolve_and_validate_chunk_access(
+        chunk_id=chunk_id,
+        project_id=project_id,
+        user_id=user_id,
+    )
 
     detail = await rag_service.get_chunk_detail(
         chunk_id=chunk_id,
@@ -63,16 +68,15 @@ async def get_source_image_response(
     user_id: str,
     project_id: Optional[str] = None,
 ):
-    resolved_project_id = project_id
-    parsed = None
-    if not resolved_project_id:
-        resolved_project_id, parsed = await resolve_chunk_project_and_upload(chunk_id)
-    if not resolved_project_id:
-        raise NotFoundException(message=f"分块不存在: {chunk_id}")
-    await ensure_project_access(resolved_project_id, user_id)
+    resolved_project_id, parsed = await resolve_and_validate_chunk_access(
+        chunk_id=chunk_id,
+        project_id=project_id,
+        user_id=user_id,
+    )
     return await load_source_image_payload(
         chunk_id=chunk_id,
         image_path=image_path,
+        project_id=resolved_project_id,
         parsed=parsed,
     )
 

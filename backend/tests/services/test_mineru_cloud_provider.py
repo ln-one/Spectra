@@ -107,4 +107,7 @@ def test_mineru_cloud_provider_happy_path_direct_cloud(monkeypatch, tmp_path):
     assert "cloud result" in text
     assert details["pages_extracted"] == 3
     assert details["text_length"] == len(text)
+    assert details["source_archive_url"] == "https://download.example/full.zip"
+    assert details["full_zip_url"] == "https://download.example/full.zip"
+    assert details["result_url"] == "https://download.example/full.zip"
     assert details["provider_error"] is None

@@ -41,7 +41,7 @@ async def get_source_detail(
 ):
     """查看来源详情"""
     try:
-        return await get_source_detail_response(chunk_id, project_id)
+        return await get_source_detail_response(chunk_id, project_id, user_id)
     except APIException:
         raise
     except Exception as exc:

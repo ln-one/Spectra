@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Check, ChevronUp, Sparkles, Trash2 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
+import rehypeRaw from "rehype-raw";
+import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
 import remarkGfm from "remark-gfm";
 import { ragApi } from "@/lib/sdk";
 import { Button } from "@/components/ui/button";
@@ -24,12 +26,17 @@ function normalizeRelativeImagePath(src: string | undefined): string | null {
   const normalized = src.trim().replace(/\\/g, "/").replace(/^\.\//, "");
   if (
     !normalized ||
+    normalized.startsWith("/") ||
+    normalized.startsWith("../") ||
+    normalized.includes("/../") ||
+    normalized.split("/").includes("..") ||
+    /^[a-zA-Z]:\//.test(normalized) ||
     normalized.startsWith("http://") ||
     normalized.startsWith("https://")
   ) {
     return null;
   }
-  return normalized.startsWith("images/") ? normalized : null;
+  return normalized;
 }
 
 function SourceChunkImage({
@@ -44,16 +51,34 @@ function SourceChunkImage({
   const relativePath = useMemo(() => normalizeRelativeImagePath(src), [src]);
   const [objectUrl, setObjectUrl] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const objectUrlRef = useRef<string | null>(null);
   const isAbsoluteUrl = Boolean(
     src?.startsWith("http://") || src?.startsWith("https://")
   );
   const shouldFetch = Boolean(!isAbsoluteUrl && chunkId && relativePath);
 
+  const updateObjectUrl = useCallback((nextUrl: string | null) => {
+    if (objectUrlRef.current && objectUrlRef.current !== nextUrl) {
+      URL.revokeObjectURL(objectUrlRef.current);
+    }
+    objectUrlRef.current = nextUrl;
+    setObjectUrl(nextUrl);
+  }, []);
+
+  useEffect(
+    () => () => {
+      if (objectUrlRef.current) {
+        URL.revokeObjectURL(objectUrlRef.current);
+        objectUrlRef.current = null;
+      }
+    },
+    []
+  );
+
   useEffect(() => {
     if (!shouldFetch || !chunkId || !relativePath) {
       return;
     }
-    let revokedUrl: string | null = null;
     let active = true;
 
     ragApi
@@ -62,8 +87,8 @@ function SourceChunkImage({
         if (!active) {
           return;
         }
-        revokedUrl = URL.createObjectURL(blob);
-        setObjectUrl(revokedUrl);
+        setLoadError(null);
+        updateObjectUrl(URL.createObjectURL(blob));
       })
       .catch((error: unknown) => {
         if (!active) {
@@ -75,11 +100,8 @@ function SourceChunkImage({
 
     return () => {
       active = false;
-      if (revokedUrl) {
-        URL.revokeObjectURL(revokedUrl);
-      }
     };
-  }, [chunkId, relativePath, shouldFetch]);
+  }, [chunkId, relativePath, shouldFetch, updateObjectUrl]);
 
   if (isAbsoluteUrl) {
     return (
@@ -123,6 +145,63 @@ function SourceChunkImage({
     />
   );
 }
+
+const sourceMarkdownSanitizeSchema = {
+  ...defaultSchema,
+  tagNames: [
+    ...(defaultSchema.tagNames || []),
+    "table",
+    "thead",
+    "tbody",
+    "tfoot",
+    "tr",
+    "th",
+    "td",
+    "img",
+    "div",
+    "span",
+    "figure",
+    "figcaption",
+  ],
+  attributes: {
+    ...(defaultSchema.attributes || {}),
+    a: [
+      ...((defaultSchema.attributes && defaultSchema.attributes.a) || []),
+      "href",
+      "target",
+      "rel",
+      "title",
+    ],
+    img: [
+      ...((defaultSchema.attributes && defaultSchema.attributes.img) || []),
+      "src",
+      "alt",
+      "title",
+      "width",
+      "height",
+    ],
+    table: [
+      ...((defaultSchema.attributes && defaultSchema.attributes.table) || []),
+      "className",
+    ],
+    th: [
+      ...((defaultSchema.attributes && defaultSchema.attributes.th) || []),
+      "colspan",
+      "rowspan",
+      "align",
+    ],
+    td: [
+      ...((defaultSchema.attributes && defaultSchema.attributes.td) || []),
+      "colspan",
+      "rowspan",
+      "align",
+    ],
+    "*": [
+      ...((defaultSchema.attributes && defaultSchema.attributes["*"]) || []),
+      "className",
+    ],
+  },
+};
 
 interface FileItemProps {
   file: UploadedFile;
@@ -392,6 +471,7 @@ export function FileItem({
             <div className="text-[var(--project-text-primary)]">
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
+                rehypePlugins={[rehypeRaw, [rehypeSanitize, sourceMarkdownSanitizeSchema]]}
                 components={{
                   img: ({ src, alt }) => (
                     <SourceChunkImage

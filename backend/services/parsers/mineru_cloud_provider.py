@@ -180,6 +180,9 @@ class MineruCloudProvider(BaseParseProvider):
                     raise RuntimeError("mineru_cloud_missing_full_zip_url")
 
                 text = self._download_markdown(client, full_zip_url)
+                details["source_archive_url"] = full_zip_url
+                details["full_zip_url"] = full_zip_url
+                details["result_url"] = full_zip_url
                 progress = result.get("extract_progress") or {}
                 total_pages = progress.get("total_pages")
                 if isinstance(total_pages, int) and total_pages >= 0:
