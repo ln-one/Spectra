@@ -89,12 +89,12 @@ export function SlideCardEditor({
       value={slide}
       dragListener={false}
       dragControls={dragControls}
-      className="relative group/card py-5 px-2 transition-colors hover:bg-zinc-50/50 border-b border-zinc-100/60 last:border-0"
+      className="relative group/card py-6 px-4 transition-colors hover:bg-zinc-50/50 border-b border-zinc-100 last:border-0"
     >
       {/* Drag Handle */}
       {isEditable && (
         <div
-          className="absolute -left-3 top-1/2 -translate-y-1/2 cursor-grab active:cursor-grabbing p-2 opacity-0 group-hover/card:opacity-100 transition-opacity"
+          className="absolute left-0 top-1/2 -translate-y-1/2 cursor-grab active:cursor-grabbing p-2 opacity-0 group-hover/card:opacity-100 transition-opacity"
           onPointerDown={(e) => dragControls.start(e)}
           style={{ touchAction: "none" }}
         >
@@ -102,17 +102,17 @@ export function SlideCardEditor({
         </div>
       )}
 
-      <div className="flex gap-5 items-start pl-3">
+      <div className="flex gap-6 items-start pl-4">
         {/* Index Number */}
-        <div className="flex-shrink-0 select-none pt-1 text-[13px] font-semibold text-zinc-300 w-6 text-right">
+        <div className="flex-shrink-0 select-none pt-1.5 text-[14px] font-bold text-zinc-300 w-6 text-right font-mono">
           {String(index + 1).padStart(2, "0")}
         </div>
 
         {/* Content Area (Title & Key Points) */}
-        <div className="min-w-0 flex-1 pr-6">
+        <div className="min-w-0 flex-1">
           {/* Title */}
-          <div className="mb-2 flex items-start gap-3">
-            <span className="mt-0.5 shrink-0 rounded bg-blue-50/60 px-2 py-0.5 text-[11px] font-medium text-blue-600 ring-1 ring-blue-100/50">
+          <div className="mb-3 flex items-start gap-3">
+            <span className="mt-1 shrink-0 rounded-md bg-blue-50/80 px-2 py-0.5 text-[11px] font-medium text-blue-600 ring-1 ring-blue-100/50">
               {pageTypeLabel}
             </span>
             {isEditingTitle ? (
@@ -131,16 +131,16 @@ export function SlideCardEditor({
                   }
                 }}
                 disabled={!isEditable}
-                className="h-7 py-1 text-[16px] font-semibold border-blue-300 focus-visible:ring-1 focus-visible:ring-blue-300 shadow-none rounded-sm"
+                className="w-full h-8 px-2 -ml-2 text-[16px] font-semibold text-zinc-900 bg-white border border-blue-300 rounded focus-visible:ring-2 focus-visible:ring-blue-100 shadow-sm outline-none"
               />
             ) : (
               <div
-                className={`flex-1 transition-all rounded px-2 -mx-2 py-0.5 cursor-pointer ${
-                  isEditable ? "hover:bg-white hover:shadow-sm ring-1 ring-transparent hover:ring-zinc-200" : ""
+                className={`flex-1 h-8 px-2 -ml-2 flex items-center transition-all rounded border border-transparent cursor-pointer ${
+                  isEditable ? "hover:bg-white hover:border-zinc-200 hover:shadow-sm" : ""
                 }`}
                 onClick={() => handleContainerClick(onStartEditTitle)}
               >
-                <span className="text-[16px] font-semibold text-zinc-800 leading-relaxed block min-h-[28px] tracking-tight">
+                <span className="text-[16px] font-semibold text-zinc-800 tracking-tight">
                   <TokenRevealText
                     text={slide.title}
                     animate={!isEditable}
@@ -151,7 +151,7 @@ export function SlideCardEditor({
           </div>
 
           {/* Key Points */}
-          <div className="pl-[54px] mt-1.5">
+          <div className="pl-[58px]">
             {isEditingContent ? (
               <Textarea
                 autoFocus
@@ -172,16 +172,16 @@ export function SlideCardEditor({
                 }}
                 disabled={!isEditable}
                 placeholder="每行一个要点，按 Ctrl+Enter 确认"
-                className="min-h-[80px] resize-y text-[14px] leading-relaxed border-blue-300 focus-visible:ring-1 focus-visible:ring-blue-300 shadow-none rounded-sm"
+                className="w-full min-h-[80px] px-3 py-2 -ml-3 text-[14px] leading-relaxed text-zinc-700 bg-white border border-blue-300 rounded-lg focus-visible:ring-2 focus-visible:ring-blue-100 shadow-sm resize-y outline-none"
               />
             ) : (
               <div
-                className={`transition-all rounded px-2 -mx-2 py-1.5 cursor-pointer ${
-                  isEditable ? "hover:bg-white hover:shadow-sm ring-1 ring-transparent hover:ring-zinc-200" : ""
+                className={`min-h-[80px] px-3 py-2 -ml-3 transition-all rounded-lg border border-transparent cursor-pointer ${
+                  isEditable ? "hover:bg-white hover:border-zinc-200 hover:shadow-sm" : ""
                 }`}
                 onClick={() => handleContainerClick(onStartEditContent)}
               >
-                <div className="whitespace-pre-wrap text-[14px] leading-relaxed text-zinc-500 min-h-[40px]">
+                <div className="whitespace-pre-wrap text-[14px] leading-relaxed text-zinc-600">
                   {slide.keyPoints.length > 0 ? (
                     <TokenRevealText
                       text={slide.keyPoints.join("\n")}
@@ -197,9 +197,9 @@ export function SlideCardEditor({
         </div>
 
         {/* Right Side Selectors */}
-        <div className="w-32 flex-shrink-0 flex flex-col gap-3.5 border-l border-zinc-100/60 pl-5 opacity-0 group-hover/card:opacity-100 transition-opacity focus-within:opacity-100 pt-1">
-          <label className="space-y-1.5">
-            <span className="text-[11px] font-medium text-zinc-400 pl-1 tracking-wider">
+        <div className="w-36 flex-shrink-0 flex flex-col gap-4 border-l border-zinc-100 pl-6 pt-1">
+          <label className="space-y-2">
+            <span className="text-[11px] font-semibold text-zinc-400 tracking-widest uppercase">
               页面类型
             </span>
             <Select
@@ -213,7 +213,7 @@ export function SlideCardEditor({
                 });
               }}
             >
-              <SelectTrigger className="h-8 text-[13px] border-transparent hover:border-zinc-200 bg-transparent hover:bg-white shadow-none px-2 focus:ring-1 focus:ring-blue-300 transition-all font-medium text-zinc-700">
+              <SelectTrigger className="h-8 text-[13px] border border-zinc-200/60 bg-zinc-50/50 hover:bg-white hover:border-zinc-300 shadow-none px-2.5 focus:ring-2 focus:ring-blue-100 transition-all font-medium text-zinc-700 rounded-md">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -226,8 +226,8 @@ export function SlideCardEditor({
             </Select>
           </label>
 
-          <label className="space-y-1.5">
-            <span className="text-[11px] font-medium text-zinc-400 pl-1 tracking-wider">
+          <label className="space-y-2">
+            <span className="text-[11px] font-semibold text-zinc-400 tracking-widest uppercase">
               布局选项
             </span>
             <Select
@@ -239,7 +239,7 @@ export function SlideCardEditor({
                 });
               }}
             >
-              <SelectTrigger className="h-8 text-[13px] border-transparent hover:border-zinc-200 bg-transparent hover:bg-white shadow-none px-2 focus:ring-1 focus:ring-blue-300 transition-all font-medium text-zinc-700">
+              <SelectTrigger className="h-8 text-[13px] border border-zinc-200/60 bg-zinc-50/50 hover:bg-white hover:border-zinc-300 shadow-none px-2.5 focus:ring-2 focus:ring-blue-100 transition-all font-medium text-zinc-700 rounded-md">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

@@ -134,12 +134,12 @@ export function OutlineEditorPanel({
               </div>
             ) : null}
 
-            <div className="bg-white rounded-2xl border border-zinc-200/60 shadow-sm mb-20 overflow-hidden">
+            <div className="mb-20">
               <Reorder.Group
                 axis="y"
                 values={state.slides}
                 onReorder={state.handleReorderSlides}
-                className="flex flex-col"
+                className="flex flex-col gap-2"
               >
                 {state.slides.map((slide, index) => (
                   <SlideCardEditor
