@@ -7,6 +7,8 @@ import { getErrorMessage } from "@/lib/sdk/errors";
 import { useAuthStore } from "@/stores/authStore";
 import type { Project } from "./project-types";
 
+const SESSION_CHECK_TIMEOUT_MS = 8_000;
+
 export function useProjectsPageState() {
   const router = useRouter();
   const { user, logout } = useAuthStore();
@@ -38,12 +40,24 @@ export function useProjectsPageState() {
     let cancelled = false;
 
     const bootstrap = async () => {
-      if (!(await authService.hasActiveSession())) {
-        router.push("/auth/login");
-        return;
-      }
+      setIsLoading(true);
+      try {
+        const hasSession = await authService.hasActiveSession({
+          timeoutMs: SESSION_CHECK_TIMEOUT_MS,
+        });
+        if (cancelled) return;
+        if (!hasSession) {
+          setIsLoading(false);
+          router.replace("/auth/login");
+          return;
+        }
 
-      await fetchProjects();
+        await fetchProjects();
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false);
+        }
+      }
     };
 
     void bootstrap();

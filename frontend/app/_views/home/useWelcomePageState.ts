@@ -1,6 +1,8 @@
-﻿import { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { authService } from "@/lib/auth";
+
+const SESSION_CHECK_TIMEOUT_MS = 8_000;
 
 export function useWelcomePageState() {
   const router = useRouter();
@@ -11,23 +13,22 @@ export function useWelcomePageState() {
     let cancelled = false;
 
     const bootstrap = async () => {
-      if (await authService.hasActiveSession()) {
-        router.push("/projects");
+      const hasSession = await authService.hasActiveSession({
+        timeoutMs: SESSION_CHECK_TIMEOUT_MS,
+      });
+      if (cancelled) return;
+      if (hasSession) {
+        router.replace("/projects");
         return;
       }
-
-      const frame = requestAnimationFrame(() => {
-        if (!cancelled) {
-          setIsLoading(false);
-        }
-      });
-
-      if (cancelled) {
-        cancelAnimationFrame(frame);
-      }
+      setIsLoading(false);
     };
 
-    void bootstrap();
+    void bootstrap().catch(() => {
+      if (!cancelled) {
+        setIsLoading(false);
+      }
+    });
     return () => {
       cancelled = true;
     };
