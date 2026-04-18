@@ -108,6 +108,11 @@ type StreamLog = {
   detail?: string;
   tone: StreamLogTone;
 };
+
+type DetailSection = {
+  title: string;
+  lines: string[];
+};
 type SessionEventLike = {
   event_id?: string;
   cursor?: string;
@@ -559,6 +564,34 @@ function clipText(value: unknown, max = 120): string {
   return text.length > max ? `${text.slice(0, max)}...` : text;
 }
 
+function parseDetailSections(detail: string): DetailSection[] {
+  const normalized = detail
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+  if (!normalized.length) return [];
+
+  const sections: DetailSection[] = [];
+  let current: DetailSection | null = null;
+  for (const line of normalized) {
+    if (line.startsWith("【") && line.endsWith("】")) {
+      if (current && current.lines.length > 0) {
+        sections.push(current);
+      }
+      current = { title: line.slice(1, -1), lines: [] };
+      continue;
+    }
+    if (!current) {
+      current = { title: "详情", lines: [] };
+    }
+    current.lines.push(line);
+  }
+  if (current && current.lines.length > 0) {
+    sections.push(current);
+  }
+  return sections;
+}
+
 function resolveHttpStatusHint(reason: unknown): string {
   const text = normalizeText(reason);
   if (!text) return "";
@@ -602,11 +635,17 @@ function resolveEventLog(
   if (eventType === "requirements.analyzing.started") {
     const pages = Number(payload.target_slide_count || 0);
     const hasRag = Boolean(payload.has_rag);
+    const sourceHint = hasRag
+      ? "已读取你上传的资料，会优先结合资料生成内容"
+      : "未检测到资料上传，将基于你的主题自动组织内容";
     return {
       title: "开始需求分析",
-      detail: `${pages > 0 ? `目标 ${pages} 页` : "页数待定"}${
-        hasRag ? " · 启用 RAG" : ""
-      }`,
+      detail: [
+        "【任务设置】",
+        `${pages > 0 ? `目标页数：${pages} 页` : "目标页数：待定"}`,
+        "【资料策略】",
+        `资料使用：${sourceHint}`,
+      ].join("\n"),
       tone: "info",
     };
   }
@@ -614,20 +653,54 @@ function resolveEventLog(
     eventType === "requirements.analyzing.completed" ||
     eventType === "requirements.analyzed"
   ) {
-    const details: string[] = [];
+    const teachingProfile: string[] = [];
+    const outputProfile: string[] = [];
+    const designProfile: string[] = [];
     const pageCount = Number(payload.page_count_fixed || 0);
-    if (pageCount > 0) details.push(`页数 ${pageCount}`);
+    if (pageCount > 0) outputProfile.push(`固定页数：${pageCount} 页`);
     const styleName = normalizeText(payload.style_reference_name);
-    if (styleName) details.push(`风格 ${styleName}`);
-    const audience = clipText(payload.audience, 48);
-    if (audience) details.push(`受众 ${audience}`);
-    const purpose = clipText(payload.purpose, 72);
-    if (purpose) details.push(`目标 ${purpose}`);
-    const tone = clipText(payload.tone, 44);
-    if (tone) details.push(`语气 ${tone}`);
+    if (styleName) outputProfile.push(`推荐风格：${styleName}`);
+    const contentMode = normalizeText(payload.content_source_mode);
+    if (contentMode) {
+      outputProfile.push(
+        `内容来源：${contentMode === "model_only" ? "模型生成" : contentMode}`
+      );
+    }
+    const imageMode = normalizeText(payload.image_source_mode);
+    if (imageMode) {
+      outputProfile.push(
+        `配图来源：${imageMode === "pexels" ? "在线素材库（Pexels）" : imageMode}`
+      );
+    }
+
+    const audience = clipText(payload.audience, 320);
+    if (audience) teachingProfile.push(`目标用户：${audience}`);
+    const purpose = clipText(payload.purpose, 320);
+    if (purpose) teachingProfile.push(`教学目标：${purpose}`);
+    const tone = clipText(payload.tone, 220);
+    if (tone) teachingProfile.push(`表达语气：${tone}`);
+
+    const styleIntent = clipText(payload.style_intent, 420);
+    if (styleIntent) designProfile.push(`视觉方向：${styleIntent}`);
+    const visualStrategy = clipText(payload.visual_strategy, 420);
+    if (visualStrategy) designProfile.push(`版面策略：${visualStrategy}`);
+    const density = clipText(payload.density, 320);
+    if (density) designProfile.push(`信息密度：${density}`);
+
+    const sections: string[] = [];
+    if (teachingProfile.length) {
+      sections.push("【教学定位】", ...teachingProfile);
+    }
+    if (outputProfile.length) {
+      sections.push("【产出设定】", ...outputProfile);
+    }
+    if (designProfile.length) {
+      sections.push("【视觉策略】", ...designProfile);
+    }
+    const detail = sections.join("\n");
     return {
       title: "需求分析结果",
-      detail: details.join(" · "),
+      detail,
       tone: "success",
     };
   }
@@ -644,15 +717,15 @@ function resolveEventLog(
   }
   if (eventType === "research.completed") {
     const details: string[] = [];
-    const audience = clipText(payload.audience, 48);
-    const purpose = clipText(payload.purpose, 72);
-    const tone = clipText(payload.tone, 44);
-    if (audience) details.push(`受众 ${audience}`);
-    if (purpose) details.push(`目标 ${purpose}`);
-    if (tone) details.push(`语气 ${tone}`);
+    const audience = clipText(payload.audience, 160);
+    const purpose = clipText(payload.purpose, 220);
+    const tone = clipText(payload.tone, 120);
+    if (audience) details.push(`目标用户：${audience}`);
+    if (purpose) details.push(`讲解目标：${purpose}`);
+    if (tone) details.push(`表达语气：${tone}`);
     return {
-      title: "研究上下文完成",
-      detail: details.join(" · "),
+      title: "资料梳理完成",
+      detail: details.join("\n"),
       tone: "info",
     };
   }
@@ -808,6 +881,56 @@ function toneClassName(tone: StreamLogTone): string {
   if (tone === "warn") return "text-amber-600";
   if (tone === "error") return "text-rose-600";
   return "text-sky-600";
+}
+
+function TokenRevealText({
+  text,
+  animate,
+}: {
+  text: string;
+  animate: boolean;
+}) {
+  const [visibleCount, setVisibleCount] = useState(
+    animate ? 0 : text.length || 0
+  );
+
+  useEffect(() => {
+    if (!animate) {
+      setVisibleCount(text.length);
+      return;
+    }
+    if (!text) {
+      setVisibleCount(0);
+      return;
+    }
+    setVisibleCount((prev) => Math.min(prev, text.length));
+    let cancelled = false;
+    const timer = window.setInterval(() => {
+      if (cancelled) return;
+      setVisibleCount((prev) => {
+        if (prev >= text.length) {
+          window.clearInterval(timer);
+          return text.length;
+        }
+        return Math.min(text.length, prev + 2);
+      });
+    }, 16);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [animate, text]);
+
+  const visibleText = text.slice(0, visibleCount);
+  const showCursor = animate && visibleCount < text.length;
+  return (
+    <span className="whitespace-pre-wrap break-words leading-relaxed">
+      {visibleText}
+      {showCursor ? (
+        <span className="ml-0.5 inline-block h-[1em] w-[0.45ch] animate-pulse bg-current align-[-0.15em]" />
+      ) : null}
+    </span>
+  );
 }
 
 export function OutlineEditorPanel({
@@ -1443,25 +1566,66 @@ export function OutlineEditorPanel({
                         : "正在等待 Diego 返回过程信息..."}
                 </div>
               ) : (
-                streamLogs.map((item) => (
-                  <div key={item.id} className="flex gap-2 text-sm">
-                    <span className="shrink-0 text-[11px] text-zinc-400">
-                      {new Date(item.ts).toLocaleTimeString()}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <span
-                        className={`font-medium ${toneClassName(item.tone)}`}
-                      >
-                        {item.title}
-                      </span>
-                      {item.detail ? (
-                        <span className="ml-1 text-xs text-zinc-600">
-                          · {item.detail}
+                streamLogs.map((item, index) => {
+                  const detailText = item.detail || "";
+                  const detailSections =
+                    item.title === "需求分析结果"
+                      ? parseDetailSections(detailText)
+                      : [];
+                  const isRequirementsCard =
+                    item.title === "需求分析结果" && detailSections.length > 0;
+                  const isLatest = index === streamLogs.length - 1;
+                  const shouldAnimateLog =
+                    isLatest &&
+                    phase !== "editing" &&
+                    !isRequirementsCard &&
+                    Boolean(detailText);
+                  return (
+                    <div key={item.id} className="rounded-lg border border-zinc-100 bg-zinc-50/60 p-2.5">
+                      <div className="mb-1.5 flex items-center justify-between gap-2">
+                        <span className="text-[11px] text-zinc-400">
+                          {new Date(item.ts).toLocaleTimeString()}
                         </span>
+                        <span
+                          className={`text-xs font-semibold ${toneClassName(item.tone)}`}
+                        >
+                          {item.title}
+                        </span>
+                      </div>
+                      {isRequirementsCard ? (
+                        <div className="space-y-2 rounded-xl border border-emerald-100 bg-white p-3">
+                          {detailSections.map((section, sectionIndex) => (
+                            <div
+                              key={`${item.id}:${section.title}:${sectionIndex}`}
+                              className="space-y-1"
+                            >
+                              <p className="text-sm font-semibold text-zinc-800">
+                                {section.title}
+                              </p>
+                              <div className="space-y-1">
+                                {section.lines.map((line, lineIndex) => (
+                                  <p
+                                    key={`${item.id}:${section.title}:${lineIndex}`}
+                                    className="whitespace-pre-wrap break-words text-xs leading-relaxed text-zinc-600"
+                                  >
+                                    {line}
+                                  </p>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : detailText ? (
+                        <p className="text-xs text-zinc-600">
+                          <TokenRevealText
+                            text={detailText}
+                            animate={shouldAnimateLog}
+                          />
+                        </p>
                       ) : null}
                     </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
             <div className="pointer-events-none absolute inset-x-0 bottom-0 h-6 bg-gradient-to-t from-white to-transparent" />
@@ -1538,7 +1702,10 @@ export function OutlineEditorPanel({
                           title={isEditable ? "点击编辑标题" : undefined}
                         >
                           <span className="text-[15px] font-semibold text-zinc-900">
-                            {slide.title}
+                            <TokenRevealText
+                              text={slide.title}
+                              animate={!isEditable}
+                            />
                           </span>
                           {isEditable ? (
                             <span className="pointer-events-none absolute -right-5 top-1 opacity-0 transition-opacity group-hover:opacity-100">
@@ -1584,7 +1751,12 @@ export function OutlineEditorPanel({
                       >
                         <p className="whitespace-pre-wrap text-sm leading-6 text-zinc-500">
                           {slide.keyPoints.length > 0
-                            ? slide.keyPoints.join("；")
+                            ? (
+                                <TokenRevealText
+                                  text={slide.keyPoints.join("；")}
+                                  animate={!isEditable}
+                                />
+                              )
                             : isEditable
                               ? "点击添加内容描述..."
                               : "暂无内容"}

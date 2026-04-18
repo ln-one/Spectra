@@ -5,6 +5,8 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
   Archive,
   CheckCircle2,
+  ChevronDown,
+  ChevronUp,
   Clock3,
   Eye,
   Loader2,
@@ -151,6 +153,15 @@ export function SessionArtifacts({
   const [pendingArchiveItem, setPendingArchiveItem] =
     useState<StudioHistoryItem | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [expandedTools, setExpandedTools] = useState<Record<string, boolean>>(
+    {}
+  );
+
+  const handleOpen = (item: StudioHistoryItem) => {
+    void Promise.resolve(onOpenHistoryItem(item)).catch(() => {
+      // Keep history interactions responsive even if navigation request fails.
+    });
+  };
 
   const handleRefresh = async () => {
     if (isRefreshing) return;
@@ -175,6 +186,7 @@ export function SessionArtifacts({
           历史记录
         </h3>
         <Button
+          type="button"
           variant="ghost"
           size="icon"
           className="h-6 w-6 text-[var(--project-text-muted)] hover:text-[var(--project-text-primary)] transition-colors"
@@ -195,6 +207,9 @@ export function SessionArtifacts({
           {groupedHistory.map(([toolKey, items]) =>
             (() => {
               const toolAccent = getToolAccentColor(toolKey);
+              const isExpanded = Boolean(expandedTools[toolKey]);
+              const canExpand = items.length > 4;
+              const visibleItems = isExpanded ? items : items.slice(0, 4);
 
               return (
                 <motion.div
@@ -204,81 +219,113 @@ export function SessionArtifacts({
                   exit={{ opacity: 0, y: -6 }}
                   className="space-y-1.5"
                 >
-                  <p className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-[var(--project-text-muted)]">
-                    <span
-                      className="inline-block h-1.5 w-1.5 rounded-full"
-                      style={{ backgroundColor: toolAccent }}
-                    />
-                    <span>{toolLabels[toolKey] ?? toolKey}</span>
-                  </p>
-                  {items.slice(0, 4).map((item, index) => {
-                    return (
-                      <motion.div
-                        key={item.id}
-                        initial={{ opacity: 0, x: -10 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: 10 }}
-                        transition={{ delay: index * 0.04 }}
-                        className="group flex items-center gap-2 rounded-xl bg-[var(--project-surface-muted)] p-2 transition-colors hover:brightness-95"
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-[var(--project-text-muted)]">
+                      <span
+                        className="inline-block h-1.5 w-1.5 rounded-full"
+                        style={{ backgroundColor: toolAccent }}
+                      />
+                      <span>{toolLabels[toolKey] ?? toolKey}</span>
+                    </p>
+                    {canExpand ? (
+                      <button
+                        type="button"
+                        className="inline-flex h-5 items-center gap-1 rounded-md px-1 text-[10px] text-[var(--project-text-muted)] transition-colors hover:bg-[var(--project-surface-muted)] hover:text-[var(--project-text-primary)]"
+                        onClick={() =>
+                          setExpandedTools((prev) => ({
+                            ...prev,
+                            [toolKey]: !Boolean(prev[toolKey]),
+                          }))
+                        }
+                        aria-label={isExpanded ? "收起历史记录" : "展开历史记录"}
                       >
-                        <button
-                          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[var(--project-surface-elevated)] shadow-sm"
-                          onClick={() => onOpenHistoryItem(item)}
+                        <span>{isExpanded ? "收起" : "展开"}</span>
+                        {isExpanded ? (
+                          <ChevronUp className="h-3 w-3" />
+                        ) : (
+                          <ChevronDown className="h-3 w-3" />
+                        )}
+                      </button>
+                    ) : null}
+                  </div>
+                  <div
+                    className={cn(
+                      "space-y-1.5",
+                      isExpanded && "max-h-[20rem] overflow-y-auto pr-1"
+                    )}
+                  >
+                    {visibleItems.map((item, index) => {
+                      return (
+                        <motion.div
+                          key={item.id}
+                          initial={{ opacity: 0, x: -10 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0, x: 10 }}
+                          transition={{ delay: index * 0.04 }}
+                          className="group flex items-center gap-2 rounded-xl bg-[var(--project-surface-muted)] p-2 transition-colors hover:brightness-95"
                         >
-                          {statusIcon(item)}
-                        </button>
-                        <div className="flex flex-1 flex-col justify-center min-w-0">
-                          <p className="truncate text-[11px] font-medium text-[var(--project-text-primary)] w-full">
-                            {item.title}
-                          </p>
-                          <p className="flex w-full min-w-0 items-center gap-1.5 text-[10px] text-[var(--project-text-muted)]">
-                            <span
-                              className={cn(
-                                "shrink-0 rounded-full px-1.5 py-0.5 whitespace-nowrap",
-                                statusBadgeClass(item)
-                              )}
-                            >
-                              {statusText(item)}
-                            </span>
-                            <span
-                              className="inline-block h-1.5 w-1.5 shrink-0 rounded-full"
-                              style={{ backgroundColor: toolAccent }}
-                            />
-                            <span
-                              className="min-w-0 flex-1 truncate whitespace-nowrap"
-                              title={new Date(item.createdAt).toLocaleString(
-                                "zh-CN"
-                              )}
-                            >
-                              {formatHistoryTime(item.createdAt)}
-                            </span>
-                          </p>
-                        </div>
-
-                        <div className="flex shrink-0 items-center gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 rounded-lg text-[var(--project-text-muted)]"
-                            onClick={() => onOpenHistoryItem(item)}
-                            aria-label="查看预览"
+                          <button
+                            type="button"
+                            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[var(--project-surface-elevated)] shadow-sm"
+                            onClick={() => handleOpen(item)}
                           >
-                            <Eye className="h-3.5 w-3.5" />
-                          </Button>
+                            {statusIcon(item)}
+                          </button>
+                          <div className="flex flex-1 min-w-0 flex-col justify-center">
+                            <p className="w-full truncate text-[11px] font-medium text-[var(--project-text-primary)]">
+                              {item.title}
+                            </p>
+                            <p className="flex w-full min-w-0 items-center gap-1.5 text-[10px] text-[var(--project-text-muted)]">
+                              <span
+                                className={cn(
+                                  "shrink-0 rounded-full px-1.5 py-0.5 whitespace-nowrap",
+                                  statusBadgeClass(item)
+                                )}
+                              >
+                                {statusText(item)}
+                              </span>
+                              <span
+                                className="inline-block h-1.5 w-1.5 shrink-0 rounded-full"
+                                style={{ backgroundColor: toolAccent }}
+                              />
+                              <span
+                                className="min-w-0 flex-1 truncate whitespace-nowrap"
+                                title={new Date(item.createdAt).toLocaleString(
+                                  "zh-CN"
+                                )}
+                              >
+                                {formatHistoryTime(item.createdAt)}
+                              </span>
+                            </p>
+                          </div>
 
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 rounded-lg text-[var(--project-text-muted)] transition-colors hover:bg-red-50 hover:text-red-600"
-                            onClick={() => setPendingArchiveItem(item)}
-                            aria-label="归档历史记录"
-                          >
-                            <Archive className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      </motion.div>
-                    );
-                  })}
+                          <div className="flex shrink-0 items-center gap-1">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 rounded-lg text-[var(--project-text-muted)]"
+                              onClick={() => handleOpen(item)}
+                              aria-label="查看预览"
+                            >
+                              <Eye className="h-3.5 w-3.5" />
+                            </Button>
+
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 rounded-lg text-[var(--project-text-muted)] transition-colors hover:bg-red-50 hover:text-red-600"
+                              onClick={() => setPendingArchiveItem(item)}
+                              aria-label="归档历史记录"
+                            >
+                              <Archive className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        </motion.div>
+                      );
+                    })}
+                  </div>
                 </motion.div>
               );
             })()
