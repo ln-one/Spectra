@@ -1,4 +1,10 @@
-﻿export const VISUAL_THEMES = [
+import type { DiegoPageType } from "./types";
+
+// ---------------------------------------------------------------------------
+// Visual / animation constants used by outline editor variants
+// ---------------------------------------------------------------------------
+
+export const VISUAL_THEMES = [
   {
     id: "tech-blue",
     name: "科技蓝调",
@@ -89,3 +95,77 @@ export const slideCardVariants = {
     transition: { duration: 0.15 },
   },
 };
+
+// ---------------------------------------------------------------------------
+// Constants used by the streaming outline panel (OutlineEditorPanel)
+// ---------------------------------------------------------------------------
+
+export const PAGE_TYPE_OPTIONS: Array<{ value: DiegoPageType; label: string }> = [
+  { value: "cover", label: "封面" },
+  { value: "toc", label: "目录" },
+  { value: "section", label: "章节过渡" },
+  { value: "content", label: "内容" },
+  { value: "summary", label: "总结" },
+];
+
+export const LAYOUT_OPTIONS_BY_PAGE_TYPE: Record<DiegoPageType, string[]> = {
+  cover: ["cover-asymmetric", "cover-center"],
+  toc: ["toc-list", "toc-grid", "toc-sidebar", "toc-cards"],
+  section: ["section-center", "section-accent-block", "section-split"],
+  content: [
+    "content-two-column",
+    "content-icon-rows",
+    "content-comparison",
+    "content-timeline",
+    "content-stat-callout",
+    "content-showcase",
+  ],
+  summary: [
+    "summary-takeaways",
+    "summary-cta",
+    "summary-thankyou",
+    "summary-split",
+  ],
+};
+
+export const DEFAULT_LAYOUT_BY_PAGE_TYPE: Record<DiegoPageType, string> = {
+  cover: "cover-asymmetric",
+  toc: "toc-list",
+  section: "section-center",
+  content: "content-two-column",
+  summary: "summary-takeaways",
+};
+
+export const STATE_LABELS: Record<string, string> = {
+  IDLE: "待启动",
+  CONFIGURING: "配置中",
+  ANALYZING: "分析中",
+  DRAFTING_OUTLINE: "大纲生成中",
+  AWAITING_OUTLINE_CONFIRM: "大纲待确认",
+  GENERATING_CONTENT: "课件生成中",
+  RENDERING: "课件渲染中",
+  SUCCESS: "已完成",
+  FAILED: "失败",
+};
+
+export const DIEGO_EVENT_PREFIXES = [
+  "requirements.",
+  "outline.",
+  "slide.",
+  "compile.",
+  "run.",
+  "plan.",
+  "qa.",
+  "repair.",
+  "slot.",
+  "chart.",
+  "artifact.",
+  "research.",
+  "template.",
+  "llm.",
+];
+
+export const EVENT_PAGE_LIMIT = 200;
+export const EVENT_PAGE_CAP = 20;
+export const OUTLINE_RUN_CACHE_PREFIX = "outline-editor:run-cache:v1";
+export const OUTLINE_RUN_CACHE_MAX_AGE_MS = 1000 * 60 * 60 * 24;
