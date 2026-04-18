@@ -2,8 +2,6 @@
 
 import { GripVertical } from "lucide-react";
 import { Reorder, useDragControls } from "framer-motion";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -116,7 +114,7 @@ export function SlideCardEditor({
               {pageTypeLabel}
             </span>
             {isEditingTitle ? (
-              <Input
+              <input
                 autoFocus
                 value={slide.title}
                 onChange={(event) =>
@@ -131,7 +129,7 @@ export function SlideCardEditor({
                   }
                 }}
                 disabled={!isEditable}
-                className="w-full h-8 px-2 -ml-2 text-[16px] font-semibold text-zinc-900 bg-white border border-blue-300 rounded focus-visible:ring-2 focus-visible:ring-blue-100 shadow-sm outline-none"
+                className="flex-1 h-8 px-2 -ml-2 text-[16px] font-semibold text-zinc-900 bg-white border border-blue-300 rounded focus-visible:ring-2 focus-visible:ring-blue-100 shadow-sm outline-none"
               />
             ) : (
               <div
@@ -153,7 +151,7 @@ export function SlideCardEditor({
           {/* Key Points */}
           <div className="pl-[58px]">
             {isEditingContent ? (
-              <Textarea
+              <textarea
                 autoFocus
                 value={keyPointsText}
                 onChange={(event) =>
@@ -172,7 +170,7 @@ export function SlideCardEditor({
                 }}
                 disabled={!isEditable}
                 placeholder="每行一个要点，按 Ctrl+Enter 确认"
-                className="w-full min-h-[80px] px-3 py-2 -ml-3 text-[14px] leading-relaxed text-zinc-700 bg-white border border-blue-300 rounded-lg focus-visible:ring-2 focus-visible:ring-blue-100 shadow-sm resize-y outline-none"
+                className="w-full min-h-[80px] px-3 py-2 -ml-3 text-[14px] leading-relaxed text-zinc-700 bg-white border border-blue-300 rounded-lg focus-visible:ring-2 focus-visible:ring-blue-100 shadow-sm resize-y outline-none block"
               />
             ) : (
               <div
