@@ -1,0 +1,37 @@
+section_id: "04-03"
+title: "功能性需求分析"
+purpose: "把需求明确锚定到当前可见的资料进入、检索增强、生成、预览、导出和结果保存链路。"
+source_doc_parts:
+  - "imported/spectra/chapters/04-业务与需求分析.md"
+  - "source/04-业务分析/03-功能性需求分析.md"
+code_paths:
+  - "backend/services/file_upload_service/workflow.py"
+  - "backend/services/media/rag_indexing.py"
+  - "backend/services/generation_session_service/outline_versions.py"
+  - "backend/services/generation_session_service/preview_queries.py"
+  - "backend/services/project_space_service/artifacts.py"
+api_routes:
+  - "POST /api/v1/rag/index"
+  - "POST /api/v1/rag/search"
+  - "GET /api/v1/generate/sessions/{session_id}/preview"
+  - "POST /api/v1/generate/sessions/{session_id}/preview/export"
+frontend_surfaces:
+  - "Sources 上传与资料侧栏"
+  - "Studio 生成与预览流"
+  - "Library 成果与版本抽屉"
+tests_or_metrics:
+  - "backend/tests/services/test_file_upload_workflow.py"
+  - "backend/tests/services/test_rag_indexing_service.py"
+  - "backend/tests/services/test_generation_session_service_core.py"
+  - "backend/tests/services/test_project_space_service_artifacts.py"
+figures:
+  - "fig-image4-04"
+  - "fig-image7-07"
+allowed_claims:
+  - "资料上传后会进入解析、索引和后续检索链路。"
+  - "生成不是一次性黑箱输出，而是包含 outline、确认、预览和导出步骤。"
+  - "生成结果会进入 artifact 语义层，便于后续复用。"
+forbidden_claims:
+  - "所有需求都已完全商业级闭环验证"
+  - "平台化演进路径已正式成立"
+last_checked: "2026-04-18"

@@ -3,7 +3,7 @@ import { Mic2 } from "lucide-react";
 import { ArtifactWorkbenchShell } from "../ArtifactWorkbenchShell";
 import type { ToolFlowContext } from "../types";
 import { buildArtifactWorkbenchViewModel } from "../workbenchViewModel";
-import { SpeakerNotesSurface } from "./SpeakerNotesSurface";
+import { SpeakerNotesSurfaceAdapter } from "./SpeakerNotesSurfaceAdapter";
 import type {
   SlideScriptItem,
   SourcePptSlidePreview,
@@ -185,6 +185,10 @@ export function PreviewStep({
     sourceSlides.map((item) => [item.page, item])
   );
   const [selectedAnchorId, setSelectedAnchorId] = useState<string | null>(null);
+  const artifactId = flowContext?.resolvedArtifact?.artifactId ?? null;
+  const canRefineParagraph = Boolean(
+    artifactId && flowContext?.onStructuredRefineArtifact
+  );
   const viewModel = buildArtifactWorkbenchViewModel(
     flowContext,
     lastGeneratedAt,
@@ -213,7 +217,7 @@ export function PreviewStep({
     >
       {backendScripts.length > 0 ? (
         <>
-            <SpeakerNotesSurface
+            <SpeakerNotesSurfaceAdapter
               slides={backendScripts}
               activePage={activePage}
               selectedAnchorId={selectedAnchorId}
@@ -225,15 +229,18 @@ export function PreviewStep({
                   onSelectPage(sourceSlide.page);
                 }
               }}
-              onRefineParagraph={(paragraph, slide) => {
-                void flowContext?.onStructuredRefineArtifact?.({
-                  artifactId: flowContext.resolvedArtifact?.artifactId ?? "",
-                  message: paragraph.text,
+              onRefineParagraph={(paragraph, slide, nextText) => {
+                if (!artifactId || !flowContext?.onStructuredRefineArtifact) {
+                  return;
+                }
+                void flowContext.onStructuredRefineArtifact({
+                  artifactId,
+                  message: nextText || paragraph.text,
                   refineMode: "structured_refine",
                   selectionAnchor: {
                     scope: "paragraph",
                     anchor_id: paragraph.anchorId,
-                    artifact_id: flowContext.resolvedArtifact?.artifactId,
+                    artifact_id: artifactId,
                     label: `${slide.title} / ${paragraph.role}`,
                   },
                   config: {
@@ -242,6 +249,7 @@ export function PreviewStep({
                   },
                 });
               }}
+              canRefineParagraph={canRefineParagraph}
             />
         </>
       ) : null}

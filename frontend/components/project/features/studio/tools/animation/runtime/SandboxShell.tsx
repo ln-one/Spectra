@@ -70,7 +70,7 @@ function missingComponentCodeResult() {
     errors: [
       {
         message: "Runtime snapshot is missing component_code.",
-        source: "schema",
+        source: "schema" as const,
         ruleId: "missing-component-code",
       },
     ],
@@ -210,13 +210,24 @@ export function SandboxShell({ sessionToken, parentOrigin }: SandboxShellProps) 
         : { ok: true as const }
       : missingRuntimeGraphResult();
     if (runtimeGraph && runtimeGraphValidation.ok) return;
-    if (legacyCompileResult?.ok || legacyCompileResult?.errors.length === 0) return;
+    if (
+      legacyCompileResult?.ok ||
+      ("errors" in (legacyCompileResult ?? {}) &&
+        (legacyCompileResult?.errors?.length ?? 0) === 0)
+    ) {
+      return;
+    }
+    const compileErrors = runtimeGraph
+      ? runtimeGraphValidation.ok
+        ? []
+        : runtimeGraphValidation.errors
+      : legacyCompileResult && "errors" in legacyCompileResult
+        ? legacyCompileResult.errors
+        : [];
     postToParent(parentOrigin, {
       type: "animation-runtime:compile-error",
       sessionToken,
-      errors: runtimeGraph
-        ? runtimeGraphValidation.errors
-        : (legacyCompileResult?.errors ?? []),
+      errors: compileErrors,
     });
   }, [
     legacyCompileResult,

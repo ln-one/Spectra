@@ -7,6 +7,8 @@ function buildFlowContext(overrides: Partial<ToolFlowContext> = {}): ToolFlowCon
     capabilityStatus: "backend_ready",
     capabilityReason: "Loaded backend classroom simulation content.",
     supportsChatRefine: true,
+    canFollowUpTurn: true,
+    followUpTurnLabel: "继续追问",
     display: {
       toolId: "handout",
       productTitle: "学情预演",
@@ -63,15 +65,13 @@ describe("simulation preview", () => {
   it("shows current focus, backend turn, history and refine entry", async () => {
     const onRefine = jest.fn();
     const onSubmitAnswer = jest.fn();
-    const onRefineStart = jest.fn();
-    const onResumeResult = jest.fn();
 
     render(
       <PreviewStep
         answer="先看一个向右运动但向左减速的例子。"
         judgeText=""
         lastGeneratedAt={"2026-04-17T08:00:00.000Z"}
-      flowContext={buildFlowContext({ onRefine })}
+        flowContext={buildFlowContext({ onRefine })}
         turnRuntimeState={{ next_action: "follow_up_turn" }}
         turnResult={{
           turnAnchor: "turn-3",
@@ -79,8 +79,6 @@ describe("simulation preview", () => {
           score: 88,
           nextFocus: "让学生解释减速与加速度方向关系",
         }}
-        onRefineStart={onRefineStart}
-        onResumeResult={onResumeResult}
         onAnswerChange={() => undefined}
         onSubmitAnswer={onSubmitAnswer}
       />
@@ -101,13 +99,34 @@ describe("simulation preview", () => {
     expect(screen.getByText("turn-3")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "调整追问方向" }));
-    fireEvent.click(screen.getByRole("button", { name: "提交回应" }));
+    fireEvent.click(screen.getByRole("button", { name: "继续追问" }));
 
     expect(onRefine).toHaveBeenCalledTimes(1);
-    expect(onRefineStart).toHaveBeenCalledTimes(1);
     expect(onSubmitAnswer).toHaveBeenCalledTimes(1);
-    await waitFor(() => {
-      expect(onResumeResult).toHaveBeenCalledTimes(1);
-    });
+    await waitFor(() => expect(onRefine).toHaveBeenCalledTimes(1));
+  });
+
+  it("keeps existing history visible when the latest turn submission failed", () => {
+    const onRefine = jest.fn();
+
+    render(
+      <PreviewStep
+        answer="先用反例区分速度方向和加速度方向。"
+        judgeText="提交失败：当前轮次未能推进，请稍后重试。"
+        lastGeneratedAt={"2026-04-17T08:00:00.000Z"}
+        flowContext={buildFlowContext({ onRefine })}
+        turnRuntimeState={null}
+        turnResult={null}
+        onAnswerChange={() => undefined}
+        onSubmitAnswer={() => undefined}
+      />
+    );
+
+    expect(screen.getByText("课堂预演")).toBeInTheDocument();
+    expect(screen.getByText("轮次历史")).toBeInTheDocument();
+    expect(screen.getByText("教师回应：先拆开速度方向和合力方向。")).toBeInTheDocument();
+    expect(screen.getByText("提交失败：当前轮次未能推进，请稍后重试。")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "调整追问方向" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "继续追问" })).toBeInTheDocument();
   });
 });

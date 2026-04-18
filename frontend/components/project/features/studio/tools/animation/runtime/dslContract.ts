@@ -42,11 +42,15 @@ export interface AnimationDslContract {
 }
 
 export const ANIMATION_DSL_CONTRACT: AnimationDslContract = {
-  allowedPrimitives: contractData.allowed_primitives,
-  allowedHooks: contractData.allowed_hooks,
+  allowedPrimitives:
+    contractData.allowed_primitives as AnimationDslContract["allowedPrimitives"],
+  allowedHooks:
+    contractData.allowed_hooks as AnimationDslContract["allowedHooks"],
   allowedIdentifiers: contractData.allowed_identifiers,
-  subjectPrimitives: contractData.subject_primitives,
-  explanationPrimitives: contractData.explanation_primitives,
+  subjectPrimitives:
+    contractData.subject_primitives as AnimationDslContract["subjectPrimitives"],
+  explanationPrimitives:
+    contractData.explanation_primitives as AnimationDslContract["explanationPrimitives"],
   primitiveProps: contractData.primitive_props,
   primitivePropSchema: contractData.primitive_prop_schema,
   hookReturnShape: contractData.hook_return_shape,

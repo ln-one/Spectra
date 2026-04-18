@@ -1,0 +1,30 @@
+section_id: "07-02"
+title: "系统检索质量评估测试"
+purpose: "把检索质量结论固定到正式评估表和现有回归测试，不让正文超出证据能支撑的范围。"
+source_doc_parts:
+  - "source/07-项目测试与成果展示/02-检索评估.md"
+  - "source/03-可行性分析.md"
+code_paths:
+  - "backend/services/media/rag_indexing.py"
+  - "backend/services/ai/rag_context.py"
+  - "backend/services/chat/rag_sources.py"
+api_routes:
+  - "POST /api/v1/rag/search"
+  - "GET /api/v1/rag/sources/{chunk_id}"
+frontend_surfaces:
+  - "RAG 检索与来源查看"
+tests_or_metrics:
+  - "backend/tests/regression/test_rag_eval.py"
+  - "backend/tests/services/test_rag_retrieval.py"
+  - "backend/tests/services/chat/test_rag_sources.py"
+  - "60题正式集"
+  - "105题正式集"
+figures:
+  - "fig-image15-10"
+allowed_claims:
+  - "advanced 链路相较基础 dense 检索有显著提升。"
+  - "检索质量结论可以围绕 Hit@3、MRR、Evidence 指标展开。"
+forbidden_claims:
+  - "检索已经彻底解决所有教学场景的知识匹配问题"
+  - "所有生成质量提升都可以完全归因于检索模块"
+last_checked: "2026-04-18"

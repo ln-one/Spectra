@@ -38,6 +38,7 @@ async def _generate_artifact_file(
     artifact_type: str,
     project_id: str,
     artifact_id: str,
+    user_id: str,
     normalized_content: dict[str, Any],
 ) -> str:
     if artifact_type not in SUPPORTED_FILE_ARTIFACT_TYPES:
@@ -48,6 +49,7 @@ async def _generate_artifact_file(
             artifact_type=artifact_type,
             project_id=project_id,
             artifact_id=artifact_id,
+            user_id=user_id,
             normalized_content=normalized_content,
         )
     if artifact_type == ArtifactType.MINDMAP.value:
@@ -96,6 +98,7 @@ async def create_artifact_with_file(
     based_on_version_id = await resolve_based_on_version_id(
         service=service,
         project_id=project_id,
+        user_id=user_id,
         based_on_version_id=based_on_version_id,
     )
     normalized_content = normalize_artifact_content(artifact_type, content)
@@ -104,6 +107,7 @@ async def create_artifact_with_file(
     if mode == "replace":
         candidates = await service.get_project_artifacts(
             project_id,
+            user_id=user_id,
             type_filter=artifact_type,
             visibility_filter=visibility,
             owner_user_id_filter=user_id,
@@ -120,6 +124,7 @@ async def create_artifact_with_file(
         artifact_type=artifact_type,
         project_id=project_id,
         artifact_id=artifact_id,
+        user_id=user_id,
         normalized_content=normalized_content,
     )
     metadata = build_artifact_metadata(
@@ -147,7 +152,12 @@ async def create_artifact_with_file(
         )
         replaced_metadata["is_current"] = False
         replaced_metadata["superseded_by_artifact_id"] = artifact.id
-        await service.update_artifact_metadata(replaced_artifact.id, replaced_metadata)
+        await service.update_artifact_metadata(
+            replaced_artifact.id,
+            replaced_metadata,
+            project_id=project_id,
+            user_id=user_id,
+        )
 
     try:
         timeout_seconds = float(

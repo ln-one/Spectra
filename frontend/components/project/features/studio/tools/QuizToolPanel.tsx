@@ -71,7 +71,7 @@ export function QuizToolPanel({
   const [styleTags, setStyleTags] = useState<string[]>(["优先考易错点"]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [lastGeneratedAt, setLastGeneratedAt] = useState<string | null>(null);
-  const [workflowState, workflowSend] = useMachine(quizWorkflowMachine);
+  const [, workflowSend] = useMachine(quizWorkflowMachine);
 
   const { suggestions, isLoading } = useStudioRagRecommendations({
     query: "为当前项目推荐适合随堂小测的重点考查范围、易错点和典型题型",
@@ -207,9 +207,6 @@ export function QuizToolPanel({
             <div className="flex items-center gap-2">
               <span className="rounded-full border border-zinc-100 bg-white px-2.5 py-1 text-[10px] font-bold text-zinc-600 shadow-sm uppercase tracking-wider">
                 {getReadinessLabel(flowContext?.readiness)}
-              </span>
-              <span className="rounded-full border border-zinc-100 bg-white px-2.5 py-1 text-[10px] font-bold text-zinc-500 shadow-sm uppercase tracking-wider">
-                {String(workflowState.value)}
               </span>
             </div>
           </div>

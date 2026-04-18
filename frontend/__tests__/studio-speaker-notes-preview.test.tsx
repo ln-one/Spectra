@@ -62,9 +62,12 @@ describe("speaker notes preview", () => {
     expect(
       screen.getAllByText("今天我们围绕牛顿第二定律展开。").length
     ).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText("讲稿备注")).toBeInTheDocument();
+    expect(screen.getAllByText("讲稿备注").length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText("提词器式讲稿工作面")).toBeInTheDocument();
+    expect(screen.getByText("Document substrate")).toBeInTheDocument();
     expect(screen.getByText("从 ppt-artifact-1 延展为讲稿备注")).toBeInTheDocument();
+    expect(screen.getByText("提词器视图")).toBeInTheDocument();
+    expect(screen.getByText("当前说课焦点")).toBeInTheDocument();
   });
 
   it("submits structured refine with explicit selection anchor", async () => {
@@ -86,12 +89,18 @@ describe("speaker notes preview", () => {
     );
 
     fireEvent.click(screen.getAllByText("今天我们围绕牛顿第二定律展开。")[0]);
-    fireEvent.click(screen.getByRole("button", { name: "微调当前片段" }));
+    fireEvent.change(
+      screen.getByPlaceholderText("编辑当前讲稿片段，保存后会以段落锚点回写新版本。"),
+      {
+        target: { value: "今天我们围绕牛顿第二定律和质量展开。" },
+      }
+    );
+    fireEvent.click(screen.getByRole("button", { name: "保存当前片段" }));
 
     await waitFor(() => {
       expect(onStructuredRefineArtifact).toHaveBeenCalledWith({
         artifactId: "artifact-speaker-1",
-        message: "今天我们围绕牛顿第二定律展开。",
+        message: "今天我们围绕牛顿第二定律和质量展开。",
         refineMode: "structured_refine",
         selectionAnchor: {
           scope: "paragraph",

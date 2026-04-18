@@ -1,0 +1,32 @@
+section_id: "07-01"
+title: "前端界面操作与成果展示"
+purpose: "把这部分限定为当前前端工作台、卡片预览和成果页面的真实展示，不再用空泛亮点替代证据。"
+source_doc_parts:
+  - "source/07-项目测试与成果展示/01-界面与成果展示.md"
+  - "figures.yaml"
+code_paths:
+  - "frontend/components/project/features/studio/StudioPanel.tsx"
+  - "frontend/components/project/features/studio/tools/ArtifactWorkbenchShell.tsx"
+  - "frontend/components/project/features/studio/tools/word/PreviewStep.tsx"
+  - "frontend/components/project/features/studio/tools/mindmap/PreviewStep.tsx"
+api_routes:
+  - "GET /api/v1/generate/sessions/{session_id}/preview"
+  - "POST /api/v1/generate/sessions/{session_id}/preview/export"
+frontend_surfaces:
+  - "Studio Panel"
+  - "ArtifactWorkbenchShell"
+  - "Word / Mindmap / Quiz / Game 等预览"
+tests_or_metrics:
+  - "frontend/__tests__/studio-word-card.test.tsx"
+  - "frontend/__tests__/studio-mindmap-preview.test.tsx"
+  - "frontend/__tests__/studio-game-preview.test.tsx"
+figures:
+  - "fig-image19-01"
+  - "fig-image2-02"
+  - "fig-image3-03"
+allowed_claims:
+  - "当前作品已经能在前端展示多种成果和预览界面。"
+  - "结果展示与后续导出、修改动作是连着的。"
+forbidden_claims:
+  - "前端产品面已经完成所有形态全覆盖"
+last_checked: "2026-04-18"

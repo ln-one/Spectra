@@ -24,8 +24,6 @@ interface PreviewStepProps {
     nextFocus?: string;
     studentProfile?: string;
   } | null;
-  onRefineStart?: () => void;
-  onResumeResult?: () => void;
   onAnswerChange: (value: string) => void;
   onSubmitAnswer: () => void;
 }
@@ -159,8 +157,6 @@ export function PreviewStep({
   isSubmittingTurn = false,
   turnRuntimeState = null,
   turnResult = null,
-  onRefineStart,
-  onResumeResult,
   onAnswerChange,
   onSubmitAnswer,
 }: PreviewStepProps) {
@@ -173,11 +169,14 @@ export function PreviewStep({
   const backendSummary = parseBackendSummary(flowContext);
   const activeTurn = backendTurns[backendTurns.length - 1] ?? null;
   const displayJudgeText = judgeText || activeTurn?.feedback || "";
-  const canSubmit = capabilityStatus === "backend_ready";
+  const canSubmit = Boolean(
+    capabilityStatus === "backend_ready" && flowContext?.canFollowUpTurn
+  );
   const canChatRefine =
     flowContext?.supportsChatRefine && typeof flowContext?.onRefine === "function";
   const refineLabel =
     flowContext?.display?.actionLabels.refine ?? "调整追问方向";
+  const followUpTurnLabel = flowContext?.followUpTurnLabel ?? "继续追问";
   const activeFocus = turnResult?.nextFocus ?? backendSummary?.questionFocus ?? null;
   const viewModel = buildArtifactWorkbenchViewModel(
     flowContext,
@@ -217,12 +216,7 @@ export function PreviewStep({
                 variant="outline"
                 size="sm"
                 className="h-8 text-xs"
-                onClick={() => {
-                  onRefineStart?.();
-                  void Promise.resolve(flowContext?.onRefine?.()).finally(() => {
-                    onResumeResult?.();
-                  });
-                }}
+                onClick={() => void flowContext?.onRefine?.()}
               >
                 <Sparkles className="mr-1.5 h-3.5 w-3.5" />
                 {refineLabel}
@@ -326,7 +320,7 @@ export function PreviewStep({
                 onClick={onSubmitAnswer}
                 disabled={isSubmittingTurn || !answer.trim() || !canSubmit}
               >
-                {isSubmittingTurn ? "提交中..." : "提交回应"}
+                {isSubmittingTurn ? "续轮中..." : followUpTurnLabel}
               </Button>
             </div>
 

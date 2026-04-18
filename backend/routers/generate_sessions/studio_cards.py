@@ -1,9 +1,19 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Query, Request
+from schemas.project_space import ProjectPermission
 from schemas.studio_cards import RefineMode
 
 from routers.chat.runtime import process_chat_message
+from services.generation_session_service.animation_workflow import (
+    apply_animation_placement_update,
+    apply_ppt_animation_binding_update,
+    artifact_metadata_dict,
+    build_animation_placement_recommendation,
+    build_animation_placement_records,
+    require_animation_artifact,
+    require_ppt_artifact,
+)
 from services.generation_session_service.card_capabilities import (
     get_studio_card_capabilities,
     get_studio_card_capability,
@@ -42,6 +52,17 @@ from .studio_card_route_support import (
 )
 
 router = APIRouter()
+
+
+def _serialize_artifact_response_payload(artifact):
+    return {
+        "id": getattr(artifact, "id", None),
+        "type": getattr(artifact, "type", None),
+        "project_id": getattr(artifact, "projectId", None),
+        "session_id": getattr(artifact, "sessionId", None),
+        "updated_at": getattr(artifact, "updatedAt", None),
+        "metadata": getattr(artifact, "metadata", None),
+    }
 
 
 def _build_preview_or_raise(card_id: str, body: dict):
@@ -262,6 +283,121 @@ async def advance_classroom_simulator_turn(
             "next_focus": turn_payload.get("next_focus"),
         },
         message="课堂问答模拟推进成功",
+    )
+
+
+@router.post("/studio-cards/demonstration_animations/recommend-placement")
+async def recommend_animation_placement(
+    body: dict,
+    user_id: str = Depends(get_current_user),
+):
+    project_id = require_project_id(body)
+    artifact_id = require_body_field(
+        body,
+        "artifact_id",
+        message="artifact_id 为必填字段",
+    )
+    ppt_artifact_id = require_body_field(
+        body,
+        "ppt_artifact_id",
+        message="ppt_artifact_id 为必填字段",
+    )
+
+    await project_space_service.check_project_permission(
+        project_id, user_id, ProjectPermission.COLLABORATE
+    )
+    animation_artifact = await require_animation_artifact(project_id, artifact_id)
+    ppt_artifact = await require_ppt_artifact(project_id, ppt_artifact_id)
+    recommendation = build_animation_placement_recommendation(
+        animation_artifact=animation_artifact,
+        ppt_artifact=ppt_artifact,
+    )
+    next_metadata = apply_animation_placement_update(
+        metadata=artifact_metadata_dict(animation_artifact),
+        recommendation=recommendation,
+    )
+    await project_space_service.update_artifact_metadata(
+        artifact_id=artifact_id,
+        metadata=next_metadata,
+        project_id=project_id,
+        user_id=user_id,
+    )
+    setattr(animation_artifact, "metadata", next_metadata)
+
+    return success_response(
+        data={
+            "recommendation": recommendation,
+            "artifact": _serialize_artifact_response_payload(animation_artifact),
+        },
+        message="动画插入推荐生成成功",
+    )
+
+
+@router.post("/studio-cards/demonstration_animations/confirm-placement")
+async def confirm_animation_placement(
+    body: dict,
+    user_id: str = Depends(get_current_user),
+):
+    project_id = require_project_id(body)
+    artifact_id = require_body_field(
+        body,
+        "artifact_id",
+        message="artifact_id 为必填字段",
+    )
+    ppt_artifact_id = require_body_field(
+        body,
+        "ppt_artifact_id",
+        message="ppt_artifact_id 为必填字段",
+    )
+    raw_page_numbers = body.get("page_numbers")
+    if not isinstance(raw_page_numbers, list) or len(raw_page_numbers) == 0:
+        raise APIException(
+            status_code=400,
+            error_code=ErrorCode.INVALID_INPUT,
+            message="page_numbers 为必填字段，且至少包含一个页码",
+        )
+
+    await project_space_service.check_project_permission(
+        project_id, user_id, ProjectPermission.COLLABORATE
+    )
+    animation_artifact = await require_animation_artifact(project_id, artifact_id)
+    ppt_artifact = await require_ppt_artifact(project_id, ppt_artifact_id)
+    placement_records = build_animation_placement_records(
+        ppt_artifact_id=ppt_artifact_id,
+        page_numbers=raw_page_numbers,
+        slot=body.get("slot"),
+    )
+    next_animation_metadata = apply_animation_placement_update(
+        metadata=artifact_metadata_dict(animation_artifact),
+        placement_records=placement_records,
+    )
+    next_ppt_metadata = apply_ppt_animation_binding_update(
+        metadata=artifact_metadata_dict(ppt_artifact),
+        animation_artifact_id=artifact_id,
+        placement_records=placement_records,
+    )
+    await project_space_service.update_artifact_metadata(
+        artifact_id=artifact_id,
+        metadata=next_animation_metadata,
+        project_id=project_id,
+        user_id=user_id,
+    )
+    await project_space_service.update_artifact_metadata(
+        artifact_id=ppt_artifact_id,
+        metadata=next_ppt_metadata,
+        project_id=project_id,
+        user_id=user_id,
+    )
+    setattr(animation_artifact, "metadata", next_animation_metadata)
+    setattr(ppt_artifact, "metadata", next_ppt_metadata)
+
+    return success_response(
+        data={
+            "placements": placement_records,
+            "artifact": _serialize_artifact_response_payload(animation_artifact),
+            "ppt_artifact": _serialize_artifact_response_payload(ppt_artifact),
+        },
+        message="动画插入关系记录成功",
     )
 
 

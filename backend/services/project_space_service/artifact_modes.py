@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+from enum import Enum
 from typing import Any, Optional
 
 from utils.exceptions import ValidationException
@@ -14,7 +15,8 @@ SUPPORTED_ARTIFACT_MODES = {"create", "replace"}
 
 
 def normalize_artifact_mode(mode: Optional[str]) -> str:
-    normalized = str(mode or "create").strip().lower()
+    raw_mode = mode.value if isinstance(mode, Enum) else mode
+    normalized = str(raw_mode or "create").strip().lower()
     if normalized not in SUPPORTED_ARTIFACT_MODES:
         raise ValidationException(
             f"Unsupported artifact mode '{normalized}'. "

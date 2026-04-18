@@ -14,6 +14,7 @@ from .card_source_bindings import (
 )
 
 STRUCTURED_REFINE_ARTIFACT_TYPES = {
+    "word_document": ArtifactType.DOCX.value,
     "knowledge_mindmap": ArtifactType.MINDMAP.value,
     "interactive_quick_quiz": ArtifactType.EXERCISE.value,
     "interactive_games": ArtifactType.HTML.value,
@@ -22,6 +23,7 @@ STRUCTURED_REFINE_ARTIFACT_TYPES = {
 }
 
 STRUCTURED_REFINE_KINDS = {
+    "word_document": "word_document",
     "knowledge_mindmap": "mindmap",
     "interactive_quick_quiz": "quiz",
     "interactive_games": "interactive_game",
@@ -55,11 +57,11 @@ def artifact_result_payload(
     current_version_id: str | None = None,
 ) -> dict:
     metadata = artifact_metadata_dict(artifact)
-    based_on_version_id = artifact.basedOnVersionId
+    based_on_version_id = getattr(artifact, "basedOnVersionId", None)
     return {
-        "id": artifact.id,
-        "project_id": artifact.projectId,
-        "session_id": artifact.sessionId,
+        "id": getattr(artifact, "id", None),
+        "project_id": getattr(artifact, "projectId", None),
+        "session_id": getattr(artifact, "sessionId", None),
         "based_on_version_id": based_on_version_id,
         "current_version_id": current_version_id,
         "upstream_updated": bool(
@@ -67,12 +69,12 @@ def artifact_result_payload(
             and current_version_id
             and based_on_version_id != current_version_id
         ),
-        "owner_user_id": artifact.ownerUserId,
-        "type": artifact.type,
-        "visibility": artifact.visibility,
-        "storage_path": artifact.storagePath,
-        "created_at": artifact.createdAt,
-        "updated_at": artifact.updatedAt,
+        "owner_user_id": getattr(artifact, "ownerUserId", None),
+        "type": getattr(artifact, "type", None),
+        "visibility": getattr(artifact, "visibility", None),
+        "storage_path": getattr(artifact, "storagePath", None),
+        "created_at": getattr(artifact, "createdAt", None),
+        "updated_at": getattr(artifact, "updatedAt", None),
         "title": metadata.get("title"),
         "kind": metadata.get("kind"),
         "replaces_artifact_id": metadata.get("replaces_artifact_id"),
@@ -98,11 +100,15 @@ async def validate_source_artifact(
     *,
     project_id: str,
     card_id: str,
+    user_id: str,
     source_artifact_id: str | None,
 ) -> None:
     allowed_types = get_card_source_artifact_types(card_id)
     if source_artifact_id:
-        artifact = await project_space_service.get_artifact(source_artifact_id)
+        artifact = await project_space_service.get_artifact(
+            source_artifact_id,
+            user_id=user_id,
+        )
         if not artifact or artifact.projectId != project_id:
             raise APIException(
                 status_code=404,
@@ -248,6 +254,8 @@ def build_latest_runnable_state(
     carrier = CARD_EXECUTION_CARRIERS.get(card_id, ExecutionCarrier.ARTIFACT).value
     if card_id == "classroom_qa_simulator":
         next_action = "follow_up_turn"
+    elif card_id == "demonstration_animations" and artifact_id:
+        next_action = "placement"
     elif card_id == "interactive_quick_quiz" and (artifact_id or session_id):
         next_action = "answer_or_refine"
     elif artifact_id or session_id:
@@ -260,6 +268,12 @@ def build_latest_runnable_state(
         "active_session_id": session_id,
         "can_refine": bool(artifact_id or session_id),
         "can_follow_up_turn": card_id == "classroom_qa_simulator",
+        "can_recommend_placement": card_id == "demonstration_animations" and bool(artifact_id),
+        "can_confirm_placement": (
+            card_id == "demonstration_animations"
+            and bool(artifact_id)
+            and source_binding_valid
+        ),
         "source_binding_valid": source_binding_valid,
         "next_action": next_action,
     }
@@ -269,9 +283,13 @@ async def validate_structured_refine_artifact(
     *,
     card_id: str,
     project_id: str,
+    user_id: str,
     artifact_id: str,
 ):
-    artifact = await project_space_service.get_artifact(artifact_id)
+    artifact = await project_space_service.get_artifact(
+        artifact_id,
+        user_id=user_id,
+    )
     if not artifact or artifact.projectId != project_id:
         raise APIException(
             status_code=404,
@@ -305,9 +323,13 @@ async def validate_structured_refine_artifact(
 async def validate_simulator_turn_artifact(
     *,
     project_id: str,
+    user_id: str,
     artifact_id: str,
 ):
-    artifact = await project_space_service.get_artifact(artifact_id)
+    artifact = await project_space_service.get_artifact(
+        artifact_id,
+        user_id=user_id,
+    )
     if not artifact or artifact.projectId != project_id:
         raise APIException(
             status_code=404,

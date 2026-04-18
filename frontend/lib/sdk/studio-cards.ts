@@ -46,6 +46,24 @@ export type SelectionScope =
   | "scene";
 
 export type ExecutionCarrier = "session" | "artifact" | "hybrid";
+export type GovernanceTag =
+  | "harden"
+  | "borrow"
+  | "freeze"
+  | "defer"
+  | "separate-track";
+
+export type CleanupPriority = "p0" | "p1" | "p2" | "p3";
+
+export interface StudioCardHealthReport {
+  authority_integrity: number;
+  builder_thinness: number;
+  surface_maturity: number;
+  fallback_residue: number;
+  test_coverage: number;
+  replaceability: number;
+  summary: string;
+}
 
 export interface StudioCardAction {
   type: string;
@@ -57,6 +75,11 @@ export interface StudioCardCapability {
   id: string;
   title: string;
   readiness: StudioCardReadiness;
+  governance_tag?: GovernanceTag;
+  cleanup_priority?: CleanupPriority;
+  surface_strategy?: string;
+  frozen?: boolean;
+  health_report?: StudioCardHealthReport;
   context_mode: "session" | "artifact" | "hybrid";
   execution_mode: "session_command" | "artifact_create" | "composite";
   primary_capabilities?: string[];
@@ -69,6 +92,10 @@ export interface StudioCardCapability {
   artifact_surface_type?: ArtifactSurfaceType;
   capability_engine?: CapabilityEngine;
   execution_carrier?: ExecutionCarrier;
+  render_contract?: string;
+  placement_supported?: boolean;
+  runtime_preview_mode?: string;
+  cloud_render_mode?: string;
   supported_refine_modes?: RefineMode[];
   supported_selection_scopes?: SelectionScope[];
   source_binding_mode?: "none" | "single_artifact" | "multi_artifact";
@@ -78,6 +105,7 @@ export interface StudioCardCapability {
 }
 
 export interface StudioCardExecutionBinding {
+  status?: "ready" | "partial" | "pending";
   command?: string;
   endpoint?: string;
   bound_config_keys?: string[];
@@ -94,7 +122,9 @@ export interface StudioCardExecutionPlan {
   supported_selection_scopes?: SelectionScope[];
   initial_binding: StudioCardExecutionBinding;
   refine_binding?: StudioCardExecutionBinding;
+  follow_up_turn_binding?: StudioCardExecutionBinding;
   source_binding?: StudioCardExecutionBinding;
+  placement_binding?: StudioCardExecutionBinding;
 }
 
 export interface StudioSelectionAnchor {
@@ -168,6 +198,14 @@ export interface StudioCardTurnResult {
   teacher_answer: string;
   feedback: string;
   score: number;
+  next_focus?: string;
+}
+
+export interface StudioCardTurnResponseData {
+  artifact: Record<string, unknown>;
+  turn_result: StudioCardTurnResult;
+  latest_runnable_state?: Record<string, unknown>;
+  turn_anchor?: string;
   next_focus?: string;
 }
 
@@ -353,13 +391,7 @@ export const studioCardsApi = {
   },
 
   async turn(body: StudioCardTurnRequest): Promise<
-    ApiEnvelope<{
-      artifact: Record<string, unknown>;
-      turn_result: StudioCardTurnResult;
-      latest_runnable_state?: Record<string, unknown>;
-      turn_anchor?: string;
-      next_focus?: string;
-    }>
+    ApiEnvelope<StudioCardTurnResponseData>
   > {
     const response = await apiFetch(
       "/api/v1/generate/studio-cards/classroom_qa_simulator/turn",
@@ -369,15 +401,10 @@ export const studioCardsApi = {
         body: JSON.stringify(body),
       }
     );
-    return parseResponse<
-      ApiEnvelope<{
-        artifact: Record<string, unknown>;
-        turn_result: StudioCardTurnResult;
-        latest_runnable_state?: Record<string, unknown>;
-        turn_anchor?: string;
-        next_focus?: string;
-      }>
-    >(response, "推进课堂问答模拟失败");
+    return parseResponse<ApiEnvelope<StudioCardTurnResponseData>>(
+      response,
+      "推进课堂问答模拟失败"
+    );
   },
 
   async recommendAnimationPlacement(

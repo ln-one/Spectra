@@ -12,6 +12,7 @@ from services.generation_session_service.card_catalog import CARD_CAPABILITIES
 from services.generation_session_service.card_execution_plans import (
     CARD_EXECUTION_PLANS,
 )
+from services.generation_session_service.card_governance import CARD_GOVERNANCE
 
 CARD_CAPABILITY_BY_ID = {card.id: card for card in CARD_CAPABILITIES}
 
@@ -66,6 +67,10 @@ CARD_DISPLAY_SEMANTICS = {
         "artifact_surface_type": ArtifactSurfaceType.ANIMATION,
         "capability_engine": CapabilityEngine.MEDIA_TIMELINE,
         "execution_carrier": ExecutionCarrier.ARTIFACT,
+        "render_contract": "storyboard_render_contract",
+        "placement_supported": True,
+        "runtime_preview_mode": "local_preview_only",
+        "cloud_render_mode": "async_media_export",
         "supported_refine_modes": [
             RefineMode.CHAT_REFINE,
             RefineMode.STRUCTURED_REFINE,
@@ -100,9 +105,22 @@ CARD_DISPLAY_SEMANTICS = {
 
 def _enrich_with_display_semantics(card_id: str, payload: dict) -> dict:
     semantics = CARD_DISPLAY_SEMANTICS.get(card_id)
-    if not semantics:
-        return payload
-    return {**payload, **{k: v.value if hasattr(v, "value") else v for k, v in semantics.items()}}
+    governance = CARD_GOVERNANCE.get(card_id)
+    enriched = payload
+    if semantics:
+        enriched = {
+            **enriched,
+            **{k: v.value if hasattr(v, "value") else v for k, v in semantics.items()},
+        }
+    if governance:
+        enriched = {
+            **enriched,
+            **{
+                k: (v.model_dump(mode="json") if hasattr(v, "model_dump") else v.value if hasattr(v, "value") else v)
+                for k, v in governance.items()
+            },
+        }
+    return enriched
 
 
 def _normalize_semantic_lists(payload: dict) -> dict:

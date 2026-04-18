@@ -33,7 +33,10 @@ async def get_project_versions(
             project_id, user_id, ProjectPermission.VIEW
         )
         versions, current_version_id = (
-            await project_space_service.get_project_versions_with_context(project_id)
+            await project_space_service.get_project_versions_with_context(
+                project_id,
+                user_id,
+            )
         )
         return ProjectVersionsResponse(
             versions=[to_project_version_model(version) for version in versions],
@@ -60,7 +63,9 @@ async def get_project_version(
         )
         version, _current_version_id = (
             await project_space_service.get_project_version_with_context(
-                project_id, version_id
+                project_id,
+                version_id,
+                user_id,
             )
         )
         return ProjectVersionResponse(version=to_project_version_model(version))

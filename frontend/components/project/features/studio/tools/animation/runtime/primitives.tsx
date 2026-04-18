@@ -51,8 +51,8 @@ interface TrackItem {
   id: string;
   label: string;
   value: number;
-  accent?: "swap" | "active" | "success" | "muted";
-  marker?: string;
+  accent?: "swap" | "active" | "success" | "muted" | null;
+  marker?: string | null;
 }
 
 interface TrackProps {
@@ -77,7 +77,7 @@ interface CalloutProps {
   body?: string;
 }
 
-function accentToColor(accent?: string): string {
+function accentToColor(accent?: string | null): string {
   if (accent === "swap") return "#f97316";
   if (accent === "active") return "#2563eb";
   if (accent === "success") return "#059669";

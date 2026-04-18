@@ -78,7 +78,7 @@ export function SpeakerNotesToolPanel({
   const [sourcePreviewError, setSourcePreviewError] = useState<string | null>(
     null
   );
-  const [workflowState, workflowSend] = useMachine(speakerNotesWorkflowMachine);
+  const [, workflowSend] = useMachine(speakerNotesWorkflowMachine);
 
   const sourceOptions = useMemo(
     () => flowContext?.sourceOptions ?? [],
@@ -342,9 +342,6 @@ export function SpeakerNotesToolPanel({
                 </h3>
                 <p className="mt-0.5 text-[11px] font-medium leading-relaxed text-zinc-500">
                   三步生成逐页讲稿 · 完美对齐课件内容
-                </p>
-                <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-700">
-                  {workflowState.value.toString().replaceAll("_", " ")}
                 </p>
               </div>
             </div>

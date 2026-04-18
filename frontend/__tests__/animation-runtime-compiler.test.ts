@@ -172,6 +172,7 @@ export default function Animation() {
         {
           value: {
             isPlaying: true,
+            sequencePosition: 0,
             stepIndex: 0,
             totalSteps: 1,
             globalProgress: 0,

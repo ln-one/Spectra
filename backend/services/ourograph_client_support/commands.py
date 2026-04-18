@@ -188,11 +188,23 @@ class OurographCommandClientMixin:
         )
         return namespace(response["version"])
 
-    async def update_artifact_metadata(self, *, artifact_id: str, metadata: dict):
+    async def update_artifact_metadata(
+        self,
+        *,
+        project_id: str,
+        artifact_id: str,
+        user_id: str,
+        metadata: dict,
+    ):
         response = await request_json(
             "POST",
             "/commands/update-artifact-metadata",
-            payload={"artifact_id": artifact_id, "metadata": metadata},
+            payload={
+                "project_id": project_id,
+                "artifact_id": artifact_id,
+                "user_id": user_id,
+                "metadata": metadata,
+            },
         )
         return namespace(response["artifact"])
 

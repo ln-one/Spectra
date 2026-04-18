@@ -45,6 +45,14 @@ interface UseStudioExecutionHandlersArgs {
   ) => void;
 }
 
+type StudioActionKind =
+  | "prepare"
+  | "preview"
+  | "execute"
+  | "refine"
+  | "follow_up_turn"
+  | "load_sources";
+
 function resolveExecutionRunNo(
   run: Record<string, unknown> | null
 ): number | null {
@@ -124,12 +132,19 @@ export function useStudioExecutionHandlers({
   const [runningActionsByCardId, setRunningActionsByCardId] = useState<
     Record<string, number>
   >({});
+  const [runningActionKindByCardId, setRunningActionKindByCardId] = useState<
+    Record<string, StudioActionKind | null>
+  >({});
   const artifactRefreshTimersRef = useRef<number[]>([]);
   const draftRunIdRef = useRef<string | null>(null);
-  const startCardAction = useCallback((cardId: string) => {
+  const startCardAction = useCallback((cardId: string, kind: StudioActionKind) => {
     setRunningActionsByCardId((prev) => ({
       ...prev,
       [cardId]: (prev[cardId] ?? 0) + 1,
+    }));
+    setRunningActionKindByCardId((prev) => ({
+      ...prev,
+      [cardId]: kind,
     }));
   }, []);
   const endCardAction = useCallback((cardId: string) => {
@@ -145,11 +160,20 @@ export function useStudioExecutionHandlers({
         [cardId]: current - 1,
       };
     });
+    setRunningActionKindByCardId((prev) => {
+      const next = { ...prev };
+      delete next[cardId];
+      return next;
+    });
   }, []);
   const isStudioActionRunning = useMemo(() => {
     if (!currentCardId) return false;
     return (runningActionsByCardId[currentCardId] ?? 0) > 0;
   }, [currentCardId, runningActionsByCardId]);
+  const currentCardActionKind = useMemo(() => {
+    if (!currentCardId) return null;
+    return runningActionKindByCardId[currentCardId] ?? null;
+  }, [currentCardId, runningActionKindByCardId]);
 
   const scheduleArtifactRefresh = useCallback(
     (projectId: string, sessionId: string | null) => {
@@ -218,7 +242,7 @@ export function useStudioExecutionHandlers({
     const cardId = currentCardId;
     if (!project || !cardId || isStudioActionRunning) return;
     try {
-      startCardAction(cardId);
+      startCardAction(cardId, "load_sources");
       const response = await studioCardsApi.getSources(cardId, project.id);
       const sources = (response?.data?.sources ?? []).map((item) => ({
         id: item.id,
@@ -266,7 +290,7 @@ export function useStudioExecutionHandlers({
       return null;
     }
     try {
-      startCardAction(cardId);
+      startCardAction(cardId, "preview");
       const response = await studioCardsApi.getExecutionPreview(
         cardId,
         requestBody
@@ -395,7 +419,7 @@ export function useStudioExecutionHandlers({
         };
       }
       try {
-        startCardAction(currentCardId);
+        startCardAction(currentCardId, "prepare");
         const response = await studioCardsApi.createDraft(
           currentCardId,
           requestBody
@@ -552,7 +576,7 @@ export function useStudioExecutionHandlers({
 
       const requestRunId = draftRunIdRef.current ?? null;
       try {
-        startCardAction(currentCardId);
+        startCardAction(currentCardId, "execute");
         const requestPayload = {
           ...requestBody,
           run_id: requestRunId ?? undefined,
@@ -622,6 +646,11 @@ export function useStudioExecutionHandlers({
             (artifactPayload.type as
               | ArtifactHistoryItem["artifactType"]
               | undefined) ?? "summary";
+          const artifactMetadata =
+            artifactPayload.metadata &&
+            typeof artifactPayload.metadata === "object"
+              ? (artifactPayload.metadata as Record<string, unknown>)
+              : null;
 
           if (artifactId) {
             appendRuntimeArtifact(expandedTool as StudioToolKey, {
@@ -632,6 +661,7 @@ export function useStudioExecutionHandlers({
                 null,
               toolType: expandedTool,
               artifactType,
+              metadata: artifactMetadata,
               artifactKind: undefined,
               sourceArtifactId:
                 selectedSourceId || draftSourceArtifactId || null,
@@ -761,7 +791,7 @@ export function useStudioExecutionHandlers({
       }
 
       try {
-        startCardAction(currentCardId);
+        startCardAction(currentCardId, "refine");
         const response = await studioCardsApi.refineArtifact(currentCardId, {
           project_id: project.id,
           session_id: activeSessionId ?? undefined,
@@ -830,6 +860,92 @@ export function useStudioExecutionHandlers({
     ]
   );
 
+  const handleFollowUpTurn = useCallback(
+    async ({
+      artifactId,
+      teacherAnswer,
+      turnAnchor,
+      config,
+    }: {
+      artifactId: string;
+      teacherAnswer: string;
+      turnAnchor?: string;
+      config?: Record<string, unknown>;
+    }) => {
+      if (!project || !currentCardId) {
+        return {
+          ok: false,
+          artifactId: null,
+          effectiveSessionId: activeSessionId ?? null,
+          turnResult: null,
+          latestRunnableState: null,
+          nextFocus: null,
+          turnAnchor: null,
+          raw: null,
+        };
+      }
+
+      try {
+        startCardAction(currentCardId, "follow_up_turn");
+        const response = await studioCardsApi.turn({
+          project_id: project.id,
+          artifact_id: artifactId,
+          teacher_answer: teacherAnswer,
+          turn_anchor: turnAnchor,
+          config,
+          rag_source_ids: resolveEffectiveRagSourceIds(selectedFileIds),
+        });
+        const payload = response?.data ?? null;
+        if (activeSessionId) {
+          await fetchArtifactHistory(project.id, activeSessionId);
+          scheduleArtifactRefresh(project.id, activeSessionId);
+        }
+        return {
+          ok: true,
+          artifactId:
+            (typeof payload?.artifact?.id === "string" && payload.artifact.id) ||
+            artifactId,
+          effectiveSessionId: activeSessionId ?? null,
+          turnResult: payload?.turn_result ?? null,
+          latestRunnableState: payload?.latest_runnable_state ?? null,
+          nextFocus:
+            typeof payload?.next_focus === "string" ? payload.next_focus : null,
+          turnAnchor:
+            typeof payload?.turn_anchor === "string" ? payload.turn_anchor : null,
+          raw: payload,
+        };
+      } catch (error) {
+        toast({
+          title: "Follow-up turn failed",
+          description: formatStudioExecutionError(error),
+          variant: "destructive",
+        });
+        return {
+          ok: false,
+          artifactId: null,
+          effectiveSessionId: activeSessionId ?? null,
+          turnResult: null,
+          latestRunnableState: null,
+          nextFocus: null,
+          turnAnchor: null,
+          raw: null,
+        };
+      } finally {
+        endCardAction(currentCardId);
+      }
+    },
+    [
+      activeSessionId,
+      currentCardId,
+      endCardAction,
+      fetchArtifactHistory,
+      project,
+      scheduleArtifactRefresh,
+      selectedFileIds,
+      startCardAction,
+    ]
+  );
+
   const openPptPreviewPage = useCallback(
     (
       sessionId?: string | null,
@@ -848,11 +964,13 @@ export function useStudioExecutionHandlers({
 
   return {
     isStudioActionRunning,
+    currentCardActionKind,
     handleStudioLoadSources,
     handleStudioPreviewExecution,
     handleStudioPrepareDraft,
     handleStudioExecute,
     handleOpenChatRefine,
+    handleFollowUpTurn,
     handleStructuredRefineArtifact,
     openPptPreviewPage,
     resolvePptRunId,

@@ -84,7 +84,7 @@ export function MindmapToolPanel({
   const [tree, setTree] = useState<any>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [lastGeneratedAt, setLastGeneratedAt] = useState<string | null>(null);
-  const [workflowState, workflowSend] = useMachine(mindmapWorkflowMachine);
+  const [, workflowSend] = useMachine(mindmapWorkflowMachine);
 
   const topicRef = useRef(topic);
   const topicDirtyRef = useRef(isTopicDirty);
@@ -291,9 +291,6 @@ export function MindmapToolPanel({
                 </h3>
                 <p className="mt-0.5 text-[11px] font-medium leading-relaxed text-zinc-500">
                   三步生成知识脉络图 · 交互式探索教学结构
-                </p>
-                <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-700">
-                  {workflowState.value.toString().replaceAll("_", " ")}
                 </p>
               </div>
             </div>

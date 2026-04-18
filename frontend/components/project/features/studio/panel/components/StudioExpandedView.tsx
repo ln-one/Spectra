@@ -15,11 +15,6 @@ import type {
 } from "../../tools";
 import { SelectedSourceScopeBadge } from "@/components/project/features/sources/components/SelectedSourceScopeBadge";
 
-const FROZEN_WEAK_CARD_IDS = new Set([
-  "interactive_games",
-  "demonstration_animations",
-]);
-
 function getReadinessLabel(value: string | null): string {
   switch (value) {
     case "ready":
@@ -30,6 +25,38 @@ function getReadinessLabel(value: string | null): string {
       return "协议待补齐";
     default:
       return "能力识别中";
+  }
+}
+
+function getGovernanceLabel(value: string | undefined): string {
+  switch (value) {
+    case "harden":
+      return "治理：加固";
+    case "borrow":
+      return "治理：借底座";
+    case "freeze":
+      return "治理：冻结";
+    case "defer":
+      return "治理：延后";
+    case "separate-track":
+      return "治理：独立轨道";
+    default:
+      return "治理：待评估";
+  }
+}
+
+function getCleanupLabel(value: string | undefined): string {
+  switch (value) {
+    case "p0":
+      return "清理优先级：P0";
+    case "p1":
+      return "清理优先级：P1";
+    case "p2":
+      return "清理优先级：P2";
+    case "p3":
+      return "清理优先级：P3";
+    default:
+      return "清理优先级：待定";
   }
 }
 
@@ -59,6 +86,27 @@ function getExecutionModeLabel(value: string | undefined): string {
   }
 }
 
+function getWorkflowStateLabel(value: string | undefined): string {
+  switch (value) {
+    case "missing_requirements":
+      return "流程：缺少前提";
+    case "ready_to_execute":
+      return "流程：可执行";
+    case "executing":
+      return "流程：执行中";
+    case "result_available":
+      return "流程：结果可用";
+    case "refining":
+      return "流程：微调中";
+    case "continuing":
+      return "流程：续轮中";
+    case "failed":
+      return "流程：失败";
+    default:
+      return "流程：待机";
+  }
+}
+
 interface StudioExpandedViewProps {
   isExpanded: boolean;
   expandedTool: GenerationToolType | null;
@@ -82,7 +130,7 @@ interface StudioExpandedViewProps {
     templateId: string | null;
     visualPolicy: "auto" | "media_required" | "basic_graphics_only";
   }) => Promise<string | null | undefined>;
-  isCardManagedFlowExpanded: boolean;
+  isCardManagedFlowExpanded?: boolean;
   currentCardId: string | null;
   isStudioActionRunning: boolean;
   isLoadingCardProtocol: boolean;
@@ -112,7 +160,7 @@ export function StudioExpandedView({
   pptResumeSignal,
   onPptWorkflowStageChange,
   onPptGenerate,
-  isCardManagedFlowExpanded,
+  isCardManagedFlowExpanded: _isCardManagedFlowExpanded,
   currentCardId,
   isStudioActionRunning,
   isLoadingCardProtocol,
@@ -247,15 +295,17 @@ export function StudioExpandedView({
                         >
                           {actionLabels.loadSources}
                         </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-8 shrink-0 text-xs"
-                          onClick={onOpenChatRefine}
-                          disabled={!canRefine || isLoadingCardProtocol}
-                        >
-                          {actionLabels.refine}
-                        </Button>
+                        {supportsChatRefine ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-8 shrink-0 text-xs"
+                            onClick={onOpenChatRefine}
+                            disabled={!canRefine || isLoadingCardProtocol}
+                          >
+                            {actionLabels.refine}
+                          </Button>
+                        ) : null}
                         <Button
                           size="sm"
                           className="h-8 shrink-0 text-xs"
@@ -313,9 +363,14 @@ export function StudioExpandedView({
                         ))}
                       </div>
                     ) : null}
-                    {currentCardId && FROZEN_WEAK_CARD_IDS.has(currentCardId) ? (
+                    {currentCapability?.frozen ? (
                       <div className="rounded-[var(--project-chip-radius)] border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-700">
-                        当前卡片已接入基础协议，但尚未纳入成熟模板工作台。继续推进前，需要先明确专用引擎方案。
+                        当前卡片已进入冻结清理区：先做 cleanup 和底座替换，不再继续扩张模板/补丁式能力。
+                      </div>
+                    ) : null}
+                    {currentCapability?.health_report?.summary ? (
+                      <div className="rounded-[var(--project-chip-radius)] border border-sky-200 bg-sky-50 px-3 py-2 text-[11px] text-sky-700">
+                        {currentCapability.health_report.summary}
                       </div>
                     ) : null}
                   </div>
@@ -332,10 +387,19 @@ export function StudioExpandedView({
                           执行：{getExecutionModeLabel(currentCapability?.execution_mode)}
                         </span>
                         <span className="rounded-[var(--project-chip-radius)] bg-[var(--project-surface-elevated)] px-2 py-0.5 border border-[var(--project-control-border)]">
+                          {getWorkflowStateLabel(toolFlowContext.workflowState)}
+                        </span>
+                        <span className="rounded-[var(--project-chip-radius)] bg-[var(--project-surface-elevated)] px-2 py-0.5 border border-[var(--project-control-border)]">
                           微调：{supportsChatRefine ? "已接入" : "未接入"}
                         </span>
                         <span className="rounded-[var(--project-chip-radius)] bg-[var(--project-surface-elevated)] px-2 py-0.5 border border-[var(--project-control-border)]">
                           来源：{requiresSourceArtifact ? "必选成果物" : "可选增强"}
+                        </span>
+                        <span className="rounded-[var(--project-chip-radius)] bg-[var(--project-surface-elevated)] px-2 py-0.5 border border-[var(--project-control-border)]">
+                          {getGovernanceLabel(currentCapability?.governance_tag)}
+                        </span>
+                        <span className="rounded-[var(--project-chip-radius)] bg-[var(--project-surface-elevated)] px-2 py-0.5 border border-[var(--project-control-border)]">
+                          {getCleanupLabel(currentCapability?.cleanup_priority)}
                         </span>
                       </div>
                       {requiresSourceArtifact && !hasSourceBinding ? (

@@ -175,6 +175,11 @@ def normalize_artifact_content(
         normalized["nodes"] = normalized.get("nodes") or []
     elif (
         artifact_type == ArtifactType.HTML.value
+        and incoming.get("kind") == "interactive_game"
+    ):
+        normalized["kind"] = "interactive_game"
+    elif (
+        artifact_type == ArtifactType.HTML.value
         and mode == ArtifactMetadataKind.ANIMATION_STORYBOARD.value
     ):
         normalized["html"] = incoming.get("html") or build_animation_storyboard_html(
@@ -239,6 +244,24 @@ def build_artifact_metadata(
             "generation_prompt_digest",
             "runtime_source",
             "runtime_contract",
+        ):
+            if key in content:
+                metadata[key] = content[key]
+    elif artifact_type in {
+        ArtifactType.DOCX.value,
+        ArtifactType.MINDMAP.value,
+        ArtifactType.SUMMARY.value,
+        ArtifactType.EXERCISE.value,
+    }:
+        metadata["content_snapshot"] = dict(content)
+    elif artifact_type == ArtifactType.HTML.value and kind == "interactive_game":
+        metadata["content_snapshot"] = dict(content)
+        for key in (
+            "title",
+            "summary",
+            "game_pattern",
+            "compatibility_zone",
+            "runtime_origin",
         ):
             if key in content:
                 metadata[key] = content[key]

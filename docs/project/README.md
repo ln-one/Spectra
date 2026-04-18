@@ -51,6 +51,8 @@
    Studio 全栈编排模型，明确 `session / artifact / hybrid` 的承载边界。
 22. [studio-foundations/artifact-refine-source-binding-contract-baseline.md](./studio-foundations/artifact-refine-source-binding-contract-baseline.md)
    Studio 后续实现统一遵循的 artifact / refine / source-binding 目标语义基线。
+23. [studio-foundations/studio-card-exit-criteria-audit.md](./studio-foundations/studio-card-exit-criteria-audit.md)
+   Studio 当前收口完成度审计，说明各卡是否已达到 uplift 前的退出条件。
 
 ## 当前目录的定位
 

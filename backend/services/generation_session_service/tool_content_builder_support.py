@@ -3,14 +3,11 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from services.generation_session_service.game_template_engine import (
-    build_game_schema_hint,
-    is_template_game_pattern,
-    resolve_game_pattern,
+from services.generation_session_service.interactive_games_legacy_adapter import (
+    resolve_interactive_game_schema_hint,
 )
-from services.generation_session_service.word_template_engine import (
-    build_word_schema_hint,
-    resolve_word_document_variant,
+from services.generation_session_service.word_document_normalizer import (
+    resolve_word_document_schema_hint,
 )
 from utils.exceptions import APIException, ErrorCode
 
@@ -194,18 +191,13 @@ def parse_ai_object_payload(
 
 def build_schema_hint(card_id: str, config: dict[str, Any] | None = None) -> str | None:
     if card_id == "interactive_games":
-        pattern = resolve_game_pattern(config)
-        if is_template_game_pattern(pattern):
-            return build_game_schema_hint(pattern)
-        return '{"title":"", "html":""}'
+        return resolve_interactive_game_schema_hint(config)
 
     return {
         "courseware_ppt": (
             '{"title":"", "summary":"", "pages":12, "template":"default"}'
         ),
-        "word_document": build_word_schema_hint(
-            resolve_word_document_variant((config or {}).get("document_variant"))
-        ),
+        "word_document": resolve_word_document_schema_hint(config),
         "knowledge_mindmap": (
             '{"title":"",'
             ' "nodes":[{"id":"root","parent_id":null,"title":"","summary":""}]}'

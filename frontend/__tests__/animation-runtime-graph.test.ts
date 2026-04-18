@@ -11,9 +11,10 @@ import {
 } from "@/components/project/features/studio/tools/animation/runtime/theatreState";
 import { ANIMATION_STYLE_PACK_SWATCHES } from "@/components/project/features/studio/tools/animation/constants";
 import { AnimationGraphRenderer } from "@/components/project/features/studio/tools/animation/runtime/graphRenderer";
+import type { GenericExplainerGraphV1 } from "@/components/project/features/studio/tools/animation/runtime/types";
 
 describe("animation runtime graph", () => {
-  const validGraph = {
+  const validGraph: GenericExplainerGraphV1 = {
     title: "系统流转",
     summary: "观察请求如何在节点之间传递。",
     family_hint: "system_flow",
@@ -145,7 +146,7 @@ describe("animation runtime graph", () => {
   });
 
   it("applies the physics presentation preset to trajectory paths", () => {
-    const physicsGraph = {
+    const physicsGraph: GenericExplainerGraphV1 = {
       ...validGraph,
       family_hint: "physics_mechanics",
       steps: [

@@ -19,6 +19,8 @@ export type {
   CapabilityStatus,
   ResolvedArtifactContentKind,
   ResolvedArtifactPayload,
+  StudioGovernanceRubric,
+  StudioWorkflowState,
   ToolArtifactPreviewItem,
   ToolDraftState,
   ToolFlowContext,

@@ -355,7 +355,7 @@ def build_studio_card_execution_preview(
                 },
                 notes=(
                     "互动游戏当前通过 HTML artifact 原型承托，"
-                    "配置已正式映射到 content。"
+                    "但生成仍经 legacy compatibility 层收口，前端应按 protocol-limited 理解而非 fully ready。"
                 ),
             ),
             refine_request=StudioCardResolvedRequest(
@@ -379,9 +379,10 @@ def build_studio_card_execution_preview(
                             "mode", cfg.get("game_pattern", "freeform")
                         ),
                         "sandbox_patch": cfg.get("sandbox_patch"),
+                        "compatibility_zone": "interactive_games_legacy_compatibility",
                     },
                 },
-                notes="游戏热更新通过 refine 触发 replacement artifact，sandbox_patch 为正式更新输入。",
+                notes="游戏热更新通过 refine 触发 replacement artifact，但当前 rewrite 仍依赖 legacy compatibility adapter，应显式视为受限正式链路。",
             ),
         )
 

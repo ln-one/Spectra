@@ -1,16 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useMachine } from "@xstate/react";
-import { createMachine } from "xstate";
-import { useShallow } from "zustand/react/shallow";
 import { FlaskConical } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { WorkflowStepper } from "@/components/project/shared";
-import { studioCardsApi } from "@/lib/sdk";
 import { getErrorMessage } from "@/lib/sdk/errors";
-import { ApiError } from "@/lib/sdk/client";
-import { useProjectStore } from "@/stores/projectStore";
 import { TOOL_COLORS } from "../constants";
 import type { ToolPanelProps } from "./types";
 import { useStudioRagRecommendations } from "./useStudioRagRecommendations";
@@ -25,73 +19,11 @@ import { PreviewStep } from "./simulation/PreviewStep";
 import type { SimulationStep, StudentProfile } from "./simulation/types";
 import { useWorkflowStepSync } from "./useWorkflowStepSync";
 
-export const simulationWorkflowMachine = createMachine({
-  id: "simulationWorkflow",
-  initial: "idle",
-  states: {
-    idle: {},
-    preview_ready: {},
-    running: {},
-    result_available: {},
-    continuing: {},
-    refining: {},
-    failed: {},
-  },
-  on: {
-    PREVIEW: ".preview_ready",
-    RUN: ".running",
-    RESULT: ".result_available",
-    CONTINUE: ".continuing",
-    REFINE: ".refining",
-    FAIL: ".failed",
-    RESET: ".idle",
-  },
-});
-
-function resolveEffectiveRagSourceIds(selectedFileIds: string[]): string[] {
-  const normalized = selectedFileIds.filter(
-    (id) => typeof id === "string" && id.trim().length > 0
-  );
-  return Array.from(new Set(normalized));
-}
-
-function formatStudioTurnError(error: unknown): string {
-  if (error instanceof ApiError) {
-    const code = error.code || "UNKNOWN_ERROR";
-    const message = error.message || "Request failed";
-    const details = error.details ?? {};
-    const phase =
-      typeof details.phase === "string" ? String(details.phase) : null;
-    const reason =
-      typeof details.failure_reason === "string"
-        ? String(details.failure_reason)
-        : null;
-    const hints = [
-      phase ? `phase=${phase}` : "",
-      reason ? `reason=${reason}` : "",
-    ]
-      .filter(Boolean)
-      .join(", ");
-    return hints ? `[${code}] ${message} (${hints})` : `[${code}] ${message}`;
-  }
-  return getErrorMessage(error);
-}
-
 export function SimulationToolPanel({
   toolName,
   onDraftChange,
   flowContext,
 }: ToolPanelProps) {
-  const { project, activeSessionId, selectedFileIds, fetchArtifactHistory } =
-    useProjectStore(
-      useShallow((state) => ({
-        project: state.project,
-        activeSessionId: state.activeSessionId,
-        selectedFileIds: state.selectedFileIds,
-        fetchArtifactHistory: state.fetchArtifactHistory,
-      }))
-    );
-
   const [activeStep, setActiveStep] = useState<SimulationStep>("config");
   useWorkflowStepSync(activeStep, setActiveStep, flowContext);
 
@@ -112,7 +44,6 @@ export function SimulationToolPanel({
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSubmittingTurn, setIsSubmittingTurn] = useState(false);
   const [lastGeneratedAt, setLastGeneratedAt] = useState<string | null>(null);
-  const [workflowState, workflowSend] = useMachine(simulationWorkflowMachine);
 
   const { suggestions, summary, isLoading } = useStudioRagRecommendations({
     query:
@@ -144,30 +75,11 @@ export function SimulationToolPanel({
   );
 
   useEffect(() => {
-    if (isGenerating) {
-      workflowSend({ type: "RUN" });
-      return;
+    const latestGeneratedAt = flowContext?.latestArtifacts?.[0]?.createdAt ?? null;
+    if (latestGeneratedAt) {
+      setLastGeneratedAt(latestGeneratedAt);
     }
-    if (isSubmittingTurn) {
-      workflowSend({ type: "CONTINUE" });
-      return;
-    }
-    if (flowContext?.resolvedArtifact?.artifactId) {
-      workflowSend({ type: "RESULT" });
-      return;
-    }
-    if (activeStep === "generate" || activeStep === "preview") {
-      workflowSend({ type: "PREVIEW" });
-      return;
-    }
-    workflowSend({ type: "RESET" });
-  }, [
-    activeStep,
-    flowContext?.resolvedArtifact?.artifactId,
-    isGenerating,
-    isSubmittingTurn,
-    workflowSend,
-  ]);
+  }, [flowContext?.latestArtifacts]);
 
   useEffect(() => {
     const questionFocus = (teacherStrategy || topic).trim();
@@ -232,24 +144,19 @@ export function SimulationToolPanel({
   };
 
   const handleSubmitAnswer = async () => {
-    const latestArtifactId = flowContext?.latestArtifacts?.[0]?.artifactId;
-    const canUseBackendTurn =
-      flowContext?.capabilityStatus === "backend_ready" &&
-      Boolean(project?.id) &&
-      Boolean(latestArtifactId);
-
+    const latestArtifactId =
+      flowContext?.resolvedArtifact?.artifactId ??
+      flowContext?.latestArtifacts?.[0]?.artifactId ??
+      null;
     if (!answer.trim()) return;
-    if (!canUseBackendTurn || !project?.id || !latestArtifactId) return;
+    if (!flowContext?.onFollowUpTurn || !latestArtifactId) return;
 
     try {
       setIsSubmittingTurn(true);
-      const effectiveRagSourceIds =
-        resolveEffectiveRagSourceIds(selectedFileIds);
-      const response = await studioCardsApi.turn({
-        project_id: project.id,
-        artifact_id: latestArtifactId,
-        teacher_answer: answer,
-        turn_anchor: turnResult?.turnAnchor,
+      const response = await flowContext.onFollowUpTurn({
+        artifactId: latestArtifactId,
+        teacherAnswer: answer,
+        turnAnchor: turnResult?.turnAnchor,
         config: {
           active_student_profile: profile,
           student_profiles: [profile],
@@ -257,11 +164,14 @@ export function SimulationToolPanel({
           intensity,
           teacher_strategy: teacherStrategy,
         },
-        rag_source_ids: effectiveRagSourceIds,
       });
-      const latestTurnResult = response.data.turn_result;
+      if (!response.ok || !response.turnResult) {
+        setJudgeText("提交失败：当前轮次未能推进，请稍后重试。");
+        return;
+      }
+      const latestTurnResult = response.turnResult;
       setJudgeText(latestTurnResult.feedback || "");
-      setTurnRuntimeState(response.data.latest_runnable_state ?? null);
+      setTurnRuntimeState(response.latestRunnableState ?? null);
       setTurnResult({
         turnAnchor: latestTurnResult.turn_anchor,
         studentQuestion: latestTurnResult.student_question,
@@ -272,12 +182,11 @@ export function SimulationToolPanel({
         nextFocus: latestTurnResult.next_focus,
         studentProfile: latestTurnResult.student_profile,
       });
-      await fetchArtifactHistory(project.id, activeSessionId ?? null);
+      setAnswer("");
     } catch (error) {
       setTurnResult(null);
       setTurnRuntimeState(null);
-      setJudgeText(`提交失败：${formatStudioTurnError(error)}`);
-      workflowSend({ type: "FAIL" });
+      setJudgeText(`提交失败：${getErrorMessage(error)}`);
     } finally {
       setIsSubmittingTurn(false);
     }
@@ -318,9 +227,6 @@ export function SimulationToolPanel({
             <div className="flex items-center gap-2">
               <span className="rounded-full border border-zinc-100 bg-white px-2.5 py-1 text-[10px] font-bold text-zinc-600 shadow-sm uppercase tracking-wider">
                 {getReadinessLabel(flowContext?.readiness)}
-              </span>
-              <span className="rounded-full border border-zinc-100 bg-white px-2.5 py-1 text-[10px] font-bold text-zinc-500 shadow-sm uppercase tracking-wider">
-                {String(workflowState.value)}
               </span>
             </div>
           </div>
@@ -391,8 +297,6 @@ export function SimulationToolPanel({
                   isSubmittingTurn={isSubmittingTurn}
                   turnRuntimeState={turnRuntimeState}
                   turnResult={turnResult}
-                  onRefineStart={() => workflowSend({ type: "REFINE" })}
-                  onResumeResult={() => workflowSend({ type: "RESULT" })}
                   onAnswerChange={setAnswer}
                   onSubmitAnswer={() => void handleSubmitAnswer()}
                 />

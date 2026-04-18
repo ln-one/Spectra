@@ -40,7 +40,7 @@ function normalizeRuntimeSnapshot(
         ? candidate.componentCode
         : "";
   const runtimeGraph = isRecord(candidate.runtime_graph)
-    ? (candidate.runtime_graph as AnimationArtifactRuntimeSnapshot["runtimeGraph"])
+    ? (candidate.runtime_graph as unknown as AnimationArtifactRuntimeSnapshot["runtimeGraph"])
     : null;
 
   const sceneOutline = readSceneOutline(

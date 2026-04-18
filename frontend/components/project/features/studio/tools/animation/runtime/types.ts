@@ -265,8 +265,8 @@ export interface TheatreSequenceProjectBinding {
     };
     sequence: {
       position: number;
-      play?: (conf?: unknown) => Promise<boolean>;
-      pause?: () => void;
+      play?: (...args: any[]) => Promise<unknown>;
+      pause?: (...args: any[]) => void;
     };
   };
   objects: Map<string, unknown>;

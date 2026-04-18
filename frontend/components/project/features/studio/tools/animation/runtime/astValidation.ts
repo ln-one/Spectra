@@ -274,7 +274,7 @@ function collectRuntimeMetadata(program: AcornNode): ValidationContext {
   };
 
   walk.ancestor(program as never, {
-    VariableDeclarator(node: AcornNode) {
+    VariableDeclarator(node: any) {
       collectPatternNames(node.id, context.declared);
       if (!node.init || typeof node.init !== "object") return;
       if (isReactCreateElementCallee(node.init, context.aliases)) {
@@ -291,33 +291,33 @@ function collectRuntimeMetadata(program: AcornNode): ValidationContext {
         }
       }
     },
-    FunctionDeclaration(node: AcornNode) {
+    FunctionDeclaration(node: any) {
       collectPatternNames(node.id, context.declared);
       const params = Array.isArray(node.params) ? node.params : [];
-      params.forEach((item) => collectPatternNames(item, context.declared));
+      params.forEach((item: unknown) => collectPatternNames(item, context.declared));
     },
-    FunctionExpression(node: AcornNode) {
+    FunctionExpression(node: any) {
       collectPatternNames(node.id, context.declared);
       const params = Array.isArray(node.params) ? node.params : [];
-      params.forEach((item) => collectPatternNames(item, context.declared));
+      params.forEach((item: unknown) => collectPatternNames(item, context.declared));
     },
-    ArrowFunctionExpression(node: AcornNode) {
+    ArrowFunctionExpression(node: any) {
       const params = Array.isArray(node.params) ? node.params : [];
-      params.forEach((item) => collectPatternNames(item, context.declared));
+      params.forEach((item: unknown) => collectPatternNames(item, context.declared));
     },
   });
 
   context.aliases.add("React.createElement");
 
   walk.ancestor(program as never, {
-    Identifier(node: AcornNode, ancestors: AcornNode[]) {
+    Identifier(node: any, ancestors: any[]) {
       validateIdentifierReference(
         node as IdentifierNode,
         ancestors[ancestors.length - 2],
         context
       );
     },
-    MemberExpression(node: AcornNode) {
+    MemberExpression(node: any) {
       const property = asIdentifier(node.property);
       if (property?.name === "jumpTo") {
         context.errors.push(
@@ -329,7 +329,7 @@ function collectRuntimeMetadata(program: AcornNode): ValidationContext {
         );
       }
     },
-    CallExpression(node: AcornNode) {
+    CallExpression(node: any) {
       const callee = asIdentifier(node.callee);
       if (callee && ALLOWED_HOOKS.has(callee.name as never)) {
         context.usedHooks.add(callee.name);

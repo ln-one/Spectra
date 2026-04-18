@@ -12,6 +12,7 @@ function makeArtifact(
     sessionId: "sess_1",
     toolType: "mindmap",
     artifactType: "mindmap",
+    metadata: null,
     title: "artifact",
     status: "completed",
     createdAt: "2026-03-22T10:00:00.000Z",
@@ -48,6 +49,39 @@ describe("studio capability resolver", () => {
 
     expect(result.status).toBe("backend_ready");
     expect(result.resolvedArtifact?.contentKind).toBe("json");
+  });
+
+  it("uses metadata content snapshot for word documents when available", async () => {
+    const artifact = makeArtifact({
+      toolType: "word",
+      artifactType: "docx",
+      metadata: {
+        content_snapshot: {
+          kind: "word_document",
+          title: "牛顿第一定律教案",
+          document_content: {
+            type: "doc",
+            content: [
+              {
+                type: "paragraph",
+                content: [{ type: "text", text: "保持匀速直线运动" }],
+              },
+            ],
+          },
+        },
+      },
+    });
+    const result = await resolveCapabilityFromArtifact({
+      toolId: "word",
+      artifact,
+      blob: new Blob(["placeholder docx"]),
+    });
+
+    expect(result.status).toBe("backend_ready");
+    expect(result.resolvedArtifact?.contentKind).toBe("json");
+    expect(
+      (result.resolvedArtifact?.content as Record<string, unknown>)?.document_content
+    ).toBeTruthy();
   });
 
   it("marks mindmap as placeholder when nodes is empty", async () => {
@@ -92,6 +126,32 @@ describe("studio capability resolver", () => {
     });
 
     expect(result.status).toBe("backend_placeholder");
+  });
+
+  it("marks interactive game compatibility payload as protocol_limited", async () => {
+    const artifact = makeArtifact({
+      toolType: "outline",
+      artifactType: "html",
+      metadata: {
+        content_snapshot: {
+          kind: "interactive_game",
+          title: "电路术语配对",
+          html: "<html><body><main><h1>demo</h1></main></body></html>",
+          compatibility_zone: {
+            status: "protocol_limited",
+            zone: "interactive_games_legacy_compatibility",
+          },
+        },
+      },
+    });
+    const result = await resolveCapabilityFromArtifact({
+      toolId: "outline",
+      artifact,
+      blob: new Blob(["placeholder"]),
+    });
+
+    expect(result.status).toBe("protocol_limited");
+    expect(result.reason).toContain("legacy compatibility zone");
   });
 
   it("marks media as placeholder for tiny files and ready for real files", async () => {

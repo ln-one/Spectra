@@ -30,7 +30,9 @@ function sanitizeTheatreProps(
   const sanitizedEntries = Object.entries(props).filter(
     (_entry): _entry is [string, number | string | boolean] => _entry[1] !== null
   );
-  return Object.fromEntries(sanitizedEntries);
+  return Object.fromEntries(
+    sanitizedEntries
+  ) as Record<string, number | string | boolean>;
 }
 
 export function resolveAnimationPresentationPreset(
@@ -225,7 +227,7 @@ export function createTheatreSequenceProject(
 
   return {
     project,
-    sheet,
+    sheet: sheet as TheatreSequenceProjectBinding["sheet"],
     objects,
   };
 }

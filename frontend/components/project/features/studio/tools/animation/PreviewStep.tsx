@@ -21,7 +21,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { CapabilityNotice } from "../CapabilityNotice";
+import { ArtifactWorkbenchShell } from "../ArtifactWorkbenchShell";
+import { buildArtifactWorkbenchViewModel } from "../workbenchViewModel";
 import type { ToolFlowContext } from "../types";
 import {
   ANIMATION_RHYTHM_OPTIONS,
@@ -153,7 +154,7 @@ export function PreviewStep({
   const capabilityStatus =
     flowContext?.capabilityStatus ?? "backend_placeholder";
   const capabilityReason =
-    flowContext?.capabilityReason ?? "正在等待后端返回按规格渲染的 GIF 动画。";
+    flowContext?.capabilityReason ?? "正在等待后端返回正式动画成果。";
   const mediaBlob =
     capabilityStatus === "backend_ready" &&
     flowContext?.resolvedArtifact?.contentKind === "media" &&
@@ -258,14 +259,42 @@ export function PreviewStep({
     typeof metadata?.cloud_video_error === "string"
       ? metadata.cloud_video_error
       : null;
+  const artifactType = flowContext?.resolvedArtifact?.artifactType ?? null;
+  const hasFormalArtifact =
+    Boolean(latestArtifactId) &&
+    (capabilityStatus === "backend_ready" ||
+      capabilityStatus === "protocol_limited");
+  const placementSupported =
+    typeof serverSpecPreview?.placement_supported === "boolean"
+      ? serverSpecPreview.placement_supported
+      : artifactType === "gif";
+  const renderContract =
+    flowContext?.cardCapability?.render_contract ?? "storyboard_render_contract";
+  const runtimePreviewMode =
+    flowContext?.cardCapability?.runtime_preview_mode ?? "local_preview_only";
+  const cloudRenderMode =
+    flowContext?.cardCapability?.cloud_render_mode ?? "async_media_export";
   const showRuntimePlayer = Boolean(runtimeSnapshot);
   const showVideoPreview = Boolean(mediaUrl) && !showRuntimePlayer;
   const exportLabel =
-    flowContext?.resolvedArtifact?.artifactType === "mp4" ? "下载 MP4" : "下载 GIF";
-  const hasRuntimePlayer = showRuntimePlayer;
-  const showCapabilityNotice =
-    capabilityStatus !== "backend_ready" && !hasRuntimePlayer;
+    artifactType === "mp4"
+      ? "下载 MP4"
+      : artifactType === "html"
+        ? "下载 HTML"
+        : "下载 GIF";
   const hasRenderedMedia = Boolean(mediaUrl);
+  const placementBlockedReason = !placementSupported
+    ? artifactType === "mp4"
+      ? "当前正式成果是 MP4 导出；如需插入 PPT，请先生成 GIF 版动画。"
+      : "当前成果还不满足 placement 前提。"
+    : !flowContext?.selectedSourceId
+      ? "动画生成本身不依赖 PPT；如需 placement，请先绑定一个 PPT 成果。"
+      : null;
+  const viewModel = buildArtifactWorkbenchViewModel(
+    flowContext,
+    lastGeneratedAt,
+    "动画 storyboard、正式导出与 placement 二阶段会在同一工作面里持续演化。"
+  );
   const refineSummaryParts = [
     `${durationSeconds} 秒`,
     getRhythmLabel(rhythm),
@@ -294,7 +323,48 @@ export function PreviewStep({
   };
 
   return (
-    <div className="space-y-4">
+    <ArtifactWorkbenchShell
+      flowContext={flowContext}
+      viewModel={viewModel}
+      emptyState={
+        <div className="rounded-xl border border-dashed border-zinc-300 bg-white px-4 py-6 text-sm text-zinc-500">
+          当前还没有正式动画 artifact。先执行生成，或先查看 storyboard/runtime 预览。
+        </div>
+      }
+    >
+      <div className="space-y-4">
+        <section className="rounded-2xl border border-zinc-200/80 bg-white px-4 py-4 shadow-sm">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-xs font-semibold text-zinc-800">正式结果契约</p>
+              <p className="mt-1 text-[11px] text-zinc-500">
+                正式 truth 是 animation storyboard artifact 与它的导出/替换 lineage。
+              </p>
+            </div>
+            <div className="rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1 text-[11px] text-zinc-600">
+              {(artifactType ?? "waiting").toString().toUpperCase()}
+            </div>
+          </div>
+          <div className="mt-3 grid gap-3 md:grid-cols-3">
+            <div className="rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-3 text-[11px] text-zinc-700">
+              <p className="font-semibold text-zinc-800">Render contract</p>
+              <p className="mt-1">{renderContract}</p>
+            </div>
+            <div className="rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-3 text-[11px] text-zinc-700">
+              <p className="font-semibold text-zinc-800">Runtime 角色</p>
+              <p className="mt-1">preview substrate · {runtimePreviewMode}</p>
+            </div>
+            <div className="rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-3 text-[11px] text-zinc-700">
+              <p className="font-semibold text-zinc-800">Cloud render</p>
+              <p className="mt-1">{cloudRenderMode}</p>
+            </div>
+          </div>
+          {hasFormalArtifact ? (
+            <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] text-emerald-700">
+              已进入正式 artifact 流程；runtime 预览仅作辅助解释，不再反向决定结果真相。
+            </div>
+          ) : null}
+        </section>
       {showVideoPreview && mediaUrl ? (
         <section className="overflow-hidden rounded-[28px] border border-zinc-200/70 bg-white shadow-sm">
           <div className="relative aspect-video bg-zinc-950">
@@ -325,28 +395,41 @@ export function PreviewStep({
         </section>
       ) : null}
 
-      {showRuntimePlayer ? (
-        <AnimationRuntimeHost snapshot={runtimeSnapshot} minimal />
-      ) : null}
+      <section className="rounded-2xl border border-zinc-200/80 bg-white px-4 py-4 shadow-sm">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-xs font-semibold text-zinc-800">Runtime preview</p>
+            <p className="mt-1 text-[11px] text-zinc-500">
+              仅用于解释 storyboard 与 scene 结构，不是正式结果 authority。
+            </p>
+          </div>
+          <div className="rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1 text-[11px] text-zinc-600">
+            {hasRenderedMedia ? "secondary preview" : "preview substrate"}
+          </div>
+        </div>
+        {showRuntimePlayer && runtimeSnapshot ? (
+          <div className="mt-4 space-y-3">
+            <div className="rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-[11px] text-sky-700">
+              runtime preview 不会反向覆盖正式 artifact；它只帮助你理解当前 storyboard。
+            </div>
+            <AnimationRuntimeHost snapshot={runtimeSnapshot} minimal />
+          </div>
+        ) : (
+          <div className="mt-4 rounded-xl border border-dashed border-zinc-300 bg-zinc-50 px-4 py-4 text-[11px] text-zinc-500">
+            当前还没有可展示的 runtime preview。执行生成后，这里会展示 storyboard 的辅助预演。
+          </div>
+        )}
+      </section>
 
-      {showCapabilityNotice || latestArtifactId ? (
+      {latestArtifactId ? (
         <section className="rounded-2xl border border-zinc-200/80 bg-white px-4 py-3 shadow-sm">
-          {showCapabilityNotice ? (
-            <CapabilityNotice
-              status={capabilityStatus}
-              reason={capabilityReason}
-            />
-          ) : null}
-
-          <div
-            className={`${showCapabilityNotice ? "mt-3" : ""} flex items-center justify-between gap-3`}
-          >
+          <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
               <p className="text-xs font-semibold text-zinc-800">导出成果</p>
               <p className="mt-1 text-[11px] text-zinc-500">
                 {hasRenderedMedia
                   ? showRuntimePlayer
-                    ? "主预览已回到 runtime；这里保留正式导出入口。"
+                    ? "主结果以上方 artifact/export 为准；这里保留正式导出入口。"
                     : "后端导出已返回，可直接下载。"
                   : formattedLastGeneratedAt
                     ? `最近一次生成：${formattedLastGeneratedAt}`
@@ -376,7 +459,7 @@ export function PreviewStep({
           <div className="min-w-0">
             <p className="text-xs font-semibold text-zinc-800">结果 refine</p>
             <p className="mt-1 text-[11px] text-zinc-500">
-              {refineSummaryParts.join(" · ")}
+              正式结果变更通过 structured refine 生成 replacement artifact；chat 只保留策略讨论角色。
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-2">
@@ -415,6 +498,10 @@ export function PreviewStep({
               )}
             </Button>
           </div>
+        </div>
+
+        <div className="mt-2 rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-[11px] text-zinc-600">
+          {refineSummaryParts.join(" · ")}
         </div>
 
         {showRefineSettings ? (
@@ -525,9 +612,9 @@ export function PreviewStep({
       <section className="rounded-2xl border border-zinc-200/80 bg-white px-4 py-4 shadow-sm">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-xs font-semibold text-zinc-800">插入 PPT</p>
+            <p className="text-xs font-semibold text-zinc-800">PPT placement</p>
             <p className="mt-1 text-[11px] text-zinc-500">
-              先选目标 PPT，再决定页码和版位。
+              placement 是动画卡的正式二阶段动作，会把动画 artifact 与 PPT 页面绑定关系写入 lineage。
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-2">
@@ -556,6 +643,12 @@ export function PreviewStep({
               刷新 PPT
             </Button>
           </div>
+        </div>
+
+        <div className="mt-3 rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-[11px] text-zinc-600">
+          {placementBlockedReason
+            ? placementBlockedReason
+            : "当前成果满足 placement 前提，可先推荐投放位置，再确认插入。"}
         </div>
 
         <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,1fr)_180px_180px]">
@@ -602,7 +695,11 @@ export function PreviewStep({
               variant="outline"
               size="sm"
               className="h-9 rounded-full text-xs"
-              disabled={!latestArtifactId || !flowContext?.selectedSourceId}
+              disabled={
+                !flowContext?.canRecommendPlacement ||
+                !placementSupported ||
+                !flowContext?.selectedSourceId
+              }
               onClick={() =>
                 flowContext?.selectedSourceId
                   ? onRecommendPlacement(flowContext.selectedSourceId)
@@ -622,7 +719,11 @@ export function PreviewStep({
               type="button"
               size="sm"
               className="h-9 rounded-full bg-blue-600 px-4 text-xs hover:bg-blue-500"
-              disabled={!latestArtifactId || !flowContext?.selectedSourceId}
+              disabled={
+                !flowContext?.canConfirmPlacement ||
+                !placementSupported ||
+                !flowContext?.selectedSourceId
+              }
               onClick={handleConfirm}
             >
               {isConfirmingPlacement ? (
@@ -699,6 +800,7 @@ export function PreviewStep({
           </div>
         ) : null}
       </section>
-    </div>
+      </div>
+    </ArtifactWorkbenchShell>
   );
 }

@@ -16,6 +16,7 @@ async def create_artifact_run(
     *,
     card_id: str,
     body: StudioCardExecutionPreviewRequest,
+    user_id: str,
     artifact,
     session_id: str | None = None,
 ):
@@ -93,6 +94,8 @@ async def create_artifact_run(
                 "run_title": run_title,
                 "tool_type": tool_type,
             },
+            project_id=body.project_id,
+            user_id=getattr(artifact, "ownerUserId", None) or user_id,
         )
         spawn_background_task(
             generate_semantic_run_title(

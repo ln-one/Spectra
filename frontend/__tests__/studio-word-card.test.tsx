@@ -1,18 +1,7 @@
-import type { ReactNode } from "react";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ToolFlowContext } from "@/components/project/features/studio/tools";
 import { PreviewStep } from "@/components/project/features/studio/tools/word/PreviewStep";
 import { GenerateStep } from "@/components/project/features/studio/tools/word/GenerateStep";
-
-jest.mock("react-markdown", () => ({
-  __esModule: true,
-  default: ({ children }: { children: ReactNode }) => <>{children}</>,
-}));
-
-jest.mock("remark-gfm", () => ({
-  __esModule: true,
-  default: () => undefined,
-}));
 
 function buildFlowContext(overrides: Partial<ToolFlowContext> = {}): ToolFlowContext {
   return {
@@ -32,6 +21,35 @@ function buildFlowContext(overrides: Partial<ToolFlowContext> = {}): ToolFlowCon
         optional: "可选：绑定已有成果后，文档内容会更贴近当前项目上下文。",
         empty: "当前还没有可绑定成果，点击上方按钮即可刷新。",
       },
+    },
+    cardCapability: {
+      id: "word_document",
+      title: "Word 教案与文档",
+      readiness: "foundation_ready",
+      governance_tag: "borrow",
+      cleanup_priority: "p1",
+      surface_strategy: "document_surface_adapter",
+      frozen: false,
+      health_report: {
+        authority_integrity: 3,
+        builder_thinness: 2,
+        surface_maturity: 2,
+        fallback_residue: 2,
+        test_coverage: 3,
+        replaceability: 5,
+        summary:
+          "优先借成熟文档编辑 substrate，停止继续把 word_template_engine 长成第二文档系统。",
+      },
+      context_mode: "hybrid",
+      execution_mode: "artifact_create",
+      primary_capabilities: [],
+      related_capabilities: [],
+      artifact_types: [],
+      requires_source_artifact: true,
+      supports_chat_refine: true,
+      supports_selection_context: false,
+      config_fields: [],
+      actions: [],
     },
     ...overrides,
   };
@@ -70,9 +88,10 @@ describe("studio word card", () => {
     expect(screen.getByRole("button", { name: "生成正式文档" })).toBeDisabled();
   });
 
-  it("shows source binding, download and chat refine actions for real artifacts", () => {
+  it("shows source binding, download and chat refine actions for real artifacts", async () => {
     const onRefine = jest.fn();
     const onExportArtifact = jest.fn();
+    const onStructuredRefineArtifact = jest.fn().mockResolvedValue({ ok: true });
 
     render(
       <PreviewStep
@@ -85,12 +104,29 @@ describe("studio word card", () => {
           supportsChatRefine: true,
           onRefine,
           onExportArtifact,
+          onStructuredRefineArtifact,
           resolvedArtifact: {
             artifactId: "word-artifact-1",
             artifactType: "docx",
             contentKind: "json",
             content: {
               kind: "word_document",
+              title: "牛顿第二定律教案",
+              summary: "已更新文档内容。",
+              document_content: {
+                type: "doc",
+                content: [
+                  {
+                    type: "heading",
+                    attrs: { level: 2 },
+                    content: [{ type: "text", text: "教学目标" }],
+                  },
+                  {
+                    type: "paragraph",
+                    content: [{ type: "text", text: "理解牛顿第二定律的核心关系。" }],
+                  },
+                ],
+              },
               source_artifact_id: "ppt-artifact-1",
               source_binding: { status: "bound" },
             },
@@ -111,13 +147,33 @@ describe("studio word card", () => {
     );
 
     expect(screen.getByText("当前建议动作：继续微调文档，或导出正式产物。")).toBeInTheDocument();
+    expect(screen.getByText("治理：借底座 · 清理优先级：P1")).toBeInTheDocument();
     expect(screen.getByText("牛顿第二定律教案")).toBeInTheDocument();
     expect(screen.getAllByText("正式文档工作面").length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText("已绑定来源成果：牛顿第二定律课件")).toBeInTheDocument();
     expect(screen.getByText("从 牛顿第二定律课件 延展为教学文档")).toBeInTheDocument();
+    expect(screen.getByText("Editable Tiptap")).toBeInTheDocument();
     expect(
       screen.getByText("下一步可继续导出正式文档，或回到讲稿与课堂预演继续打磨表达。")
     ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "编辑文档" }));
+    expect(screen.getByText("结构化区块")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "标题" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "项目符号" })).toBeInTheDocument();
+    expect(screen.getByText("标题 · block-1")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "保存为新版本" }));
+    await waitFor(() => {
+      expect(onStructuredRefineArtifact).toHaveBeenCalledWith(
+        expect.objectContaining({
+          artifactId: "word-artifact-1",
+          refineMode: "structured_refine",
+          config: expect.objectContaining({
+            document_title: "牛顿第二定律教案",
+            document_summary: "已更新文档内容。",
+          }),
+        })
+      );
+    });
     fireEvent.click(screen.getByRole("button", { name: "打开对话微调" }));
     fireEvent.click(screen.getByRole("button", { name: "下载正式文档" }));
     expect(onRefine).toHaveBeenCalledTimes(1);

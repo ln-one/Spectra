@@ -43,6 +43,13 @@ def test_animation_preview_switches_to_mp4_for_cloud_video_mode():
     assert payload["content"]["cloud_video_provider"] == "aliyun_wan"
     assert payload["content"]["cloud_video_model"] == "wan2.7-i2v"
     assert preview.spec_preview["artifact_type"] == "mp4"
+    assert preview.render_mode == "cloud_video_wan"
+    assert preview.artifact_type == "mp4"
+    assert preview.placement_supported is False
+    assert preview.runtime_preview_mode == "local_preview_only"
+    assert preview.cloud_render_mode == "async_media_export"
+    assert preview.protocol_status == "ready_to_execute"
+    assert preview.refine_request.refine_mode.value == "structured_refine"
 
 
 def test_animation_preview_defaults_to_cloud_video_wan():
@@ -62,6 +69,51 @@ def test_animation_preview_defaults_to_cloud_video_wan():
     assert payload["content"]["render_mode"] == "cloud_video_wan"
     assert payload["content"]["cloud_video_provider"] == "aliyun_wan"
     assert payload["content"]["cloud_video_model"] == "wan2.7-i2v"
+    assert preview.source_request is not None
+    assert preview.placement_request is not None
+    assert preview.spec_preview["placement_supported"] is False
+
+
+def test_animation_preview_marks_gif_as_placement_ready():
+    preview = build_studio_card_execution_preview(
+        card_id="demonstration_animations",
+        project_id="p-001",
+        config={
+            "topic": "植物生长全过程",
+            "motion_brief": "突出种子发芽到开花结果的镜头变化",
+            "duration_seconds": 10,
+            "animation_format": "gif",
+            "render_mode": "gif",
+        },
+    )
+
+    payload = preview.initial_request.payload
+    assert payload["type"] == "gif"
+    assert payload["content"]["format"] == "gif"
+    assert preview.artifact_type == "gif"
+    assert preview.placement_supported is True
+    assert preview.spec_preview["placement_prerequisites"] == ["bind_ppt_artifact"]
+
+
+def test_animation_preview_marks_html_as_export_only():
+    preview = build_studio_card_execution_preview(
+        card_id="demonstration_animations",
+        project_id="p-001",
+        config={
+            "topic": "植物生长全过程",
+            "motion_brief": "突出种子发芽到开花结果的镜头变化",
+            "duration_seconds": 10,
+            "animation_format": "html5",
+            "render_mode": "html5",
+        },
+    )
+
+    payload = preview.initial_request.payload
+    assert payload["type"] == "html"
+    assert payload["content"]["format"] == "html5"
+    assert preview.artifact_type == "html"
+    assert preview.placement_supported is False
+    assert "placement_ready_artifact" in preview.spec_preview["placement_prerequisites"]
 
 
 @pytest.mark.asyncio

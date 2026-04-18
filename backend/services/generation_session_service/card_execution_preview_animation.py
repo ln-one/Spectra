@@ -22,11 +22,19 @@ def build_animation_execution_preview(
 ) -> StudioCardExecutionPreview:
     render_mode = str(cfg.get("render_mode") or "cloud_video_wan").strip().lower()
     animation_format = "mp4" if render_mode == "cloud_video_wan" else str(cfg.get("animation_format", "html5")).lower()
+    placement_supported = animation_format == "gif"
     artifact_type = (
         ArtifactType.GIF.value
         if animation_format == "gif"
         else (ArtifactType.MP4.value if animation_format == "mp4" else ArtifactType.HTML.value)
     )
+    source_artifact_id = str(cfg.get("source_artifact_id") or "").strip()
+    placement_prerequisites = [
+        "bind_ppt_artifact",
+        "placement_ready_artifact",
+    ]
+    if placement_supported:
+        placement_prerequisites.pop()
     preview_spec = normalize_animation_spec(
         {
             "title": cfg.get("topic") or "教学动画",
@@ -43,6 +51,13 @@ def build_animation_execution_preview(
         card_id=card_id,
         readiness=StudioCardReadiness.FOUNDATION_READY,
         execution_carrier=ExecutionCarrier.ARTIFACT,
+        render_mode=render_mode,
+        artifact_type=artifact_type,
+        placement_supported=placement_supported,
+        runtime_preview_mode="local_preview_only",
+        cloud_render_mode="async_media_export",
+        cloud_video_status=("pending" if render_mode == "cloud_video_wan" else None),
+        protocol_status="ready_to_execute",
         initial_request=StudioCardResolvedRequest(
             method="POST",
             endpoint=f"/api/v1/projects/{project_id}/artifacts",
@@ -84,20 +99,57 @@ def build_animation_execution_preview(
         ),
         refine_request=StudioCardResolvedRequest(
             method="POST",
-            endpoint="/api/v1/chat/messages",
-            refine_mode=RefineMode.CHAT_REFINE,
+            endpoint=f"/api/v1/generate/studio-cards/{card_id}/refine",
+            refine_mode=RefineMode.STRUCTURED_REFINE,
             payload={
                 "project_id": project_id,
+                "artifact_id": cfg.get("artifact_id"),
                 "message": "",
-                "metadata": {
-                    "card_id": card_id,
-                    "animation_parameters": cfg.get("animation_parameters"),
+                "refine_mode": RefineMode.STRUCTURED_REFINE.value,
+                "selection_anchor": cfg.get("selection_anchor"),
+                "source_artifact_id": source_artifact_id or None,
+                "rag_source_ids": rag_source_ids or [],
+                "config": {
+                    "duration_seconds": cfg.get("duration_seconds"),
+                    "rhythm": cfg.get("rhythm"),
+                    "style_pack": cfg.get("style_pack"),
+                    "visual_type": cfg.get("visual_type"),
+                    "focus": cfg.get("motion_brief"),
+                    "render_mode": render_mode,
                 },
             },
-            notes="参数热更新仍通过 chat 路径承托。",
+            notes="动画正式更新通过 structured_refine 生成 replacement artifact；chat 只保留为策略控制面。",
+        ),
+        source_request=StudioCardResolvedRequest(
+            method="GET",
+            endpoint=f"/api/v1/generate/studio-cards/{card_id}/sources",
+            payload={
+                "project_id": project_id,
+            },
+            notes="PPT source-binding 只用于 placement 二阶段，不阻塞动画初始生成。",
+        ),
+        placement_request=StudioCardResolvedRequest(
+            method="POST",
+            endpoint=f"/api/v1/generate/studio-cards/{card_id}/confirm-placement",
+            payload={
+                "project_id": project_id,
+                "artifact_id": cfg.get("artifact_id"),
+                "ppt_artifact_id": source_artifact_id or None,
+                "page_numbers": [],
+                "slot": cfg.get("slot") or "bottom-right",
+            },
+            notes=(
+                "placement 会把动画 artifact 与 PPT 页面绑定关系写入 lineage。"
+                if placement_supported
+                else "当前 render mode 仅支持导出/预览；若要 placement，请先生成 GIF 版动画。"
+            ),
         ),
         spec_preview={
             "artifact_type": artifact_type,
+            "render_mode": render_mode,
+            "placement_supported": placement_supported,
+            "placement_prerequisites": placement_prerequisites,
+            "source_artifact_required_for_placement": True,
             "family_hint": resolve_family_hint(preview_spec),
             "scene_outline": build_scene_outline(preview_spec),
             "visual_type": preview_spec.get("visual_type"),

@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import re
 from types import SimpleNamespace
 from typing import Any
 from urllib import error as urllib_error
@@ -48,9 +49,36 @@ def _timeout_seconds() -> float:
         return 30.0
 
 
+_SNAKE_CASE_PATTERN = re.compile(r"_([a-zA-Z0-9])")
+
+
+def _snake_to_camel(value: str) -> str:
+    return _SNAKE_CASE_PATTERN.sub(lambda match: match.group(1).upper(), value)
+
+
+def _normalize_remote_payload(value: Any) -> Any:
+    if isinstance(value, dict):
+        normalized: dict[str, Any] = {}
+        for key, item in value.items():
+            normalized[key] = _normalize_remote_payload(item)
+        for key, item in list(normalized.items()):
+            if "_" not in key:
+                continue
+            alias = _snake_to_camel(key)
+            if alias and alias not in normalized:
+                normalized[alias] = item
+        return normalized
+    if isinstance(value, list):
+        return [_normalize_remote_payload(item) for item in value]
+    return value
+
+
 def namespace(value: Any) -> Any:
     if isinstance(value, dict):
-        return SimpleNamespace(**{key: namespace(item) for key, item in value.items()})
+        normalized = _normalize_remote_payload(value)
+        return SimpleNamespace(
+            **{key: namespace(item) for key, item in normalized.items()}
+        )
     if isinstance(value, list):
         return [namespace(item) for item in value]
     return value
@@ -152,4 +180,4 @@ async def request_json(
         )
     if not isinstance(payload_obj, dict):
         raise InternalServerException(message="Invalid Ourograph response payload")
-    return payload_obj
+    return _normalize_remote_payload(payload_obj)

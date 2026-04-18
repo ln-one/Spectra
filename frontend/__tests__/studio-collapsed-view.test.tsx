@@ -21,7 +21,7 @@ function makeHistoryItem(
 }
 
 describe("StudioCollapsedView", () => {
-  it("renders journey guide and recommended next tools", () => {
+  it("renders only the tool grid and artifact history in collapsed mode", () => {
     const onToolClick = jest.fn();
 
     render(
@@ -56,20 +56,21 @@ describe("StudioCollapsedView", () => {
       />
     );
 
-    expect(screen.getByText("成果链导览")).toBeInTheDocument();
-    expect(screen.getByText(/当前阶段：/)).toBeInTheDocument();
-    expect(screen.getByText("讲稿备注")).toBeInTheDocument();
-    expect(
-      screen.getByText("当前已绑定来源成果，可沿成果链继续推进。")
-    ).toBeInTheDocument();
-    expect(screen.getByText("扩展演示能力")).toBeInTheDocument();
-    expect(screen.getAllByText("演示动画").length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText("互动游戏").length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByRole("button", { name: "打开教学文档" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "打开随堂小测" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "打开思维导图" })).toBeInTheDocument();
+    expect(screen.queryByText("成果链导览")).not.toBeInTheDocument();
+    expect(screen.queryByText("扩展演示能力")).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "打开教学文档" }));
+    expect(screen.getByRole("button", { name: "智能课件" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "教学文档" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "思维导图" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "互动游戏" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "随堂小测" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "说课助手" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "演示动画" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "学情预演" })).toBeInTheDocument();
+    expect(screen.getByText("成果导航")).toBeInTheDocument();
+    expect(screen.getAllByText("牛顿第二定律讲稿").length).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getByRole("button", { name: "教学文档" }));
 
     const wordTool = GENERATION_TOOLS.find((tool) => tool.type === "word");
     expect(onToolClick).toHaveBeenCalledWith(wordTool);

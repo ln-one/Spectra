@@ -1,0 +1,39 @@
+section_id: "06-04"
+title: "知识空间状态与版本管理技术"
+purpose: "把状态、artifact、version 和 reference 语义锚定到当前项目空间实现，不泛化为抽象知识本体。"
+source_doc_parts:
+  - "source/06-核心技术/04-状态与版本管理.md"
+  - "source/05-系统设计/04-数据库设计.md"
+code_paths:
+  - "backend/prisma/schema.postgres.prisma"
+  - "backend/services/project_space_service/artifact_versions.py"
+  - "backend/services/project_space_service/artifact_semantics.py"
+  - "backend/services/project_space_service/artifact_modes.py"
+  - "backend/schemas/project_semantics.py"
+  - "backend/schemas/projects.py"
+  - "limora/src/auth/index.ts"
+  - "docs/architecture/tech-stack.md"
+api_routes:
+  - "GET /api/v1/projects"
+  - "GET /api/v1/generate/sessions/{session_id}/preview"
+frontend_surfaces:
+  - "Library 版本与成果面板"
+  - "生成结果的后续复用与历史查看"
+tests_or_metrics:
+  - "backend/tests/services/test_project_space_service_artifacts.py"
+  - "backend/tests/services/test_project_space_artifact_modes.py"
+  - "backend/tests/services/test_project_space_permission_semantics.py"
+  - "backend/tests/services/test_project_semantics.py"
+figures:
+  - "fig-image10-02"
+  - "fig-image14-09"
+  - "fig-image17-05"
+allowed_claims:
+  - "结果保存、版本记录和引用关系已经进入当前系统设计。"
+  - "对象关系可以从 Prisma 模型与 focused tests 同时核对。"
+  - "成果不只是下载文件，也会回到项目空间语义层。"
+  - "成员边界与会话语义由 Limora 承接，Better Auth 只作为身份实现依据出现。"
+forbidden_claims:
+  - "正式知识状态沉淀已经在所有场景完成"
+  - "跨项目引用语义已全面对外可用"
+last_checked: "2026-04-19"

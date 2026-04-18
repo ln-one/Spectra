@@ -64,6 +64,7 @@ async def execute_studio_card_artifact_request(
     await validate_source_artifact(
         project_id=body.project_id,
         card_id=card_id,
+        user_id=user_id,
         source_artifact_id=body.source_artifact_id,
     )
     await promote_requested_run_to_generating(
@@ -75,6 +76,7 @@ async def execute_studio_card_artifact_request(
     generated_content = await build_studio_tool_artifact_content(
         card_id=card_id,
         project_id=body.project_id,
+        user_id=user_id,
         config=body.config,
         source_artifact_id=body.source_artifact_id,
         rag_source_ids=body.rag_source_ids,
@@ -90,6 +92,7 @@ async def execute_studio_card_artifact_request(
     if card_id == "word_document":
         artifact_content["title"] = await resolve_word_document_title(
             source_artifact_id=source_artifact_id,
+            user_id=user_id,
             config=(body.config if isinstance(body.config, dict) else {}),
             existing_title=str(artifact_content.get("title") or "").strip(),
         )
@@ -126,11 +129,13 @@ async def execute_studio_card_artifact_request(
     if card_id == "word_document" and source_artifact_id:
         await sync_word_source_metadata(
             artifact=artifact,
+            user_id=user_id,
             source_artifact_id=source_artifact_id,
         )
     run = await create_artifact_run(
         card_id=card_id,
         body=body,
+        user_id=user_id,
         artifact=artifact,
         session_id=execution_session_id,
     )
@@ -187,6 +192,7 @@ async def execute_studio_card_structured_refine(
     artifact = await validate_structured_refine_artifact(
         card_id=card_id,
         project_id=body.project_id,
+        user_id=user_id,
         artifact_id=body.artifact_id,
     )
     current_content = await load_content(artifact)
@@ -211,6 +217,7 @@ async def execute_studio_card_structured_refine(
     run = await create_artifact_run(
         card_id=card_id,
         body=body,
+        user_id=user_id,
         artifact=new_artifact,
         session_id=getattr(new_artifact, "sessionId", None) or body.session_id,
     )
@@ -270,6 +277,7 @@ async def execute_classroom_simulator_turn_artifact(
     )
     artifact = await validate_simulator_turn_artifact(
         project_id=body.project_id,
+        user_id=user_id,
         artifact_id=body.artifact_id,
     )
     current_content = await load_content(artifact)

@@ -1,0 +1,36 @@
+section_id: "05-02"
+title: "软件系统模块设计"
+purpose: "把各模块说明锚定到实际代码入口、页面表现和主流程，不写漂浮的能力名词。"
+source_doc_parts:
+  - "source/05-系统设计/02-模块设计.md"
+  - "imported/spectra/chapters/05-系统设计.md"
+code_paths:
+  - "backend/services/generation_session_service/diego_runtime_sync/generation_sync.py"
+  - "backend/services/generation_session_service/preview_queries.py"
+  - "backend/services/media/rag_indexing.py"
+  - "backend/services/file_upload_service/workflow.py"
+  - "backend/services/project_space_service/artifacts.py"
+api_routes:
+  - "POST /api/v1/generate/studio-cards/{card_id}/execute"
+  - "GET /api/v1/generate/sessions/{session_id}/preview"
+  - "POST /api/v1/generate/sessions/{session_id}/preview/export"
+  - "POST /api/v1/rag/search"
+frontend_surfaces:
+  - "Studio 卡片与工具面板"
+  - "预览与导出操作"
+  - "资料上传与知识库使用流程"
+tests_or_metrics:
+  - "backend/tests/api/test_generate_session_studio_contract_api.py"
+  - "frontend/__tests__/studio-cards-sdk.test.ts"
+  - "frontend/__tests__/generate-preview-run-binding.test.ts"
+figures:
+  - "fig-image2-02"
+  - "fig-image4-04"
+  - "fig-image7-07"
+allowed_claims:
+  - "可以按生成、预览导出、检索与资料、权限边界几个模块来解释系统。"
+  - "每个模块都能在代码、接口或页面中找到对应入口。"
+forbidden_claims:
+  - "模块设计已经形成完整平台操作系统"
+  - "全部模块都完成长期治理语义落地"
+last_checked: "2026-04-18"

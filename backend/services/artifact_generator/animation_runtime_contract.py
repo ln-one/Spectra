@@ -286,19 +286,7 @@ class AnimationRuntimeValidationReportItem(BaseModel):
 
 @lru_cache(maxsize=1)
 def load_animation_runtime_contract() -> dict:
-    repo_root = Path(__file__).resolve().parents[3]
-    contract_path = (
-        repo_root
-        / "frontend"
-        / "components"
-        / "project"
-        / "features"
-        / "studio"
-        / "tools"
-        / "animation"
-        / "runtime"
-        / "dsl-contract.json"
-    )
+    contract_path = Path(__file__).resolve().with_name("dsl-contract.json")
     return json.loads(contract_path.read_text(encoding="utf-8"))
 
 

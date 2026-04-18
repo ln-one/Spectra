@@ -131,7 +131,7 @@ export function validateRuntimePlan(
       continue;
     }
     for (const [itemIndex, item] of step.items.entries()) {
-      const keys = Object.keys(item as Record<string, unknown>);
+      const keys = Object.keys(item as unknown as Record<string, unknown>);
       const allowed = new Set(trackSchema?.track_item_allowed_props ?? []);
       const required = trackSchema?.track_item_required_props ?? [];
       for (const key of keys) {

@@ -144,10 +144,19 @@ class ProjectSpaceService:
             metadata=metadata,
         )
 
-    async def update_artifact_metadata(self, artifact_id: str, metadata: dict):
+    async def update_artifact_metadata(
+        self,
+        artifact_id: str,
+        metadata: dict,
+        *,
+        project_id: str,
+        user_id: str,
+    ):
         self._ensure_remote_configured()
         return await ourograph_client.update_artifact_metadata(
+            project_id=project_id,
             artifact_id=artifact_id,
+            user_id=user_id,
             metadata=metadata,
         )
 
@@ -194,20 +203,32 @@ class ProjectSpaceService:
         self._ensure_remote_configured()
         return await ourograph_client.get_project_state(project_id, user_id)
 
-    async def get_project_versions_with_context(self, project_id: str):
+    async def get_project_versions_with_context(self, project_id: str, user_id: str):
         self._ensure_remote_configured()
-        return await ourograph_client.get_project_versions_with_context(project_id)
+        return await ourograph_client.get_project_versions_with_context(
+            project_id,
+            user_id,
+        )
 
-    async def get_project_version_with_context(self, project_id: str, version_id: str):
+    async def get_project_version_with_context(
+        self,
+        project_id: str,
+        version_id: str,
+        user_id: str,
+    ):
         self._ensure_remote_configured()
         return await ourograph_client.get_project_version_with_context(
             project_id,
             version_id,
+            user_id,
         )
 
-    async def get_project_current_version_id(self, project_id: str):
+    async def get_project_current_version_id(self, project_id: str, user_id: str):
         self._ensure_remote_configured()
-        return await ourograph_client.get_project_current_version_id(project_id)
+        return await ourograph_client.get_project_current_version_id(
+            project_id,
+            user_id,
+        )
 
     async def get_project_artifacts(
         self,

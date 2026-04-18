@@ -36,6 +36,11 @@ import { StudioCollapsedView } from "./components/StudioCollapsedView";
 import { StudioExpandedView } from "./components/StudioExpandedView";
 import { StudioArchiveHistoryDialog } from "./components/StudioArchiveHistoryDialog";
 import type { StudioHistoryItem } from "../history/types";
+import type {
+  CapabilityStatus,
+  StudioGovernanceRubric,
+  StudioWorkflowState,
+} from "../tools";
 
 function extractSessionIdFromExecutionResult(
   executionResult: Record<string, unknown>
@@ -130,6 +135,40 @@ function normalizePageCount(value: unknown): number {
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) return 12;
   return Math.min(50, Math.max(1, Math.round(parsed)));
+}
+
+function getBindingStatus(
+  binding?: { status?: string | null } | null
+): "ready" | "partial" | "pending" {
+  if (binding?.status === "ready") return "ready";
+  if (binding?.status === "partial") return "partial";
+  return "pending";
+}
+
+function supportsRefineMode(
+  modes: string[] | undefined,
+  target: "chat_refine" | "structured_refine" | "follow_up_turn"
+): boolean {
+  if (!Array.isArray(modes) || modes.length === 0) return false;
+  return modes.includes(target);
+}
+
+function getAuthorityBoundaryRisk(cardId: string | null): "low" | "medium" | "high" {
+  switch (cardId) {
+    case "courseware_ppt":
+    case "word_document":
+    case "interactive_games":
+    case "demonstration_animations":
+      return "high";
+    case "speaker_notes":
+    case "classroom_qa_simulator":
+      return "medium";
+    case "interactive_quick_quiz":
+    case "knowledge_mindmap":
+      return "low";
+    default:
+      return "medium";
+  }
 }
 
 export function StudioPanelContainer({
@@ -298,8 +337,17 @@ export function StudioPanelContainer({
   const canRefineBase =
     Boolean(capability.currentCardId) &&
     !capability.isProtocolPending &&
-    capability.supportsChatRefine &&
+    getBindingStatus(capability.currentExecutionPlan?.refine_binding) !==
+      "pending" &&
+    Boolean(
+      capability.currentExecutionPlan?.supported_refine_modes?.length ??
+        capability.supportsChatRefine
+    ) &&
     (!capability.requiresSourceArtifact || capability.hasSourceBinding);
+  const supportedRefineModes =
+    capability.currentExecutionPlan?.supported_refine_modes ??
+    capability.currentCapability?.supported_refine_modes ??
+    [];
 
   const syncStudioChatContextByStep = useCallback(
     (
@@ -376,12 +424,84 @@ export function StudioPanelContainer({
     upsertCurrentCardSources: capability.upsertCurrentCardSources,
     appendRuntimeArtifact: capability.appendRuntimeArtifact,
   });
+  const currentDisplayToolKey =
+    expandedTool && expandedTool !== "ppt"
+      ? (expandedTool as StudioToolKey)
+      : null;
 
   const canExecute =
     Boolean(capability.currentCardId) &&
     !capability.isProtocolPending &&
+    getBindingStatus(capability.currentExecutionPlan?.initial_binding) !==
+      "pending" &&
     (!capability.requiresSourceArtifact || capability.hasSourceBinding);
   const canRefine = canRefineBase;
+  const canFollowUpTurn =
+    supportsRefineMode(supportedRefineModes, "follow_up_turn") &&
+    capability.activeCapabilityState.status === "backend_ready" &&
+    Boolean(capability.activeCapabilityState.resolvedArtifact?.artifactId) &&
+    getBindingStatus(capability.currentExecutionPlan?.follow_up_turn_binding) !==
+      "pending";
+  const canRecommendPlacement =
+    capability.currentCapability?.placement_supported === true &&
+    capability.activeCapabilityState.status === "backend_ready" &&
+    Boolean(capability.activeCapabilityState.resolvedArtifact?.artifactId) &&
+    getBindingStatus(capability.currentExecutionPlan?.placement_binding) !==
+      "pending";
+  const canConfirmPlacement = canRecommendPlacement && Boolean(capability.selectedSourceId);
+  const protocolReady =
+    !capability.isProtocolPending &&
+    getBindingStatus(capability.currentExecutionPlan?.initial_binding) !==
+      "pending";
+  const surfaceReady = capability.activeCapabilityState.status === "backend_ready";
+  const executeReady = canExecute;
+  const refineReady = canRefine;
+  const sourceBindingReady =
+    !capability.requiresSourceArtifact || capability.hasSourceBinding;
+  const governanceRubric: StudioGovernanceRubric | null =
+    capability.currentCardId
+      ? {
+          protocol_ready: protocolReady,
+          surface_ready: surfaceReady,
+          execute_ready: executeReady,
+          refine_ready: refineReady,
+          source_binding_ready: sourceBindingReady,
+          authority_boundary_risk: getAuthorityBoundaryRisk(
+            capability.currentCardId
+          ),
+        }
+      : null;
+  const workflowState: StudioWorkflowState = capability.isLoadingCardProtocol
+    ? "idle"
+    : execution.isStudioActionRunning
+      ? execution.currentCardActionKind === "follow_up_turn"
+        ? "continuing"
+        : execution.currentCardActionKind === "refine"
+          ? "refining"
+          : "executing"
+      : capability.activeCapabilityState.status === "backend_error"
+        ? "failed"
+        : !sourceBindingReady
+          ? "missing_requirements"
+          : capability.activeCapabilityState.status === "backend_ready"
+            ? "result_available"
+            : protocolReady
+              ? "ready_to_execute"
+              : "idle";
+  const effectiveCapabilityStatus: CapabilityStatus =
+    execution.isStudioActionRunning
+      ? workflowState === "continuing"
+        ? "continuing"
+        : capability.activeCapabilityState.status === "backend_ready" && canRefine
+          ? "refining"
+          : "executing"
+      : capability.activeCapabilityState.status === "backend_error"
+        ? "backend_error"
+        : !sourceBindingReady
+          ? "missing_requirements"
+          : !protocolReady
+            ? "protocol_limited"
+            : capability.activeCapabilityState.status;
 
   const requestedHistoryStep = expandedTool
     ? (requestedStepByTool[expandedTool as GenerationToolType] ?? null)
@@ -539,17 +659,32 @@ export function StudioPanelContainer({
     expandedTool === "summary" ||
     expandedTool === "animation" ||
     expandedTool === "handout";
-  const currentDisplayToolKey =
-    expandedTool && expandedTool !== "ppt"
-      ? (expandedTool as StudioToolKey)
+  const resolvedArtifactMetadata =
+    capability.activeCapabilityState.resolvedArtifact?.artifactMetadata ?? null;
+  const resolvedLatestRunnableState =
+    resolvedArtifactMetadata &&
+    typeof resolvedArtifactMetadata.latest_runnable_state === "object"
+      ? (resolvedArtifactMetadata.latest_runnable_state as Record<string, unknown>)
       : null;
-
+  const resolvedProvenance =
+    resolvedArtifactMetadata &&
+    typeof resolvedArtifactMetadata.provenance === "object"
+      ? (resolvedArtifactMetadata.provenance as Record<string, unknown>)
+      : null;
+  const resolvedSourceBinding =
+    resolvedArtifactMetadata &&
+    typeof resolvedArtifactMetadata.source_binding === "object"
+      ? (resolvedArtifactMetadata.source_binding as Record<string, unknown>)
+      : null;
   const toolFlowContext: ToolFlowContext = {
     display:
       currentDisplayToolKey
         ? getToolDisplayModel(currentDisplayToolKey)
         : undefined,
+    cardCapability: capability.currentCapability,
     readiness: capability.currentReadiness,
+    workflowState,
+    governanceRubric,
     isLoadingProtocol: capability.isLoadingCardProtocol,
     isActionRunning: execution.isStudioActionRunning,
     isProtocolPending: capability.isProtocolPending,
@@ -557,8 +692,17 @@ export function StudioPanelContainer({
     supportsChatRefine: capability.supportsChatRefine,
     canExecute,
     canRefine,
-    capabilityStatus: capability.activeCapabilityState.status,
-    capabilityReason: capability.activeCapabilityState.reason,
+    canFollowUpTurn,
+    canRecommendPlacement,
+    canConfirmPlacement,
+    followUpTurnLabel: canFollowUpTurn ? "继续追问" : undefined,
+    capabilityStatus: effectiveCapabilityStatus,
+    capabilityReason:
+      !sourceBindingReady && capability.requiresSourceArtifact
+        ? "当前卡片要求先绑定来源成果，缺少来源时不会再渲染伪结果。"
+        : !protocolReady
+          ? "当前卡片协议仍有缺口，Studio 只允许显示真实可走的正式链路。"
+          : capability.activeCapabilityState.reason,
     isCapabilityLoading: capability.activeCapabilityState.isLoading,
     resolvedArtifact: capability.activeCapabilityState.resolvedArtifact,
     sourceOptions: capability.sourceOptions,
@@ -573,6 +717,9 @@ export function StudioPanelContainer({
       runId: item.runId ?? null,
       runNo: item.runNo ?? null,
     })),
+    latestRunnableState: resolvedLatestRunnableState,
+    provenance: resolvedProvenance,
+    sourceBinding: resolvedSourceBinding,
     onStepChange: historyHandlers.handleManagedToolStepChange,
     onSelectedSourceChange: (sourceId) => {
       capability.setSelectedSourceForCurrentCard(sourceId);
@@ -678,6 +825,13 @@ export function StudioPanelContainer({
       return false;
     },
     onRefine: () => execution.handleOpenChatRefine(),
+    onFollowUpTurn: (payload) =>
+      execution.handleFollowUpTurn({
+        artifactId: payload.artifactId,
+        teacherAnswer: payload.teacherAnswer,
+        turnAnchor: payload.turnAnchor,
+        config: payload.config,
+      }),
     onStructuredRefine: async (payload) => {
       const result = await execution.handleStructuredRefineArtifact({
         artifactId: payload.artifactId,
@@ -772,7 +926,12 @@ export function StudioPanelContainer({
             currentIcon={CurrentIcon}
             currentColor={currentColor}
           />
-          <CardContent className="relative h-[calc(100%-52px)] overflow-hidden p-0">
+          <CardContent
+            className={cn(
+              "relative overflow-hidden p-0",
+              isExpanded ? "h-[calc(100%-52px)]" : "h-full"
+            )}
+          >
             <StudioCollapsedView
               isExpanded={isExpanded}
               hoveredToolId={hoveredToolId}

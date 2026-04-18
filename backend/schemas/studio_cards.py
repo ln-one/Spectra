@@ -70,6 +70,21 @@ class SourceBindingMode(str, Enum):
     MULTI_ARTIFACT = "multi_artifact"
 
 
+class StudioCardGovernanceTag(str, Enum):
+    HARDEN = "harden"
+    BORROW = "borrow"
+    FREEZE = "freeze"
+    DEFER = "defer"
+    SEPARATE_TRACK = "separate-track"
+
+
+class StudioCardCleanupPriority(str, Enum):
+    P0 = "p0"
+    P1 = "p1"
+    P2 = "p2"
+    P3 = "p3"
+
+
 class StudioCardFieldType(str, Enum):
     SELECT = "select"
     MULTISELECT = "multiselect"
@@ -115,6 +130,16 @@ class StudioCardAction(BaseModel):
     notes: Optional[str] = None
 
 
+class StudioCardHealthReport(BaseModel):
+    authority_integrity: int = Field(ge=1, le=5)
+    builder_thinness: int = Field(ge=1, le=5)
+    surface_maturity: int = Field(ge=1, le=5)
+    fallback_residue: int = Field(ge=1, le=5)
+    test_coverage: int = Field(ge=1, le=5)
+    replaceability: int = Field(ge=1, le=5)
+    summary: str
+
+
 class StudioCardExecutionBinding(BaseModel):
     transport: StudioCardTransport
     status: StudioCardBindingStatus
@@ -131,6 +156,11 @@ class StudioCardCapability(BaseModel):
     id: str
     title: str
     readiness: StudioCardReadiness
+    governance_tag: Optional[StudioCardGovernanceTag] = None
+    cleanup_priority: Optional[StudioCardCleanupPriority] = None
+    surface_strategy: Optional[str] = None
+    frozen: bool = False
+    health_report: Optional[StudioCardHealthReport] = None
     context_mode: StudioCardContextMode
     execution_mode: StudioCardExecutionMode
     primary_capabilities: List[str] = Field(default_factory=list)
@@ -143,6 +173,10 @@ class StudioCardCapability(BaseModel):
     artifact_surface_type: Optional[ArtifactSurfaceType] = None
     capability_engine: Optional[CapabilityEngine] = None
     execution_carrier: Optional[ExecutionCarrier] = None
+    render_contract: Optional[str] = None
+    placement_supported: bool = False
+    runtime_preview_mode: Optional[str] = None
+    cloud_render_mode: Optional[str] = None
     supported_refine_modes: List[RefineMode] = Field(default_factory=list)
     supported_selection_scopes: List[SelectionScope] = Field(default_factory=list)
     source_binding_mode: SourceBindingMode = SourceBindingMode.NONE
@@ -159,7 +193,9 @@ class StudioCardExecutionPlan(BaseModel):
     supported_selection_scopes: List[SelectionScope] = Field(default_factory=list)
     initial_binding: StudioCardExecutionBinding
     refine_binding: Optional[StudioCardExecutionBinding] = None
+    follow_up_turn_binding: Optional[StudioCardExecutionBinding] = None
     source_binding: Optional[StudioCardExecutionBinding] = None
+    placement_binding: Optional[StudioCardExecutionBinding] = None
 
 
 class StudioCardExecutionPreviewRequest(BaseModel):
@@ -188,6 +224,14 @@ class StudioCardExecutionPreview(BaseModel):
     initial_request: StudioCardResolvedRequest
     refine_request: Optional[StudioCardResolvedRequest] = None
     source_request: Optional[StudioCardResolvedRequest] = None
+    placement_request: Optional[StudioCardResolvedRequest] = None
+    render_mode: Optional[str] = None
+    artifact_type: Optional[str] = None
+    placement_supported: bool = False
+    runtime_preview_mode: Optional[str] = None
+    cloud_render_mode: Optional[str] = None
+    cloud_video_status: Optional[str] = None
+    protocol_status: Optional[str] = None
     spec_preview: Optional[dict] = None
 
 

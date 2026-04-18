@@ -9,17 +9,16 @@ from services.generation_session_service.tool_content_builder_fallbacks import (
     SUPPORTED_CARD_IDS,
     card_query_text,
 )
-from services.generation_session_service.tool_content_builder_generation import (
+from services.generation_session_service.simulator_turn_generation import (
     generate_simulator_turn_update,
-    generate_structured_artifact_content,
-)
-from services.generation_session_service.tool_content_builder_payloads import (
-    normalize_demonstration_animation_payload,
 )
 from services.generation_session_service.tool_content_builder_policy import (
     allow_fallback,
     resolve_fallback_mode,
     should_attempt_ai_generation,
+)
+from services.generation_session_service.tool_content_builder_routing import (
+    resolve_card_artifact_builder,
 )
 from services.generation_session_service.tool_content_builder_support import (
     raise_generation_error as _raise_generation_error,
@@ -74,11 +73,15 @@ async def _load_rag_snippets(
 async def _load_source_artifact_hint(
     *,
     source_artifact_id: str | None,
+    user_id: str,
 ) -> str | None:
     if not source_artifact_id:
         return None
     try:
-        artifact = await project_space_service.get_artifact(source_artifact_id)
+        artifact = await project_space_service.get_artifact(
+            source_artifact_id,
+            user_id=user_id,
+        )
     except Exception as exc:
         logger.warning(
             "failed to load source artifact %s: %s",
@@ -100,6 +103,7 @@ async def build_studio_tool_artifact_content(
     *,
     card_id: str,
     project_id: str,
+    user_id: str,
     config: dict[str, Any] | None,
     source_artifact_id: str | None = None,
     rag_source_ids: list[str] | None = None,
@@ -114,7 +118,10 @@ async def build_studio_tool_artifact_content(
             query=query,
             rag_source_ids=rag_source_ids,
         ),
-        _load_source_artifact_hint(source_artifact_id=source_artifact_id),
+        _load_source_artifact_hint(
+            source_artifact_id=source_artifact_id,
+            user_id=user_id,
+        ),
     )
     logger.info(
         "studio tool generation mode card_id=%s fallback_mode=%s",
@@ -132,21 +139,15 @@ async def build_studio_tool_artifact_content(
             failure_reason="ai_generation_disabled",
             retryable=False,
         )
-    if card_id == "demonstration_animations":
-        return await normalize_demonstration_animation_payload(
-            {
-                "kind": "animation_storyboard",
-                "source_artifact_id": source_artifact_id,
-                "rag_source_ids": list(rag_source_ids or []),
-            },
-            cfg,
-        )
+    artifact_builder = resolve_card_artifact_builder(card_id)
     try:
-        return await generate_structured_artifact_content(
+        return await artifact_builder(
             card_id=card_id,
             config=cfg,
             rag_snippets=rag_snippets,
             source_hint=source_hint,
+            source_artifact_id=source_artifact_id,
+            rag_source_ids=rag_source_ids,
         )
     except Exception as exc:
         if allow_fallback():

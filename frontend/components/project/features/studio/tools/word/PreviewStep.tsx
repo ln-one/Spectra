@@ -1,10 +1,31 @@
-﻿import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-import { FileText, Loader2, Sparkles } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import type { JSONContent } from "@tiptap/react";
+import { FileText, Loader2, PencilLine, Save, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ArtifactWorkbenchShell } from "../ArtifactWorkbenchShell";
 import type { ToolFlowContext } from "../types";
 import { buildArtifactWorkbenchViewModel } from "../workbenchViewModel";
+import { DocumentSurfaceAdapter } from "./DocumentSurfaceAdapter";
+import {
+  extractDocumentBlocks,
+  markdownToDoc,
+  type DocumentBlockItem,
+} from "./documentContent";
+
+function formatBlockTypeLabel(type: DocumentBlockItem["type"]): string {
+  switch (type) {
+    case "heading":
+      return "标题";
+    case "paragraph":
+      return "正文";
+    case "bulletList":
+      return "项目符号";
+    case "orderedList":
+      return "有序列表";
+    default:
+      return type;
+  }
+}
 
 interface PreviewStepProps {
   markdown: string;
@@ -46,6 +67,31 @@ export function PreviewStep({
   const hasContent =
     capabilityStatus === "backend_ready" &&
     (hasMarkdownContent || hasBackendArtifact);
+  const initialDocument = useMemo(() => {
+    const content =
+      flowContext?.resolvedArtifact?.content &&
+      typeof flowContext.resolvedArtifact.content === "object"
+        ? (flowContext.resolvedArtifact.content as Record<string, unknown>)
+        : null;
+    if (content?.document_content && typeof content.document_content === "object") {
+      return content.document_content as JSONContent;
+    }
+    return markdownToDoc(markdown);
+  }, [flowContext?.resolvedArtifact?.content, markdown]);
+  const [isEditing, setIsEditing] = useState(false);
+  const [documentContent, setDocumentContent] = useState(initialDocument);
+  const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const documentBlocks = useMemo(
+    () => extractDocumentBlocks(documentContent),
+    [documentContent]
+  );
+  const hasDocumentBlocks = documentBlocks.length > 0;
+  const selectedBlock =
+    documentBlocks.find((item) => item.id === selectedBlockId) ?? documentBlocks[0] ?? null;
+  const canStructuredSave = Boolean(
+    flowContext?.resolvedArtifact?.artifactId && flowContext?.onStructuredRefineArtifact
+  );
   const canChatRefine =
     flowContext?.supportsChatRefine &&
     typeof flowContext?.onRefine === "function";
@@ -77,6 +123,51 @@ export function PreviewStep({
       : "已生成正式文档，可继续微调或导出。"
   );
 
+  useEffect(() => {
+    setDocumentContent(initialDocument);
+    setIsEditing(false);
+  }, [initialDocument]);
+
+  useEffect(() => {
+    if (!selectedBlockId && documentBlocks[0]) {
+      setSelectedBlockId(documentBlocks[0].id);
+    }
+  }, [documentBlocks, selectedBlockId]);
+
+  const handleSaveReplacement = async () => {
+    if (!canStructuredSave || !flowContext?.resolvedArtifact?.artifactId) return;
+    setIsSaving(true);
+    try {
+      await flowContext.onStructuredRefineArtifact?.({
+        artifactId: flowContext.resolvedArtifact.artifactId,
+        message: selectedBlock?.text || "更新文档内容",
+        refineMode: "structured_refine",
+        selectionAnchor: selectedBlock
+          ? {
+              scope: "document_block",
+              anchor_id: selectedBlock.id,
+              artifact_id: flowContext.resolvedArtifact.artifactId,
+              label: selectedBlock.text.slice(0, 32) || selectedBlock.id,
+            }
+          : undefined,
+        config: {
+          document_content: documentContent,
+          document_title:
+            typeof artifactContent?.title === "string" && artifactContent.title.trim()
+              ? artifactContent.title.trim()
+              : "教学文档",
+          document_summary:
+            typeof artifactContent?.summary === "string" && artifactContent.summary.trim()
+              ? artifactContent.summary.trim()
+              : "已更新文档内容。",
+        },
+      });
+      setIsEditing(false);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   return (
     <ArtifactWorkbenchShell
       flowContext={{
@@ -101,10 +192,21 @@ export function PreviewStep({
         <div>
           <p className="text-sm font-semibold text-zinc-900">正式文档工作面</p>
           <p className="mt-1 text-[11px] text-zinc-500">
-            这里展示后端返回的真实文档内容，并保留正式导出入口。
+            这里展示后端返回的真实文档内容，并支持结构化块编辑与 replacement artifact 保存。
           </p>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-8 text-xs"
+            disabled={!hasContent}
+            onClick={() => setIsEditing((previous) => !previous)}
+          >
+            <PencilLine className="mr-1.5 h-3.5 w-3.5" />
+            {isEditing ? "退出编辑" : "编辑文档"}
+          </Button>
           {canChatRefine ? (
             <Button
               type="button"
@@ -130,6 +232,18 @@ export function PreviewStep({
               下载正式文档
             </Button>
           ) : null}
+          {isEditing && canStructuredSave ? (
+            <Button
+              type="button"
+              size="sm"
+              className="h-8 text-xs"
+              disabled={isSaving}
+              onClick={() => void handleSaveReplacement()}
+            >
+              <Save className="mr-1.5 h-3.5 w-3.5" />
+              {isSaving ? "保存中..." : "保存为新版本"}
+            </Button>
+          ) : null}
         </div>
       </div>
 
@@ -148,12 +262,53 @@ export function PreviewStep({
 
       {hasContent ? (
         <div className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-5">
-          {hasMarkdownContent ? (
-            <article className="prose prose-zinc max-w-none text-sm leading-6 prose-headings:mb-2 prose-headings:mt-4 prose-p:my-1">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                {markdown}
-              </ReactMarkdown>
-            </article>
+          {hasMarkdownContent || hasDocumentBlocks ? (
+            <div className="grid gap-4 xl:grid-cols-[220px_minmax(0,1fr)]">
+              <div className="space-y-3">
+                <div className="rounded-2xl border border-zinc-200 bg-white p-3">
+                  <p className="text-xs font-semibold text-zinc-900">结构化区块</p>
+                  <div className="mt-3 space-y-2">
+                    {documentBlocks.map((block: DocumentBlockItem) => {
+                      const isSelected = block.id === (selectedBlock?.id ?? selectedBlockId);
+                      return (
+                        <button
+                          key={block.id}
+                          type="button"
+                          onClick={() => setSelectedBlockId(block.id)}
+                          className={`w-full rounded-xl border px-3 py-2 text-left text-xs transition ${
+                            isSelected
+                              ? "border-blue-500 bg-blue-50 text-blue-950"
+                              : "border-zinc-200 bg-zinc-50 text-zinc-700"
+                          }`}
+                        >
+                          <div className="font-semibold">{block.type}</div>
+                          <div className="mt-1 line-clamp-2">{block.text || "空内容区块"}</div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+                {selectedBlock ? (
+                  <div className="rounded-2xl border border-blue-200 bg-blue-50/80 px-4 py-3">
+                    <p className="text-xs font-semibold text-blue-900">当前选中区块</p>
+                    <p className="mt-1 text-[11px] text-blue-700">
+                      {formatBlockTypeLabel(selectedBlock.type)} · {selectedBlock.id}
+                    </p>
+                    <p className="mt-2 text-sm leading-6 text-blue-950">
+                      {selectedBlock.text || "当前区块暂时为空，可直接在右侧编辑器补充内容。"}
+                    </p>
+                  </div>
+                ) : null}
+              </div>
+              <DocumentSurfaceAdapter
+                markdown={markdown}
+                document={documentContent}
+                editable={isEditing}
+                onDocumentChange={setDocumentContent}
+                description="当前工作面已升级为 Editable Tiptap，保存时会回写为 Spectra-owned structured JSON。"
+                badgeLabel="Editable Tiptap"
+              />
+            </div>
           ) : (
             <p className="text-sm text-zinc-700">
               文档已由后端生成完成，可直接下载正式文档。

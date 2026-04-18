@@ -98,7 +98,7 @@ async def require_animation_artifact(project_id: str, artifact_id: str):
         raise APIException(
             status_code=400,
             error_code=ErrorCode.INVALID_INPUT,
-            message="当前动画模块仅支持 GIF 成果",
+            message="当前 PPT placement 仅支持 GIF 动画成果，请先生成 GIF 版动画再执行插入",
         )
     metadata = artifact_metadata_dict(artifact)
     if str(metadata.get("kind") or "").strip() not in {"", "animation_storyboard"}:

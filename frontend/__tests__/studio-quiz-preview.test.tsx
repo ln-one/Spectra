@@ -54,11 +54,13 @@ describe("quiz preview", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("单题工作面")).toBeInTheDocument();
     expect(screen.getByText("第 1 题 / 共 2 题")).toBeInTheDocument();
+    expect(screen.getByText("当前焦点：q-1")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /A/ }));
     fireEvent.click(screen.getByRole("button", { name: "提交答案" }));
 
     expect(screen.getByText("回答正确，当前题目理解到位。")).toBeInTheDocument();
+    expect(screen.getByText("已选择：力与加速度成正比")).toBeInTheDocument();
     expect(
       screen.getByText("核心是合力、质量与加速度之间的关系。")
     ).toBeInTheDocument();

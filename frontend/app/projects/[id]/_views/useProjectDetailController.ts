@@ -4,7 +4,11 @@ import { authService } from "@/lib/auth";
 import { generateApi, projectSpaceApi } from "@/lib/sdk";
 import { getErrorMessage } from "@/lib/sdk/errors";
 import { toast } from "@/hooks/use-toast";
-import { useProjectStore, type GenerationTool } from "@/stores/projectStore";
+import {
+  useProjectStore,
+  type ExpandedTool,
+  type GenerationTool,
+} from "@/stores/projectStore";
 import { useShallow } from "zustand/react/shallow";
 import type { SessionSwitcherItem, ThemePresetId } from "@/components/project";
 import type { ProjectReference } from "@/components/project/features/library/types";
@@ -66,6 +70,22 @@ function extractCurrentRunId(
   return typeof runId === "string" && runId.trim() ? runId : null;
 }
 
+function normalizeQueryTool(value: string | null): ExpandedTool {
+  if (
+    value === "ppt" ||
+    value === "word" ||
+    value === "mindmap" ||
+    value === "outline" ||
+    value === "quiz" ||
+    value === "summary" ||
+    value === "animation" ||
+    value === "handout"
+  ) {
+    return value;
+  }
+  return null;
+}
+
 export function useProjectDetailController() {
   const params = useParams();
   const router = useRouter();
@@ -73,6 +93,7 @@ export function useProjectDetailController() {
   const projectId = params.id as string;
   const querySessionId = searchParams.get("session");
   const queryRunId = searchParams.get("run");
+  const queryTool = normalizeQueryTool(searchParams.get("tool"));
 
   const {
     project,
@@ -88,6 +109,8 @@ export function useProjectDetailController() {
     generationHistory,
     activeSessionId,
     activeRunId,
+    setLayoutMode,
+    setExpandedTool,
     reset,
   } = useProjectStore(
     useShallow((state) => ({
@@ -104,6 +127,8 @@ export function useProjectDetailController() {
       generationHistory: state.generationHistory,
       activeSessionId: state.activeSessionId,
       activeRunId: state.activeRunId,
+      setLayoutMode: state.setLayoutMode,
+      setExpandedTool: state.setExpandedTool,
       reset: state.reset,
     }))
   );
@@ -350,6 +375,26 @@ export function useProjectDetailController() {
     reset,
     setActiveSessionId,
     updateSessionInUrl,
+  ]);
+
+  useEffect(() => {
+    if (!project || project.id !== projectId || !queryTool) {
+      return;
+    }
+    if (layoutMode !== "expanded") {
+      setLayoutMode("expanded");
+    }
+    if (expandedTool !== queryTool) {
+      setExpandedTool(queryTool);
+    }
+  }, [
+    expandedTool,
+    layoutMode,
+    project,
+    projectId,
+    queryTool,
+    setExpandedTool,
+    setLayoutMode,
   ]);
 
   useEffect(() => {

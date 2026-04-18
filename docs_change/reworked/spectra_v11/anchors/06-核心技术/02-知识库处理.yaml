@@ -1,0 +1,41 @@
+section_id: "06-02"
+title: "知识库数据获取与处理技术"
+purpose: "把解析、切块、embedding、检索增强绑定到当前 RAG 实现和正式评估，不写抽象知识空间术语。"
+source_doc_parts:
+  - "source/06-核心技术/02-知识库处理.md"
+  - "source/07-项目测试与成果展示/02-检索评估.md"
+code_paths:
+  - "backend/services/file_upload_service/remote_parse.py"
+  - "backend/services/media/rag_indexing.py"
+  - "backend/services/media/embedding.py"
+  - "backend/services/ai/rag_context.py"
+  - "frontend/lib/sdk/rag.ts"
+  - "docs/architecture/service-boundaries.md"
+  - "docs/architecture/tech-stack.md"
+api_routes:
+  - "POST /api/v1/files"
+  - "POST /api/v1/rag/index"
+  - "POST /api/v1/rag/search"
+  - "GET /api/v1/rag/sources/{chunk_id}"
+frontend_surfaces:
+  - "资料上传后入库与检索"
+  - "来源详情与来源图片查看"
+tests_or_metrics:
+  - "backend/tests/services/test_file_upload_indexing.py"
+  - "backend/tests/services/test_rag_indexing_service.py"
+  - "backend/tests/services/test_rag_retrieval.py"
+  - "backend/tests/regression/test_rag_eval.py"
+  - "60题正式集"
+  - "105题正式集"
+figures:
+  - "fig-image15-10"
+  - "fig-image16-04"
+allowed_claims:
+  - "当前检索增强包含解析、切块、向量化、召回和证据组织。"
+  - "Dualweave 只在上传编排与远端解析入口层面进入当前说明。"
+  - "检索质量已有正式评估数据支撑。"
+  - "Qdrant 相关公开教程只用于支撑检索质量评估与调优方法，不替代项目自身证据。"
+forbidden_claims:
+  - "课程知识网络已正式沉淀完成"
+  - "所有检索场景都已达到最优状态"
+last_checked: "2026-04-19"

@@ -53,63 +53,58 @@ export function StudioPanelHeader({
   currentIcon: CurrentIcon,
   currentColor,
 }: StudioPanelHeaderProps) {
-  const titleText = isExpanded
-    ? TOOL_LABELS[expandedTool || "ppt"]
-    : "备课工坊";
-  const descriptionText = isExpanded ? "配置生成参数" : "AI 生成工具";
+  const titleText = isExpanded ? TOOL_LABELS[expandedTool || "ppt"] : "";
+  const descriptionText = isExpanded ? "配置生成参数" : "";
 
   return (
     <CardHeader
-      className="project-panel-header relative flex flex-row items-center justify-between px-4 py-0 shrink-0 space-y-0"
-      style={{ height: "52px" }}
+      className={cn(
+        "project-panel-header relative flex shrink-0 flex-row items-center justify-between space-y-0 overflow-hidden py-0 transition-[height,padding] duration-200",
+        isExpanded ? "px-4" : "px-0"
+      )}
+      style={{ height: isExpanded ? "52px" : "0px" }}
     >
       <div className="min-w-0 flex-1 overflow-hidden">
-        <motion.div
-          className="flex min-w-0 flex-col justify-center"
-          layout
-          transition={{ type: "spring", stiffness: 400, damping: 30 }}
-        >
-          <CardTitle
-            className={cn(
-              "leading-tight",
-              isExpanded ? "text-sm font-semibold" : "text-lg font-bold"
-            )}
+        {isExpanded ? (
+          <motion.div
+            className="flex min-w-0 flex-col justify-center"
+            layout
+            transition={{ type: "spring", stiffness: 400, damping: 30 }}
           >
-            <span
-              className={cn(
-                "relative block overflow-hidden",
-                isExpanded ? "h-5" : "h-6"
-              )}
+            <CardTitle
+              className={cn("leading-tight", "text-sm font-semibold")}
             >
-              <AnimatePresence initial={false} mode="sync">
-                <motion.span
-                  key={isExpanded ? "expanded-title" : "collapsed-title"}
-                  className="absolute inset-0 block truncate whitespace-nowrap"
-                  initial={{ opacity: 1 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 1 }}
-                >
-                  {renderMorphChars(titleText, "title")}
-                </motion.span>
-              </AnimatePresence>
-            </span>
-          </CardTitle>
-          <CardDescription className="text-xs leading-tight text-[var(--project-text-muted)]">
-            <span className="relative block h-4 overflow-hidden">
-              <AnimatePresence initial={false} mode="sync">
-                <motion.span
-                  key={isExpanded ? "expanded-desc" : "collapsed-desc"}
-                  className="absolute inset-0 block truncate whitespace-nowrap"
-                  initial={{ opacity: 1 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 1 }}
-                >
-                  {renderMorphChars(descriptionText, "desc")}
-                </motion.span>
-              </AnimatePresence>
-            </span>
-          </CardDescription>
-        </motion.div>
+              <span className="relative block h-5 overflow-hidden">
+                <AnimatePresence initial={false} mode="sync">
+                  <motion.span
+                    key="expanded-title"
+                    className="absolute inset-0 block truncate whitespace-nowrap"
+                    initial={{ opacity: 1 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 1 }}
+                  >
+                    {renderMorphChars(titleText, "title")}
+                  </motion.span>
+                </AnimatePresence>
+              </span>
+            </CardTitle>
+            <CardDescription className="text-xs leading-tight text-[var(--project-text-muted)]">
+              <span className="relative block h-4 overflow-hidden">
+                <AnimatePresence initial={false} mode="sync">
+                  <motion.span
+                    key="expanded-desc"
+                    className="absolute inset-0 block truncate whitespace-nowrap"
+                    initial={{ opacity: 1 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 1 }}
+                  >
+                    {renderMorphChars(descriptionText, "desc")}
+                  </motion.span>
+                </AnimatePresence>
+              </span>
+            </CardDescription>
+          </motion.div>
+        ) : null}
       </div>
 
       <div className="ml-2 flex w-16 shrink-0 items-center justify-end">

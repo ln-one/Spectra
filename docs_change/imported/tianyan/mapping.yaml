@@ -1,0 +1,68 @@
+source_file: 2102933—这次一定队—a15—项目详细方案（1）.docx
+input_format: docx
+provider_used: pandoc_docx
+requested_provider: pandoc_docx
+fallback_used: false
+quality_grade: A
+quality_score: 1.0
+chapters:
+- ordinal: 1
+  title: Imported Content
+  source_heading: Imported Content
+  output_file: 01-Imported-Content.md
+  source_page: null
+- ordinal: 2
+  title: 前言
+  source_heading: 1.前言
+  output_file: 02-前言.md
+  source_page: 1
+- ordinal: 3
+  title: 项目综述
+  source_heading: 2.项目综述
+  output_file: 03-项目综述.md
+  source_page: 2
+- ordinal: 4
+  title: 可行性分析
+  source_heading: 3可行性分析
+  output_file: 04-可行性分析.md
+  source_page: 3
+- ordinal: 5
+  title: 业务分析
+  source_heading: 4.业务分析
+  output_file: 05-业务分析.md
+  source_page: 5
+- ordinal: 6
+  title: 系统设计
+  source_heading: 5.系统设计
+  output_file: 06-系统设计.md
+  source_page: 9
+- ordinal: 7
+  title: 关键技术
+  source_heading: 6.关键技术
+  output_file: 07-关键技术.md
+  source_page: 19
+- ordinal: 8
+  title: 项目测试
+  source_heading: 7.项目测试
+  output_file: 08-项目测试.md
+  source_page: 34
+- ordinal: 9
+  title: 组织管理
+  source_heading: 8.组织管理
+  output_file: 09-组织管理.md
+  source_page: 40
+- ordinal: 10
+  title: 商业企划
+  source_heading: 9.商业企划
+  output_file: 10-商业企划.md
+  source_page: 42
+- ordinal: 11
+  title: 风险管理
+  source_heading: 10.风险管理
+  output_file: 11-风险管理.md
+  source_page: 53
+- ordinal: 12
+  title: 结语
+  source_heading: 11.结语
+  output_file: 12-结语.md
+  source_page: 56

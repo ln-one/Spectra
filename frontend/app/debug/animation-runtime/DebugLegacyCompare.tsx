@@ -37,6 +37,7 @@ export function DebugLegacyCompare({
       <PlaybackProvider
         value={{
           isPlaying: false,
+          sequencePosition: 0,
           stepIndex: 0,
           totalSteps: snapshot.runtimeGraph.timeline.total_steps,
           globalProgress: 0,

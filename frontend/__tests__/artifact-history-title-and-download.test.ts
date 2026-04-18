@@ -50,6 +50,36 @@ describe("artifact history and download filename", () => {
     expect((item as ArtifactHistoryItem).sourceArtifactId).toBe("a-ppt-001");
   });
 
+  it("preserves artifact metadata snapshots for formal studio resolution", () => {
+    const item = toArtifactHistoryItem({
+      id: "a-003",
+      project_id: "p-001",
+      session_id: "s-001",
+      based_on_version_id: null,
+      owner_user_id: "u-001",
+      type: "docx",
+      visibility: "project-visible",
+      storage_path: "uploads/a-003.docx",
+      metadata: {
+        title: "牛顿第一定律教案",
+        content_snapshot: {
+          kind: "word_document",
+          document_content: { type: "doc", content: [] },
+        },
+      },
+      created_at: "2026-04-01T10:00:00.000Z",
+      updated_at: "2026-04-01T10:01:00.000Z",
+    } as any);
+
+    expect(item.metadata).toEqual({
+      title: "牛顿第一定律教案",
+      content_snapshot: {
+        kind: "word_document",
+        document_content: { type: "doc", content: [] },
+      },
+    });
+  });
+
   it("builds filename from artifact title and extension", () => {
     const filename = buildArtifactDownloadFilename({
       title: "函数单调性教案",

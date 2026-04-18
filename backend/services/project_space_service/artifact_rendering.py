@@ -108,6 +108,7 @@ async def _resolve_authority_storage_path(
     *,
     service,
     artifact_type: str,
+    user_id: str,
     normalized_content: dict[str, object],
 ) -> str:
     if service is None:
@@ -115,7 +116,7 @@ async def _resolve_authority_storage_path(
     source_artifact_id = _read_source_artifact_id(normalized_content)
     if not source_artifact_id:
         return ""
-    artifact = await service.get_artifact(source_artifact_id)
+    artifact = await service.get_artifact(source_artifact_id, user_id=user_id)
     if not artifact:
         return ""
     resolved_type = str(getattr(artifact, "type", "") or "").strip().lower()
@@ -131,11 +132,13 @@ async def generate_office_artifact_via_render_service(
     artifact_type: str,
     project_id: str,
     artifact_id: str,
+    user_id: str,
     normalized_content: dict[str, object],
 ) -> str:
     authority_storage_path = await _resolve_authority_storage_path(
         service=service,
         artifact_type=artifact_type,
+        user_id=user_id,
         normalized_content=normalized_content,
     )
     if authority_storage_path:

@@ -1,0 +1,565 @@
+{
+  "register": {
+    "status": 200,
+    "elapsed": 0.14,
+    "data": {
+      "success": true,
+      "data": {
+        "user": {
+          "id": "ed5e1c1b-8445-4c55-9f4c-9c8fa7144962",
+          "email": "codex_dad788c6@example.com",
+          "username": "codex_91cfdff6",
+          "fullName": "Codex Showcase",
+          "createdAt": "2026-04-18T12:41:40.067000Z"
+        }
+      },
+      "message": "注册成功"
+    }
+  },
+  "create_project": {
+    "status": 200,
+    "elapsed": 0.06,
+    "data": {
+      "success": true,
+      "data": {
+        "project": {
+          "id": "5a9c7859-9dae-4265-a43c-f57ac9e90a3c",
+          "userId": "ed5e1c1b-8445-4c55-9f4c-9c8fa7144962",
+          "user": null,
+          "name": "Studio Cards Showcase",
+          "description": "Real API showcase artifacts",
+          "subject": null,
+          "gradeLevel": null,
+          "duration": null,
+          "teachingObjectives": null,
+          "status": "draft",
+          "visibility": "private",
+          "isReferenceable": false,
+          "currentVersionId": null,
+          "currentVersion": null,
+          "conversations": null,
+          "uploads": null,
+          "generationSessions": null,
+          "references": null,
+          "incomingReferences": null,
+          "versions": null,
+          "artifacts": null,
+          "candidateChanges": null,
+          "members": null,
+          "runs": null,
+          "createdAt": "2026-04-18T12:41:40.094000Z",
+          "updatedAt": "2026-04-18T12:41:40.094000Z"
+        }
+      },
+      "message": "项目创建成功"
+    }
+  },
+  "project_id": "5a9c7859-9dae-4265-a43c-f57ac9e90a3c",
+  "create_source_ppt": {
+    "status": 200,
+    "elapsed": 2.09,
+    "data": {
+      "artifact": {
+        "id": "d4ff83f0-e005-4307-a6b5-0634a02ba8e7",
+        "projectId": "5a9c7859-9dae-4265-a43c-f57ac9e90a3c",
+        "sessionId": null,
+        "basedOnVersionId": null,
+        "ownerUserId": "ed5e1c1b-8445-4c55-9f4c-9c8fa7144962",
+        "type": "pptx",
+        "visibility": "private",
+        "storagePath": "/var/lib/spectra/artifacts/5a9c7859-9dae-4265-a43c-f57ac9e90a3c/pptx/62e2bffd-6d7f-43f5-9542-3a32e9b9cb8e.pptx",
+        "metadata": null,
+        "createdAt": "2026-04-18T12:41:41.922369Z",
+        "updatedAt": "2026-04-18T12:41:41.922369Z"
+      }
+    }
+  },
+  "source_artifact_id": "d4ff83f0-e005-4307-a6b5-0634a02ba8e7",
+  "word_document": {
+    "status": 200,
+    "elapsed": 28.98,
+    "data": {
+      "success": true,
+      "data": {
+        "execution_result": {
+          "card_id": "word_document",
+          "readiness": "foundation_ready",
+          "transport": "artifact_create",
+          "resource_kind": "artifact",
+          "session": null,
+          "artifact": {
+            "id": "293f2ebe-f0b6-402d-bf3f-211a03880031",
+            "project_id": "5a9c7859-9dae-4265-a43c-f57ac9e90a3c",
+            "session_id": null,
+            "based_on_version_id": null,
+            "current_version_id": null,
+            "upstream_updated": false,
+            "owner_user_id": "ed5e1c1b-8445-4c55-9f4c-9c8fa7144962",
+            "type": "docx",
+            "visibility": "private",
+            "storage_path": "/var/lib/spectra/artifacts/5a9c7859-9dae-4265-a43c-f57ac9e90a3c/docx/64ba2351-d797-46c0-bb43-ed05855d344b.docx",
+            "created_at": "2026-04-18T12:42:10.752591Z",
+            "updated_at": "2026-04-18T12:42:10.752591Z",
+            "title": null,
+            "kind": null,
+            "replaces_artifact_id": null,
+            "superseded_by_artifact_id": null
+          },
+          "run": {
+            "run_id": "239c7970-8d10-4dc0-a88d-94cea91bc972",
+            "session_id": null,
+            "project_id": "5a9c7859-9dae-4265-a43c-f57ac9e90a3c",
+            "tool_type": "studio_card:word_document",
+            "run_no": 1,
+            "run_title": "第1次讲义文档",
+            "run_title_source": "pending",
+            "run_title_updated_at": null,
+            "run_status": "processing",
+            "run_step": "generate",
+            "artifact_id": null,
+            "created_at": "2026-04-18T12:42:11.191000+00:00",
+            "updated_at": "2026-04-18T12:42:11.193000+00:00"
+          },
+          "request_preview": {
+            "method": "POST",
+            "endpoint": "/api/v1/projects/5a9c7859-9dae-4265-a43c-f57ac9e90a3c/artifacts",
+            "payload": {
+              "type": "docx",
+              "visibility": "private",
+              "rag_source_ids": [],
+              "content": {
+                "card_id": "word_document",
+                "document_variant": "student_handout",
+                "teaching_model": null,
+                "grade_band": null,
+                "topic": "牛顿第一定律",
+                "learning_goal": null,
+                "difficulty_layer": null,
+                "source_artifact_id": "d4ff83f0-e005-4307-a6b5-0634a02ba8e7"
+              }
+            },
+            "refine_mode": null,
+            "notes": "文档卡片通过 artifact create 路径落地，配置写入 content。"
+          },
+          "execution_carrier": "hybrid",
+          "latest_runnable_state": {
+            "primary_carrier": "hybrid",
+            "active_artifact_id": "293f2ebe-f0b6-402d-bf3f-211a03880031",
+            "active_session_id": null,
+            "can_refine": true,
+            "can_follow_up_turn": false,
+            "source_binding_valid": true,
+            "next_action": "refine"
+          },
+          "provenance": {
+            "card_id": "word_document",
+            "execution_carrier": "hybrid",
+            "created_from_session_id": null,
+            "created_from_artifact_ids": [
+              "d4ff83f0-e005-4307-a6b5-0634a02ba8e7"
+            ],
+            "request_snapshot": {
+              "config": {
+                "document_variant": "student_handout",
+                "topic": "牛顿第一定律",
+                "audience": "初中生"
+              },
+              "preview": {
+                "type": "docx",
+                "visibility": "private",
+                "rag_source_ids": [],
+                "content": {
+                  "card_id": "word_document",
+                  "document_variant": "student_handout",
+                  "teaching_model": null,
+                  "grade_band": null,
+                  "topic": "牛顿第一定律",
+                  "learning_goal": null,
+                  "difficulty_layer": null,
+                  "source_artifact_id": "d4ff83f0-e005-4307-a6b5-0634a02ba8e7"
+                }
+              }
+            },
+            "artifact_id": "293f2ebe-f0b6-402d-bf3f-211a03880031",
+            "replaces_artifact_id": null
+          },
+          "source_binding": {
+            "required": true,
+            "mode": "single_artifact",
+            "accepted_types": [
+              "pptx"
+            ],
+            "selected_ids": [
+              "d4ff83f0-e005-4307-a6b5-0634a02ba8e7"
+            ],
+            "visibility_scope": "project-visible",
+            "status": "bound"
+          },
+          "selection_anchor_schema_version": "studio.selection_anchor.v1"
+        }
+      },
+      "message": "Studio 卡片执行成功"
+    },
+    "local_path": "/tmp/studio_cards_showcase/word_document.docx"
+  },
+  "knowledge_mindmap": {
+    "status": 200,
+    "elapsed": 33.38,
+    "data": {
+      "success": true,
+      "data": {
+        "execution_result": {
+          "card_id": "knowledge_mindmap",
+          "readiness": "foundation_ready",
+          "transport": "artifact_create",
+          "resource_kind": "artifact",
+          "session": null,
+          "artifact": {
+            "id": "adc0c9f7-80d6-48ab-9ec3-9fd2af5ada99",
+            "project_id": "5a9c7859-9dae-4265-a43c-f57ac9e90a3c",
+            "session_id": null,
+            "based_on_version_id": null,
+            "current_version_id": null,
+            "upstream_updated": false,
+            "owner_user_id": "ed5e1c1b-8445-4c55-9f4c-9c8fa7144962",
+            "type": "mindmap",
+            "visibility": "private",
+            "storage_path": "/var/lib/spectra/artifacts/5a9c7859-9dae-4265-a43c-f57ac9e90a3c/mindmap/323f5f4a-22e1-4a04-a70d-7f39a1fe3ac9.json",
+            "created_at": "2026-04-18T12:42:44.439472Z",
+            "updated_at": "2026-04-18T12:42:44.439472Z",
+            "title": null,
+            "kind": null,
+            "replaces_artifact_id": null,
+            "superseded_by_artifact_id": null
+          },
+          "run": {
+            "run_id": "297e84c1-d3c9-48be-a081-5693d4cf379a",
+            "session_id": null,
+            "project_id": "5a9c7859-9dae-4265-a43c-f57ac9e90a3c",
+            "tool_type": "studio_card:knowledge_mindmap",
+            "run_no": 1,
+            "run_title": "第1次知识导图",
+            "run_title_source": "pending",
+            "run_title_updated_at": null,
+            "run_status": "processing",
+            "run_step": "generate",
+            "artifact_id": null,
+            "created_at": "2026-04-18T12:42:44.602000+00:00",
+            "updated_at": "2026-04-18T12:42:44.605000+00:00"
+          },
+          "request_preview": {
+            "method": "POST",
+            "endpoint": "/api/v1/projects/5a9c7859-9dae-4265-a43c-f57ac9e90a3c/artifacts",
+            "payload": {
+              "type": "mindmap",
+              "visibility": "private",
+              "rag_source_ids": [],
+              "content": {
+                "topic": "牛顿第一定律",
+                "depth": 3,
+                "focus": "概念关系",
+                "target_audience": null,
+                "focus_scope": "full_project"
+              }
+            },
+            "refine_mode": null,
+            "notes": "导图卡片通过 mindmap artifact 创建承托，聚焦范围已写入 content。"
+          },
+          "execution_carrier": "artifact",
+          "latest_runnable_state": {
+            "primary_carrier": "artifact",
+            "active_artifact_id": "adc0c9f7-80d6-48ab-9ec3-9fd2af5ada99",
+            "active_session_id": null,
+            "can_refine": true,
+            "can_follow_up_turn": false,
+            "source_binding_valid": true,
+            "next_action": "refine"
+          },
+          "provenance": {
+            "card_id": "knowledge_mindmap",
+            "execution_carrier": "artifact",
+            "created_from_session_id": null,
+            "created_from_artifact_ids": [],
+            "request_snapshot": {
+              "config": {
+                "topic": "牛顿第一定律",
+                "focus": "概念关系"
+              },
+              "preview": {
+                "type": "mindmap",
+                "visibility": "private",
+                "rag_source_ids": [],
+                "content": {
+                  "topic": "牛顿第一定律",
+                  "depth": 3,
+                  "focus": "概念关系",
+                  "target_audience": null,
+                  "focus_scope": "full_project"
+                }
+              }
+            },
+            "artifact_id": "adc0c9f7-80d6-48ab-9ec3-9fd2af5ada99",
+            "replaces_artifact_id": null
+          },
+          "source_binding": {
+            "required": false,
+            "mode": "none",
+            "accepted_types": [],
+            "selected_ids": [],
+            "visibility_scope": null,
+            "status": "optional"
+          },
+          "selection_anchor_schema_version": "studio.selection_anchor.v1"
+        }
+      },
+      "message": "Studio 卡片执行成功"
+    },
+    "local_path": "/tmp/studio_cards_showcase/knowledge_mindmap.json"
+  },
+  "speaker_notes": {
+    "status": 200,
+    "elapsed": 30.3,
+    "data": {
+      "success": true,
+      "data": {
+        "execution_result": {
+          "card_id": "speaker_notes",
+          "readiness": "foundation_ready",
+          "transport": "artifact_create",
+          "resource_kind": "artifact",
+          "session": null,
+          "artifact": {
+            "id": "e3732e9a-da4b-4075-b9c2-84eaef95753e",
+            "project_id": "5a9c7859-9dae-4265-a43c-f57ac9e90a3c",
+            "session_id": null,
+            "based_on_version_id": null,
+            "current_version_id": null,
+            "upstream_updated": false,
+            "owner_user_id": "ed5e1c1b-8445-4c55-9f4c-9c8fa7144962",
+            "type": "summary",
+            "visibility": "private",
+            "storage_path": "/var/lib/spectra/artifacts/5a9c7859-9dae-4265-a43c-f57ac9e90a3c/summary/6bcb1a39-6467-46f0-9a16-d12bc4483fd9.json",
+            "created_at": "2026-04-18T12:43:14.777982Z",
+            "updated_at": "2026-04-18T12:43:14.777982Z",
+            "title": null,
+            "kind": null,
+            "replaces_artifact_id": null,
+            "superseded_by_artifact_id": null
+          },
+          "run": {
+            "run_id": "074e3dee-394a-457a-a545-f0b757a60fe7",
+            "session_id": null,
+            "project_id": "5a9c7859-9dae-4265-a43c-f57ac9e90a3c",
+            "tool_type": "studio_card:speaker_notes",
+            "run_no": 1,
+            "run_title": "第1次讲稿备注",
+            "run_title_source": "pending",
+            "run_title_updated_at": null,
+            "run_status": "processing",
+            "run_step": "generate",
+            "artifact_id": null,
+            "created_at": "2026-04-18T12:43:14.973000+00:00",
+            "updated_at": "2026-04-18T12:43:14.974000+00:00"
+          },
+          "request_preview": {
+            "method": "POST",
+            "endpoint": "/api/v1/projects/5a9c7859-9dae-4265-a43c-f57ac9e90a3c/artifacts",
+            "payload": {
+              "type": "summary",
+              "visibility": "private",
+              "rag_source_ids": [],
+              "content": {
+                "kind": "speaker_notes",
+                "schema_version": "speaker_notes.v2",
+                "source_artifact_id": "d4ff83f0-e005-4307-a6b5-0634a02ba8e7",
+                "topic": "牛顿第一定律说课",
+                "tone": "课堂讲解",
+                "emphasize_interaction": null,
+                "active_page": null,
+                "highlight_transition": null
+              }
+            },
+            "refine_mode": null,
+            "notes": "说课助手当前通过结构化 summary artifact 直接承载逐页讲稿。"
+          },
+          "execution_carrier": "hybrid",
+          "latest_runnable_state": {
+            "primary_carrier": "hybrid",
+            "active_artifact_id": "e3732e9a-da4b-4075-b9c2-84eaef95753e",
+            "active_session_id": null,
+            "can_refine": true,
+            "can_follow_up_turn": false,
+            "source_binding_valid": true,
+            "next_action": "refine"
+          },
+          "provenance": {
+            "card_id": "speaker_notes",
+            "execution_carrier": "hybrid",
+            "created_from_session_id": null,
+            "created_from_artifact_ids": [
+              "d4ff83f0-e005-4307-a6b5-0634a02ba8e7"
+            ],
+            "request_snapshot": {
+              "config": {
+                "topic": "牛顿第一定律说课",
+                "tone": "课堂讲解",
+                "audience": "初中物理教师"
+              },
+              "preview": {
+                "type": "summary",
+                "visibility": "private",
+                "rag_source_ids": [],
+                "content": {
+                  "kind": "speaker_notes",
+                  "schema_version": "speaker_notes.v2",
+                  "source_artifact_id": "d4ff83f0-e005-4307-a6b5-0634a02ba8e7",
+                  "topic": "牛顿第一定律说课",
+                  "tone": "课堂讲解",
+                  "emphasize_interaction": null,
+                  "active_page": null,
+                  "highlight_transition": null
+                }
+              }
+            },
+            "artifact_id": "e3732e9a-da4b-4075-b9c2-84eaef95753e",
+            "replaces_artifact_id": null
+          },
+          "source_binding": {
+            "required": true,
+            "mode": "single_artifact",
+            "accepted_types": [
+              "pptx"
+            ],
+            "selected_ids": [
+              "d4ff83f0-e005-4307-a6b5-0634a02ba8e7"
+            ],
+            "visibility_scope": "project-visible",
+            "status": "bound"
+          },
+          "selection_anchor_schema_version": "studio.selection_anchor.v1"
+        }
+      },
+      "message": "Studio 卡片执行成功"
+    },
+    "local_path": "/tmp/studio_cards_showcase/speaker_notes.json"
+  },
+  "interactive_quick_quiz": {
+    "status": 200,
+    "elapsed": 24.48,
+    "data": {
+      "success": true,
+      "data": {
+        "execution_result": {
+          "card_id": "interactive_quick_quiz",
+          "readiness": "foundation_ready",
+          "transport": "artifact_create",
+          "resource_kind": "artifact",
+          "session": null,
+          "artifact": {
+            "id": "519d6061-f082-4cdb-a745-2e5902209721",
+            "project_id": "5a9c7859-9dae-4265-a43c-f57ac9e90a3c",
+            "session_id": null,
+            "based_on_version_id": null,
+            "current_version_id": null,
+            "upstream_updated": false,
+            "owner_user_id": "ed5e1c1b-8445-4c55-9f4c-9c8fa7144962",
+            "type": "exercise",
+            "visibility": "private",
+            "storage_path": "/var/lib/spectra/artifacts/5a9c7859-9dae-4265-a43c-f57ac9e90a3c/exercise/968ff2f8-8184-47e7-b50e-4ad8835e8e54.json",
+            "created_at": "2026-04-18T12:43:39.208614Z",
+            "updated_at": "2026-04-18T12:43:39.208614Z",
+            "title": null,
+            "kind": null,
+            "replaces_artifact_id": null,
+            "superseded_by_artifact_id": null
+          },
+          "run": {
+            "run_id": "c41ffc0c-0d78-4b6b-8b91-278a8ce463ad",
+            "session_id": null,
+            "project_id": "5a9c7859-9dae-4265-a43c-f57ac9e90a3c",
+            "tool_type": "studio_card:interactive_quick_quiz",
+            "run_no": 1,
+            "run_title": "第1次随堂小测",
+            "run_title_source": "pending",
+            "run_title_updated_at": null,
+            "run_status": "processing",
+            "run_step": "generate",
+            "artifact_id": null,
+            "created_at": "2026-04-18T12:43:39.506000+00:00",
+            "updated_at": "2026-04-18T12:43:39.508000+00:00"
+          },
+          "request_preview": {
+            "method": "POST",
+            "endpoint": "/api/v1/projects/5a9c7859-9dae-4265-a43c-f57ac9e90a3c/artifacts",
+            "payload": {
+              "type": "exercise",
+              "visibility": "private",
+              "rag_source_ids": [],
+              "content": {
+                "kind": "quiz",
+                "scope": null,
+                "question_count": 4,
+                "difficulty": "middle_school",
+                "question_type": "single",
+                "style_tags": [],
+                "humorous_distractors": false
+              }
+            },
+            "refine_mode": null,
+            "notes": "题目卡片通过 exercise artifact 创建承托，卡片配置已映射到 content。"
+          },
+          "execution_carrier": "artifact",
+          "latest_runnable_state": {
+            "primary_carrier": "artifact",
+            "active_artifact_id": "519d6061-f082-4cdb-a745-2e5902209721",
+            "active_session_id": null,
+            "can_refine": true,
+            "can_follow_up_turn": false,
+            "source_binding_valid": true,
+            "next_action": "answer_or_refine"
+          },
+          "provenance": {
+            "card_id": "interactive_quick_quiz",
+            "execution_carrier": "artifact",
+            "created_from_session_id": null,
+            "created_from_artifact_ids": [],
+            "request_snapshot": {
+              "config": {
+                "topic": "牛顿第一定律",
+                "question_count": 4,
+                "difficulty": "middle_school"
+              },
+              "preview": {
+                "type": "exercise",
+                "visibility": "private",
+                "rag_source_ids": [],
+                "content": {
+                  "kind": "quiz",
+                  "scope": null,
+                  "question_count": 4,
+                  "difficulty": "middle_school",
+                  "question_type": "single",
+                  "style_tags": [],
+                  "humorous_distractors": false
+                }
+              }
+            },
+            "artifact_id": "519d6061-f082-4cdb-a745-2e5902209721",
+            "replaces_artifact_id": null
+          },
+          "source_binding": {
+            "required": false,
+            "mode": "none",
+            "accepted_types": [],
+            "selected_ids": [],
+            "visibility_scope": null,
+            "status": "optional"
+          },
+          "selection_anchor_schema_version": "studio.selection_anchor.v1"
+        }
+      },
+      "message": "Studio 卡片执行成功"
+    },
+    "local_path": "/tmp/studio_cards_showcase/interactive_quick_quiz.json"
+  }
+}

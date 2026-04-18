@@ -1,0 +1,132 @@
+from __future__ import annotations
+
+from schemas.studio_cards import (
+    StudioCardCleanupPriority,
+    StudioCardGovernanceTag,
+    StudioCardHealthReport,
+)
+
+
+CARD_GOVERNANCE: dict[str, dict] = {
+    "courseware_ppt": {
+        "governance_tag": StudioCardGovernanceTag.HARDEN,
+        "cleanup_priority": StudioCardCleanupPriority.P2,
+        "surface_strategy": "authority_workflow_shell",
+        "frozen": False,
+        "health_report": StudioCardHealthReport(
+            authority_integrity=5,
+            builder_thinness=4,
+            surface_maturity=3,
+            fallback_residue=4,
+            test_coverage=3,
+            replaceability=2,
+            summary="保留 Diego/Pagevra 主链，只强化 page-level workbench 与 refinement UX。",
+        ),
+    },
+    "word_document": {
+        "governance_tag": StudioCardGovernanceTag.BORROW,
+        "cleanup_priority": StudioCardCleanupPriority.P1,
+        "surface_strategy": "document_surface_adapter",
+        "frozen": False,
+        "health_report": StudioCardHealthReport(
+            authority_integrity=3,
+            builder_thinness=2,
+            surface_maturity=2,
+            fallback_residue=2,
+            test_coverage=3,
+            replaceability=5,
+            summary="优先借成熟文档编辑 substrate，停止继续把 word_template_engine 长成第二文档系统。",
+        ),
+    },
+    "interactive_quick_quiz": {
+        "governance_tag": StudioCardGovernanceTag.DEFER,
+        "cleanup_priority": StudioCardCleanupPriority.P2,
+        "surface_strategy": "thin_builder_then_assessment_runtime",
+        "frozen": False,
+        "health_report": StudioCardHealthReport(
+            authority_integrity=4,
+            builder_thinness=2,
+            surface_maturity=3,
+            fallback_residue=3,
+            test_coverage=3,
+            replaceability=4,
+            summary="先收紧题目 workbench 与 typed payload，再决定是否接 H5P/Numbas 等重型评测底座。",
+        ),
+    },
+    "interactive_games": {
+        "governance_tag": StudioCardGovernanceTag.FREEZE,
+        "cleanup_priority": StudioCardCleanupPriority.P0,
+        "surface_strategy": "freeze_then_runtime_replacement",
+        "frozen": True,
+        "health_report": StudioCardHealthReport(
+            authority_integrity=2,
+            builder_thinness=1,
+            surface_maturity=2,
+            fallback_residue=1,
+            test_coverage=2,
+            replaceability=5,
+            summary="立即冻结模板/patch/fallback 扩张，后续只允许替换为真正的 sandbox runtime 方案。",
+        ),
+    },
+    "knowledge_mindmap": {
+        "governance_tag": StudioCardGovernanceTag.BORROW,
+        "cleanup_priority": StudioCardCleanupPriority.P1,
+        "surface_strategy": "graph_surface_adapter",
+        "frozen": False,
+        "health_report": StudioCardHealthReport(
+            authority_integrity=4,
+            builder_thinness=3,
+            surface_maturity=2,
+            fallback_residue=4,
+            test_coverage=2,
+            replaceability=5,
+            summary="优先借成熟 graph editor substrate，不再继续手搓 canvas/tree 双实现。",
+        ),
+    },
+    "demonstration_animations": {
+        "governance_tag": StudioCardGovernanceTag.SEPARATE_TRACK,
+        "cleanup_priority": StudioCardCleanupPriority.P1,
+        "surface_strategy": "separate_runtime_track",
+        "frozen": False,
+        "health_report": StudioCardHealthReport(
+            authority_integrity=4,
+            builder_thinness=4,
+            surface_maturity=2,
+            fallback_residue=4,
+            test_coverage=3,
+            replaceability=3,
+            summary="已进入单独 runtime 改造轨道，本轮不并入其它卡片治理主线。",
+        ),
+    },
+    "speaker_notes": {
+        "governance_tag": StudioCardGovernanceTag.HARDEN,
+        "cleanup_priority": StudioCardCleanupPriority.P2,
+        "surface_strategy": "anchored_document_surface",
+        "frozen": False,
+        "health_report": StudioCardHealthReport(
+            authority_integrity=5,
+            builder_thinness=4,
+            surface_maturity=3,
+            fallback_residue=4,
+            test_coverage=4,
+            replaceability=4,
+            summary="保留 speaker_notes.v2 和 paragraph anchors，借文档底座强化讲稿工作面。",
+        ),
+    },
+    "classroom_qa_simulator": {
+        "governance_tag": StudioCardGovernanceTag.HARDEN,
+        "cleanup_priority": StudioCardCleanupPriority.P2,
+        "surface_strategy": "turn_based_simulation_shell",
+        "frozen": False,
+        "health_report": StudioCardHealthReport(
+            authority_integrity=5,
+            builder_thinness=3,
+            surface_maturity=3,
+            fallback_residue=4,
+            test_coverage=4,
+            replaceability=3,
+            summary="保留 turn semantics，只在 orchestration 与 evaluation 层借生态，不引入通用 AI app 壳。",
+        ),
+    },
+}
+

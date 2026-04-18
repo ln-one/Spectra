@@ -175,7 +175,7 @@ CARD_CAPABILITIES: tuple[StudioCardCapability, ...] = (
         primary_capabilities=["game", "html"],
         related_capabilities=["summary", "mindmap"],
         artifact_types=["html"],
-        supports_chat_refine=True,
+        supports_chat_refine=False,
         config_fields=[
             StudioCardConfigField(
                 key="game_pattern",
@@ -197,11 +197,11 @@ CARD_CAPABILITIES: tuple[StudioCardCapability, ...] = (
         ],
         actions=[
             StudioCardAction(type="generate", label="生成游戏原型"),
-            StudioCardAction(type="chat_refine", label="在游戏上下文中热更新规则"),
+            StudioCardAction(type="structured_refine", label="提交正式 replacement rewrite"),
         ],
         notes=(
-            "HTML artifact 与 sandbox patch 热更新已具备，"
-            "refine 结果通过 replacement artifact 收口。"
+            "HTML artifact 与 sandbox patch rewrite 已具备，"
+            "当前仍处于 legacy compatibility freeze 区，不开放 chat-based 热更新语义。"
         ),
     ),
     StudioCardCapability(
@@ -253,7 +253,7 @@ CARD_CAPABILITIES: tuple[StudioCardCapability, ...] = (
                     StudioCardConfigOption(value="mp4", label="MP4"),
                     StudioCardConfigOption(value="html5", label="HTML5"),
                 ],
-                default_value="html5",
+                default_value="mp4",
             ),
             StudioCardConfigField(
                 key="motion_brief",
@@ -264,9 +264,10 @@ CARD_CAPABILITIES: tuple[StudioCardCapability, ...] = (
         ],
         actions=[
             StudioCardAction(type="generate", label="生成动画"),
-            StudioCardAction(type="chat_refine", label="热更新动画参数"),
+            StudioCardAction(type="structured_refine", label="按规格生成新版"),
+            StudioCardAction(type="chat_refine", label="讨论动画策略"),
         ],
-        notes="动画统一以 storyboard 为源内容，现已正式支持 HTML5、GIF 与 MP4 输出。",
+        notes="动画统一以 storyboard artifact 为正式真相；runtime 仅作预览辅助，placement 作为独立二阶段动作。",
     ),
     StudioCardCapability(
         id="speaker_notes",

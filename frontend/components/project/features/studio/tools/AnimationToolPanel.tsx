@@ -12,6 +12,7 @@ import { GenerateStep } from "./animation/GenerateStep";
 import { PreviewStep } from "./animation/PreviewStep";
 import type {
   AnimationPlacementSlot,
+  AnimationOutputFormat,
   AnimationRhythm,
   AnimationStylePack,
   AnimationStep,
@@ -32,6 +33,8 @@ export function AnimationToolPanel({
   const [focus, setFocus] = useState("");
   const [durationSeconds, setDurationSeconds] = useState(6);
   const [rhythm, setRhythm] = useState<AnimationRhythm>("balanced");
+  const [animationFormat, setAnimationFormat] =
+    useState<AnimationOutputFormat>("mp4");
   const [stylePack, setStylePack] = useState<AnimationStylePack>(
     "teaching_ppt_cartoon"
   );
@@ -82,6 +85,9 @@ export function AnimationToolPanel({
       topic,
       motion_brief: focus,
       duration_seconds: durationSeconds,
+      animation_format: animationFormat,
+      render_mode:
+        animationFormat === "mp4" ? "cloud_video_wan" : animationFormat,
       rhythm,
       style_pack: stylePack,
       visual_type: visualType,
@@ -89,6 +95,7 @@ export function AnimationToolPanel({
     });
   }, [
     durationSeconds,
+    animationFormat,
     flowContext?.selectedSourceId,
     focus,
     onDraftChange,
@@ -282,8 +289,8 @@ export function AnimationToolPanel({
                   {toolName}工作台
                 </h3>
                 <p className="mt-0.5 text-[11px] font-medium leading-relaxed text-zinc-500">
-                  先描述教学需求，再按动画规格生成独立 GIF，最后决定是否插入
-                  PPT。
+                  先稳定 storyboard/render 契约，再决定导出格式与后续
+                  placement。
                 </p>
               </div>
             </div>
@@ -340,6 +347,7 @@ export function AnimationToolPanel({
                   topic={topic}
                   focus={focus}
                   durationSeconds={durationSeconds}
+                  animationFormat={animationFormat}
                   rhythm={rhythm}
                   stylePack={stylePack}
                   visualType={visualType}
@@ -350,6 +358,7 @@ export function AnimationToolPanel({
                   flowContext={flowContext}
                   isGenerating={isGenerating || isPreparingSpec}
                   onDurationChange={setDurationSeconds}
+                  onAnimationFormatChange={setAnimationFormat}
                   onRhythmChange={setRhythm}
                   onStylePackChange={setStylePack}
                   onVisualTypeChange={setVisualType}
@@ -407,7 +416,7 @@ export function AnimationToolPanel({
                     }
                     className="text-[11px] text-zinc-500 hover:text-zinc-800"
                   >
-                    导出当前 GIF
+                    导出当前正式动画
                   </button>
                 </div>
               ) : null}
