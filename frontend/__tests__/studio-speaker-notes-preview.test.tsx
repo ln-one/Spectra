@@ -62,7 +62,9 @@ describe("speaker notes preview", () => {
     expect(
       screen.getAllByText("今天我们围绕牛顿第二定律展开。").length
     ).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText("上游来源：ppt-artifact-1")).toBeInTheDocument();
+    expect(screen.getByText("讲稿备注")).toBeInTheDocument();
+    expect(screen.getByText("提词器式讲稿工作面")).toBeInTheDocument();
+    expect(screen.getByText("从 ppt-artifact-1 延展为讲稿备注")).toBeInTheDocument();
   });
 
   it("submits structured refine with explicit selection anchor", async () => {

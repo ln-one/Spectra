@@ -3,8 +3,9 @@ import { Network } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { CapabilityNotice } from "../CapabilityNotice";
+import { ArtifactWorkbenchShell } from "../ArtifactWorkbenchShell";
 import type { ToolFlowContext } from "../types";
+import { buildArtifactWorkbenchViewModel } from "../workbenchViewModel";
 import { MindmapCanvas } from "./MindmapCanvas";
 import type { MindNode } from "./types";
 
@@ -137,10 +138,15 @@ export function PreviewStep({
   const addChildDisabledReason = !activeTree
     ? "等待后端返回真实导图后才能编辑。"
     : !artifactId
-      ? "当前未定位到可编辑的导图 artifact。"
+      ? "当前未定位到可编辑的导图成果。"
       : !flowContext?.onStructuredRefineArtifact
         ? "当前导图未暴露结构化编辑能力。"
         : "";
+  const viewModel = buildArtifactWorkbenchViewModel(
+    flowContext,
+    lastGeneratedAt,
+    activeTree ? `已加载 ${countTreeNodes(activeTree)} 个节点的真实导图。` : "等待后端返回真实导图。"
+  );
 
   const handleSubmitAddChild = async () => {
     const title = childTitle.trim();
@@ -190,21 +196,27 @@ export function PreviewStep({
   };
 
   return (
-    <div className="space-y-4">
-      <section className="rounded-xl border border-zinc-200 bg-white p-4">
-        <CapabilityNotice status={capabilityStatus} reason={capabilityReason} />
-
-        <div className="mt-4">
-          <p className="text-sm font-semibold text-zinc-900">实时导图预览</p>
+    <ArtifactWorkbenchShell
+      flowContext={{
+        ...flowContext,
+        capabilityStatus,
+        capabilityReason,
+      }}
+      viewModel={viewModel}
+      emptyState={
+        <div className="mt-4 rounded-2xl border border-dashed border-zinc-300 bg-zinc-50 px-4 py-12 text-center">
+          <Network className="mx-auto h-8 w-8 text-zinc-400" />
+          <p className="mt-3 text-sm font-medium text-zinc-700">
+            暂未收到后端真实导图
+          </p>
           <p className="mt-1 text-[11px] text-zinc-500">
-            {lastGeneratedAt
-              ? `最近一次生成：${new Date(lastGeneratedAt).toLocaleString()}`
-              : "这里只展示后端返回的真实思维导图。"}
+            当前不再渲染前端示意导图，等待后端 nodes 返回后会直接展示。
           </p>
         </div>
-
-        {activeTree ? (
-          <div className="mt-4 rounded-2xl border border-zinc-200 bg-zinc-50/70 p-4">
+      }
+    >
+      {activeTree ? (
+        <>
             <div className="mb-3 flex items-center gap-3 text-[11px] text-zinc-600">
               <span>节点总数：{countTreeNodes(activeTree)}</span>
               <span>当前根节点：{activeTree.label}</span>
@@ -219,8 +231,7 @@ export function PreviewStep({
                     {selectedNode?.label ?? "未选中节点"}
                   </p>
                   <p className="text-[11px] text-zinc-500">
-                    点击节点后可在该节点下新增一个手工子节点，并写回后端导图
-                    artifact。
+                    点击节点后可在该节点下新增一个手工子节点，并写回当前导图成果。
                   </p>
                 </div>
                 <Button
@@ -293,19 +304,8 @@ export function PreviewStep({
               selectedId={selectedId || activeTree.id}
               onSelectNode={onSelectNode}
             />
-          </div>
-        ) : (
-          <div className="mt-4 rounded-2xl border border-dashed border-zinc-300 bg-zinc-50 px-4 py-12 text-center">
-            <Network className="mx-auto h-8 w-8 text-zinc-400" />
-            <p className="mt-3 text-sm font-medium text-zinc-700">
-              暂未收到后端真实导图
-            </p>
-            <p className="mt-1 text-[11px] text-zinc-500">
-              当前不再渲染前端示意导图，等待后端 nodes 返回后会直接展示。
-            </p>
-          </div>
-        )}
-      </section>
-    </div>
+        </>
+      ) : null}
+    </ArtifactWorkbenchShell>
   );
 }

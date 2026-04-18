@@ -91,3 +91,30 @@ def test_concept_match_template_randomizes_definitions_and_uses_color_links() ->
     assert "definitionOrder" in html
     assert "colorPalette" in html
     assert "assignedColorByConcept" in html
+
+
+def test_term_pairing_pattern_reuses_pairing_template_with_distinct_title() -> None:
+    payload = build_game_fallback_data(
+        pattern="term_pairing",
+        config={"topic": "操作系统"},
+        rag_snippets=[],
+    )
+    html = render_game_html("term_pairing", payload)
+
+    assert payload["game_title"] == "操作系统术语配对"
+    assert "const gameData =" in html
+    assert "概念" in html
+    assert "定义" in html
+
+
+def test_quiz_run_pattern_reuses_quiz_runtime_template() -> None:
+    payload = build_game_fallback_data(
+        pattern="quiz_run",
+        config={"topic": "操作系统"},
+        rag_snippets=[],
+    )
+    html = render_game_html("quiz_run", payload)
+
+    assert payload["game_title"] == "操作系统极速问答跑酷"
+    assert "生命" in html
+    assert "current >= gameData.levels.length" in html

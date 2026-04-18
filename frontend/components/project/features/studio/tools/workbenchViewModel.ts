@@ -1,0 +1,275 @@
+import type { ToolFlowContext } from "./types";
+import type { ArtifactWorkbenchViewModel } from "./ArtifactWorkbenchShell";
+
+function readArtifactContent(flowContext?: ToolFlowContext): Record<string, unknown> | null {
+  const content = flowContext?.resolvedArtifact?.content;
+  if (!content || typeof content !== "object") return null;
+  return content as Record<string, unknown>;
+}
+
+function getCardId(flowContext?: ToolFlowContext): string {
+  const fromDisplay = flowContext?.display?.studioCardId?.trim();
+  if (fromDisplay) return fromDisplay;
+
+  const toolId = flowContext?.display?.toolId;
+  if (toolId === "summary") return "speaker_notes";
+  if (toolId === "quiz") return "interactive_quick_quiz";
+  if (toolId === "mindmap") return "knowledge_mindmap";
+  if (toolId === "handout") return "classroom_qa_simulator";
+  if (toolId === "word") return "word_document";
+
+  const contentKind = readArtifactContent(flowContext)?.kind;
+  if (contentKind === "speaker_notes") return "speaker_notes";
+  if (contentKind === "word_document") return "word_document";
+  if (contentKind === "quiz") return "interactive_quick_quiz";
+  if (contentKind === "mindmap") return "knowledge_mindmap";
+  if (contentKind === "classroom_qa_simulator") return "classroom_qa_simulator";
+
+  const artifactType = flowContext?.resolvedArtifact?.artifactType;
+  if (artifactType === "docx") return "word_document";
+  if (artifactType === "summary") return "speaker_notes";
+  if (artifactType === "exercise") return "interactive_quick_quiz";
+  if (artifactType === "mindmap") return "knowledge_mindmap";
+  if (artifactType === "handout") return "classroom_qa_simulator";
+
+  return "";
+}
+
+function getProductTitle(cardId: string, flowContext?: ToolFlowContext): string {
+  const displayTitle = flowContext?.display?.productTitle?.trim();
+  if (displayTitle) return displayTitle;
+
+  switch (cardId) {
+    case "word_document":
+      return "教学文档";
+    case "speaker_notes":
+      return "讲稿备注";
+    case "interactive_quick_quiz":
+      return "随堂小测";
+    case "knowledge_mindmap":
+      return "知识导图";
+    case "classroom_qa_simulator":
+      return "学情预演";
+    default:
+      return "当前成果";
+  }
+}
+
+function formatSourceReference(
+  flowContext: ToolFlowContext | undefined,
+  sourceId: string | null
+): string {
+  if (!sourceId) return "";
+  const matched = (flowContext?.sourceOptions ?? []).find((item) => item.id === sourceId);
+  const title = matched?.title?.trim();
+  return title ? `${title}` : sourceId;
+}
+
+function normalizeBindingStatusLabel(status: string): string {
+  switch (status.trim()) {
+    case "bound":
+    case "ready":
+      return "已绑定";
+    case "pending":
+      return "待绑定";
+    case "partial":
+      return "部分绑定";
+    default:
+      return status.trim();
+  }
+}
+
+function getSourceBindingStatus(flowContext?: ToolFlowContext): string {
+  const content = readArtifactContent(flowContext);
+  const directSourceId =
+    flowContext?.selectedSourceId ??
+    flowContext?.latestArtifacts?.[0]?.sourceArtifactId ??
+    (content && typeof content.source_artifact_id === "string"
+      ? content.source_artifact_id.trim()
+      : null);
+  const sourceLabel = formatSourceReference(flowContext, directSourceId);
+  const direct = flowContext?.sourceBinding;
+  if (direct && typeof direct.status === "string" && direct.status.trim()) {
+    const label = normalizeBindingStatusLabel(direct.status);
+    return sourceLabel ? `已绑定来源成果：${sourceLabel}` : `当前绑定状态：${label}`;
+  }
+  const binding = content?.source_binding;
+  if (binding && typeof binding === "object") {
+    const row = binding as Record<string, unknown>;
+    if (typeof row.status === "string" && row.status.trim()) {
+      const label = normalizeBindingStatusLabel(row.status);
+      return sourceLabel ? `已绑定来源成果：${sourceLabel}` : `当前绑定状态：${label}`;
+    }
+  }
+  return flowContext?.requiresSourceArtifact
+    ? "当前需要先绑定来源成果。"
+    : "当前卡片无需额外绑定来源成果。";
+}
+
+function getLineageSummary(flowContext?: ToolFlowContext): string {
+  const cardId = getCardId(flowContext);
+  const currentTitle = getProductTitle(cardId, flowContext);
+  const direct = flowContext?.provenance;
+  const provenance =
+    direct && typeof direct === "object" ? direct : readArtifactContent(flowContext)?.provenance;
+  if (provenance && typeof provenance === "object") {
+    const row = provenance as Record<string, unknown>;
+    const sourceIds = Array.isArray(row.created_from_artifact_ids)
+      ? row.created_from_artifact_ids.filter(
+          (item): item is string => typeof item === "string" && item.trim().length > 0
+        )
+      : [];
+    if (sourceIds.length > 0) {
+      const sourceTitle = formatSourceReference(flowContext, sourceIds[0]);
+      return `从 ${sourceTitle || sourceIds[0]} 延展为${currentTitle}`;
+    }
+    const replacesArtifactId =
+      typeof row.replaces_artifact_id === "string" ? row.replaces_artifact_id : "";
+    if (replacesArtifactId.trim()) {
+      return "当前成果基于上一版内容继续迭代。";
+    }
+  }
+  const content = readArtifactContent(flowContext);
+  const sourceArtifactId =
+    content && typeof content.source_artifact_id === "string"
+      ? content.source_artifact_id.trim()
+      : "";
+  if (sourceArtifactId) {
+    const sourceTitle = formatSourceReference(flowContext, sourceArtifactId);
+    return `从 ${sourceTitle || sourceArtifactId} 延展为${currentTitle}`;
+  }
+  return "当前还没有可展示的生成链信息。";
+}
+
+function getArtifactSummary(flowContext?: ToolFlowContext): string {
+  const cardId = getCardId(flowContext);
+  switch (cardId) {
+    case "word_document":
+      return "正式文档工作面已就绪，可预览、导出并继续微调。";
+    case "speaker_notes":
+      return "讲稿工作面已就绪，可按页查看并微调段落。";
+    case "interactive_quick_quiz":
+      return "单题工作面已就绪，可答题、切题并微调当前题。";
+    case "knowledge_mindmap":
+      return "导图工作面已就绪，可选中节点并继续扩展结构。";
+    case "classroom_qa_simulator":
+      return "课堂预演工作面已就绪，可继续追问并推进下一轮。";
+    default:
+      return "当前工作面已准备好继续操作。";
+  }
+}
+
+function getCurrentArtifactTitle(flowContext?: ToolFlowContext): string {
+  const latestArtifact = flowContext?.latestArtifacts?.[0];
+  const latestTitle = latestArtifact?.title?.trim();
+  if (latestTitle) return latestTitle;
+
+  const content = readArtifactContent(flowContext);
+  const contentTitle =
+    content && typeof content.title === "string" ? content.title.trim() : "";
+  if (contentTitle) return contentTitle;
+
+  return getProductTitle(getCardId(flowContext), flowContext);
+}
+
+function getCurrentSurfaceLabel(flowContext?: ToolFlowContext): string {
+  switch (getCardId(flowContext)) {
+    case "word_document":
+      return "正式文档工作面";
+    case "speaker_notes":
+      return "提词器式讲稿工作面";
+    case "interactive_quick_quiz":
+      return "单题沉浸式工作面";
+    case "knowledge_mindmap":
+      return "结构导图工作面";
+    case "classroom_qa_simulator":
+      return "多轮课堂预演工作面";
+    default:
+      return "成果工作面";
+  }
+}
+
+function getDocumentSummaryFallback(flowContext?: ToolFlowContext): string {
+  const latestArtifact = flowContext?.latestArtifacts?.[0];
+  const latestTitle = latestArtifact?.title?.trim();
+  if (latestTitle) {
+    return `${latestTitle} 已生成，可继续微调或导出。`;
+  }
+  const content = readArtifactContent(flowContext);
+  const documentTitle =
+    content && typeof content.title === "string" ? content.title.trim() : "";
+  if (documentTitle) {
+    return `${documentTitle} 已生成，可继续微调或导出。`;
+  }
+  return "已生成正式文档，可继续微调或导出。";
+}
+
+function getSummary(
+  flowContext: ToolFlowContext | undefined,
+  fallback: string
+): string {
+  const content = readArtifactContent(flowContext);
+  const summary =
+    content && typeof content.summary === "string" ? content.summary.trim() : "";
+  if (summary) return summary;
+  if (flowContext?.display?.studioCardId === "word_document") {
+    return getDocumentSummaryFallback(flowContext);
+  }
+  return fallback;
+}
+
+function getRecommendedAction(flowContext?: ToolFlowContext): string {
+  const nextAction = flowContext?.latestRunnableState?.next_action;
+  const cardId = getCardId(flowContext);
+
+  if (nextAction === "follow_up_turn") return "继续追问，推进下一轮课堂预演。";
+  if (nextAction === "answer_or_refine") return "先答题，或继续微调当前题。";
+  if (nextAction === "refine" && cardId === "word_document") {
+    return "继续微调文档，或导出正式产物。";
+  }
+  if (nextAction === "refine" && cardId === "speaker_notes") return "继续微调讲稿。";
+  if (nextAction === "refine" && cardId === "knowledge_mindmap") {
+    return "选择节点后继续结构化编辑。";
+  }
+  if (cardId === "word_document") return "继续微调文档，或导出正式产物。";
+  if (cardId === "speaker_notes") return "继续微调讲稿。";
+  if (cardId === "interactive_quick_quiz") return "先答题，或继续微调当前题。";
+  if (cardId === "knowledge_mindmap") return "选择节点后继续结构化编辑。";
+  if (cardId === "classroom_qa_simulator") return "继续追问，推进下一轮课堂预演。";
+  return "根据当前成果继续下一步操作。";
+}
+
+function getNextStepSummary(flowContext?: ToolFlowContext): string {
+  switch (getCardId(flowContext)) {
+    case "speaker_notes":
+      return "下一步可继续进入正式文档、随堂小测、知识导图或课堂预演。";
+    case "word_document":
+      return "下一步可继续导出正式文档，或回到讲稿与课堂预演继续打磨表达。";
+    case "interactive_quick_quiz":
+      return "下一步可继续微调当前题，或带着题目重点进入课堂预演。";
+    case "knowledge_mindmap":
+      return "下一步可继续扩展节点，或带着知识结构进入课堂预演。";
+    case "classroom_qa_simulator":
+      return "下一步可继续追问，或回到讲稿和文档调整课堂表达策略。";
+    default:
+      return "下一步可围绕当前成果继续微调、导出或进入后续卡片。";
+  }
+}
+
+export function buildArtifactWorkbenchViewModel(
+  flowContext: ToolFlowContext | undefined,
+  lastGeneratedAt: string | null,
+  fallbackSummary: string
+): ArtifactWorkbenchViewModel {
+  return {
+    currentArtifactTitle: getCurrentArtifactTitle(flowContext),
+    currentSurfaceLabel: getCurrentSurfaceLabel(flowContext),
+    summary: getSummary(flowContext, fallbackSummary),
+    lastGeneratedAt,
+    recommendedAction: getRecommendedAction(flowContext),
+    sourceBindingStatus: getSourceBindingStatus(flowContext),
+    lineageSummary: getLineageSummary(flowContext),
+    artifactSummary: getArtifactSummary(flowContext),
+    nextStepSummary: getNextStepSummary(flowContext),
+  };
+}

@@ -112,6 +112,13 @@ export const ANIMATION_STYLE_PACK_SWATCHES: Record<
   },
 };
 
+export const DEFAULT_EXPLAINER_STYLE_PACK: AnimationStylePack =
+  "teaching_ppt_minimal_gray";
+
+export function resolveDefaultExplainerStylePack(): AnimationStylePack {
+  return DEFAULT_EXPLAINER_STYLE_PACK;
+}
+
 export const ANIMATION_SLOT_OPTIONS: Array<{
   value: AnimationPlacementSlot;
   label: string;
@@ -166,7 +173,7 @@ export function getVisualTypeLabel(value?: string | null): string {
 }
 
 export function getStylePackLabel(value?: string | null): string {
-  if (!value) return "卡通课堂";
+  if (!value) return "极简灰阶";
   return (
     ANIMATION_STYLE_PACK_OPTIONS.find((item) => item.value === value)?.label ??
     value

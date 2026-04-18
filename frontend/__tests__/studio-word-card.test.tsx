@@ -85,6 +85,16 @@ describe("studio word card", () => {
           supportsChatRefine: true,
           onRefine,
           onExportArtifact,
+          resolvedArtifact: {
+            artifactId: "word-artifact-1",
+            artifactType: "docx",
+            contentKind: "json",
+            content: {
+              kind: "word_document",
+              source_artifact_id: "ppt-artifact-1",
+              source_binding: { status: "bound" },
+            },
+          },
           selectedSourceId: "ppt-artifact-1",
           sourceOptions: [{ id: "ppt-artifact-1", title: "牛顿第二定律课件", type: "ppt" }],
           latestArtifacts: [
@@ -100,8 +110,14 @@ describe("studio word card", () => {
       />
     );
 
-    expect(screen.getByText("当前绑定来源：已绑定")).toBeInTheDocument();
-    expect(screen.getByText("来源成果标题：牛顿第二定律课件")).toBeInTheDocument();
+    expect(screen.getByText("当前建议动作：继续微调文档，或导出正式产物。")).toBeInTheDocument();
+    expect(screen.getByText("牛顿第二定律教案")).toBeInTheDocument();
+    expect(screen.getAllByText("正式文档工作面").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText("已绑定来源成果：牛顿第二定律课件")).toBeInTheDocument();
+    expect(screen.getByText("从 牛顿第二定律课件 延展为教学文档")).toBeInTheDocument();
+    expect(
+      screen.getByText("下一步可继续导出正式文档，或回到讲稿与课堂预演继续打磨表达。")
+    ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "打开对话微调" }));
     fireEvent.click(screen.getByRole("button", { name: "下载正式文档" }));
     expect(onRefine).toHaveBeenCalledTimes(1);

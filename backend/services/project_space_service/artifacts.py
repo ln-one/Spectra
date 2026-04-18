@@ -115,6 +115,13 @@ async def create_artifact_with_file(
             based_on_version_id=based_on_version_id,
         )
 
+    storage_path = await _generate_artifact_file(
+        service=service,
+        artifact_type=artifact_type,
+        project_id=project_id,
+        artifact_id=artifact_id,
+        normalized_content=normalized_content,
+    )
     metadata = build_artifact_metadata(
         artifact_type,
         normalized_content,
@@ -123,14 +130,6 @@ async def create_artifact_with_file(
     )
     if replaced_artifact is not None:
         metadata["replaces_artifact_id"] = replaced_artifact.id
-
-    storage_path = await _generate_artifact_file(
-        service=service,
-        artifact_type=artifact_type,
-        project_id=project_id,
-        artifact_id=artifact_id,
-        normalized_content=normalized_content,
-    )
     artifact = await service.create_artifact(
         project_id=project_id,
         artifact_type=artifact_type,

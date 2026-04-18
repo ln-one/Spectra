@@ -1,0 +1,30 @@
+name: thesis-lite
+title: 论文式长文档
+include_toc: true
+include_cover: true
+include_pdf: true
+include_exec_summary: true
+exec_summary_frontmatter: true
+body_starts_at: 1
+body_chapter_offset: 0
+mermaid_mode: placeholder
+figure_placeholder_text: "【图位占位：论文配图后续替换】"
+dynamic_fields: true
+template_layers:
+  base: zh-formal
+  cover: thesis-lite
+  frontmatter: abstract-required
+  body: thesis
+  tables_figures: thesis-default
+theme:
+  page_margin_cm: 2.0
+  body_cn_font: 宋体
+  body_latin_font: Times New Roman
+  heading_cn_font: 黑体
+  heading_latin_font: Times New Roman
+  body_font_size_pt: 12
+  title_font_size_pt: 24
+  heading1_size_pt: 16
+  heading2_size_pt: 14
+  heading3_size_pt: 12
+  line_spacing_pt: 22

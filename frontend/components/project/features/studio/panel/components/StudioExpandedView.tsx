@@ -15,6 +15,11 @@ import type {
 } from "../../tools";
 import { SelectedSourceScopeBadge } from "@/components/project/features/sources/components/SelectedSourceScopeBadge";
 
+const FROZEN_WEAK_CARD_IDS = new Set([
+  "interactive_games",
+  "demonstration_animations",
+]);
+
 function getReadinessLabel(value: string | null): string {
   switch (value) {
     case "ready":
@@ -306,6 +311,11 @@ export function StudioExpandedView({
                             {action.label}
                           </span>
                         ))}
+                      </div>
+                    ) : null}
+                    {currentCardId && FROZEN_WEAK_CARD_IDS.has(currentCardId) ? (
+                      <div className="rounded-[var(--project-chip-radius)] border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-700">
+                        当前卡片已接入基础协议，但尚未纳入成熟模板工作台。继续推进前，需要先明确专用引擎方案。
                       </div>
                     ) : null}
                   </div>

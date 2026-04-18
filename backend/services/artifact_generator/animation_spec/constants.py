@@ -78,8 +78,8 @@ _STYLE_PACK_THEMES = {
 }
 
 _STYLE_PACK_ALIASES = {
-    "default": "teaching_ppt_cartoon",
-    "teaching_ppt": "teaching_ppt_cartoon",
+    "default": "teaching_ppt_minimal_gray",
+    "teaching_ppt": "teaching_ppt_minimal_gray",
     "cartoon": "teaching_ppt_cartoon",
     "fresh_green": "teaching_ppt_fresh_green",
     "deep_blue": "teaching_ppt_deep_blue",
@@ -101,7 +101,7 @@ _STYLE_PACK_ALIASES = {
     "ink-sky": "teaching_ppt_deep_blue",
 }
 
-_DEFAULT_STYLE_PACK = "teaching_ppt_cartoon"
+_DEFAULT_STYLE_PACK = "teaching_ppt_minimal_gray"
 
 _VISUAL_TYPES = {"process_flow", "relationship_change", "structure_breakdown"}
 

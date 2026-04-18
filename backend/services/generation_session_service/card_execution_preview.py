@@ -9,6 +9,9 @@ from schemas.studio_cards import (
     StudioCardResolvedRequest,
 )
 from services.generation_session_service.constants import SessionOutputType
+from services.generation_session_service.card_execution_preview_animation import (
+    build_animation_execution_preview,
+)
 
 
 def _normalize_visibility(value: str | None) -> str:
@@ -259,64 +262,12 @@ def build_studio_card_execution_preview(
         )
 
     if card_id == "demonstration_animations":
-        render_mode = str(cfg.get("render_mode") or "").strip().lower()
-        animation_format = str(cfg.get("animation_format", "html5")).lower()
-        if render_mode == "cloud_video_wan":
-            animation_format = "mp4"
-        artifact_type = (
-            ArtifactType.GIF.value
-            if animation_format == "gif"
-            else (
-                ArtifactType.MP4.value
-                if animation_format == "mp4"
-                else ArtifactType.HTML.value
-            )
-        )
-        return StudioCardExecutionPreview(
+        return build_animation_execution_preview(
             card_id=card_id,
-            readiness=StudioCardReadiness.FOUNDATION_READY,
-            execution_carrier=ExecutionCarrier.ARTIFACT,
-            initial_request=StudioCardResolvedRequest(
-                method="POST",
-                endpoint=f"/api/v1/projects/{project_id}/artifacts",
-                payload={
-                    "type": artifact_type,
-                    "visibility": artifact_visibility,
-                    "rag_source_ids": rag_source_ids or [],
-                    "content": {
-                        "kind": "animation_storyboard",
-                        "format": animation_format,
-                        "render_mode": render_mode or animation_format,
-                        "cloud_video_provider": (
-                            "aliyun_wan" if render_mode == "cloud_video_wan" else None
-                        ),
-                        "topic": cfg.get("topic"),
-                        "scene": cfg.get("scene"),
-                        "duration_seconds": cfg.get("duration_seconds"),
-                        "speed": cfg.get("speed"),
-                        "show_trail": cfg.get("show_trail"),
-                        "split_view": cfg.get("split_view"),
-                        "line_color": cfg.get("line_color"),
-                        "summary": cfg.get("motion_brief") or cfg.get("topic"),
-                    },
-                },
-                notes="动画卡片统一先生成 storyboard，再按 format 输出 HTML5/GIF/MP4 成果。",
-            ),
-            refine_request=StudioCardResolvedRequest(
-                method="POST",
-                endpoint="/api/v1/chat/messages",
-                refine_mode=RefineMode.CHAT_REFINE,
-                payload={
-                    "project_id": project_id,
-                    "message": "",
-                    "metadata": {
-                        "card_id": card_id,
-                        "animation_parameters": cfg.get("animation_parameters"),
-                    },
-                },
-                notes="参数热更新仍通过 chat 路径承托。",
-            ),
-            spec_preview={"artifact_type": artifact_type},
+            project_id=project_id,
+            cfg=cfg,
+            artifact_visibility=artifact_visibility,
+            rag_source_ids=rag_source_ids,
         )
 
     if card_id == "speaker_notes":

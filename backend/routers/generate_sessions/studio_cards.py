@@ -252,11 +252,14 @@ async def advance_classroom_simulator_turn(
         ),
         user_id=user_id,
     )
+    turn_payload = turn_result.model_dump(mode="json")
     return success_response(
         data={
             "artifact": artifact_payload,
-            "turn_result": turn_result.model_dump(mode="json"),
+            "turn_result": turn_payload,
             "latest_runnable_state": latest_runnable_state,
+            "turn_anchor": turn_payload.get("turn_anchor"),
+            "next_focus": turn_payload.get("next_focus"),
         },
         message="课堂问答模拟推进成功",
     )

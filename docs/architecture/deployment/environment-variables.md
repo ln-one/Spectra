@@ -64,6 +64,7 @@ DOCUMENT_PARSER="local"
 # Retrieval Configuration
 # =============================================================================
 STRATUMIND_BASE_URL="http://stratumind:8110"
+STRATUMIND_BASE_URL_LOCAL="http://127.0.0.1:8110"
 STRATUMIND_TIMEOUT_SECONDS=15
 QDRANT_URL="http://qdrant:6333"
 QDRANT_COLLECTION_TEXT="stratumind_text_chunks"
@@ -86,6 +87,7 @@ CHAT_RAG_TIMEOUT_SECONDS=5
 
 DUALWEAVE_ENABLED=true
 DUALWEAVE_BASE_URL="http://dualweave:8080"
+DUALWEAVE_BASE_URL_LOCAL="http://127.0.0.1:8080"
 DUALWEAVE_TIMEOUT_SECONDS=600
 DUALWEAVE_POLL_INTERVAL_SECONDS=2
 DUALWEAVE_RECONCILE_DELAY_SECONDS=2
@@ -102,14 +104,18 @@ DUALWEAVE_CHUNK_SIZE=1048576
 
 PAGEVRA_ENABLED=true
 PAGEVRA_BASE_URL="http://pagevra:8090"
+PAGEVRA_BASE_URL_LOCAL="http://127.0.0.1:8090"
 PAGEVRA_TIMEOUT_SECONDS=180
 PAGEVRA_DISTRIBUTION="image"
 CHROME_PATH="/usr/bin/chromium"
 
 OUROGRAPH_ENABLED=true
 OUROGRAPH_BASE_URL="http://ourograph:8101"
+OUROGRAPH_BASE_URL_LOCAL="http://127.0.0.1:8101"
 OUROGRAPH_TIMEOUT_SECONDS=20
 OUROGRAPH_DATABASE_URL="postgresql://spectra:spectra@postgres:5432/ourograph"
+LIMORA_BASE_URL_LOCAL="http://127.0.0.1:3001"
+DIEGO_BASE_URL_LOCAL="http://127.0.0.1:8000"
 
 # =============================================================================
 # File Storage Configuration

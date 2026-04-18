@@ -16,6 +16,9 @@ async def refine_animation_content(
     project_id: str,
     rag_source_ids: list[str] | None,
 ) -> dict[str, Any]:
+    from services.artifact_generator.animation_runtime import (
+        enrich_animation_runtime_snapshot_async,
+    )
     from services.artifact_generator.animation_spec import normalize_animation_spec
     from services.artifact_generator.animation_spec_llm import (
         generate_animation_spec_with_llm,
@@ -95,5 +98,10 @@ async def refine_animation_content(
             updated["focus"] = spec["focus"] or updated.get("focus", "")
             updated["objects"] = spec.get("objects", [])
             updated["object_details"] = spec.get("object_details", [])
+            updated["title"] = spec.get("title", updated.get("title"))
+            updated["summary"] = spec.get("summary", updated.get("summary"))
+            updated["animation_family"] = spec.get(
+                "animation_family", updated.get("animation_family")
+            )
 
-    return updated
+    return await enrich_animation_runtime_snapshot_async(updated)

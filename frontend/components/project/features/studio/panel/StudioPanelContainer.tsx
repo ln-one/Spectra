@@ -780,6 +780,9 @@ export function StudioPanelContainer({
               onToolClick={historyHandlers.handleToolClick}
               hasHistory={hasHistory}
               groupedHistory={groupedHistory}
+              currentCardId={capability.currentCardId}
+              selectedSourceId={capability.selectedSourceId}
+              latestArtifacts={toolFlowContext.latestArtifacts ?? []}
               projectId={project?.id ?? null}
               activeSessionId={activeSessionId}
               fetchArtifactHistory={fetchArtifactHistory}

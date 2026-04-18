@@ -52,6 +52,7 @@ describe("quiz preview", () => {
     expect(
       screen.getByText("牛顿第二定律描述的核心关系是什么？")
     ).toBeInTheDocument();
+    expect(screen.getByText("单题工作面")).toBeInTheDocument();
     expect(screen.getByText("第 1 题 / 共 2 题")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /A/ }));

@@ -144,6 +144,10 @@ services:
 - 本地直跑: `Stratumind` 监听 `http://127.0.0.1:8110`
 - 向量存储: `Qdrant` 监听 `http://127.0.0.1:6333`
 - Docker 运行推荐通过 Compose 同时启动 `stratumind + qdrant`
+- 容器内 backend / worker 继续使用 `STRATUMIND_BASE_URL=http://stratumind:8110`
+- 宿主机本地运行 backend Python / tests / scripts 时，使用 `STRATUMIND_BASE_URL_LOCAL=http://127.0.0.1:8110`
+- 同样规则适用于 `ourograph / pagevra / dualweave / limora / diego`：
+  容器内用 Compose service name，宿主机本地直跑 backend 用对应 `*_BASE_URL_LOCAL`
 
 ## 热重载
 

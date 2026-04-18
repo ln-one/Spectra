@@ -221,11 +221,16 @@ def build_schema_hint(card_id: str, config: dict[str, Any] | None = None) -> str
             '"feedback":""}]}'
         ),
         "demonstration_animations": (
-            '{"title":"", "summary":"", "format":"gif|mp4", '
-            '"render_mode":"gif|cloud_video_wan", '
-            '"style_pack":"teaching_ppt_cartoon|teaching_ppt_fresh_green|teaching_ppt_deep_blue|teaching_ppt_warm_orange|teaching_ppt_minimal_gray", '
-            '"visual_type":"process_flow", '
-            '"scenes":[{"title":"","description":"","emphasis":""}]}'
+            '{"kind":"animation_storyboard", "topic":"", "summary":"", '
+            '"runtime_graph_version":"generic_explainer_graph.v1", '
+            '"runtime_graph":{"family_hint":"algorithm_demo","timeline":{"total_steps":1},"steps":[{"primary_caption":{"title":"","body":""},"entities":[{"id":"subject-0","kind":"track_stack"}]}]}, '
+            '"runtime_draft_version":"explainer_draft.v1", '
+            '"runtime_draft":{"family_hint":"algorithm_demo","step_captions":[{"caption_title":"","caption_body":""}]}, '
+            '"component_code":"export default function Animation(runtimeProps) { ... }", '
+            '"runtime_source":"llm_draft_assembled_graph", '
+            '"runtime_contract":"animation_runtime.v4", '
+            '"compile_status":"pending", '
+            '"compile_errors":[]}'
         ),
         "speaker_notes": (
             '{"title":"", "summary":"", "source_artifact_id":"", '

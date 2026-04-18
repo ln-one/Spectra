@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Mic2 } from "lucide-react";
-import { CapabilityNotice } from "../CapabilityNotice";
+import { ArtifactWorkbenchShell } from "../ArtifactWorkbenchShell";
 import type { ToolFlowContext } from "../types";
+import { buildArtifactWorkbenchViewModel } from "../workbenchViewModel";
 import { SpeakerNotesSurface } from "./SpeakerNotesSurface";
 import type {
   SlideScriptItem,
@@ -45,7 +46,7 @@ function parseBackendScripts(flowContext?: ToolFlowContext): SlideScriptItem[] {
     const title =
       typeof row.title === "string" && row.title.trim()
         ? row.title.trim()
-        : `Slide ${index + 1}`;
+        : `第 ${index + 1} 页`;
     const sectionsRaw = Array.isArray(row.sections) ? row.sections : [];
     let sections: SpeakerNotesSection[] = sectionsRaw
       .map((section, sectionIndex) => {
@@ -169,8 +170,7 @@ export function PreviewStep({
   const capabilityStatus =
     flowContext?.capabilityStatus ?? "backend_placeholder";
   const capabilityReason =
-    flowContext?.capabilityReason ??
-    "Waiting for backend speaker notes content.";
+    flowContext?.capabilityReason ?? "正在等待后端返回真实讲稿内容。";
   const backendScripts = parseBackendScripts(flowContext);
   const artifactContent =
     flowContext?.resolvedArtifact?.content &&
@@ -181,45 +181,38 @@ export function PreviewStep({
     artifactContent && typeof artifactContent.summary === "string"
       ? artifactContent.summary
       : "";
-  const provenance =
-    artifactContent && typeof artifactContent.provenance === "object"
-      ? (artifactContent.provenance as Record<string, unknown>)
-      : null;
-  const sourceBinding =
-    artifactContent && typeof artifactContent.source_binding === "object"
-      ? (artifactContent.source_binding as Record<string, unknown>)
-      : null;
-  const sourceBindingStatus =
-    sourceBinding && typeof sourceBinding.status === "string"
-      ? sourceBinding.status
-      : "已绑定";
-  const provenanceSourceArtifactIds =
-    provenance && Array.isArray(provenance.created_from_artifact_ids)
-      ? provenance.created_from_artifact_ids
-      : [];
   const sourceSlideByPage = new Map(
     sourceSlides.map((item) => [item.page, item])
   );
   const [selectedAnchorId, setSelectedAnchorId] = useState<string | null>(null);
+  const viewModel = buildArtifactWorkbenchViewModel(
+    flowContext,
+    lastGeneratedAt,
+    summary || "已生成逐页讲稿。"
+  );
 
   return (
-    <div className="space-y-4">
-      <section className="rounded-xl border border-zinc-200 bg-white p-4">
-        <CapabilityNotice status={capabilityStatus} reason={capabilityReason} />
-
-        <div className="mt-4">
-          <p className="text-sm font-semibold text-zinc-900">
-            Real-time Speaker Notes
+    <ArtifactWorkbenchShell
+      flowContext={{
+        ...flowContext,
+        capabilityStatus,
+        capabilityReason,
+      }}
+      viewModel={viewModel}
+      emptyState={
+        <div className="mt-4 rounded-2xl border border-dashed border-zinc-300 bg-zinc-50 px-4 py-12 text-center">
+          <Mic2 className="mx-auto h-8 w-8 text-zinc-400" />
+          <p className="mt-3 text-sm font-medium text-zinc-700">
+            暂未收到后端真实说课讲稿
           </p>
           <p className="mt-1 text-[11px] text-zinc-500">
-            {lastGeneratedAt
-              ? `Last generated: ${new Date(lastGeneratedAt).toLocaleString()}`
-              : "Only real backend content is rendered in this view."}
+            当前只展示后端真实返回结果，不再渲染前端示意讲稿。
           </p>
         </div>
-
-        {backendScripts.length > 0 ? (
-          <div className="mt-4 space-y-3 rounded-2xl border border-zinc-200 bg-zinc-50/70 p-4">
+      }
+    >
+      {backendScripts.length > 0 ? (
+        <>
             <SpeakerNotesSurface
               slides={backendScripts}
               activePage={activePage}
@@ -250,40 +243,8 @@ export function PreviewStep({
                 });
               }}
             />
-            <div className="grid gap-3 lg:grid-cols-3">
-              <div className="rounded-xl border border-zinc-200 bg-white p-3">
-                <p className="text-xs font-semibold text-zinc-900">来源绑定</p>
-                <p className="mt-2 text-xs text-zinc-600">
-                  当前绑定来源：{sourceBindingStatus}
-                </p>
-              </div>
-              <div className="rounded-xl border border-zinc-200 bg-white p-3">
-                <p className="text-xs font-semibold text-zinc-900">Lineage</p>
-                <p className="mt-2 text-xs text-zinc-600">
-                  上游来源：
-                  {typeof provenanceSourceArtifactIds[0] === "string"
-                    ? String(provenanceSourceArtifactIds[0])
-                    : "已绑定课件"}
-                </p>
-              </div>
-              <div className="rounded-xl border border-zinc-200 bg-white p-3">
-                <p className="text-xs font-semibold text-zinc-900">讲稿摘要</p>
-                <p className="mt-2 text-xs text-zinc-600">{summary || "已生成逐页讲稿。"}</p>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="mt-4 rounded-2xl border border-dashed border-zinc-300 bg-zinc-50 px-4 py-12 text-center">
-            <Mic2 className="mx-auto h-8 w-8 text-zinc-400" />
-            <p className="mt-3 text-sm font-medium text-zinc-700">
-              暂未收到后端真实说课讲稿
-            </p>
-            <p className="mt-1 text-[11px] text-zinc-500">
-              This panel no longer renders frontend mock data.
-            </p>
-          </div>
-        )}
-      </section>
-    </div>
+        </>
+      ) : null}
+    </ArtifactWorkbenchShell>
   );
 }

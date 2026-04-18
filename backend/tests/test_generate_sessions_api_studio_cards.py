@@ -48,6 +48,47 @@ def _studio_generated_content(card_id: str) -> dict:
     }
 
 
+def _animation_runtime_content() -> dict:
+    return {
+        "kind": "animation_storyboard",
+        "topic": "冒泡排序",
+        "summary": "解释最大值如何逐轮冒到末尾。",
+        "runtime_graph_version": "generic_explainer_graph.v1",
+        "runtime_graph": {
+            "family_hint": "algorithm_demo",
+            "timeline": {"total_steps": 2},
+            "steps": [
+                {
+                    "primary_caption": {"title": "比较", "body": "先比较相邻元素。"},
+                    "entities": [{"id": "track-0", "kind": "track_stack"}],
+                },
+                {
+                    "primary_caption": {"title": "交换", "body": "较大的元素向后移动。"},
+                    "entities": [{"id": "track-1", "kind": "track_stack"}],
+                },
+            ],
+            "used_primitives": ["AnimationGraphRenderer"],
+        },
+        "runtime_draft_version": "explainer_draft.v1",
+        "runtime_draft": {
+            "family_hint": "algorithm_demo",
+            "step_captions": [
+                {"caption_title": "比较", "caption_body": "先比较相邻元素。"},
+                {"caption_title": "交换", "caption_body": "较大的元素向后移动。"},
+            ],
+        },
+        "component_code": (
+            "export default function Animation(runtimeProps) {"
+            " return React.createElement(AnimationGraphRenderer, { graph: {}, theme: runtimeProps.theme });"
+            " }"
+        ),
+        "runtime_source": "llm_draft_assembled_graph",
+        "runtime_contract": "animation_runtime.v4",
+        "compile_status": "pending",
+        "compile_errors": [],
+    }
+
+
 @pytest.mark.anyio
 async def test_execute_studio_card_creates_word_artifact(app, _as_user):
     client = TestClient(app)
@@ -141,6 +182,107 @@ async def test_execute_studio_card_strict_mode_returns_upstream_error(app, _as_u
 
 
 @pytest.mark.anyio
+async def test_execute_demonstration_animations_creates_runtime_graph_artifact(
+    app, _as_user
+):
+    client = TestClient(app)
+    artifact = SimpleNamespace(
+        id="a-animation-001",
+        projectId="p-001",
+        sessionId=None,
+        basedOnVersionId=None,
+        ownerUserId="u-001",
+        type="html",
+        visibility="private",
+        storagePath="uploads/artifacts/a-animation-001.html",
+        createdAt=datetime.now(timezone.utc),
+        updatedAt=datetime.now(timezone.utc),
+    )
+
+    with (
+        patch(
+            "services.project_space_service.project_space_service.check_project_permission",
+            AsyncMock(),
+        ),
+        patch(
+            "services.generation_session_service.card_execution_runtime_artifacts.build_studio_tool_artifact_content",
+            AsyncMock(return_value=_animation_runtime_content()),
+        ),
+        patch(
+            "services.project_space_service.project_space_service.create_artifact_with_file",
+            AsyncMock(return_value=artifact),
+        ) as create_artifact_mock,
+    ):
+        response = client.post(
+            "/api/v1/generate/studio-cards/demonstration_animations/execute",
+            json={
+                "project_id": "p-001",
+                "config": {"topic": "冒泡排序", "motion_brief": "解释交换过程"},
+                "visibility": "private",
+            },
+    )
+
+    assert response.status_code == 200
+    kwargs = create_artifact_mock.await_args.kwargs
+    assert kwargs["artifact_type"] == "mp4"
+    assert kwargs["content"]["runtime_graph_version"] == "generic_explainer_graph.v1"
+    assert kwargs["content"]["runtime_draft_version"] == "explainer_draft.v1"
+    assert kwargs["content"]["runtime_source"] == "llm_draft_assembled_graph"
+    assert kwargs["content"]["component_code"]
+    assert kwargs["content"]["render_mode"] == "cloud_video_wan"
+    assert kwargs["content"]["format"] == "mp4"
+    assert kwargs["content"]["cloud_video_model"] == "wan2.7-i2v"
+
+
+@pytest.mark.anyio
+async def test_execute_demonstration_animations_surfaces_runtime_generation_errors(
+    app, _as_user
+):
+    client = TestClient(app)
+
+    with (
+        patch(
+            "services.project_space_service.project_space_service.check_project_permission",
+            AsyncMock(),
+        ),
+        patch(
+            "services.generation_session_service.card_execution_runtime_artifacts.build_studio_tool_artifact_content",
+            AsyncMock(
+                side_effect=APIException(
+                    status_code=502,
+                    error_code=ErrorCode.EXTERNAL_SERVICE_ERROR,
+                    message="Animation runtime draft generation failed",
+                    details={
+                        "card_id": "demonstration_animations",
+                        "phase": "draft_schema",
+                        "failure_reason": "runtime_draft_schema_error",
+                    },
+                )
+            ),
+        ),
+        patch(
+            "services.project_space_service.project_space_service.create_artifact_with_file",
+            AsyncMock(),
+        ) as create_artifact_mock,
+    ):
+        response = client.post(
+            "/api/v1/generate/studio-cards/demonstration_animations/execute",
+            json={
+                "project_id": "p-001",
+                "config": {"topic": "冒泡排序"},
+                "visibility": "private",
+            },
+        )
+
+    assert response.status_code == 502
+    error_payload = response.json().get("error") or response.json().get("detail") or {}
+    details = error_payload.get("details") or {}
+    assert details.get("card_id") == "demonstration_animations"
+    assert details.get("failure_reason") == "runtime_draft_schema_error"
+    create_artifact_mock.assert_not_awaited()
+
+
+@pytest.mark.anyio
 async def test_classroom_simulator_turn_rejects_non_simulator_artifact(app, _as_user):
     client = TestClient(app)
     artifact = SimpleNamespace(
@@ -218,3 +360,5 @@ async def test_classroom_simulator_turn_returns_follow_up_runtime_state(app, _as
     payload = response.json()["data"]
     assert payload["turn_result"]["turn_anchor"] == "turn-2"
     assert payload["latest_runnable_state"]["next_action"] == "follow_up_turn"
+    assert payload["turn_anchor"] == "turn-2"
+    assert payload["next_focus"] == "边界条件"

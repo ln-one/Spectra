@@ -4,10 +4,13 @@ import { motion } from "framer-motion";
 import type { ComponentProps } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
+import { GENERATION_TOOLS } from "@/stores/projectStore";
 import { TOOL_LABELS, type StudioTool } from "../../constants";
 import { SessionArtifacts } from "../../components/SessionArtifacts";
 import { ToolGrid } from "../../components/ToolGrid";
 import type { StudioHistoryItem } from "../../history/types";
+import type { ToolArtifactPreviewItem } from "../../tools";
+import { StudioJourneyGuide } from "./StudioJourneyGuide";
 
 interface StudioCollapsedViewProps {
   isExpanded: boolean;
@@ -16,6 +19,9 @@ interface StudioCollapsedViewProps {
   onToolClick: (tool: StudioTool) => void;
   hasHistory: boolean;
   groupedHistory: ComponentProps<typeof SessionArtifacts>["groupedHistory"];
+  currentCardId: string | null;
+  selectedSourceId: string | null;
+  latestArtifacts: ToolArtifactPreviewItem[];
   projectId: string | null;
   activeSessionId: string | null;
   fetchArtifactHistory: (
@@ -33,6 +39,9 @@ export function StudioCollapsedView({
   onToolClick,
   hasHistory,
   groupedHistory,
+  currentCardId,
+  selectedSourceId,
+  latestArtifacts,
   projectId,
   activeSessionId,
   fetchArtifactHistory,
@@ -53,6 +62,16 @@ export function StudioCollapsedView({
     >
       <ScrollArea className="h-full">
         <div className="p-3">
+          <StudioJourneyGuide
+            currentCardId={currentCardId}
+            selectedSourceId={selectedSourceId}
+            latestArtifacts={latestArtifacts}
+            groupedHistory={groupedHistory}
+            onToolClick={(toolId) => {
+              const tool = GENERATION_TOOLS.find((item) => item.type === toolId);
+              if (tool) onToolClick(tool);
+            }}
+          />
           <ToolGrid
             isExpanded={isExpanded}
             hoveredToolId={hoveredToolId}

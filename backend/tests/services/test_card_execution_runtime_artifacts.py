@@ -17,6 +17,9 @@ from services.generation_session_service.card_execution_runtime_simulator import
 from services.generation_session_service.card_execution_runtime_helpers import (
     build_latest_runnable_state,
 )
+from services.generation_session_service.tool_content_builder_generation import (
+    generate_simulator_turn_update,
+)
 from services.generation_session_service.card_execution_runtime_word import (
     resolve_word_document_title,
 )
@@ -185,3 +188,57 @@ def test_build_latest_runnable_state_uses_card_specific_next_action() -> None:
 
     assert quiz_state["next_action"] == "answer_or_refine"
     assert simulation_state["next_action"] == "follow_up_turn"
+
+
+@pytest.mark.anyio
+async def test_generate_simulator_turn_update_normalizes_turn_history(monkeypatch):
+    monkeypatch.setattr(
+        "services.generation_session_service.tool_content_builder_generation._generate_json_payload",
+        AsyncMock(
+            return_value=(
+                {
+                    "updated_content": {
+                        "title": "课堂问答模拟",
+                        "summary": "进入下一轮追问。",
+                        "question_focus": "速度与加速度",
+                    },
+                    "turn_result": {
+                        "turn_anchor": "turn-2",
+                        "student_profile": "detail_oriented",
+                        "student_question": "减速时加速度方向如何判断？",
+                        "feedback": "建议让学生先举一个反例。",
+                        "score": 90,
+                        "next_focus": "反例构造",
+                    },
+                },
+                "openai/test-model",
+            )
+        ),
+    )
+
+    updated_content, turn_result = await generate_simulator_turn_update(
+        current_content={
+            "kind": "classroom_qa_simulator",
+            "title": "课堂问答模拟",
+            "summary": "已有首轮。",
+            "turns": [
+                {
+                    "student_profile": "detail_oriented",
+                    "student_question": "如果速度向右，合力一定向右吗？",
+                    "teacher_answer": "先拆开速度和合力方向。",
+                    "feedback": "先区分速度方向与加速度方向。",
+                }
+            ],
+        },
+        teacher_answer="看速度变化趋势，再判断加速度方向。",
+        config={"topic": "牛顿第二定律"},
+        rag_snippets=[],
+    )
+
+    assert updated_content["schema_version"] == "classroom_qa_simulator.v2"
+    assert len(updated_content["turns"]) == 2
+    assert updated_content["turns"][0]["turn_anchor"] == "turn-1"
+    assert updated_content["turns"][1]["turn_anchor"] == "turn-2"
+    assert updated_content["turns"][1]["teacher_answer"] == "看速度变化趋势，再判断加速度方向。"
+    assert turn_result["turn_anchor"] == "turn-2"
+    assert turn_result["next_focus"] == "反例构造"

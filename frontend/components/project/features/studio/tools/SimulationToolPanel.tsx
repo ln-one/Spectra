@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useMachine } from "@xstate/react";
+import { createMachine } from "xstate";
 import { useShallow } from "zustand/react/shallow";
 import { FlaskConical } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -22,6 +24,29 @@ import { GenerateStep } from "./simulation/GenerateStep";
 import { PreviewStep } from "./simulation/PreviewStep";
 import type { SimulationStep, StudentProfile } from "./simulation/types";
 import { useWorkflowStepSync } from "./useWorkflowStepSync";
+
+export const simulationWorkflowMachine = createMachine({
+  id: "simulationWorkflow",
+  initial: "idle",
+  states: {
+    idle: {},
+    preview_ready: {},
+    running: {},
+    result_available: {},
+    continuing: {},
+    refining: {},
+    failed: {},
+  },
+  on: {
+    PREVIEW: ".preview_ready",
+    RUN: ".running",
+    RESULT: ".result_available",
+    CONTINUE: ".continuing",
+    REFINE: ".refining",
+    FAIL: ".failed",
+    RESET: ".idle",
+  },
+});
 
 function resolveEffectiveRagSourceIds(selectedFileIds: string[]): string[] {
   const normalized = selectedFileIds.filter(
@@ -87,6 +112,7 @@ export function SimulationToolPanel({
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSubmittingTurn, setIsSubmittingTurn] = useState(false);
   const [lastGeneratedAt, setLastGeneratedAt] = useState<string | null>(null);
+  const [workflowState, workflowSend] = useMachine(simulationWorkflowMachine);
 
   const { suggestions, summary, isLoading } = useStudioRagRecommendations({
     query:
@@ -116,6 +142,32 @@ export function SimulationToolPanel({
       "Detail-oriented Student",
     [profile]
   );
+
+  useEffect(() => {
+    if (isGenerating) {
+      workflowSend({ type: "RUN" });
+      return;
+    }
+    if (isSubmittingTurn) {
+      workflowSend({ type: "CONTINUE" });
+      return;
+    }
+    if (flowContext?.resolvedArtifact?.artifactId) {
+      workflowSend({ type: "RESULT" });
+      return;
+    }
+    if (activeStep === "generate" || activeStep === "preview") {
+      workflowSend({ type: "PREVIEW" });
+      return;
+    }
+    workflowSend({ type: "RESET" });
+  }, [
+    activeStep,
+    flowContext?.resolvedArtifact?.artifactId,
+    isGenerating,
+    isSubmittingTurn,
+    workflowSend,
+  ]);
 
   useEffect(() => {
     const questionFocus = (teacherStrategy || topic).trim();
@@ -225,6 +277,7 @@ export function SimulationToolPanel({
       setTurnResult(null);
       setTurnRuntimeState(null);
       setJudgeText(`提交失败：${formatStudioTurnError(error)}`);
+      workflowSend({ type: "FAIL" });
     } finally {
       setIsSubmittingTurn(false);
     }
@@ -265,6 +318,9 @@ export function SimulationToolPanel({
             <div className="flex items-center gap-2">
               <span className="rounded-full border border-zinc-100 bg-white px-2.5 py-1 text-[10px] font-bold text-zinc-600 shadow-sm uppercase tracking-wider">
                 {getReadinessLabel(flowContext?.readiness)}
+              </span>
+              <span className="rounded-full border border-zinc-100 bg-white px-2.5 py-1 text-[10px] font-bold text-zinc-500 shadow-sm uppercase tracking-wider">
+                {String(workflowState.value)}
               </span>
             </div>
           </div>
@@ -335,6 +391,8 @@ export function SimulationToolPanel({
                   isSubmittingTurn={isSubmittingTurn}
                   turnRuntimeState={turnRuntimeState}
                   turnResult={turnResult}
+                  onRefineStart={() => workflowSend({ type: "REFINE" })}
+                  onResumeResult={() => workflowSend({ type: "RESULT" })}
                   onAnswerChange={setAnswer}
                   onSubmitAnswer={() => void handleSubmitAnswer()}
                 />

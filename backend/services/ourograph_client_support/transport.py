@@ -11,6 +11,7 @@ from urllib import error as urllib_error
 from urllib import parse as urllib_parse
 from urllib import request as urllib_request
 
+from services.runtime_env import normalize_internal_service_base_url, running_inside_container
 from utils.exceptions import (
     ConflictException,
     ExternalServiceException,
@@ -22,7 +23,15 @@ from utils.exceptions import (
 
 
 def ourograph_base_url() -> str:
-    return os.getenv("OUROGRAPH_BASE_URL", "").strip().rstrip("/")
+    return (
+        normalize_internal_service_base_url(
+            os.getenv("OUROGRAPH_BASE_URL"),
+            service_name="ourograph",
+            inside_container=running_inside_container(),
+            local_override=os.getenv("OUROGRAPH_BASE_URL_LOCAL"),
+        )
+        or ""
+    )
 
 
 def ourograph_enabled() -> bool:
@@ -47,7 +56,12 @@ def namespace(value: Any) -> Any:
     return value
 
 
-def _raise_service_error(status_code: int, payload: dict[str, Any] | None):
+def _raise_service_error(
+    status_code: int,
+    payload: dict[str, Any] | None,
+    *,
+    base_url: str,
+):
     message = (
         (payload or {}).get("message")
         or (payload or {}).get("detail", {}).get("message")
@@ -64,7 +78,11 @@ def _raise_service_error(status_code: int, payload: dict[str, Any] | None):
         raise ConflictException(message=message)
     raise InternalServerException(
         message=message,
-        details={"error_code": error_code, "status_code": status_code},
+        details={
+            "error_code": error_code,
+            "status_code": status_code,
+            "base_url": base_url,
+        },
     )
 
 
@@ -108,12 +126,13 @@ async def request_json(
         except urllib_error.URLError as exc:
             raise ExternalServiceException(
                 message="Ourograph service unreachable",
-                details={"reason": str(exc.reason)},
+                details={"reason": str(exc.reason), "base_url": base_url},
                 retryable=True,
             ) from exc
         except TimeoutError as exc:
             raise ExternalServiceException(
                 message="Ourograph request timeout",
+                details={"base_url": base_url},
                 retryable=True,
             ) from exc
 
@@ -123,11 +142,13 @@ async def request_json(
     except json.JSONDecodeError as exc:
         raise InternalServerException(
             message="Ourograph returned invalid JSON",
-            details={"status_code": status_code, "body": body[:300]},
+            details={"status_code": status_code, "body": body[:300], "base_url": base_url},
         ) from exc
     if status_code >= 400:
         _raise_service_error(
-            status_code, payload_obj if isinstance(payload_obj, dict) else None
+            status_code,
+            payload_obj if isinstance(payload_obj, dict) else None,
+            base_url=base_url,
         )
     if not isinstance(payload_obj, dict):
         raise InternalServerException(message="Invalid Ourograph response payload")

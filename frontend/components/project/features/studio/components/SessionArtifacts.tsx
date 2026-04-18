@@ -36,6 +36,14 @@ const TOOL_ACCENT_COLORS: Record<GenerationToolType, string> = {
   handout: "#eab308",
 };
 
+const TEMPLATE_TOOL_TYPES = new Set<GenerationToolType>([
+  "word",
+  "mindmap",
+  "quiz",
+  "summary",
+  "handout",
+]);
+
 function getToolAccentColor(toolKey: string): string {
   return (
     TOOL_ACCENT_COLORS[toolKey as GenerationToolType] ?? "var(--project-accent)"
@@ -78,13 +86,13 @@ function statusText(item: StudioHistoryItem): string {
   if (state === "slides_generating") return "课件生成中";
   if (state === "slide_preview_ready") return "单页可预览";
   if (state === "completed") {
-    return item.toolType === "ppt" ? "已完成" : "可预览";
+    return item.toolType === "ppt" ? "已完成" : "可继续工作";
   }
   if (state === "failed") return "失败";
-  if (state === "processing") return "生成中";
-  if (state === "previewing") return "可预览";
-  if (state === "pending") return "排队中";
-  return "草稿中";
+  if (state === "processing") return "生成进行中";
+  if (state === "previewing") return "可继续工作";
+  if (state === "pending") return "排队等待";
+  return "准备中";
 }
 
 function statusIcon(item: StudioHistoryItem) {
@@ -141,6 +149,14 @@ function formatHistoryTime(value: string): string {
   return `${month}-${day} ${hour}:${minute}`;
 }
 
+function isRecentWorkCandidate(item: StudioHistoryItem): boolean {
+  const state = resolveDisplayState(item);
+  return (
+    TEMPLATE_TOOL_TYPES.has(item.toolType) &&
+    (state === "completed" || state === "previewing" || state === "slide_preview_ready")
+  );
+}
+
 export function SessionArtifacts({
   groupedHistory,
   toolLabels,
@@ -151,6 +167,10 @@ export function SessionArtifacts({
   const [pendingArchiveItem, setPendingArchiveItem] =
     useState<StudioHistoryItem | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const recentWork = groupedHistory
+    .flatMap(([, items]) => items)
+    .filter((item) => isRecentWorkCandidate(item))
+    .slice(0, 5);
 
   const handleRefresh = async () => {
     if (isRefreshing) return;
@@ -172,7 +192,7 @@ export function SessionArtifacts({
     >
       <div className="mb-2 flex items-center justify-between">
         <h3 className="text-xs font-medium text-[var(--project-text-muted)]">
-          历史记录
+          成果导航
         </h3>
         <Button
           variant="ghost"
@@ -190,7 +210,67 @@ export function SessionArtifacts({
           />
         </Button>
       </div>
-      <div className="space-y-2">
+      <div className="space-y-3">
+        {recentWork.length > 0 ? (
+          <div className="space-y-1.5">
+            <p className="text-[10px] uppercase tracking-wide text-[var(--project-text-muted)]">
+              最近成果
+            </p>
+            {recentWork.map((item) => {
+              const toolAccent = getToolAccentColor(item.toolType);
+              return (
+                <div
+                  key={`recent-${item.id}`}
+                  className="group flex items-center gap-2 rounded-xl border border-[var(--project-border)] bg-[var(--project-surface-elevated)] p-2 transition-colors hover:brightness-95"
+                >
+                  <button
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--project-surface-muted)] shadow-sm"
+                    onClick={() => onOpenHistoryItem(item)}
+                    aria-label="回到这个成果继续工作"
+                  >
+                    {statusIcon(item)}
+                  </button>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[11px] font-medium text-[var(--project-text-primary)]">
+                      {item.title}
+                    </p>
+                    <p className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[10px] text-[var(--project-text-muted)]">
+                      <span
+                        className={cn(
+                          "shrink-0 rounded-full px-1.5 py-0.5 whitespace-nowrap",
+                          statusBadgeClass(item)
+                        )}
+                      >
+                        {statusText(item)}
+                      </span>
+                      <span
+                        className="inline-block h-1.5 w-1.5 shrink-0 rounded-full"
+                        style={{ backgroundColor: toolAccent }}
+                      />
+                      <span className="min-w-0 truncate">
+                        回到这个成果继续工作
+                      </span>
+                    </p>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 rounded-lg text-[var(--project-text-muted)]"
+                    onClick={() => onOpenHistoryItem(item)}
+                    aria-label="继续这个成果"
+                  >
+                    <Eye className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              );
+            })}
+          </div>
+        ) : null}
+
+        <div className="space-y-2">
+          <p className="text-[10px] uppercase tracking-wide text-[var(--project-text-muted)]">
+            历史记录
+          </p>
         <AnimatePresence>
           {groupedHistory.map(([toolKey, items]) =>
             (() => {
@@ -261,7 +341,7 @@ export function SessionArtifacts({
                             size="icon"
                             className="h-7 w-7 rounded-lg text-[var(--project-text-muted)]"
                             onClick={() => onOpenHistoryItem(item)}
-                            aria-label="查看预览"
+                            aria-label="回到这个成果继续工作"
                           >
                             <Eye className="h-3.5 w-3.5" />
                           </Button>
@@ -284,6 +364,7 @@ export function SessionArtifacts({
             })()
           )}
         </AnimatePresence>
+        </div>
       </div>
 
       <LightDeleteConfirm

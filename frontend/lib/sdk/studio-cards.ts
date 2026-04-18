@@ -357,6 +357,8 @@ export const studioCardsApi = {
       artifact: Record<string, unknown>;
       turn_result: StudioCardTurnResult;
       latest_runnable_state?: Record<string, unknown>;
+      turn_anchor?: string;
+      next_focus?: string;
     }>
   > {
     const response = await apiFetch(
@@ -372,6 +374,8 @@ export const studioCardsApi = {
         artifact: Record<string, unknown>;
         turn_result: StudioCardTurnResult;
         latest_runnable_state?: Record<string, unknown>;
+        turn_anchor?: string;
+        next_focus?: string;
       }>
     >(response, "推进课堂问答模拟失败");
   },

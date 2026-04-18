@@ -1,8 +1,14 @@
-import { MessageSquareText, MessagesSquare, Sparkles } from "lucide-react";
+import {
+  Clock3,
+  MessageSquareText,
+  MessagesSquare,
+  Sparkles,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { CapabilityNotice } from "../CapabilityNotice";
+import { ArtifactWorkbenchShell } from "../ArtifactWorkbenchShell";
 import type { ToolFlowContext } from "../types";
+import { buildArtifactWorkbenchViewModel } from "../workbenchViewModel";
 
 interface PreviewStepProps {
   answer: string;
@@ -12,20 +18,26 @@ interface PreviewStepProps {
   isSubmittingTurn?: boolean;
   turnRuntimeState?: Record<string, unknown> | null;
   turnResult?: {
+    turnAnchor?: string;
     studentQuestion?: string;
     score?: number | null;
     nextFocus?: string;
     studentProfile?: string;
   } | null;
+  onRefineStart?: () => void;
+  onResumeResult?: () => void;
   onAnswerChange: (value: string) => void;
   onSubmitAnswer: () => void;
 }
 
 interface BackendTurnItem {
+  turnAnchor?: string;
   student: string;
   question: string;
+  teacherAnswer?: string;
   feedback?: string;
   score?: number;
+  nextFocus?: string;
   teacherHint?: string;
 }
 
@@ -37,13 +49,13 @@ interface BackendSimulationSummary {
 
 function normalizeStudentLabel(value: unknown): string {
   if (typeof value === "string" && value.trim()) return value.trim();
-  if (!value || typeof value !== "object") return "Virtual Student";
+  if (!value || typeof value !== "object") return "虚拟学生";
   const row = value as Record<string, unknown>;
   if (typeof row.name === "string" && row.name.trim()) return row.name.trim();
   if (typeof row.label === "string" && row.label.trim())
     return row.label.trim();
   if (typeof row.id === "string" && row.id.trim()) return row.id.trim();
-  return "Virtual Student";
+  return "虚拟学生";
 }
 
 function parseBackendTurns(flowContext?: ToolFlowContext): BackendTurnItem[] {
@@ -76,13 +88,25 @@ function parseBackendTurns(flowContext?: ToolFlowContext): BackendTurnItem[] {
           : "";
     if (!question) continue;
     turns.push({
+      turnAnchor:
+        typeof row.turn_anchor === "string" && row.turn_anchor.trim()
+          ? row.turn_anchor.trim()
+          : undefined,
       student,
       question,
+      teacherAnswer:
+        typeof row.teacher_answer === "string" && row.teacher_answer.trim()
+          ? row.teacher_answer.trim()
+          : undefined,
       feedback:
         typeof row.feedback === "string" && row.feedback.trim()
           ? row.feedback.trim()
           : undefined,
       score: typeof row.score === "number" ? row.score : undefined,
+      nextFocus:
+        typeof row.next_focus === "string" && row.next_focus.trim()
+          ? row.next_focus.trim()
+          : undefined,
       teacherHint:
         typeof row.teacher_hint === "string" && row.teacher_hint.trim()
           ? row.teacher_hint.trim()
@@ -135,6 +159,8 @@ export function PreviewStep({
   isSubmittingTurn = false,
   turnRuntimeState = null,
   turnResult = null,
+  onRefineStart,
+  onResumeResult,
   onAnswerChange,
   onSubmitAnswer,
 }: PreviewStepProps) {
@@ -153,68 +179,83 @@ export function PreviewStep({
   const refineLabel =
     flowContext?.display?.actionLabels.refine ?? "调整追问方向";
   const activeFocus = turnResult?.nextFocus ?? backendSummary?.questionFocus ?? null;
-  const nextAction =
-    typeof turnRuntimeState?.next_action === "string"
-      ? turnRuntimeState.next_action
-      : typeof flowContext?.latestRunnableState?.next_action === "string"
-        ? flowContext.latestRunnableState.next_action
-        : null;
+  const viewModel = buildArtifactWorkbenchViewModel(
+    flowContext,
+    lastGeneratedAt,
+    activeTurn?.feedback || backendSummary?.summary || "等待后端返回真实课堂预演内容。"
+  );
 
   return (
-    <div className="space-y-4">
-      <section className="rounded-xl border border-zinc-200 bg-white p-4">
-        <CapabilityNotice status={capabilityStatus} reason={capabilityReason} />
-
-        <div className="mt-4">
+    <ArtifactWorkbenchShell
+      flowContext={{
+        ...flowContext,
+        capabilityStatus,
+        capabilityReason,
+        latestRunnableState:
+          flowContext?.latestRunnableState ?? turnRuntimeState ?? null,
+      }}
+      viewModel={viewModel}
+      emptyState={
+        <div className="mt-4 rounded-2xl border border-dashed border-zinc-300 bg-zinc-50 px-4 py-12 text-center">
+          <MessageSquareText className="mx-auto h-8 w-8 text-zinc-400" />
+          <p className="mt-3 text-sm font-medium text-zinc-700">
+            暂未收到后端真实预演内容
+          </p>
+          <p className="mt-1 text-[11px] text-zinc-500">
+            当前不再渲染前端模拟对话，只展示后端真实返回结果。
+          </p>
+        </div>
+      }
+    >
+      {activeTurn || backendSummary ? (
+        <>
           <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <p className="text-sm font-semibold text-zinc-900">
-                实时学情预演
-              </p>
-              <p className="mt-1 text-[11px] text-zinc-500">
-                {lastGeneratedAt
-                  ? `最近一次生成：${new Date(lastGeneratedAt).toLocaleString()}`
-                  : "这里只展示后端返回的真实预演内容。"}
-              </p>
-            </div>
+            <div className="text-sm font-semibold text-zinc-900">课堂预演工作面</div>
             {canChatRefine ? (
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
                 className="h-8 text-xs"
-                onClick={() => void flowContext?.onRefine?.()}
+                onClick={() => {
+                  onRefineStart?.();
+                  void Promise.resolve(flowContext?.onRefine?.()).finally(() => {
+                    onResumeResult?.();
+                  });
+                }}
               >
                 <Sparkles className="mr-1.5 h-3.5 w-3.5" />
                 {refineLabel}
               </Button>
             ) : null}
           </div>
-        </div>
 
         {activeFocus ? (
-          <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-700">
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-700">
             当前轮焦点：{activeFocus}
           </div>
         ) : null}
 
-        {nextAction === "follow_up_turn" ? (
-          <div className="mt-3 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-[11px] text-sky-700">
-            当前建议动作：继续追问，推进下一轮课堂预演。
-          </div>
-        ) : null}
-
-        {activeTurn || backendSummary ? (
-          <div className="mt-4 space-y-3 rounded-2xl border border-zinc-200 bg-zinc-50/70 p-4">
+          <div className="space-y-3">
             {activeTurn ? (
               <div className="rounded-2xl border border-zinc-200 bg-white p-4">
-                <div className="flex items-center gap-2 text-[11px] text-zinc-500">
+                <div className="flex flex-wrap items-center gap-2 text-[11px] text-zinc-500">
                   <MessagesSquare className="h-4 w-4" />
                   <span>当前学生画像：{activeTurn.student}</span>
+                  {activeTurn.turnAnchor ? (
+                    <span className="rounded-full border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-[10px] uppercase tracking-wide text-zinc-500">
+                      {activeTurn.turnAnchor}
+                    </span>
+                  ) : null}
                 </div>
                 <p className="mt-3 text-sm text-zinc-900">
                   {activeTurn.question}
                 </p>
+                {activeTurn.teacherAnswer ? (
+                  <p className="mt-3 rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-[11px] text-violet-700">
+                    上一轮教师回应：{activeTurn.teacherAnswer}
+                  </p>
+                ) : null}
                 {activeTurn.teacherHint ? (
                   <p className="mt-3 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-[11px] text-sky-700">
                     教师提示：{activeTurn.teacherHint}
@@ -223,6 +264,11 @@ export function PreviewStep({
                 {typeof activeTurn.score === "number" ? (
                   <p className="mt-2 text-[11px] text-zinc-500">
                     当前得分：{activeTurn.score}
+                  </p>
+                ) : null}
+                {activeTurn.nextFocus ? (
+                  <p className="mt-2 text-[11px] text-amber-600">
+                    下一轮焦点：{activeTurn.nextFocus}
                   </p>
                 ) : null}
               </div>
@@ -289,19 +335,61 @@ export function PreviewStep({
                 {displayJudgeText}
               </div>
             ) : null}
+
+            {backendTurns.length > 1 ? (
+              <div className="rounded-2xl border border-zinc-200 bg-white p-4">
+                <div className="flex items-center gap-2 text-xs font-semibold tracking-[0.12em] text-zinc-500">
+                  <Clock3 className="h-3.5 w-3.5" />
+                  轮次历史
+                </div>
+                <div className="mt-3 space-y-3">
+                  {backendTurns.slice(-4).map((turn, index, turns) => (
+                    <div
+                      key={`${turn.turnAnchor ?? "turn"}-${index}`}
+                      className="rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-3"
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-zinc-500">
+                        <span>
+                          第 {backendTurns.length - turns.length + index + 1} 轮
+                        </span>
+                        {turn.turnAnchor ? <span>{turn.turnAnchor}</span> : null}
+                      </div>
+                      <p className="mt-2 text-xs font-medium text-zinc-800">
+                        学生提问：{turn.question}
+                      </p>
+                      {turn.teacherAnswer ? (
+                        <p className="mt-1 text-xs text-zinc-600">
+                          教师回应：{turn.teacherAnswer}
+                        </p>
+                      ) : null}
+                      {turn.feedback ? (
+                        <p className="mt-1 text-xs text-emerald-700">
+                          反馈：{turn.feedback}
+                        </p>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            <div className="grid gap-3 md:grid-cols-2">
+              <div className="rounded-xl border border-zinc-200 bg-white px-3 py-3 text-xs text-zinc-600">
+                <p className="font-semibold text-zinc-800">当前轮续接锚点</p>
+                <p className="mt-1 break-all">
+                  {turnResult?.turnAnchor ?? activeTurn?.turnAnchor ?? "等待下一轮生成"}
+                </p>
+              </div>
+              <div className="rounded-xl border border-zinc-200 bg-white px-3 py-3 text-xs text-zinc-600">
+                <p className="font-semibold text-zinc-800">历史轮次</p>
+                <p className="mt-1 break-all">
+                  已记录 {backendTurns.length} 轮真实对话
+                </p>
+              </div>
+            </div>
           </div>
-        ) : (
-          <div className="mt-4 rounded-2xl border border-dashed border-zinc-300 bg-zinc-50 px-4 py-12 text-center">
-            <MessageSquareText className="mx-auto h-8 w-8 text-zinc-400" />
-            <p className="mt-3 text-sm font-medium text-zinc-700">
-              暂未收到后端真实预演内容
-            </p>
-            <p className="mt-1 text-[11px] text-zinc-500">
-              当前不再渲染前端模拟对话，只展示后端真实返回结果。
-            </p>
-          </div>
-        )}
-      </section>
-    </div>
+        </>
+      ) : null}
+    </ArtifactWorkbenchShell>
   );
 }

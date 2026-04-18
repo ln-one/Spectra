@@ -13,6 +13,9 @@ from services.generation_session_service.tool_content_builder_generation import 
     generate_simulator_turn_update,
     generate_structured_artifact_content,
 )
+from services.generation_session_service.tool_content_builder_payloads import (
+    normalize_demonstration_animation_payload,
+)
 from services.generation_session_service.tool_content_builder_policy import (
     allow_fallback,
     resolve_fallback_mode,
@@ -128,6 +131,15 @@ async def build_studio_tool_artifact_content(
             phase="generate",
             failure_reason="ai_generation_disabled",
             retryable=False,
+        )
+    if card_id == "demonstration_animations":
+        return await normalize_demonstration_animation_payload(
+            {
+                "kind": "animation_storyboard",
+                "source_artifact_id": source_artifact_id,
+                "rag_source_ids": list(rag_source_ids or []),
+            },
+            cfg,
         )
     try:
         return await generate_structured_artifact_content(

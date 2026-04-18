@@ -17,13 +17,28 @@ import { useWorkflowStepSync } from "./useWorkflowStepSync";
 function inferGamePattern(
   creativeDirection: string,
   mechanicsNotes: string
-): "timeline_sort" | "concept_match" | "freeform" {
+):
+  | "timeline_sort"
+  | "concept_match"
+  | "term_pairing"
+  | "fill_in_blank"
+  | "quiz_run"
+  | "freeform" {
   const text = `${creativeDirection} ${mechanicsNotes}`.toLowerCase();
   if (/(时间轴|排序|顺序|timeline|sort)/i.test(text)) {
     return "timeline_sort";
   }
-  if (/(连线|匹配|配对|match|connect)/i.test(text)) {
+  if (/(术语|名词|概念卡|pair|pairing)/i.test(text)) {
+    return "term_pairing";
+  }
+  if (/(连线|匹配|match|connect)/i.test(text)) {
     return "concept_match";
+  }
+  if (/(填空|blank|cloze)/i.test(text)) {
+    return "fill_in_blank";
+  }
+  if (/(闯关|跑酷|连答|quiz|challenge|run)/i.test(text)) {
+    return "quiz_run";
   }
   return "freeform";
 }

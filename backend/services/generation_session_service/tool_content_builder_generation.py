@@ -25,131 +25,10 @@ from .tool_content_builder_support import (
     validate_card_payload,
     validate_simulator_turn_payload,
 )
-
-
-def _normalize_speaker_notes_payload(
-    payload: dict[str, Any],
-    config: dict[str, Any],
-) -> dict[str, Any]:
-    raw_slides = payload.get("slides") if isinstance(payload.get("slides"), list) else []
-    normalized_slides: list[dict[str, Any]] = []
-    anchors: list[dict[str, Any]] = []
-    source_artifact_id = str(
-        payload.get("source_artifact_id") or config.get("source_artifact_id") or ""
-    ).strip()
-
-    for slide_index, raw_slide in enumerate(raw_slides, start=1):
-        if not isinstance(raw_slide, dict):
-            continue
-        page = int(raw_slide.get("page") or slide_index)
-        slide_id = str(raw_slide.get("id") or f"slide-{page}").strip() or f"slide-{page}"
-        slide_title = str(raw_slide.get("title") or f"第 {page} 页").strip() or f"第 {page} 页"
-        sections_raw = raw_slide.get("sections")
-        if not isinstance(sections_raw, list) or not sections_raw:
-            sections_raw = [
-                {
-                    "title": "讲解内容",
-                    "paragraphs": [
-                        {
-                            "text": str(raw_slide.get("script") or raw_slide.get("summary") or "").strip(),
-                            "role": "script",
-                        },
-                        {
-                            "text": str(raw_slide.get("action_hint") or "").strip(),
-                            "role": "action_hint",
-                        },
-                        {
-                            "text": str(raw_slide.get("transition_line") or "").strip(),
-                            "role": "transition",
-                        },
-                    ],
-                }
-            ]
-        normalized_sections: list[dict[str, Any]] = []
-        paragraph_counter = 0
-        for section_index, raw_section in enumerate(sections_raw, start=1):
-            if not isinstance(raw_section, dict):
-                continue
-            section_id = (
-                str(raw_section.get("id") or f"{slide_id}-section-{section_index}").strip()
-                or f"{slide_id}-section-{section_index}"
-            )
-            section_title = (
-                str(raw_section.get("title") or f"段落 {section_index}").strip()
-                or f"段落 {section_index}"
-            )
-            raw_paragraphs = raw_section.get("paragraphs")
-            if not isinstance(raw_paragraphs, list):
-                raw_paragraphs = []
-            normalized_paragraphs: list[dict[str, Any]] = []
-            for raw_paragraph in raw_paragraphs:
-                if not isinstance(raw_paragraph, dict):
-                    continue
-                text = str(raw_paragraph.get("text") or "").strip()
-                if not text:
-                    continue
-                paragraph_counter += 1
-                paragraph_id = f"{slide_id}-paragraph-{paragraph_counter}"
-                anchor_id = f"speaker_notes:v2:{slide_id}:paragraph-{paragraph_counter}"
-                role = str(raw_paragraph.get("role") or "script").strip() or "script"
-                normalized_paragraphs.append(
-                    {
-                        "id": paragraph_id,
-                        "anchor_id": anchor_id,
-                        "text": text,
-                        "role": role,
-                    }
-                )
-                anchors.append(
-                    {
-                        "scope": "paragraph",
-                        "anchor_id": anchor_id,
-                        "slide_id": slide_id,
-                        "paragraph_id": paragraph_id,
-                        "label": f"第 {page} 页{section_title}",
-                    }
-                )
-            if normalized_paragraphs:
-                normalized_sections.append(
-                    {
-                        "id": section_id,
-                        "title": section_title,
-                        "paragraphs": normalized_paragraphs,
-                    }
-                )
-        if not normalized_sections:
-            continue
-        anchors.append(
-            {
-                "scope": "page",
-                "anchor_id": f"speaker_notes:v2:{slide_id}:page",
-                "slide_id": slide_id,
-                "label": f"第 {page} 页",
-            }
-        )
-        normalized_slides.append(
-            {
-                "id": slide_id,
-                "page": page,
-                "title": slide_title,
-                "sections": normalized_sections,
-            }
-        )
-
-    summary = str(payload.get("summary") or "").strip()
-    if not summary and normalized_slides:
-        summary = f"已生成 {len(normalized_slides)} 页逐页说课讲稿。"
-
-    return {
-        "kind": "speaker_notes",
-        "schema_version": "speaker_notes.v2",
-        "title": str(payload.get("title") or config.get("topic") or "说课讲稿").strip()
-        or "说课讲稿",
-        "summary": summary,
-        "source_artifact_id": source_artifact_id or None,
-        "slides": normalized_slides,
-        "anchors": anchors,
-    }
+from .tool_content_builder_payloads import (
+    normalize_demonstration_animation_payload,
+    normalize_speaker_notes_payload,
+)
 
 
 def _build_structured_artifact_prompt(
@@ -207,6 +86,103 @@ def _build_simulator_turn_prompt(
         "student_question, feedback.\n"
         "- Do not output empty strings for required fields.\n"
     )
+
+
+def _normalize_simulator_turn_payload(
+    payload: dict[str, Any],
+    current_content: dict[str, Any],
+    teacher_answer: str,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    updated_content = (
+        dict(payload.get("updated_content"))
+        if isinstance(payload.get("updated_content"), dict)
+        else {}
+    )
+    turn_result = (
+        dict(payload.get("turn_result"))
+        if isinstance(payload.get("turn_result"), dict)
+        else {}
+    )
+    existing_turns = (
+        current_content.get("turns") if isinstance(current_content.get("turns"), list) else []
+    )
+    normalized_turns: list[dict[str, Any]] = []
+    for index, raw_turn in enumerate(existing_turns, start=1):
+        if not isinstance(raw_turn, dict):
+            continue
+        normalized_turns.append(
+            {
+                "turn_anchor": str(raw_turn.get("turn_anchor") or f"turn-{index}").strip()
+                or f"turn-{index}",
+                "student_profile": str(
+                    raw_turn.get("student_profile") or raw_turn.get("student") or ""
+                ).strip(),
+                "student_question": str(
+                    raw_turn.get("student_question") or raw_turn.get("question") or ""
+                ).strip(),
+                "teacher_answer": str(raw_turn.get("teacher_answer") or "").strip(),
+                "teacher_hint": str(raw_turn.get("teacher_hint") or "").strip(),
+                "feedback": str(raw_turn.get("feedback") or "").strip(),
+                "score": raw_turn.get("score"),
+                "next_focus": str(raw_turn.get("next_focus") or "").strip(),
+            }
+        )
+
+    turn_anchor = str(
+        turn_result.get("turn_anchor") or f"turn-{len(normalized_turns) + 1}"
+    ).strip() or f"turn-{len(normalized_turns) + 1}"
+    normalized_turn = {
+        "turn_anchor": turn_anchor,
+        "student_profile": str(turn_result.get("student_profile") or "").strip(),
+        "student_question": str(turn_result.get("student_question") or "").strip(),
+        "teacher_answer": str(turn_result.get("teacher_answer") or teacher_answer).strip(),
+        "teacher_hint": str(turn_result.get("teacher_hint") or "").strip(),
+        "feedback": str(
+            turn_result.get("feedback") or turn_result.get("analysis") or ""
+        ).strip(),
+        "score": turn_result.get("score") or turn_result.get("quality_score"),
+        "next_focus": str(turn_result.get("next_focus") or "").strip(),
+    }
+    normalized_turns.append(normalized_turn)
+
+    summary = str(
+        updated_content.get("summary") or current_content.get("summary") or ""
+    ).strip()
+    key_points = (
+        updated_content.get("key_points")
+        if isinstance(updated_content.get("key_points"), list)
+        else current_content.get("key_points")
+        if isinstance(current_content.get("key_points"), list)
+        else []
+    )
+    normalized_updated_content = {
+        **current_content,
+        **updated_content,
+        "kind": "classroom_qa_simulator",
+        "schema_version": "classroom_qa_simulator.v2",
+        "title": str(
+            updated_content.get("title") or current_content.get("title") or "课堂问答模拟"
+        ).strip()
+        or "课堂问答模拟",
+        "summary": summary or "已更新课堂问答模拟最新轮次。",
+        "key_points": [
+            str(point).strip()
+            for point in key_points
+            if isinstance(point, str) and str(point).strip()
+        ],
+        "question_focus": str(
+            updated_content.get("question_focus")
+            or normalized_turn["next_focus"]
+            or current_content.get("question_focus")
+            or ""
+        ).strip(),
+        "turns": normalized_turns,
+    }
+    normalized_turn_result = {
+        **turn_result,
+        **normalized_turn,
+    }
+    return normalized_updated_content, normalized_turn_result
 
 
 async def _generate_json_payload(
@@ -343,7 +319,9 @@ async def generate_structured_artifact_content(
                 retryable=False,
             )
     elif card_id == "speaker_notes":
-        payload = _normalize_speaker_notes_payload(payload, config)
+        payload = normalize_speaker_notes_payload(payload, config)
+    elif card_id == "demonstration_animations":
+        payload = await normalize_demonstration_animation_payload(payload, config)
     try:
         validate_card_payload(card_id, payload)
     except ValueError as exc:
@@ -379,8 +357,18 @@ async def generate_simulator_turn_update(
         rag_snippets=rag_snippets,
         max_tokens=1800,
     )
+    normalized_updated_content, normalized_turn_result = _normalize_simulator_turn_payload(
+        payload,
+        current_content,
+        teacher_answer,
+    )
     try:
-        validate_simulator_turn_payload(payload)
+        validate_simulator_turn_payload(
+            {
+                "updated_content": normalized_updated_content,
+                "turn_result": normalized_turn_result,
+            }
+        )
     except ValueError as exc:
         raise_generation_error(
             status_code=400,
@@ -392,4 +380,4 @@ async def generate_simulator_turn_update(
             failure_reason=str(exc),
             retryable=False,
         )
-    return payload["updated_content"], payload["turn_result"]
+    return normalized_updated_content, normalized_turn_result

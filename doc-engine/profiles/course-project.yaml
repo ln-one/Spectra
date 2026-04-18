@@ -1,0 +1,30 @@
+name: course-project
+title: 课程设计报告
+include_toc: true
+include_cover: true
+include_pdf: true
+include_exec_summary: false
+exec_summary_frontmatter: false
+body_starts_at: 1
+body_chapter_offset: 0
+mermaid_mode: placeholder
+figure_placeholder_text: "【图位占位：课程设计阶段替换】"
+dynamic_fields: true
+template_layers:
+  base: zh-formal
+  cover: course-project
+  frontmatter: abstract-optional
+  body: course-design
+  tables_figures: school-default
+theme:
+  page_margin_cm: 2.0
+  body_cn_font: 宋体
+  body_latin_font: Times New Roman
+  heading_cn_font: 黑体
+  heading_latin_font: Times New Roman
+  body_font_size_pt: 12
+  title_font_size_pt: 22
+  heading1_size_pt: 15
+  heading2_size_pt: 13
+  heading3_size_pt: 12
+  line_spacing_pt: 22

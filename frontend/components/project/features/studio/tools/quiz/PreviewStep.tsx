@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { ClipboardList, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { CapabilityNotice } from "../CapabilityNotice";
+import { ArtifactWorkbenchShell } from "../ArtifactWorkbenchShell";
 import type { ToolFlowContext } from "../types";
+import { buildArtifactWorkbenchViewModel } from "../workbenchViewModel";
 import type { QuizAttemptState, QuizQuestionItem } from "./types";
 
 interface PreviewStepProps {
@@ -131,6 +132,13 @@ export function PreviewStep({
   const currentArtifactId = flowContext?.resolvedArtifact?.artifactId ?? null;
   const canRefineCurrentQuestion =
     Boolean(currentQuestion && currentArtifactId && flowContext?.onStructuredRefineArtifact);
+  const viewModel = buildArtifactWorkbenchViewModel(
+    flowContext,
+    lastGeneratedAt,
+    currentQuestion
+      ? `当前聚焦第 ${currentIndex + 1} 题，可继续答题或微调。`
+      : "等待后端返回真实小测内容。"
+  );
 
   useEffect(() => {
     setCurrentIndex(0);
@@ -228,33 +236,38 @@ export function PreviewStep({
   };
 
   return (
-    <div className="space-y-4">
-      <section className="rounded-xl border border-zinc-200 bg-white p-4">
-        <CapabilityNotice status={capabilityStatus} reason={capabilityReason} />
-
-        <div className="mt-4 flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <p className="text-sm font-semibold text-zinc-900">单题沉浸式预览</p>
-            <p className="mt-1 text-[11px] text-zinc-500">
-              {lastGeneratedAt
-                ? `最近一次生成：${new Date(lastGeneratedAt).toLocaleString()}`
-                : "这里只展示后端返回的真实小测内容。"}
-            </p>
-          </div>
-          {currentQuestion ? (
+    <ArtifactWorkbenchShell
+      flowContext={{
+        ...flowContext,
+        capabilityStatus,
+        capabilityReason,
+      }}
+      viewModel={viewModel}
+      emptyState={
+        <div className="mt-4 rounded-2xl border border-dashed border-zinc-300 bg-zinc-50 px-4 py-12 text-center">
+          <ClipboardList className="mx-auto h-8 w-8 text-zinc-400" />
+          <p className="mt-3 text-sm font-medium text-zinc-700">
+            暂未收到后端真实题目
+          </p>
+          <p className="mt-1 text-[11px] text-zinc-500">
+            当前不再渲染前端示意题库，等待后端返回题目后会直接显示。
+          </p>
+        </div>
+      }
+    >
+      {capabilityStatus === "backend_ready" && currentQuestion ? (
+        <>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="text-sm font-semibold text-zinc-900">单题工作面</div>
             <div className="rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1 text-[11px] font-medium text-zinc-600">
               第 {currentIndex + 1} 题 / 共 {backendQuestions.length} 题
             </div>
-          ) : null}
-        </div>
-
-        {capabilityStatus === "backend_ready" && currentQuestion ? (
-          <div className="mt-4 space-y-4">
-            <div className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-4">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-500">
-                    Current Question
+          </div>
+          <div className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                  <p className="text-[11px] font-semibold tracking-[0.12em] text-zinc-500">
+                    当前题目
                   </p>
                   <p className="mt-2 text-sm font-medium leading-6 text-zinc-900">
                     {currentQuestion.question}
@@ -357,26 +370,15 @@ export function PreviewStep({
             {currentAttempt?.submitted && currentQuestion.explanation ? (
               <div className="rounded-2xl border border-zinc-200 bg-white p-4">
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">
-                  Explanation
+                  题目解析
                 </p>
                 <p className="mt-2 text-sm leading-6 text-zinc-700">
                   {currentQuestion.explanation}
                 </p>
               </div>
             ) : null}
-          </div>
-        ) : (
-          <div className="mt-4 rounded-2xl border border-dashed border-zinc-300 bg-zinc-50 px-4 py-12 text-center">
-            <ClipboardList className="mx-auto h-8 w-8 text-zinc-400" />
-            <p className="mt-3 text-sm font-medium text-zinc-700">
-              暂未收到后端真实题目
-            </p>
-            <p className="mt-1 text-[11px] text-zinc-500">
-              当前不再渲染前端示意题库，等待后端返回题目后会直接显示。
-            </p>
-          </div>
-        )}
-      </section>
-    </div>
+        </>
+      ) : null}
+    </ArtifactWorkbenchShell>
   );
 }
