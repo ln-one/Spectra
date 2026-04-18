@@ -155,6 +155,14 @@ type PersistedWorkflowHistory = {
   archivedHistoryById?: Record<string, StudioHistoryItem>;
 };
 
+function isInvalidPptWorkflowWithoutRunId(item: StudioHistoryItem): boolean {
+  return (
+    item.origin === "workflow" &&
+    item.toolType === "ppt" &&
+    !normalizeRunId(item.runId)
+  );
+}
+
 function readPersistedWorkflowHistory(
   projectId?: string | null
 ): PersistedWorkflowHistory {
@@ -201,7 +209,9 @@ export function useStudioWorkflowHistory(
   const persisted = readPersistedWorkflowHistory(projectId);
   const [workflowItems, setWorkflowItems] = useState<StudioHistoryItem[]>(
     Array.isArray(persisted.workflowItems)
-      ? persisted.workflowItems.slice(0, 80)
+      ? persisted.workflowItems
+          .filter((item) => !isInvalidPptWorkflowWithoutRunId(item))
+          .slice(0, 80)
       : []
   );
   const polishedTitleRequestedRef = useRef<Record<string, true>>({});
@@ -240,6 +250,9 @@ export function useStudioWorkflowHistory(
 
   const recordWorkflowEntry = useCallback((input: WorkflowEntryInput) => {
     const normalizedInputRunId = normalizeRunId(input.runId);
+    if (input.toolType === "ppt" && !normalizedInputRunId) {
+      return;
+    }
     const nextItem: StudioHistoryItem = {
       id: makeWorkflowId(input),
       origin: "workflow",
@@ -429,6 +442,9 @@ export function useStudioWorkflowHistory(
     });
 
     const sessionScopedWorkflow = workflowItems.filter((item) => {
+      if (isInvalidPptWorkflowWithoutRunId(item)) {
+        return false;
+      }
       if (!activeSessionId) {
         return !item.sessionId;
       }

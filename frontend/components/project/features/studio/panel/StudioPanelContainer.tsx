@@ -50,53 +50,12 @@ function extractSessionIdFromExecutionResult(
 function extractRunIdFromExecutionResult(
   executionResult: Record<string, unknown>
 ): string | null {
-  const directRunId = executionResult.run_id;
-  if (typeof directRunId === "string" && directRunId.trim()) {
-    return directRunId;
-  }
-
   const run =
     typeof executionResult.run === "object" && executionResult.run !== null
       ? (executionResult.run as Record<string, unknown>)
       : null;
-  const runRunId =
-    (typeof run?.run_id === "string" && run.run_id) ||
-    (typeof run?.id === "string" && run.id) ||
-    null;
-  if (runRunId && runRunId.trim()) {
-    return runRunId;
-  }
-
-  const currentRun =
-    typeof executionResult.current_run === "object" &&
-    executionResult.current_run !== null
-      ? (executionResult.current_run as Record<string, unknown>)
-      : null;
-  const currentRunId =
-    (typeof currentRun?.run_id === "string" && currentRun.run_id) ||
-    (typeof currentRun?.id === "string" && currentRun.id) ||
-    null;
-  if (currentRunId && currentRunId.trim()) {
-    return currentRunId;
-  }
-
-  const session =
-    typeof executionResult.session === "object" &&
-    executionResult.session !== null
-      ? (executionResult.session as Record<string, unknown>)
-      : null;
-  const sessionCurrentRun =
-    typeof session?.current_run === "object" && session.current_run !== null
-      ? (session.current_run as Record<string, unknown>)
-      : null;
-  const sessionCurrentRunId =
-    (typeof sessionCurrentRun?.run_id === "string" &&
-      sessionCurrentRun.run_id) ||
-    (typeof sessionCurrentRun?.id === "string" && sessionCurrentRun.id) ||
-    null;
-  return sessionCurrentRunId && sessionCurrentRunId.trim()
-    ? sessionCurrentRunId
-    : null;
+  const runRunId = typeof run?.run_id === "string" ? run.run_id : null;
+  return runRunId && runRunId.trim() ? runRunId : null;
 }
 
 function mapVisualStyleToDiegoPreset(styleId: string): string {
@@ -792,6 +751,7 @@ export function StudioPanelContainer({
                     payload?.sessionId ?? activeSessionId ?? null;
                   if (!resolvedSessionId) return;
                   const runId = payload?.runId || undefined;
+                  if (!runId) return;
                   trackStep("ppt", "outline");
                   acknowledgeStep("ppt", "outline");
                   recordWorkflowEntry({
@@ -811,13 +771,10 @@ export function StudioPanelContainer({
                   const resolvedSessionId =
                     payload?.sessionId ?? activeSessionId ?? null;
                   if (!resolvedSessionId) return;
+                  const runId = payload?.runId || undefined;
+                  if (!runId) return;
                   trackStep("ppt", "preview");
                   acknowledgeStep("ppt", "preview");
-                  const runId =
-                    payload?.runId ||
-                    useProjectStore.getState().activeRunId ||
-                    execution.resolvePptRunId() ||
-                    undefined;
                   recordWorkflowEntry({
                     toolType: "ppt",
                     title: "PPT Generating",
@@ -833,6 +790,7 @@ export function StudioPanelContainer({
                 trackStep("ppt", "outline");
                 acknowledgeStep("ppt", "outline");
                 const runId = payload?.runId || undefined;
+                if (!runId) return;
                 recordWorkflowEntry({
                   toolType: "ppt",
                   title: "PPT Outline Draft",
@@ -857,7 +815,6 @@ export function StudioPanelContainer({
                   liveStoreState.activeSessionId ??
                   activeSessionId ??
                   undefined;
-                const liveRunId = liveStoreState.activeRunId ?? undefined;
                 const readySelectedFileIds = resolveReadySelectedFileIds(
                   files,
                   selectedFileIds
@@ -880,7 +837,6 @@ export function StudioPanelContainer({
                   {
                     project_id: project.id,
                     client_session_id: liveSessionId,
-                    run_id: liveRunId,
                     rag_source_ids:
                       readySelectedFileIds.length > 0
                         ? readySelectedFileIds
@@ -911,14 +867,32 @@ export function StudioPanelContainer({
                   );
                 }
 
-                if (sessionId) {
-                  setActiveSessionId(sessionId);
-                  if (runId) {
-                    setActiveRunId(runId);
-                  }
-                  void fetchArtifactHistory(project.id, sessionId);
+                if (!runId) {
+                  throw new Error(
+                    "Missing run.run_id in courseware execution result"
+                  );
                 }
-                return sessionId;
+                const resolvedRunId = runId;
+
+                useProjectStore.setState({
+                  activeSessionId: sessionId,
+                  activeRunId: resolvedRunId,
+                });
+                recordWorkflowEntry({
+                  toolType: "ppt",
+                  title: "PPT Outline Draft",
+                  status: "draft",
+                  step: "outline",
+                  ppt_status: "outline_generating",
+                  sessionId,
+                  runId: resolvedRunId,
+                  toolLabel: TOOL_LABELS.ppt,
+                });
+                void fetchArtifactHistory(project.id, sessionId);
+                return {
+                  sessionId,
+                  runId: resolvedRunId,
+                };
               }}
               isCardManagedFlowExpanded={isCardManagedFlowExpanded}
               currentCardId={capability.currentCardId}

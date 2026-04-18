@@ -542,7 +542,8 @@ export function useGeneratePreviewState({
   }, [activeRunId, activeSessionId, currentArtifactId]);
 
   const { events } = useGenerationEvents({
-    sessionId: activeSessionId || null,
+    sessionId: activeSessionId && activeRunId ? activeSessionId : null,
+    runId: activeRunId,
   });
 
   const latestEvent = events.length > 0 ? events[events.length - 1] : null;

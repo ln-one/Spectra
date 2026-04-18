@@ -37,7 +37,7 @@ interface StudioExpandedViewProps {
     layoutMode: "smart" | "classic";
     templateId: string | null;
     visualPolicy: "auto" | "media_required" | "basic_graphics_only";
-  }) => Promise<string | null | undefined>;
+  }) => Promise<{ sessionId: string; runId: string } | null | undefined>;
   isCardManagedFlowExpanded: boolean;
   currentCardId: string | null;
   isStudioActionRunning: boolean;

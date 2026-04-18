@@ -199,34 +199,25 @@ export function usePptHistoryStatusSync({
   const runKeyRef = useRef<string | null>(null);
 
   const activePptItem = useMemo(() => {
+    if (!activeSessionId || !activeRunId) return null;
     const pptGroup = groupedHistory.find(([toolType]) => toolType === "ppt");
     const items = pptGroup?.[1] ?? [];
     const workflowItems = items.filter(
       (item) =>
         item.toolType === "ppt" &&
         item.origin === "workflow" &&
-        Boolean(item.sessionId) &&
-        Boolean(item.runId)
+        Boolean(item.sessionId)
     );
     if (!workflowItems.length) return null;
-    if (activeSessionId && activeRunId) {
-      const matchedRunItem = workflowItems.find(
-        (item) => item.sessionId === activeSessionId && item.runId === activeRunId
-      );
-      if (matchedRunItem) return matchedRunItem;
-    }
-    if (activeSessionId) {
-      return (
-        workflowItems.find((item) => item.sessionId === activeSessionId) ??
-        workflowItems[0]
-      );
-    }
-    return workflowItems[0];
+    const matchedRunItem = workflowItems.find(
+      (item) => item.sessionId === activeSessionId && item.runId === activeRunId
+    );
+    return matchedRunItem ?? null;
   }, [activeRunId, activeSessionId, groupedHistory]);
 
   const sessionId = activePptItem?.sessionId ?? null;
   const seedRunId = useMemo(() => {
-    if (!activePptItem || !sessionId) return null;
+    if (!activePptItem || !sessionId || !activePptItem.runId) return null;
     return resolvePptRunId(activePptItem.runId ?? null);
   }, [activePptItem, resolvePptRunId, sessionId]);
   const runId = seedRunId;
@@ -254,6 +245,7 @@ export function usePptHistoryStatusSync({
         const response = await generateApi.listEvents(sessionId, {
           cursor: cursorRef.current,
           limit: EVENT_PAGE_LIMIT,
+          run_id: eventRunId,
         });
         const events = response?.data?.events ?? [];
         if (!events.length) return;

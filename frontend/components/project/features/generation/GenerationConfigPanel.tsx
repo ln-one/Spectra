@@ -50,7 +50,11 @@ interface GenerationConfigPanelProps {
   onBack?: () => void;
   onGenerate?: (
     config: GenerationConfig
-  ) => Promise<string | void | null> | string | void | null;
+  ) =>
+    | Promise<{ sessionId: string; runId: string } | void | null>
+    | { sessionId: string; runId: string }
+    | void
+    | null;
   resumeStage?: "config" | "outline" | null;
   resumeSignal?: number;
   onWorkflowStageChange?: (

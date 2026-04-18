@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import uuid
 from typing import Any, Optional
 
 _DIEGO_BINDING_KEY = "diego"
@@ -52,6 +51,45 @@ def normalize_rag_source_ids(value: Any) -> list[str]:
         seen.add(source_id)
         normalized.append(source_id)
     return normalized
+
+
+_DIEGO_PAGE_TYPES = {"cover", "toc", "section", "content", "summary"}
+_DIEGO_LAYOUTS_BY_PAGE_TYPE: dict[str, set[str]] = {
+    "cover": {"cover-asymmetric", "cover-center"},
+    "toc": {"toc-list", "toc-grid", "toc-sidebar", "toc-cards"},
+    "section": {"section-center", "section-accent-block", "section-split"},
+    "content": {
+        "content-two-column",
+        "content-icon-rows",
+        "content-comparison",
+        "content-timeline",
+        "content-stat-callout",
+        "content-showcase",
+    },
+    "summary": {
+        "summary-takeaways",
+        "summary-cta",
+        "summary-thankyou",
+        "summary-split",
+    },
+}
+
+
+def normalize_page_type(value: Any, fallback: str = "content") -> str:
+    normalized = str(value or "").strip().lower()
+    if normalized in _DIEGO_PAGE_TYPES:
+        return normalized
+    return fallback if fallback in _DIEGO_PAGE_TYPES else "content"
+
+
+def normalize_layout_hint(value: Any, page_type: str) -> str | None:
+    normalized = str(value or "").strip().lower()
+    if not normalized:
+        return None
+    allowed = _DIEGO_LAYOUTS_BY_PAGE_TYPE.get(page_type) or set()
+    if normalized in allowed:
+        return normalized
+    return None
 
 
 def resolve_topic_from_options(options: dict[str, Any]) -> str:
@@ -175,13 +213,17 @@ def convert_diego_outline_to_spectra(diego_outline: dict[str, Any]) -> dict[str,
                 ]
             if not key_points:
                 key_points = ["核心要点讲解"]
+            page_type = normalize_page_type(node.get("page_type"))
+            layout_hint = normalize_layout_hint(node.get("layout_hint"), page_type)
             nodes.append(
                 {
-                    "id": str(uuid.uuid4()),
+                    "id": str(node.get("id") or f"diego-outline-{index}"),
                     "order": index,
                     "title": str(node.get("title") or f"第 {index} 页").strip(),
                     "key_points": key_points,
                     "estimated_minutes": None,
+                    "page_type": page_type,
+                    "layout_hint": layout_hint,
                 }
             )
 
@@ -207,11 +249,14 @@ def convert_spectra_outline_to_diego(outline: dict[str, Any]) -> dict[str, Any]:
                     for item in key_points_raw
                     if str(item or "").strip()
                 ]
+            page_type = normalize_page_type(node.get("page_type"))
+            layout_hint = normalize_layout_hint(node.get("layout_hint"), page_type)
             converted_nodes.append(
                 {
                     "title": str(node.get("title") or "教学内容").strip(),
                     "bullets": bullets,
-                    "page_type": "CONTENT",
+                    "page_type": page_type,
+                    "layout_hint": layout_hint,
                 }
             )
 

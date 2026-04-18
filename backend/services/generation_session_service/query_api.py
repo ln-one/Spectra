@@ -89,6 +89,7 @@ class SessionQueryMixin:
         user_id: str,
         cursor: Optional[str] = None,
         limit: int = 50,
+        run_id: Optional[str] = None,
     ) -> list[dict]:
         return await query_events(
             db=self._db,
@@ -96,6 +97,7 @@ class SessionQueryMixin:
             user_id=user_id,
             cursor=cursor,
             limit=limit,
+            run_id=run_id,
         )
 
     async def update_outline(

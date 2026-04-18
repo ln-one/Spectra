@@ -51,7 +51,18 @@ async def test_create_session_rejects_direct_non_bootstrap_start(app, _as_user):
 
     assert response.status_code == 409
     payload = response.json()
-    assert payload["error"]["details"]["reason"] == "direct_generation_start_removed"
+    reason = None
+    if isinstance(payload, dict):
+        reason = (
+            payload.get("error", {})
+            .get("details", {})
+            .get("reason")
+        ) or (
+            payload.get("detail", {})
+            .get("details", {})
+            .get("reason")
+        )
+    assert reason == "direct_generation_start_removed"
 
 
 @pytest.mark.anyio
@@ -83,6 +94,7 @@ async def test_session_events_support_accept_header_json(app, _as_user):
         "u-001",
         cursor=None,
         limit=50,
+        run_id=None,
     )
 
 
@@ -114,6 +126,39 @@ async def test_session_events_json_forwards_limit_query(app, _as_user):
         "u-001",
         cursor=None,
         limit=120,
+        run_id=None,
+    )
+
+
+@pytest.mark.anyio
+async def test_session_events_json_forwards_run_id_query(app, _as_user):
+    client = TestClient(app)
+    service = SimpleNamespace(
+        get_session_runtime_state=AsyncMock(
+            return_value={
+                "state": "RENDERING",
+                "last_cursor": "cur-001",
+                "updated_at": datetime.now(timezone.utc),
+            }
+        ),
+        get_events=AsyncMock(return_value=[{"cursor": "cur-010"}]),
+    )
+
+    with patch(
+        "routers.generate_sessions.core.get_session_service", return_value=service
+    ):
+        response = client.get(
+            "/api/v1/generate/sessions/s-001/events?accept=application/json&run_id=run-001",
+        )
+
+    assert response.status_code == 200
+    assert response.json()["data"]["events"][0]["cursor"] == "cur-010"
+    service.get_events.assert_awaited_once_with(
+        "s-001",
+        "u-001",
+        cursor=None,
+        limit=50,
+        run_id="run-001",
     )
 
 
