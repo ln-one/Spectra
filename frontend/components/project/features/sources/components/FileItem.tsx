@@ -431,7 +431,7 @@ export function FileItem({
       <AnimatePresence>
         {isExpanded && isFocused && focusDetail?.content ? (
           <motion.div
-            key={`focus-${focusDetail.chunk_id}`}
+            key={`focus-${file.id}`}
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -6 }}
@@ -475,7 +475,6 @@ export function FileItem({
                 components={{
                   img: ({ src, alt }) => (
                     <SourceChunkImage
-                      key={`${focusDetail.chunk_id || "chunk"}:${src || ""}`}
                       src={src}
                       alt={alt}
                       chunkId={focusDetail.chunk_id}

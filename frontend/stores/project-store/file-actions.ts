@@ -122,6 +122,53 @@ function resolveAutoRepairDecision(detail: SourceDetail | null): {
   return { fileId, reason: null };
 }
 
+function normalizeComparableText(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function isSameSourceDetail(
+  currentDetail: SourceDetail | null,
+  nextDetail: SourceDetail | null
+): boolean {
+  if (!currentDetail || !nextDetail) {
+    return false;
+  }
+  if (
+    normalizeComparableText(currentDetail.chunk_id) !==
+    normalizeComparableText(nextDetail.chunk_id)
+  ) {
+    return false;
+  }
+  if (
+    normalizeComparableText(currentDetail.content) !==
+    normalizeComparableText(nextDetail.content)
+  ) {
+    return false;
+  }
+
+  const currentSource = toRecord(currentDetail.source);
+  const nextSource = toRecord(nextDetail.source);
+  if (
+    normalizeComparableText(currentSource?.source_type) !==
+      normalizeComparableText(nextSource?.source_type) ||
+    normalizeComparableText(currentSource?.page_number) !==
+      normalizeComparableText(nextSource?.page_number) ||
+    normalizeComparableText(currentSource?.timestamp) !==
+      normalizeComparableText(nextSource?.timestamp)
+  ) {
+    return false;
+  }
+
+  const currentContext = toRecord(currentDetail.context);
+  const nextContext = toRecord(nextDetail.context);
+  return (
+    normalizeComparableText(currentContext?.previous_chunk) ===
+      normalizeComparableText(nextContext?.previous_chunk) &&
+    normalizeComparableText(currentContext?.next_chunk) ===
+      normalizeComparableText(nextContext?.next_chunk)
+  );
+}
+
 export function createFileActions({
   set,
   get,
@@ -262,7 +309,9 @@ export function createFileActions({
             const repairTask = (async () => {
               try {
                 await ragApi.indexFile({ file_id: fileId });
-                if (currentProjectId) {
+                const activeChunkIdBeforeRefresh =
+                  get().activeSourceDetail?.chunk_id ?? null;
+                if (currentProjectId && activeChunkIdBeforeRefresh !== chunkId) {
                   await get().fetchFiles(currentProjectId);
                 }
                 const refreshed = await ragApi.getSourceDetail(
@@ -274,7 +323,11 @@ export function createFileActions({
                   return;
                 }
                 set((state) => {
-                  if (state.activeSourceDetail?.chunk_id !== chunkId) {
+                  const activeDetail = state.activeSourceDetail;
+                  if (activeDetail?.chunk_id !== chunkId) {
+                    return {};
+                  }
+                  if (isSameSourceDetail(activeDetail, refreshedDetail)) {
                     return {};
                   }
                   return { activeSourceDetail: refreshedDetail };
