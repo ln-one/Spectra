@@ -4,7 +4,7 @@
     operationId: postRagSearch
     tags: [RAG]
     security:
-      - BearerAuth: []
+      - SessionAuth: []
     requestBody:
       required: true
       content:
@@ -31,7 +31,7 @@
     operationId: getRagSourcesByChunkId
     tags: [RAG]
     security:
-      - BearerAuth: []
+      - SessionAuth: []
     parameters:
       - name: chunk_id
         in: path
@@ -64,7 +64,7 @@
     description: 读取来源分块中的图片资源（按需缓存）。
     tags: [RAG]
     security:
-      - BearerAuth: []
+      - SessionAuth: []
     parameters:
       - name: chunk_id
         in: path
@@ -114,7 +114,7 @@
     description: 将上传的文件添加到 RAG 知识库索引
     tags: [RAG]
     security:
-      - BearerAuth: []
+      - SessionAuth: []
     requestBody:
       required: true
       content:
@@ -166,7 +166,7 @@
     description: 基于给定文本查找知识库中的相似内容
     tags: [RAG]
     security:
-      - BearerAuth: []
+      - SessionAuth: []
     requestBody:
       required: true
       content:
@@ -207,7 +207,7 @@
     summary: 搜索网络资源并可选入库
     tags: [RAG]
     security:
-      - BearerAuth: []
+      - SessionAuth: []
     parameters:
       - name: query
         in: query
@@ -253,7 +253,7 @@
     summary: 音频转录并可选入库
     tags: [RAG]
     security:
-      - BearerAuth: []
+      - SessionAuth: []
     requestBody:
       required: true
       content:
@@ -294,7 +294,7 @@
     summary: 视频分析并可选入库
     tags: [RAG]
     security:
-      - BearerAuth: []
+      - SessionAuth: []
     requestBody:
       required: true
       content:

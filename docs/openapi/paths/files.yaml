@@ -4,7 +4,7 @@
     operationId: postFiles
     tags: [Files]
     security:
-      - BearerAuth: []
+      - SessionAuth: []
     parameters:
       - $ref: '../components/parameters.yaml#/IdempotencyKey'
     requestBody:
@@ -43,7 +43,7 @@
     operationId: deleteFilesByFileId
     tags: [Files]
     security:
-      - BearerAuth: []
+      - SessionAuth: []
     parameters:
       - name: file_id
         in: path
@@ -70,7 +70,7 @@
     operationId: patchFilesByFileIdIntent
     tags: [Files]
     security:
-      - BearerAuth: []
+      - SessionAuth: []
     parameters:
       - name: file_id
         in: path
@@ -105,7 +105,7 @@
     operationId: postFilesByFileIdParseMineru
     tags: [Files]
     security:
-      - BearerAuth: []
+      - SessionAuth: []
     parameters:
       - name: file_id
         in: path
@@ -151,7 +151,7 @@
     description: 一次上传多个参考文件
     tags: [Files]
     security:
-      - BearerAuth: []
+      - SessionAuth: []
     parameters:
       - $ref: '../components/parameters.yaml#/IdempotencyKey'
     requestBody:
@@ -192,7 +192,7 @@
     operationId: deleteFilesBatch
     tags: [Files]
     security:
-      - BearerAuth: []
+      - SessionAuth: []
     requestBody:
       required: true
       content:

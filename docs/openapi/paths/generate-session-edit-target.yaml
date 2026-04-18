@@ -7,7 +7,7 @@
       目标契约中补充支持会话手动改名，以及带明确需求的单页局部修改。
     tags: [Generate]
     security:
-      - BearerAuth: []
+      - SessionAuth: []
     parameters:
       - name: session_id
         in: path

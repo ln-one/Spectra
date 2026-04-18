@@ -1,6 +1,6 @@
 # 后端开发规范（简版）
 
-> 更新时间：2026-03-19
+> 更新时间：2026-04-16
 > 目标：给出当前后端可直接执行的最小约束。
 
 ## 1. 架构约束
@@ -29,50 +29,39 @@
 
 ## 3. 当前推荐的顶层分区
 
-### application
+### workflow shell
 
-面向接口/用例编排：
-
-- `file_upload_service/`
-- `application/project_api.py`
-- `rag_api_service/`
-- `project_space_service/`
-
-### generation
-
-面向课件生成与预览主链路：
+面向 Session、事件、任务和 API 聚合：
 
 - `generation_session_service/`
-- `courseware_ai/`
 - `preview_helpers/`
-- `artifact_generator/`
+- `task_queue/`
 - `task_executor/`
+- `application/project_api.py`
+- `application/file_management.py`
 
-### media
+### external capability adapters
 
-面向音视频、检索、向量化、索引能力：
+面向六个正式能力源的显式 client/facade：
 
-- `media/audio.py`
-- `media/video.py`
-- `media/web_search.py`
-- `media/embedding.py`
-- `media/vector.py`
-- `media/rag_indexing.py`
-- `network_resource_strategy/`
-- `rag_service/`
+- `diego_client.py`
+- `render_engine_adapter.py`
+- `ourograph_client.py`
+- `platform/dualweave_client.py`
+- `stratumind_client.py`
+- `platform/limora_client.py`
+- `project_space_service/` 仅作为 Ourograph facade
 
-### platform
+### local support
 
-面向平台级基础设施：
+面向模型调用、提示词、运行时状态、非正式文件辅助：
 
-- `platform/`
 - `ai/`
-- `ai/model_router.py`
 - `prompt_service/`
 - `database/`
-- `task_queue/`
-- `auth_service.py`
-- `application/file_management.py`
+- `media/`
+- `rag_api_service/`
+- `artifact_generator/` 仅保留非 Office 文件 helper
 
 ## 4. 依赖边界
 
@@ -80,7 +69,9 @@
 - 优先显式导入，例如 `from services.media.audio import transcribe_audio`
 - `services/__init__.py` 仅保留兼容出口，不作为新增代码默认入口
 - 测试中若为了 patch 历史兼容路径，可保留少量兼容导入
-- 微服务能力边界以 [service-boundaries.md](/Users/ln1/Projects/Spectra/docs/architecture/service-boundaries.md) 为准；backend 新代码默认只能做编排、聚合、状态与契约，不应复制 `dualweave / stratumind / pagevra / ourograph` 的正式产品语义
+- 微服务能力边界以 [service-boundaries.md](/Users/ln1/Projects/Spectra/docs/architecture/service-boundaries.md) 为准；backend 新代码默认只能做编排、聚合、状态与契约，不应复制 `diego / pagevra / ourograph / dualweave / stratumind / limora` 的正式产品语义
+- backend-local Marp/Pandoc/PPTX/DOCX 生成不得重新成为生产主链；课件主生成归 Diego，渲染外化归 Pagevra
+- `project_space_service` 名称可短期保留，但只能是 Ourograph consumer facade
 
 ## 5. 数据与安全
 

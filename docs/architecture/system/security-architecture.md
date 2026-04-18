@@ -2,13 +2,14 @@
 
 ## 认证架构
 
-### JWT 认证流程
+### Cookie Session 认证流程
 
 ```mermaid
 sequenceDiagram
  participant C as Client
  participant F as Frontend
  participant B as Backend
+ participant L as Limora
  participant DB as Database
 
  C->>F: 1. 访问登录页
@@ -16,55 +17,27 @@ sequenceDiagram
  
  C->>F: 2. 提交邮箱密码
  F->>B: POST /auth/login
- B->>DB: 验证用户凭证
- DB-->>B: 返回用户信息
- B->>B: 生成 JWT Token
- B-->>F: 返回 {access_token, user}
- F->>F: 存储 Token 到 localStorage
+ B->>L: 转发登录请求
+ L-->>B: 返回 Set-Cookie + current session
+ B-->>F: 返回 user + 透传 Set-Cookie
  F-->>C: 跳转到项目列表
  
  C->>F: 3. 访问受保护资源
- F->>B: GET /projects<br/>Header: Authorization: Bearer {token}
- B->>B: 验证 JWT Token
+ F->>B: GET /projects<br/>Cookie: session
+ B->>L: GET /v1/sessions/current
+ L-->>B: 返回当前 identity/session
  B->>DB: 查询用户项目
  DB-->>B: 返回项目列表
  B-->>F: 返回数据
  F-->>C: 显示项目列表
 ```
 
-### Token 管理
+### 会话管理
 
-**Token 生成**：
-```python
-# services/auth_service.py
-def create_access_token(user_id: str) -> str:
- payload = {
- "sub": user_id,
- "exp": datetime.utcnow() + timedelta(minutes=30)
- }
- return jwt.encode(payload, SECRET_KEY, algorithm="HS256")
-```
-
-**Token 验证**：
-```python
-# utils/dependencies.py
-async def get_current_user(
- credentials: HTTPAuthorizationCredentials = Depends(security)
-):
- token = credentials.credentials
- payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
- user_id = payload.get("sub")
- return await db_service.get_user_by_id(user_id)
-```
-**双 Token 刷新机制 (Refresh Token)**
-- Access Token：有效期 30 分钟，用于常规 API 请求。
-- Refresh Token：有效期 7 天，存储在 HTTP-only Cookie 中。
-
-前端 Axios/Fetch 拦截器捕获 401 错误。
-自动调用 /auth/refresh 接口。
-后端验证有效后颁发新 Access Token，实现用户无感知续期。
-
-避免老师在长达 1 小时的备课/预览修改过程中突然被强制退出。
+- Limora cookie session 是唯一权威登录态
+- Spectra backend 不再签发 JWT access/refresh token
+- Spectra 通过 `GET /v1/sessions/current` 校验当前身份
+- 登出通过 `DELETE /v1/sessions/current` 撤销当前会话
 
 ## 授权架构
 

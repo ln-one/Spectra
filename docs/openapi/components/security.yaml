@@ -1,5 +1,7 @@
-BearerAuth:
-  type: http
-  scheme: bearer
-  bearerFormat: JWT
-  description: JWT 认证令牌
+SessionAuth:
+  type: apiKey
+  in: cookie
+  name: better-auth.session_token
+  description: |
+    浏览器会话 Cookie 认证。当前 Spectra 登录态由 Limora cookie session 驱动；
+    联调与 Swagger 调试应优先复用浏览器当前登录会话，而不是手动填写 Bearer Token。

@@ -89,21 +89,21 @@ curl -X POST https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation
  -d '{"model":"qwen3.5-plus","input":{"messages":[{"role":"user","content":"test"}]}}'
 ```
 
-### 6. JWT 认证失败
+### 6. Cookie Session 认证失败
 
 **问题**: 登录后仍然返回 401 错误
 
 **解决方案**:
 
 ```bash
-# 检查 JWT_SECRET_KEY 是否配置
-echo $JWT_SECRET_KEY
+# 检查 Limora 与 Spectra 的联通性
+curl -I http://localhost:3001/health
 
-# 检查 Token 是否正确存储
-# 前端: localStorage.getItem('access_token')
+# 检查后端当前登录态
+curl -i http://localhost:8000/api/v1/auth/me
 
-# 检查 Token 格式
-# Header: Authorization: Bearer {token}
+# 浏览器联调时，检查当前站点是否已收到并回传 session Cookie
+# 不要继续排查 access_token / refresh_token / Authorization: Bearer
 ```
 
 ### 7. API 504 Gateway Timeout

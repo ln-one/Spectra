@@ -1,5 +1,8 @@
 # PostgreSQL 迁移检查清单
 
+> Status: `compatibility`
+> Warning: this checklist is deployment/migration context, not the current source of truth for the product model or runtime architecture.
+
 ## 更新日期
 
 - 2026-03-19
@@ -67,7 +70,7 @@
 
 - `Project`
 - `GenerationSession`
-- `GenerationTask`
+- `GenerationTask`（历史执行基础设施名词，不是当前产品主模型）
 - `Conversation`
 - `Upload`
 - `ParsedChunk`

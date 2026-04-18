@@ -1,29 +1,31 @@
 # Service Layer Design
 
-> 状态说明（2026-03-02）：本页仅列当前代码中存在的服务。
+> 状态说明（2026-04-16）：本页列 Spectra backend 作为 workflow shell 的服务边界。
 
 ## 设计原则
 
 - 业务逻辑集中在 `services/`，Router 只做协议层处理。
 - IO 场景统一用 async/await。
-- 外部依赖调用失败时提供可控回退，不在 Router 层吞异常。
+- 外部能力调用失败时返回结构化错误，不在 Router 层吞异常。
 
 ## 当前服务清单
 
 | Service | 文件 | 作用 | 状态 |
 |---|---|---|---|
 | `DatabaseService` | `database.py` | Prisma 数据读写 | 已实现 |
-| `AuthService` | `auth_service.py` | 注册、登录、Token 相关 | 已实现 |
+| `AuthService` / `IdentityService` | `auth_service.py`, `identity_service.py` | Limora consumer façade 与认证响应整形 | 已实现 |
 | `AIService` | `ai.py` | LLM 调用与意图分类 | 已实现 |
 | `EmbeddingService` | `embedding_service.py` | 向量化 provider 适配 | 已实现 |
 | `RAGService` | `rag_service.py` | `Stratumind` consumer façade、reference merge、source detail | 已实现 |
-| `File Parser` | `file_parser.py` | PDF/Word/PPT 轻量解析 | 已实现 |
-| `Generation` | `generation/*` | Marp/Pandoc 导出 | 已实现 |
+| `File Upload Service` | `file_upload_service/*` | Dualweave upload/parse workflow consumer | 已实现 |
+| `Diego Runtime` | `generation_session_service/diego_runtime*.py` | Diego run binding、事件同步、artifact 持久化 | 已实现 |
+| `Render Adapter` | `render_engine_adapter.py` | Pagevra render/preview/export consumer | 已实现 |
+| `ProjectSpaceService` | `project_space_service/service.py` | Ourograph façade，不承载 formal-state 真相源 | 已实现 |
 
 ## 规划中的能力
 
-- 可插拔解析器（MinerU/LlamaParse）。
-- 视频理解与语音识别能力。
+- 继续缩薄 facade，删除旧本地 formal-state / render / generation 残留。
+- 将本地轻量解析限定为显式开发/诊断工具，产品主链走 Dualweave。
 
 ## 与 Router 的边界
 

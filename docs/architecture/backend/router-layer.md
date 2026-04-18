@@ -11,7 +11,7 @@
 
 | Router | 路径前缀 | 功能 | 状态 |
 |--------|---------|------|------|
-| auth.py | /api/v1/auth | 认证（register, login, refresh, logout, me） | 部分实现 |
+| auth.py | /api/v1/auth | 认证（register, login, logout, me） | 部分实现 |
 | projects.py | /api/v1/projects | 项目 CRUD、统计、搜索 | 部分实现 |
 | files.py | /api/v1/files | 文件上传、批量操作、标注 | 部分实现 |
 | generate_sessions.py | /api/v1/generate/sessions | 会话生成、命令驱动、事件流、预览 | 部分实现 |
@@ -119,7 +119,6 @@ async def send_message(request: SendMessageRequest):
 |------|------|------|------|
 | POST | /api/v1/auth/register | 用户注册 | 部分实现 |
 | POST | /api/v1/auth/login | 用户登录 | 部分实现 |
-| POST | /api/v1/auth/refresh | 刷新 Access Token | 待实现 |
 | POST | /api/v1/auth/logout | 退出登录 | 待实现 |
 | GET | /api/v1/auth/me | 获取当前用户信息 | 待实现 |
 

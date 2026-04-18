@@ -1,5 +1,9 @@
 # API 契约
 
+> Status: `current`
+> Scope: current public and internal-facing API contract reality.
+> Note: migration and historical queue/task documents are not the source of truth for the current product model.
+
 ## 理念
 
 ### Contract-First Development (契约优先开发)
@@ -137,9 +141,11 @@ FastAPI 自动提供两种 API 文档界面：
 4. **类型安全**: 前后端使用生成的类型，避免手写
 5. **保持同步**: 实现必须与契约一致
 
-## Project-Space 演进契约（规划中）
+## Project-Space 契约（当前主入口）
 
-基于 2026-03-09 的 Project-Space 设计，下一阶段在 `/projects` 主干上扩展以下子资源：
+当前正式状态语义由 `Ourograph` 提供，Spectra 对外继续以 `/projects` 主干暴露聚合后的产品契约。
+
+当前 `/projects` 主干下的核心子资源：
 
 - `references`：项目引用关系（`follow` / `pinned`，主基底/辅助引用）
 - `versions`：正式版本锚点（可被引用/导出）
@@ -151,8 +157,9 @@ FastAPI 自动提供两种 API 文档界面：
 1. 不新建平行资源体系，继续以 `/projects/*` 为主入口。
 2. 只增量扩展，不破坏 session-first 主流程。
 3. 对外产品叙事可称“库/课程空间/个人空间（学习空间为示例）”，内部仍保持 `project` 命名。
+4. `project_space_service` 在 Spectra 内仅是 `Ourograph facade`，不是第二套 formal-state 真相源。
 
-## 生成域契约（2026-03 架构调整）
+## 生成域契约（当前主契约）
 
 为支撑“前端导向设计文档”中的阶段式生成体验，生成域采用“命令 + 查询 + 事件”三类契约：
 
@@ -188,7 +195,7 @@ FastAPI 自动提供两种 API 文档界面：
 - 旧的 `/api/v1/generate/*` 任务接口与 `/api/v1/preview/*` 已移除。
 - 全量采用 `session-first` 路径作为唯一主入口。
 
-### 可扩展性与低返工约束（新增）
+### 可扩展性与低返工约束
 
 1. **版本协商**：
  - 客户端可通过 `X-Contract-Version` 声明期望契约版本。
@@ -203,12 +210,9 @@ FastAPI 自动提供两种 API 文档界面：
  - RQ 可用性仅以 fresh worker 为准；stale worker 只能用于观测，不能视为可执行 worker。
  - queue 状态读取失败时记为 `queue_health_unknown`，允许一次短重试后再决定是否 fallback。
  - `local_async` 仅作为明确退化路径，必须在事件 payload 中记录 `dispatch` 与 fallback reason。
-4. **外部能力降级语义**：
- - 当 MinerU/Qwen-VL/Whisper 不可用时，不中断主流程，返回 `fallback`/`fallbacks` 信息。
- - 降级信息至少包含：`capability`、`fallback_used`、`fallback_target`、`user_message`。
 5. **演进策略**：
  - 新能力优先通过可选字段和 `capabilities` 开关引入，不先改破坏性字段。
- - 保持 `session_id / run / artifact` 主模型稳定，`GenerationTask` 仅作为执行基础设施存在。
+ - 保持 `session_id / run / artifact` 主模型稳定；`GenerationTask` 只允许作为历史执行基础设施名词出现，不应再出现在当前产品主叙事中。
 
 ### NotebookLM 三栏与 Session-First 约束（2026-03-06）
 

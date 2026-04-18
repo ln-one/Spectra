@@ -4,7 +4,7 @@
     operationId: postProjects
     tags: [Project]
     security:
-      - BearerAuth: []
+      - SessionAuth: []
     parameters:
       - $ref: '../components/parameters.yaml#/IdempotencyKey'
     requestBody:
@@ -30,7 +30,7 @@
     operationId: getProjects
     tags: [Project]
     security:
-      - BearerAuth: []
+      - SessionAuth: []
     parameters:
       - $ref: '../components/parameters.yaml#/PageParam'
       - $ref: '../components/parameters.yaml#/LimitParam'
@@ -50,7 +50,7 @@
     operationId: getProjectsByProjectId
     tags: [Project]
     security:
-      - BearerAuth: []
+      - SessionAuth: []
     parameters:
       - name: project_id
         in: path
@@ -76,7 +76,7 @@
     operationId: putProjectsByProjectId
     tags: [Project]
     security:
-      - BearerAuth: []
+      - SessionAuth: []
     parameters:
       - name: project_id
         in: path
@@ -111,7 +111,7 @@
     operationId: deleteProjectsByProjectId
     tags: [Project]
     security:
-      - BearerAuth: []
+      - SessionAuth: []
     parameters:
       - name: project_id
         in: path

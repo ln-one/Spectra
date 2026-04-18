@@ -1,81 +1,154 @@
-# 技术栈（MVP 对齐版）
+# 技术栈事实包（Code-Verified）
 
-> 更新时间：2026-03-20
-> 目的：该文档只描述“当前代码已落地技术”与“已确认过渡路线”，避免把规划当成已实现。
+> Status: `current`
+> Verification: `code-verified`
+> Role: internal truth-check pack for architecture and commercial writing.
+>
+> This file is **not** the outward-facing proposal text. It exists to keep
+> `docs/competition/*` aligned with current code, manifests, compose topology,
+> and service build/runtime reality.
 
-## 1. 当前 MVP 已落地技术
+## 1. Use Rules
 
-| 层级        | 当前实现（MVP）                                                  | 版本/形态                             | 代码依据                                                                                               |
-| --------- | ---------------------------------------------------------- | --------------------------------- | -------------------------------------------------------------------------------------------------- |
-| 前端框架      | Next.js + React + TypeScript                               | Next.js 15.5.10, React 18, TS 5.x | `frontend/package.json`                                                                            |
-| 样式与组件     | Tailwind CSS + Radix + Shadcn 风格组件                         | Tailwind 3.4.1                    | `frontend/package.json`, `frontend/components/ui/`                                                 |
-| 前端状态管理    | Zustand（业务状态为主）                                            | Zustand 5.x                       | `frontend/stores/*.ts`                                                                             |
-| 前端表单校验    | React Hook Form + Zod                                      | RHF 7.x, Zod 4.x                  | `frontend/app/auth/*`, `frontend/package.json`                                                     |
-| 前端请求层     | Fetch API 封装                                               | 自研 wrapper                        | `frontend/lib/sdk/client.ts`                                                                       |
-| 动效        | Framer Motion（局部使用）                                        | 12.x                              | `frontend/components/FileList.tsx`, `frontend/components/FileUploadDropzone.tsx`                   |
-| 后端框架      | FastAPI + Pydantic v2 + Uvicorn                            | FastAPI 0.129.0, Pydantic 2.12.5  | `backend/requirements.txt`, `backend/main.py`                                                      |
-| 数据库访问     | Prisma Client Python（async）                                | prisma 0.15.0                     | `backend/prisma/schema.prisma`, `backend/services/database.py`                                     |
-| 关系型数据库    | PostgreSQL（当前默认）                                           | 本地/容器统一 PostgreSQL               | `backend/prisma/schema.prisma`, `backend/.env.example`                                             |
-| LLM 调用    | LiteLLM + DashScope(Qwen)                                  | litellm 1.81.13                   | `backend/services/ai.py`, `backend/requirements.txt`                                               |
-| Embedding | DashScope `text-embedding-v3`                                 | 1024 维默认                          | `backend/services/media/embedding.py`, `stratumind/internal/infrastructure/embedding.go`          |
-| 检索服务      | Stratumind + Qdrant                                           | 独立微服务 + 向量存储底盘                  | `stratumind/`, `backend/services/stratumind_client.py`                                             |
-| 文档解析      | pypdf / python-docx / python-pptx（轻量解析）                    | MVP 实装                            | `backend/services/file_parser.py`, `backend/requirements.txt`                                      |
-| 课件导出      | Marp CLI（PPTX）+ Pandoc（DOCX）                               | 外部 CLI 工具                         | `backend/services/generation/marp_generator.py`, `backend/services/generation/pandoc_generator.py` |
-| 测试与质量     | pytest / Jest / ESLint / Prettier / Black / isort / flake8 | 已集成                               | `backend/requirements-dev.txt`, `frontend/package.json`, `backend/pyproject.toml`                  |
+- Use this file as an internal fact pack, not as ready-made external prose.
+- Prefer current code manifests and build files over historical stack summaries.
+- When this file and outward-facing prose disagree, update the prose or this file
+  from code reality; do not preserve stale wording for convenience.
 
-## 2. 规划与现状差异（必须明确）
+## 2. Platform Baseline
 
-| 主题      | 规划口径                     | 当前代码现状         | 结论                         |
-| ------- | ------------------------ | -------------- | -------------------------- |
-| 文档解析主方案 | MinerU（主）+ LlamaParse（备） | 当前未接入，使用本地轻量解析 | 规划未落地                      |
-| 视频理解    | Qwen-VL                  | 当前未接入          | 规划未落地                      |
-| 语音识别    | Faster-Whisper           | 当前未接入          | 规划未落地                      |
-| 状态管理表述  | React Context 为主         | 实际以 Zustand 为主 | 文档需改为“Zustand 主、Context 辅” |
-| 生产数据库   | PostgreSQL               | 已切为 PostgreSQL 默认 | 持续清理 SQLite 历史冗余             |
+### 2.1 Frontend Workbench
 
-## 3. 过渡路线（从 MVP 到完整技术栈）
+| Area | Current stack | Code-verified source |
+| --- | --- | --- |
+| Framework | Next.js 16.1.7 + React 18 + TypeScript | `frontend/package.json` |
+| UI primitives | Radix UI + Tailwind CSS | `frontend/package.json` |
+| State | Zustand | `frontend/package.json` |
+| Forms / validation | React Hook Form + Zod | `frontend/package.json` |
+| Motion / charts | Framer Motion + Recharts | `frontend/package.json` |
 
-### Phase A（低风险对齐）
-- 目标：先把文档与代码完全一致。
-- 动作：
- - 统一所有技术栈描述为“MVP 已实现 vs 规划”。
- - 清理过时结论（例如把未上线能力标成“已确定并落地”）。
- - 修复文档错误链接与重复入口。
+### 2.2 Spectra Backend Control Plane
 
-### Phase B（能力补齐）
-- 目标：补齐最关键 AI 能力差异。
-- 动作：
- - 为 `file_parser` 增加可插拔解析器接口（Local/MinerU/LlamaParse）。
- - 增加解析策略开关（环境变量），默认仍保留本地轻量方案。
- - 增加回归测试：PDF/Word/PPT 解析结果与失败回退。
+| Area | Current stack | Code-verified source |
+| --- | --- | --- |
+| Service framework | FastAPI 0.129.0 + Uvicorn 0.32.1 | `backend/requirements.txt` |
+| Schema / settings | Pydantic 2.12.5 + pydantic-settings 2.13.1 | `backend/requirements.txt` |
+| Database access | Prisma Client Python 0.15.0 | `backend/requirements.txt` |
+| Queue runtime | RQ 2.1.0 + Redis client 5.2.1 | `backend/requirements.txt` |
+| AI routing | LiteLLM 1.81.13 + DashScope SDK | `backend/requirements.txt` |
+| Parsing / media support | pypdf, python-docx, python-pptx, Faster-Whisper, OpenCV | `backend/requirements.txt` |
 
-### Phase C（生产化）
-- 目标：非 MVP 能力与部署能力完善。
-- 动作：
- - 评估接入 Qwen-VL/Faster-Whisper 的收益与成本。
- - 持续强化 PostgreSQL（迁移基线治理、备份恢复演练、压测）。
-- 在 `Stratumind` 之上继续补强 rerank / query rewrite / page retrieval。
+### 2.3 Data And Runtime Base
 
-## 4. 当前不建议立即做的改造
+| Layer | Current stack | Code-verified source |
+| --- | --- | --- |
+| Relational database | PostgreSQL 16-alpine | `docker-compose.yml` |
+| Cache / queue broker | Redis 7-alpine | `docker-compose.yml` |
+| Vector store | Qdrant 1.13.2 | `docker-compose.yml` |
+| Container orchestration | Docker Compose | `docker-compose.yml` |
+| Runtime topology | frontend + backend + worker + data base + six formal authorities | `docker-compose.yml` |
 
-- 不建议在 MVP 阶段一次性引入：MinerU + Qwen-VL + Whisper + PostgreSQL 全量切换。
-- 原因：联调面和回归面会急剧放大，且很多能力并非当前主流程阻塞点。
+## 3. Formal Authority Service Stacks
 
-## 5. 维护规则（防止再次失真）
+### 3.1 Diego
 
-- 规则 1：文档中“已落地”必须有代码证据（文件路径）。
-- 规则 2：每次依赖升级后，同步更新本页版本信息。
-- 规则 3：规划项必须写“状态=规划中/未接入”，不得写成已实现。
+| Item | Current reality |
+| --- | --- |
+| Role | AI courseware / PPT generation authority |
+| Main runtime | Python |
+| Service framework | FastAPI |
+| Supporting runtime | Node present for `pptxgenjs` capability |
+| Package sources | `diego/pyproject.toml`, `diego/package.json`, `diego/Dockerfile` |
+| Engineering character | outline / generation / QA / artifact-chain oriented generation service |
 
-## 6. 契约通信模式差异（前端导向改造背景）
+### 3.2 Pagevra
 
-| 主题 | 当前实现（MVP） | 目标形态（契约已定义） |
-|---|---|---|
-| 生成任务模型 | task 为主，轮询状态 | session 为主，状态机 + 事件流 |
-| 实时反馈 | HTTP 轮询 | SSE 推送（可回退 JSON 轮询） |
-| 人工确认断点 | 无显式契约 | `AWAITING_OUTLINE_CONFIRM` 显式建模 |
-| 局部重绘 | 以整任务结果为主 | slide 级 regenerate 原子操作 |
-| 断线恢复 | 能力有限 | resume + cursor 恢复 |
+| Item | Current reality |
+| --- | --- |
+| Role | preview / render / export authority |
+| Main runtime | Node + TypeScript |
+| Key libraries | Mermaid, Playwright |
+| Package sources | `pagevra/package.json`, `pagevra/Dockerfile`, `pagevra/Dockerfile.dev` |
+| Engineering character | compile-bundle execution, preview / pptx / docx output, render runtime |
 
-> 说明：该差异是 2026-03 架构调整重点，详见 `api-contract.md` 与 `docs/project/*_2026-03-09.md`。
-> sprint 口径：对 A/B/C/D 本轮会话化改造任务，右侧“目标形态”是最终结果和拆解基线；左侧“当前实现”仅用于说明现状与兼容层，不应覆盖本轮设计决策。
+### 3.3 Ourograph
+
+| Item | Current reality |
+| --- | --- |
+| Role | formal knowledge-state authority |
+| Main runtime | Kotlin / JVM 17 |
+| Service framework | Ktor 3.1.2 |
+| Persistence stack | jOOQ, Flyway, HikariCP, PostgreSQL |
+| Build stack | Gradle Kotlin DSL |
+| Package sources | `ourograph/build.gradle.kts`, `ourograph/Dockerfile` |
+| Engineering character | formal state kernel with ontology-aligned modules, not a generic workflow app |
+
+### 3.4 Dualweave
+
+| Item | Current reality |
+| --- | --- |
+| Role | ingest / delivery / remote parse entry authority |
+| Main runtime | Go 1.26 |
+| Build stack | Go modules + Docker multi-stage build |
+| Package sources | `dualweave/go.mod`, `dualweave/Dockerfile` |
+| Engineering character | single-ingest upload delivery, staged error semantics, replay, telemetry, provider-agnostic orchestration |
+
+### 3.5 Stratumind
+
+| Item | Current reality |
+| --- | --- |
+| Role | retrieval / evidence authority |
+| Main runtime | Go 1.23.0 |
+| Retrieval store | Qdrant |
+| Optional sidecar | Python late-interaction sidecar (`FastAPI + Uvicorn`) |
+| Package sources | `stratumind/go.mod`, `stratumind/Dockerfile`, `stratumind/sidecars/late_interaction/requirements.txt` |
+| Engineering character | retrieval core with rewrite, planning, hybrid retrieval, rerank, evidence packing, benchmark and telemetry |
+
+### 3.6 Limora
+
+| Item | Current reality |
+| --- | --- |
+| Role | identity / session / organization / membership authority |
+| Main runtime | Node + TypeScript |
+| Service framework | Fastify |
+| Identity stack | Better Auth + Prisma + PostgreSQL |
+| Package sources | `limora/package.json`, `limora/Dockerfile.dev` |
+| Engineering character | service-first identity authority with reusable auth, membership, organization, and audit boundary |
+
+## 4. Runtime Topology Reality
+
+Current code-verified compose topology includes:
+
+- frontend workbench
+- backend control plane
+- worker runtime
+- PostgreSQL
+- Redis
+- Qdrant
+- Diego
+- Pagevra
+- Ourograph
+- Dualweave
+- Stratumind
+- Limora
+
+This file intentionally records runtime reality, not developer convenience
+details. For outward-facing documentation, translate this into system credibility
+signals rather than startup instructions.
+
+## 5. Writing Translation Rules
+
+When promoting this fact pack into outward-facing proposal prose:
+
+- emphasize heterogeneous authority layers, not dependency trivia
+- emphasize containerized runtime collaboration, not local startup commands
+- emphasize engineering depth, not “all self-written from scratch” mythology
+- state clearly that the services are authored by the team, while also using
+  mature frameworks and public methods where appropriate
+
+Do not directly promote:
+
+- raw version pin lists unless a version itself matters
+- internal startup scripts or source-selection mechanisms
+- command snippets
+- environment-variable inventories

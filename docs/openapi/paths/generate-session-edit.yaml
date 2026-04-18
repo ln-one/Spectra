@@ -7,7 +7,7 @@
     operationId: postGenerateSessionsBySessionIdCandidateChange
     tags: [Generate]
     security:
-      - BearerAuth: []
+      - SessionAuth: []
     parameters:
       - name: session_id
         in: path
@@ -44,7 +44,7 @@
     operationId: getGenerateSessionsBySessionIdCandidateChange
     tags: [Generate]
     security:
-      - BearerAuth: []
+      - SessionAuth: []
     parameters:
       - name: session_id
         in: path
