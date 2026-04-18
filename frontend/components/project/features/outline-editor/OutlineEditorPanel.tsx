@@ -87,6 +87,8 @@ const DIEGO_EVENT_PREFIXES = [
 ];
 const EVENT_PAGE_LIMIT = 200;
 const EVENT_PAGE_CAP = 20;
+const OUTLINE_RUN_CACHE_PREFIX = "outline-editor:run-cache:v1";
+const OUTLINE_RUN_CACHE_MAX_AGE_MS = 1000 * 60 * 60 * 24;
 
 type SlideDraft = {
   id: string;
@@ -115,6 +117,18 @@ type SessionEventLike = {
   payload?: unknown;
 };
 
+type OutlineRunCachePayload = {
+  sessionId: string;
+  runId: string;
+  phase: PanelPhase;
+  preambleCollapsed: boolean;
+  streamLogs: StreamLog[];
+  outlineStreamText: string;
+  slides: SlideDraft[];
+  analysisPageCount: number;
+  updatedAt: string;
+};
+
 type PanelPhase = "preamble_streaming" | "outline_streaming" | "editing";
 type ParsedOutlineNode = {
   title?: string;
@@ -125,6 +139,23 @@ type ParsedOutlineNode = {
 
 function normalizeText(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function parseEventPayloadObject(payload: unknown): Record<string, unknown> {
+  if (payload && typeof payload === "object") {
+    return payload as Record<string, unknown>;
+  }
+  if (typeof payload !== "string") return {};
+  const raw = payload.trim();
+  if (!raw) return {};
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object"
+      ? (parsed as Record<string, unknown>)
+      : {};
+  } catch {
+    return {};
+  }
 }
 
 function normalizePageType(
@@ -147,6 +178,180 @@ function normalizeLayoutHint(value: unknown, pageType: DiegoPageType): string {
     return normalized;
   }
   return DEFAULT_LAYOUT_BY_PAGE_TYPE[pageType];
+}
+
+function buildOutlineRunCacheKey(sessionId: string, runId: string): string {
+  return `${OUTLINE_RUN_CACHE_PREFIX}:${sessionId}:${runId}`;
+}
+
+function normalizeCachedStreamLogs(value: unknown): StreamLog[] {
+  if (!Array.isArray(value)) return [];
+  const tones: StreamLogTone[] = ["info", "success", "warn", "error"];
+  const logs: StreamLog[] = [];
+  const seen = new Set<string>();
+  for (const item of value) {
+    if (!item || typeof item !== "object") continue;
+    const raw = item as {
+      id?: unknown;
+      ts?: unknown;
+      title?: unknown;
+      detail?: unknown;
+      tone?: unknown;
+    };
+    const id = normalizeText(raw.id);
+    const ts = normalizeText(raw.ts);
+    const title = normalizeText(raw.title);
+    const detail = normalizeText(raw.detail);
+    const toneRaw = normalizeText(raw.tone) as StreamLogTone;
+    if (!id || !ts || !title) continue;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    const tone = tones.includes(toneRaw) ? toneRaw : "info";
+    logs.push({
+      id,
+      ts,
+      title,
+      detail: detail || undefined,
+      tone,
+    });
+  }
+  return logs.slice(-240);
+}
+
+function appendUniqueStreamLog(prev: StreamLog[], nextLog: StreamLog): StreamLog[] {
+  if (prev.some((item) => item.id === nextLog.id)) return prev;
+  return [...prev, nextLog].slice(-240);
+}
+
+function seedProcessedKeysFromLogs(logs: StreamLog[]): Set<string> {
+  const seeded = new Set<string>();
+  for (const log of logs) {
+    if (!log.id) continue;
+    const stateMarker = ":state:";
+    const markerIndex = log.id.indexOf(stateMarker);
+    if (markerIndex > 0) {
+      seeded.add(log.id.slice(0, markerIndex));
+      continue;
+    }
+    seeded.add(log.id);
+  }
+  return seeded;
+}
+
+function normalizeCachedSlides(value: unknown): SlideDraft[] {
+  if (!Array.isArray(value)) return [];
+  const slides: SlideDraft[] = [];
+  for (let index = 0; index < value.length; index += 1) {
+    const item = value[index];
+    if (!item || typeof item !== "object") continue;
+    const raw = item as {
+      id?: unknown;
+      order?: unknown;
+      title?: unknown;
+      keyPoints?: unknown;
+      estimatedMinutes?: unknown;
+      pageType?: unknown;
+      layoutHint?: unknown;
+    };
+    const order =
+      typeof raw.order === "number" && Number.isFinite(raw.order) && raw.order > 0
+        ? Math.round(raw.order)
+        : index + 1;
+    const pageType = normalizePageType(
+      raw.pageType,
+      defaultPageTypeForOrder(order, value.length || order)
+    );
+    const keyPoints = Array.isArray(raw.keyPoints)
+      ? raw.keyPoints.map((point) => normalizeText(point)).filter(Boolean)
+      : [];
+    slides.push({
+      id: normalizeText(raw.id) || `slide-${order}`,
+      order,
+      title: normalizeText(raw.title) || defaultSlideTitle(order),
+      keyPoints,
+      estimatedMinutes:
+        typeof raw.estimatedMinutes === "number" &&
+        Number.isFinite(raw.estimatedMinutes)
+          ? raw.estimatedMinutes
+          : undefined,
+      pageType,
+      layoutHint: normalizeLayoutHint(raw.layoutHint, pageType),
+    });
+  }
+  return slides.sort((left, right) => left.order - right.order);
+}
+
+function readOutlineRunCache(
+  sessionId: string | null,
+  runId: string | null
+): OutlineRunCachePayload | null {
+  if (typeof window === "undefined") return null;
+  if (!sessionId || !runId) return null;
+  const storageKey = buildOutlineRunCacheKey(sessionId, runId);
+  try {
+    const raw = window.localStorage.getItem(storageKey);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<OutlineRunCachePayload>;
+    const updatedAtText = normalizeText(parsed.updatedAt);
+    const updatedAt = new Date(updatedAtText).getTime();
+    if (
+      Number.isFinite(updatedAt) &&
+      Date.now() - updatedAt > OUTLINE_RUN_CACHE_MAX_AGE_MS
+    ) {
+      window.localStorage.removeItem(storageKey);
+      return null;
+    }
+    const phaseRaw = normalizeText(parsed.phase) as PanelPhase;
+    const phase: PanelPhase =
+      phaseRaw === "outline_streaming" || phaseRaw === "editing"
+        ? phaseRaw
+        : "preamble_streaming";
+    const outlineStreamText = normalizeText(parsed.outlineStreamText).slice(
+      -120000
+    );
+    const analysisPageCount = Number(parsed.analysisPageCount || 0);
+    return {
+      sessionId,
+      runId,
+      phase,
+      preambleCollapsed: Boolean(parsed.preambleCollapsed),
+      streamLogs: normalizeCachedStreamLogs(parsed.streamLogs),
+      outlineStreamText,
+      slides: normalizeCachedSlides(parsed.slides),
+      analysisPageCount:
+        Number.isFinite(analysisPageCount) && analysisPageCount > 0
+          ? Math.round(analysisPageCount)
+          : 0,
+      updatedAt: updatedAtText || new Date().toISOString(),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function writeOutlineRunCache(
+  sessionId: string,
+  runId: string,
+  payload: Omit<OutlineRunCachePayload, "sessionId" | "runId" | "updatedAt">
+): void {
+  if (typeof window === "undefined") return;
+  try {
+    const storageKey = buildOutlineRunCacheKey(sessionId, runId);
+    const serializable: OutlineRunCachePayload = {
+      sessionId,
+      runId,
+      phase: payload.phase,
+      preambleCollapsed: payload.preambleCollapsed,
+      streamLogs: payload.streamLogs.slice(-240),
+      outlineStreamText: payload.outlineStreamText.slice(-120000),
+      slides: payload.slides.slice(0, 60),
+      analysisPageCount: payload.analysisPageCount,
+      updatedAt: new Date().toISOString(),
+    };
+    window.localStorage.setItem(storageKey, JSON.stringify(serializable));
+  } catch {
+    // Ignore local storage quota/serialization failures.
+  }
 }
 
 function defaultPageTypeForOrder(order: number, total: number): DiegoPageType {
@@ -324,14 +529,6 @@ function resolveEventKey(event: {
   if (event.event_id) return `id:${event.event_id}`;
   if (event.cursor) return `cursor:${event.cursor}`;
   return `fallback:${event.timestamp ?? ""}:${event.event_type ?? ""}`;
-}
-
-function extractCurrentRunIdFromSnapshot(snapshot: unknown): string | null {
-  if (!snapshot || typeof snapshot !== "object") return null;
-  const currentRun = (snapshot as { current_run?: { run_id?: unknown } })
-    .current_run;
-  const runId = currentRun?.run_id;
-  return typeof runId === "string" && runId.trim() ? runId : null;
 }
 
 function resolveSessionFailureMessage(
@@ -638,13 +835,12 @@ export function OutlineEditorPanel({
       ? generationSession.outline.summary
       : "";
   const expectedPages = resolveExpectedPages(generationSession?.options);
-  const currentRunId =
-    activeRunId || generationSession?.current_run?.run_id || null;
+  const currentRunId = activeRunId || null;
 
   const [phase, setPhase] = useState<PanelPhase>("preamble_streaming");
   const [preambleCollapsed, setPreambleCollapsed] = useState(false);
   const [streamLogs, setStreamLogs] = useState<StreamLog[]>([]);
-  const [_outlineStreamText, setOutlineStreamText] = useState("");
+  const [outlineStreamText, setOutlineStreamText] = useState("");
   const [slides, setSlides] = useState<SlideDraft[]>([]);
   const [isConfirming, setIsConfirming] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -654,8 +850,10 @@ export function OutlineEditorPanel({
 
   const processedEventKeysRef = useRef<Set<string>>(new Set());
   const processedDiegoSeqRef = useRef<Set<number>>(new Set());
+  const requirementsResultLoggedRef = useRef(false);
   const lastLoggedStateRef = useRef<string>("");
   const lastRunScopeRef = useRef<string>("");
+  const runScopedSnapshotSyncRef = useRef<string>("");
   const logContainerRef = useRef<HTMLDivElement | null>(null);
   const targetPageCountRef = useRef<number>(0);
 
@@ -665,7 +863,8 @@ export function OutlineEditorPanel({
     !currentRunId || !snapshotRunId || currentRunId === snapshotRunId;
 
   const { events, isConnected, error: streamError } = useGenerationEvents({
-    sessionId: sessionId || null,
+    sessionId: sessionId && currentRunId ? sessionId : null,
+    runId: currentRunId,
   });
 
   useEffect(() => {
@@ -678,12 +877,28 @@ export function OutlineEditorPanel({
     lastRunScopeRef.current = runScopeKey;
     processedEventKeysRef.current.clear();
     processedDiegoSeqRef.current.clear();
+    requirementsResultLoggedRef.current = false;
     lastLoggedStateRef.current = "";
-    setStreamLogs([]);
-    setOutlineStreamText("");
     setErrorMessage(null);
-    setPreambleCollapsed(false);
-    setAnalysisPageCount(0);
+    runScopedSnapshotSyncRef.current = "";
+
+    const cached = readOutlineRunCache(sessionId || null, currentRunId || null);
+    if (cached) {
+      const cachedTargetCount =
+        cached.analysisPageCount || expectedPages || cached.slides.length || 0;
+      setStreamLogs(cached.streamLogs);
+      processedEventKeysRef.current = seedProcessedKeysFromLogs(cached.streamLogs);
+      setOutlineStreamText(cached.outlineStreamText);
+      setAnalysisPageCount(cached.analysisPageCount);
+      setSlides(ensureSlidesCount(cached.slides, cachedTargetCount));
+      setPhase(cached.phase);
+      setPreambleCollapsed(cached.preambleCollapsed);
+    } else {
+      setStreamLogs([]);
+      setOutlineStreamText("");
+      setPreambleCollapsed(false);
+      setAnalysisPageCount(0);
+    }
 
     const canSeedFromSnapshot =
       isSnapshotAlignedToRun &&
@@ -694,15 +909,29 @@ export function OutlineEditorPanel({
     const sessionSlides = canSeedFromSnapshot
       ? parseSessionSlides(generationSession)
       : [];
-    const baselineCount = sessionSlides.length || expectedPages || 0;
-    setSlides(ensureSlidesCount(sessionSlides, baselineCount));
+    const baselineCount =
+      sessionSlides.length ||
+      (cached?.analysisPageCount || 0) ||
+      expectedPages ||
+      cached?.slides.length ||
+      0;
+    if (sessionSlides.length > 0 || !cached) {
+      setSlides(
+        ensureSlidesCount(
+          sessionSlides.length > 0 ? sessionSlides : cached?.slides ?? [],
+          baselineCount
+        )
+      );
+    }
 
     if (canSeedFromSnapshot && sessionState === "AWAITING_OUTLINE_CONFIRM") {
       setPhase("editing");
       setPreambleCollapsed(true);
       return;
     }
-    setPhase("preamble_streaming");
+    if (!cached) {
+      setPhase("preamble_streaming");
+    }
   }, [
     currentRunId,
     expectedPages,
@@ -711,6 +940,36 @@ export function OutlineEditorPanel({
     sessionId,
     sessionState,
   ]);
+
+  useEffect(() => {
+    if (!sessionId || !currentRunId) return;
+    const runKey = `${sessionId}:${currentRunId}`;
+    if (runScopedSnapshotSyncRef.current === runKey) return;
+    if (snapshotRunId && snapshotRunId === currentRunId) {
+      runScopedSnapshotSyncRef.current = runKey;
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const response = await generateApi.getSessionSnapshot(sessionId, {
+          run_id: currentRunId,
+        });
+        const latestSession = response?.data ?? null;
+        if (cancelled || !latestSession) return;
+        useProjectStore.setState({
+          generationSession: latestSession,
+          activeRunId: currentRunId,
+        });
+        runScopedSnapshotSyncRef.current = `${sessionId}:${currentRunId}`;
+      } catch {
+        // Keep current snapshot when run-scoped hydration fails.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [currentRunId, sessionId, snapshotRunId]);
 
   useEffect(() => {
     const sessionSlides = parseSessionSlides(generationSession);
@@ -744,7 +1003,8 @@ export function OutlineEditorPanel({
       if (processedEventKeysRef.current.has(key)) return;
       processedEventKeysRef.current.add(key);
 
-      const payload = (event.payload ?? {}) as {
+      const payloadObject = parseEventPayloadObject(event.payload);
+      const payload = payloadObject as {
         run_id?: string;
         progress_message?: string;
         section_payload?: {
@@ -787,18 +1047,18 @@ export function OutlineEditorPanel({
       const state = normalizeText(event.state);
       if (state && state !== lastLoggedStateRef.current) {
         lastLoggedStateRef.current = state;
+        if (state === "AWAITING_OUTLINE_CONFIRM") {
+          setPhase("editing");
+          setPreambleCollapsed(true);
+        }
         setStreamLogs((prev) => {
-          const next: StreamLog[] = [
-            ...prev,
-            {
-              id: `${key}:state:${state}`,
-              ts: event.timestamp,
-              title: "状态更新",
-              detail: STATE_LABELS[state] || state,
-              tone: state === "FAILED" ? "error" : "info",
-            },
-          ];
-          return next.slice(-240);
+          return appendUniqueStreamLog(prev, {
+            id: `${key}:state:${state}`,
+            ts: event.timestamp,
+            title: "状态更新",
+            detail: STATE_LABELS[state] || state,
+            tone: state === "FAILED" ? "error" : "info",
+          });
         });
       }
 
@@ -845,6 +1105,15 @@ export function OutlineEditorPanel({
         typeof sectionPayload.raw_payload === "object"
           ? sectionPayload.raw_payload
           : (payload as Record<string, unknown>);
+      if (
+        diegoEventType === "requirements.analyzing.completed" ||
+        diegoEventType === "requirements.analyzed"
+      ) {
+        if (requirementsResultLoggedRef.current) {
+          return;
+        }
+        requirementsResultLoggedRef.current = true;
+      }
 
       if (
         diegoEventType === "requirements.analyzing.completed" ||
@@ -859,21 +1128,22 @@ export function OutlineEditorPanel({
         }
       }
 
+      if (diegoEventType === "outline.completed") {
+        setPhase("editing");
+        setPreambleCollapsed(true);
+      }
+
       const normalized = resolveEventLog(diegoEventType, rawPayload);
       if (!normalized.title) return;
 
       setStreamLogs((prev) => {
-        const next: StreamLog[] = [
-          ...prev,
-          {
-            id: key,
-            ts: event.timestamp,
-            title: normalized.title,
-            detail: normalized.detail,
-            tone: normalized.tone,
-          },
-        ];
-        return next.slice(-240);
+        return appendUniqueStreamLog(prev, {
+          id: key,
+          ts: event.timestamp,
+          title: normalized.title,
+          detail: normalized.detail,
+          tone: normalized.tone,
+        });
       });
     },
     [currentRunId, expectedPages]
@@ -886,7 +1156,7 @@ export function OutlineEditorPanel({
   }, [consumeDiegoEvent, events]);
 
   useEffect(() => {
-    if (!streamError || !sessionId) return;
+    if (!streamError || !sessionId || !currentRunId) return;
 
     let cancelled = false;
     setErrorMessage((prev) =>
@@ -895,18 +1165,14 @@ export function OutlineEditorPanel({
 
     void (async () => {
       try {
-        const preferredRunId = currentRunId || undefined;
         const response = await generateApi.getSessionSnapshot(sessionId, {
-          run_id: preferredRunId,
+          run_id: currentRunId,
         });
         const latestSession = response?.data ?? null;
         if (cancelled || !latestSession) return;
-
-        const latestRunId = extractCurrentRunIdFromSnapshot(latestSession);
-        const previousRunId = useProjectStore.getState().activeRunId;
         useProjectStore.setState({
           generationSession: latestSession,
-          activeRunId: latestRunId || previousRunId || null,
+          activeRunId: currentRunId,
         });
 
         const latestState =
@@ -928,7 +1194,7 @@ export function OutlineEditorPanel({
   }, [currentRunId, sessionId, streamError]);
 
   useEffect(() => {
-    if (!sessionId) return;
+    if (!sessionId || !currentRunId) return;
     let cancelled = false;
     void (async () => {
       let cursor: string | null = null;
@@ -937,6 +1203,7 @@ export function OutlineEditorPanel({
         const response = await generateApi.listEvents(sessionId, {
           cursor,
           limit: EVENT_PAGE_LIMIT,
+          run_id: currentRunId,
         });
         const pageEvents = (response?.data?.events ?? []) as SessionEventLike[];
         if (!pageEvents.length) break;
@@ -960,6 +1227,34 @@ export function OutlineEditorPanel({
       cancelled = true;
     };
   }, [consumeDiegoEvent, currentRunId, sessionId]);
+
+  useEffect(() => {
+    if (!sessionId || !currentRunId) return;
+    const hasMeaningfulState =
+      streamLogs.length > 0 ||
+      Boolean(outlineStreamText) ||
+      analysisPageCount > 0 ||
+      slides.some(isSlideContentReady) ||
+      phase === "editing";
+    if (!hasMeaningfulState) return;
+    writeOutlineRunCache(sessionId, currentRunId, {
+      phase,
+      preambleCollapsed,
+      streamLogs,
+      outlineStreamText,
+      slides,
+      analysisPageCount,
+    });
+  }, [
+    analysisPageCount,
+    currentRunId,
+    outlineStreamText,
+    phase,
+    preambleCollapsed,
+    sessionId,
+    slides,
+    streamLogs,
+  ]);
 
   useEffect(() => {
     const node = logContainerRef.current;
@@ -1134,7 +1429,15 @@ export function OutlineEditorPanel({
                   {streamError
                     ? "Diego 事件流连接失败，正在同步任务状态..."
                     : !isConnected
-                      ? "正在连接 Diego 事件流..."
+                      ? [
+                            "AWAITING_OUTLINE_CONFIRM",
+                            "GENERATING_CONTENT",
+                            "RENDERING",
+                            "SUCCESS",
+                            "FAILED",
+                          ].includes(sessionState)
+                        ? "当前 run 暂无可展示过程日志"
+                        : "正在连接 Diego 事件流..."
                       : phase === "editing"
                         ? "当前 run 暂无可展示过程日志"
                         : "正在等待 Diego 返回过程信息..."}
