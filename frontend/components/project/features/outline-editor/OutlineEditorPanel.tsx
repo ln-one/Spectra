@@ -134,31 +134,33 @@ export function OutlineEditorPanel({
               </div>
             ) : null}
 
-            <Reorder.Group
-              axis="y"
-              values={state.slides}
-              onReorder={state.handleReorderSlides}
-              className="space-y-4 pb-20"
-            >
-              {state.slides.map((slide, index) => (
-                <SlideCardEditor
-                  key={slide.id}
-                  slide={slide}
-                  index={index}
-                  isEditable={state.isEditable}
-                  isEditingTitle={state.editingTitleId === slide.id}
-                  isEditingContent={state.editingContentId === slide.id}
-                  onStartEditTitle={() => state.setEditingTitleId(slide.id)}
-                  onStopEditTitle={() => state.setEditingTitleId(null)}
-                  onStartEditContent={() =>
-                    state.setEditingContentId(slide.id)
-                  }
-                  onStopEditContent={() => state.setEditingContentId(null)}
-                  onFieldChange={state.handleSlideFieldChange}
-                  onAttemptEditWhenDisabled={handleAttemptEditWhenDisabled}
-                />
-              ))}
-            </Reorder.Group>
+            <div className="bg-white rounded-2xl border border-zinc-200/60 shadow-sm mb-20 overflow-hidden">
+              <Reorder.Group
+                axis="y"
+                values={state.slides}
+                onReorder={state.handleReorderSlides}
+                className="flex flex-col"
+              >
+                {state.slides.map((slide, index) => (
+                  <SlideCardEditor
+                    key={slide.id}
+                    slide={slide}
+                    index={index}
+                    isEditable={state.isEditable}
+                    isEditingTitle={state.editingTitleId === slide.id}
+                    isEditingContent={state.editingContentId === slide.id}
+                    onStartEditTitle={() => state.setEditingTitleId(slide.id)}
+                    onStopEditTitle={() => state.setEditingTitleId(null)}
+                    onStartEditContent={() =>
+                      state.setEditingContentId(slide.id)
+                    }
+                    onStopEditContent={() => state.setEditingContentId(null)}
+                    onFieldChange={state.handleSlideFieldChange}
+                    onAttemptEditWhenDisabled={handleAttemptEditWhenDisabled}
+                  />
+                ))}
+              </Reorder.Group>
+            </div>
           </div>
         </div>
       )}
