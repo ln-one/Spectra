@@ -286,6 +286,12 @@ export function useOutlineStreamState({
   // Consume Diego events
   const consumeDiegoEvent = useCallback(
     (event: SessionEventLike) => {
+      // When outline is already loaded from snapshot/cache, skip all event
+      // processing. State transitions (e.g. FAILED) are handled by the
+      // session state sync effect; replaying events here would only produce
+      // duplicate "状态更新" logs via SSE reconnection.
+      if (outlineLockedRef.current) return;
+
       const key = resolveEventKey(event as never);
       if (processedEventKeysRef.current.has(key)) return;
       processedEventKeysRef.current.add(key);
