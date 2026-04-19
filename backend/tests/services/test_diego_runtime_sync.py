@@ -81,6 +81,49 @@ class _FakeDiegoClientEventPreviewOnly:
         return b"pptx-bytes"
 
 
+class _FakeDiegoClientImagePreviewOnly:
+    def __init__(self) -> None:
+        self._poll_count = 0
+
+    async def get_run(self, _run_id: str) -> dict:
+        self._poll_count += 1
+        if self._poll_count == 1:
+            return {
+                "status": "SLIDES_GENERATING",
+                "events": [
+                    {
+                        "seq": 1,
+                        "event": "slide.generated",
+                        "payload": {"slide_no": 1, "status": "ok"},
+                    }
+                ],
+            }
+        return {
+            "status": "SUCCEEDED",
+            "events": [
+                {
+                    "seq": 1,
+                    "event": "slide.generated",
+                    "payload": {"slide_no": 1, "status": "ok"},
+                }
+            ],
+        }
+
+    async def get_slide_preview(self, _run_id: str, _slide_no: int) -> dict:
+        return {
+            "slide_no": 1,
+            "page_index": 0,
+            "slide_id": "image-only-slide",
+            "status": "ready",
+            "image_url": "data:image/png;base64,imageonly",
+            "width": 1600,
+            "height": 900,
+        }
+
+    async def download_pptx(self, _run_id: str) -> bytes:
+        return b"pptx-bytes"
+
+
 class _FakeDiegoClientWithMultiRevision:
     def __init__(self) -> None:
         self._poll_count = 0
@@ -234,6 +277,92 @@ async def test_sync_diego_generation_streams_slide_preview(monkeypatch):
     assert preview_event["preview_width"] == 1600
     assert preview_event["preview_height"] == 900
     assert preview_event["is_final"] is True
+
+
+@pytest.mark.anyio
+async def test_sync_diego_generation_accepts_image_only_preview(monkeypatch):
+    fake_client = _FakeDiegoClientImagePreviewOnly()
+
+    session = SimpleNamespace(
+        id="sess-1",
+        projectId="proj-1",
+        userId="user-1",
+        baseVersionId=None,
+        options="{}",
+    )
+    db = SimpleNamespace(
+        generationsession=SimpleNamespace(find_unique=AsyncMock(return_value=session)),
+        outlineversion=SimpleNamespace(find_first=AsyncMock(return_value=None)),
+        project=SimpleNamespace(
+            find_unique=AsyncMock(return_value=SimpleNamespace(name="Demo"))
+        ),
+    )
+    run = SimpleNamespace(
+        id="run-1",
+        runNo=1,
+        title="Demo Run",
+        toolType="courseware_ppt",
+    )
+
+    append_event_mock = AsyncMock()
+    set_session_state_mock = AsyncMock()
+    persist_artifact_mock = AsyncMock(return_value=("artifact-1", "/download/pptx"))
+    save_preview_content_mock = AsyncMock()
+    sync_module_path = "services.generation_session_service.diego_runtime_sync"
+
+    monkeypatch.setattr(
+        f"{sync_module_path}.build_diego_client",
+        lambda: fake_client,
+    )
+    monkeypatch.setattr(
+        f"{sync_module_path}.append_event",
+        append_event_mock,
+    )
+    monkeypatch.setattr(
+        f"{sync_module_path}.set_session_state",
+        set_session_state_mock,
+    )
+    monkeypatch.setattr(
+        f"{sync_module_path}.persist_diego_success_artifact",
+        persist_artifact_mock,
+    )
+    monkeypatch.setattr(
+        f"{sync_module_path}.save_preview_content",
+        save_preview_content_mock,
+    )
+    monkeypatch.setattr(
+        f"{sync_module_path}.load_preview_content",
+        AsyncMock(return_value=None),
+    )
+    monkeypatch.setattr(
+        f"{sync_module_path}.asyncio.sleep",
+        AsyncMock(return_value=None),
+    )
+
+    await sync_diego_generation_until_terminal(
+        db=db,
+        session_id="sess-1",
+        run=run,
+        diego_run_id="diego-1",
+        diego_trace_id="trace-1",
+        poll_interval_seconds=0.01,
+        timeout_seconds=2,
+    )
+
+    preview_payload = save_preview_content_mock.await_args_list[-1].args[1]
+    final_page = preview_payload["rendered_preview"]["pages"][0]
+    assert final_page["slide_id"] == "image-only-slide"
+    assert final_page["image_url"] == "data:image/png;base64,imageonly"
+    assert final_page["html_preview"] is None
+
+    preview_event = next(
+        call.kwargs["payload"]
+        for call in append_event_mock.await_args_list
+        if call.kwargs.get("event_type") == GenerationEventType.PPT_SLIDE_GENERATED.value
+    )
+    assert preview_event["image_url"] == "data:image/png;base64,imageonly"
+    assert preview_event["image_preview_ready"] is True
+    assert preview_event["html_preview_ready"] is False
 
 
 @pytest.mark.anyio

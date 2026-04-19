@@ -106,6 +106,7 @@ async def execute_studio_card_draft_request(
     await validate_source_artifact(
         project_id=body.project_id,
         card_id=card_id,
+        user_id=user_id,
         source_artifact_id=draft_source_artifact_id,
     )
     existing_session = await resolve_bound_session(

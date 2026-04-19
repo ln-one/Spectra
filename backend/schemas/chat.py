@@ -41,6 +41,10 @@ class Message(BaseModel):
         None,
         description="assistant 回复关联的来源引用（RAG 命中时填充）",
     )
+    metadata: Optional[dict[str, Any]] = Field(
+        None,
+        description="消息元数据，用于 preview copilot、refine 或来源绑定场景。",
+    )
 
 
 class SendMessageRequest(BaseModel):

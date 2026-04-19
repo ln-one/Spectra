@@ -47,6 +47,7 @@ async def execute_studio_card_session_request(
     await validate_source_artifact(
         project_id=body.project_id,
         card_id=card_id,
+        user_id=user_id,
         source_artifact_id=source_artifact_id,
     )
     if not body.client_session_id:

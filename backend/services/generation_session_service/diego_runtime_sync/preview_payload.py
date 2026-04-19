@@ -108,7 +108,8 @@ def _build_spectra_preview_page(
     preview: dict[str, object],
 ) -> dict[str, object] | None:
     html_preview = str(preview.get("html_preview") or "")
-    if not html_preview.strip():
+    image_url = str(preview.get("image_url") or "")
+    if not html_preview.strip() and not image_url.strip():
         return None
     try:
         page_index = int(preview.get("page_index") or (slide_no - 1))
@@ -133,8 +134,8 @@ def _build_spectra_preview_page(
     page: dict[str, object] = {
         "index": page_index,
         "slide_id": slide_id,
-        "html_preview": html_preview,
-        "image_url": preview.get("image_url"),
+        "html_preview": html_preview or None,
+        "image_url": image_url or None,
         "status": str(preview.get("status") or "ready"),
         "split_index": split_index,
         "split_count": max(1, split_count),
