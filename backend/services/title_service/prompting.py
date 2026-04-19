@@ -63,11 +63,27 @@ RUN_CONTEXT_PRIORITY_KEYS = (
     "instruction",
 )
 
+META_RESPONSE_MARKERS = (
+    "用户要求",
+    "用户的第一条教学需求",
+    "第一条教学需求",
+    "我需要",
+    "我应该",
+    "生成一个符合",
+    "生成一个简短",
+    "根据用户",
+    "这是一个",
+    "标题：",
+    "输出：",
+)
+
 LEADING_NOISE_RE = re.compile(
     r"^(请|帮我|麻烦|我想|我要|需要|希望|准备|帮忙|做一个|生成一个|创建一个|新建一个)+"
 )
 TRAILING_PUNCT_RE = re.compile(r"[。；;，,：:\-—_~!！?？]+$")
 ASCII_CONFIG_FRAGMENT_RE = re.compile(r"[A-Za-z]{4,}_[A-Za-z0-9_]+")
+QUOTED_TEXT_RE = re.compile(r'[“"]([^"\n\r]{2,40})[”"]')
+TITLE_LABEL_RE = re.compile(r"(?:标题|输出)\s*[：:]\s*([^\n\r]+)")
 
 
 def normalize_text(value: Any) -> str:
@@ -81,8 +97,15 @@ def clean_title_candidate(value: Any, *, max_length: int) -> str:
     title = normalize_text(value)
     if not title:
         return ""
+    labeled_match = TITLE_LABEL_RE.search(title)
+    if labeled_match:
+        title = labeled_match.group(1).strip()
+    first_line = title.splitlines()[0].strip()
+    if first_line:
+        title = first_line
     title = title.replace("\n", " ").replace("\r", " ").strip()
     title = re.sub(r"^['\"“”‘’`#*\-]+", "", title)
+    title = re.split(r"[。！？\n\r]", title, maxsplit=1)[0].strip()
     title = TRAILING_PUNCT_RE.sub("", title)
     title = re.sub(r"\s+", " ", title).strip()
     return title[:max_length].strip()
@@ -105,6 +128,28 @@ def extract_topic_seed(value: Any) -> str:
     if len(candidate) > 14:
         candidate = candidate[:14].strip()
     return candidate
+
+
+def extract_seed_from_model_response(value: Any) -> str:
+    text = normalize_text(value)
+    if not text:
+        return ""
+    labeled_match = TITLE_LABEL_RE.search(text)
+    if labeled_match:
+        return extract_topic_seed(labeled_match.group(1))
+    quoted_matches = QUOTED_TEXT_RE.findall(text)
+    for match in quoted_matches:
+        seed = extract_topic_seed(match)
+        if seed:
+            return seed
+    return ""
+
+
+def is_meta_title_response(value: Any) -> bool:
+    text = normalize_text(value)
+    if not text:
+        return False
+    return any(marker in text for marker in META_RESPONSE_MARKERS)
 
 
 def _collect_run_context_values(
@@ -157,6 +202,23 @@ def extract_run_context(snapshot: Any) -> str:
     return "；".join(values[:3])
 
 
+def build_run_pending_title(
+    *,
+    tool_type: str,
+    snapshot: Any,
+    run_no: int | None,
+) -> str:
+    seed = extract_run_context(snapshot)
+    tool_label = resolve_tool_label(tool_type)
+    if seed:
+        return clean_title_candidate(
+            f"{seed}{tool_label}", max_length=RUN_TITLE_MAX_LENGTH
+        )
+    if run_no is not None:
+        return build_pending_run_title(run_no, tool_type)
+    return clean_title_candidate(tool_label, max_length=RUN_TITLE_MAX_LENGTH)
+
+
 def is_generic_title(title: str) -> bool:
     normalized = clean_title_candidate(title, max_length=32)
     return not normalized or normalized in GENERIC_TITLE_TOKENS
@@ -199,9 +261,7 @@ def build_project_fallback_title(*, description: str, project_id: str | None) ->
 def build_session_fallback_title(*, first_message: str, session_id: str) -> str:
     seed = extract_topic_seed(first_message)
     if seed:
-        return clean_title_candidate(
-            f"{seed}备课会话", max_length=SESSION_TITLE_MAX_LENGTH
-        )
+        return clean_title_candidate(seed, max_length=SESSION_TITLE_MAX_LENGTH)
     return build_default_session_title(session_id)
 
 
@@ -211,15 +271,11 @@ def build_run_fallback_title(
     snapshot: Any,
     run_no: int | None,
 ) -> str:
-    seed = extract_run_context(snapshot)
-    tool_label = resolve_tool_label(tool_type)
-    if seed:
-        return clean_title_candidate(
-            f"{seed}{tool_label}", max_length=RUN_TITLE_MAX_LENGTH
-        )
-    if run_no is not None:
-        return build_pending_run_title(run_no, tool_type)
-    return clean_title_candidate(tool_label, max_length=RUN_TITLE_MAX_LENGTH)
+    return build_run_pending_title(
+        tool_type=tool_type,
+        snapshot=snapshot,
+        run_no=run_no,
+    )
 
 
 def build_project_prompt(description: str) -> str:
@@ -244,6 +300,7 @@ def build_session_prompt(first_message: str) -> str:
         "3. 不超过14个字。\n"
         "4. 不加引号、不加句号、不输出解释。\n"
         "5. 避免“帮我/请/生成/会话/新建会话”等废词。\n"
+        "6. 只输出标题本身，禁止解释你的思考过程，禁止复述用户要求。\n"
         f"用户消息：{first_message.strip()}"
     )
 

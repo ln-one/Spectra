@@ -34,10 +34,14 @@ from .prompting import (
     build_project_fallback_title,
     build_project_prompt,
     build_run_fallback_title,
+    build_run_pending_title,
     build_run_prompt,
     build_session_fallback_title,
     build_session_prompt,
     clean_title_candidate,
+    extract_seed_from_model_response,
+    extract_run_context,
+    is_meta_title_response,
     is_bad_run_title,
     is_generic_title,
 )
@@ -142,6 +146,13 @@ async def generate_project_title(*, db, project_id: str, description: str) -> di
             build_project_prompt(description),
             max_length=PROJECT_TITLE_MAX_LENGTH,
         )
+        if is_meta_title_response(title):
+            extracted_seed = extract_seed_from_model_response(title)
+            if extracted_seed:
+                title = clean_title_candidate(
+                    f"{extracted_seed}教学库",
+                    max_length=PROJECT_TITLE_MAX_LENGTH,
+                )
         if is_generic_title(title):
             title = fallback_title
             next_source = PROJECT_TITLE_SOURCE_FALLBACK
@@ -223,6 +234,13 @@ async def generate_session_title(
             build_session_prompt(first_message),
             max_length=SESSION_TITLE_MAX_LENGTH,
         )
+        if is_meta_title_response(title):
+            extracted_seed = extract_seed_from_model_response(title)
+            if extracted_seed:
+                title = clean_title_candidate(
+                    extracted_seed,
+                    max_length=SESSION_TITLE_MAX_LENGTH,
+                )
         if is_generic_title(title):
             title = fallback_title
             next_source = SESSION_TITLE_SOURCE_FALLBACK
@@ -268,6 +286,28 @@ async def request_run_title_generation(
     )
     if not claimed:
         return False
+    try:
+        run = await db.sessionrun.find_unique(where={"id": run_id})
+    except Exception as exc:
+        logger.warning("Run title prefill lookup failed: %s", exc)
+        run = None
+    if run and getattr(run, "titleSource", RUN_TITLE_SOURCE_PENDING) == RUN_TITLE_SOURCE_PENDING:
+        pending_title = build_run_pending_title(
+            tool_type=tool_type,
+            snapshot=snapshot,
+            run_no=getattr(run, "runNo", None),
+        )
+        current_title = clean_title_candidate(
+            getattr(run, "title", None),
+            max_length=RUN_TITLE_MAX_LENGTH,
+        )
+        if pending_title and pending_title != current_title:
+            await update_session_run(
+                db=db,
+                run_id=run_id,
+                title=pending_title,
+                title_source=RUN_TITLE_SOURCE_PENDING,
+            )
     spawn_once(
         f"run-title:{run_id}",
         lambda: generate_run_title(
@@ -307,13 +347,29 @@ async def generate_run_title(
         snapshot=snapshot,
         run_no=getattr(run, "runNo", None),
     )
+    run_context = extract_run_context(snapshot)
     next_source = RUN_TITLE_SOURCE_AUTO
     try:
         title = await generate_title(
             build_run_prompt(tool_type, snapshot),
             max_length=RUN_TITLE_MAX_LENGTH,
         )
-        if is_generic_title(title) or is_bad_run_title(title):
+        if is_meta_title_response(title):
+            extracted_seed = extract_seed_from_model_response(title)
+            if extracted_seed:
+                title = clean_title_candidate(
+                    f"{extracted_seed}{resolve_tool_label(tool_type)}",
+                    max_length=RUN_TITLE_MAX_LENGTH,
+                )
+        if (
+            is_generic_title(title)
+            or is_bad_run_title(title)
+            or (
+                clean_title_candidate(title, max_length=RUN_TITLE_MAX_LENGTH)
+                == clean_title_candidate(resolve_tool_label(tool_type), max_length=RUN_TITLE_MAX_LENGTH)
+                and run_context
+            )
+        ):
             title = fallback_title
             next_source = RUN_TITLE_SOURCE_FALLBACK
     except Exception as exc:
