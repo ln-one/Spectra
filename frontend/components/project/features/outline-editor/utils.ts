@@ -562,6 +562,15 @@ export function resolveEventLog(
   if (eventType === "plan.completed") {
     return { title: "结构规划完成", tone: "success" };
   }
+  if (eventType === "rag.retrieval.started") {
+    return { title: "开始检索相关资料", tone: "info" };
+  }
+  if (eventType === "rag.retrieval.completed") {
+    return { title: "资料检索完成", tone: "success" };
+  }
+  if (eventType === "rag.retrieval.failed") {
+    return { title: "资料检索失败", detail: "将尝试不依赖资料继续生成", tone: "warn" };
+  }
   return {
     title: clipText(payload.progress_message, 96) || eventType,
     tone: "info",

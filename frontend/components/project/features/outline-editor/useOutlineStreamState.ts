@@ -355,16 +355,16 @@ export function useOutlineStreamState({
             setErrorMessage(failureFromPayload);
           }
           void hydrateRunScopedSnapshot();
-        }
-        setStreamLogs((prev) => {
-          return appendUniqueStreamLog(prev, {
-            id: `${key}:state:${state}`,
-            ts: event.timestamp,
-            title: "状态更新",
-            detail: STATE_LABELS[state] || state,
-            tone: state === "FAILED" ? "error" : "info",
+          setStreamLogs((prev) => {
+            return appendUniqueStreamLog(prev, {
+              id: `${key}:state:${state}`,
+              ts: event.timestamp,
+              title: "状态异常",
+              detail: STATE_LABELS[state] || state,
+              tone: "error",
+            });
           });
-        });
+        }
       }
 
       // When outline is already loaded from snapshot/cache, skip non-state
@@ -679,7 +679,7 @@ export function useOutlineStreamState({
     return "大纲已完成，可编辑并确认开始生成";
   }, [phase]);
 
-  const logTitle = preambleCollapsed ? "前置过程（已折叠）" : "前置过程";
+  const logTitle = "需求与受众分析";
 
   return {
     phase,

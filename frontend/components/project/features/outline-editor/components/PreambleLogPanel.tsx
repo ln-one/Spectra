@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown, ChevronUp, Loader2 } from "lucide-react";
+import { ChevronDown, ChevronUp, Loader2, CheckCircle2 } from "lucide-react";
 import type { PanelPhase, StreamLog } from "../types";
 import { parseDetailSections, toneClassName } from "../utils";
 import { TokenRevealText } from "./TokenRevealText";
@@ -53,7 +53,11 @@ export function PreambleLogPanel({
       <div className="flex items-center justify-between px-6 py-3 border-b border-zinc-100/50">
         <span className="text-sm font-medium text-zinc-800 flex items-center gap-2">
           需求与受众分析
-          <Loader2 className="h-3.5 w-3.5 animate-spin text-zinc-400" />
+          {phase === "editing" ? (
+            <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+          ) : (
+            <Loader2 className="h-3.5 w-3.5 animate-spin text-zinc-400" />
+          )}
         </span>
         <button
           type="button"
@@ -90,12 +94,8 @@ export function PreambleLogPanel({
         ) : (
           streamLogs.map((item, index) => {
             const detailText = item.detail || "";
-            const detailSections =
-              item.title === "需求分析结果"
-                ? parseDetailSections(detailText)
-                : [];
-            const isRequirementsCard =
-              item.title === "需求分析结果" && detailSections.length > 0;
+            const detailSections = parseDetailSections(detailText);
+            const isRequirementsCard = detailSections.length > 0;
             const isLatest = index === streamLogs.length - 1;
             const shouldAnimateLog =
               isLatest &&
@@ -107,8 +107,9 @@ export function PreambleLogPanel({
               <div key={item.id} className="animate-in fade-in slide-in-from-bottom-2 duration-500">
                 {!isRequirementsCard && (
                   <div className="mb-2 flex items-center gap-2">
+                    <span className={`w-1.5 h-1.5 rounded-full bg-current ${toneClassName(item.tone)}`} />
                     <span
-                      className={`text-sm font-medium ${toneClassName(item.tone)}`}
+                      className={`text-[15px] font-medium ${toneClassName(item.tone)}`}
                     >
                       {item.title}
                     </span>
@@ -153,6 +154,12 @@ export function PreambleLogPanel({
               </div>
             );
           })
+        )}
+        {streamLogs.length > 0 && phase !== "editing" && (
+          <div className="flex items-center gap-3 text-sm text-zinc-400 py-2 animate-pulse mt-4">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            <span>AI 思考中...</span>
+          </div>
         )}
       </div>
     </div>
