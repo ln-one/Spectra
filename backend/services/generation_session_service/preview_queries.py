@@ -19,6 +19,11 @@ from services.generation_session_service.session_history import (
     get_latest_session_run,
     serialize_session_run,
 )
+from services.generation_session_service.run_constants import (
+    RUN_STATUS_COMPLETED,
+    RUN_STEP_COMPLETED,
+)
+from services.generation_session_service.run_lifecycle import update_session_run
 from services.platform.generation_event_constants import GenerationEventType
 from services.platform.state_transition_guard import GenerationState
 from services.preview_helpers import build_artifact_anchor
@@ -30,6 +35,9 @@ _DIEGO_FAILED_STATUS = "FAILED"
 _DIEGO_ACTIVE_SESSION_STATES = {
     GenerationState.GENERATING_CONTENT.value,
     GenerationState.RENDERING.value,
+}
+_DIEGO_SUCCESS_RECONCILE_STATES = _DIEGO_ACTIVE_SESSION_STATES | {
+    GenerationState.FAILED.value,
 }
 
 
@@ -99,6 +107,13 @@ async def _reconcile_diego_failed_session(
     status = str(detail.get("status") or "").strip().upper()
     if status != _DIEGO_FAILED_STATUS:
         return session
+    if _diego_run_has_pptx_hint(detail):
+        try:
+            await client.download_pptx(diego_run_id)
+        except Exception:
+            pass
+        else:
+            return session
 
     error_details = detail.get("error_details")
     error_message = "Diego run failed"
@@ -167,7 +182,7 @@ async def _reconcile_diego_success_session(
     session,
     options: Optional[dict],
 ) -> object:
-    if getattr(session, "state", None) not in _DIEGO_ACTIVE_SESSION_STATES:
+    if getattr(session, "state", None) not in _DIEGO_SUCCESS_RECONCILE_STATES:
         return session
 
     if str(getattr(session, "pptUrl", "") or "").strip():
@@ -219,6 +234,13 @@ async def _reconcile_diego_success_session(
         diego_trace_id=str(binding.get("diego_trace_id") or "").strip() or None,
         options=options or {},
         pptx_bytes=pptx_bytes,
+    )
+    await update_session_run(
+        db=db,
+        run_id=run_id,
+        status=RUN_STATUS_COMPLETED,
+        step=RUN_STEP_COMPLETED,
+        artifact_id=artifact_id,
     )
     payload = {
         "stage": "diego_completed",
@@ -308,12 +330,12 @@ async def get_session_preview_snapshot(
         },
     )
     options = _parse_json_object(getattr(session, "options", None))
-    session = await _reconcile_diego_failed_session(
+    session = await _reconcile_diego_success_session(
         db=db,
         session=session,
         options=options,
     )
-    session = await _reconcile_diego_success_session(
+    session = await _reconcile_diego_failed_session(
         db=db,
         session=session,
         options=options,

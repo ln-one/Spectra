@@ -60,10 +60,12 @@ async def _try_download_ready_pptx(
     diego_run_id: str,
     detail: dict[str, object],
 ) -> bytes | None:
-    should_probe = _has_diego_pptx_hint(detail) or str(detail.get("status") or "").strip().upper() in {
+    status = str(detail.get("status") or "").strip().upper()
+    error_code = str(detail.get("error_code") or "").strip().upper()
+    should_probe = _has_diego_pptx_hint(detail) or status in {
         _DIEGO_STATUS_COMPILING,
         _DIEGO_STATUS_SUCCEEDED,
-    }
+    } or (status == _DIEGO_STATUS_FAILED and error_code == "FINALIZE_TIMEOUT")
     if not should_probe:
         return None
     try:
@@ -77,6 +79,72 @@ async def _try_download_ready_pptx(
         if status_code in {404, 409}:
             return None
         raise
+
+
+async def _persist_success_and_finalize(
+    *,
+    db,
+    session_id: str,
+    run,
+    diego_run_id: str,
+    diego_trace_id: Optional[str],
+    pptx_bytes: bytes,
+) -> None:
+    session = await db.generationsession.find_unique(
+        where={"id": session_id}
+    )
+    if not session:
+        return
+    options = parse_options(getattr(session, "options", None))
+    artifact_id, output_url = await active(
+        "persist_diego_success_artifact"
+    )(
+        db=db,
+        session=session,
+        run=run,
+        diego_run_id=diego_run_id,
+        diego_trace_id=diego_trace_id,
+        options=options,
+        pptx_bytes=pptx_bytes,
+    )
+    payload = {
+        "stage": "diego_completed",
+        "run_id": run.id,
+        "run_no": run.runNo,
+        "run_title": run.title,
+        "tool_type": run.toolType,
+        "run_status": "completed",
+        "run_step": "completed",
+        "diego_run_id": diego_run_id,
+        "diego_trace_id": diego_trace_id,
+        "artifact_id": artifact_id,
+        "output_urls": {"pptx": output_url},
+    }
+    await update_session_run(
+        db=db,
+        run_id=run.id,
+        status=RUN_STATUS_COMPLETED,
+        step=RUN_STEP_COMPLETED,
+        artifact_id=artifact_id,
+    )
+    await active("append_event")(
+        db=db,
+        schema_version=_SCHEMA_VERSION,
+        session_id=session_id,
+        event_type=GenerationEventType.GENERATION_COMPLETED.value,
+        state=GenerationState.SUCCESS.value,
+        progress=100,
+        payload=payload,
+    )
+    await active("set_session_state")(
+        db=db,
+        session_id=session_id,
+        state=GenerationState.SUCCESS.value,
+        state_reason=TaskFailureStateReason.COMPLETED.value,
+        progress=100,
+        payload=payload,
+        ppt_url=output_url,
+    )
 
 
 async def sync_diego_generation_until_terminal(
@@ -215,64 +283,34 @@ async def sync_diego_generation_until_terminal(
                         and attempt + 1 < _FINAL_PREVIEW_REFRESH_ATTEMPTS
                     ):
                         await asyncio.sleep(min(max(poll_interval_seconds, 0.2), 1.0))
-                session = await db.generationsession.find_unique(
-                    where={"id": session_id}
-                )
-                if not session:
-                    return
-                options = parse_options(getattr(session, "options", None))
-                artifact_id, output_url = await active(
-                    "persist_diego_success_artifact"
-                )(
+                await _persist_success_and_finalize(
                     db=db,
-                    session=session,
+                    session_id=session_id,
                     run=run,
                     diego_run_id=diego_run_id,
                     diego_trace_id=diego_trace_id,
-                    options=options,
                     pptx_bytes=pptx_bytes,
-                )
-                payload = {
-                    "stage": "diego_completed",
-                    "run_id": run.id,
-                    "run_no": run.runNo,
-                    "run_title": run.title,
-                    "tool_type": run.toolType,
-                    "run_status": "completed",
-                    "run_step": "completed",
-                    "diego_run_id": diego_run_id,
-                    "diego_trace_id": diego_trace_id,
-                    "artifact_id": artifact_id,
-                    "output_urls": {"pptx": output_url},
-                }
-                await update_session_run(
-                    db=db,
-                    run_id=run.id,
-                    status=RUN_STATUS_COMPLETED,
-                    step=RUN_STEP_COMPLETED,
-                    artifact_id=artifact_id,
-                )
-                await active("append_event")(
-                    db=db,
-                    schema_version=_SCHEMA_VERSION,
-                    session_id=session_id,
-                    event_type=GenerationEventType.GENERATION_COMPLETED.value,
-                    state=GenerationState.SUCCESS.value,
-                    progress=100,
-                    payload=payload,
-                )
-                await active("set_session_state")(
-                    db=db,
-                    session_id=session_id,
-                    state=GenerationState.SUCCESS.value,
-                    state_reason=TaskFailureStateReason.COMPLETED.value,
-                    progress=100,
-                    payload=payload,
-                    ppt_url=output_url,
                 )
                 return
 
             if status == _DIEGO_STATUS_FAILED:
+                error_code = str(detail.get("error_code") or "").strip().upper()
+                if error_code == "FINALIZE_TIMEOUT":
+                    fallback_pptx = await _try_download_ready_pptx(
+                        client=client,
+                        diego_run_id=diego_run_id,
+                        detail=detail,
+                    )
+                    if fallback_pptx is not None:
+                        await _persist_success_and_finalize(
+                            db=db,
+                            session_id=session_id,
+                            run=run,
+                            diego_run_id=diego_run_id,
+                            diego_trace_id=diego_trace_id,
+                            pptx_bytes=fallback_pptx,
+                        )
+                        return
                 await active("mark_diego_failed")(
                     db=db,
                     session_id=session_id,
