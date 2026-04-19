@@ -244,9 +244,7 @@ export function ReferencesTab({
         currentLibraryReferenceableDraft !==
           currentLibrarySettings.isReferenceable));
 
-  const hasInvalidCurrentLibrarySettings =
-    currentLibraryVisibilityDraft === "private" &&
-    currentLibraryReferenceableDraft;
+  const hasInvalidCurrentLibrarySettings = false;
 
   const editingReference = useMemo(
     () => references.find((item) => item.id === editingReferenceId) ?? null,
@@ -559,7 +557,7 @@ export function ReferencesTab({
                   {hasInvalidCurrentLibrarySettings ? (
                     <p className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-2 py-1 text-xs text-rose-700">
                       <CircleOff className="h-3 w-3" />
-                      私有库不能设置为可引用，请先切换为共享。
+                      当前版本允许私有资料库被项目接入引用。
                     </p>
                   ) : null}
                 </div>

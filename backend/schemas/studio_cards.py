@@ -204,7 +204,9 @@ class StudioCardExecutionPreviewRequest(BaseModel):
     template_config: Optional[dict] = None
     visibility: Optional[str] = None
     source_artifact_id: Optional[str] = None
+    selected_file_ids: Optional[List[str]] = None
     rag_source_ids: Optional[List[str]] = None
+    selected_library_ids: Optional[List[str]] = None
     client_session_id: Optional[str] = None
     run_id: Optional[str] = None
 
@@ -278,7 +280,9 @@ class StudioCardRefineRequest(BaseModel):
     config: dict = Field(default_factory=dict)
     visibility: Optional[str] = None
     source_artifact_id: Optional[str] = None
+    selected_file_ids: Optional[List[str]] = None
     rag_source_ids: Optional[List[str]] = None
+    selected_library_ids: Optional[List[str]] = None
 
 
 class StudioCardTurnRequest(BaseModel):
@@ -286,7 +290,9 @@ class StudioCardTurnRequest(BaseModel):
     artifact_id: str
     teacher_answer: str
     config: dict = Field(default_factory=dict)
+    selected_file_ids: Optional[List[str]] = None
     rag_source_ids: Optional[List[str]] = None
+    selected_library_ids: Optional[List[str]] = None
     turn_anchor: Optional[str] = None
 
 

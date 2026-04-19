@@ -167,11 +167,13 @@ async def test_search_includes_base_reference_after_local_content(monkeypatch):
             return_value=[
                 {
                     "source_project_id": "p-base",
-                    "source_scope": "reference_base",
+                    "source_scope": "attached_library",
                     "relation_type": "base",
                     "reference_mode": "follow",
                     "reference_priority": 0,
                     "pinned_version_id": None,
+                    "source_library_id": "p-base",
+                    "source_library_name": "Base Library",
                 }
             ]
         ),
@@ -181,7 +183,8 @@ async def test_search_includes_base_reference_after_local_content(monkeypatch):
 
     assert [item.chunk_id for item in results] == ["chunk-project", "chunk-base"]
     assert results[1].metadata["source_project_id"] == "p-base"
-    assert results[1].metadata["source_scope"] == "reference_base"
+    assert results[1].metadata["source_scope"] == "attached_library"
+    assert results[1].metadata["source_library_name"] == "Base Library"
 
 
 @pytest.mark.asyncio
@@ -195,11 +198,13 @@ async def test_search_skips_missing_reference_indexes(monkeypatch):
             return_value=[
                 {
                     "source_project_id": "p-missing",
-                    "source_scope": "reference_auxiliary",
+                    "source_scope": "attached_library",
                     "relation_type": "auxiliary",
                     "reference_mode": "follow",
                     "reference_priority": 1,
                     "pinned_version_id": None,
+                    "source_library_id": "p-missing",
+                    "source_library_name": "Missing Library",
                 }
             ]
         ),
@@ -207,3 +212,113 @@ async def test_search_skips_missing_reference_indexes(monkeypatch):
 
     results = await search(service, project_id="p-001", query="生成课件", top_k=5)
     assert [item.chunk_id for item in results] == ["chunk-project"]
+
+
+@pytest.mark.asyncio
+async def test_search_only_federates_selected_libraries(monkeypatch):
+    client = _StubClient()
+    service = SimpleNamespace(_client=client)
+    list_targets = AsyncMock(
+        return_value=[
+            {
+                "source_project_id": "p-base",
+                "source_scope": "attached_library",
+                "relation_type": "auxiliary",
+                "reference_mode": "follow",
+                "reference_priority": 1,
+                "pinned_version_id": None,
+                "source_library_id": "p-base",
+                "source_library_name": "Selected Library",
+            }
+        ]
+    )
+    monkeypatch.setattr(
+        "services.rag_service.retrieval.list_active_reference_targets",
+        list_targets,
+    )
+
+    await search(
+        service,
+        project_id="p-001",
+        query="生成课件",
+        top_k=5,
+        selected_library_ids=["p-base"],
+    )
+
+    list_targets.assert_awaited_once_with(
+        "p-001", selected_library_ids=["p-base"]
+    )
+    assert [call["project_id"] for call in client.calls] == ["p-001", "p-base"]
+
+
+@pytest.mark.asyncio
+async def test_search_can_skip_local_project_but_keep_session_overlay(monkeypatch):
+    client = _StubClient()
+    service = SimpleNamespace(_client=client)
+    monkeypatch.setattr(
+        "services.rag_service.retrieval.list_active_reference_targets",
+        AsyncMock(return_value=[]),
+    )
+
+    results = await search(
+        service,
+        project_id="p-001",
+        query="生成课件",
+        top_k=5,
+        session_id="s-001",
+        search_local_project=False,
+    )
+
+    assert [item.chunk_id for item in results] == ["chunk-session"]
+    assert [call["session_id"] for call in client.calls] == ["s-001"]
+
+
+@pytest.mark.asyncio
+async def test_search_marks_artifact_sources_as_project_deposit(monkeypatch):
+    class _ArtifactClient(_StubClient):
+        async def search_text(self, **kwargs):
+            return {
+                "results": [
+                    {
+                        "chunk_id": "chunk-artifact",
+                        "content": "artifact source content",
+                        "score": 0.88,
+                        "filename": "old.docx",
+                        "source_type": "ai_generated",
+                        "metadata": {
+                            "upload_id": "u-src-001",
+                            "artifact_id": "a-001",
+                        },
+                    }
+                ]
+            }
+
+    service = SimpleNamespace(_client=_ArtifactClient())
+    monkeypatch.setattr(
+        "services.rag_service.retrieval.list_active_reference_targets",
+        AsyncMock(return_value=[]),
+    )
+    monkeypatch.setattr(
+        "services.rag_service.retrieval.db_service.db",
+        SimpleNamespace(
+            upload=SimpleNamespace(
+                find_many=AsyncMock(
+                    return_value=[
+                        SimpleNamespace(
+                            id="u-src-001",
+                            usageIntent="__artifact_source__",
+                            parseResult='{"artifact_id":"a-001","artifact_title":"教学文档","tool_type":"word","session_id":"s-001"}',
+                            filename="artifact-source.docx",
+                        )
+                    ]
+                )
+            )
+        ),
+    )
+
+    results = await search(service, project_id="p-001", query="教学文档", top_k=5)
+
+    assert results[0].metadata["source_scope"] == "project_deposit"
+    assert results[0].metadata["source_artifact_id"] == "a-001"
+    assert results[0].metadata["source_artifact_tool_type"] == "word"
+    assert results[0].source.filename == "教学文档"

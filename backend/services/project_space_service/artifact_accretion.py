@@ -1,11 +1,14 @@
-"""Silent accretion helpers for project-space artifacts."""
+"""Artifact accretion helpers for project-space artifacts."""
 
 from pathlib import Path
 from typing import Any, Dict, Optional
 
 from services.chunking import split_text
 from services.file_upload_service.constants import UploadStatus
-from services.library_semantics import SILENT_ACCRETION_USAGE_INTENT
+from services.library_semantics import (
+    ARTIFACT_SOURCE_USAGE_INTENT,
+    SILENT_ACCRETION_USAGE_INTENT,
+)
 from services.rag_service import ParsedChunkData, rag_service
 
 from .artifact_content import (
@@ -30,7 +33,8 @@ async def silently_accrete_artifact(
     normalized_content: Dict[str, Any],
     path_cls=Path,
     rag_indexer=rag_service,
-) -> None:
+    usage_intent: str = SILENT_ACCRETION_USAGE_INTENT,
+):
     if not all(
         hasattr(db, attr)
         for attr in (
@@ -66,7 +70,7 @@ async def silently_accrete_artifact(
         file_type=artifact_type,
         mime_type="text/plain",
     )
-    await db.update_file_intent(upload.id, SILENT_ACCRETION_USAGE_INTENT)
+    await db.update_file_intent(upload.id, usage_intent)
 
     metadata = {
         "filename": filename,
@@ -76,7 +80,18 @@ async def silently_accrete_artifact(
         "artifact_type": artifact_type,
         "artifact_visibility": visibility,
         "based_on_version_id": based_on_version_id,
-        "accretion": "silent",
+        "artifact_title": str(normalized_content.get("title") or "").strip() or None,
+        "source_scope": (
+            "project_deposit"
+            if usage_intent == ARTIFACT_SOURCE_USAGE_INTENT
+            else "silent_accretion"
+        ),
+        "usage_intent": usage_intent,
+        "accretion": (
+            "project_source"
+            if usage_intent == ARTIFACT_SOURCE_USAGE_INTENT
+            else "silent"
+        ),
     }
     if visibility == "private" and session_id:
         metadata["session_id"] = session_id
@@ -122,7 +137,12 @@ async def silently_accrete_artifact(
             "artifact_type": artifact_type,
             "artifact_visibility": visibility,
             "based_on_version_id": based_on_version_id,
-            "silent_accretion": True,
+            "artifact_title": str(normalized_content.get("title") or "").strip()
+            or None,
+            "usage_intent": usage_intent,
+            "silent_accretion": usage_intent == SILENT_ACCRETION_USAGE_INTENT,
+            "artifact_source": usage_intent == ARTIFACT_SOURCE_USAGE_INTENT,
         },
         error_message=None,
     )
+    return upload

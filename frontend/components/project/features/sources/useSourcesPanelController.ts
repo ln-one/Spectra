@@ -30,18 +30,28 @@ export function useSourcesPanelController({
   const {
     files,
     selectedFileIds,
+    selectedLibraryIds,
+    selectedArtifactSourceIds,
     uploadFile,
     deleteFile,
     toggleFileSelection,
+    toggleLibrarySelection,
+    toggleArtifactSourceSelection,
+    setSelectedArtifactSourceIds,
     activeSourceDetail,
     clearActiveSource,
   } = useProjectStore(
     useShallow((state) => ({
       files: state.files,
       selectedFileIds: state.selectedFileIds,
+      selectedLibraryIds: state.selectedLibraryIds,
+      selectedArtifactSourceIds: state.selectedArtifactSourceIds,
       uploadFile: state.uploadFile,
       deleteFile: state.deleteFile,
       toggleFileSelection: state.toggleFileSelection,
+      toggleLibrarySelection: state.toggleLibrarySelection,
+      toggleArtifactSourceSelection: state.toggleArtifactSourceSelection,
+      setSelectedArtifactSourceIds: state.setSelectedArtifactSourceIds,
       activeSourceDetail: state.activeSourceDetail,
       clearActiveSource: state.clearActiveSource,
     }))
@@ -120,6 +130,8 @@ export function useSourcesPanelController({
     files.length,
     isStudioExpanded,
     selectedFileIds.length,
+    selectedLibraryIds.length,
+    selectedArtifactSourceIds.length,
     uploadingTasksCount,
   ]);
 
@@ -173,7 +185,7 @@ export function useSourcesPanelController({
         const notificationId = addNotification({
           type: "upload",
           title: file.name,
-          description: "上传中",
+          description: "处理中",
           duration: 0,
           progress: 5,
           status: "uploading",
@@ -186,7 +198,7 @@ export function useSourcesPanelController({
             updateNotification(notificationId, {
               progress: displayProgress,
               status: "uploading",
-              description: "上传中",
+              description: "处理中",
               duration: 0,
             });
           },
@@ -206,7 +218,7 @@ export function useSourcesPanelController({
               replaceNotification(notificationId, {
                 type: "success",
                 title: file.name,
-                description: "上传成功",
+                description: "已导入",
                 duration: 3000,
                 progress: 100,
                 status: "success",
@@ -267,7 +279,12 @@ export function useSourcesPanelController({
   return {
     files,
     selectedFileIds,
+    selectedLibraryIds,
+    selectedArtifactSourceIds,
     toggleFileSelection,
+    toggleLibrarySelection,
+    toggleArtifactSourceSelection,
+    setSelectedArtifactSourceIds,
     focusedFileId,
     focusPayload,
     fileInputRef,

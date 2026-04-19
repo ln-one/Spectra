@@ -143,7 +143,9 @@ export interface StudioCardExecutionPreviewRequest {
   template_config?: Record<string, unknown>;
   visibility?: "private" | "project-visible" | "shared";
   source_artifact_id?: string;
+  selected_file_ids?: string[];
   rag_source_ids?: string[];
+  selected_library_ids?: string[];
   client_session_id?: string;
   run_id?: string;
 }
@@ -158,7 +160,9 @@ export interface StudioCardRefineRequest {
   config?: Record<string, unknown>;
   visibility?: "private" | "project-visible" | "shared";
   source_artifact_id?: string;
+  selected_file_ids?: string[];
   rag_source_ids?: string[];
+  selected_library_ids?: string[];
 }
 
 export interface StudioCardSourceArtifact {
@@ -187,7 +191,9 @@ export interface StudioCardTurnRequest {
   artifact_id: string;
   teacher_answer: string;
   config?: Record<string, unknown>;
+  selected_file_ids?: string[];
   rag_source_ids?: string[];
+  selected_library_ids?: string[];
   turn_anchor?: string;
 }
 

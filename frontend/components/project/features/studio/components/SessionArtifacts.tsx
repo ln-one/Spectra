@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Archive,
@@ -12,6 +12,7 @@ import {
   Loader2,
   XCircle,
   RotateCw,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -38,10 +39,29 @@ const TOOL_ACCENT_COLORS: Record<GenerationToolType, string> = {
   handout: "#eab308",
 };
 
+const TEMPLATE_TOOL_TYPES = new Set<GenerationToolType>([
+  "ppt",
+  "word",
+  "mindmap",
+  "quiz",
+  "summary",
+  "handout",
+]);
+const DEPOSITABLE_TOOL_TYPES = new Set<GenerationToolType>([
+  "ppt",
+  "word",
+  "mindmap",
+]);
+
 function getToolAccentColor(toolKey: string): string {
   return (
     TOOL_ACCENT_COLORS[toolKey as GenerationToolType] ?? "var(--project-accent)"
   );
+}
+
+function isRecentWorkCandidate(item: StudioHistoryItem): boolean {
+  if (!TEMPLATE_TOOL_TYPES.has(item.toolType)) return false;
+  return item.status === "completed" || item.status === "previewing";
 }
 
 type HistoryDisplayState =
@@ -156,12 +176,46 @@ export function SessionArtifacts({
   const [expandedTools, setExpandedTools] = useState<Record<string, boolean>>(
     {}
   );
-
   const handleOpen = (item: StudioHistoryItem) => {
     void Promise.resolve(onOpenHistoryItem(item)).catch(() => {
       // Keep history interactions responsive even if navigation request fails.
     });
   };
+  const [joinedArtifactIds, setJoinedArtifactIds] = useState<Record<string, true>>(
+    {}
+  );
+  const [pendingJoinArtifactIds, setPendingJoinArtifactIds] = useState<
+    Record<string, true>
+  >({});
+  const recentWork = groupedHistory
+    .flatMap(([, items]) => items)
+    .filter((item) => isRecentWorkCandidate(item))
+    .slice(0, 5);
+
+  useEffect(() => {
+    const handleAdded = (event: Event) => {
+      const artifactId = String(
+        (event as CustomEvent<{ artifactId?: string }>).detail?.artifactId || ""
+      ).trim();
+      if (!artifactId) return;
+      setPendingJoinArtifactIds((prev) => {
+        const next = { ...prev };
+        delete next[artifactId];
+        return next;
+      });
+      setJoinedArtifactIds((prev) => ({ ...prev, [artifactId]: true }));
+    };
+    window.addEventListener(
+      "spectra:artifact-source-added",
+      handleAdded as EventListener
+    );
+    return () => {
+      window.removeEventListener(
+        "spectra:artifact-source-added",
+        handleAdded as EventListener
+      );
+    };
+  }, []);
 
   const handleRefresh = async () => {
     if (isRefreshing) return;
@@ -172,6 +226,38 @@ export function SessionArtifacts({
       // 保证至少旋转 600ms，避免刷新动效过快闪烁
       setTimeout(() => setIsRefreshing(false), 600);
     }
+  };
+
+  const handleJoinAsSource = (item: StudioHistoryItem) => {
+    const artifactId = item.artifactId;
+    if (!artifactId || pendingJoinArtifactIds[artifactId] || joinedArtifactIds[artifactId]) {
+      return;
+    }
+    setPendingJoinArtifactIds((prev) => ({ ...prev, [artifactId]: true }));
+    const surfaceKind =
+      item.toolType === "ppt"
+        ? "slides"
+        : item.toolType === "word"
+          ? "document"
+          : item.toolType === "mindmap"
+            ? "graph"
+            : undefined;
+    window.dispatchEvent(
+      new CustomEvent("spectra:add-artifact-source", {
+        detail: {
+          artifactId,
+          surfaceKind,
+        },
+      })
+    );
+    window.setTimeout(() => {
+      setPendingJoinArtifactIds((prev) => {
+        if (!prev[artifactId]) return prev;
+        const next = { ...prev };
+        delete next[artifactId];
+        return next;
+      });
+    }, 4000);
   };
 
   return (
@@ -202,7 +288,86 @@ export function SessionArtifacts({
           />
         </Button>
       </div>
-      <div className="space-y-2">
+      <div className="space-y-3">
+        {recentWork.length > 0 ? (
+          <div className="space-y-1.5">
+            <p className="text-[10px] uppercase tracking-wide text-[var(--project-text-muted)]">
+              最近成果
+            </p>
+            {recentWork.map((item) => {
+              const toolAccent = getToolAccentColor(item.toolType);
+              return (
+                <div
+                  key={`recent-${item.id}`}
+                  className="group flex items-center gap-2 rounded-xl border border-[var(--project-border)] bg-[var(--project-surface-elevated)] p-2 transition-colors hover:brightness-95"
+                >
+                  <button
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--project-surface-muted)] shadow-sm"
+                    onClick={() => onOpenHistoryItem(item)}
+                    aria-label="回到这个成果继续工作"
+                  >
+                    {statusIcon(item)}
+                  </button>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[11px] font-medium text-[var(--project-text-primary)]">
+                      {item.title}
+                    </p>
+                    <p className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[10px] text-[var(--project-text-muted)]">
+                      <span
+                        className={cn(
+                          "shrink-0 rounded-full px-1.5 py-0.5 whitespace-nowrap",
+                          statusBadgeClass(item)
+                        )}
+                      >
+                        {statusText(item)}
+                      </span>
+                      <span
+                        className="inline-block h-1.5 w-1.5 shrink-0 rounded-full"
+                        style={{ backgroundColor: toolAccent }}
+                      />
+                      <span className="min-w-0 truncate">
+                        回到这个成果继续工作
+                      </span>
+                    </p>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 rounded-lg text-[var(--project-text-muted)]"
+                    onClick={() => onOpenHistoryItem(item)}
+                    aria-label="继续这个成果"
+                  >
+                    <Eye className="h-3.5 w-3.5" />
+                  </Button>
+                  {item.artifactId && DEPOSITABLE_TOOL_TYPES.has(item.toolType) ? (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 rounded-lg px-2 text-[10px] text-[var(--project-text-muted)] hover:text-[var(--project-text-primary)]"
+                      onClick={() => handleJoinAsSource(item)}
+                      disabled={
+                        pendingJoinArtifactIds[item.artifactId] ||
+                        joinedArtifactIds[item.artifactId]
+                      }
+                    >
+                      <Sparkles className="mr-1 h-3.5 w-3.5" />
+                      {joinedArtifactIds[item.artifactId]
+                        ? "已加入来源"
+                        : pendingJoinArtifactIds[item.artifactId]
+                          ? "加入中"
+                          : "加入来源"}
+                    </Button>
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
+        ) : null}
+
+        <div className="space-y-2">
+          <p className="text-[10px] uppercase tracking-wide text-[var(--project-text-muted)]">
+            历史记录
+          </p>
         <AnimatePresence>
           {groupedHistory.map(([toolKey, items]) =>
             (() => {

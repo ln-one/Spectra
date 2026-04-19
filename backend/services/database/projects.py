@@ -4,7 +4,10 @@ from typing import Optional
 
 from schemas.project_semantics import validate_project_sharing_rules
 from schemas.projects import ProjectCreate
-from services.library_semantics import SILENT_ACCRETION_USAGE_INTENT
+from services.library_semantics import (
+    ARTIFACT_SOURCE_USAGE_INTENT,
+    SILENT_ACCRETION_USAGE_INTENT,
+)
 from utils.exceptions import NotFoundException
 
 
@@ -21,7 +24,14 @@ class ProjectMixin:
             "projectId": project_id,
             "OR": [
                 {"usageIntent": None},
-                {"usageIntent": {"not": SILENT_ACCRETION_USAGE_INTENT}},
+                {
+                    "usageIntent": {
+                        "notIn": [
+                            SILENT_ACCRETION_USAGE_INTENT,
+                            ARTIFACT_SOURCE_USAGE_INTENT,
+                        ]
+                    }
+                },
             ],
         }
 

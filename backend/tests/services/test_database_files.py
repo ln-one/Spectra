@@ -4,7 +4,10 @@ from unittest.mock import AsyncMock
 import pytest
 
 from services.database.files import FileMixin
-from services.library_semantics import SILENT_ACCRETION_USAGE_INTENT
+from services.library_semantics import (
+    ARTIFACT_SOURCE_USAGE_INTENT,
+    SILENT_ACCRETION_USAGE_INTENT,
+)
 
 
 class _FileDb(FileMixin):
@@ -27,7 +30,12 @@ async def test_get_project_files_excludes_silent_accretion_uploads():
 
     where = db.db.upload.find_many.await_args.kwargs["where"]
     assert where["projectId"] == "p-001"
-    assert {"usageIntent": {"not": SILENT_ACCRETION_USAGE_INTENT}} in where["OR"]
+    assert {"usageIntent": None} in where["OR"]
+    assert {
+        "usageIntent": {
+            "notIn": [SILENT_ACCRETION_USAGE_INTENT, ARTIFACT_SOURCE_USAGE_INTENT]
+        }
+    } in where["OR"]
 
 
 @pytest.mark.asyncio
@@ -39,6 +47,11 @@ async def test_count_project_files_excludes_silent_accretion_uploads():
     where = db.db.upload.count.await_args.kwargs["where"]
     assert where["projectId"] == "p-001"
     assert {"usageIntent": None} in where["OR"]
+    assert {
+        "usageIntent": {
+            "notIn": [SILENT_ACCRETION_USAGE_INTENT, ARTIFACT_SOURCE_USAGE_INTENT]
+        }
+    } in where["OR"]
 
 
 @pytest.mark.asyncio

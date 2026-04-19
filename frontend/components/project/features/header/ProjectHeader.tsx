@@ -19,7 +19,6 @@ interface ProjectHeaderProps {
   onDeleteSession: (sessionId: string) => void;
   onCreateSession: () => void;
   isCreatingSession: boolean;
-  onOpenLibrary: () => void;
   selectedThemePreset: ThemePresetId;
   onThemePresetChange: (themeId: ThemePresetId) => void;
 }
@@ -35,7 +34,6 @@ export function ProjectHeader({
   onDeleteSession,
   onCreateSession,
   isCreatingSession,
-  onOpenLibrary,
   selectedThemePreset,
   onThemePresetChange,
 }: ProjectHeaderProps) {
@@ -87,7 +85,6 @@ export function ProjectHeader({
       <HeaderActions
         user={user}
         onLogout={logout}
-        onOpenLibrary={onOpenLibrary}
         selectedThemePreset={selectedThemePreset}
         onThemePresetChange={onThemePresetChange}
       />

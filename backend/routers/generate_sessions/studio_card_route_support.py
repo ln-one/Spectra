@@ -7,7 +7,10 @@ from schemas.studio_cards import (
     StudioCardRefineRequest,
     StudioCardTurnRequest,
 )
-from services.chat import resolve_effective_rag_source_ids
+from services.chat import (
+    resolve_effective_rag_source_ids,
+    resolve_effective_selected_library_ids,
+)
 from services.generation_session_service.card_execution_preview import (
     build_studio_card_execution_preview,
 )
@@ -19,6 +22,22 @@ from .studio_card_refine_helpers import build_chat_refine_metadata
 def _resolve_request_rag_source_ids(body: dict) -> list[str] | None:
     return resolve_effective_rag_source_ids(
         rag_source_ids=body.get("rag_source_ids"),
+        selected_file_ids=body.get("selected_file_ids"),
+        metadata=body,
+    )
+
+
+def _resolve_request_selected_file_ids(body: dict) -> list[str] | None:
+    return resolve_effective_rag_source_ids(
+        rag_source_ids=body.get("rag_source_ids"),
+        selected_file_ids=body.get("selected_file_ids"),
+        metadata=body,
+    )
+
+
+def _resolve_request_selected_library_ids(body: dict) -> list[str] | None:
+    return resolve_effective_selected_library_ids(
+        selected_library_ids=body.get("selected_library_ids"),
         metadata=body,
     )
 
@@ -67,7 +86,9 @@ def build_execution_request(
         template_config=body.get("template_config"),
         visibility=body.get("visibility"),
         source_artifact_id=body.get("source_artifact_id"),
+        selected_file_ids=_resolve_request_selected_file_ids(body),
         rag_source_ids=_resolve_request_rag_source_ids(body),
+        selected_library_ids=_resolve_request_selected_library_ids(body),
         client_session_id=body.get("client_session_id"),
         run_id=body.get("run_id"),
     )
@@ -88,7 +109,9 @@ def build_refine_request(
         config=body.get("config") or {},
         visibility=body.get("visibility"),
         source_artifact_id=body.get("source_artifact_id"),
+        selected_file_ids=_resolve_request_selected_file_ids(body),
         rag_source_ids=_resolve_request_rag_source_ids(body),
+        selected_library_ids=_resolve_request_selected_library_ids(body),
     )
 
 
@@ -104,7 +127,9 @@ def build_chat_refine_request(
         session_id=body.get("session_id"),
         content=str(body.get("message") or ""),
         metadata=build_chat_refine_metadata(card_id, body, payload),
+        selected_file_ids=_resolve_request_selected_file_ids(body),
         rag_source_ids=_resolve_request_rag_source_ids(body),
+        selected_library_ids=_resolve_request_selected_library_ids(body),
     )
 
 
@@ -120,6 +145,8 @@ def build_turn_request(
         artifact_id=artifact_id,
         teacher_answer=teacher_answer,
         config=body.get("config") or {},
+        selected_file_ids=_resolve_request_selected_file_ids(body),
         rag_source_ids=_resolve_request_rag_source_ids(body),
+        selected_library_ids=_resolve_request_selected_library_ids(body),
         turn_anchor=body.get("turn_anchor"),
     )

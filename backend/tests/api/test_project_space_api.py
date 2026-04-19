@@ -25,6 +25,7 @@ def _fake_reference():
         id="r-001",
         projectId=_PROJECT_ID,
         targetProjectId="p-target-001",
+        targetProjectName="示例资料库",
         relationType="base",
         mode="follow",
         pinnedVersionId=None,
@@ -147,6 +148,7 @@ def test_get_project_references_returns_thin_ourograph_shape(
     body = resp.json()
     assert body["references"][0]["projectId"] == _PROJECT_ID
     assert body["references"][0]["targetProjectId"] == "p-target-001"
+    assert body["references"][0]["targetProjectName"] == "示例资料库"
     assert "success" not in body
 
 

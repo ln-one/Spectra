@@ -19,6 +19,8 @@ interface UseStudioExecutionHandlersArgs {
   currentToolDraft: ToolDraftState;
   selectedSourceId: string | null;
   selectedFileIds: string[];
+  selectedLibraryIds: string[];
+  selectedArtifactSourceIds: string[];
   draftSourceArtifactId: string | null;
   activeSessionId: string | null;
   activeRunId: string | null;
@@ -114,6 +116,8 @@ export function useStudioExecutionHandlers({
   currentToolDraft,
   selectedSourceId,
   selectedFileIds,
+  selectedLibraryIds,
+  selectedArtifactSourceIds,
   draftSourceArtifactId,
   activeSessionId,
   activeRunId,
@@ -209,12 +213,17 @@ export function useStudioExecutionHandlers({
   const buildStudioExecutionRequest = useCallback(() => {
     if (!project || !currentCardId) return null;
     const effectiveRagSourceIds = resolveEffectiveRagSourceIds(selectedFileIds);
+    const effectiveSelectedSourceIds = Array.from(
+      new Set([...effectiveRagSourceIds, ...selectedArtifactSourceIds])
+    );
     return {
       project_id: project.id,
       client_session_id: activeSessionId ?? undefined,
       source_artifact_id:
         selectedSourceId || draftSourceArtifactId || undefined,
-      rag_source_ids: effectiveRagSourceIds,
+      selected_file_ids: effectiveSelectedSourceIds,
+      rag_source_ids: effectiveSelectedSourceIds,
+      selected_library_ids: selectedLibraryIds,
       config: currentToolDraft,
     };
   }, [
@@ -224,6 +233,8 @@ export function useStudioExecutionHandlers({
     draftSourceArtifactId,
     project,
     selectedFileIds,
+    selectedLibraryIds,
+    selectedArtifactSourceIds,
     selectedSourceId,
   ]);
 
@@ -792,6 +803,12 @@ export function useStudioExecutionHandlers({
 
       try {
         startCardAction(currentCardId, "refine");
+        const effectiveSelectedSourceIds = Array.from(
+          new Set([
+            ...resolveEffectiveRagSourceIds(selectedFileIds),
+            ...selectedArtifactSourceIds,
+          ])
+        );
         const response = await studioCardsApi.refineArtifact(currentCardId, {
           project_id: project.id,
           session_id: activeSessionId ?? undefined,
@@ -800,7 +817,9 @@ export function useStudioExecutionHandlers({
           refine_mode: refineMode ?? "structured_refine",
           selection_anchor: selectionAnchor as any,
           config,
-          rag_source_ids: resolveEffectiveRagSourceIds(selectedFileIds),
+          selected_file_ids: effectiveSelectedSourceIds,
+          rag_source_ids: effectiveSelectedSourceIds,
+          selected_library_ids: selectedLibraryIds,
         });
         const executionResult = response?.data?.execution_result ?? {};
         const artifact =
@@ -856,6 +875,8 @@ export function useStudioExecutionHandlers({
       project,
       scheduleArtifactRefresh,
       selectedFileIds,
+      selectedLibraryIds,
+      selectedArtifactSourceIds,
       startCardAction,
     ]
   );
@@ -887,13 +908,21 @@ export function useStudioExecutionHandlers({
 
       try {
         startCardAction(currentCardId, "follow_up_turn");
+        const effectiveSelectedSourceIds = Array.from(
+          new Set([
+            ...resolveEffectiveRagSourceIds(selectedFileIds),
+            ...selectedArtifactSourceIds,
+          ])
+        );
         const response = await studioCardsApi.turn({
           project_id: project.id,
           artifact_id: artifactId,
           teacher_answer: teacherAnswer,
           turn_anchor: turnAnchor,
           config,
-          rag_source_ids: resolveEffectiveRagSourceIds(selectedFileIds),
+          selected_file_ids: effectiveSelectedSourceIds,
+          rag_source_ids: effectiveSelectedSourceIds,
+          selected_library_ids: selectedLibraryIds,
         });
         const payload = response?.data ?? null;
         if (activeSessionId) {
@@ -942,6 +971,8 @@ export function useStudioExecutionHandlers({
       project,
       scheduleArtifactRefresh,
       selectedFileIds,
+      selectedLibraryIds,
+      selectedArtifactSourceIds,
       startCardAction,
     ]
   );

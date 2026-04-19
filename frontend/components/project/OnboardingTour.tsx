@@ -44,7 +44,7 @@ const TOUR_STEPS: TourStep[] = [
     target: '[data-tour="sources-panel"]',
     title: "知识底座",
     content:
-      "上传您的教案、PDF 或参考资料。AI 将以此为基准进行深度理解，生成精准且符合您教学风格的内容。",
+      "导入您的教案、PDF 或参考资料。AI 将以此为基准进行深度理解，生成精准且符合您教学风格的内容。",
     placement: "right",
     pulseTarget: true,
   },

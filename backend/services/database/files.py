@@ -1,12 +1,49 @@
 import json
+import logging
 from typing import Optional
 
-from services.library_semantics import SILENT_ACCRETION_USAGE_INTENT
+from services.library_semantics import (
+    ARTIFACT_SOURCE_USAGE_INTENT,
+    SILENT_ACCRETION_USAGE_INTENT,
+)
 
 _UNSET = object()
+logger = logging.getLogger(__name__)
+_HIDDEN_UPLOAD_INTENTS = (
+    SILENT_ACCRETION_USAGE_INTENT,
+    ARTIFACT_SOURCE_USAGE_INTENT,
+)
+
+
+def _safe_parse_json_object(value) -> Optional[dict]:
+    if value is None:
+        return None
+    if isinstance(value, dict):
+        return value
+    if isinstance(value, str):
+        raw = value.strip()
+        if not raw:
+            return None
+        try:
+            parsed = json.loads(raw)
+        except json.JSONDecodeError:
+            logger.warning("Invalid parseResult JSON during artifact source lookup")
+            return None
+        return parsed if isinstance(parsed, dict) else None
+    return None
 
 
 class FileMixin:
+    @staticmethod
+    def _visible_upload_where(project_id: str) -> dict:
+        return {
+            "projectId": project_id,
+            "OR": [
+                {"usageIntent": None},
+                {"usageIntent": {"notIn": list(_HIDDEN_UPLOAD_INTENTS)}},
+            ],
+        }
+
     async def create_upload(
         self,
         filename: str,
@@ -30,28 +67,42 @@ class FileMixin:
     async def get_project_files(self, project_id: str, page: int, limit: int):
         skip = (page - 1) * limit
         return await self.db.upload.find_many(
-            where={
-                "projectId": project_id,
-                "OR": [
-                    {"usageIntent": None},
-                    {"usageIntent": {"not": SILENT_ACCRETION_USAGE_INTENT}},
-                ],
-            },
+            where=self._visible_upload_where(project_id),
             skip=skip,
             take=limit,
             order={"createdAt": "desc"},
         )
 
     async def count_project_files(self, project_id: str) -> int:
-        return await self.db.upload.count(
+        return await self.db.upload.count(where=self._visible_upload_where(project_id))
+
+    async def get_project_artifact_source_uploads(self, project_id: str):
+        return await self.db.upload.find_many(
             where={
                 "projectId": project_id,
-                "OR": [
-                    {"usageIntent": None},
-                    {"usageIntent": {"not": SILENT_ACCRETION_USAGE_INTENT}},
-                ],
-            }
+                "usageIntent": ARTIFACT_SOURCE_USAGE_INTENT,
+            },
+            order={"updatedAt": "desc"},
         )
+
+    async def find_artifact_accretion_upload(
+        self, project_id: str, artifact_id: str
+    ):
+        uploads = await self.db.upload.find_many(
+            where={
+                "projectId": project_id,
+                "usageIntent": {"in": list(_HIDDEN_UPLOAD_INTENTS)},
+            },
+            order={"updatedAt": "desc"},
+        )
+        normalized_artifact_id = str(artifact_id or "").strip()
+        if not normalized_artifact_id:
+            return None
+        for upload in uploads or []:
+            parse_result = _safe_parse_json_object(getattr(upload, "parseResult", None))
+            if str((parse_result or {}).get("artifact_id") or "").strip() == normalized_artifact_id:
+                return upload
+        return None
 
     async def get_file(self, file_id: str):
         return await self.db.upload.find_unique(where={"id": file_id})

@@ -119,6 +119,7 @@ export function useProjectDetailController() {
     fetchGenerationHistory,
     fetchArtifactHistory,
     setActiveSessionId,
+    setSelectedLibraryIds,
     generationHistory,
     activeSessionId,
     activeRunId,
@@ -135,6 +136,7 @@ export function useProjectDetailController() {
       fetchGenerationHistory: state.fetchGenerationHistory,
       fetchArtifactHistory: state.fetchArtifactHistory,
       setActiveSessionId: state.setActiveSessionId,
+      setSelectedLibraryIds: state.setSelectedLibraryIds,
       generationHistory: state.generationHistory,
       activeSessionId: state.activeSessionId,
       activeRunId: state.activeRunId,
@@ -142,7 +144,6 @@ export function useProjectDetailController() {
     }))
   );
 
-  const [isLibraryOpen, setIsLibraryOpen] = useState(false);
   const [isCreatingSession, setIsCreatingSession] = useState(false);
   const [isBootstrapping, setIsBootstrapping] = useState(true);
   const [sessionRunSummaryById, setSessionRunSummaryById] = useState<
@@ -172,17 +173,20 @@ export function useProjectDetailController() {
       const response = await projectSpaceApi.getReferences(projectId);
       const references = (response.references ?? [])
         .filter((reference) => reference.status === "active")
-        .sort((a, b) => {
-          if (a.relationType !== b.relationType) {
-            return a.relationType === "base" ? -1 : 1;
-          }
-          return (a.priority ?? 999) - (b.priority ?? 999);
-        });
+        .sort((a, b) => (a.priority ?? 999) - (b.priority ?? 999));
       setActiveReferences(references);
+      setSelectedLibraryIds(
+        references
+          .map((reference) => reference.targetProjectId)
+          .filter((targetProjectId): targetProjectId is string =>
+            typeof targetProjectId === "string" && targetProjectId.trim().length > 0
+          )
+      );
     } catch {
       setActiveReferences([]);
+      setSelectedLibraryIds([]);
     }
-  }, [projectId]);
+  }, [projectId, setSelectedLibraryIds]);
 
   const handleReferencesChanged = useCallback(() => {
     void loadActiveReferences();
@@ -737,8 +741,6 @@ export function useProjectDetailController() {
     sessionOptions,
     activeSessionId,
     isCreatingSession,
-    isLibraryOpen,
-    setIsLibraryOpen,
     activeReferences,
     handleReferencesChanged,
     selectedThemePreset,

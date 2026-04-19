@@ -452,20 +452,14 @@ export function useLibraryDrawerData(projectId: string, open: boolean) {
       const pinnedVersionId = options?.pinnedVersionId || null;
       await projectSpaceApi.createReference(projectId, {
         target_project_id: normalizedTargetId,
-        relation_type: newReferenceRelationType,
-        mode: newReferenceMode,
-        pinned_version_id:
-          newReferenceMode === "pinned"
-            ? pinnedVersionId || newReferencePinnedVersion.trim() || null
-            : null,
+        relation_type: "auxiliary",
+        mode: "follow",
+        pinned_version_id: pinnedVersionId || null,
         priority: parsePriority(newReferencePriority),
       });
     },
     [
-      newReferenceMode,
-      newReferencePinnedVersion,
       newReferencePriority,
-      newReferenceRelationType,
       projectId,
     ]
   );

@@ -144,6 +144,8 @@ export function StudioPanelContainer({
     expandedTool,
     artifactHistoryByTool,
     selectedFileIds,
+    selectedLibraryIds,
+    selectedArtifactSourceIds,
     activeSessionId,
     activeRunId,
     generationSession,
@@ -164,6 +166,8 @@ export function StudioPanelContainer({
       expandedTool: state.expandedTool,
       artifactHistoryByTool: state.artifactHistoryByTool,
       selectedFileIds: state.selectedFileIds,
+      selectedLibraryIds: state.selectedLibraryIds,
+      selectedArtifactSourceIds: state.selectedArtifactSourceIds,
       activeSessionId: state.activeSessionId,
       activeRunId: state.activeRunId,
       generationSession: state.generationSession,
@@ -368,6 +372,8 @@ export function StudioPanelContainer({
     currentToolDraft,
     selectedSourceId: capability.selectedSourceId,
     selectedFileIds,
+    selectedLibraryIds,
+    selectedArtifactSourceIds,
     draftSourceArtifactId: capability.draftSourceArtifactId,
     activeSessionId,
     activeRunId,
@@ -994,6 +1000,12 @@ export function StudioPanelContainer({
                   files,
                   selectedFileIds
                 );
+                const effectiveSelectedSourceIds = Array.from(
+                  new Set([
+                    ...readySelectedFileIds,
+                    ...selectedArtifactSourceIds,
+                  ])
+                );
                 const generationMode =
                   config.layoutMode === "classic" ? "template" : "scratch";
                 const normalizedPageCount = normalizePageCount(
@@ -1012,10 +1024,13 @@ export function StudioPanelContainer({
                   {
                     project_id: project.id,
                     client_session_id: liveSessionId,
+                    run_id: liveRunId,
+                    selected_file_ids: effectiveSelectedSourceIds,
                     rag_source_ids:
-                      readySelectedFileIds.length > 0
-                        ? readySelectedFileIds
+                      effectiveSelectedSourceIds.length > 0
+                        ? effectiveSelectedSourceIds
                         : undefined,
+                    selected_library_ids: selectedLibraryIds,
                     config: {
                       topic: config.prompt,
                       pages: normalizedPageCount,

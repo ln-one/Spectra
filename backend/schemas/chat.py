@@ -23,6 +23,23 @@ class SourceReference(BaseModel):
     page_number: Optional[int] = Field(None, description="页码（文档场景）")
     timestamp: Optional[float] = Field(None, description="时间戳秒数（视频/语音场景）")
     score: Optional[float] = Field(None, description="相似度得分")
+    source_scope: Optional[str] = Field(None, description="来源范围标识")
+    source_library_id: Optional[str] = Field(None, description="命中的资料库 ID")
+    source_library_name: Optional[str] = Field(
+        None, description="命中的资料库名称"
+    )
+    source_artifact_id: Optional[str] = Field(
+        None, description="命中的沉淀成果 artifact ID"
+    )
+    source_artifact_title: Optional[str] = Field(
+        None, description="命中的沉淀成果标题"
+    )
+    source_artifact_tool_type: Optional[str] = Field(
+        None, description="命中的沉淀成果工具类型"
+    )
+    source_artifact_session_id: Optional[str] = Field(
+        None, description="命中的沉淀成果会话 ID"
+    )
 
     @field_validator("source_type", mode="before")
     @classmethod
@@ -63,6 +80,14 @@ class SendMessageRequest(BaseModel):
     rag_source_ids: Optional[list[str]] = Field(
         None,
         description="限定 RAG 检索范围的文件 ID 列表（空列表/None 表示不限）",
+    )
+    selected_file_ids: Optional[list[str]] = Field(
+        None,
+        description="本次启用的本项目文件 ID 列表（空列表表示不检索本项目文件）",
+    )
+    selected_library_ids: Optional[list[str]] = Field(
+        None,
+        description="本次启用的资料库项目 ID 列表（空列表/None 表示不额外启用资料库）",
     )
 
 
