@@ -607,6 +607,36 @@ export function useGeneratePreviewState({
 
       if (
         eventType === "ppt.slide.generated" ||
+        diegoEventType === "slide.generated"
+      ) {
+        const slideNo = readNumberField(rawPayload || payload, "slide_no");
+        const htmlPreview = readStringField(rawPayload || payload, "html_preview");
+        const isFinal = (rawPayload || payload).is_final === true;
+
+        if (slideNo !== null && htmlPreview && isFinal) {
+          setSlides(prev => {
+            const updated = [...prev];
+            const existingIndex = updated.findIndex(s => s.index === slideNo - 1);
+            if (existingIndex >= 0) {
+              updated[existingIndex] = {
+                ...updated[existingIndex],
+                rendered_html_preview: htmlPreview,
+              };
+            } else {
+              updated.push({
+                index: slideNo - 1,
+                title: `Slide ${slideNo}`,
+                rendered_html_preview: htmlPreview,
+              });
+            }
+            return updated.sort((a, b) => a.index - b.index);
+          });
+          continue;
+        }
+      }
+
+      if (
+        eventType === "ppt.slide.generated" ||
         eventType === "ppt.completed" ||
         diegoEventType === "slide.generated" ||
         diegoEventType === "compile.completed"
@@ -637,7 +667,7 @@ export function useGeneratePreviewState({
     if (!activeRunId || !isSessionGenerating) return;
     const timer = window.setInterval(() => {
       void loadSlides();
-    }, 2500);
+    }, 30000);
     return () => {
       window.clearInterval(timer);
     };
@@ -722,6 +752,22 @@ export function useGeneratePreviewState({
     }
   }, [activeRunId, activeSessionId, currentArtifactId, isExporting]);
 
+  const currentRunDetail = useMemo(() => {
+    return sessionRuns.find(run => run.run_id === activeRunId) || null;
+  }, [sessionRuns, activeRunId]);
+
+  const generationModeLabel = useMemo(() => {
+    if (!currentRunDetail) return "PPT";
+    if (currentRunDetail.tool_type === "ppt_scratch") return "智能布局";
+    if (currentRunDetail.tool_type === "ppt_template") return "经典模板";
+    return "PPT";
+  }, [currentRunDetail]);
+
+  const runTitle = useMemo(() => {
+    if (!currentRunDetail) return "未命名演示文稿";
+    return currentRunDetail.run_title || "未命名演示文稿";
+  }, [currentRunDetail]);
+
   return useMemo(
     () => ({
       slides,
@@ -739,6 +785,9 @@ export function useGeneratePreviewState({
       currentArtifactId,
       currentRenderVersion,
       diegoPreviewContext,
+      currentRunDetail,
+      generationModeLabel,
+      runTitle,
       handleExport,
       handleResume,
       loadSlides,
@@ -760,6 +809,9 @@ export function useGeneratePreviewState({
       currentArtifactId,
       currentRenderVersion,
       diegoPreviewContext,
+      currentRunDetail,
+      generationModeLabel,
+      runTitle,
       handleExport,
       handleResume,
       loadSlides,

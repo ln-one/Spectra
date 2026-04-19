@@ -19,10 +19,14 @@ import {
   Type,
   Image as ImageIcon,
   FunctionSquare,
+  Wand2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { HtmlPreviewFrame } from "./components/HtmlPreviewFrame";
 import { useGeneratePreviewState } from "./useGeneratePreviewState";
+import { RunSelectorPopover } from "./components/RunSelectorPopover";
+import { RegenerateSlideDialog } from "./components/RegenerateSlideDialog";
+import { SlideEditorOverlay } from "./components/SlideEditorOverlay";
 
 type SlideFrame = {
   index: number;
@@ -106,6 +110,7 @@ export default function StreamingWorkbenchPageView() {
   const [activeSlideIndex, setActiveSlideIndex] = useState<number>(0);
   const [activeFrameIndex, setActiveFrameIndex] = useState<number>(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [regenerateDialogOpen, setRegenerateDialogOpen] = useState(false);
 
   const {
     slides,
@@ -119,6 +124,9 @@ export default function StreamingWorkbenchPageView() {
     activeSessionId,
     activeRunId,
     diegoPreviewContext,
+    currentRunDetail,
+    generationModeLabel,
+    runTitle,
     handleExport,
     handleResume,
   } = useGeneratePreviewState({
@@ -229,9 +237,20 @@ export default function StreamingWorkbenchPageView() {
     !runSelectionBlocked &&
     !previewBlockedReason &&
     !isLoading &&
-    previewableSlides.length === 0;
+    previewableSlides.length === 0 && !isSessionGenerating;
 
-  const totalSlides = previewableSlides.length;
+  const expectedSlideCount = (currentRunDetail as any)?.target_slide_count || Math.max(orderedSlides.length, 10);
+  const allSlotSlides = useMemo(() => {
+    const totalCount = previewableSlides.length > 0 ? previewableSlides.length : (isSessionGenerating ? expectedSlideCount : previewableSlides.length);
+    if (totalCount === 0) return [];
+    
+    return Array.from({ length: totalCount }, (_, i) => {
+      const existing = previewableSlides.find(s => s.index === i);
+      return existing || { index: i, title: `Slide ${i + 1}`, _placeholder: true } as any;
+    });
+  }, [previewableSlides, isSessionGenerating, expectedSlideCount]);
+
+  const totalSlides = allSlotSlides.length;
   const currentSlideNumber = activeSlidePos >= 0 ? activeSlidePos + 1 : 0;
 
   return (
@@ -255,10 +274,10 @@ export default function StreamingWorkbenchPageView() {
 
           <div className="flex items-center gap-2 min-w-0">
             <span className="shrink-0 rounded bg-[#3b82f6]/10 px-1.5 py-0.5 text-[11px] font-medium text-[#3b82f6]">
-              智能
+              {generationModeLabel}
             </span>
             <h1 className="truncate text-sm font-medium text-[#1d1d1f] sm:text-base">
-              区块链已死？ ——为什么联盟链救不了区块链
+              {runTitle}
             </h1>
           </div>
         </div>
@@ -314,35 +333,51 @@ export default function StreamingWorkbenchPageView() {
                 <span className="text-black/40">-- / --</span>
               )}
             </div>
-            <button
-              type="button"
-              className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-black/50 transition hover:bg-black/5 hover:text-black"
-            >
-              <LayoutGrid className="h-4 w-4" />
-            </button>
           </div>
 
           {/* Run selector */}
           <div className="px-4 pb-3">
-            <select
+            <RunSelectorPopover
+              options={currentRunOptions}
               value={activeRunId ?? ""}
-              onChange={(event) => updateRunInQuery(event.target.value)}
+              onChange={updateRunInQuery}
               disabled={!activeSessionId || currentRunOptions.length === 0}
-              className="h-8 w-full rounded-lg border border-black/10 bg-white px-2 text-xs text-[#1d1d1f] outline-none transition focus:border-[var(--deck-accent)]"
-            >
-              <option value="">选择 run</option>
-              {currentRunOptions.map((item) => (
-                <option key={item.value} value={item.value}>
-                  {item.label} · {item.status}
-                </option>
-              ))}
-            </select>
+            />
           </div>
 
           {/* Thumbnails */}
           <div className="flex-1 overflow-y-auto px-3 pb-3">
             <div className="flex flex-col gap-2">
-              {previewableSlides.map((slide) => {
+              {isSessionGenerating && (
+                <div className="flex items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 mb-1 shadow-sm">
+                  <Loader2 className="h-4 w-4 animate-spin text-amber-500 shrink-0" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-medium text-amber-700">生成中...</p>
+                    <div className="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-amber-200/50">
+                      <div className="h-full bg-amber-400" style={{ width: `${Math.max(5, (orderedSlides.length / Math.max(1, 10)) * 100)}%` }} />
+                    </div>
+                  </div>
+                </div>
+              )}
+              {allSlotSlides.map((slide) => {
+                if (slide._placeholder) {
+                  return (
+                    <div
+                      key={`thumb-placeholder-${slide.index}`}
+                      className="group relative w-full overflow-hidden rounded-xl border border-black/5 bg-white text-left shadow-sm"
+                    >
+                      <div className="aspect-video w-full bg-[#f5f5f7] flex items-center justify-center">
+                         <Loader2 className="h-4 w-4 animate-spin text-black/20" />
+                      </div>
+                      <span className="absolute left-2 top-2 rounded bg-black/10 px-1.5 py-0.5 text-[10px] font-semibold text-black/40">
+                        {String(slide.index + 1).padStart(2, "0")}
+                      </span>
+                      <span className="absolute bottom-2 left-2 right-2 line-clamp-1 text-[11px] font-medium text-black/40">
+                        等待生成...
+                      </span>
+                    </div>
+                  );
+                }
                 const slideFrames = buildSlideFrames(slide);
                 const isActive = activeSlide?.index === slide.index;
                 const firstFrame = slideFrames[0] || null;
@@ -470,13 +505,23 @@ export default function StreamingWorkbenchPageView() {
             ) : activeSlide && activeFrame ? (
               <>
                 <div className="relative w-full max-w-[1100px] overflow-hidden rounded-lg bg-white shadow-[0_24px_70px_-12px_rgba(0,0,0,0.35)]">
-                  <div className="aspect-video w-full bg-white">
+                  <div className="aspect-video w-full bg-white relative">
                     {activeFrame.html_preview ? (
-                      <HtmlPreviewFrame
-                        title={activeSlide.title || `Slide ${activeSlide.index + 1}`}
-                        html={activeFrame.html_preview}
-                        className="h-full"
-                      />
+                      <>
+                        <HtmlPreviewFrame
+                          title={activeSlide.title || `Slide ${activeSlide.index + 1}`}
+                          html={activeFrame.html_preview}
+                          className="h-full"
+                          viewportWidth={activeFrame.width || undefined}
+                          viewportHeight={activeFrame.height || undefined}
+                        />
+                        <SlideEditorOverlay
+                          slideNo={activeSlide.index + 1}
+                          width={activeFrame.width || undefined}
+                          height={activeFrame.height || undefined}
+                          interactive={true}
+                        />
+                      </>
                     ) : activeFrame.image_url ? (
                       <img
                         src={activeFrame.image_url}
@@ -512,6 +557,15 @@ export default function StreamingWorkbenchPageView() {
                 <Play className="h-4 w-4" />
               </button>
               <div className="mx-1 h-4 w-px bg-white/10" />
+              <button
+                type="button"
+                onClick={() => setRegenerateDialogOpen(true)}
+                disabled={!activeSlide || !activeFrame}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-white/80 transition hover:bg-white/10 hover:text-white disabled:opacity-30"
+                title="重做此页"
+              >
+                <Wand2 className="h-4 w-4" />
+              </button>
               <button
                 type="button"
                 className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-white/80 transition hover:bg-white/10 hover:text-white"
@@ -611,6 +665,8 @@ export default function StreamingWorkbenchPageView() {
                       title={activeSlide.title || `Slide ${activeSlide.index + 1}`}
                       html={activeFrame.html_preview}
                       className="h-full"
+                      viewportWidth={activeFrame.width || undefined}
+                      viewportHeight={activeFrame.height || undefined}
                       interactive
                     />
                   ) : activeFrame.image_url ? (
@@ -652,6 +708,17 @@ export default function StreamingWorkbenchPageView() {
           </motion.div>
         ) : null}
       </AnimatePresence>
+
+      <RegenerateSlideDialog
+        open={regenerateDialogOpen}
+        onOpenChange={setRegenerateDialogOpen}
+        runId={activeRunId || ""}
+        slideNo={(activeSlide?.index ?? 0) + 1}
+        slideTitle={activeSlide?.title}
+        onSuccess={() => {
+          // Additional success logic if needed
+        }}
+      />
     </div>
   );
 }
