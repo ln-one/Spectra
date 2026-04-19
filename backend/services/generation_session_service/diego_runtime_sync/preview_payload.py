@@ -86,7 +86,14 @@ async def _load_or_init_run_preview_payload(
         if isinstance(rendered, dict)
         else []
     )
+    has_svg_pages = any(
+        str(page.get("format") or "").strip().lower() == "svg"
+        or str(page.get("svg_data_url") or "").startswith("data:image/svg+xml")
+        for page in pages
+    )
     format_name = str((rendered or {}).get("format") or "svg").strip() or "svg"
+    if has_svg_pages:
+        format_name = "svg"
     payload["rendered_preview"] = {
         "format": format_name,
         "pages": sorted(
@@ -167,8 +174,14 @@ def _upsert_rendered_preview_page(
 ) -> bool:
     rendered = preview_payload.get("rendered_preview")
     if not isinstance(rendered, dict):
-        rendered = {"format": "html", "pages": [], "page_count": 0}
+        rendered = {"format": "svg", "pages": [], "page_count": 0}
         preview_payload["rendered_preview"] = rendered
+    page_is_svg = (
+        str(page.get("format") or "").strip().lower() == "svg"
+        or str(page.get("svg_data_url") or "").startswith("data:image/svg+xml")
+    )
+    if page_is_svg and str(rendered.get("format") or "").strip().lower() != "svg":
+        rendered["format"] = "svg"
     pages = rendered.get("pages")
     if not isinstance(pages, list):
         pages = []
