@@ -190,19 +190,30 @@ def _normalize_rendered_preview_pages(rendered_preview: object) -> list[dict]:
     for item in raw_pages:
         if not isinstance(item, dict):
             continue
-        html_preview = _normalize_preview_text(item.get("html_preview"))
-        image_url = _normalize_preview_text(item.get("image_url"))
-        if not html_preview and not image_url:
+        raw_preview = item.get("preview")
+        preview = dict(raw_preview) if isinstance(raw_preview, dict) else {}
+        svg_data_url = _normalize_preview_text(
+            item.get("svg_data_url") or preview.get("svg_data_url")
+        )
+        if not svg_data_url.startswith("data:image/svg+xml"):
             continue
         index = int(item.get("index") or 0)
         split_index = int(item.get("split_index") or 0)
+        slide_id = _normalize_preview_text(item.get("slide_id") or preview.get("slide_id")) or f"slide-{index}"
+        preview = {
+            **preview,
+            "index": index,
+            "slide_id": slide_id,
+            "format": "svg",
+            "svg_data_url": svg_data_url,
+        }
         pages.append(
             {
                 "index": index,
-                "slide_id": _normalize_preview_text(item.get("slide_id"))
-                or f"slide-{index}",
-                "html_preview": html_preview or None,
-                "image_url": image_url or None,
+                "slide_id": slide_id,
+                "format": "svg",
+                "svg_data_url": svg_data_url,
+                "preview": preview,
                 "status": _normalize_preview_text(item.get("status")) or "ready",
                 "split_index": split_index,
                 "split_count": _coerce_positive_int(item.get("split_count")) or 1,
@@ -274,8 +285,9 @@ def _build_authority_preview(
             {
                 "slide_id": str(page.get("slide_id") or slide_id),
                 "index": int(page.get("index") or slide_index),
-                "html_preview": page.get("html_preview"),
-                "image_url": page.get("image_url"),
+                "format": "svg",
+                "svg_data_url": page.get("svg_data_url"),
+                "preview": page.get("preview"),
                 "status": page.get("status"),
                 "split_index": int(page.get("split_index") or 0),
                 "split_count": _coerce_positive_int(page.get("split_count")) or 1,
@@ -299,8 +311,9 @@ def _build_authority_preview(
                     or ("ready" if page_frames else "pending")
                 ),
                 "render_version": render_version,
-                "html_preview": first_frame.get("html_preview"),
-                "image_url": first_frame.get("image_url"),
+                "preview": first_frame.get("preview"),
+                "format": "svg" if page_frames else None,
+                "svg_data_url": first_frame.get("svg_data_url"),
                 "width": _coerce_positive_int(first_frame.get("width")) or viewport["width"],
                 "height": _coerce_positive_int(first_frame.get("height")) or viewport["height"],
                 "frames": page_frames,
@@ -314,7 +327,7 @@ def _build_authority_preview(
         or None
     )
     return {
-        "provider": "diego",
+        "provider": "pagevra",
         "run_id": run_id,
         "render_version": render_version,
         "viewport": viewport,

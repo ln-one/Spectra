@@ -1,6 +1,6 @@
 "use client";
 
-import { type CSSProperties, useCallback, useMemo, useState } from "react";
+import { type CSSProperties, useMemo, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -21,11 +21,7 @@ import {
   Wand2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import {
-  EditableAuthorityHtmlStage,
-  type AuthorityEditableScene,
-} from "./components/EditableAuthorityHtmlStage";
-import { HtmlPreviewFrame } from "./components/HtmlPreviewFrame";
+import type { AuthorityEditableScene } from "./components/EditableAuthorityHtmlStage";
 import { PreviewCopilotDrawer } from "./components/PreviewCopilotDrawer";
 import { useGeneratePreviewState } from "./useGeneratePreviewState";
 import { RunSelectorPopover } from "./components/RunSelectorPopover";
@@ -34,8 +30,8 @@ import { RegenerateSlideDialog } from "./components/RegenerateSlideDialog";
 type SlideFrame = {
   index: number;
   slide_id: string;
-  image_url?: string | null;
-  html_preview?: string | null;
+  format?: string | null;
+  svg_data_url?: string | null;
   split_index: number;
   split_count: number;
   width?: number | null;
@@ -47,7 +43,6 @@ type SlideItem = {
   index: number;
   title?: string;
   thumbnail_url?: string | null;
-  rendered_html_preview?: string | null;
   rendered_previews?: SlideFrame[];
 };
 
@@ -84,13 +79,13 @@ function buildSlideFrames(slide: SlideItem): SlideFrame[] {
       (a, b) => (a.split_index ?? 0) - (b.split_index ?? 0)
     );
   }
-  if (slide.rendered_html_preview || slide.thumbnail_url) {
+  if (slide.thumbnail_url?.startsWith("data:image/svg+xml")) {
     return [
       {
         index: slide.index,
         slide_id: slide.id || `slide-${slide.index}`,
-        image_url: slide.thumbnail_url,
-        html_preview: slide.rendered_html_preview,
+        format: "svg",
+        svg_data_url: slide.thumbnail_url,
         split_index: 0,
         split_count: 1,
       },
@@ -105,21 +100,21 @@ function buildAuthorityFrames(slide: AuthoritySlide | null | undefined): SlideFr
     return slide.frames.map((frame) => ({
       index: frame.index,
       slide_id: frame.slide_id,
-      image_url: frame.image_url,
-      html_preview: frame.html_preview,
+      format: "svg",
+      svg_data_url: frame.svg_data_url,
       split_index: frame.split_index,
       split_count: frame.split_count,
       width: frame.width,
       height: frame.height,
     }));
   }
-  if (slide.image_url || slide.html_preview) {
+  if (slide.svg_data_url?.startsWith("data:image/svg+xml")) {
     return [
       {
         index: slide.index,
         slide_id: slide.slide_id,
-        image_url: slide.image_url,
-        html_preview: slide.html_preview,
+        format: "svg",
+        svg_data_url: slide.svg_data_url,
         split_index: 0,
         split_count: 1,
         width: slide.width,
@@ -133,10 +128,9 @@ function buildAuthorityFrames(slide: AuthoritySlide | null | undefined): SlideFr
 function hasAuthorityPreviewContent(slide: AuthoritySlide | null | undefined): boolean {
   return Boolean(
     slide &&
-      ((typeof slide.html_preview === "string" && slide.html_preview.trim()) ||
+      ((typeof slide.svg_data_url === "string" && slide.svg_data_url.startsWith("data:image/svg+xml")) ||
         (Array.isArray(slide.frames) &&
-          slide.frames.some((frame) => Boolean(frame.html_preview || frame.image_url))) ||
-        slide.image_url)
+          slide.frames.some((frame) => Boolean(frame.svg_data_url?.startsWith("data:image/svg+xml")))))
   );
 }
 
@@ -145,9 +139,28 @@ function summarizeAuthoritySlide(slide: AuthoritySlide | null | undefined): stri
   if (slide.frames && slide.frames.length > 1) {
     return `包含 ${slide.frames.length} 个分片预览`;
   }
-  if (slide.html_preview) return "Diego html preview";
-  if (slide.image_url) return "Diego image preview";
+  if (slide.svg_data_url) return "Pagevra SVG preview";
   return "";
+}
+
+function SvgPreviewImage({
+  src,
+  alt,
+  className,
+}: {
+  src: string;
+  alt: string;
+  className?: string;
+}) {
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={src}
+      alt={alt}
+      className={cn("h-full w-full bg-white object-contain", className)}
+      draggable={false}
+    />
+  );
 }
 
 function isBadRunTitle(value: string | null | undefined): boolean {
@@ -184,7 +197,7 @@ export default function StreamingWorkbenchPageView() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [regenerateDialogOpen, setRegenerateDialogOpen] = useState(false);
   const [zoom, setZoom] = useState<number | "fit">("fit");
-  const [sceneBySlideId, setSceneBySlideId] = useState<Record<string, AuthorityEditableScene>>({});
+  const [sceneBySlideId] = useState<Record<string, AuthorityEditableScene>>({});
   const [selectedNodeBySlideId, setSelectedNodeBySlideId] = useState<Record<string, string | null>>({});
 
   const {
@@ -293,8 +306,10 @@ export default function StreamingWorkbenchPageView() {
   const runSelectionBlocked = Boolean(activeSessionId) && !activeRunId;
 
   const expectedSlideCount = useMemo(() => {
-    const runTarget = (currentRunDetail as any)?.target_slide_count;
-    const outlineNodes = (generationSession?.session as any)?.outline?.nodes;
+    const runTarget = (currentRunDetail as { target_slide_count?: unknown } | null)?.target_slide_count;
+    const outlineNodes = (
+      generationSession?.session as { outline?: { nodes?: unknown } } | undefined
+    )?.outline?.nodes;
     const outlineCount =
       Array.isArray(outlineNodes) && outlineNodes.length > 0 ? outlineNodes.length : 0;
     const highestLegacyIndex =
@@ -359,17 +374,6 @@ export default function StreamingWorkbenchPageView() {
   const selectedNodeId = activeAuthoritySlideId
     ? selectedNodeBySlideId[activeAuthoritySlideId] ?? null
     : null;
-
-  const handleAuthoritySceneChange = useCallback((scene: AuthorityEditableScene) => {
-    setSceneBySlideId((previous) =>
-      previous[scene.slide_id] === scene
-        ? previous
-        : {
-            ...previous,
-            [scene.slide_id]: scene,
-          }
-    );
-  }, []);
 
   const handleActiveAuthorityNodeSelect = (nodeId: string | null) => {
     if (!activeAuthoritySlideId) return;
@@ -552,35 +556,17 @@ export default function StreamingWorkbenchPageView() {
                     )}
                     >
                     <div className="aspect-video w-full bg-[#f5f5f7]">
-                      {(firstAuthorityFrame?.image_url || firstFrame?.image_url || slide.legacySlide?.thumbnail_url) ? (
-                        <img
+                      {(firstAuthorityFrame?.svg_data_url || firstFrame?.svg_data_url || slide.legacySlide?.thumbnail_url?.startsWith("data:image/svg+xml")) ? (
+                        <SvgPreviewImage
                           src={
-                            firstAuthorityFrame?.image_url ||
-                            firstFrame?.image_url ||
+                            firstAuthorityFrame?.svg_data_url ||
+                            firstFrame?.svg_data_url ||
                             slide.legacySlide?.thumbnail_url ||
-                            undefined
+                            ""
                           }
                           alt={slide.title || `Slide ${slide.index + 1}`}
-                          className="h-full w-full object-cover"
+                          className="object-cover"
                         />
-                      ) : firstAuthorityFrame?.html_preview ? (
-                        <div className="h-full w-full">
-                          <HtmlPreviewFrame
-                            title={slide.title || `Slide ${slide.index + 1}`}
-                            html={firstAuthorityFrame.html_preview}
-                            className="h-full"
-                            viewportWidth={firstAuthorityFrame.width || 960}
-                            viewportHeight={firstAuthorityFrame.height || 540}
-                          />
-                        </div>
-                      ) : firstFrame?.html_preview ? (
-                        <div className="h-full w-full">
-                          <HtmlPreviewFrame
-                            title={slide.title || `Slide ${slide.index + 1}`}
-                            html={firstFrame.html_preview}
-                            className="h-full"
-                          />
-                        </div>
                       ) : hasAuthorityPreviewContent(slide.authoritySlide) ? (
                         <div className="flex h-full flex-col justify-between bg-[radial-gradient(circle_at_top_left,_rgba(255,255,255,0.96),_rgba(225,232,245,0.92),_rgba(240,244,250,0.98))] px-3 py-2">
                           <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-black/35">
@@ -680,71 +666,25 @@ export default function StreamingWorkbenchPageView() {
                   style={zoom !== "fit" ? { width: `${1100 * zoom}px`, minWidth: `${1100 * zoom}px` } : {}}
                 >
                   <div className="aspect-video w-full bg-white relative">
-                    {activeAuthorityFrame?.image_url ? (
-                      <>
-                        <img
-                          src={activeAuthorityFrame.image_url}
-                          alt={activeAuthoritySlide?.title || `Slide ${(activeAuthoritySlide?.index ?? 0) + 1}`}
-                          className="h-full w-full object-contain bg-white"
-                        />
-                        {activeAuthorityFrame.html_preview && activeAuthoritySlide ? (
-                          <div className="pointer-events-none absolute inset-0 opacity-0">
-                            <EditableAuthorityHtmlStage
-                              slide={{
-                                ...activeAuthoritySlide,
-                                html_preview: activeAuthorityFrame.html_preview,
-                                image_url: activeAuthorityFrame.image_url,
-                                width: activeAuthorityFrame.width ?? activeAuthoritySlide.width,
-                                height: activeAuthorityFrame.height ?? activeAuthoritySlide.height,
-                              }}
-                              className="h-full rounded-none border-0 shadow-none"
-                              interactive={false}
-                              selectedNodeId={selectedNodeId}
-                              onSelectNode={handleActiveAuthorityNodeSelect}
-                              onSceneChange={handleAuthoritySceneChange}
-                            />
-                          </div>
-                        ) : null}
-                      </>
-                    ) : activeAuthorityFrame?.html_preview && activeAuthoritySlide ? (
-                      <EditableAuthorityHtmlStage
-                        slide={{
-                          ...activeAuthoritySlide,
-                          html_preview: activeAuthorityFrame.html_preview,
-                          image_url: activeAuthorityFrame.image_url,
-                          width: activeAuthorityFrame.width ?? activeAuthoritySlide.width,
-                          height: activeAuthorityFrame.height ?? activeAuthoritySlide.height,
-                        }}
-                        className="h-full rounded-none border-0 shadow-none"
-                        selectedNodeId={selectedNodeId}
-                        onSelectNode={handleActiveAuthorityNodeSelect}
-                        onSceneChange={handleAuthoritySceneChange}
+                    {activeAuthorityFrame?.svg_data_url ? (
+                      <SvgPreviewImage
+                        src={activeAuthorityFrame.svg_data_url}
+                        alt={activeAuthoritySlide?.title || `Slide ${(activeAuthoritySlide?.index ?? 0) + 1}`}
                       />
-                    ) : activeFrame?.html_preview ? (
-                      <>
-                        <HtmlPreviewFrame
-                          title={
-                            activeLegacySlide?.title ||
-                            `Slide ${(activeLegacySlide?.index ?? 0) + 1}`
-                          }
-                          html={activeFrame.html_preview}
-                          className="h-full"
-                          viewportWidth={activeFrame.width || 960}
-                          viewportHeight={activeFrame.height || 540}
-                        />
-                      </>
-                    ) : activeFrame?.image_url ? (
-                      <img
-                        src={activeFrame.image_url}
+                    ) : activeFrame?.svg_data_url ? (
+                      <SvgPreviewImage
+                        src={activeFrame.svg_data_url}
                         alt={
                           activeLegacySlide?.title ||
                           `Slide ${(activeLegacySlide?.index ?? 0) + 1}`
                         }
-                        className="h-full w-full object-contain bg-white"
                       />
                     ) : (
-                      <div className="flex h-full items-center justify-center text-sm text-black/50">
-                        当前页预览仍在生成中
+                      <div className="flex h-full flex-col items-center justify-center gap-2 text-center text-sm text-black/55">
+                        <p className="font-medium text-black/70">Pagevra 单页 SVG 预览未就绪</p>
+                        <p className="max-w-[360px] text-xs text-black/45">
+                          当前 PPT 预览只接受 Pagevra single-slide compile 返回的 SVG manifest，不再显示 HTML/PNG 旧链路结果。
+                        </p>
                       </div>
                     )}
                   </div>
@@ -910,51 +850,28 @@ export default function StreamingWorkbenchPageView() {
 
               <div className="relative flex-1 overflow-hidden rounded-xl border border-white/15 bg-black/40">
                 <div className="aspect-video w-full">
-                  {activeAuthorityFrame?.image_url ? (
-                    <img
-                      src={activeAuthorityFrame.image_url}
+                  {activeAuthorityFrame?.svg_data_url ? (
+                    <SvgPreviewImage
+                      src={activeAuthorityFrame.svg_data_url}
                       alt={
                         activeAuthoritySlide?.title ||
                         `Slide ${(activeAuthoritySlide?.index ?? 0) + 1}`
                       }
-                      className="h-full w-full object-contain bg-white"
                     />
-                  ) : activeAuthorityFrame?.html_preview ? (
-                    <HtmlPreviewFrame
-                      title={
-                        activeAuthoritySlide?.title ||
-                        `Slide ${(activeAuthoritySlide?.index ?? 0) + 1}`
-                      }
-                      html={activeAuthorityFrame.html_preview}
-                      className="h-full"
-                      viewportWidth={activeAuthorityFrame.width || 960}
-                      viewportHeight={activeAuthorityFrame.height || 540}
-                      interactive
-                    />
-                  ) : activeFrame?.html_preview ? (
-                    <HtmlPreviewFrame
-                      title={
-                        activeLegacySlide?.title ||
-                        `Slide ${(activeLegacySlide?.index ?? 0) + 1}`
-                      }
-                      html={activeFrame.html_preview}
-                      className="h-full"
-                      viewportWidth={activeFrame.width || 960}
-                      viewportHeight={activeFrame.height || 540}
-                      interactive
-                    />
-                  ) : activeFrame?.image_url ? (
-                    <img
-                      src={activeFrame.image_url}
+                  ) : activeFrame?.svg_data_url ? (
+                    <SvgPreviewImage
+                      src={activeFrame.svg_data_url}
                       alt={
                         activeLegacySlide?.title ||
                         `Slide ${(activeLegacySlide?.index ?? 0) + 1}`
                       }
-                      className="h-full w-full object-contain bg-white"
                     />
                   ) : (
-                    <div className="flex h-full items-center justify-center text-white/65">
-                      当前页预览仍在生成中
+                    <div className="flex h-full flex-col items-center justify-center gap-2 text-center text-white/65">
+                      <p>Pagevra 单页 SVG 预览未就绪</p>
+                      <p className="max-w-[360px] text-xs text-white/40">
+                        当前 PPT 预览不再显示 HTML/PNG 旧链路结果。
+                      </p>
                     </div>
                   )}
                 </div>
