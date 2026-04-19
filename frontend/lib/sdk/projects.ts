@@ -3,6 +3,9 @@ import type { components } from "./types";
 
 export type Project = components["schemas"]["Project"];
 export type ProjectRequest = components["schemas"]["ProjectRequestTarget"];
+export type CreateProjectRequest = Omit<ProjectRequest, "name"> & {
+  name?: string;
+};
 export type GetProjectsResponse = components["schemas"]["GetProjectsResponse"];
 export type ProjectResponse = components["schemas"]["ProjectResponseTarget"];
 type ProjectFilesResponse = components["schemas"]["GetFilesResponse"];
@@ -29,7 +32,7 @@ export const projectsApi = {
     return unwrap<ProjectResponse>(result);
   },
 
-  async createProject(data: ProjectRequest): Promise<ProjectResponse> {
+  async createProject(data: CreateProjectRequest): Promise<ProjectResponse> {
     const headers = withIdempotency({}, true);
     const result = await sdkClient.POST("/api/v1/projects", {
       body: data,

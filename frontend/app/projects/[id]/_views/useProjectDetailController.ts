@@ -21,6 +21,7 @@ import {
 
 const SESSION_CHECK_TIMEOUT_MS = 8_000;
 const PROJECT_BOOTSTRAP_TIMEOUT_MS = 12_000;
+const TITLE_POLL_INTERVAL_MS = 2_500;
 
 async function withTimeout<T>(
   task: Promise<T>,
@@ -90,6 +91,15 @@ function extractCurrentRunId(
 ): string | null {
   const runId = payload?.current_run?.run_id;
   return typeof runId === "string" && runId.trim() ? runId : null;
+}
+
+function readProjectNameSource(
+  project:
+    | ({ nameSource?: string; name_source?: string } & Record<string, unknown>)
+    | null
+    | undefined
+): string {
+  return String(project?.nameSource || project?.name_source || "").trim();
 }
 
 export function useProjectDetailController() {
@@ -205,6 +215,7 @@ export function useProjectDetailController() {
     }
 
     const loadRunSummary = async () => {
+      let hasPendingRunTitles = false;
       const entries = await Promise.all(
         visibleGenerationHistory.map(async (item) => {
           try {
@@ -212,6 +223,9 @@ export function useProjectDetailController() {
             const runs = response?.data?.runs ?? [];
             const latestRun = runs[0];
             if (!latestRun) return [item.id, null] as const;
+            if (latestRun.run_title_source === "pending") {
+              hasPendingRunTitles = true;
+            }
             const previousRun = runs[1];
             const latestSummary = formatRunSummaryLine(latestRun);
             const previousSummary = previousRun
@@ -244,6 +258,11 @@ export function useProjectDetailController() {
         }
       }
       setSessionRunSummaryById(nextMap);
+      if (hasPendingRunTitles) {
+        window.setTimeout(() => {
+          void loadRunSummary();
+        }, TITLE_POLL_INTERVAL_MS);
+      }
     };
 
     void loadRunSummary();
@@ -398,6 +417,34 @@ export function useProjectDetailController() {
     setActiveSessionId,
     updateSessionInUrl,
   ]);
+
+  useEffect(() => {
+    if (!project || project.id !== projectId) return;
+    if (readProjectNameSource(project as Record<string, unknown>) !== "default") {
+      return;
+    }
+
+    const timer = window.setInterval(() => {
+      void fetchProject(projectId);
+    }, TITLE_POLL_INTERVAL_MS);
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, [fetchProject, project, projectId]);
+
+  useEffect(() => {
+    const hasPendingSessionTitles = visibleGenerationHistory.some(
+      (item) => item.titleSource === "default"
+    );
+    if (!hasPendingSessionTitles) return;
+
+    const timer = window.setInterval(() => {
+      void fetchGenerationHistory(projectId);
+    }, TITLE_POLL_INTERVAL_MS);
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, [fetchGenerationHistory, projectId, visibleGenerationHistory]);
 
   useEffect(() => {
     let cancelled = false;

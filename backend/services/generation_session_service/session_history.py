@@ -35,7 +35,12 @@ from .run_serialization import (
     build_run_trace_payload,
     serialize_session_run,
 )
-from .session_titles import generate_semantic_run_title, generate_semantic_session_title
+from .session_titles import (
+    generate_semantic_run_title,
+    generate_semantic_session_title,
+    request_run_title_generation,
+    request_session_title_generation,
+)
 
 __all__ = [
     "ai_service",
@@ -66,6 +71,8 @@ __all__ = [
     "create_session_run",
     "generate_semantic_run_title",
     "generate_semantic_session_title",
+    "request_run_title_generation",
+    "request_session_title_generation",
     "get_latest_session_run",
     "resolve_tool_label",
     "serialize_session_run",

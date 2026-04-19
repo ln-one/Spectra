@@ -314,6 +314,7 @@ def test_update_project_project_space_fields_passed(client, monkeypatch, _as_use
         grade_level=None,
         visibility="private",
         is_referenceable=False,
+        name_source="manual",
     )
     governance_mock.assert_awaited_once_with(
         project_id=_PROJECT_ID,

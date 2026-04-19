@@ -17,7 +17,7 @@ from schemas.project_vocabulary import ProjectReferenceMode, ProjectVisibility
 class ProjectBase(BaseModel):
     """项目基础信息"""
 
-    name: str = Field(min_length=1, max_length=200)
+    name: Optional[str] = Field(default=None, min_length=1, max_length=200)
     description: str = Field(min_length=1, max_length=2000)
     grade_level: Optional[str] = None
 
@@ -69,6 +69,7 @@ class Project(ProjectBase):
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
     id: str
+    name: str = Field(min_length=1, max_length=200)
     status: Optional[str] = None
 
     # Project Space 扩展字段
@@ -77,6 +78,8 @@ class Project(ProjectBase):
     )
     is_referenceable: Optional[bool] = Field(default=False, alias="isReferenceable")
     current_version_id: Optional[str] = Field(None, alias="currentVersionId")
+    name_source: Optional[str] = Field(default=None, alias="nameSource")
+    name_updated_at: Optional[datetime] = Field(default=None, alias="nameUpdatedAt")
 
     createdAt: Optional[datetime] = None
     updatedAt: Optional[datetime] = None

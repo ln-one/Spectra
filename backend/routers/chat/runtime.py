@@ -1,7 +1,4 @@
-import asyncio
-import os
 import time
-from datetime import datetime, timezone
 from uuid import UUID, uuid4
 
 from fastapi.encoders import jsonable_encoder
@@ -12,8 +9,7 @@ from services.database import db_service
 from services.generation_session_service.access import get_owned_session
 from services.generation_session_service.session_history import (
     SESSION_TITLE_SOURCE_DEFAULT,
-    generate_semantic_session_title,
-    spawn_background_task,
+    request_session_title_generation,
 )
 from services.prompt_service import build_prompt_traceability
 from utils.exceptions import (
@@ -48,61 +44,6 @@ from .shared import logger, to_message, verify_project_ownership
 
 def _get_generation_session_lookup_db():
     return db_service.db
-
-
-def _inline_title_refresh_timeout_seconds() -> float:
-    raw = os.getenv("CHAT_SESSION_TITLE_INLINE_TIMEOUT_SECONDS", "1.2")
-    try:
-        timeout = float(str(raw).strip())
-    except ValueError:
-        return 1.2
-    if timeout <= 0:
-        return 0.0
-    return min(timeout, 3.0)
-
-
-def _derive_first_message_title(first_message: str, *, max_length: int = 18) -> str:
-    compact = " ".join((first_message or "").strip().split())
-    if not compact:
-        return ""
-    return compact[:max_length]
-
-
-async def _fallback_first_message_title_refresh(
-    *,
-    session_id: str,
-    first_message: str,
-) -> dict | None:
-    if not hasattr(db_service.db.generationsession, "update"):
-        return None
-    title = _derive_first_message_title(first_message)
-    if not title:
-        return None
-    try:
-        updated = await db_service.db.generationsession.update(
-            where={"id": session_id},
-            data={
-                "displayTitle": title,
-                "displayTitleSource": SESSION_TITLE_SOURCE_DEFAULT,
-                "displayTitleUpdatedAt": datetime.now(timezone.utc),
-            },
-        )
-    except Exception as exc:
-        logger.warning(
-            "Fallback session title refresh failed: session=%s error=%s",
-            session_id,
-            exc,
-        )
-        return None
-    return {
-        "display_title": getattr(updated, "displayTitle", None),
-        "display_title_source": getattr(updated, "displayTitleSource", None),
-        "display_title_updated_at": (
-            updated.displayTitleUpdatedAt.isoformat()
-            if getattr(updated, "displayTitleUpdatedAt", None)
-            else None
-        ),
-    }
 
 
 async def _ensure_chat_session(
@@ -231,58 +172,14 @@ async def process_chat_message(
                 user_message_count == 1
                 and session_title_source == SESSION_TITLE_SOURCE_DEFAULT
             ):
-                refreshed = None
-                fallback_applied = False
-                if hasattr(db_service.db.generationsession, "update"):
-                    inline_timeout = _inline_title_refresh_timeout_seconds()
-                    if inline_timeout > 0:
-                        try:
-                            refreshed = await asyncio.wait_for(
-                                generate_semantic_session_title(
-                                    db=db_service.db,
-                                    session_id=session_id,
-                                    first_message=body.content,
-                                ),
-                                timeout=inline_timeout,
-                            )
-                        except Exception as exc:
-                            logger.warning(
-                                "Inline session title refresh fallback: session=%s "
-                                "error=%s",
-                                session_id,
-                                exc,
-                            )
-                if not refreshed:
-                    refreshed = await _fallback_first_message_title_refresh(
-                        session_id=session_id,
-                        first_message=body.content,
-                    )
-                    fallback_applied = bool(refreshed)
-                if refreshed:
-                    session_title_updated = True
-                    session_title = refreshed.get("display_title")
-                    session_title_source = refreshed.get("display_title_source")
-                    if fallback_applied:
-                        spawn_background_task(
-                            generate_semantic_session_title(
-                                db=db_service.db,
-                                session_id=session_id,
-                                first_message=body.content,
-                            ),
-                            label=f"session-title:{session_id}",
-                        )
-                else:
-                    spawn_background_task(
-                        generate_semantic_session_title(
-                            db=db_service.db,
-                            session_id=session_id,
-                            first_message=body.content,
-                        ),
-                        label=f"session-title:{session_id}",
-                    )
+                await request_session_title_generation(
+                    db=db_service.db,
+                    session_id=session_id,
+                    first_message=body.content,
+                )
         except Exception as exc:
             logger.warning(
-                "Skip async session title refresh: session=%s error=%s",
+                "Skip session title refresh request: session=%s error=%s",
                 session_id,
                 exc,
             )

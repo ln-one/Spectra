@@ -49,6 +49,7 @@ export function mapSessionsToHistory(
     output_type: string;
     created_at: string;
     display_title?: string | null;
+    display_title_source?: string | null;
   }>
 ): GenerationHistory[] {
   return sessions.map((session) => {
@@ -76,6 +77,7 @@ export function mapSessionsToHistory(
       sessionState: session.state,
       createdAt: session.created_at,
       title: resolvedTitle,
+      titleSource: session.display_title_source || undefined,
     };
   });
 }

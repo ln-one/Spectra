@@ -107,6 +107,7 @@ export interface GenerationHistory {
   sessionState?: string;
   createdAt: string;
   title: string;
+  titleSource?: string;
 }
 
 export interface ProjectState {

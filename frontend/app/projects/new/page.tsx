@@ -156,7 +156,7 @@ export default function NewProjectPage() {
 
   const handleSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault();
-    if (!prompt.trim() && !formData.name.trim()) {
+    if (!prompt.trim()) {
       toast({ title: "请输入项目描述", variant: "destructive" });
       return;
     }
@@ -190,14 +190,8 @@ export default function NewProjectPage() {
     setSubmitError(null);
     setIsLoading(true);
     try {
-      // Use prompt as name if name is empty
-      const projectName =
-        formData.name.trim() ||
-        prompt.trim().split("\n")[0].substring(0, 20) ||
-        "新项目";
-
       const response = await projectsApi.createProject({
-        name: projectName,
+        name: formData.name.trim() || undefined,
         description: prompt,
         grade_level: formData.grade_level,
         base_project_id: formData.base_project_id || undefined,
@@ -345,9 +339,7 @@ export default function NewProjectPage() {
 
               <Button
                 onClick={handleSubmit}
-                disabled={
-                  isLoading || (!prompt.trim() && !formData.name.trim())
-                }
+                disabled={isLoading || !prompt.trim()}
                 className="h-14 px-10 rounded-[1.5rem] bg-zinc-900 hover:bg-zinc-800 text-lg font-black shadow-2xl hover:scale-[1.03] transition-all active:scale-95 disabled:scale-100"
               >
                 {isLoading ? (

@@ -96,17 +96,8 @@ async def test_create_artifact_run_appends_task_completed_event_for_bound_sessio
         AsyncMock(return_value=completed_run),
     )
     monkeypatch.setattr(
-        "services.generation_session_service.session_history.generate_semantic_run_title",
-        AsyncMock(return_value=None),
-    )
-
-    def _drop_background_task(coro, **_kwargs):
-        if hasattr(coro, "close"):
-            coro.close()
-
-    monkeypatch.setattr(
-        "services.generation_session_service.session_history.spawn_background_task",
-        _drop_background_task,
+        "services.generation_session_service.session_history.request_run_title_generation",
+        AsyncMock(return_value=True),
     )
 
     run_payload = await create_artifact_run(

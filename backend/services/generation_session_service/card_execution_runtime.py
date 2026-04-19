@@ -14,9 +14,8 @@ from services.generation_session_service.session_history import (
     RUN_STATUS_PENDING,
     RUN_STEP_OUTLINE,
     create_session_run,
-    generate_semantic_run_title,
+    request_run_title_generation,
     serialize_session_run,
-    spawn_background_task,
 )
 from utils.exceptions import APIException, ErrorCode
 
@@ -122,14 +121,11 @@ async def execute_studio_card_draft_request(
         status=RUN_STATUS_PENDING,
     )
     if run:
-        spawn_background_task(
-            generate_semantic_run_title(
-                db=session_service._db,
-                run_id=run.id,
-                tool_type=run.toolType,
-                snapshot=body.config,
-            ),
-            label=f"studio-card-draft-run:{run.id}",
+        await request_run_title_generation(
+            db=session_service._db,
+            run_id=run.id,
+            tool_type=run.toolType,
+            snapshot=body.config,
         )
     return StudioCardExecutionResult(
         card_id=card_id,

@@ -8,6 +8,11 @@ import { useAuthStore } from "@/stores/authStore";
 import type { Project } from "./project-types";
 
 const SESSION_CHECK_TIMEOUT_MS = 8_000;
+const PROJECT_TITLE_POLL_MS = 2_500;
+
+function readProjectNameSource(project: Project): string {
+  return String(project.nameSource || project.name_source || "").trim();
+}
 
 export function useProjectsPageState() {
   const router = useRouter();
@@ -65,6 +70,20 @@ export function useProjectsPageState() {
       cancelled = true;
     };
   }, [router, fetchProjects]);
+
+  useEffect(() => {
+    const hasPendingTitles = projects.some(
+      (project) => readProjectNameSource(project) === "default"
+    );
+    if (!hasPendingTitles) return;
+
+    const timer = window.setInterval(() => {
+      void fetchProjects();
+    }, PROJECT_TITLE_POLL_MS);
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, [fetchProjects, projects]);
 
   const filteredProjects = useMemo(
     () =>

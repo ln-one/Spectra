@@ -1,6 +1,8 @@
 ﻿export interface Project {
   id: string;
   name: string;
+  nameSource?: string;
+  name_source?: string;
   subject?: string;
   grade_level?: string;
   status: string;

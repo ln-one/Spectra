@@ -27,9 +27,8 @@ async def create_artifact_run(
         RUN_STEP_GENERATE,
         RUN_STEP_OUTLINE,
         create_session_run,
-        generate_semantic_run_title,
+        request_run_title_generation,
         serialize_session_run,
-        spawn_background_task,
         update_session_run,
     )
 
@@ -94,14 +93,11 @@ async def create_artifact_run(
                 "tool_type": tool_type,
             },
         )
-        spawn_background_task(
-            generate_semantic_run_title(
-                db=db_service.db,
-                run_id=run.id,
-                tool_type=run.toolType,
-                snapshot=body.config,
-            ),
-            label=f"studio-card-run:{run.id}",
+        await request_run_title_generation(
+            db=db_service.db,
+            run_id=run.id,
+            tool_type=run.toolType,
+            snapshot=body.config,
         )
     await append_card_execution_completed_event(
         card_id=card_id,

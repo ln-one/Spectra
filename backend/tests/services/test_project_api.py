@@ -306,6 +306,7 @@ async def test_update_project_response_syncs_formal_governance_after_db(monkeypa
         grade_level="高中",
         visibility="shared",
         is_referenceable=True,
+        name_source="manual",
     )
     update_governance.assert_awaited_once_with(
         project_id="p-001",
@@ -371,6 +372,7 @@ async def test_update_project_response_rolls_back_db_when_formal_governance_fail
         "grade_level": "高中",
         "visibility": "shared",
         "is_referenceable": True,
+        "name_source": "manual",
     }
     assert second_call.kwargs == {
         "project_id": "p-001",
@@ -379,6 +381,7 @@ async def test_update_project_response_rolls_back_db_when_formal_governance_fail
         "grade_level": "初中",
         "visibility": "private",
         "is_referenceable": False,
+        "name_source": None,
     }
 
 

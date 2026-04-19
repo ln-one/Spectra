@@ -12,8 +12,7 @@ from services.generation_session_service.command_response import (
     build_command_response,
 )
 from services.generation_session_service.session_history import (
-    generate_semantic_run_title,
-    spawn_background_task,
+    request_run_title_generation,
 )
 from services.platform.state_transition_guard import (
     GenerationCommandType,
@@ -70,14 +69,11 @@ class SessionCommandMixin:
         )
 
         if run_data and command_type != GenerationCommandType.SET_SESSION_TITLE.value:
-            spawn_background_task(
-                generate_semantic_run_title(
-                    db=self._db,
-                    run_id=run_data["run_id"],
-                    tool_type=run_data["tool_type"],
-                    snapshot=command,
-                ),
-                label=f"run-title:{run_data['run_id']}",
+            await request_run_title_generation(
+                db=self._db,
+                run_id=run_data["run_id"],
+                tool_type=run_data["tool_type"],
+                snapshot=command,
             )
 
         await save_cached_command_response(
