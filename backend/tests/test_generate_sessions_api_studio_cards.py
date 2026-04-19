@@ -35,10 +35,14 @@ def _as_user(app):
 def _studio_generated_content(card_id: str) -> dict:
     if card_id == "word_document":
         return {
-            "kind": "word_document",
-            "title": "牛顿定律学生讲义",
-            "summary": "围绕牛顿定律生成分层教学讲义。",
-            "document_variant": "student_handout",
+            "kind": "teaching_document",
+            "legacy_kind": "word_document",
+            "schema_id": "lesson_plan_v1",
+            "schema_version": 1,
+            "preset": "lesson_plan",
+            "title": "牛顿定律教案",
+            "summary": "围绕牛顿定律生成教案。",
+            "document_variant": "layered_lesson_plan",
             "source_artifact_id": "a-ppt-001",
         }
     if card_id == "interactive_games":
@@ -141,15 +145,22 @@ async def test_execute_studio_card_creates_word_artifact(app, _as_user):
             "/api/v1/generate/studio-cards/word_document/execute",
             json={
                 "project_id": "p-001",
+                "primary_source_id": "a-ppt-001",
                 "source_artifact_id": "a-ppt-001",
-                "config": {"document_variant": "student_handout"},
+                "selected_source_ids": ["a-ppt-001"],
+                "config": {
+                    "schema_id": "lesson_plan_v1",
+                    "detail_level": "standard",
+                },
             },
         )
 
     assert response.status_code == 200
     kwargs = create_artifact_mock.await_args.kwargs
     assert kwargs["artifact_type"] == "docx"
-    assert kwargs["content"]["document_variant"] == "student_handout"
+    assert kwargs["content"]["kind"] == "teaching_document"
+    assert kwargs["content"]["schema_id"] == "lesson_plan_v1"
+    assert kwargs["content"]["primary_source_id"] == "a-ppt-001"
 
 
 @pytest.mark.anyio

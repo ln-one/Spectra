@@ -25,7 +25,9 @@ function getCardId(flowContext?: ToolFlowContext): string {
 
   const contentKind = readArtifactContent(flowContext)?.kind;
   if (contentKind === "speaker_notes") return "speaker_notes";
-  if (contentKind === "word_document") return "word_document";
+  if (contentKind === "word_document" || contentKind === "teaching_document") {
+    return "word_document";
+  }
   if (contentKind === "quiz") return "interactive_quick_quiz";
   if (contentKind === "mindmap") return "knowledge_mindmap";
   if (contentKind === "classroom_qa_simulator") return "classroom_qa_simulator";
@@ -55,7 +57,7 @@ function getProductTitle(cardId: string, flowContext?: ToolFlowContext): string 
 
   switch (cardId) {
     case "word_document":
-      return "教学文档";
+      return "教案";
     case "speaker_notes":
       return "讲稿备注";
     case "interactive_quick_quiz":
@@ -172,7 +174,7 @@ function getArtifactSummary(flowContext?: ToolFlowContext): string {
   const artifactType = getArtifactType(flowContext);
   switch (cardId) {
     case "word_document":
-      return "正式文档工作面已就绪，可预览、导出并继续微调。";
+      return "教案工作台已就绪，可预览、加入来源、导出并继续微调。";
     case "speaker_notes":
       return "讲稿工作面已就绪，可按页查看并微调段落。";
     case "interactive_quick_quiz":
@@ -214,7 +216,7 @@ function getCurrentArtifactTitle(flowContext?: ToolFlowContext): string {
 function getCurrentSurfaceLabel(flowContext?: ToolFlowContext): string {
   switch (getCardId(flowContext)) {
     case "word_document":
-      return "正式文档工作面";
+      return "教案工作台";
     case "speaker_notes":
       return "提词器式讲稿工作面";
     case "interactive_quick_quiz":
@@ -242,9 +244,9 @@ function getDocumentSummaryFallback(flowContext?: ToolFlowContext): string {
   const documentTitle =
     content && typeof content.title === "string" ? content.title.trim() : "";
   if (documentTitle) {
-    return `${documentTitle} 已生成，可继续微调或导出。`;
+    return `${documentTitle} 已生成，可继续微调、加入来源或导出。`;
   }
-  return "已生成正式文档，可继续微调或导出。";
+  return "已生成教案，可继续微调、加入来源或导出。";
 }
 
 function getSummary(
@@ -269,7 +271,7 @@ function getRecommendedAction(flowContext?: ToolFlowContext): string {
   if (nextAction === "follow_up_turn") return "继续追问，推进下一轮课堂预演。";
   if (nextAction === "answer_or_refine") return "先答题，或继续微调当前题。";
   if (nextAction === "refine" && cardId === "word_document") {
-    return "继续微调文档，或导出正式产物。";
+    return "继续微调教案，或导出正式产物。";
   }
   if (nextAction === "refine" && cardId === "speaker_notes") return "继续微调讲稿。";
   if (nextAction === "refine" && cardId === "knowledge_mindmap") {
@@ -298,7 +300,7 @@ function getRecommendedAction(flowContext?: ToolFlowContext): string {
   if (cardId === "classroom_qa_simulator" && flowContext?.canFollowUpTurn) {
     return "继续追问，推进下一轮课堂预演。";
   }
-  if (cardId === "word_document") return "继续微调文档，或导出正式产物。";
+  if (cardId === "word_document") return "继续微调教案，或导出正式产物。";
   if (cardId === "speaker_notes") return "继续微调讲稿。";
   if (cardId === "interactive_quick_quiz") return "先答题，或继续微调当前题。";
   if (cardId === "knowledge_mindmap") return "选择节点后继续结构化编辑。";
@@ -326,7 +328,7 @@ function getNextStepSummary(flowContext?: ToolFlowContext): string {
     case "speaker_notes":
       return "下一步可继续进入正式文档、随堂小测、知识导图或课堂预演。";
     case "word_document":
-      return "下一步可继续导出正式文档，或回到讲稿与课堂预演继续打磨表达。";
+      return "下一步可继续导出教案，或回到讲稿与课堂预演继续打磨表达。";
     case "interactive_quick_quiz":
       return "下一步可继续微调当前题，或带着题目重点进入课堂预演。";
     case "knowledge_mindmap":

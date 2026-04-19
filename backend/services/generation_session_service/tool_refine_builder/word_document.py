@@ -37,7 +37,11 @@ async def refine_word_document_content(
     if not summary:
         summary = "已更新文档内容。"
 
-    updated["kind"] = "word_document"
+    updated["kind"] = "teaching_document"
+    updated["legacy_kind"] = "word_document"
+    updated["schema_id"] = updated.get("schema_id") or "lesson_plan_v1"
+    updated["schema_version"] = updated.get("schema_version") or 1
+    updated["preset"] = updated.get("preset") or "lesson_plan"
     updated["title"] = title
     updated["summary"] = summary
     updated["document_content"] = document_content

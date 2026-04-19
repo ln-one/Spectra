@@ -17,11 +17,13 @@ from services.project_space_service.service import project_space_service
 from .card_source_bindings import get_card_source_artifact_types
 from .card_execution_runtime_helpers import (
     artifact_result_payload,
+    build_source_snapshot_payload,
     build_latest_runnable_state,
     build_provenance_payload,
     build_source_binding_payload,
     create_replacement_artifact,
     load_artifact_content,
+    resolve_effective_source_artifact_id,
     validate_simulator_turn_artifact,
     validate_source_artifact,
     validate_structured_refine_artifact,
@@ -61,11 +63,16 @@ async def execute_studio_card_artifact_request(
         user_id,
         ProjectPermission.COLLABORATE,
     )
+    effective_source_artifact_id = await resolve_effective_source_artifact_id(
+        project_id=body.project_id,
+        primary_source_id=body.primary_source_id,
+        source_artifact_id=body.source_artifact_id,
+    )
     await validate_source_artifact(
         project_id=body.project_id,
         card_id=card_id,
         user_id=user_id,
-        source_artifact_id=body.source_artifact_id,
+        source_artifact_id=effective_source_artifact_id,
     )
     await promote_requested_run_to_generating(
         card_id=card_id,
@@ -78,17 +85,25 @@ async def execute_studio_card_artifact_request(
         project_id=body.project_id,
         user_id=user_id,
         config=body.config,
-        source_artifact_id=body.source_artifact_id,
+        source_artifact_id=effective_source_artifact_id,
         rag_source_ids=body.rag_source_ids,
     )
     if generated_content:
         artifact_content.update(generated_content)
     source_artifact_id = str(
-        body.source_artifact_id
+        effective_source_artifact_id
         or artifact_content.get("source_artifact_id")
         or payload.get("source_artifact_id")
         or ""
     ).strip()
+    artifact_content["primary_source_id"] = body.primary_source_id
+    artifact_content["selected_source_ids"] = body.selected_source_ids or []
+    artifact_content["source_snapshot"] = await build_source_snapshot_payload(
+        project_id=body.project_id,
+        primary_source_id=body.primary_source_id,
+        selected_source_ids=body.selected_source_ids,
+        source_artifact_id=source_artifact_id or None,
+    )
     if card_id == "word_document":
         artifact_content["title"] = await resolve_word_document_title(
             source_artifact_id=source_artifact_id,
@@ -100,7 +115,12 @@ async def execute_studio_card_artifact_request(
         card_id=card_id,
         session_id=execution_session_id,
         source_artifact_id=source_artifact_id or None,
-        request_snapshot={"config": body.config, "preview": payload},
+        request_snapshot={
+            "config": body.config,
+            "preview": payload,
+            "primary_source_id": body.primary_source_id,
+            "selected_source_ids": body.selected_source_ids,
+        },
     )
     artifact_content["source_binding"] = build_source_binding_payload(
         card_id=card_id,
@@ -162,7 +182,12 @@ async def execute_studio_card_artifact_request(
             artifact_id=artifact.id,
             session_id=execution_session_id,
             source_artifact_id=source_artifact_id or None,
-            request_snapshot={"config": body.config, "preview": payload},
+            request_snapshot={
+                "config": body.config,
+                "preview": payload,
+                "primary_source_id": body.primary_source_id,
+                "selected_source_ids": body.selected_source_ids,
+            },
         ),
         source_binding=build_source_binding_payload(
             card_id=card_id,
@@ -252,6 +277,8 @@ async def execute_studio_card_structured_refine(
                 "config": body.config,
                 "selection_anchor": body.selection_anchor,
                 "refine_mode": body.refine_mode.value,
+                "primary_source_id": body.primary_source_id,
+                "selected_source_ids": body.selected_source_ids,
             },
             replaces_artifact_id=body.artifact_id,
         ),

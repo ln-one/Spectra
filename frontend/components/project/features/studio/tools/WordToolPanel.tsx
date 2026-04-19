@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { WorkflowStepper } from "@/components/project/shared";
 import { previewApi } from "@/lib/sdk";
@@ -13,15 +13,16 @@ import type { ToolPanelProps } from "./types";
 import { useStudioRagRecommendations } from "./useStudioRagRecommendations";
 import { useWorkflowStepSync } from "./useWorkflowStepSync";
 import { ConfigStep } from "./word/ConfigStep";
-import { getReadinessLabel, WORD_STEPS } from "./word/constants";
+import {
+  getReadinessLabel,
+  WORD_STEPS,
+} from "./word/constants";
 import { GenerateStep } from "./word/GenerateStep";
 import { PreviewStep } from "./word/PreviewStep";
 import type {
-  WordDifficultyLayer,
-  WordDocumentVariant,
-  WordGradeBand,
+  LessonPlanDetailLevel,
+  LessonPlanGradeBand,
   WordStep,
-  WordTeachingModel,
 } from "./word/types";
 
 export function WordToolPanel({
@@ -29,7 +30,6 @@ export function WordToolPanel({
   onDraftChange,
   flowContext,
 }: ToolPanelProps) {
-  const hasRequestedInitialSourcesRef = useRef(false);
   const { activeSessionId } = useProjectStore(
     useShallow((state) => ({
       activeSessionId: state.activeSessionId,
@@ -38,14 +38,9 @@ export function WordToolPanel({
   const [activeStep, setActiveStep] = useState<WordStep>("config");
   useWorkflowStepSync(activeStep, setActiveStep, flowContext);
 
-  const [documentVariant, setDocumentVariant] = useState<WordDocumentVariant>(
-    "layered_lesson_plan"
-  );
-  const [teachingModel, setTeachingModel] =
-    useState<WordTeachingModel>("scaffolded");
-  const [gradeBand, setGradeBand] = useState<WordGradeBand>("high");
-  const [difficultyLayer, setDifficultyLayer] =
-    useState<WordDifficultyLayer>("B");
+  const [detailLevel, setDetailLevel] =
+    useState<LessonPlanDetailLevel>("standard");
+  const [gradeBand, setGradeBand] = useState<LessonPlanGradeBand>("high");
   const [topic, setTopic] = useState("");
   const [goal, setGoal] = useState("");
   const [teachingContext, setTeachingContext] = useState("");
@@ -59,10 +54,16 @@ export function WordToolPanel({
     null
   );
 
+  const primarySourceId = flowContext?.selectedSourceId ?? null;
+  const selectedSourceIds = useMemo(
+    () => (primarySourceId ? [primarySourceId] : []),
+    [primarySourceId]
+  );
+
   const { suggestions, summary, isLoading } = useStudioRagRecommendations({
     query:
-      "为当前项目推荐适合生成教学文档的课题主题、学习目标、教学场景和学生难点",
-    fallbackSuggestions: ["当前项目核心主题", "知识重点梳理", "课堂巩固任务"],
+      "为当前项目推荐适合生成教案的课题主题、学习目标、课堂场景和学生学习难点",
+    fallbackSuggestions: ["当前项目核心主题", "课堂重点梳理", "评价任务设计"],
   });
 
   useEffect(() => {
@@ -79,48 +80,33 @@ export function WordToolPanel({
 
   useEffect(() => {
     onDraftChange?.({
-      document_variant: documentVariant,
-      teaching_model:
-        documentVariant === "layered_lesson_plan" ? teachingModel : null,
+      kind: "teaching_document",
+      schema_id: "lesson_plan_v1",
+      schema_version: 1,
+      preset: "lesson_plan",
+      detail_level: detailLevel,
       grade_band: gradeBand,
       topic,
       learning_goal: goal,
       teaching_context: teachingContext,
       student_needs: studentNeeds,
       output_requirements: outputRequirements,
-      difficulty_layer:
-        documentVariant === "layered_lesson_plan" ? difficultyLayer : null,
-      source_artifact_id: flowContext?.selectedSourceId ?? null,
+      primary_source_id: primarySourceId,
+      selected_source_ids: selectedSourceIds,
+      document_variant: "layered_lesson_plan",
+      source_artifact_id: primarySourceId,
     });
   }, [
-    difficultyLayer,
-    documentVariant,
-    flowContext?.selectedSourceId,
+    detailLevel,
     goal,
     gradeBand,
     onDraftChange,
     outputRequirements,
+    primarySourceId,
+    selectedSourceIds,
     studentNeeds,
     teachingContext,
-    teachingModel,
     topic,
-  ]);
-
-  useEffect(() => {
-    hasRequestedInitialSourcesRef.current = false;
-  }, [activeSessionId]);
-
-  useEffect(() => {
-    if (hasRequestedInitialSourcesRef.current) return;
-    if (!flowContext?.requiresSourceArtifact) return;
-    if (!flowContext.onLoadSources) return;
-    if ((flowContext.sourceOptions ?? []).length > 0) return;
-    hasRequestedInitialSourcesRef.current = true;
-    void flowContext.onLoadSources();
-  }, [
-    flowContext?.onLoadSources,
-    flowContext?.requiresSourceArtifact,
-    flowContext?.sourceOptions,
   ]);
 
   useEffect(() => {
@@ -209,37 +195,36 @@ export function WordToolPanel({
 
   return (
     <div
-      className="project-tool-workbench h-full overflow-hidden rounded-2xl border border-zinc-200/60 bg-white/80 backdrop-blur-xl shadow-2xl shadow-zinc-200/30 group/workbench"
+      className="project-tool-workbench h-full overflow-hidden rounded-2xl border border-zinc-200/60 bg-white/80 shadow-2xl shadow-zinc-200/30 backdrop-blur-xl group/workbench"
       style={{
-        ["--project-tool-accent" as any]: colors.primary,
-        ["--project-tool-accent-soft" as any]: colors.glow,
-        ["--project-tool-surface" as any]: colors.soft,
+        ["--project-tool-accent" as never]: colors.primary,
+        ["--project-tool-accent-soft" as never]: colors.glow,
+        ["--project-tool-surface" as never]: colors.soft,
       }}
     >
-      {/* Tool Accent Tip */}
       <div className={cn("h-1 w-full bg-gradient-to-r", colors.gradient)} />
 
       <div className="flex h-full min-h-0 flex-col">
-        <div className="border-b border-zinc-100/80 px-5 py-4 bg-zinc-50/30">
+        <div className="border-b border-zinc-100/80 bg-zinc-50/30 px-5 py-4">
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-xl bg-white shadow-sm border border-zinc-100 group-hover/workbench:scale-110 transition-transform duration-500">
+              <div className="rounded-xl border border-zinc-100 bg-white p-2 shadow-sm transition-transform duration-500 group-hover/workbench:scale-110">
                 <FileText
-                  className="w-5 h-5"
+                  className="h-5 w-5"
                   style={{ color: colors.primary }}
                 />
               </div>
               <div>
-                <h3 className="text-sm font-black text-zinc-900 tracking-tight">
-                  {toolName}智能工作台
+                <h3 className="text-sm font-black tracking-tight text-zinc-900">
+                  {toolName}工作台
                 </h3>
                 <p className="mt-0.5 text-[11px] font-medium leading-relaxed text-zinc-500">
-                  三步生成专业教学文档 · 实时预览 AIGC 成果
+                  以右侧来源为上下文，生成、编辑并沉淀教案。
                 </p>
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <span className="rounded-full border border-zinc-100 bg-white px-2.5 py-1 text-[10px] font-bold text-zinc-600 shadow-sm uppercase tracking-wider">
+              <span className="rounded-full border border-zinc-100 bg-white px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-zinc-600 shadow-sm">
                 {getReadinessLabel(flowContext?.readiness)}
               </span>
             </div>
@@ -254,7 +239,7 @@ export function WordToolPanel({
               currentStep={activeStep}
               steps={WORD_STEPS}
               onStepChange={(stepId) => setActiveStep(stepId as WordStep)}
-              title="文档生成流程"
+              title="教案流程"
               subtitle="Workflow"
             />
             <div className="min-h-0 flex-1 overflow-y-auto pr-1">
@@ -264,16 +249,14 @@ export function WordToolPanel({
                   currentStep={activeStep}
                   steps={WORD_STEPS}
                   onStepChange={(stepId) => setActiveStep(stepId as WordStep)}
-                  title="文档生成流程"
+                  title="教案流程"
                   subtitle="Workflow"
                 />
               </div>
               {activeStep === "config" ? (
                 <ConfigStep
-                  documentVariant={documentVariant}
-                  teachingModel={teachingModel}
+                  detailLevel={detailLevel}
                   gradeBand={gradeBand}
-                  difficultyLayer={difficultyLayer}
                   topic={topic}
                   goal={goal}
                   teachingContext={teachingContext}
@@ -282,10 +265,8 @@ export function WordToolPanel({
                   topicSuggestions={suggestions}
                   goalSuggestion={summary}
                   isRecommendationsLoading={isLoading}
-                  onDocumentVariantChange={setDocumentVariant}
-                  onTeachingModelChange={setTeachingModel}
+                  onDetailLevelChange={setDetailLevel}
                   onGradeBandChange={setGradeBand}
-                  onDifficultyLayerChange={setDifficultyLayer}
                   onTopicChange={setTopic}
                   onGoalChange={setGoal}
                   onTeachingContextChange={setTeachingContext}
@@ -304,10 +285,8 @@ export function WordToolPanel({
                   teachingContext={teachingContext}
                   studentNeeds={studentNeeds}
                   outputRequirements={outputRequirements}
-                  documentVariant={documentVariant}
-                  teachingModel={teachingModel}
+                  detailLevel={detailLevel}
                   gradeBand={gradeBand}
-                  difficultyLayer={difficultyLayer}
                   flowContext={flowContext}
                   isGenerating={isGenerating}
                   onBack={() => setActiveStep("config")}

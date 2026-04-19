@@ -1,4 +1,3 @@
-﻿import { AnimatePresence, motion } from "framer-motion";
 import { Loader2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,23 +11,14 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  DIFFICULTY_LAYER_OPTIONS,
-  DOCUMENT_VARIANTS,
+  DETAIL_LEVEL_OPTIONS,
   GRADE_BAND_OPTIONS,
-  TEACHING_MODE_OPTIONS,
 } from "./constants";
-import type {
-  WordDifficultyLayer,
-  WordDocumentVariant,
-  WordGradeBand,
-  WordTeachingModel,
-} from "./types";
+import type { LessonPlanDetailLevel, LessonPlanGradeBand } from "./types";
 
 interface ConfigStepProps {
-  documentVariant: WordDocumentVariant;
-  teachingModel: WordTeachingModel;
-  gradeBand: WordGradeBand;
-  difficultyLayer: WordDifficultyLayer;
+  detailLevel: LessonPlanDetailLevel;
+  gradeBand: LessonPlanGradeBand;
   topic: string;
   goal: string;
   teachingContext: string;
@@ -37,10 +27,8 @@ interface ConfigStepProps {
   topicSuggestions: string[];
   goalSuggestion: string;
   isRecommendationsLoading: boolean;
-  onDocumentVariantChange: (value: WordDocumentVariant) => void;
-  onTeachingModelChange: (value: WordTeachingModel) => void;
-  onGradeBandChange: (value: WordGradeBand) => void;
-  onDifficultyLayerChange: (value: WordDifficultyLayer) => void;
+  onDetailLevelChange: (value: LessonPlanDetailLevel) => void;
+  onGradeBandChange: (value: LessonPlanGradeBand) => void;
   onTopicChange: (value: string) => void;
   onGoalChange: (value: string) => void;
   onTeachingContextChange: (value: string) => void;
@@ -50,10 +38,8 @@ interface ConfigStepProps {
 }
 
 export function ConfigStep({
-  documentVariant,
-  teachingModel,
+  detailLevel,
   gradeBand,
-  difficultyLayer,
   topic,
   goal,
   teachingContext,
@@ -62,10 +48,8 @@ export function ConfigStep({
   topicSuggestions,
   goalSuggestion,
   isRecommendationsLoading,
-  onDocumentVariantChange,
-  onTeachingModelChange,
+  onDetailLevelChange,
   onGradeBandChange,
-  onDifficultyLayerChange,
   onTopicChange,
   onGoalChange,
   onTeachingContextChange,
@@ -73,43 +57,72 @@ export function ConfigStep({
   onOutputRequirementsChange,
   onNext,
 }: ConfigStepProps) {
-  const showLayeredFields = documentVariant === "layered_lesson_plan";
-
   return (
     <div className="space-y-4">
       <section className="rounded-xl border border-zinc-200 bg-white p-4">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <p className="text-xs font-semibold text-zinc-800">文档类型</p>
+            <p className="text-xs font-semibold text-zinc-800">教案配置</p>
             <p className="mt-1 text-[11px] text-zinc-500">
-              按当前知识库场景选择最接近的输出形态，再补充教学要求。
+              当前默认生成教案，先补齐课题、目标和课堂要求。
             </p>
           </div>
           {isRecommendationsLoading ? (
             <span className="inline-flex items-center gap-1 text-[11px] text-zinc-500">
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              正在读取 RAG 推荐
+              正在读取推荐
             </span>
           ) : null}
         </div>
-        <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
-          {DOCUMENT_VARIANTS.map((item) => (
-            <button
-              key={item.value}
-              type="button"
-              onClick={() => onDocumentVariantChange(item.value)}
-              className={`rounded-xl border px-3 py-3 text-left transition-colors ${
-                documentVariant === item.value
-                  ? "border-blue-500 bg-blue-50"
-                  : "border-zinc-200 bg-white hover:bg-zinc-50"
-              }`}
+
+        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="space-y-1.5">
+            <Label className="text-xs text-zinc-600">详细程度</Label>
+            <Select
+              value={detailLevel}
+              onValueChange={(value) =>
+                onDetailLevelChange(value as LessonPlanDetailLevel)
+              }
             >
-              <p className="text-xs font-semibold text-zinc-800">
-                {item.label}
-              </p>
-              <p className="mt-1 text-[11px] text-zinc-500">{item.helper}</p>
-            </button>
-          ))}
+              <SelectTrigger className="h-9 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {DETAIL_LEVEL_OPTIONS.map((item) => (
+                  <SelectItem key={item.value} value={item.value}>
+                    {item.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-[11px] text-zinc-500">
+              {
+                DETAIL_LEVEL_OPTIONS.find((item) => item.value === detailLevel)
+                  ?.helper
+              }
+            </p>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs text-zinc-600">适用学段</Label>
+            <Select
+              value={gradeBand}
+              onValueChange={(value) =>
+                onGradeBandChange(value as LessonPlanGradeBand)
+              }
+            >
+              <SelectTrigger className="h-9 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {GRADE_BAND_OPTIONS.map((item) => (
+                  <SelectItem key={item.value} value={item.value}>
+                    {item.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </section>
 
@@ -119,7 +132,7 @@ export function ConfigStep({
           <Input
             value={topic}
             onChange={(event) => onTopicChange(event.target.value)}
-            placeholder="从知识库中选择一个真实主题"
+            placeholder="例如：牛顿第二定律、细胞分裂、函数单调性"
             className="h-9 text-xs"
           />
           {topicSuggestions.length > 0 ? (
@@ -138,88 +151,12 @@ export function ConfigStep({
           ) : null}
         </div>
 
-        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <div className="space-y-1.5">
-            <Label className="text-xs text-zinc-600">适用学段</Label>
-            <Select
-              value={gradeBand}
-              onValueChange={(value) =>
-                onGradeBandChange(value as WordGradeBand)
-              }
-            >
-              <SelectTrigger className="h-9 text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {GRADE_BAND_OPTIONS.map((item) => (
-                  <SelectItem key={item.value} value={item.value}>
-                    {item.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <AnimatePresence initial={false}>
-            {showLayeredFields ? (
-              <motion.div
-                key="layered-fields"
-                initial={{ opacity: 0, y: -6 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -6 }}
-                className="space-y-3 sm:contents"
-              >
-                <div className="space-y-1.5">
-                  <Label className="text-xs text-zinc-600">教学模型</Label>
-                  <Select
-                    value={teachingModel}
-                    onValueChange={(value) =>
-                      onTeachingModelChange(value as WordTeachingModel)
-                    }
-                  >
-                    <SelectTrigger className="h-9 text-xs">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {TEACHING_MODE_OPTIONS.map((item) => (
-                        <SelectItem key={item.value} value={item.value}>
-                          {item.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs text-zinc-600">分层档位</Label>
-                  <Select
-                    value={difficultyLayer}
-                    onValueChange={(value) =>
-                      onDifficultyLayerChange(value as WordDifficultyLayer)
-                    }
-                  >
-                    <SelectTrigger className="h-9 text-xs">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {DIFFICULTY_LAYER_OPTIONS.map((item) => (
-                        <SelectItem key={item.value} value={item.value}>
-                          {item.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </motion.div>
-            ) : null}
-          </AnimatePresence>
-        </div>
-
         <div className="mt-4 space-y-1.5">
           <Label className="text-xs text-zinc-600">学习目标</Label>
           <Textarea
             value={goal}
             onChange={(event) => onGoalChange(event.target.value)}
-            placeholder="让大模型知道文档最终要帮助学生完成什么"
+            placeholder="说明这节课希望学生学会什么、做到什么、理解什么"
             className="min-h-[84px] text-xs"
           />
           {goalSuggestion ? (
@@ -229,7 +166,7 @@ export function ConfigStep({
               className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] text-amber-700"
             >
               <Sparkles className="h-3.5 w-3.5" />
-              使用 RAG 推荐目标
+              使用推荐目标
             </button>
           ) : null}
         </div>
@@ -240,7 +177,7 @@ export function ConfigStep({
             <Textarea
               value={teachingContext}
               onChange={(event) => onTeachingContextChange(event.target.value)}
-              placeholder="例如公开课、复习课、实验课、40 分钟课时、需要板书等"
+              placeholder="例如：40 分钟公开课、复习课、实验课、需要板书或分组活动"
               className="min-h-[96px] text-xs"
             />
           </div>
@@ -249,7 +186,7 @@ export function ConfigStep({
             <Textarea
               value={studentNeeds}
               onChange={(event) => onStudentNeedsChange(event.target.value)}
-              placeholder="例如基础薄弱、容易混淆概念、需要例题拆解、需要探究拓展等"
+              placeholder="例如：基础薄弱、概念易混淆、需要例题拆解或探究拓展"
               className="min-h-[96px] text-xs"
             />
           </div>
@@ -260,18 +197,19 @@ export function ConfigStep({
           <Textarea
             value={outputRequirements}
             onChange={(event) => onOutputRequirementsChange(event.target.value)}
-            placeholder="例如需要表格、分层任务单、实验安全提示、课后练习、可打印版式等"
-            className="min-h-[96px] text-xs"
+            placeholder="例如：突出评价任务、写清教学流程、加入练习检测与作业设计"
+            className="min-h-[84px] text-xs"
           />
         </div>
       </section>
 
       <div className="flex justify-end">
         <Button
+          type="button"
           size="sm"
           className="h-9 rounded-lg bg-blue-600 text-xs hover:bg-blue-500"
-          onClick={onNext}
           disabled={!topic.trim() || !goal.trim()}
+          onClick={onNext}
         >
           下一步：确认生成
         </Button>

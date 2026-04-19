@@ -311,6 +311,13 @@ export function StudioPanelContainer({
     capability.currentExecutionPlan?.supported_refine_modes ??
     capability.currentCapability?.supported_refine_modes ??
     [];
+  const effectiveSelectedSourceId =
+    capability.currentCardId === "word_document"
+      ? selectedArtifactSourceIds[0] ?? capability.selectedSourceId
+      : capability.selectedSourceId;
+  const effectiveHasSourceBinding =
+    !capability.requiresSourceArtifact ||
+    Boolean(effectiveSelectedSourceId || capability.draftSourceArtifactId);
 
   const syncStudioChatContextByStep = useCallback(
     (
@@ -345,9 +352,7 @@ export function StudioPanelContainer({
         targetArtifactId: latestToolArtifact?.artifactId ?? null,
         targetRunId: latestToolArtifact?.runId ?? null,
         sourceArtifactId:
-          capability.selectedSourceId ??
-          capability.draftSourceArtifactId ??
-          null,
+          effectiveSelectedSourceId ?? capability.draftSourceArtifactId ?? null,
         configSnapshot: currentToolDraft,
       });
     },
@@ -357,7 +362,7 @@ export function StudioPanelContainer({
       capability.currentCardId,
       capability.currentToolArtifacts,
       capability.draftSourceArtifactId,
-      capability.selectedSourceId,
+      effectiveSelectedSourceId,
       currentToolDraft,
       project,
       setStudioChatContext,
@@ -370,7 +375,7 @@ export function StudioPanelContainer({
     currentCardId: capability.currentCardId,
     seedRunId: seededRunIdForManagedTool,
     currentToolDraft,
-    selectedSourceId: capability.selectedSourceId,
+    selectedSourceId: effectiveSelectedSourceId,
     selectedFileIds,
     selectedLibraryIds,
     selectedArtifactSourceIds,
@@ -380,7 +385,7 @@ export function StudioPanelContainer({
     generationSession,
     isProtocolPending: capability.isProtocolPending,
     requiresSourceArtifact: capability.requiresSourceArtifact,
-    hasSourceBinding: capability.hasSourceBinding,
+    hasSourceBinding: effectiveHasSourceBinding,
     canRefine: canRefineBase,
     setActiveSessionId,
     fetchArtifactHistory,
@@ -399,7 +404,7 @@ export function StudioPanelContainer({
     !capability.isProtocolPending &&
     getBindingStatus(capability.currentExecutionPlan?.initial_binding) !==
       "pending" &&
-    (!capability.requiresSourceArtifact || capability.hasSourceBinding);
+    effectiveHasSourceBinding;
   const canRefine = canRefineBase;
   const canFollowUpTurn =
     supportsRefineMode(supportedRefineModes, "follow_up_turn") &&
@@ -421,8 +426,7 @@ export function StudioPanelContainer({
   const surfaceReady = capability.activeCapabilityState.status === "backend_ready";
   const executeReady = canExecute;
   const refineReady = canRefine;
-  const sourceBindingReady =
-    !capability.requiresSourceArtifact || capability.hasSourceBinding;
+  const sourceBindingReady = effectiveHasSourceBinding;
   const governanceRubric: StudioGovernanceRubric | null =
     capability.currentCardId
       ? {
@@ -665,14 +669,14 @@ export function StudioPanelContainer({
     capabilityStatus: effectiveCapabilityStatus,
     capabilityReason:
       !sourceBindingReady && capability.requiresSourceArtifact
-        ? "当前卡片要求先绑定来源成果，缺少来源时不会再渲染伪结果。"
+        ? "当前教案主链要求先在右侧资料来源中选中一个课件来源。"
         : !protocolReady
           ? "当前卡片协议仍有缺口，Studio 只允许显示真实可走的正式链路。"
           : capability.activeCapabilityState.reason,
     isCapabilityLoading: capability.activeCapabilityState.isLoading,
     resolvedArtifact: capability.activeCapabilityState.resolvedArtifact,
     sourceOptions: capability.sourceOptions,
-    selectedSourceId: capability.selectedSourceId,
+    selectedSourceId: effectiveSelectedSourceId,
     requestedStep: requestedHistoryStep,
     latestArtifacts: capability.currentToolArtifacts.map((item) => ({
       artifactId: item.artifactId,
@@ -906,7 +910,7 @@ export function StudioPanelContainer({
               hasHistory={hasHistory}
               groupedHistory={groupedHistory}
               currentCardId={capability.currentCardId}
-              selectedSourceId={capability.selectedSourceId}
+              selectedSourceId={effectiveSelectedSourceId}
               latestArtifacts={toolFlowContext.latestArtifacts ?? []}
               projectId={project?.id ?? null}
               activeSessionId={activeSessionId}
@@ -1089,7 +1093,7 @@ export function StudioPanelContainer({
               isStudioActionRunning={execution.isStudioActionRunning}
               isLoadingCardProtocol={capability.isLoadingCardProtocol}
               sourceOptions={capability.sourceOptions}
-              selectedSourceId={capability.selectedSourceId}
+              selectedSourceId={effectiveSelectedSourceId}
               onSelectedSourceChange={
                 capability.setSelectedSourceForCurrentCard
               }

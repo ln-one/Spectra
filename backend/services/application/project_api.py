@@ -12,6 +12,12 @@ from schemas.project_semantics import (
 from schemas.project_space import ReferenceRelationType
 from schemas.project_vocabulary import ProjectReferenceMode
 from services.application.access import get_owned_project
+from services.application.project_artifact_sources import (
+    ARTIFACT_SOURCE_SURFACE_KIND_BY_ARTIFACT_TYPE,
+    ARTIFACT_SOURCE_TOOL_TYPE_BY_ARTIFACT_TYPE,
+    SUPPORTED_ARTIFACT_SOURCE_TYPES,
+    resolve_artifact_source_surface_kind,
+)
 from services.database import db_service
 from services.file_upload_service import serialize_upload
 from services.library_semantics import (
@@ -31,21 +37,6 @@ from utils.exceptions import InternalServerException, ValidationException
 from utils.responses import success_response
 
 logger = logging.getLogger(__name__)
-
-_ARTIFACT_SOURCE_TOOL_TYPE_BY_ARTIFACT_TYPE = {
-    "pptx": "ppt",
-    "docx": "word",
-    "mindmap": "mindmap",
-}
-_ARTIFACT_SOURCE_SURFACE_KIND_BY_ARTIFACT_TYPE = {
-    "pptx": "slides",
-    "docx": "document",
-    "mindmap": "graph",
-}
-_SUPPORTED_ARTIFACT_SOURCE_TYPES = set(
-    _ARTIFACT_SOURCE_TOOL_TYPE_BY_ARTIFACT_TYPE.keys()
-)
-
 
 def _safe_parse_json_object(value: Any) -> Optional[dict]:
     if value is None:
@@ -69,8 +60,6 @@ def _read_field(record: Any, field_name: str):
     if isinstance(record, dict):
         return record.get(field_name)
     return getattr(record, field_name, None)
-
-
 def _serialize_artifact_source_item(upload: Any) -> ArtifactBackedSourceItem:
     parse_result = _safe_parse_json_object(_read_field(upload, "parseResult")) or {}
     artifact_type = str(parse_result.get("artifact_type") or "").strip().lower()
@@ -81,11 +70,12 @@ def _serialize_artifact_source_item(upload: Any) -> ArtifactBackedSourceItem:
     )
     return ArtifactBackedSourceItem(
         id=str(_read_field(upload, "id") or ""),
+        source_kind="artifact_source",
         artifact_id=str(parse_result.get("artifact_id") or ""),
         artifact_type=artifact_type,
         tool_type=(
             str(parse_result.get("tool_type") or "").strip()
-            or _ARTIFACT_SOURCE_TOOL_TYPE_BY_ARTIFACT_TYPE.get(artifact_type, "summary")
+            or ARTIFACT_SOURCE_TOOL_TYPE_BY_ARTIFACT_TYPE.get(artifact_type, "summary")
         ),
         title=title,
         surface_kind=(
@@ -195,7 +185,7 @@ async def create_artifact_source_response(
         raise ValidationException(message="目标成果不存在，无法加入来源。")
 
     artifact_type = str(getattr(artifact, "type", "") or "").strip().lower()
-    if artifact_type not in _SUPPORTED_ARTIFACT_SOURCE_TYPES:
+    if artifact_type not in SUPPORTED_ARTIFACT_SOURCE_TYPES:
         raise ValidationException(message="当前仅支持 PPT、文档、导图加入来源。")
 
     artifact_metadata = parse_artifact_metadata(getattr(artifact, "metadata", None))
@@ -203,11 +193,10 @@ async def create_artifact_source_response(
         str(artifact_metadata.get("title") or "").strip()
         or str(getattr(artifact, "id", "") or "").strip()
     )
-    resolved_surface_kind = (
-        str(surface_kind or "").strip()
-        or _ARTIFACT_SOURCE_SURFACE_KIND_BY_ARTIFACT_TYPE.get(artifact_type)
+    resolved_surface_kind = resolve_artifact_source_surface_kind(
+        artifact_type, artifact_metadata, surface_kind
     )
-    resolved_tool_type = _ARTIFACT_SOURCE_TOOL_TYPE_BY_ARTIFACT_TYPE[artifact_type]
+    resolved_tool_type = ARTIFACT_SOURCE_TOOL_TYPE_BY_ARTIFACT_TYPE[artifact_type]
 
     existing_upload = await db_service.find_artifact_accretion_upload(
         project_id, artifact_id

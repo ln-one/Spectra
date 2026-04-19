@@ -15,7 +15,7 @@ const JOURNEY_STEPS: Array<{
 }> = [
   { cardId: "courseware_ppt", toolId: "ppt", label: "PPT" },
   { cardId: "speaker_notes", toolId: "summary", label: "讲稿备注" },
-  { cardId: "word_document", toolId: "word", label: "教学文档" },
+  { cardId: "word_document", toolId: "word", label: "教案" },
   { cardId: "interactive_quick_quiz", toolId: "quiz", label: "随堂小测" },
   { cardId: "knowledge_mindmap", toolId: "mindmap", label: "知识导图" },
   { cardId: "classroom_qa_simulator", toolId: "handout", label: "学情预演" },

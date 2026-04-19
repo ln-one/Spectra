@@ -210,8 +210,11 @@ async def test_build_studio_tool_artifact_content_routes_cards_through_normalize
 
     assert payload["title"] == expected_title
     if card_id == "word_document":
-        assert payload["kind"] == "word_document"
+        assert payload["kind"] == "teaching_document"
+        assert payload["legacy_kind"] == "word_document"
+        assert payload["schema_id"] == "lesson_plan_v1"
         assert payload["document_content"]["type"] == "doc"
+        assert isinstance(payload["lesson_plan"], dict)
         assert "preview_html" in payload
         assert "doc_source_html" in payload
     else:

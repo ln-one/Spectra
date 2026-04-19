@@ -52,16 +52,33 @@ export function PreviewStep({
     flowContext?.latestArtifacts?.[0] ?? flowContext?.resolvedArtifact ?? null;
   const exportArtifactId =
     (latestArtifact as { artifactId?: string | null } | null)?.artifactId ?? "";
+  const artifactContent =
+    flowContext?.resolvedArtifact?.content &&
+    typeof flowContext.resolvedArtifact.content === "object"
+      ? (flowContext.resolvedArtifact.content as Record<string, unknown>)
+      : null;
+  const sourceSnapshot =
+    artifactContent && typeof artifactContent.source_snapshot === "object"
+      ? (artifactContent.source_snapshot as Record<string, unknown>)
+      : null;
   const sourceArtifactId =
     (latestArtifact as { sourceArtifactId?: string | null } | null)
       ?.sourceArtifactId ??
+    (typeof sourceSnapshot?.primary_source_id === "string"
+      ? sourceSnapshot.primary_source_id
+      : null) ??
     flowContext?.selectedSourceId ??
     null;
-  const sourceArtifactTitle = sourceArtifactId
-    ? ((flowContext?.sourceOptions ?? []).find(
-        (item) => item.id === sourceArtifactId
-      )?.title ?? null)
-    : null;
+  const sourceArtifactTitle =
+    (typeof sourceSnapshot?.primary_source_title === "string" &&
+    sourceSnapshot.primary_source_title.trim()
+      ? sourceSnapshot.primary_source_title.trim()
+      : null) ??
+    (sourceArtifactId
+      ? ((flowContext?.sourceOptions ?? []).find(
+          (item) => item.id === sourceArtifactId
+        )?.title ?? null)
+      : null);
   const hasMarkdownContent = markdown.trim().length > 0;
   const hasBackendArtifact = Boolean(exportArtifactId);
   const hasContent =
@@ -97,11 +114,6 @@ export function PreviewStep({
     typeof flowContext?.onRefine === "function";
   const refineLabel =
     flowContext?.display?.actionLabels.refine ?? "打开对话微调";
-  const artifactContent =
-    flowContext?.resolvedArtifact?.content &&
-    typeof flowContext.resolvedArtifact.content === "object"
-      ? (flowContext.resolvedArtifact.content as Record<string, unknown>)
-      : null;
   const sourceBinding =
     artifactContent && typeof artifactContent.source_binding === "object"
       ? (artifactContent.source_binding as Record<string, unknown>)
@@ -119,8 +131,8 @@ export function PreviewStep({
     normalizedFlowContext,
     lastGeneratedAt,
     sourceArtifactTitle
-      ? `已基于 ${sourceArtifactTitle} 生成正式文档，可继续微调或导出。`
-      : "已生成正式文档，可继续微调或导出。"
+      ? `已基于 ${sourceArtifactTitle} 生成教案，可继续微调、加入来源或导出。`
+      : "已生成教案，可继续微调、加入来源或导出。"
   );
 
   useEffect(() => {
@@ -155,11 +167,20 @@ export function PreviewStep({
           document_title:
             typeof artifactContent?.title === "string" && artifactContent.title.trim()
               ? artifactContent.title.trim()
-              : "教学文档",
+              : "教案",
           document_summary:
             typeof artifactContent?.summary === "string" && artifactContent.summary.trim()
               ? artifactContent.summary.trim()
-              : "已更新文档内容。",
+              : "已更新教案内容。",
+          schema_id:
+            typeof artifactContent?.schema_id === "string" &&
+            artifactContent.schema_id.trim()
+              ? artifactContent.schema_id.trim()
+              : "lesson_plan_v1",
+          lesson_plan:
+            artifactContent && typeof artifactContent.lesson_plan === "object"
+              ? artifactContent.lesson_plan
+              : undefined,
         },
       });
       setIsEditing(false);
@@ -180,19 +201,19 @@ export function PreviewStep({
         <div className="mt-4 rounded-2xl border border-dashed border-zinc-300 bg-zinc-50 px-4 py-10 text-center">
           <FileText className="mx-auto h-8 w-8 text-zinc-400" />
           <p className="mt-3 text-sm font-medium text-zinc-700">
-            暂未收到后端真实文档内容
+            暂未收到后端真实教案内容
           </p>
           <p className="mt-1 text-[11px] text-zinc-500">
-            生成完成后，这里会直接显示由后端导出的预览文本。
+            生成完成后，这里会直接显示由后端返回的教案预览。
           </p>
         </div>
       }
     >
       <div className="flex items-center justify-between gap-3">
         <div>
-          <p className="text-sm font-semibold text-zinc-900">正式文档工作面</p>
+          <p className="text-sm font-semibold text-zinc-900">教案工作台</p>
           <p className="mt-1 text-[11px] text-zinc-500">
-            这里展示后端返回的真实文档内容，并支持结构化块编辑与 replacement artifact 保存。
+            这里展示后端返回的真实教案内容，并支持结构化块编辑与版本化保存。
           </p>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-2">
@@ -229,7 +250,7 @@ export function PreviewStep({
                 void flowContext?.onExportArtifact?.(exportArtifactId)
               }
             >
-              下载正式文档
+              导出教案文档
             </Button>
           ) : null}
           {isEditing && canStructuredSave ? (
@@ -250,7 +271,7 @@ export function PreviewStep({
       {isGenerating || isBackendPreviewLoading ? (
         <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-[11px] text-blue-700">
           <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          正在加载正式文档内容...
+          正在加载教案内容...
         </div>
       ) : null}
 
@@ -305,13 +326,14 @@ export function PreviewStep({
                 document={documentContent}
                 editable={isEditing}
                 onDocumentChange={setDocumentContent}
-                description="当前工作面已升级为 Editable Tiptap，保存时会回写为 Spectra-owned structured JSON。"
-                badgeLabel="Editable Tiptap"
+                title="教案结构编辑面"
+                description="当前工作面由 Tiptap / ProseMirror 承载，保存时会回写为结构化 lesson plan 内容。"
+                badgeLabel="Lesson Plan"
               />
             </div>
           ) : (
             <p className="text-sm text-zinc-700">
-              文档已由后端生成完成，可直接下载正式文档。
+              教案已由后端生成完成，可直接导出文档。
             </p>
           )}
         </div>
@@ -322,7 +344,7 @@ export function PreviewStep({
             暂未收到后端真实文档内容
           </p>
           <p className="mt-1 text-[11px] text-zinc-500">
-            生成完成后，这里会直接显示由后端导出的预览文本。
+            生成完成后，这里会直接显示教案预览与结构化编辑面。
           </p>
         </div>
       ) : null}

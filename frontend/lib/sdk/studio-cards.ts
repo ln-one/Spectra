@@ -142,6 +142,8 @@ export interface StudioCardExecutionPreviewRequest {
   config?: Record<string, unknown>;
   template_config?: Record<string, unknown>;
   visibility?: "private" | "project-visible" | "shared";
+  primary_source_id?: string;
+  selected_source_ids?: string[];
   source_artifact_id?: string;
   selected_file_ids?: string[];
   rag_source_ids?: string[];
@@ -159,6 +161,8 @@ export interface StudioCardRefineRequest {
   selection_anchor?: StudioSelectionAnchor;
   config?: Record<string, unknown>;
   visibility?: "private" | "project-visible" | "shared";
+  primary_source_id?: string;
+  selected_source_ids?: string[];
   source_artifact_id?: string;
   selected_file_ids?: string[];
   rag_source_ids?: string[];

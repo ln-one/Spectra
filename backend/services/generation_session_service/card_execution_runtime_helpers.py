@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 
+from services.database import db_service
 from schemas.project_space import ArtifactType
 from schemas.studio_cards import ExecutionCarrier, RefineMode
 from services.project_space_service import project_space_service
@@ -94,6 +95,99 @@ def artifact_metadata_dict(artifact) -> dict:
         except json.JSONDecodeError:
             return {}
     return {}
+
+
+def _safe_parse_json_object(value) -> dict:
+    if isinstance(value, dict):
+        return dict(value)
+    if isinstance(value, str) and value.strip():
+        try:
+            parsed = json.loads(value)
+        except json.JSONDecodeError:
+            return {}
+        if isinstance(parsed, dict):
+            return parsed
+    return {}
+
+
+async def resolve_effective_source_artifact_id(
+    *,
+    project_id: str,
+    primary_source_id: str | None = None,
+    source_artifact_id: str | None = None,
+) -> str | None:
+    normalized_artifact_id = str(source_artifact_id or "").strip()
+    if normalized_artifact_id:
+        return normalized_artifact_id
+
+    normalized_primary_source_id = str(primary_source_id or "").strip()
+    if not normalized_primary_source_id:
+        return None
+
+    upload = await db_service.get_file(normalized_primary_source_id)
+    if upload and getattr(upload, "projectId", None) == project_id:
+        parse_result = _safe_parse_json_object(getattr(upload, "parseResult", None))
+        bridged_artifact_id = str(parse_result.get("artifact_id") or "").strip()
+        if bridged_artifact_id:
+            return bridged_artifact_id
+
+    return normalized_primary_source_id
+
+
+async def build_source_snapshot_payload(
+    *,
+    project_id: str,
+    primary_source_id: str | None = None,
+    selected_source_ids: list[str] | None = None,
+    source_artifact_id: str | None = None,
+) -> dict:
+    normalized_primary_source_id = str(primary_source_id or "").strip() or None
+    normalized_selected_source_ids = [
+        str(item).strip()
+        for item in (selected_source_ids or [])
+        if isinstance(item, str) and str(item).strip()
+    ]
+    resolved_source_artifact_id = await resolve_effective_source_artifact_id(
+        project_id=project_id,
+        primary_source_id=normalized_primary_source_id,
+        source_artifact_id=source_artifact_id,
+    )
+
+    snapshot = {
+        "primary_source_id": normalized_primary_source_id,
+        "selected_source_ids": normalized_selected_source_ids,
+        "source_artifact_id": resolved_source_artifact_id,
+    }
+
+    if normalized_primary_source_id:
+        if (
+            resolved_source_artifact_id
+            and normalized_primary_source_id == resolved_source_artifact_id
+        ):
+            return snapshot
+        upload = await db_service.get_file(normalized_primary_source_id)
+        if upload and getattr(upload, "projectId", None) == project_id:
+            parse_result = _safe_parse_json_object(getattr(upload, "parseResult", None))
+            snapshot.update(
+                {
+                    "primary_source_title": str(
+                        parse_result.get("artifact_title")
+                        or parse_result.get("title")
+                        or getattr(upload, "filename", "")
+                        or ""
+                    ).strip()
+                    or None,
+                    "primary_source_tool_type": str(
+                        parse_result.get("tool_type") or ""
+                    ).strip()
+                    or None,
+                    "primary_source_surface_kind": str(
+                        parse_result.get("surface_kind") or ""
+                    ).strip()
+                    or None,
+                }
+            )
+    return snapshot
 
 
 async def validate_source_artifact(

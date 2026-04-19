@@ -11,7 +11,9 @@ from services.generation_session_service.word_document_content import markdown_t
 @pytest.mark.asyncio
 async def test_refine_word_document_content_replaces_document_blocks_and_regenerates_views():
     current_content = {
-        "kind": "word_document",
+        "kind": "teaching_document",
+        "legacy_kind": "word_document",
+        "schema_id": "lesson_plan_v1",
         "title": "牛顿第二定律教案",
         "summary": "旧摘要",
         "lesson_plan_markdown": "# 牛顿第二定律教案\n\n旧内容",
@@ -36,6 +38,9 @@ async def test_refine_word_document_content_replaces_document_blocks_and_regener
     )
 
     assert updated["document_content"]["type"] == "doc"
+    assert updated["kind"] == "teaching_document"
+    assert updated["legacy_kind"] == "word_document"
+    assert updated["schema_id"] == "lesson_plan_v1"
     assert "教学目标" in updated["lesson_plan_markdown"]
     assert "已更新为结构化块编辑版本。" == updated["summary"]
     assert "<html" in updated["preview_html"]

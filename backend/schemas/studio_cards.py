@@ -203,6 +203,8 @@ class StudioCardExecutionPreviewRequest(BaseModel):
     config: dict = Field(default_factory=dict)
     template_config: Optional[dict] = None
     visibility: Optional[str] = None
+    primary_source_id: Optional[str] = None
+    selected_source_ids: Optional[List[str]] = None
     source_artifact_id: Optional[str] = None
     selected_file_ids: Optional[List[str]] = None
     rag_source_ids: Optional[List[str]] = None
@@ -279,6 +281,8 @@ class StudioCardRefineRequest(BaseModel):
     selection_anchor: Optional[dict] = None
     config: dict = Field(default_factory=dict)
     visibility: Optional[str] = None
+    primary_source_id: Optional[str] = None
+    selected_source_ids: Optional[List[str]] = None
     source_artifact_id: Optional[str] = None
     selected_file_ids: Optional[List[str]] = None
     rag_source_ids: Optional[List[str]] = None

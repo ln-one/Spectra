@@ -72,6 +72,8 @@ def _build_preview_or_raise(card_id: str, body: dict):
         config=body.get("config"),
         template_config=body.get("template_config"),
         visibility=body.get("visibility"),
+        primary_source_id=body.get("primary_source_id"),
+        selected_source_ids=body.get("selected_source_ids"),
         source_artifact_id=body.get("source_artifact_id"),
         rag_source_ids=_resolve_request_rag_source_ids(body),
     )
@@ -424,6 +426,7 @@ async def get_studio_card_sources(
         sources.extend(
             await project_space_service.get_project_artifacts(
                 project_id,
+                user_id=user_id,
                 type_filter=artifact_type,
             )
         )

@@ -7,13 +7,13 @@ function buildFlowContext(overrides: Partial<ToolFlowContext> = {}): ToolFlowCon
   return {
     display: {
       toolId: "word",
-      productTitle: "教学文档",
-      productDescription: "围绕已生成成果延展正式文档。",
+      productTitle: "教案",
+      productDescription: "围绕统一 Sources 生成、编辑并沉淀教案成果。",
       studioCardId: "word_document",
       actionLabels: {
         preview: "执行预检",
         loadSources: "刷新来源",
-        execute: "生成正式文档",
+        execute: "生成教案",
         refine: "打开对话微调",
       },
       sourceBinding: {
@@ -24,7 +24,7 @@ function buildFlowContext(overrides: Partial<ToolFlowContext> = {}): ToolFlowCon
     },
     cardCapability: {
       id: "word_document",
-      title: "Word 教案与文档",
+      title: "教案工作台",
       readiness: "foundation_ready",
       governance_tag: "borrow",
       cleanup_priority: "p1",
@@ -64,10 +64,8 @@ describe("studio word card", () => {
         teachingContext=""
         studentNeeds=""
         outputRequirements=""
-        documentVariant="layered_lesson_plan"
-        teachingModel="scaffolded"
+        detailLevel="standard"
         gradeBand="high"
-        difficultyLayer="B"
         flowContext={buildFlowContext({
           requiresSourceArtifact: true,
           selectedSourceId: null,
@@ -80,12 +78,12 @@ describe("studio word card", () => {
     );
 
     expect(
-      screen.getByText("必选：请绑定一个 PPT 成果作为文档来源。")
+      screen.getByText("当前教案主链要求先在右侧资料来源中选中一个课件来源。")
     ).toBeInTheDocument();
     expect(
-      screen.getByText("当前还没有可绑定成果，点击上方按钮即可刷新。")
+      screen.getByText("请先在右侧 Sources 中选中一个 PPT Source，再生成教案。")
     ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "生成正式文档" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "生成教案" })).toBeDisabled();
   });
 
   it("shows source binding, download and chat refine actions for real artifacts", async () => {
@@ -110,7 +108,8 @@ describe("studio word card", () => {
             artifactType: "docx",
             contentKind: "json",
             content: {
-              kind: "word_document",
+              kind: "teaching_document",
+              schema_id: "lesson_plan_v1",
               title: "牛顿第二定律教案",
               summary: "已更新文档内容。",
               document_content: {
@@ -126,6 +125,10 @@ describe("studio word card", () => {
                     content: [{ type: "text", text: "理解牛顿第二定律的核心关系。" }],
                   },
                 ],
+              },
+              source_snapshot: {
+                primary_source_id: "ppt-artifact-1",
+                primary_source_title: "牛顿第二定律课件",
               },
               source_artifact_id: "ppt-artifact-1",
               source_binding: { status: "bound" },
@@ -146,15 +149,15 @@ describe("studio word card", () => {
       />
     );
 
-    expect(screen.getByText("当前建议动作：继续微调文档，或导出正式产物。")).toBeInTheDocument();
+    expect(screen.getByText("当前建议动作：继续微调教案，或导出正式产物。")).toBeInTheDocument();
     expect(screen.getByText("治理：借底座 · 清理优先级：P1")).toBeInTheDocument();
     expect(screen.getByText("牛顿第二定律教案")).toBeInTheDocument();
-    expect(screen.getAllByText("正式文档工作面").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("教案工作台").length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText("已绑定来源成果：牛顿第二定律课件")).toBeInTheDocument();
-    expect(screen.getByText("从 牛顿第二定律课件 延展为教学文档")).toBeInTheDocument();
-    expect(screen.getByText("Editable Tiptap")).toBeInTheDocument();
+    expect(screen.getByText("从 牛顿第二定律课件 延展为教案")).toBeInTheDocument();
+    expect(screen.getByText("Lesson Plan")).toBeInTheDocument();
     expect(
-      screen.getByText("下一步可继续导出正式文档，或回到讲稿与课堂预演继续打磨表达。")
+      screen.getByText("下一步可继续导出教案，或回到讲稿与课堂预演继续打磨表达。")
     ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "编辑文档" }));
     expect(screen.getByText("结构化区块")).toBeInTheDocument();
@@ -170,12 +173,13 @@ describe("studio word card", () => {
           config: expect.objectContaining({
             document_title: "牛顿第二定律教案",
             document_summary: "已更新文档内容。",
+            schema_id: "lesson_plan_v1",
           }),
         })
       );
     });
     fireEvent.click(screen.getByRole("button", { name: "打开对话微调" }));
-    fireEvent.click(screen.getByRole("button", { name: "下载正式文档" }));
+    fireEvent.click(screen.getByRole("button", { name: "导出教案文档" }));
     expect(onRefine).toHaveBeenCalledTimes(1);
     expect(onExportArtifact).toHaveBeenCalledWith("word-artifact-1");
   });

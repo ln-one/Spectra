@@ -219,6 +219,8 @@ export function useStudioExecutionHandlers({
     return {
       project_id: project.id,
       client_session_id: activeSessionId ?? undefined,
+      primary_source_id: selectedSourceId || undefined,
+      selected_source_ids: selectedArtifactSourceIds,
       source_artifact_id:
         selectedSourceId || draftSourceArtifactId || undefined,
       selected_file_ids: effectiveSelectedSourceIds,

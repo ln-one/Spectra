@@ -102,6 +102,7 @@ class ArtifactSourceCreateRequest(BaseModel):
 
 class ArtifactBackedSourceItem(BaseModel):
     id: str
+    source_kind: str = "artifact_source"
     artifact_id: str
     artifact_type: str
     tool_type: str

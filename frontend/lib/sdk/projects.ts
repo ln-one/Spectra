@@ -13,6 +13,7 @@ export type ProjectStatisticsResponse =
   components["schemas"]["ProjectStatisticsResponse"];
 export type ArtifactBackedSource = {
   id: string;
+  source_kind?: string;
   artifact_id: string;
   artifact_type: string;
   tool_type: string;

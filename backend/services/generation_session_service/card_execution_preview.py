@@ -53,6 +53,8 @@ def build_studio_card_execution_preview(
     config: dict | None = None,
     template_config: dict | None = None,
     visibility: str | None = None,
+    primary_source_id: str | None = None,
+    selected_source_ids: list[str] | None = None,
     source_artifact_id: str | None = None,
     rag_source_ids: list[str] | None = None,
 ) -> StudioCardExecutionPreview | None:
@@ -126,20 +128,28 @@ def build_studio_card_execution_preview(
                     "rag_source_ids": rag_source_ids or [],
                     "content": {
                         "card_id": card_id,
+                        "kind": "teaching_document",
+                        "schema_id": "lesson_plan_v1",
+                        "schema_version": 1,
+                        "preset": "lesson_plan",
                         "document_variant": cfg.get(
                             "document_variant", "layered_lesson_plan"
                         ),
-                        "teaching_model": cfg.get("teaching_model"),
+                        "detail_level": cfg.get("detail_level", "standard"),
                         "grade_band": cfg.get("grade_band"),
                         "topic": cfg.get("topic"),
                         "learning_goal": cfg.get("learning_goal"),
-                        "difficulty_layer": cfg.get("difficulty_layer"),
+                        "teaching_context": cfg.get("teaching_context"),
+                        "student_needs": cfg.get("student_needs"),
+                        "output_requirements": cfg.get("output_requirements"),
+                        "primary_source_id": primary_source_id,
+                        "selected_source_ids": selected_source_ids or [],
                         "source_artifact_id": (
                             source_artifact_id or cfg.get("source_artifact_id")
                         ),
                     },
                 },
-                notes="文档卡片通过 artifact create 路径落地，配置写入 content。",
+                notes="教案卡片通过 artifact create 路径落地，主来源与 schema 配置写入 content。",
             ),
             refine_request=StudioCardResolvedRequest(
                 method="POST",
@@ -150,9 +160,8 @@ def build_studio_card_execution_preview(
                     "message": "",
                     "metadata": {
                         "card_id": card_id,
-                        "document_variant": cfg.get(
-                            "document_variant", "layered_lesson_plan"
-                        ),
+                        "schema_id": "lesson_plan_v1",
+                        "primary_source_id": primary_source_id,
                     },
                 },
                 notes="局部改写通过 chat 路径承托，message 由前端在上下文中填充。",

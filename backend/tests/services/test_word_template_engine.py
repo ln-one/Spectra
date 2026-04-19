@@ -43,10 +43,14 @@ def test_build_word_fallback_payload_produces_renderable_content(variant: str) -
         rag_snippets=["RAG snippet 1", "RAG snippet 2"],
     )
 
-    assert payload["kind"] == "word_document"
+    assert payload["kind"] == "teaching_document"
+    assert payload["legacy_kind"] == "word_document"
+    assert payload["schema_id"] == "lesson_plan_v1"
+    assert payload["schema_version"] == 1
     assert payload["layout_version"] == "v1"
     assert payload["document_variant"] == variant
     assert isinstance(payload["layout_payload"], dict)
+    assert isinstance(payload["lesson_plan"], dict)
     assert payload["lesson_plan_markdown"].startswith("# ")
     assert "<html" in payload["preview_html"]
     assert "<html" in payload["doc_source_html"]
@@ -99,5 +103,8 @@ def test_build_word_payload_generates_sections_and_html() -> None:
     )
 
     assert payload["sections"]
+    assert payload["kind"] == "teaching_document"
+    assert payload["schema_id"] == "lesson_plan_v1"
+    assert isinstance(payload["lesson_plan"], dict)
     assert "试卷信息" in payload["lesson_plan_markdown"]
     assert "question-block" in payload["preview_html"]

@@ -141,6 +141,7 @@ export function mapArtifactToToolType(artifact: Artifact): GenerationToolType {
   if (studioCardToolType) return studioCardToolType;
 
   const artifactKind = readArtifactKind(artifact);
+  if (artifactKind === "teaching_document") return "word";
   if (artifactKind === "interactive_game") return "outline";
   if (artifactKind === "animation_storyboard") return "animation";
   if (artifactKind === "speaker_notes") return "summary";

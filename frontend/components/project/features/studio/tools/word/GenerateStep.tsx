@@ -1,23 +1,13 @@
-﻿import { Loader2, RefreshCw, Sparkles } from "lucide-react";
+import { Loader2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
+  getDetailLevelLabel,
   getGradeBandLabel,
-  getTeachingModelLabel,
-  getVariantLabel,
 } from "./constants";
 import type { ToolFlowContext } from "../types";
 import type {
-  WordDifficultyLayer,
-  WordDocumentVariant,
-  WordGradeBand,
-  WordTeachingModel,
+  LessonPlanDetailLevel,
+  LessonPlanGradeBand,
 } from "./types";
 
 interface GenerateStepProps {
@@ -26,10 +16,8 @@ interface GenerateStepProps {
   teachingContext: string;
   studentNeeds: string;
   outputRequirements: string;
-  documentVariant: WordDocumentVariant;
-  teachingModel: WordTeachingModel;
-  gradeBand: WordGradeBand;
-  difficultyLayer: WordDifficultyLayer;
+  detailLevel: LessonPlanDetailLevel;
+  gradeBand: LessonPlanGradeBand;
   flowContext?: ToolFlowContext;
   isGenerating: boolean;
   onBack: () => void;
@@ -42,28 +30,25 @@ export function GenerateStep({
   teachingContext,
   studentNeeds,
   outputRequirements,
-  documentVariant,
-  teachingModel,
+  detailLevel,
   gradeBand,
-  difficultyLayer,
   flowContext,
   isGenerating,
   onBack,
   onGenerate,
 }: GenerateStepProps) {
-  const sourceOptions = flowContext?.sourceOptions ?? [];
   const requiresSourceArtifact = Boolean(flowContext?.requiresSourceArtifact);
   const missingRequiredSource =
     requiresSourceArtifact && !flowContext?.selectedSourceId;
-  const display = flowContext?.display;
-  const actionLabels = display?.actionLabels ?? {
-    loadSources: "刷新列表",
-    execute: "交给后端生成",
-  };
-  const sourceBinding = display?.sourceBinding ?? {
-    required: "必选：请绑定一个 PPT 成果作为教案来源。",
-    optional: "可选：绑定已有成果后，生成内容会更贴近当前项目上下文。",
-    empty: "当前还没有可绑定成果，点击上方按钮即可刷新。",
+  const sourceLabel =
+    (flowContext?.selectedSourceId &&
+      (flowContext?.sourceOptions ?? []).find(
+        (item) => item.id === flowContext.selectedSourceId
+      )?.title) ||
+    flowContext?.selectedSourceId ||
+    null;
+  const actionLabels = flowContext?.display?.actionLabels ?? {
+    execute: "生成教案",
   };
 
   return (
@@ -71,14 +56,9 @@ export function GenerateStep({
       <section className="rounded-xl border border-zinc-200 bg-white p-4">
         <p className="text-xs font-semibold text-zinc-800">生成前确认</p>
         <div className="mt-3 grid grid-cols-1 gap-2 text-[11px] text-zinc-600 sm:grid-cols-2">
-          <p>文档类型：{getVariantLabel(documentVariant)}</p>
+          <p>文档形态：教案</p>
+          <p>详细程度：{getDetailLevelLabel(detailLevel)}</p>
           <p>适用学段：{getGradeBandLabel(gradeBand)}</p>
-          {documentVariant === "layered_lesson_plan" ? (
-            <p>教学模型：{getTeachingModelLabel(teachingModel)}</p>
-          ) : null}
-          {documentVariant === "layered_lesson_plan" ? (
-            <p>分层档位：{difficultyLayer} 层</p>
-          ) : null}
           <p className="sm:col-span-2">课题主题：{topic}</p>
           <p className="sm:col-span-2">学习目标：{goal}</p>
           {teachingContext ? (
@@ -94,64 +74,19 @@ export function GenerateStep({
       </section>
 
       <section className="rounded-xl border border-zinc-200 bg-white p-4">
-        <div className="flex items-center justify-between gap-2">
-          <div>
-            <p className="text-xs font-semibold text-zinc-800">绑定参考成果</p>
-            <p className="mt-1 text-[11px] text-zinc-500">
-              {requiresSourceArtifact
-                ? sourceBinding.required
-                : sourceBinding.optional}
-            </p>
-          </div>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-8 text-xs"
-            onClick={() => void flowContext?.onLoadSources?.()}
-            disabled={
-              flowContext?.isLoadingProtocol || flowContext?.isActionRunning
-            }
-          >
-            {flowContext?.isActionRunning ? (
-              <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
-            )}
-            {actionLabels.loadSources}
-          </Button>
-        </div>
-        {sourceOptions.length > 0 ? (
-          <div className="mt-3">
-            <Select
-              value={flowContext?.selectedSourceId ?? ""}
-              onValueChange={(value) =>
-                flowContext?.onSelectedSourceChange?.(value || null)
-              }
-            >
-              <SelectTrigger className="h-9 text-xs">
-                <SelectValue placeholder="请选择一个已生成成果" />
-              </SelectTrigger>
-              <SelectContent>
-                {sourceOptions.map((item) => (
-                  <SelectItem key={item.id} value={item.id}>
-                    {(item.title || item.id.slice(0, 8)) +
-                      (item.type ? ` (${item.type})` : "")}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+        <p className="text-xs font-semibold text-zinc-800">主来源</p>
+        <p className="mt-1 text-[11px] text-zinc-500">
+          当前教案主链要求先在右侧资料来源中选中一个课件来源。
+        </p>
+        {sourceLabel ? (
+          <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] text-emerald-700">
+            当前主来源：{sourceLabel}
           </div>
         ) : (
-          <p className="mt-3 text-[11px] text-zinc-500">
-            {sourceBinding.empty}
-          </p>
+          <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-700">
+            请先在右侧 Sources 中选中一个 PPT Source，再生成教案。
+          </div>
         )}
-        {missingRequiredSource ? (
-          <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-700">
-            请先选择一个 PPT 来源成果，再生成教案文档。
-          </p>
-        ) : null}
       </section>
 
       <div className="flex items-center justify-between gap-2">
@@ -181,7 +116,7 @@ export function GenerateStep({
           {isGenerating ? (
             <>
               <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-              正在生成文档...
+              正在生成教案...
             </>
           ) : (
             <>
