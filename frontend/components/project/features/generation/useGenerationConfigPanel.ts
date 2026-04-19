@@ -160,7 +160,7 @@ export function useGenerationConfigPanel({
   );
 
   const [prompt, setPrompt] = useState("");
-  const [pageCount, setPageCount] = useState<number>(12);
+  const [pageCount, setPageCount] = useState<number>(8);
   const [outlineStyle, setOutlineStyle] =
     useState<GenerationConfig["outlineStyle"]>("structured");
   const [visualStyle, setVisualStyle] = useState<string>("free");
@@ -488,7 +488,33 @@ export function useGenerationConfigPanel({
             await wait(intervalMs);
           }
 
-          if (
+          if (!outlineReady) {
+            try {
+              const finalSnapshotResponse = await generateApi.getSessionSnapshot(
+                sessionIdFromStore,
+                { run_id: runIdFromCallback }
+              );
+              const finalSnapshot = finalSnapshotResponse?.data ?? null;
+              if (finalSnapshot) {
+                useProjectStore.setState({
+                  generationSession: finalSnapshot,
+                  activeSessionId: sessionIdFromStore,
+                  activeRunId: runIdFromCallback,
+                });
+                lastSessionState = finalSnapshot?.session?.state;
+              }
+            } catch {
+              // Keep best-effort last state.
+            }
+          }
+
+          if (!outlineReady && lastSessionState === "FAILED") {
+            const failedSession = useProjectStore.getState().generationSession;
+            notifyError(
+              "Outline generation failed",
+              failedSession?.session?.state_reason || "Please try again later."
+            );
+          } else if (
             !outlineReady &&
             lastSessionState &&
             lastSessionState !== "FAILED"

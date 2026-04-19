@@ -1,5 +1,5 @@
 ﻿import { generateApi, previewApi, projectSpaceApi } from "@/lib/sdk";
-import { createApiError, getErrorMessage } from "@/lib/sdk/errors";
+import { ApiError, createApiError, getErrorMessage } from "@/lib/sdk/errors";
 import { toast } from "@/hooks/use-toast";
 import { groupArtifactsByTool } from "@/lib/project-space/artifact-history";
 import {
@@ -290,9 +290,16 @@ export function createGenerationActions({
     setActiveRunId: (runId: string | null) => set({ activeRunId: runId }),
 
     updateOutline: async (sessionId: string, outline: OutlineDocument) => {
-      const session = get().generationSession;
-      const baseVersion = resolveOutlineBaseVersion(session);
       try {
+        const currentRunId = get().activeRunId ?? undefined;
+        const latestBeforeUpdate = await generateApi.getSessionSnapshot(sessionId, {
+          run_id: currentRunId,
+        });
+        const latestBeforePayload = latestBeforeUpdate?.data ?? null;
+        const baseVersion = resolveOutlineBaseVersion(
+          latestBeforePayload as SessionStatePayload | null
+        );
+
         await generateApi.sendCommand(sessionId, {
           command: {
             command_type: "UPDATE_OUTLINE",
@@ -300,7 +307,8 @@ export function createGenerationActions({
             outline,
           },
         });
-        const preferredRunId = get().activeRunId;
+        const preferredRunId =
+          extractCurrentRunId(latestBeforePayload) || get().activeRunId;
         const sessionResponse = await generateApi.getSessionSnapshot(
           sessionId,
           {
@@ -383,8 +391,8 @@ export function createGenerationActions({
     },
 
     confirmOutline: async (sessionId: string) => {
+      const requestedRunId = get().activeRunId ?? undefined;
       try {
-        const requestedRunId = get().activeRunId ?? undefined;
         const confirmResponse = await generateApi.sendCommand(sessionId, {
           command: {
             command_type: "CONFIRM_OUTLINE",
@@ -411,6 +419,36 @@ export function createGenerationActions({
             confirmedRunId,
         });
       } catch (error) {
+        if (error instanceof ApiError && error.status === 502) {
+          try {
+            const sessionResponse = await generateApi.getSessionSnapshot(
+              sessionId,
+              {
+                run_id: requestedRunId,
+              }
+            );
+            const latestSessionPayload = sessionResponse?.data ?? null;
+            const refreshedRunId =
+              extractCurrentRunId(latestSessionPayload) || requestedRunId || null;
+            set({
+              generationSession: latestSessionPayload,
+              activeRunId: refreshedRunId,
+            });
+            const latestState =
+              typeof latestSessionPayload?.session?.state === "string"
+                ? latestSessionPayload.session.state
+                : "";
+            if (
+              latestState === "GENERATING_CONTENT" ||
+              latestState === "RENDERING" ||
+              latestState === "SUCCESS"
+            ) {
+              return;
+            }
+          } catch {
+            // Preserve original 502 when snapshot refresh fails.
+          }
+        }
         const message = getErrorMessage(error);
         set({
           error: createApiError({ code: "CONFIRM_OUTLINE_FAILED", message }),

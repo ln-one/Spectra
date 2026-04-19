@@ -270,7 +270,7 @@ export function GenerationConfigPanel({
                         <Select
                           value={String(pageCount)}
                           onValueChange={(v) =>
-                            setPageCount(v === "auto" ? 12 : Number(v))
+                            setPageCount(v === "auto" ? 8 : Number(v))
                           }
                         >
                           <SelectTrigger className="h-9 w-auto min-w-[100px] rounded-full border-0 bg-white px-3.5 text-[13px] font-medium text-zinc-600 shadow-sm ring-1 ring-zinc-100 hover:ring-zinc-200 focus:ring-2 focus:ring-zinc-200">

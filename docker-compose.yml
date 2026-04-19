@@ -130,6 +130,15 @@ services:
       - "127.0.0.1:8120:8000"
     environment:
       - PYTHONUNBUFFERED=1
+      - DIEGO_RUN_STORE=postgres
+      - DIEGO_DATABASE_URL=postgresql://spectra:spectra@postgres:5432/spectra
+      - DIEGO_RECOVERY_SCAN_ON_BOOT=1
+      - DIEGO_EVENT_POLL_INTERVAL_SEC=0.5
+    volumes:
+      - runtime_data:/app/.runtime
+    depends_on:
+      postgres:
+        condition: service_healthy
     healthcheck:
       test:
         [

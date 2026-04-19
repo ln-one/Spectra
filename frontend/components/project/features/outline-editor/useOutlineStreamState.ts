@@ -123,6 +123,7 @@ export function useOutlineStreamState({
   const lastLoggedStateRef = useRef<string>("");
   const lastRunScopeRef = useRef<string>("");
   const runScopedSnapshotSyncRef = useRef<string>("");
+  const snapshotSyncInFlightRef = useRef<Promise<unknown> | null>(null);
   const logContainerRef = useRef<HTMLDivElement>(null!);
   const targetPageCountRef = useRef<number>(0);
 
@@ -145,6 +146,38 @@ export function useOutlineStreamState({
     targetPageCountRef.current = targetPageCount;
   }, [targetPageCount]);
 
+  const hydrateRunScopedSnapshot = useCallback(async () => {
+    if (!sessionId || !currentRunId) return null;
+    if (snapshotSyncInFlightRef.current) {
+      return snapshotSyncInFlightRef.current;
+    }
+    const syncTask = (async () => {
+      try {
+        const response = await generateApi.getSessionSnapshot(sessionId, {
+          run_id: currentRunId,
+        });
+        const latestSession = response?.data ?? null;
+        if (!latestSession) return null;
+        useProjectStore.setState({
+          generationSession: latestSession,
+          activeRunId: currentRunId,
+        });
+        runScopedSnapshotSyncRef.current = `${sessionId}:${currentRunId}`;
+        return latestSession;
+      } catch {
+        return null;
+      }
+    })();
+    snapshotSyncInFlightRef.current = syncTask;
+    try {
+      return await syncTask;
+    } finally {
+      if (snapshotSyncInFlightRef.current === syncTask) {
+        snapshotSyncInFlightRef.current = null;
+      }
+    }
+  }, [currentRunId, sessionId]);
+
   // Reset state when run scope changes
   useEffect(() => {
     const runScopeKey = `${sessionId || "no-session"}:${currentRunId || "no-run"}`;
@@ -157,6 +190,7 @@ export function useOutlineStreamState({
     outlineLockedRef.current = false;
     setErrorMessage(null);
     runScopedSnapshotSyncRef.current = "";
+    snapshotSyncInFlightRef.current = null;
 
     const cached = readOutlineRunCache(sessionId || null, currentRunId || null);
     if (cached) {
@@ -236,25 +270,13 @@ export function useOutlineStreamState({
     }
     let cancelled = false;
     void (async () => {
-      try {
-        const response = await generateApi.getSessionSnapshot(sessionId, {
-          run_id: currentRunId,
-        });
-        const latestSession = response?.data ?? null;
-        if (cancelled || !latestSession) return;
-        useProjectStore.setState({
-          generationSession: latestSession,
-          activeRunId: currentRunId,
-        });
-        runScopedSnapshotSyncRef.current = `${sessionId}:${currentRunId}`;
-      } catch {
-        // Keep current snapshot when run-scoped hydration fails.
-      }
+      const latestSession = await hydrateRunScopedSnapshot();
+      if (cancelled || !latestSession) return;
     })();
     return () => {
       cancelled = true;
     };
-  }, [currentRunId, sessionId, snapshotRunId]);
+  }, [currentRunId, hydrateRunScopedSnapshot, sessionId, snapshotRunId]);
 
   // Session state synchronization
   useEffect(() => {
@@ -287,12 +309,6 @@ export function useOutlineStreamState({
   // Consume Diego events
   const consumeDiegoEvent = useCallback(
     (event: SessionEventLike) => {
-      // When outline is already loaded from snapshot/cache, skip all event
-      // processing. State transitions (e.g. FAILED) are handled by the
-      // session state sync effect; replaying events here would only produce
-      // duplicate "状态更新" logs via SSE reconnection.
-      if (outlineLockedRef.current) return;
-
       const key = resolveEventKey(event as never);
       if (processedEventKeysRef.current.has(key)) return;
       processedEventKeysRef.current.add(key);
@@ -323,27 +339,22 @@ export function useOutlineStreamState({
         if (!eventRunId || currentRunId !== eventRunId) return;
       }
 
-      const diegoSeq = Number(sectionPayload?.diego_seq || 0);
-      if (diegoSeq > 0) {
-        if (processedDiegoSeqRef.current.has(diegoSeq)) return;
-        processedDiegoSeqRef.current.add(diegoSeq);
-      }
-
       const eventType = normalizeText(event.event_type);
-      const diegoEventType =
-        normalizeText(sectionPayload?.diego_event_type) || eventType;
-      const isDiegoEvent =
-        eventType === "progress.updated" ||
-        Boolean(normalizeText(sectionPayload?.diego_event_type)) ||
-        DIEGO_EVENT_PREFIXES.some((prefix) => diegoEventType.startsWith(prefix));
-      if (!isDiegoEvent) return;
-
       const state = normalizeText(event.state);
       if (state && state !== lastLoggedStateRef.current) {
         lastLoggedStateRef.current = state;
         if (state === "AWAITING_OUTLINE_CONFIRM") {
           setPhase("editing");
           setPreambleCollapsed(true);
+        }
+        if (state === "FAILED") {
+          const failureFromPayload =
+            normalizeText((payload as Record<string, unknown>).error_message) ||
+            normalizeText((payload as Record<string, unknown>).message);
+          if (failureFromPayload) {
+            setErrorMessage(failureFromPayload);
+          }
+          void hydrateRunScopedSnapshot();
         }
         setStreamLogs((prev) => {
           return appendUniqueStreamLog(prev, {
@@ -355,6 +366,24 @@ export function useOutlineStreamState({
           });
         });
       }
+
+      // When outline is already loaded from snapshot/cache, skip non-state
+      // replay events to avoid duplicated logs/tokens, but keep terminal state.
+      if (outlineLockedRef.current && state !== "FAILED") return;
+
+      const diegoSeq = Number(sectionPayload?.diego_seq || 0);
+      if (diegoSeq > 0) {
+        if (processedDiegoSeqRef.current.has(diegoSeq)) return;
+        processedDiegoSeqRef.current.add(diegoSeq);
+      }
+
+      const diegoEventType =
+        normalizeText(sectionPayload?.diego_event_type) || eventType;
+      const isDiegoEvent =
+        eventType === "progress.updated" ||
+        Boolean(normalizeText(sectionPayload?.diego_event_type)) ||
+        DIEGO_EVENT_PREFIXES.some((prefix) => diegoEventType.startsWith(prefix));
+      if (!isDiegoEvent) return;
 
       const streamChannelRaw = normalizeText(sectionPayload?.stream_channel);
       const streamChannel = streamChannelRaw as DiegoStreamChannel | undefined;
@@ -446,7 +475,7 @@ export function useOutlineStreamState({
         });
       });
     },
-    [currentRunId, expectedPages]
+    [currentRunId, expectedPages, hydrateRunScopedSnapshot]
   );
 
   // Process incoming events
@@ -467,15 +496,8 @@ export function useOutlineStreamState({
 
     void (async () => {
       try {
-        const response = await generateApi.getSessionSnapshot(sessionId, {
-          run_id: currentRunId,
-        });
-        const latestSession = response?.data ?? null;
+        const latestSession = await hydrateRunScopedSnapshot();
         if (cancelled || !latestSession) return;
-        useProjectStore.setState({
-          generationSession: latestSession,
-          activeRunId: currentRunId,
-        });
 
         const latestState =
           typeof latestSession?.session?.state === "string"
@@ -493,7 +515,7 @@ export function useOutlineStreamState({
     return () => {
       cancelled = true;
     };
-  }, [currentRunId, sessionId, streamError]);
+  }, [currentRunId, hydrateRunScopedSnapshot, sessionId, streamError]);
 
   // Catch-up: paginate historical events.
   // Skip entirely when outline is already locked (session confirmed, slides
