@@ -38,6 +38,7 @@ from .prompting import (
     build_session_fallback_title,
     build_session_prompt,
     clean_title_candidate,
+    is_bad_run_title,
     is_generic_title,
 )
 
@@ -312,7 +313,7 @@ async def generate_run_title(
             build_run_prompt(tool_type, snapshot),
             max_length=RUN_TITLE_MAX_LENGTH,
         )
-        if is_generic_title(title):
+        if is_generic_title(title) or is_bad_run_title(title):
             title = fallback_title
             next_source = RUN_TITLE_SOURCE_FALLBACK
     except Exception as exc:

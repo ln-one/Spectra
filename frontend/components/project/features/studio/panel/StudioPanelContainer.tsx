@@ -756,7 +756,7 @@ export function StudioPanelContainer({
                   acknowledgeStep("ppt", "outline");
                   recordWorkflowEntry({
                     toolType: "ppt",
-                    title: "PPT Outline Draft",
+                    title: "课件大纲",
                     status: "draft",
                     step: "outline",
                     ppt_status: "outline_generating",
@@ -777,7 +777,7 @@ export function StudioPanelContainer({
                   acknowledgeStep("ppt", "preview");
                   recordWorkflowEntry({
                     toolType: "ppt",
-                    title: "PPT Generating",
+                    title: "课件生成",
                     status: "processing",
                     step: "preview",
                     ppt_status: "slides_generating",
@@ -793,7 +793,7 @@ export function StudioPanelContainer({
                 if (!runId) return;
                 recordWorkflowEntry({
                   toolType: "ppt",
-                  title: "PPT Outline Draft",
+                  title: "课件大纲",
                   status: "draft",
                   step: "outline",
                   sessionId: payload?.sessionId ?? activeSessionId ?? null,
@@ -880,7 +880,7 @@ export function StudioPanelContainer({
                 });
                 recordWorkflowEntry({
                   toolType: "ppt",
-                  title: "PPT Outline Draft",
+                  title: "课件大纲",
                   status: "draft",
                   step: "outline",
                   ppt_status: "outline_generating",

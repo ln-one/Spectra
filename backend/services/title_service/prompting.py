@@ -30,10 +30,44 @@ GENERIC_TITLE_TOKENS = {
     "运行记录",
 }
 
+RUN_CONTEXT_NOISE_KEYS = {
+    "generation_mode",
+    "style_preset",
+    "visual_policy",
+    "template_id",
+    "target_slide_count",
+    "page_count",
+    "pages",
+    "card_id",
+    "tool_type",
+    "run_id",
+    "session_id",
+    "source_ids",
+    "rag_source_ids",
+    "client_session_id",
+    "layout_mode",
+}
+
+RUN_CONTEXT_PRIORITY_KEYS = (
+    "topic",
+    "title",
+    "prompt",
+    "theme",
+    "subject",
+    "question",
+    "task",
+    "goal",
+    "objective",
+    "summary",
+    "description",
+    "instruction",
+)
+
 LEADING_NOISE_RE = re.compile(
     r"^(请|帮我|麻烦|我想|我要|需要|希望|准备|帮忙|做一个|生成一个|创建一个|新建一个)+"
 )
 TRAILING_PUNCT_RE = re.compile(r"[。；;，,：:\-—_~!！?？]+$")
+ASCII_CONFIG_FRAGMENT_RE = re.compile(r"[A-Za-z]{4,}_[A-Za-z0-9_]+")
 
 
 def normalize_text(value: Any) -> str:
@@ -73,9 +107,73 @@ def extract_topic_seed(value: Any) -> str:
     return candidate
 
 
+def _collect_run_context_values(
+    value: Any,
+    *,
+    depth: int = 0,
+    seen: set[str] | None = None,
+) -> list[str]:
+    if depth > 3:
+        return []
+    if seen is None:
+        seen = set()
+    values: list[str] = []
+    if isinstance(value, dict):
+        prioritized: list[tuple[str, Any]] = []
+        remaining: list[tuple[str, Any]] = []
+        for key, nested in value.items():
+            normalized_key = str(key or "").strip().lower()
+            if normalized_key in RUN_CONTEXT_NOISE_KEYS:
+                continue
+            bucket = prioritized if normalized_key in RUN_CONTEXT_PRIORITY_KEYS else remaining
+            bucket.append((normalized_key, nested))
+        for _, nested in [*prioritized, *remaining]:
+            values.extend(_collect_run_context_values(nested, depth=depth + 1, seen=seen))
+        return values
+    if isinstance(value, list):
+        for nested in value[:4]:
+            values.extend(_collect_run_context_values(nested, depth=depth + 1, seen=seen))
+        return values
+    if isinstance(value, (str, int, float)):
+        text = extract_topic_seed(value)
+        normalized = text.lower()
+        if (
+            text
+            and len(text) >= 2
+            and normalized not in seen
+            and not ASCII_CONFIG_FRAGMENT_RE.search(text)
+        ):
+            seen.add(normalized)
+            values.append(text)
+    return values
+
+
+def extract_run_context(snapshot: Any) -> str:
+    if snapshot is None:
+        return ""
+    if isinstance(snapshot, str):
+        return extract_topic_seed(snapshot)
+    values = _collect_run_context_values(snapshot)
+    return "；".join(values[:3])
+
+
 def is_generic_title(title: str) -> bool:
     normalized = clean_title_candidate(title, max_length=32)
     return not normalized or normalized in GENERIC_TITLE_TOKENS
+
+
+def is_bad_run_title(title: str) -> bool:
+    normalized = clean_title_candidate(title, max_length=32)
+    if not normalized:
+        return True
+    lowered = normalized.lower()
+    return bool(
+        ASCII_CONFIG_FRAGMENT_RE.search(normalized)
+        or "generation_mode" in lowered
+        or "style_preset" in lowered
+        or "visual_policy" in lowered
+        or normalized.endswith("课程生成")
+    )
 
 
 def stringify_snapshot(snapshot: Any) -> str:
@@ -113,7 +211,7 @@ def build_run_fallback_title(
     snapshot: Any,
     run_no: int | None,
 ) -> str:
-    seed = extract_topic_seed(stringify_snapshot(snapshot))
+    seed = extract_run_context(snapshot)
     tool_label = resolve_tool_label(tool_type)
     if seed:
         return clean_title_candidate(
@@ -151,6 +249,7 @@ def build_session_prompt(first_message: str) -> str:
 
 
 def build_run_prompt(tool_type: str, snapshot: Any) -> str:
+    context = extract_run_context(snapshot)
     return (
         "你是中文运行记录标题助手。请为一次教学工具执行生成标题。\n"
         "要求：\n"
@@ -159,6 +258,8 @@ def build_run_prompt(tool_type: str, snapshot: Any) -> str:
         "3. 不超过14个字。\n"
         "4. 不加引号、不加句号、不输出解释。\n"
         "5. 避免“处理中/PPT Ready/运行记录/第N次”这类机械词。\n"
+        "6. 禁止照抄 generation_mode、style_preset、visual_policy 这类配置键名。\n"
         f"工具：{resolve_tool_label(tool_type)}\n"
-        f"上下文：{stringify_snapshot(snapshot)}"
+        f"主题上下文：{context or '未提取到明确主题'}\n"
+        f"原始配置：{stringify_snapshot(snapshot)}"
     )

@@ -183,7 +183,7 @@ export function useStudioHistoryHandlers({
             acknowledgeStep("ppt", "outline");
             recordWorkflowEntry({
               toolType: "ppt",
-              title: item.title || "PPT Outline",
+              title: item.title || "课件大纲",
               status: "draft",
               step: "outline",
               ppt_status: "outline_pending_confirm",
@@ -210,7 +210,7 @@ export function useStudioHistoryHandlers({
             acknowledgeStep("ppt", "outline");
             recordWorkflowEntry({
               toolType: "ppt",
-              title: item.title || "PPT Outline",
+              title: item.title || "课件大纲",
               status: "draft",
               step: "outline",
               ppt_status: "outline_generating",
@@ -249,13 +249,7 @@ export function useStudioHistoryHandlers({
               runStatus === "failed" || (!latestRunId && latestState === "FAILED");
             recordWorkflowEntry({
               toolType: "ppt",
-              title:
-                item.title ||
-                (isFinished
-                  ? "PPT Preview"
-                  : isFailed
-                    ? "PPT Failed"
-                    : "PPT Generating"),
+              title: item.title || "课件生成",
               status: isFailed
                 ? "failed"
                 : isFinished
