@@ -9,7 +9,6 @@ from fastapi import status
 
 from routers.generate_sessions.preview_runtime_guards import (
     has_preview_content,
-    raise_legacy_courseware_modify_removed,
     raise_run_not_ready,
     resolve_modify_instruction,
     resolve_target_slide_id,
@@ -130,17 +129,6 @@ async def modify_session_preview_response(
     expected_render_version = resolve_modify_expected_render_version(body)
     validate_optional_positive_int(expected_render_version, "expected_render_version")
     snapshot = await get_preview_snapshot_or_raise(session_id, user_id)
-    logger.info(
-        "legacy_courseware_preview_modify_blocked session_id=%s tool_type=%s",
-        session_id,
-        ((snapshot.get("current_run") or {}).get("tool_type")),
-        extra={
-            "session_id": session_id,
-            "tool_type": ((snapshot.get("current_run") or {}).get("tool_type")),
-            "reason": "legacy_courseware_modify_removed",
-        },
-    )
-    raise_legacy_courseware_modify_removed()
     anchor = await resolve_preview_anchor(
         session_id,
         snapshot,
@@ -159,6 +147,7 @@ async def modify_session_preview_response(
     parsed_idempotency_key = parse_idempotency_key(idempotency_key)
     generation_command = {
         "command_type": GenerationCommandType.REGENERATE_SLIDE.value,
+        "run_id": anchor.get("run_id"),
         "slide_id": slide_id,
         "slide_index": slide_index,
         "instruction": instruction,
@@ -197,6 +186,19 @@ async def modify_session_preview_response(
         trigger="preview_modify",
         payload=payload,
         attach_auto_candidate_change=attach_auto_candidate_change,
+    )
+    logger.info(
+        "session_preview_modify_requested session_id=%s slide_id=%s slide_index=%s run_id=%s",
+        session_id,
+        slide_id,
+        slide_index,
+        anchor.get("run_id"),
+        extra={
+            "session_id": session_id,
+            "slide_id": slide_id,
+            "slide_index": slide_index,
+            "run_id": anchor.get("run_id"),
+        },
     )
     return success_response(data=payload, message="预览修改请求已接收")
 

@@ -116,6 +116,11 @@ def test_get_preview_includes_artifact_binding(client, monkeypatch, _as_user):
     assert body["data"]["current_version_id"] == "v-current"
     assert body["data"]["upstream_updated"] is True
     assert body["data"]["rendered_preview"]["pages"][0]["slide_id"] == "slide-1"
+    assert body["data"]["authority_preview"]["provider"] == "diego"
+    authority_slide = body["data"]["authority_preview"]["slides"][0]
+    assert authority_slide["slide_id"] == "slide-1"
+    assert authority_slide["image_url"] == "data:image/png;base64,abc"
+    assert authority_slide["frames"][0]["slide_id"] == "slide-1"
 
 
 def test_get_preview_includes_slide_image_metadata(client, monkeypatch, _as_user):
@@ -325,13 +330,24 @@ def test_modify_preview_returns_contract_fields(client, monkeypatch, _as_user):
             "artifact_id": "a-002",
         },
     )
-    assert resp.status_code == 409
+    assert resp.status_code == 200
     body = resp.json()
-    assert body["success"] is False
-    assert body["error"]["code"] == "RESOURCE_CONFLICT"
-    assert body["error"]["details"]["reason"] == "legacy_courseware_modify_removed"
-    svc.execute_command.assert_not_awaited()
-    load_preview_material.assert_not_awaited()
+    assert body["success"] is True
+    assert body["data"]["artifact_id"] == "a-002"
+    assert body["data"]["slide_id"] == "slide-1"
+    assert body["data"]["slide_index"] == 1
+    assert body["data"]["scope"] == "current_slide_only"
+    load_preview_material.assert_awaited_once()
+    svc.execute_command.assert_awaited_once()
+    command = svc.execute_command.await_args.kwargs["command"]
+    assert command["command_type"] == "REGENERATE_SLIDE"
+    assert command["run_id"] == "run-002"
+    assert command["slide_id"] == "slide-1"
+    assert command["slide_index"] == 1
+    assert command["expected_render_version"] is None
+    assert command["preserve_style"] is False
+    assert command["preserve_layout"] is False
+    assert command["preserve_deck_consistency"] is False
 
 
 def test_modify_preview_accepts_base_render_version_alias(
@@ -381,10 +397,14 @@ def test_modify_preview_accepts_base_render_version_alias(
             "base_render_version": 3,
         },
     )
-    assert resp.status_code == 409
+    assert resp.status_code == 200
     body = resp.json()
-    assert body["error"]["details"]["reason"] == "legacy_courseware_modify_removed"
-    execute_command.assert_not_awaited()
+    assert body["success"] is True
+    execute_command.assert_awaited_once()
+    command = execute_command.await_args.kwargs["command"]
+    assert command["slide_id"] == "slide-1"
+    assert command["slide_index"] == 1
+    assert command["expected_render_version"] == 3
 
 
 def test_modify_preview_defaults_to_current_slide_when_page_not_passed(
@@ -438,10 +458,13 @@ def test_modify_preview_defaults_to_current_slide_when_page_not_passed(
             "artifact_id": "a-003",
         },
     )
-    assert resp.status_code == 409
+    assert resp.status_code == 200
     body = resp.json()
-    assert body["error"]["details"]["reason"] == "legacy_courseware_modify_removed"
-    execute_command.assert_not_awaited()
+    assert body["success"] is True
+    execute_command.assert_awaited_once()
+    command = execute_command.await_args.kwargs["command"]
+    assert command["slide_id"] == "slide-1"
+    assert command["slide_index"] == 1
 
 
 def test_modify_preview_rejects_conflicting_render_versions(client, _as_user):
@@ -504,13 +527,38 @@ def test_modify_preview_requires_instruction(client, monkeypatch, _as_user):
     assert resp.json()["error"]["code"] == "INVALID_INPUT"
 
 
-def test_modify_preview_blocks_ppt_legacy_modify(client, monkeypatch, _as_user):
+def test_modify_preview_accepts_ppt_session_modify(client, monkeypatch, _as_user):
     svc = SimpleNamespace(
         get_session_snapshot=AsyncMock(return_value=_ppt_snapshot(render_version=5)),
-        execute_command=AsyncMock(return_value={}),
+        execute_command=AsyncMock(return_value={"task_id": "gt-ppt-001"}),
     )
     monkeypatch.setattr(
         generate_sessions_preview_router, "_get_session_service", lambda: svc
+    )
+    monkeypatch.setattr(
+        generate_sessions_preview_router,
+        "_resolve_session_artifact_binding",
+        AsyncMock(return_value=SimpleNamespace(id="a-ppt-001", basedOnVersionId="v-ppt-001")),
+    )
+    monkeypatch.setattr(
+        generate_sessions_preview_router,
+        "_load_preview_material",
+        AsyncMock(
+            return_value=(
+                SimpleNamespace(id="t-ppt-001"),
+                [
+                    {
+                        "id": "slide-1",
+                        "index": 0,
+                        "title": "S1",
+                        "content": "C1",
+                        "sources": [],
+                    }
+                ],
+                None,
+                {},
+            )
+        ),
     )
 
     resp = client.post(
@@ -521,11 +569,11 @@ def test_modify_preview_blocks_ppt_legacy_modify(client, monkeypatch, _as_user):
             "patch": {"title": "new title"},
         },
     )
-    assert resp.status_code == 409
+    assert resp.status_code == 200
     body = resp.json()
-    assert body["success"] is False
-    assert body["error"]["code"] == "RESOURCE_CONFLICT"
-    assert body["error"]["details"]["reason"] == "legacy_courseware_modify_removed"
+    assert body["success"] is True
+    assert body["data"]["artifact_id"] == "a-ppt-001"
+    svc.execute_command.assert_awaited_once()
 
 
 def test_get_slide_preview_returns_slide_shape(client, monkeypatch, _as_user):

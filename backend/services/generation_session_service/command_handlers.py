@@ -15,43 +15,6 @@ from services.generation_session_service.session_state_runtime import (
 from services.platform.state_transition_guard import GenerationCommandType
 
 
-def _is_ppt_session(session) -> bool:
-    output_type = str(getattr(session, "outputType", "") or "").strip().lower()
-    return output_type in {"ppt", "both"}
-
-
-def _raise_legacy_ppt_modify_removed(conflict_error_cls):
-    message = "PPT 单页修改旧链路已下线，仅支持 Diego 课件流程。"
-    details = {"reason": "legacy_ppt_modify_removed", "tool_type": "courseware_ppt"}
-    try:
-        raise conflict_error_cls(
-            message,
-            error_code="RESOURCE_CONFLICT",
-            details=details,
-        )
-    except TypeError:
-        exc = conflict_error_cls(message)
-        setattr(exc, "error_code", "RESOURCE_CONFLICT")
-        setattr(exc, "details", details)
-        raise exc
-
-
-def _raise_legacy_courseware_modify_removed(conflict_error_cls):
-    message = "课件单页修改旧链路已下线，仅支持 Diego 生成主链路。"
-    details = {"reason": "legacy_courseware_modify_removed"}
-    try:
-        raise conflict_error_cls(
-            message,
-            error_code="RESOURCE_CONFLICT",
-            details=details,
-        )
-    except TypeError:
-        exc = conflict_error_cls(message)
-        setattr(exc, "error_code", "RESOURCE_CONFLICT")
-        setattr(exc, "details", details)
-        raise exc
-
-
 async def dispatch_command(
     *,
     db,
@@ -93,9 +56,14 @@ async def dispatch_command(
             conflict_error_cls=conflict_error_cls,
         )
     if command_type == GenerationCommandType.REGENERATE_SLIDE.value:
-        if _is_ppt_session(session):
-            _raise_legacy_ppt_modify_removed(conflict_error_cls)
-        _raise_legacy_courseware_modify_removed(conflict_error_cls)
+        return await handle_regenerate_slide(
+            db=db,
+            session=session,
+            command=command,
+            new_state=new_state,
+            append_event=append_event,
+            conflict_error_cls=conflict_error_cls,
+        )
     if command_type == GenerationCommandType.RESUME_SESSION.value:
         await handle_resume_session(
             db=db,

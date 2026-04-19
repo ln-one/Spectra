@@ -149,7 +149,7 @@ async def test_execute_command_confirm_outline_without_diego_binding_conflicts(
 
 
 @pytest.mark.anyio
-async def test_execute_command_regenerate_slide_blocks_legacy_ppt_modify(
+async def test_execute_command_regenerate_slide_routes_to_diego_runtime(
     monkeypatch,
 ):
     session = _fake_session(
@@ -180,17 +180,47 @@ async def test_execute_command_regenerate_slide_blocks_legacy_ppt_modify(
             command_type=GenerationCommandType.REGENERATE_SLIDE.value,
         ),
     )
+    monkeypatch.setattr(
+        "services.generation_session_service.command_runtime.get_latest_session_run",
+        AsyncMock(
+            return_value=SimpleNamespace(
+                id="run-201",
+                sessionId="s-001",
+                projectId="p-001",
+                toolType="ppt_generate",
+                runNo=2,
+                title="Run 201",
+                titleSource="manual",
+                status="processing",
+                step="generate",
+                artifactId=None,
+                createdAt=datetime.now(timezone.utc),
+                updatedAt=datetime.now(timezone.utc),
+            )
+        ),
+    )
+    monkeypatch.setattr(
+        "services.generation_session_service.command_runtime.regenerate_diego_slide_for_run",
+        AsyncMock(return_value={"ok": True}),
+    )
+    monkeypatch.setattr(
+        "services.generation_session_service.command_api.request_run_title_generation",
+        AsyncMock(return_value=None),
+    )
+    db.generationsession.update = AsyncMock(return_value=session)
+    service._append_event = AsyncMock()
+    db.sessionrun = SimpleNamespace(find_first=AsyncMock())
 
-    with pytest.raises(ConflictError) as exc:
-        await service.execute_command(
-            session_id="s-001",
-            user_id="u-001",
-            command={
-                "command_type": GenerationCommandType.REGENERATE_SLIDE.value,
-                "slide_id": "slide-1",
-                "instruction": "rewrite",
-            },
-        )
+    response = await service.execute_command(
+        session_id="s-001",
+        user_id="u-001",
+        command={
+            "command_type": GenerationCommandType.REGENERATE_SLIDE.value,
+            "slide_id": "slide-1",
+            "slide_index": 1,
+            "instruction": "rewrite",
+        },
+    )
 
-    assert exc.value.details["reason"] == "legacy_ppt_modify_removed"
-    assert exc.value.details["tool_type"] == "courseware_ppt"
+    assert response["accepted"] is True
+    assert response["transition"]["command_type"] == "REGENERATE_SLIDE"
