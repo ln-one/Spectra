@@ -190,8 +190,10 @@ export default function NewProjectPage() {
     setSubmitError(null);
     setIsLoading(true);
     try {
+      const projectName =
+        formData.name.trim() || prompt.trim().replace(/\s+/g, " ").slice(0, 32);
       const response = await projectsApi.createProject({
-        name: formData.name.trim() || undefined,
+        name: projectName,
         description: prompt,
         grade_level: formData.grade_level,
         base_project_id: formData.base_project_id || undefined,

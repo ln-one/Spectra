@@ -6,6 +6,7 @@ import { generateApi } from "@/lib/sdk";
 import { getErrorMessage } from "@/lib/sdk/errors";
 import { useGenerationEvents } from "@/hooks/useGenerationEvents";
 import { useProjectStore } from "@/stores/projectStore";
+import type { SessionStatePayload } from "@/stores/project-store/types";
 import {
   DIEGO_EVENT_PREFIXES,
   EVENT_PAGE_CAP,
@@ -123,7 +124,9 @@ export function useOutlineStreamState({
   const lastLoggedStateRef = useRef<string>("");
   const lastRunScopeRef = useRef<string>("");
   const runScopedSnapshotSyncRef = useRef<string>("");
-  const snapshotSyncInFlightRef = useRef<Promise<unknown> | null>(null);
+  const snapshotSyncInFlightRef = useRef<Promise<SessionStatePayload | null> | null>(
+    null
+  );
   const logContainerRef = useRef<HTMLDivElement>(null!);
   const targetPageCountRef = useRef<number>(0);
 
@@ -156,7 +159,7 @@ export function useOutlineStreamState({
         const response = await generateApi.getSessionSnapshot(sessionId, {
           run_id: currentRunId,
         });
-        const latestSession = response?.data ?? null;
+        const latestSession = (response?.data ?? null) as SessionStatePayload | null;
         if (!latestSession) return null;
         useProjectStore.setState({
           generationSession: latestSession,
