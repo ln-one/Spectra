@@ -8,6 +8,14 @@ from urllib.parse import SplitResult, urlsplit, urlunsplit
 
 _DOCKER_ENV = Path("/.dockerenv")
 _LOCALHOST_REWRITE_HOSTS = {"postgres"}
+_INTERNAL_SERVICE_PORTS = {
+    "stratumind": 8110,
+    "ourograph": 8101,
+    "pagevra": 8090,
+    "dualweave": 8080,
+    "limora": 3001,
+    "diego": 8000,
+}
 
 
 def _running_inside_container() -> bool:
@@ -66,3 +74,100 @@ def normalize_database_url_for_host_runtime(
         return None
     os.environ[env_var] = rewritten
     return rewritten
+
+
+def running_inside_container() -> bool:
+    return _running_inside_container()
+
+
+def normalize_stratumind_base_url(
+    value: str | None,
+    *,
+    inside_container: bool,
+    local_override: str | None = None,
+) -> str | None:
+    return normalize_internal_service_base_url(
+        value,
+        service_name="stratumind",
+        inside_container=inside_container,
+        local_override=local_override,
+    )
+
+
+def normalize_internal_service_base_url(
+    value: str | None,
+    *,
+    service_name: str,
+    inside_container: bool,
+    local_override: str | None = None,
+) -> str | None:
+    """Rewrite known compose service URLs to localhost for host-side runs."""
+
+    raw = (value or "").strip().rstrip("/")
+    local = (local_override or "").strip().rstrip("/")
+
+    if inside_container:
+        return raw or None
+
+    if local:
+        return local
+
+    published_port = _INTERNAL_SERVICE_PORTS.get(service_name)
+    if not raw:
+        return None
+
+    parsed = urlsplit(raw)
+    if parsed.scheme not in {"http", "https"}:
+        return raw
+
+    host = parsed.hostname
+    if host != service_name:
+        return raw
+
+    port = parsed.port or published_port
+    if port is None:
+        return raw
+
+    return urlunsplit(
+        (
+            parsed.scheme,
+            f"127.0.0.1:{port}",
+            parsed.path,
+            parsed.query,
+            parsed.fragment,
+        )
+    )
+
+
+def normalize_internal_service_base_url_for_host_runtime(
+    *,
+    env_var: str,
+    local_env_var: str,
+    service_name: str,
+) -> str | None:
+    rewritten = normalize_internal_service_base_url(
+        os.getenv(env_var),
+        service_name=service_name,
+        inside_container=_running_inside_container(),
+        local_override=os.getenv(local_env_var),
+    )
+    if rewritten is None:
+        return None
+    os.environ[env_var] = rewritten
+    return rewritten
+
+
+def normalize_internal_service_urls_for_host_runtime() -> None:
+    for env_var, local_env_var, service_name in (
+        ("STRATUMIND_BASE_URL", "STRATUMIND_BASE_URL_LOCAL", "stratumind"),
+        ("OUROGRAPH_BASE_URL", "OUROGRAPH_BASE_URL_LOCAL", "ourograph"),
+        ("PAGEVRA_BASE_URL", "PAGEVRA_BASE_URL_LOCAL", "pagevra"),
+        ("DUALWEAVE_BASE_URL", "DUALWEAVE_BASE_URL_LOCAL", "dualweave"),
+        ("LIMORA_BASE_URL", "LIMORA_BASE_URL_LOCAL", "limora"),
+        ("DIEGO_BASE_URL", "DIEGO_BASE_URL_LOCAL", "diego"),
+    ):
+        normalize_internal_service_base_url_for_host_runtime(
+            env_var=env_var,
+            local_env_var=local_env_var,
+            service_name=service_name,
+        )

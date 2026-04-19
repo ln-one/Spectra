@@ -49,6 +49,24 @@ def extract_animation_content_snapshot(artifact: Any) -> dict[str, Any]:
         "duration_seconds": metadata.get("duration_seconds"),
         "rhythm": metadata.get("rhythm"),
         "focus": metadata.get("focus"),
+        "runtime_version": metadata.get("runtime_version"),
+        "runtime_graph_version": metadata.get("runtime_graph_version"),
+        "runtime_graph": metadata.get("runtime_graph") or {},
+        "runtime_draft_version": metadata.get("runtime_draft_version"),
+        "runtime_draft": metadata.get("runtime_draft") or {},
+        "runtime_attempt_count": metadata.get("runtime_attempt_count") or 0,
+        "runtime_provider": metadata.get("runtime_provider") or "",
+        "runtime_model": metadata.get("runtime_model") or "",
+        "runtime_validation_report": metadata.get("runtime_validation_report") or [],
+        "component_code": metadata.get("component_code") or "",
+        "compile_status": metadata.get("compile_status") or "pending",
+        "compile_errors": metadata.get("compile_errors") or [],
+        "family_hint": metadata.get("family_hint") or "",
+        "scene_outline": metadata.get("scene_outline") or [],
+        "used_primitives": metadata.get("used_primitives") or [],
+        "generation_prompt_digest": metadata.get("generation_prompt_digest") or "",
+        "runtime_source": metadata.get("runtime_source") or "",
+        "runtime_contract": metadata.get("runtime_contract") or "",
         "placements": metadata.get("placements") or [],
     }
 
@@ -80,7 +98,7 @@ async def require_animation_artifact(project_id: str, artifact_id: str):
         raise APIException(
             status_code=400,
             error_code=ErrorCode.INVALID_INPUT,
-            message="当前动画模块仅支持 GIF 成果",
+            message="当前 PPT placement 仅支持 GIF 动画成果，请先生成 GIF 版动画再执行插入",
         )
     metadata = artifact_metadata_dict(artifact)
     if str(metadata.get("kind") or "").strip() not in {"", "animation_storyboard"}:

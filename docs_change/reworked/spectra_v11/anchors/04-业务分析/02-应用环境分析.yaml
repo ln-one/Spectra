@@ -1,0 +1,28 @@
+section_id: "04-02"
+title: "应用环境分析"
+purpose: "限定本节只写当前可见的开发与使用环境，不扩写未验证的部署和运维承诺。"
+source_doc_parts:
+  - "source/04-业务分析/02-应用环境分析.md"
+  - "meta.yaml"
+code_paths:
+  - "backend/main.py"
+  - "backend/README.md"
+  - "frontend/lib/sdk/preview.ts"
+  - "frontend/lib/sdk/rag.ts"
+api_routes:
+  - "GET /api/v1/generate/sessions/{session_id}/preview"
+  - "POST /api/v1/rag/search"
+frontend_surfaces:
+  - "Web 端工作台"
+  - "预览与导出页面"
+tests_or_metrics:
+  - "backend/tests/api/test_generate_session_preview_contract_api.py"
+  - "frontend/__tests__/sdk-rag-preview.test.ts"
+figures: []
+allowed_claims:
+  - "当前用户侧主要通过 Web 端访问系统。"
+  - "开发环境围绕 Python 后端与前端 Web 工程组织。"
+forbidden_claims:
+  - "多端原生应用已全面落地"
+  - "复杂生产部署方案已完成验证"
+last_checked: "2026-04-18"

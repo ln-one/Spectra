@@ -30,6 +30,26 @@ function parseJsonSafely(raw: string): unknown {
   return JSON.parse(raw);
 }
 
+function readArtifactMetadata(
+  artifact: ArtifactHistoryItem
+): Record<string, unknown> | null {
+  if (!artifact.metadata || typeof artifact.metadata !== "object") {
+    return null;
+  }
+  return artifact.metadata as Record<string, unknown>;
+}
+
+function readContentSnapshot(
+  artifact: ArtifactHistoryItem
+): Record<string, unknown> | null {
+  const metadata = readArtifactMetadata(artifact);
+  const snapshot = metadata?.content_snapshot;
+  if (!snapshot || typeof snapshot !== "object" || Array.isArray(snapshot)) {
+    return null;
+  }
+  return snapshot as Record<string, unknown>;
+}
+
 function extractHtmlFromJsonPayload(raw: string): string | null {
   const trimmed = raw.trim();
   if (!trimmed) return null;
@@ -95,6 +115,17 @@ function isNonEmptyArray(value: unknown): boolean {
 
 function hasNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
+}
+
+function readInteractiveGameCompatibilityStatus(
+  payload: Record<string, unknown> | null
+): "protocol_limited" | null {
+  if (!payload) return null;
+  const compatibility = payload.compatibility_zone;
+  if (!compatibility || typeof compatibility !== "object") return null;
+  const status = (compatibility as Record<string, unknown>).status;
+  if (status === "protocol_limited") return "protocol_limited";
+  return null;
 }
 
 function readSummaryText(parsed: Record<string, unknown>): string {
@@ -212,21 +243,48 @@ export async function resolveCapabilityFromArtifact(params: {
   const defaultResolution = resolveDefaultCapabilityByTool(params.toolId);
   const { toolId, artifact, blob } = params;
   const artifactType = artifact.artifactType;
+  const artifactMetadata = readArtifactMetadata(artifact);
+  const contentSnapshot = readContentSnapshot(artifact);
 
   try {
     if (artifactType === "docx") {
-      return buildResolution("backend_ready", "Loaded backend Word document.", {
-        artifactId: artifact.artifactId,
-        artifactType,
-        contentKind: "binary",
-        content: null,
-        blob,
-      });
+      const hasStructuredDocument =
+        contentSnapshot &&
+        typeof contentSnapshot.document_content === "object" &&
+        contentSnapshot.document_content !== null;
+      if (hasStructuredDocument) {
+        return buildResolution(
+          "backend_ready",
+          "Loaded backend Word document content.",
+          {
+            artifactId: artifact.artifactId,
+            artifactType,
+            contentKind: "json",
+            content: contentSnapshot,
+            blob,
+            artifactMetadata,
+          }
+        );
+      }
+      return buildResolution(
+        "backend_ready",
+        "Loaded backend Word document.",
+        {
+          artifactId: artifact.artifactId,
+          artifactType,
+          contentKind: "binary",
+          content: null,
+          blob,
+          artifactMetadata,
+        }
+      );
     }
 
     if (artifactType === "mindmap") {
-      const raw = await readBlobText(blob);
-      const parsed = parseJsonSafely(raw) as Record<string, unknown>;
+      const parsed =
+        contentSnapshot ??
+        ((parseJsonSafely(await readBlobText(blob)) as Record<string, unknown>) ??
+          null);
       const nodes = parsed?.nodes;
       if (isNonEmptyArray(nodes)) {
         return buildResolution("backend_ready", "Loaded backend mindmap.", {
@@ -234,6 +292,7 @@ export async function resolveCapabilityFromArtifact(params: {
           artifactType,
           contentKind: "json",
           content: parsed,
+          artifactMetadata,
         });
       }
       return buildResolution(
@@ -243,8 +302,10 @@ export async function resolveCapabilityFromArtifact(params: {
     }
 
     if (artifactType === "exercise") {
-      const raw = await readBlobText(blob);
-      const parsed = parseJsonSafely(raw) as Record<string, unknown>;
+      const parsed =
+        contentSnapshot ??
+        ((parseJsonSafely(await readBlobText(blob)) as Record<string, unknown>) ??
+          null);
       const questions = parsed?.questions;
       if (isNonEmptyArray(questions)) {
         return buildResolution(
@@ -255,6 +316,7 @@ export async function resolveCapabilityFromArtifact(params: {
             artifactType,
             contentKind: "json",
             content: parsed,
+            artifactMetadata,
           }
         );
       }
@@ -265,12 +327,43 @@ export async function resolveCapabilityFromArtifact(params: {
     }
 
     if (artifactType === "summary") {
-      const raw = await readBlobText(blob);
-      const parsed = parseJsonSafely(raw) as Record<string, unknown>;
-      return resolveSummaryPayload(toolId, artifact, parsed);
+      const parsed =
+        contentSnapshot ??
+        ((parseJsonSafely(await readBlobText(blob)) as Record<string, unknown>) ??
+          null);
+      const resolution = resolveSummaryPayload(toolId, artifact, parsed);
+      if (resolution.resolvedArtifact) {
+        resolution.resolvedArtifact.artifactMetadata = artifactMetadata;
+      }
+      return resolution;
     }
 
     if (artifactType === "html") {
+      if (toolId === "outline" && contentSnapshot) {
+        const html =
+          typeof contentSnapshot.html === "string" ? contentSnapshot.html.trim() : "";
+        if (!html || normalizeHtml(html) === normalizeHtml(HTML_EMPTY_TEMPLATE)) {
+          return buildResolution(
+            "backend_placeholder",
+            "Interactive game HTML is still placeholder."
+          );
+        }
+        const compatibilityStatus =
+          readInteractiveGameCompatibilityStatus(contentSnapshot);
+        return buildResolution(
+          compatibilityStatus ?? "backend_ready",
+          compatibilityStatus
+            ? "Loaded backend interactive game HTML through legacy compatibility zone."
+            : "Loaded backend interactive game HTML.",
+          {
+            artifactId: artifact.artifactId,
+            artifactType,
+            contentKind: "json",
+            content: contentSnapshot,
+            artifactMetadata,
+          }
+        );
+      }
       const rawHtml = await readBlobText(blob);
       const extractedHtml = extractHtmlFromJsonPayload(rawHtml);
       const html = extractedHtml ?? rawHtml;
@@ -293,6 +386,7 @@ export async function resolveCapabilityFromArtifact(params: {
           artifactType,
           contentKind: "text",
           content: html,
+          artifactMetadata,
         }
       );
     }
@@ -313,6 +407,7 @@ export async function resolveCapabilityFromArtifact(params: {
           contentKind: "media",
           content: null,
           blob,
+          artifactMetadata,
         }
       );
     }

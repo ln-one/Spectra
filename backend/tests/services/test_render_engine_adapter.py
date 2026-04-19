@@ -336,6 +336,9 @@ def test_legacy_invoke_render_engine_uses_http_api_when_base_url_is_configured(m
     monkeypatch.setenv("PAGEVRA_ENABLED", "1")
     monkeypatch.setenv("PAGEVRA_BASE_URL", "http://pagevra:8090")
     monkeypatch.setattr(
+        "services.render_engine_adapter.running_inside_container", lambda: True
+    )
+    monkeypatch.setattr(
         "services.render_engine_adapter.urllib_request.urlopen", fake_urlopen
     )
 
@@ -400,6 +403,9 @@ def test_legacy_invoke_render_engine_page_uses_http_page_api(monkeypatch):
 
     monkeypatch.setenv("PAGEVRA_ENABLED", "1")
     monkeypatch.setenv("PAGEVRA_BASE_URL", "http://pagevra:8090")
+    monkeypatch.setattr(
+        "services.render_engine_adapter.running_inside_container", lambda: True
+    )
     monkeypatch.setattr(
         "services.render_engine_adapter.urllib_request.urlopen", fake_urlopen
     )

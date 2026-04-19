@@ -20,6 +20,7 @@ from services.generation_session_service.session_history import (
 from utils.exceptions import APIException, ErrorCode
 
 from . import card_execution_runtime_helpers as _runtime_helpers
+from .card_source_bindings import get_card_source_artifact_types
 from .card_execution_preview import build_studio_card_execution_preview
 from .card_execution_runtime_artifacts import (
     execute_classroom_simulator_turn_artifact,
@@ -32,6 +33,9 @@ from .card_execution_runtime_sessions import (
 )
 
 _load_artifact_content = _runtime_helpers.load_artifact_content
+_build_latest_runnable_state = _runtime_helpers.build_latest_runnable_state
+_build_provenance_payload = _runtime_helpers.build_provenance_payload
+_build_source_binding_payload = _runtime_helpers.build_source_binding_payload
 supports_structured_refine = _runtime_helpers.supports_structured_refine
 validate_source_artifact = _runtime_helpers.validate_source_artifact
 
@@ -135,6 +139,25 @@ async def execute_studio_card_draft_request(
         session={"session_id": existing_session.id},
         run=serialize_session_run(run),
         request_preview=preview.initial_request,
+        execution_carrier=getattr(preview, "execution_carrier", None),
+        latest_runnable_state=_build_latest_runnable_state(
+            card_id=card_id,
+            artifact_id=None,
+            session_id=existing_session.id,
+            source_binding_valid=True,
+        ),
+        provenance=_build_provenance_payload(
+            card_id=card_id,
+            session_id=existing_session.id,
+            source_artifact_id=draft_source_artifact_id,
+            request_snapshot={"config": body.config},
+        ),
+        source_binding=_build_source_binding_payload(
+            card_id=card_id,
+            source_artifact_id=draft_source_artifact_id,
+            accepted_types=get_card_source_artifact_types(card_id),
+        ),
+        selection_anchor_schema_version="studio.selection_anchor.v1",
     )
 
 

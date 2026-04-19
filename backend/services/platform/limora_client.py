@@ -7,6 +7,7 @@ from typing import Any, Optional
 
 import httpx
 
+from services.runtime_env import normalize_internal_service_base_url, running_inside_container
 from utils.exceptions import ErrorCode, ExternalServiceException, UnauthorizedException
 
 
@@ -20,8 +21,12 @@ def limora_enabled() -> bool:
 
 
 def limora_base_url() -> Optional[str]:
-    value = os.getenv("LIMORA_BASE_URL", "").strip()
-    return value.rstrip("/") if value else None
+    return normalize_internal_service_base_url(
+        os.getenv("LIMORA_BASE_URL"),
+        service_name="limora",
+        inside_container=running_inside_container(),
+        local_override=os.getenv("LIMORA_BASE_URL_LOCAL"),
+    )
 
 
 def limora_timeout_seconds() -> float:
@@ -118,14 +123,14 @@ class LimoraClient:
             raise ExternalServiceException(
                 message="Limora request timeout",
                 error_code=ErrorCode.UPSTREAM_TIMEOUT,
-                details={"url": url},
+                details={"url": url, "base_url": self.base_url},
                 retryable=True,
             ) from exc
         except httpx.HTTPError as exc:
             raise ExternalServiceException(
                 message="Limora service unreachable",
                 error_code=ErrorCode.UPSTREAM_UNAVAILABLE,
-                details={"url": url, "error": str(exc)},
+                details={"url": url, "error": str(exc), "base_url": self.base_url},
                 retryable=True,
             ) from exc
 
@@ -138,6 +143,7 @@ class LimoraClient:
                     "url": url,
                     "status_code": response.status_code,
                     "body_preview": response.text[:300],
+                    "base_url": self.base_url,
                 },
                 retryable=False,
             ) from exc
@@ -145,7 +151,11 @@ class LimoraClient:
         if not isinstance(body, dict):
             raise ExternalServiceException(
                 message="Limora returned non-object payload",
-                details={"url": url, "status_code": response.status_code},
+                details={
+                    "url": url,
+                    "status_code": response.status_code,
+                    "base_url": self.base_url,
+                },
                 retryable=False,
             )
 
@@ -217,7 +227,11 @@ class LimoraClient:
             raise ExternalServiceException(
                 message=_read_error_message(response.payload, "获取 Limora 会话失败"),
                 status_code=502 if response.status_code < 500 else response.status_code,
-                details={"status_code": response.status_code, "limora": response.payload},
+                details={
+                    "status_code": response.status_code,
+                    "limora": response.payload,
+                    "base_url": self.base_url,
+                },
                 retryable=response.status_code >= 500,
             )
 
@@ -230,7 +244,7 @@ class LimoraClient:
         if not identity_id:
             raise ExternalServiceException(
                 message="Limora current session missing identity id",
-                details={"limora": response.payload},
+                details={"limora": response.payload, "base_url": self.base_url},
                 retryable=False,
             )
 

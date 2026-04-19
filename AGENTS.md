@@ -283,6 +283,43 @@ Locked remote images are fallback-only for environments without local source tre
 - Do not edit a historical doc and present it as current truth without an explicit status note.
 - Use [docs/standards/documentation.md](/Users/ln1/Projects/Spectra/docs/standards/documentation.md).
 
+### 8.1 Large-chapter decomposition rule
+
+Treat long-form documentation as an engineering surface, not a one-shot essay.
+
+When a chapter hits any of the following conditions, split it by default:
+
+- it spans more than four core capability groups
+- it must simultaneously explain product surface, architecture, evidence, and figures
+- it is large enough that single-pass editing is likely to lose context or introduce drift
+- it has already shown signs of repeated regression, structural sprawl, or uneven detail
+
+Preferred split strategy:
+
+- keep one outward-facing chapter as the canonical reading surface
+- create internal source docs grouped by capability/topic
+- keep chapter maps, evidence policy, figure mapping, and truth-check notes as internal control docs
+
+The goal of decomposition is not convenience. It is to:
+
+- reduce hallucination and omission
+- improve fact-check quality section by section
+- keep figures aligned with code and tests
+- preserve a readable external chapter while making deep writing maintainable
+
+### 8.2 Documentation truth-check rule
+
+For any section that explains implementation, performance, product reality, or
+service roles, truth-check against current code and tests before promotion into
+formal outward-facing prose.
+
+Minimum sources for a deep technical section should include:
+
+- current code path
+- focused tests or benchmarks where applicable
+- current frontend or API product surface if user-visible behavior is described
+- current capability boundaries in canonical architecture docs
+
 ## 9. Agent Self-Maintenance
 
 Promote knowledge only when:

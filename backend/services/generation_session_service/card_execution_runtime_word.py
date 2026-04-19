@@ -31,6 +31,7 @@ def compose_word_title(base: str) -> str:
 async def resolve_word_document_title(
     *,
     source_artifact_id: str,
+    user_id: str,
     config: dict | None,
     existing_title: str,
 ) -> str:
@@ -40,7 +41,10 @@ async def resolve_word_document_title(
     source_id = str(source_artifact_id or "").strip()
     if source_id:
         try:
-            source_artifact = await project_space_service.get_artifact(source_id)
+            source_artifact = await project_space_service.get_artifact(
+                source_id,
+                user_id=user_id,
+            )
             if source_artifact:
                 source_metadata = artifact_metadata_dict(source_artifact)
                 source_title = str(source_metadata.get("title") or "").strip()
@@ -62,6 +66,7 @@ async def resolve_word_document_title(
 async def sync_word_source_metadata(
     *,
     artifact,
+    user_id: str,
     source_artifact_id: str,
 ) -> None:
     normalized_source_artifact_id = str(source_artifact_id or "").strip()
@@ -76,6 +81,8 @@ async def sync_word_source_metadata(
                 "source_artifact_id": normalized_source_artifact_id,
                 "source_artifact_type": "pptx",
             },
+            project_id=getattr(artifact, "projectId", None),
+            user_id=user_id,
         )
     except Exception as exc:
         logger.warning(

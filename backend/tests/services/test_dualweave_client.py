@@ -19,12 +19,16 @@ def test_dualweave_client_disabled_by_default(monkeypatch):
 def test_dualweave_client_builds_when_enabled(monkeypatch):
     monkeypatch.setenv("DUALWEAVE_ENABLED", "true")
     monkeypatch.setenv("DUALWEAVE_BASE_URL", "http://dualweave:8080/")
+    monkeypatch.setenv("DUALWEAVE_BASE_URL_LOCAL", "http://127.0.0.1:8080")
     monkeypatch.setenv("DUALWEAVE_TIMEOUT_SECONDS", "123")
+    monkeypatch.setattr(
+        "services.platform.dualweave_client.running_inside_container", lambda: False
+    )
 
     client = build_dualweave_client()
 
     assert client is not None
-    assert client.base_url == "http://dualweave:8080"
+    assert client.base_url == "http://127.0.0.1:8080"
     assert client.timeout_seconds == 123.0
     assert client.poll_interval_seconds == 2.0
 
@@ -32,6 +36,9 @@ def test_dualweave_client_builds_when_enabled(monkeypatch):
 def test_dualweave_client_sync_methods_strip_base_url(monkeypatch):
     monkeypatch.setenv("DUALWEAVE_ENABLED", "true")
     monkeypatch.setenv("DUALWEAVE_BASE_URL", "http://dualweave:8080/")
+    monkeypatch.setattr(
+        "services.platform.dualweave_client.running_inside_container", lambda: True
+    )
 
     client = build_dualweave_client()
 

@@ -6,6 +6,9 @@
 >
 > 这不是对外正文，而是正式主稿的配图制作单。要求是：
 > 不猜系统事实，不猜章节意图，不拿 Mermaid 截图交差。
+>
+> 配套文字底稿见：
+> [全书图文文字底稿](/Users/ln1/Projects/Spectra/docs/documentation/competition-visual-source-notes.md)
 
 ## 1. 总原则
 

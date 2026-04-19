@@ -8,6 +8,7 @@ import { TOOL_LABELS, type StudioTool } from "../../constants";
 import { SessionArtifacts } from "../../components/SessionArtifacts";
 import { ToolGrid } from "../../components/ToolGrid";
 import type { StudioHistoryItem } from "../../history/types";
+import type { ToolArtifactPreviewItem } from "../../tools";
 
 interface StudioCollapsedViewProps {
   isExpanded: boolean;
@@ -16,6 +17,9 @@ interface StudioCollapsedViewProps {
   onToolClick: (tool: StudioTool) => void;
   hasHistory: boolean;
   groupedHistory: ComponentProps<typeof SessionArtifacts>["groupedHistory"];
+  currentCardId: string | null;
+  selectedSourceId: string | null;
+  latestArtifacts: ToolArtifactPreviewItem[];
   projectId: string | null;
   activeSessionId: string | null;
   fetchArtifactHistory: (

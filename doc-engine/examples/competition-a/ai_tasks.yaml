@@ -1,0 +1,9 @@
+summary:
+  action: 压缩长文为概要介绍
+  target: 前置摘要
+captions:
+  action: 生成图题和图注建议
+  target: 图位说明
+review:
+  action: 生成老师要求对照检查
+  target: 交付前复查

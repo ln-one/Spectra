@@ -5,10 +5,11 @@ from __future__ import annotations
 from typing import Any
 
 from .animation import refine_animation_content
-from .game import refine_game_content
+from .interactive_games_legacy_adapter import refine_interactive_game_legacy_content
 from .mindmap import refine_mindmap_content
 from .quiz import refine_quiz_content
 from .speaker_notes import refine_speaker_notes_content
+from .word_document import refine_word_document_content
 
 
 async def build_structured_refine_artifact_content(
@@ -29,6 +30,14 @@ async def build_structured_refine_artifact_content(
             project_id=project_id,
             rag_source_ids=rag_source_ids,
         )
+    if card_id == "word_document":
+        return await refine_word_document_content(
+            current_content=current_content,
+            message=message,
+            config=cfg,
+            project_id=project_id,
+            rag_source_ids=rag_source_ids,
+        )
     if card_id == "interactive_quick_quiz":
         return await refine_quiz_content(
             current_content=current_content,
@@ -38,7 +47,7 @@ async def build_structured_refine_artifact_content(
             rag_source_ids=rag_source_ids,
         )
     if card_id == "interactive_games":
-        return await refine_game_content(
+        return await refine_interactive_game_legacy_content(
             current_content=current_content,
             message=message,
             config=cfg,

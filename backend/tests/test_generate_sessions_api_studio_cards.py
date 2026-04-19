@@ -41,10 +41,64 @@ def _studio_generated_content(card_id: str) -> dict:
             "document_variant": "student_handout",
             "source_artifact_id": "a-ppt-001",
         }
+    if card_id == "interactive_games":
+        return {
+            "kind": "interactive_game",
+            "title": "电路术语配对",
+            "summary": "把关键术语和定义快速配对。",
+            "game_pattern": "term_pairing",
+            "html": "<html><body><main><h1>demo</h1></main></body></html>",
+            "compatibility_zone": {
+                "status": "protocol_limited",
+                "zone": "interactive_games_legacy_compatibility",
+            },
+            "runtime_origin": "legacy_compatibility",
+        }
     return {
         "kind": "mindmap",
         "title": "化学反应速率",
         "nodes": [{"id": "root", "parent_id": None, "title": "化学反应速率"}],
+    }
+
+
+def _animation_runtime_content() -> dict:
+    return {
+        "kind": "animation_storyboard",
+        "topic": "冒泡排序",
+        "summary": "解释最大值如何逐轮冒到末尾。",
+        "runtime_graph_version": "generic_explainer_graph.v1",
+        "runtime_graph": {
+            "family_hint": "algorithm_demo",
+            "timeline": {"total_steps": 2},
+            "steps": [
+                {
+                    "primary_caption": {"title": "比较", "body": "先比较相邻元素。"},
+                    "entities": [{"id": "track-0", "kind": "track_stack"}],
+                },
+                {
+                    "primary_caption": {"title": "交换", "body": "较大的元素向后移动。"},
+                    "entities": [{"id": "track-1", "kind": "track_stack"}],
+                },
+            ],
+            "used_primitives": ["AnimationGraphRenderer"],
+        },
+        "runtime_draft_version": "explainer_draft.v1",
+        "runtime_draft": {
+            "family_hint": "algorithm_demo",
+            "step_captions": [
+                {"caption_title": "比较", "caption_body": "先比较相邻元素。"},
+                {"caption_title": "交换", "caption_body": "较大的元素向后移动。"},
+            ],
+        },
+        "component_code": (
+            "export default function Animation(runtimeProps) {"
+            " return React.createElement(AnimationGraphRenderer, { graph: {}, theme: runtimeProps.theme });"
+            " }"
+        ),
+        "runtime_source": "llm_draft_assembled_graph",
+        "runtime_contract": "animation_runtime.v4",
+        "compile_status": "pending",
+        "compile_errors": [],
     }
 
 
@@ -99,6 +153,55 @@ async def test_execute_studio_card_creates_word_artifact(app, _as_user):
 
 
 @pytest.mark.anyio
+async def test_execute_interactive_games_persists_compatibility_snapshot(app, _as_user):
+    client = TestClient(app)
+    artifact = SimpleNamespace(
+        id="a-game-001",
+        projectId="p-001",
+        sessionId=None,
+        basedOnVersionId=None,
+        ownerUserId="u-001",
+        type="html",
+        visibility="private",
+        storagePath="uploads/artifacts/a-game-001.html",
+        createdAt=datetime.now(timezone.utc),
+        updatedAt=datetime.now(timezone.utc),
+    )
+
+    with (
+        patch(
+            "services.project_space_service.project_space_service.check_project_permission",
+            AsyncMock(),
+        ),
+        patch(
+            "services.generation_session_service.card_execution_runtime_artifacts.build_studio_tool_artifact_content",
+            AsyncMock(return_value=_studio_generated_content("interactive_games")),
+        ),
+        patch(
+            "services.project_space_service.project_space_service.create_artifact_with_file",
+            AsyncMock(return_value=artifact),
+        ) as create_artifact_mock,
+    ):
+        response = client.post(
+            "/api/v1/generate/studio-cards/interactive_games/execute",
+            json={
+                "project_id": "p-001",
+                "config": {
+                    "topic": "电路基础",
+                    "game_pattern": "term_pairing",
+                    "creative_brief": "把核心术语和定义配对",
+                },
+            },
+        )
+
+    assert response.status_code == 200
+    kwargs = create_artifact_mock.await_args.kwargs
+    assert kwargs["artifact_type"] == "html"
+    assert kwargs["content"]["compatibility_zone"]["status"] == "protocol_limited"
+    assert kwargs["content"]["runtime_origin"] == "legacy_compatibility"
+
+
+@pytest.mark.anyio
 async def test_execute_studio_card_strict_mode_returns_upstream_error(app, _as_user):
     client = TestClient(app)
 
@@ -141,6 +244,107 @@ async def test_execute_studio_card_strict_mode_returns_upstream_error(app, _as_u
 
 
 @pytest.mark.anyio
+async def test_execute_demonstration_animations_creates_runtime_graph_artifact(
+    app, _as_user
+):
+    client = TestClient(app)
+    artifact = SimpleNamespace(
+        id="a-animation-001",
+        projectId="p-001",
+        sessionId=None,
+        basedOnVersionId=None,
+        ownerUserId="u-001",
+        type="html",
+        visibility="private",
+        storagePath="uploads/artifacts/a-animation-001.html",
+        createdAt=datetime.now(timezone.utc),
+        updatedAt=datetime.now(timezone.utc),
+    )
+
+    with (
+        patch(
+            "services.project_space_service.project_space_service.check_project_permission",
+            AsyncMock(),
+        ),
+        patch(
+            "services.generation_session_service.card_execution_runtime_artifacts.build_studio_tool_artifact_content",
+            AsyncMock(return_value=_animation_runtime_content()),
+        ),
+        patch(
+            "services.project_space_service.project_space_service.create_artifact_with_file",
+            AsyncMock(return_value=artifact),
+        ) as create_artifact_mock,
+    ):
+        response = client.post(
+            "/api/v1/generate/studio-cards/demonstration_animations/execute",
+            json={
+                "project_id": "p-001",
+                "config": {"topic": "冒泡排序", "motion_brief": "解释交换过程"},
+                "visibility": "private",
+            },
+    )
+
+    assert response.status_code == 200
+    kwargs = create_artifact_mock.await_args.kwargs
+    assert kwargs["artifact_type"] == "mp4"
+    assert kwargs["content"]["runtime_graph_version"] == "generic_explainer_graph.v1"
+    assert kwargs["content"]["runtime_draft_version"] == "explainer_draft.v1"
+    assert kwargs["content"]["runtime_source"] == "llm_draft_assembled_graph"
+    assert kwargs["content"]["component_code"]
+    assert kwargs["content"]["render_mode"] == "cloud_video_wan"
+    assert kwargs["content"]["format"] == "mp4"
+    assert kwargs["content"]["cloud_video_model"] == "wan2.7-i2v"
+
+
+@pytest.mark.anyio
+async def test_execute_demonstration_animations_surfaces_runtime_generation_errors(
+    app, _as_user
+):
+    client = TestClient(app)
+
+    with (
+        patch(
+            "services.project_space_service.project_space_service.check_project_permission",
+            AsyncMock(),
+        ),
+        patch(
+            "services.generation_session_service.card_execution_runtime_artifacts.build_studio_tool_artifact_content",
+            AsyncMock(
+                side_effect=APIException(
+                    status_code=502,
+                    error_code=ErrorCode.EXTERNAL_SERVICE_ERROR,
+                    message="Animation runtime draft generation failed",
+                    details={
+                        "card_id": "demonstration_animations",
+                        "phase": "draft_schema",
+                        "failure_reason": "runtime_draft_schema_error",
+                    },
+                )
+            ),
+        ),
+        patch(
+            "services.project_space_service.project_space_service.create_artifact_with_file",
+            AsyncMock(),
+        ) as create_artifact_mock,
+    ):
+        response = client.post(
+            "/api/v1/generate/studio-cards/demonstration_animations/execute",
+            json={
+                "project_id": "p-001",
+                "config": {"topic": "冒泡排序"},
+                "visibility": "private",
+            },
+        )
+
+    assert response.status_code == 502
+    error_payload = response.json().get("error") or response.json().get("detail") or {}
+    details = error_payload.get("details") or {}
+    assert details.get("card_id") == "demonstration_animations"
+    assert details.get("failure_reason") == "runtime_draft_schema_error"
+    create_artifact_mock.assert_not_awaited()
+
+
+@pytest.mark.anyio
 async def test_classroom_simulator_turn_rejects_non_simulator_artifact(app, _as_user):
     client = TestClient(app)
     artifact = SimpleNamespace(
@@ -172,3 +376,213 @@ async def test_classroom_simulator_turn_rejects_non_simulator_artifact(app, _as_
 
     assert response.status_code == 400
     assert response.json()["detail"]["code"] == "INVALID_INPUT"
+
+
+@pytest.mark.anyio
+async def test_classroom_simulator_turn_returns_follow_up_runtime_state(app, _as_user):
+    client = TestClient(app)
+
+    with patch(
+        "routers.generate_sessions.studio_cards.execute_classroom_simulator_turn",
+        AsyncMock(
+            return_value=(
+                {"id": "a-summary-002", "type": "summary"},
+                SimpleNamespace(
+                    model_dump=lambda mode="json": {
+                        "turn_anchor": "turn-2",
+                        "student_profile": "detail_oriented",
+                        "student_question": "为什么这一步不能直接合并？",
+                        "teacher_answer": "先拆开边界条件。",
+                        "feedback": "可以继续追问原因链。",
+                        "score": 86,
+                        "next_focus": "边界条件",
+                    }
+                ),
+                {
+                    "primary_carrier": "hybrid",
+                    "active_artifact_id": "a-summary-002",
+                    "can_refine": True,
+                    "can_follow_up_turn": True,
+                    "source_binding_valid": True,
+                    "next_action": "follow_up_turn",
+                },
+            )
+        ),
+    ):
+        response = client.post(
+            "/api/v1/generate/studio-cards/classroom_qa_simulator/turn",
+            json={
+                "project_id": "p-001",
+                "artifact_id": "a-summary-001",
+                "teacher_answer": "先拆开边界条件。",
+            },
+        )
+
+    assert response.status_code == 200
+    payload = response.json()["data"]
+    assert payload["turn_result"]["turn_anchor"] == "turn-2"
+    assert payload["latest_runnable_state"]["next_action"] == "follow_up_turn"
+    assert payload["turn_anchor"] == "turn-2"
+    assert payload["next_focus"] == "边界条件"
+
+
+@pytest.mark.anyio
+async def test_recommend_animation_placement_updates_gif_artifact_metadata(app, _as_user):
+    client = TestClient(app)
+    animation_artifact = SimpleNamespace(
+        id="a-animation-001",
+        projectId="p-001",
+        sessionId="sess-animation",
+        type="gif",
+        metadata={
+            "kind": "animation_storyboard",
+            "topic": "冒泡排序",
+            "summary": "解释交换过程",
+            "content_snapshot": {"kind": "animation_storyboard", "placements": []},
+        },
+        updatedAt=datetime.now(timezone.utc),
+    )
+    ppt_artifact = SimpleNamespace(
+        id="a-ppt-001",
+        projectId="p-001",
+        sessionId="sess-ppt",
+        type="pptx",
+        metadata={"slide_count": 6},
+        updatedAt=datetime.now(timezone.utc),
+    )
+
+    with (
+        patch(
+            "services.project_space_service.project_space_service.check_project_permission",
+            AsyncMock(),
+        ),
+        patch(
+            "services.project_space_service.project_space_service.get_artifact",
+            AsyncMock(side_effect=[animation_artifact, ppt_artifact]),
+        ),
+        patch(
+            "services.project_space_service.project_space_service.update_artifact_metadata",
+            AsyncMock(),
+        ) as update_artifact_mock,
+    ):
+        response = client.post(
+            "/api/v1/generate/studio-cards/demonstration_animations/recommend-placement",
+            json={
+                "project_id": "p-001",
+                "artifact_id": "a-animation-001",
+                "ppt_artifact_id": "a-ppt-001",
+            },
+        )
+
+    assert response.status_code == 200
+    payload = response.json()["data"]
+    assert payload["recommendation"]["ppt_artifact_id"] == "a-ppt-001"
+    assert payload["artifact"]["id"] == "a-animation-001"
+    kwargs = update_artifact_mock.await_args.kwargs
+    assert kwargs["artifact_id"] == "a-animation-001"
+    assert kwargs["metadata"]["placement_recommendation"]["ppt_artifact_id"] == "a-ppt-001"
+
+
+@pytest.mark.anyio
+async def test_confirm_animation_placement_records_binding_for_gif_artifact(app, _as_user):
+    client = TestClient(app)
+    animation_artifact = SimpleNamespace(
+        id="a-animation-001",
+        projectId="p-001",
+        sessionId="sess-animation",
+        type="gif",
+        metadata={
+            "kind": "animation_storyboard",
+            "content_snapshot": {"kind": "animation_storyboard", "placements": []},
+        },
+        updatedAt=datetime.now(timezone.utc),
+    )
+    ppt_artifact = SimpleNamespace(
+        id="a-ppt-001",
+        projectId="p-001",
+        sessionId="sess-ppt",
+        type="pptx",
+        metadata={},
+        updatedAt=datetime.now(timezone.utc),
+    )
+
+    with (
+        patch(
+            "services.project_space_service.project_space_service.check_project_permission",
+            AsyncMock(),
+        ),
+        patch(
+            "services.project_space_service.project_space_service.get_artifact",
+            AsyncMock(side_effect=[animation_artifact, ppt_artifact]),
+        ),
+        patch(
+            "services.project_space_service.project_space_service.update_artifact_metadata",
+            AsyncMock(),
+        ) as update_artifact_mock,
+    ):
+        response = client.post(
+            "/api/v1/generate/studio-cards/demonstration_animations/confirm-placement",
+            json={
+                "project_id": "p-001",
+                "artifact_id": "a-animation-001",
+                "ppt_artifact_id": "a-ppt-001",
+                "page_numbers": [2],
+                "slot": "right-panel",
+            },
+        )
+
+    assert response.status_code == 200
+    payload = response.json()["data"]
+    assert payload["placements"][0]["page_number"] == 2
+    assert payload["ppt_artifact"]["id"] == "a-ppt-001"
+    assert update_artifact_mock.await_count == 2
+    animation_update = update_artifact_mock.await_args_list[0].kwargs
+    ppt_update = update_artifact_mock.await_args_list[1].kwargs
+    assert animation_update["metadata"]["placements"][0]["slot"] == "right-panel"
+    assert (
+        ppt_update["metadata"]["embedded_animations"][0]["animation_artifact_id"]
+        == "a-animation-001"
+    )
+
+
+@pytest.mark.anyio
+async def test_confirm_animation_placement_rejects_non_gif_artifact(app, _as_user):
+    client = TestClient(app)
+    animation_artifact = SimpleNamespace(
+        id="a-animation-002",
+        projectId="p-001",
+        sessionId="sess-animation",
+        type="mp4",
+        metadata={"kind": "animation_storyboard"},
+        updatedAt=datetime.now(timezone.utc),
+    )
+
+    with (
+        patch(
+            "services.project_space_service.project_space_service.check_project_permission",
+            AsyncMock(),
+        ),
+        patch(
+            "services.project_space_service.project_space_service.get_artifact",
+            AsyncMock(return_value=animation_artifact),
+        ),
+        patch(
+            "services.project_space_service.project_space_service.update_artifact_metadata",
+            AsyncMock(),
+        ) as update_artifact_mock,
+    ):
+        response = client.post(
+            "/api/v1/generate/studio-cards/demonstration_animations/confirm-placement",
+            json={
+                "project_id": "p-001",
+                "artifact_id": "a-animation-002",
+                "ppt_artifact_id": "a-ppt-001",
+                "page_numbers": [2],
+                "slot": "right-panel",
+            },
+        )
+
+    assert response.status_code == 400
+    error_payload = response.json().get("error") or response.json().get("detail") or {}
+    assert "仅支持 GIF 动画成果" in error_payload.get("message", "")
+    update_artifact_mock.assert_not_awaited()

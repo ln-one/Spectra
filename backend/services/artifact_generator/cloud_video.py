@@ -1,12 +1,17 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 import logging
 import os
 from pathlib import Path
 from typing import Any
 
 import httpx
+
+from services.artifact_generator.cloud_video_first_frame import (
+    render_animation_first_frame,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -41,11 +46,7 @@ def _resolve_base_url() -> str:
 
 
 def _resolve_model() -> str:
-    return str(os.getenv("ALIYUN_VIDEO_MODEL") or "wan2.7-t2v").strip()
-
-
-def _resolve_ratio() -> str:
-    return str(os.getenv("ALIYUN_VIDEO_RATIO") or "16:9").strip()
+    return str(os.getenv("ALIYUN_VIDEO_MODEL") or "wan2.7-i2v").strip()
 
 
 def _resolve_resolution() -> str:
@@ -97,9 +98,9 @@ def _build_shot_prompt(
     emphasis = _clip_text(scene.get("emphasis") or "", 40)
     shot_type = str(scene.get("shot_type") or "").strip().lower()
     shot_label = {
-        "intro": "全景",
-        "focus": "中景",
-        "summary": "拉远总结镜头",
+        "intro": "建立镜头",
+        "focus": "主体教学镜头",
+        "summary": "收束镜头",
     }.get(shot_type, "教学镜头")
     fragments = [
         f"第{index}个镜头[{start_second}-{end_second}秒] {shot_label}",
@@ -116,20 +117,23 @@ def build_aliyun_wan_prompt(content: dict[str, Any]) -> str:
     title = _clip_text(content.get("title") or content.get("topic") or "教学动画", 60)
     summary = _clip_text(content.get("summary") or content.get("focus") or "", 120)
     focus = _clip_text(content.get("focus") or "", 80)
+    family = str(content.get("family_hint") or content.get("animation_family") or "").strip()
     scenes = [
         dict(scene)
         for scene in (content.get("scenes") or [])
         if isinstance(scene, dict)
     ]
-    duration_seconds = int(content.get("duration_seconds") or 8)
+    duration_seconds = max(2, min(int(content.get("duration_seconds") or 8), 15))
     scene_count = max(1, len(scenes))
     seconds_per_scene = max(1, duration_seconds // scene_count)
     prompt_parts = [
-        "生成多镜头教学视频。",
+        "生成克制、清晰、适合课堂展示的教学视频。",
         f"主题：{title}。",
-        "整体要求：画面清晰、信息图形化、教学风格克制、适合课堂展示、避免花哨影视特效、避免无关人物表演。",
-        "镜头语言：wide -> medium -> close-up -> pull-back，转场以淡化、柔和擦除、直接切换为主，保证看清内容。",
+        "整体要求：主体明确、信息图形化、镜头稳定、避免无关人物表演、避免强影视特效、避免装饰性炫技。",
+        "构图要求：首帧主体清晰可辨，后续镜头围绕同一解释对象展开。",
     ]
+    if family:
+        prompt_parts.append(f"题材类型：{family}。")
     if summary:
         prompt_parts.append(f"教学说明：{summary}。")
     if focus:
@@ -154,13 +158,45 @@ def build_aliyun_wan_prompt(content: dict[str, Any]) -> str:
             current_start = current_end
         prompt_parts.append("分镜脚本：" + " ".join(shot_prompts))
     else:
-        prompt_parts.append(
-            "分镜脚本：以3到5个教学镜头完成主题引入、关键变化、结论收束。"
-        )
+        prompt_parts.append("分镜脚本：以3到5个镜头完成引入、关键变化、结论收束。")
     prompt_parts.append(
-        "禁止事项：不要无关装饰物，不要大段漂浮字幕，不要把画面做成纯海报，不要随机生成与主题无关主体。"
+        "禁止事项：不要随机生成与主题无关主体，不要过多漂浮字幕，不要做成海报式静止画面。"
     )
     return " ".join(prompt_parts)
+
+
+def build_aliyun_wan_first_frame_prompt(content: dict[str, Any]) -> str:
+    title = _clip_text(content.get("title") or content.get("topic") or "教学动画", 60)
+    focus = _clip_text(content.get("focus") or content.get("summary") or "", 100)
+    family = str(content.get("family_hint") or content.get("animation_family") or "").strip()
+    return " ".join(
+        part
+        for part in [
+            f"首帧构图围绕{title}展开。",
+            f"题材：{family}。" if family else "",
+            f"首帧强调：{focus}。" if focus else "",
+            "画面保持中性灰教学视觉，主体清晰，适合后续图生视频延展。",
+        ]
+        if part
+    )
+
+
+def _encode_file_data_uri(filepath: str) -> str:
+    path = Path(filepath)
+    encoded = base64.b64encode(path.read_bytes()).decode("ascii")
+    return f"data:image/png;base64,{encoded}"
+
+
+def _resolve_first_frame_asset(content: dict[str, Any], storage_path: str) -> str:
+    existing = str(content.get("first_frame_asset_url") or "").strip()
+    if existing:
+        if existing.startswith("file://"):
+            return existing[len("file://") :]
+        return existing
+    frame_path = str(Path(storage_path).with_suffix(".first-frame.png"))
+    actual_path = render_animation_first_frame(content, frame_path)
+    content["first_frame_asset_url"] = f"file://{actual_path}"
+    return actual_path
 
 
 async def _create_task(
@@ -234,57 +270,97 @@ async def render_aliyun_wan_video(content: dict[str, Any], storage_path: str) ->
 
     api_key = _resolve_api_key()
     base_url = _resolve_base_url()
-    prompt = str(
-        content.get("cloud_video_prompt") or ""
-    ).strip() or build_aliyun_wan_prompt(content)
+    model = str(content.get("cloud_video_model") or _resolve_model()).strip()
+    prompt = str(content.get("video_prompt") or content.get("cloud_video_prompt") or "").strip()
+    if not prompt:
+        prompt = build_aliyun_wan_prompt(content)
+    content["video_prompt"] = prompt
+    content["cloud_video_prompt"] = prompt
+    content["cloud_video_provider"] = "aliyun_wan"
+    content["cloud_video_model"] = model
+    content["cloud_video_status"] = "submitting"
+    content["first_frame_prompt"] = str(content.get("first_frame_prompt") or "").strip() or build_aliyun_wan_first_frame_prompt(content)
+
     duration_seconds = max(2, min(int(content.get("duration_seconds") or 8), 15))
+    first_frame_path = _resolve_first_frame_asset(content, storage_path)
+    data_uri = _encode_file_data_uri(first_frame_path)
     payload = {
-        "model": str(content.get("cloud_video_model") or _resolve_model()).strip(),
+        "model": model,
         "input": {
             "prompt": prompt,
-            "negative_prompt": str(content.get("negative_prompt") or "").strip(),
+            "media": [
+                {
+                    "type": "first_frame",
+                    "url": data_uri,
+                }
+            ],
         },
         "parameters": {
             "resolution": str(
                 content.get("cloud_video_resolution") or _resolve_resolution()
             ).strip(),
-            "ratio": str(content.get("cloud_video_ratio") or _resolve_ratio()).strip(),
             "duration": duration_seconds,
             "prompt_extend": _env_flag("ALIYUN_VIDEO_PROMPT_EXTEND", True),
-            "watermark": _env_flag("ALIYUN_VIDEO_WATERMARK", False),
+            "watermark": bool(
+                content.get("cloud_video_watermark")
+                if content.get("cloud_video_watermark") is not None
+                else _env_flag("ALIYUN_VIDEO_WATERMARK", False)
+            ),
         },
     }
+    if content.get("negative_prompt"):
+        payload["input"]["negative_prompt"] = str(content["negative_prompt"]).strip()
     if content.get("cloud_video_seed") not in (None, ""):
         payload["parameters"]["seed"] = int(content["cloud_video_seed"])
 
     logger.info(
-        "Submitting Aliyun Wan video task model=%s duration=%s storage=%s",
-        payload["model"],
+        "Submitting Aliyun Wan i2v task model=%s duration=%s storage=%s",
+        model,
         duration_seconds,
         storage_path,
     )
     async with httpx.AsyncClient(
         base_url=base_url, timeout=_resolve_timeout_seconds()
     ) as client:
-        task_id = await _create_task(client=client, api_key=api_key, payload=payload)
-        result = await _wait_for_task(client=client, api_key=api_key, task_id=task_id)
-        output = result.get("output") or {}
-        task_status = str(output.get("task_status") or "").strip()
-        if task_status != "SUCCEEDED":
-            raise RuntimeError(
-                "Aliyun Wan video generation failed: "
-                f"task_id={task_id} status={task_status} "
-                f"code={output.get('code')} message={output.get('message')}"
+        try:
+            task_id = await _create_task(client=client, api_key=api_key, payload=payload)
+            content["cloud_video_task_id"] = task_id
+            content["cloud_video_status"] = "running"
+            result = await _wait_for_task(client=client, api_key=api_key, task_id=task_id)
+            output = result.get("output") or {}
+            task_status = str(output.get("task_status") or "").strip()
+            if task_status != "SUCCEEDED":
+                content["cloud_video_status"] = "failed"
+                content["cloud_video_error"] = str(
+                    output.get("message")
+                    or output.get("code")
+                    or f"task_status={task_status}"
+                ).strip()
+                raise RuntimeError(
+                    "Aliyun Wan video generation failed: "
+                    f"task_id={task_id} status={task_status} "
+                    f"code={output.get('code')} message={output.get('message')}"
+                )
+            video_url = str(output.get("video_url") or "").strip()
+            if not video_url:
+                content["cloud_video_status"] = "failed"
+                content["cloud_video_error"] = f"task_id={task_id} missing video_url"
+                raise RuntimeError(f"Aliyun Wan video url missing: task_id={task_id}")
+            content["cloud_video_result_url"] = video_url
+            downloaded_path = await _download_video(
+                client=client,
+                video_url=video_url,
+                storage_path=storage_path,
             )
-        video_url = str(output.get("video_url") or "").strip()
-        if not video_url:
-            raise RuntimeError(f"Aliyun Wan video url missing: task_id={task_id}")
-        downloaded_path = await _download_video(
-            client=client,
-            video_url=video_url,
-            storage_path=storage_path,
-        )
+            content["cloud_video_status"] = "succeeded"
+        except Exception as exc:
+            if not content.get("cloud_video_error"):
+                content["cloud_video_error"] = str(exc)
+            content["cloud_video_status"] = "failed"
+            raise
     logger.info(
-        "Aliyun Wan video generated task_id=%s path=%s", task_id, downloaded_path
+        "Aliyun Wan i2v video generated task_id=%s path=%s",
+        content.get("cloud_video_task_id"),
+        downloaded_path,
     )
     return downloaded_path

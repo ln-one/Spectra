@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useMachine } from "@xstate/react";
+import { createMachine } from "xstate";
 import { CheckSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { WorkflowStepper } from "@/components/project/shared";
@@ -18,6 +20,31 @@ import { PreviewStep } from "./quiz/PreviewStep";
 import type { QuizDifficulty, QuizQuestionType, QuizStep } from "./quiz/types";
 import { useStudioRagRecommendations } from "./useStudioRagRecommendations";
 import { useWorkflowStepSync } from "./useWorkflowStepSync";
+
+const quizWorkflowMachine = createMachine({
+  id: "quizWorkflow",
+  initial: "idle",
+  states: {
+    idle: {},
+    awaiting_requirements: {},
+    preview_ready: {},
+    running: {},
+    result_available: {},
+    answering: {},
+    refining: {},
+    failed: {},
+  },
+  on: {
+    REQUIREMENTS: ".awaiting_requirements",
+    PREVIEW: ".preview_ready",
+    RUN: ".running",
+    RESULT: ".result_available",
+    ANSWER: ".answering",
+    REFINE: ".refining",
+    FAIL: ".failed",
+    RESET: ".idle",
+  },
+});
 
 function clampNumber(
   value: string,
@@ -44,6 +71,7 @@ export function QuizToolPanel({
   const [styleTags, setStyleTags] = useState<string[]>(["优先考易错点"]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [lastGeneratedAt, setLastGeneratedAt] = useState<string | null>(null);
+  const [, workflowSend] = useMachine(quizWorkflowMachine);
 
   const { suggestions, isLoading } = useStudioRagRecommendations({
     query: "为当前项目推荐适合随堂小测的重点考查范围、易错点和典型题型",
@@ -59,6 +87,33 @@ export function QuizToolPanel({
   const count = useMemo(() => clampNumber(countInput, 1, 20, 5), [countInput]);
   const difficultyLabel = getDifficultyLabel(difficulty);
   const questionTypeLabel = getQuestionTypeLabel(questionType);
+
+  useEffect(() => {
+    if (isGenerating) {
+      workflowSend({ type: "RUN" });
+      return;
+    }
+    if (flowContext?.requiresSourceArtifact && !flowContext?.selectedSourceId) {
+      workflowSend({ type: "REQUIREMENTS" });
+      return;
+    }
+    if (flowContext?.resolvedArtifact?.artifactId) {
+      workflowSend({ type: "RESULT" });
+      return;
+    }
+    if (activeStep === "generate" || activeStep === "preview") {
+      workflowSend({ type: "PREVIEW" });
+      return;
+    }
+    workflowSend({ type: "RESET" });
+  }, [
+    activeStep,
+    flowContext?.requiresSourceArtifact,
+    flowContext?.resolvedArtifact?.artifactId,
+    flowContext?.selectedSourceId,
+    isGenerating,
+    workflowSend,
+  ]);
 
   useEffect(() => {
     onDraftChange?.({
@@ -217,6 +272,9 @@ export function QuizToolPanel({
                 <PreviewStep
                   lastGeneratedAt={lastGeneratedAt}
                   flowContext={flowContext}
+                  onAnswering={() => workflowSend({ type: "ANSWER" })}
+                  onRefining={() => workflowSend({ type: "REFINE" })}
+                  onIdle={() => workflowSend({ type: "RESULT" })}
                 />
               ) : null}
             </div>

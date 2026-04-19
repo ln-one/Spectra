@@ -3,14 +3,11 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from services.generation_session_service.game_template_engine import (
-    build_game_schema_hint,
-    is_template_game_pattern,
-    resolve_game_pattern,
+from services.generation_session_service.interactive_games_legacy_adapter import (
+    resolve_interactive_game_schema_hint,
 )
-from services.generation_session_service.word_template_engine import (
-    build_word_schema_hint,
-    resolve_word_document_variant,
+from services.generation_session_service.word_document_normalizer import (
+    resolve_word_document_schema_hint,
 )
 from utils.exceptions import APIException, ErrorCode
 
@@ -22,7 +19,7 @@ _PAYLOAD_REQUIREMENTS: dict[str, tuple[str, ...]] = {
     "interactive_games": ("title", "html"),
     "classroom_qa_simulator": ("title", "turns"),
     "demonstration_animations": ("title",),
-    "speaker_notes": ("title", "slides"),
+    "speaker_notes": ("title", "slides", "anchors"),
 }
 
 
@@ -127,6 +124,7 @@ def validate_card_payload(card_id: str, payload: dict[str, Any]) -> None:
     elif card_id == "speaker_notes":
         require_non_empty_str(payload, "title")
         require_non_empty_list(payload, "slides")
+        require_non_empty_list(payload, "anchors")
     elif card_id in {"courseware_ppt", "word_document"}:
         require_non_empty_str(payload, "title")
         require_non_empty_str(payload, "summary")
@@ -193,18 +191,13 @@ def parse_ai_object_payload(
 
 def build_schema_hint(card_id: str, config: dict[str, Any] | None = None) -> str | None:
     if card_id == "interactive_games":
-        pattern = resolve_game_pattern(config)
-        if is_template_game_pattern(pattern):
-            return build_game_schema_hint(pattern)
-        return '{"title":"", "html":""}'
+        return resolve_interactive_game_schema_hint(config)
 
     return {
         "courseware_ppt": (
             '{"title":"", "summary":"", "pages":12, "template":"default"}'
         ),
-        "word_document": build_word_schema_hint(
-            resolve_word_document_variant((config or {}).get("document_variant"))
-        ),
+        "word_document": resolve_word_document_schema_hint(config),
         "knowledge_mindmap": (
             '{"title":"",'
             ' "nodes":[{"id":"root","parent_id":null,"title":"","summary":""}]}'
@@ -220,15 +213,22 @@ def build_schema_hint(card_id: str, config: dict[str, Any] | None = None) -> str
             '"feedback":""}]}'
         ),
         "demonstration_animations": (
-            '{"title":"", "summary":"", "format":"gif|mp4", '
-            '"render_mode":"gif|cloud_video_wan", '
-            '"style_pack":"teaching_ppt_cartoon|teaching_ppt_fresh_green|teaching_ppt_deep_blue|teaching_ppt_warm_orange|teaching_ppt_minimal_gray", '
-            '"visual_type":"process_flow", '
-            '"scenes":[{"title":"","description":"","emphasis":""}]}'
+            '{"kind":"animation_storyboard", "topic":"", "summary":"", '
+            '"runtime_graph_version":"generic_explainer_graph.v1", '
+            '"runtime_graph":{"family_hint":"algorithm_demo","timeline":{"total_steps":1},"steps":[{"primary_caption":{"title":"","body":""},"entities":[{"id":"subject-0","kind":"track_stack"}]}]}, '
+            '"runtime_draft_version":"explainer_draft.v1", '
+            '"runtime_draft":{"family_hint":"algorithm_demo","step_captions":[{"caption_title":"","caption_body":""}]}, '
+            '"component_code":"export default function Animation(runtimeProps) { ... }", '
+            '"runtime_source":"llm_draft_assembled_graph", '
+            '"runtime_contract":"animation_runtime.v4", '
+            '"compile_status":"pending", '
+            '"compile_errors":[]}'
         ),
         "speaker_notes": (
-            '{"title":"", "summary":"", '
-            '"slides":[{"page":1,"title":"","script":"",'
-            '"action_hint":"","transition_line":""}]}'
+            '{"title":"", "summary":"", "source_artifact_id":"", '
+            '"slides":[{"id":"slide-1","page":1,"title":"",'
+            '"sections":[{"id":"slide-1-section-1","title":"开场","paragraphs":'
+            '[{"id":"slide-1-paragraph-1","anchor_id":"speaker_notes:v2:slide-1:paragraph-1","text":"","role":"script"}]}]}],'
+            '"anchors":[{"scope":"paragraph","anchor_id":"speaker_notes:v2:slide-1:paragraph-1","slide_id":"slide-1","paragraph_id":"slide-1-paragraph-1","label":"第 1 页正文"}]}'
         ),
     }.get(card_id)

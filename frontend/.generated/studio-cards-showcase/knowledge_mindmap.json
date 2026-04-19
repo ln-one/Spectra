@@ -1,0 +1,87 @@
+{
+  "title": "牛顿第一定律概念体系",
+  "nodes": [
+    {
+      "id": "n_root",
+      "parent_id": null,
+      "title": "牛顿第一定律",
+      "summary": "描述物体在不受外力作用时保持原有运动状态的客观规律"
+    },
+    {
+      "id": "n_content",
+      "parent_id": "n_root",
+      "title": "定律表述",
+      "summary": "一切物体总保持匀速直线运动状态或静止状态，除非作用在它上面的力迫使它改变这种状态"
+    },
+    {
+      "id": "n_inertia",
+      "parent_id": "n_root",
+      "title": "核心概念：惯性",
+      "summary": "物体保持原有运动状态不变的固有属性，与外界是否存在无关"
+    },
+    {
+      "id": "n_mass_relation",
+      "parent_id": "n_inertia",
+      "title": "惯性与质量",
+      "summary": "质量是惯性大小的唯一量度，质量大则惯性大，与运动速度无关"
+    },
+    {
+      "id": "n_force_func",
+      "parent_id": "n_root",
+      "title": "力与运动关系",
+      "summary": "力不是维持物体运动的原因，而是改变物体运动状态（产生加速度）的原因"
+    },
+    {
+      "id": "n_force_state",
+      "parent_id": "n_force_func",
+      "title": "运动状态改变",
+      "summary": "指物体速度的大小或方向发生改变，对应于合力不为零的情况"
+    },
+    {
+      "id": "n_history",
+      "parent_id": "n_root",
+      "title": "科学史背景",
+      "summary": "基于伽利略理想斜面实验的推论，否定了亚里士多德认为运动必须依靠力的观点"
+    },
+    {
+      "id": "n_applica",
+      "parent_id": "n_root",
+      "title": "实际现象解释",
+      "summary": "用于分析紧急刹车、乘客前倾等现象中的惯性作用及安全原理"
+    }
+  ],
+  "edges": [
+    {
+      "from": "n_root",
+      "to": "n_content"
+    },
+    {
+      "from": "n_root",
+      "to": "n_inertia"
+    },
+    {
+      "from": "n_inertia",
+      "to": "n_mass_relation"
+    },
+    {
+      "from": "n_root",
+      "to": "n_force_func"
+    },
+    {
+      "from": "n_force_func",
+      "to": "n_force_state"
+    },
+    {
+      "from": "n_root",
+      "to": "n_history"
+    },
+    {
+      "from": "n_root",
+      "to": "n_applica"
+    }
+  ],
+  "metadata": {
+    "generated_at": "now",
+    "artifact_id": "323f5f4a-22e1-4a04-a70d-7f39a1fe3ac9"
+  }
+}

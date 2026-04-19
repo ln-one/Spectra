@@ -5,12 +5,14 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import re
 from types import SimpleNamespace
 from typing import Any
 from urllib import error as urllib_error
 from urllib import parse as urllib_parse
 from urllib import request as urllib_request
 
+from services.runtime_env import normalize_internal_service_base_url, running_inside_container
 from utils.exceptions import (
     ConflictException,
     ExternalServiceException,
@@ -22,7 +24,15 @@ from utils.exceptions import (
 
 
 def ourograph_base_url() -> str:
-    return os.getenv("OUROGRAPH_BASE_URL", "").strip().rstrip("/")
+    return (
+        normalize_internal_service_base_url(
+            os.getenv("OUROGRAPH_BASE_URL"),
+            service_name="ourograph",
+            inside_container=running_inside_container(),
+            local_override=os.getenv("OUROGRAPH_BASE_URL_LOCAL"),
+        )
+        or ""
+    )
 
 
 def ourograph_enabled() -> bool:
@@ -39,15 +49,47 @@ def _timeout_seconds() -> float:
         return 30.0
 
 
+_SNAKE_CASE_PATTERN = re.compile(r"_([a-zA-Z0-9])")
+
+
+def _snake_to_camel(value: str) -> str:
+    return _SNAKE_CASE_PATTERN.sub(lambda match: match.group(1).upper(), value)
+
+
+def _normalize_remote_payload(value: Any) -> Any:
+    if isinstance(value, dict):
+        normalized: dict[str, Any] = {}
+        for key, item in value.items():
+            normalized[key] = _normalize_remote_payload(item)
+        for key, item in list(normalized.items()):
+            if "_" not in key:
+                continue
+            alias = _snake_to_camel(key)
+            if alias and alias not in normalized:
+                normalized[alias] = item
+        return normalized
+    if isinstance(value, list):
+        return [_normalize_remote_payload(item) for item in value]
+    return value
+
+
 def namespace(value: Any) -> Any:
     if isinstance(value, dict):
-        return SimpleNamespace(**{key: namespace(item) for key, item in value.items()})
+        normalized = _normalize_remote_payload(value)
+        return SimpleNamespace(
+            **{key: namespace(item) for key, item in normalized.items()}
+        )
     if isinstance(value, list):
         return [namespace(item) for item in value]
     return value
 
 
-def _raise_service_error(status_code: int, payload: dict[str, Any] | None):
+def _raise_service_error(
+    status_code: int,
+    payload: dict[str, Any] | None,
+    *,
+    base_url: str,
+):
     message = (
         (payload or {}).get("message")
         or (payload or {}).get("detail", {}).get("message")
@@ -64,7 +106,11 @@ def _raise_service_error(status_code: int, payload: dict[str, Any] | None):
         raise ConflictException(message=message)
     raise InternalServerException(
         message=message,
-        details={"error_code": error_code, "status_code": status_code},
+        details={
+            "error_code": error_code,
+            "status_code": status_code,
+            "base_url": base_url,
+        },
     )
 
 
@@ -108,12 +154,13 @@ async def request_json(
         except urllib_error.URLError as exc:
             raise ExternalServiceException(
                 message="Ourograph service unreachable",
-                details={"reason": str(exc.reason)},
+                details={"reason": str(exc.reason), "base_url": base_url},
                 retryable=True,
             ) from exc
         except TimeoutError as exc:
             raise ExternalServiceException(
                 message="Ourograph request timeout",
+                details={"base_url": base_url},
                 retryable=True,
             ) from exc
 
@@ -123,12 +170,14 @@ async def request_json(
     except json.JSONDecodeError as exc:
         raise InternalServerException(
             message="Ourograph returned invalid JSON",
-            details={"status_code": status_code, "body": body[:300]},
+            details={"status_code": status_code, "body": body[:300], "base_url": base_url},
         ) from exc
     if status_code >= 400:
         _raise_service_error(
-            status_code, payload_obj if isinstance(payload_obj, dict) else None
+            status_code,
+            payload_obj if isinstance(payload_obj, dict) else None,
+            base_url=base_url,
         )
     if not isinstance(payload_obj, dict):
         raise InternalServerException(message="Invalid Ourograph response payload")
-    return payload_obj
+    return _normalize_remote_payload(payload_obj)

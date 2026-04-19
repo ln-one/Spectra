@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useMachine } from "@xstate/react";
+import { createMachine } from "xstate";
 import { FileSearch } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { WorkflowStepper } from "@/components/project/shared";
@@ -34,6 +36,27 @@ type RenderedPreview = {
   pages?: RenderedPreviewPage[];
 };
 
+const speakerNotesWorkflowMachine = createMachine({
+  id: "speakerNotesWorkflow",
+  initial: "idle",
+  states: {
+    idle: {},
+    awaiting_requirements: {},
+    preview_ready: {},
+    running: {},
+    result_available: {},
+    failed: {},
+  },
+  on: {
+    REQUIREMENTS: ".awaiting_requirements",
+    PREVIEW: ".preview_ready",
+    RUN: ".running",
+    RESULT: ".result_available",
+    FAIL: ".failed",
+    RESET: ".idle",
+  },
+});
+
 export function SpeakerNotesToolPanel({
   toolName,
   onDraftChange,
@@ -55,6 +78,7 @@ export function SpeakerNotesToolPanel({
   const [sourcePreviewError, setSourcePreviewError] = useState<string | null>(
     null
   );
+  const [, workflowSend] = useMachine(speakerNotesWorkflowMachine);
 
   const sourceOptions = useMemo(
     () => flowContext?.sourceOptions ?? [],
@@ -103,6 +127,33 @@ export function SpeakerNotesToolPanel({
     [selectedDeckId, sourceOptions]
   );
   const toneLabel = getToneLabel(tone);
+
+  useEffect(() => {
+    if (isGenerating) {
+      workflowSend({ type: "RUN" });
+      return;
+    }
+    if (flowContext?.requiresSourceArtifact && !selectedDeckId) {
+      workflowSend({ type: "REQUIREMENTS" });
+      return;
+    }
+    if (flowContext?.resolvedArtifact?.artifactId) {
+      workflowSend({ type: "RESULT" });
+      return;
+    }
+    if (activeStep === "generate" || activeStep === "preview") {
+      workflowSend({ type: "PREVIEW" });
+      return;
+    }
+    workflowSend({ type: "RESET" });
+  }, [
+    activeStep,
+    flowContext?.requiresSourceArtifact,
+    flowContext?.resolvedArtifact?.artifactId,
+    isGenerating,
+    selectedDeckId,
+    workflowSend,
+  ]);
 
   useEffect(() => {
     if (!selectedDeckId) {

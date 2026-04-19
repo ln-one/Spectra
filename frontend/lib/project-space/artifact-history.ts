@@ -15,6 +15,7 @@ export interface ArtifactHistoryItem {
   sessionId: string | null;
   toolType: GenerationToolType;
   artifactType: Artifact["type"];
+  metadata?: Artifact["metadata"];
   artifactKind?: string;
   title: string;
   metadataTitle?: string | null;
@@ -193,6 +194,7 @@ export function toArtifactHistoryItem(artifact: Artifact): ArtifactHistoryItem {
     sessionId: artifact.sessionId ?? null,
     toolType,
     artifactType: artifact.type,
+    metadata: artifact.metadata ?? null,
     artifactKind,
     title,
     metadataTitle:

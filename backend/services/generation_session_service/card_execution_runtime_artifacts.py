@@ -14,8 +14,12 @@ from schemas.studio_cards import (
 )
 from services.project_space_service.service import project_space_service
 
+from .card_source_bindings import get_card_source_artifact_types
 from .card_execution_runtime_helpers import (
     artifact_result_payload,
+    build_latest_runnable_state,
+    build_provenance_payload,
+    build_source_binding_payload,
     create_replacement_artifact,
     load_artifact_content,
     validate_simulator_turn_artifact,
@@ -60,6 +64,7 @@ async def execute_studio_card_artifact_request(
     await validate_source_artifact(
         project_id=body.project_id,
         card_id=card_id,
+        user_id=user_id,
         source_artifact_id=body.source_artifact_id,
     )
     await promote_requested_run_to_generating(
@@ -71,6 +76,7 @@ async def execute_studio_card_artifact_request(
     generated_content = await build_studio_tool_artifact_content(
         card_id=card_id,
         project_id=body.project_id,
+        user_id=user_id,
         config=body.config,
         source_artifact_id=body.source_artifact_id,
         rag_source_ids=body.rag_source_ids,
@@ -86,9 +92,29 @@ async def execute_studio_card_artifact_request(
     if card_id == "word_document":
         artifact_content["title"] = await resolve_word_document_title(
             source_artifact_id=source_artifact_id,
+            user_id=user_id,
             config=(body.config if isinstance(body.config, dict) else {}),
             existing_title=str(artifact_content.get("title") or "").strip(),
         )
+    artifact_content["provenance"] = build_provenance_payload(
+        card_id=card_id,
+        session_id=execution_session_id,
+        source_artifact_id=source_artifact_id or None,
+        request_snapshot={"config": body.config, "preview": payload},
+    )
+    artifact_content["source_binding"] = build_source_binding_payload(
+        card_id=card_id,
+        source_artifact_id=source_artifact_id or None,
+        accepted_types=get_card_source_artifact_types(card_id),
+    )
+    artifact_content["latest_runnable_state"] = build_latest_runnable_state(
+        card_id=card_id,
+        artifact_id=None,
+        session_id=execution_session_id,
+        source_binding_valid=bool(
+            source_artifact_id or not get_card_source_artifact_types(card_id)
+        ),
+    )
 
     artifact = await project_space_service.create_artifact_with_file(
         project_id=body.project_id,
@@ -103,11 +129,13 @@ async def execute_studio_card_artifact_request(
     if card_id == "word_document" and source_artifact_id:
         await sync_word_source_metadata(
             artifact=artifact,
+            user_id=user_id,
             source_artifact_id=source_artifact_id,
         )
     run = await create_artifact_run(
         card_id=card_id,
         body=body,
+        user_id=user_id,
         artifact=artifact,
         session_id=execution_session_id,
     )
@@ -122,6 +150,26 @@ async def execute_studio_card_artifact_request(
         artifact=artifact_result_payload(artifact),
         run=run,
         request_preview=preview.initial_request,
+        execution_carrier=getattr(preview, "execution_carrier", None),
+        latest_runnable_state=build_latest_runnable_state(
+            card_id=card_id,
+            artifact_id=artifact.id,
+            session_id=execution_session_id,
+            source_binding_valid=bool(source_artifact_id or not get_card_source_artifact_types(card_id)),
+        ),
+        provenance=build_provenance_payload(
+            card_id=card_id,
+            artifact_id=artifact.id,
+            session_id=execution_session_id,
+            source_artifact_id=source_artifact_id or None,
+            request_snapshot={"config": body.config, "preview": payload},
+        ),
+        source_binding=build_source_binding_payload(
+            card_id=card_id,
+            source_artifact_id=source_artifact_id or None,
+            accepted_types=get_card_source_artifact_types(card_id),
+        ),
+        selection_anchor_schema_version="studio.selection_anchor.v1",
     )
 
 
@@ -144,6 +192,7 @@ async def execute_studio_card_structured_refine(
     artifact = await validate_structured_refine_artifact(
         card_id=card_id,
         project_id=body.project_id,
+        user_id=user_id,
         artifact_id=body.artifact_id,
     )
     current_content = await load_content(artifact)
@@ -168,6 +217,7 @@ async def execute_studio_card_structured_refine(
     run = await create_artifact_run(
         card_id=card_id,
         body=body,
+        user_id=user_id,
         artifact=new_artifact,
         session_id=getattr(new_artifact, "sessionId", None) or body.session_id,
     )
@@ -184,6 +234,33 @@ async def execute_studio_card_structured_refine(
         artifact=artifact_payload,
         run=run,
         request_preview=preview.refine_request,
+        execution_carrier=getattr(preview, "execution_carrier", None),
+        latest_runnable_state=build_latest_runnable_state(
+            card_id=card_id,
+            artifact_id=new_artifact.id,
+            session_id=getattr(new_artifact, "sessionId", None) or body.session_id,
+            source_binding_valid=True,
+            refine_mode=body.refine_mode,
+        ),
+        provenance=build_provenance_payload(
+            card_id=card_id,
+            artifact_id=new_artifact.id,
+            session_id=getattr(new_artifact, "sessionId", None) or body.session_id,
+            source_artifact_id=body.source_artifact_id,
+            request_snapshot={
+                "message": body.message,
+                "config": body.config,
+                "selection_anchor": body.selection_anchor,
+                "refine_mode": body.refine_mode.value,
+            },
+            replaces_artifact_id=body.artifact_id,
+        ),
+        source_binding=build_source_binding_payload(
+            card_id=card_id,
+            source_artifact_id=body.source_artifact_id,
+            accepted_types=get_card_source_artifact_types(card_id),
+        ),
+        selection_anchor_schema_version="studio.selection_anchor.v1",
     )
 
 
@@ -192,7 +269,7 @@ async def execute_classroom_simulator_turn_artifact(
     body: StudioCardTurnRequest,
     user_id: str,
     load_content=load_artifact_content,
-) -> tuple[dict, StudioCardTurnResult]:
+) -> tuple[dict, StudioCardTurnResult, dict]:
     await project_space_service.check_project_permission(
         body.project_id,
         user_id,
@@ -200,6 +277,7 @@ async def execute_classroom_simulator_turn_artifact(
     )
     artifact = await validate_simulator_turn_artifact(
         project_id=body.project_id,
+        user_id=user_id,
         artifact_id=body.artifact_id,
     )
     current_content = await load_content(artifact)
@@ -217,6 +295,13 @@ async def execute_classroom_simulator_turn_artifact(
         user_id=user_id,
         content=updated_content,
     )
+    latest_runnable_state = build_latest_runnable_state(
+        card_id="classroom_qa_simulator",
+        artifact_id=new_artifact.id,
+        session_id=getattr(new_artifact, "sessionId", None),
+        source_binding_valid=True,
+        refine_mode=None,
+    )
     return (
         artifact_result_payload(new_artifact),
         normalize_simulator_turn_result(
@@ -224,4 +309,5 @@ async def execute_classroom_simulator_turn_artifact(
             teacher_answer=body.teacher_answer,
             config=body.config,
         ),
+        latest_runnable_state,
     )

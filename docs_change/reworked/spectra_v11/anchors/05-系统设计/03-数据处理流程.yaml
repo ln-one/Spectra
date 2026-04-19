@@ -1,0 +1,34 @@
+section_id: "05-03"
+title: "数据处理流程"
+purpose: "把三条主链明确锚定到上传、生成、预览导出和结果回流的实现路径。"
+source_doc_parts:
+  - "source/05-系统设计/03-数据处理流程.md"
+  - "source/02-项目综述.md"
+code_paths:
+  - "backend/services/file_upload_service/workflow.py"
+  - "backend/services/media/rag_indexing.py"
+  - "backend/services/generation_session_service/outline_versions.py"
+  - "backend/services/generation_session_service/run_artifact_sync.py"
+  - "backend/services/project_space_service/artifact_accretion.py"
+api_routes:
+  - "POST /api/v1/rag/index"
+  - "POST /api/v1/generate/sessions"
+  - "GET /api/v1/generate/sessions/{session_id}/preview"
+  - "POST /api/v1/generate/sessions/{session_id}/preview/export"
+frontend_surfaces:
+  - "上传到检索链"
+  - "会话生成链"
+  - "预览导出与结果保存链"
+tests_or_metrics:
+  - "backend/tests/services/test_file_upload_indexing.py"
+  - "backend/tests/services/test_generation_session_dispatch.py"
+  - "backend/tests/services/test_project_space_service_artifacts.py"
+figures:
+  - "fig-image4-04"
+  - "fig-image7-07"
+allowed_claims:
+  - "资料、生成结果和回流结果在系统内是连续链路，而不是分散操作。"
+  - "结果会回到 artifact 语义层，而不是只停留在下载文件。"
+forbidden_claims:
+  - "所有跨服务数据流都已达到生产级零误差"
+last_checked: "2026-04-18"

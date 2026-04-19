@@ -65,6 +65,38 @@ def _fake_artifact():
     )
 
 
+def _fake_artifact_with_namespace_metadata():
+    return SimpleNamespace(
+        id="a-002",
+        projectId=_PROJECT_ID,
+        sessionId="s-002",
+        basedOnVersionId="v-002",
+        ownerUserId=_USER_ID,
+        type="docx",
+        visibility="private",
+        storagePath="uploads/artifacts/p-ps-001/docx/a-002.docx",
+        metadata=SimpleNamespace(
+            kind="word_document",
+            content_snapshot=SimpleNamespace(
+                title="牛顿第一定律教案",
+                document_content=SimpleNamespace(
+                    type="doc",
+                    content=[
+                        SimpleNamespace(
+                            type="paragraph",
+                            content=[
+                                SimpleNamespace(type="text", text="物体会保持原有运动状态")
+                            ],
+                        )
+                    ],
+                ),
+            ),
+        ),
+        createdAt=_NOW,
+        updatedAt=_NOW,
+    )
+
+
 def _fake_member():
     return SimpleNamespace(
         id="m-001",
@@ -160,6 +192,33 @@ def test_get_project_artifacts_returns_thin_ourograph_shape(
     body = resp.json()
     assert body["artifacts"][0]["basedOnVersionId"] == "v-001"
     assert body["artifacts"][0]["metadata"] == {"kind": "outline"}
+
+
+def test_get_project_artifact_preserves_namespace_metadata_from_ourograph(
+    client, monkeypatch, _as_user
+):
+    monkeypatch.setattr(
+        project_space_service,
+        "check_project_permission",
+        AsyncMock(return_value=True),
+    )
+    monkeypatch.setattr(
+        project_space_service,
+        "get_artifact",
+        AsyncMock(return_value=_fake_artifact_with_namespace_metadata()),
+    )
+
+    resp = client.get(f"/api/v1/projects/{_PROJECT_ID}/artifacts/a-002")
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["artifact"]["metadata"]["kind"] == "word_document"
+    assert (
+        body["artifact"]["metadata"]["content_snapshot"]["document_content"]["content"][0][
+            "content"
+        ][0]["text"]
+        == "物体会保持原有运动状态"
+    )
 
 
 def test_get_project_members_returns_thin_ourograph_shape(

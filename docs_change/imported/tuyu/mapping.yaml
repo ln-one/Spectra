@@ -1,0 +1,13 @@
+source_file: 侬要有腔调队—项目详细方案.pdf
+input_format: pdf
+provider_used: local
+requested_provider: mineru_cloud
+fallback_used: true
+quality_grade: A
+quality_score: 1.0
+chapters:
+- ordinal: 1
+  title: Imported Content
+  source_heading: Imported Content
+  output_file: 01-Imported-Content.md
+  source_page: null

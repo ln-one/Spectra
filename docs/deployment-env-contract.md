@@ -203,11 +203,28 @@
 ## 五、Retrieval / Stratumind / Qdrant
 
 ### `STRATUMIND_BASE_URL`
+### `STRATUMIND_BASE_URL_LOCAL`
 ### `STRATUMIND_TIMEOUT_SECONDS`
+### `OUROGRAPH_BASE_URL`
+### `OUROGRAPH_BASE_URL_LOCAL`
+### `PAGEVRA_BASE_URL`
+### `PAGEVRA_BASE_URL_LOCAL`
+### `DUALWEAVE_BASE_URL`
+### `DUALWEAVE_BASE_URL_LOCAL`
+### `LIMORA_BASE_URL`
+### `LIMORA_BASE_URL_LOCAL`
+### `DIEGO_BASE_URL`
+### `DIEGO_BASE_URL_LOCAL`
 
 用途：
 
 - backend / worker 调用 `Stratumind` 文本检索服务
+- `STRATUMIND_BASE_URL` 用于 Docker / 容器内服务互调
+- `STRATUMIND_BASE_URL_LOCAL` 用于宿主机本地运行 backend Python / tests / scripts
+- 其余内部 HTTP 服务遵循同一规则：
+  `OUROGRAPH_BASE_URL(_LOCAL)`、`PAGEVRA_BASE_URL(_LOCAL)`、
+  `DUALWEAVE_BASE_URL(_LOCAL)`、`LIMORA_BASE_URL(_LOCAL)`、
+  `DIEGO_BASE_URL(_LOCAL)`
 
 要求：
 

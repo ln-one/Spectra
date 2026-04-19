@@ -1,283 +1,170 @@
-import { useMemo, useState } from "react";
-import { Minus, Plus, ScanLine } from "lucide-react";
-import { Button } from "@/components/ui/button";
+"use client";
+
+import { useMemo } from "react";
 import type { MindNode } from "./types";
 
 interface MindmapCanvasProps {
   tree: MindNode;
   selectedId: string;
   onSelectNode: (id: string) => void;
+  collapsedNodeIds?: string[];
 }
 
-interface PositionedNode {
+type LayoutNode = {
   id: string;
   label: string;
+  summary?: string;
   x: number;
   y: number;
-}
-
-interface Link {
-  from: { x: number; y: number };
-  to: { x: number; y: number };
-}
-
-interface MindmapLayout {
-  nodes: PositionedNode[];
-  links: Link[];
   width: number;
   height: number;
+  parentId?: string | null;
+  childCount: number;
+};
+
+const NODE_WIDTH = 240;
+const NODE_HEIGHT = 92;
+const X_GAP = 300;
+const Y_GAP = 126;
+
+function shouldHideNode(
+  node: MindNode,
+  collapsedNodeIds: Set<string>,
+  ancestors: string[]
+): boolean {
+  return ancestors.some((ancestorId) => collapsedNodeIds.has(ancestorId));
 }
 
-const MIN_SCALE = 0.55;
-const MAX_SCALE = 1.75;
-const LEVEL_GAP = 220;
-const ROW_GAP = 72;
-
-function clampScale(value: number): number {
-  return Math.min(MAX_SCALE, Math.max(MIN_SCALE, value));
-}
-
-function nodeWidth(label: string): number {
-  return Math.min(220, Math.max(90, label.length * 12 + 26));
-}
-
-function buildLayout(root: MindNode): MindmapLayout {
+function layoutMindTree(
+  root: MindNode,
+  collapsedNodeIds: Set<string>
+): LayoutNode[] {
+  const nodes: LayoutNode[] = [];
   let rowCursor = 0;
-  let maxDepth = 0;
-  const nodes: PositionedNode[] = [];
-  const links: Link[] = [];
 
   const walk = (
     node: MindNode,
     depth: number,
-    parent: { x: number; y: number } | null
-  ): { x: number; y: number } => {
-    maxDepth = Math.max(maxDepth, depth);
-    const x = depth * LEVEL_GAP;
-    const children = node.children ?? [];
-
-    if (children.length === 0) {
-      const y = rowCursor * ROW_GAP;
-      rowCursor += 1;
-      const current = { x, y };
-      nodes.push({ id: node.id, label: node.label, ...current });
-      if (parent) {
-        links.push({ from: parent, to: current });
-      }
-      return current;
+    parentId?: string | null,
+    ancestors: string[] = []
+  ) => {
+    if (shouldHideNode(node, collapsedNodeIds, ancestors)) {
+      return;
     }
-
-    const childCenters = children.map((child) => walk(child, depth + 1, null));
-    const y =
-      childCenters.reduce((sum, item) => sum + item.y, 0) / childCenters.length;
-    const current = { x, y };
-    nodes.push({ id: node.id, label: node.label, ...current });
-    if (parent) {
-      links.push({ from: parent, to: current });
-    }
-    childCenters.forEach((childCenter) => {
-      links.push({ from: current, to: childCenter });
+    const currentRow = rowCursor;
+    rowCursor += 1;
+    nodes.push({
+      id: node.id,
+      label: node.label,
+      summary: node.summary,
+      x: depth * X_GAP,
+      y: currentRow * Y_GAP,
+      width: NODE_WIDTH,
+      height: NODE_HEIGHT,
+      parentId: parentId ?? null,
+      childCount: node.children?.length ?? 0,
     });
-    return current;
+    (node.children ?? []).forEach((child) =>
+      walk(child, depth + 1, node.id, [...ancestors, node.id])
+    );
   };
 
   walk(root, 0, null);
-
-  return {
-    nodes,
-    links,
-    width: Math.max((maxDepth + 1) * LEVEL_GAP + 180, 560),
-    height: Math.max(rowCursor * ROW_GAP + 100, 260),
-  };
+  return nodes;
 }
 
 export function MindmapCanvas({
   tree,
   selectedId,
   onSelectNode,
+  collapsedNodeIds = [],
 }: MindmapCanvasProps) {
-  const layout = useMemo(() => buildLayout(tree), [tree]);
-  const [scale, setScale] = useState(1);
-  const [offset, setOffset] = useState({ x: 60, y: 42 });
-  const [dragState, setDragState] = useState<{
-    pointerId: number;
-    x: number;
-    y: number;
-  } | null>(null);
-
-  const handleZoom = (next: number) => {
-    setScale(clampScale(next));
-  };
+  const collapsedSet = useMemo(() => new Set(collapsedNodeIds), [collapsedNodeIds]);
+  const layoutNodes = useMemo(
+    () => layoutMindTree(tree, collapsedSet),
+    [tree, collapsedSet]
+  );
+  const nodeMap = useMemo(
+    () => new Map(layoutNodes.map((node) => [node.id, node])),
+    [layoutNodes]
+  );
+  const canvasWidth =
+    Math.max(...layoutNodes.map((node) => node.x + node.width), 0) + 80;
+  const canvasHeight =
+    Math.max(...layoutNodes.map((node) => node.y + node.height), 0) + 80;
 
   return (
-    <div className="rounded-xl border border-zinc-200 bg-white p-2">
-      <div className="mb-2 flex items-center justify-between gap-2 px-1">
-        <p className="text-[11px] text-zinc-500">
-          拖拽平移，滚轮缩放，点击节点后可在 Chat 里继续扩展
-        </p>
-        <div className="flex items-center gap-1">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-7 px-2 text-xs"
-            onClick={() => handleZoom(scale - 0.12)}
-          >
-            <Minus className="h-3.5 w-3.5" />
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-7 px-2 text-xs"
-            onClick={() => handleZoom(scale + 0.12)}
-          >
-            <Plus className="h-3.5 w-3.5" />
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-7 px-2 text-xs"
-            onClick={() => {
-              setScale(1);
-              setOffset({ x: 60, y: 42 });
-            }}
-          >
-            <ScanLine className="mr-1 h-3.5 w-3.5" />
-            重置
-          </Button>
-        </div>
-      </div>
+    <div className="overflow-auto rounded-xl border border-zinc-200 bg-[radial-gradient(circle_at_1px_1px,_rgba(148,163,184,0.22)_1px,_transparent_0)] [background-size:16px_16px] p-4">
       <svg
-        className="h-[340px] w-full cursor-grab rounded-lg border border-zinc-200 bg-zinc-50/70 active:cursor-grabbing"
-        viewBox={`0 0 ${layout.width} ${layout.height}`}
-        onWheel={(event) => {
-          event.preventDefault();
-          const svg = event.currentTarget;
-          const rect = svg.getBoundingClientRect();
-          const px = event.clientX - rect.left;
-          const py = event.clientY - rect.top;
-          const nextScale = clampScale(
-            scale * (event.deltaY < 0 ? 1.08 : 1 / 1.08)
-          );
-          const worldX = (px - offset.x) / scale;
-          const worldY = (py - offset.y) / scale;
-          setScale(nextScale);
-          setOffset({
-            x: px - worldX * nextScale,
-            y: py - worldY * nextScale,
-          });
-        }}
-        onPointerDown={(event) => {
-          if (event.target !== event.currentTarget) {
-            return;
-          }
-          if (typeof event.currentTarget.setPointerCapture === "function") {
-            event.currentTarget.setPointerCapture(event.pointerId);
-          }
-          setDragState({
-            pointerId: event.pointerId,
-            x: event.clientX,
-            y: event.clientY,
-          });
-        }}
-        onPointerMove={(event) => {
-          if (!dragState || dragState.pointerId !== event.pointerId) {
-            return;
-          }
-          const dx = event.clientX - dragState.x;
-          const dy = event.clientY - dragState.y;
-          setOffset((prev) => ({ x: prev.x + dx, y: prev.y + dy }));
-          setDragState({
-            pointerId: event.pointerId,
-            x: event.clientX,
-            y: event.clientY,
-          });
-        }}
-        onPointerUp={(event) => {
-          if (dragState?.pointerId === event.pointerId) {
-            setDragState(null);
-          }
-          if (
-            typeof event.currentTarget.hasPointerCapture === "function" &&
-            event.currentTarget.hasPointerCapture(event.pointerId) &&
-            typeof event.currentTarget.releasePointerCapture === "function"
-          ) {
-            event.currentTarget.releasePointerCapture(event.pointerId);
-          }
-        }}
+        width={Math.max(canvasWidth, 720)}
+        height={Math.max(canvasHeight, 420)}
+        viewBox={`0 0 ${Math.max(canvasWidth, 720)} ${Math.max(canvasHeight, 420)}`}
+        className="min-h-[420px] min-w-full"
       >
-        <g transform={`translate(${offset.x} ${offset.y}) scale(${scale})`}>
-          {layout.links.map((link, index) => {
-            const controlOffset = Math.abs(link.to.x - link.from.x) * 0.44;
-            const path = `M ${link.from.x} ${link.from.y} C ${link.from.x + controlOffset} ${link.from.y}, ${link.to.x - controlOffset} ${link.to.y}, ${link.to.x} ${link.to.y}`;
-            return (
-              <path
-                key={`${index}-${link.from.x}-${link.to.x}`}
-                d={path}
-                fill="none"
-                stroke="rgba(20, 184, 166, 0.45)"
-                strokeWidth={2}
-              />
-            );
-          })}
+        {layoutNodes.map((node) => {
+          if (!node.parentId) return null;
+          const parent = nodeMap.get(node.parentId);
+          if (!parent) return null;
+          return (
+            <path
+              key={`${parent.id}-${node.id}`}
+              d={`M ${parent.x + parent.width} ${parent.y + parent.height / 2} C ${
+                parent.x + parent.width + 56
+              } ${parent.y + parent.height / 2}, ${node.x - 56} ${
+                node.y + node.height / 2
+              }, ${node.x} ${node.y + node.height / 2}`}
+              fill="none"
+              stroke="#cbd5e1"
+              strokeWidth="2"
+            />
+          );
+        })}
 
-          {layout.nodes.map((node) => {
-            const isSelected = node.id === selectedId;
-            const width = nodeWidth(node.label);
-            return (
-              <g
-                key={node.id}
-                transform={`translate(${node.x} ${node.y})`}
-                onPointerDown={(event) => {
-                  event.stopPropagation();
-                }}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onSelectNode(node.id);
-                }}
-                className="cursor-pointer"
+        {layoutNodes.map((node) => {
+          const isSelected = node.id === selectedId;
+          return (
+            <g
+              key={node.id}
+              transform={`translate(${node.x}, ${node.y})`}
+              className="cursor-pointer"
+              onClick={() => onSelectNode(node.id)}
+            >
+              <rect
+                width={node.width}
+                height={node.height}
+                rx="18"
+                fill={isSelected ? "#ecfdf5" : "#ffffff"}
+                stroke={isSelected ? "#047857" : "#d4d4d8"}
+                strokeWidth={isSelected ? "2.5" : "1.5"}
+                filter="drop-shadow(0 2px 6px rgba(15,23,42,0.06))"
+              />
+              <text
+                x="18"
+                y="28"
+                fontSize="14"
+                fontWeight="600"
+                fill={isSelected ? "#065f46" : "#18181b"}
               >
-                {isSelected ? (
-                  <rect
-                    x={-width / 2 - 8}
-                    y={-26}
-                    width={width + 16}
-                    height={52}
-                    rx={16}
-                    fill="rgba(20, 184, 166, 0.12)"
-                    stroke="rgba(13, 148, 136, 0.38)"
-                    strokeWidth={1.4}
-                  />
-                ) : null}
-                <rect
-                  x={-width / 2}
-                  y={-18}
-                  width={width}
-                  height={36}
-                  rx={10}
-                  fill={isSelected ? "rgba(20, 184, 166, 0.24)" : "white"}
-                  stroke={isSelected ? "#0f766e" : "rgba(82, 82, 91, 0.35)"}
-                  strokeWidth={isSelected ? 2.8 : 1.2}
-                />
-                {isSelected ? (
-                  <circle cx={0} cy={-24} r={4.5} fill="#0f766e" />
-                ) : null}
+                {node.label}
+              </text>
+              {node.summary ? (
                 <text
-                  x={0}
-                  y={4}
-                  textAnchor="middle"
-                  fontSize={isSelected ? 12.5 : 12}
-                  fontWeight={isSelected ? 700 : 500}
-                  fill={isSelected ? "#115e59" : "#334155"}
+                  x="18"
+                  y="50"
+                  fontSize="11"
+                  fill="#52525b"
                 >
-                  {node.label}
+                  {node.summary.length > 36
+                    ? `${node.summary.slice(0, 36)}...`
+                    : node.summary}
                 </text>
-              </g>
-            );
-          })}
-        </g>
+              ) : null}
+              <text x="18" y="72" fontSize="11" fill="#71717a">
+                子节点：{node.childCount}
+              </text>
+            </g>
+          );
+        })}
       </svg>
     </div>
   );

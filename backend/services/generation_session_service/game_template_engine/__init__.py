@@ -1,4 +1,4 @@
-"""Interactive game template engine with legacy-compatible exports."""
+"""Legacy interactive game template helpers kept for compatibility-only adapter use."""
 
 from .fallback import build_game_fallback_data
 from .rendering import render_game_html

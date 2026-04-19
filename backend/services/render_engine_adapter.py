@@ -30,6 +30,7 @@ from services.render_engine_adapter_helpers.normalization import (
 from services.render_engine_adapter_helpers.normalization import (
     normalize_render_engine_result as _normalize_render_engine_result,
 )
+from services.runtime_env import normalize_internal_service_base_url, running_inside_container
 from services.runtime_paths import get_generated_dir
 
 logger = logging.getLogger(__name__)
@@ -52,7 +53,15 @@ def _render_engine_node_bin() -> str:
 
 
 def _render_engine_base_url() -> str:
-    return os.getenv("PAGEVRA_BASE_URL", "").strip().rstrip("/")
+    return (
+        normalize_internal_service_base_url(
+            os.getenv("PAGEVRA_BASE_URL"),
+            service_name="pagevra",
+            inside_container=running_inside_container(),
+            local_override=os.getenv("PAGEVRA_BASE_URL_LOCAL"),
+        )
+        or ""
+    )
 
 
 def _render_engine_timeout_seconds() -> float:

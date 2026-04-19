@@ -1,0 +1,36 @@
+section_id: "05-01"
+title: "系统整体架构"
+purpose: "约束本节只说明当前工作台、后端编排和外部能力边界，不重新发明新的架构叙事。"
+source_doc_parts:
+  - "imported/spectra/chapters/05-系统设计.md"
+  - "source/05-系统设计/01-整体架构.md"
+code_paths:
+  - "backend/README.md"
+  - "docs/architecture/service-boundaries.md"
+  - "frontend/components/project/features/studio/StudioPanel.tsx"
+  - "frontend/components/project/features/chat/ChatPanel.tsx"
+  - "frontend/components/project/features/sources/SourcesPanel.tsx"
+api_routes:
+  - "POST /api/v1/generate/sessions"
+  - "GET /api/v1/generate/sessions/{session_id}/preview"
+  - "POST /api/v1/rag/search"
+frontend_surfaces:
+  - "Studio 主工作台"
+  - "Chat 与 Sources 并列工作面"
+tests_or_metrics:
+  - "frontend/__tests__/studio-expanded-view.test.tsx"
+  - "backend/tests/test_generate_sessions_api_sessions.py"
+figures:
+  - "fig-image1-01"
+  - "fig-external-workbench-01"
+  - "fig-external-function-01"
+  - "fig-image2-02"
+  - "fig-image3-03"
+allowed_claims:
+  - "当前系统以统一工作台承接资料、对话、生成和结果。"
+  - "后端主要承担会话、事件、任务编排和结果绑定。"
+  - "生成、渲染、知识库等能力通过边界清晰的能力源接入。"
+forbidden_claims:
+  - "系统本体已经完成机构级治理闭环"
+  - "六层能力已被作品完整逐一验证"
+last_checked: "2026-04-18"

@@ -1,0 +1,37 @@
+section_id: "06-01"
+title: "基于大模型的提示词工程与内容生成技术"
+purpose: "只写当前内容生成如何与会话、outline、卡片执行结合，不虚构未验证的模型能力。"
+source_doc_parts:
+  - "source/06-核心技术/01-内容生成.md"
+  - "imported/spectra/chapters/06-关键技术与实现.md"
+code_paths:
+  - "backend/services/generation_session_service/outline_versions.py"
+  - "backend/services/generation_session_service/tool_content_builder_generation.py"
+  - "backend/services/prompt_service/rag.py"
+  - "frontend/components/project/features/studio/tools/word/GenerateStep.tsx"
+  - "docs/architecture/service-boundaries.md"
+api_routes:
+  - "POST /api/v1/generate/sessions"
+  - "POST /api/v1/generate/studio-cards/{card_id}/execution-preview"
+  - "POST /api/v1/generate/studio-cards/{card_id}/execute"
+frontend_surfaces:
+  - "Studio 生成配置与执行"
+  - "Word / Quiz / Mindmap 等卡片生成步骤"
+tests_or_metrics:
+  - "backend/tests/test_generate_sessions_api_sessions.py"
+  - "backend/tests/services/test_courseware_card_execution_mapping.py"
+  - "backend/tests/services/test_generation_session_command_execution.py"
+  - "backend/tests/services/test_generation_session_command_runtime.py"
+  - "backend/tests/api/test_generate_session_preview_contract_api.py"
+figures:
+  - "fig-image9-01"
+  - "fig-image11-03"
+  - "fig-image12-07"
+allowed_claims:
+  - "内容生成与 outline、确认和后续 refine 流程相连。"
+  - "Studio card 执行预览和正式执行已经进入当前接口契约。"
+  - "提示词与检索上下文会共同影响生成结果。"
+forbidden_claims:
+  - "模型已经完全理解教学意图"
+  - "所有内容生成质量都已得到全场景验证"
+last_checked: "2026-04-19"

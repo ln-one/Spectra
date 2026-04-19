@@ -7,11 +7,30 @@ from datetime import datetime
 from typing import Any, Optional
 
 
+def _coerce_json_like(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {str(key): _coerce_json_like(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_coerce_json_like(item) for item in value]
+    if isinstance(value, tuple):
+        return [_coerce_json_like(item) for item in value]
+    if hasattr(value, "__dict__"):
+        return {
+            str(key): _coerce_json_like(item)
+            for key, item in vars(value).items()
+            if not str(key).startswith("_")
+        }
+    return value
+
+
 def parse_json_object(value: Any) -> Optional[dict]:
     if value is None:
         return None
     if isinstance(value, dict):
         return value
+    if hasattr(value, "__dict__"):
+        parsed = _coerce_json_like(value)
+        return parsed if isinstance(parsed, dict) else None
     if isinstance(value, str):
         raw = value.strip()
         if not raw:

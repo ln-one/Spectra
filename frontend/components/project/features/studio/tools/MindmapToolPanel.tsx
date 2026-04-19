@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useMachine } from "@xstate/react";
+import { createMachine } from "xstate";
 import { useShallow } from "zustand/react/shallow";
 import { Network } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -20,6 +22,25 @@ import { PreviewStep } from "./mindmap/PreviewStep";
 import { createBaseTree } from "./mindmap/tree-utils";
 import type { MindmapFocus, MindmapStep } from "./mindmap/types";
 import { useWorkflowStepSync } from "./useWorkflowStepSync";
+
+const mindmapWorkflowMachine = createMachine({
+  id: "mindmapWorkflow",
+  initial: "idle",
+  states: {
+    idle: {},
+    preview_ready: {},
+    running: {},
+    result_available: {},
+    failed: {},
+  },
+  on: {
+    PREVIEW: ".preview_ready",
+    RUN: ".running",
+    RESULT: ".result_available",
+    FAIL: ".failed",
+    RESET: ".idle",
+  },
+});
 
 function extractKeywords(input: string): string[] {
   return input
@@ -63,6 +84,7 @@ export function MindmapToolPanel({
   const [tree, setTree] = useState<any>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [lastGeneratedAt, setLastGeneratedAt] = useState<string | null>(null);
+  const [, workflowSend] = useMachine(mindmapWorkflowMachine);
 
   const topicRef = useRef(topic);
   const topicDirtyRef = useRef(isTopicDirty);
@@ -178,6 +200,22 @@ export function MindmapToolPanel({
 
   const focusLabel =
     FOCUS_OPTIONS.find((item) => item.value === focus)?.label ?? "概念关系";
+
+  useEffect(() => {
+    if (isGenerating) {
+      workflowSend({ type: "RUN" });
+      return;
+    }
+    if (flowContext?.resolvedArtifact?.artifactId) {
+      workflowSend({ type: "RESULT" });
+      return;
+    }
+    if (activeStep === "generate" || activeStep === "preview") {
+      workflowSend({ type: "PREVIEW" });
+      return;
+    }
+    workflowSend({ type: "RESET" });
+  }, [activeStep, flowContext?.resolvedArtifact?.artifactId, isGenerating, workflowSend]);
 
   const handleGenerate = async () => {
     const normalizedTopic =

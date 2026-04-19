@@ -1,4 +1,4 @@
-"""Structured Word template engine with legacy-compatible exports."""
+"""Legacy Word document shaping helpers kept for compatibility-only adapter use."""
 
 from .common import (
     WORD_DOCUMENT_VARIANTS,

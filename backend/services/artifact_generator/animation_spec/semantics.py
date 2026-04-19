@@ -15,7 +15,6 @@ from .constants import (
 )
 from .text import _clean_text
 
-
 def infer_visual_type(content: dict[str, Any]) -> str:
     explicit = _clean_text(content.get("visual_type")).lower()
     if explicit in _VISUAL_TYPES:

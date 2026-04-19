@@ -6,6 +6,7 @@ import type {
   ArtifactHistoryItem,
   GenerationToolType,
 } from "@/lib/project-space/artifact-history";
+import { toArtifactHistoryItem } from "@/lib/project-space/artifact-history";
 import { toast } from "@/hooks/use-toast";
 import type { StudioToolKey } from "../tools";
 import {
@@ -80,7 +81,7 @@ export function useStudioCapabilityState({
     : null;
   const requiresSourceArtifact =
     currentCapability?.requires_source_artifact ?? false;
-  const supportsChatRefine = currentCapability?.supports_chat_refine ?? true;
+  const supportsChatRefine = currentCapability?.supports_chat_refine ?? false;
   const currentReadiness =
     currentExecutionPlan?.readiness ?? currentCapability?.readiness ?? null;
   const isProtocolPending = currentReadiness === "protocol_pending";
@@ -110,7 +111,9 @@ export function useStudioCapabilityState({
 
   const completedPptHistorySources = useMemo<StudioSourceOption[]>(() => {
     const requiresPptSources =
-      currentCardId === "word_document" || currentCardId === "speaker_notes";
+      currentCardId === "word_document" ||
+      currentCardId === "speaker_notes" ||
+      currentCardId === "demonstration_animations";
     if (!requiresPptSources) return [];
     const pptHistory = artifactHistoryByTool.ppt ?? [];
     const seen = new Set<string>();
@@ -281,13 +284,40 @@ export function useStudioCapabilityState({
 
     const loadCapability = async () => {
       try {
+        let artifactForResolution = latestArtifact;
+        const metadataMissing =
+          !latestArtifact.metadata ||
+          Object.keys(latestArtifact.metadata).length === 0;
+        const needsArtifactDetail =
+          metadataMissing || latestArtifact.artifactType === "docx";
+
+        if (needsArtifactDetail) {
+          const detailResponse = await projectSpaceApi.getArtifact(
+            projectId,
+            latestArtifact.artifactId
+          );
+          if (detailResponse?.artifact) {
+            const detailItem = toArtifactHistoryItem(detailResponse.artifact);
+            artifactForResolution = {
+              ...latestArtifact,
+              ...detailItem,
+              runId: latestArtifact.runId ?? detailItem.runId ?? null,
+              runNo: latestArtifact.runNo ?? detailItem.runNo ?? null,
+              metadata:
+                detailItem.metadata ??
+                latestArtifact.metadata ??
+                null,
+            };
+          }
+        }
+
         const blob = await projectSpaceApi.downloadArtifact(
           projectId,
-          latestArtifact.artifactId
+          artifactForResolution.artifactId
         );
         const resolved = await resolveCapabilityFromArtifact({
           toolId: expandedToolKey,
-          artifact: latestArtifact,
+          artifact: artifactForResolution,
           blob,
         });
         applyResolution(resolved);

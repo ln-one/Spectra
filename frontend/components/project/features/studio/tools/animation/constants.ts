@@ -16,13 +16,13 @@ export const ANIMATION_STEPS: WorkflowStepItem[] = [
   {
     id: "generate",
     title: "规格",
-    description: "按动画规格生成独立 GIF，可选提前指定后续插入用的 PPT。",
+    description: "按动画规格选择正式输出格式，并提前确认后续 placement 条件。",
     caption: "规格确认",
   },
   {
     id: "preview",
     title: "结果",
-    description: "预览 GIF、执行 refine，并决定是否插入 PPT。",
+    description: "查看正式结果、执行 refine，并在满足前提时进入 PPT placement。",
     caption: "结果处理",
   },
 ];
@@ -112,6 +112,13 @@ export const ANIMATION_STYLE_PACK_SWATCHES: Record<
   },
 };
 
+export const DEFAULT_EXPLAINER_STYLE_PACK: AnimationStylePack =
+  "teaching_ppt_minimal_gray";
+
+export function resolveDefaultExplainerStylePack(): AnimationStylePack {
+  return DEFAULT_EXPLAINER_STYLE_PACK;
+}
+
 export const ANIMATION_SLOT_OPTIONS: Array<{
   value: AnimationPlacementSlot;
   label: string;
@@ -166,7 +173,7 @@ export function getVisualTypeLabel(value?: string | null): string {
 }
 
 export function getStylePackLabel(value?: string | null): string {
-  if (!value) return "卡通课堂";
+  if (!value) return "极简灰阶";
   return (
     ANIMATION_STYLE_PACK_OPTIONS.find((item) => item.value === value)?.label ??
     value
