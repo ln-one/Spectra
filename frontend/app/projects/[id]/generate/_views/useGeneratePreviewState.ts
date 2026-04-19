@@ -1,11 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { previewApi } from "@/lib/sdk/preview";
-import { generateApi, type SessionRun } from "@/lib/sdk/generate";
+import { generateApi, type GenerationEvent, type SessionRun } from "@/lib/sdk/generate";
 import { ApiError } from "@/lib/sdk/client";
 import { useGenerationEvents } from "@/hooks/useGenerationEvents";
 import { useProjectStore } from "@/stores/projectStore";
 import { toast } from "@/hooks/use-toast";
 import type { components } from "@/lib/sdk/types";
+import {
+  parseEventPayloadObject,
+  resolveEventLog,
+} from "@/components/project/features/outline-editor/utils";
 import { useShallow } from "zustand/react/shallow";
 
 type Slide = components["schemas"]["Slide"] & {
@@ -50,6 +54,66 @@ type DiegoPreviewContext = {
     title?: string;
     body?: string;
   };
+};
+
+export type AuthorityPreviewBlock = {
+  block_id: string;
+  kind: "heading" | "paragraph" | "bullet_list" | "image";
+  text?: string;
+  items?: string[];
+  src?: string;
+  alt?: string;
+};
+
+export type AuthorityPreviewFrame = {
+  slide_id: string;
+  index: number;
+  split_index: number;
+  split_count: number;
+  status?: string;
+  html_preview?: string | null;
+  image_url?: string | null;
+  width?: number | null;
+  height?: number | null;
+};
+
+export type AuthorityPreviewSlide = {
+  slide_id: string;
+  index: number;
+  title?: string;
+  status?: string;
+  layout_kind?: string;
+  render_version?: number | null;
+  html_preview?: string | null;
+  image_url?: string | null;
+  width?: number | null;
+  height?: number | null;
+  frames?: AuthorityPreviewFrame[];
+  editable_block_ids?: string[];
+  blocks?: AuthorityPreviewBlock[];
+};
+
+export type AuthorityPreview = {
+  provider: "diego";
+  run_id?: string | null;
+  render_version?: number | null;
+  viewport?: {
+    width?: number | null;
+    height?: number | null;
+  };
+  compile_context_version?: number | null;
+  compile_context?: DiegoPreviewContext | null;
+  theme?: DiegoPreviewContext["theme"];
+  fonts?: DiegoPreviewContext["fonts"];
+  slides: AuthorityPreviewSlide[];
+};
+
+export type PreviewPreambleLog = {
+  id: string;
+  title: string;
+  detail?: string;
+  tone?: "info" | "success" | "warn" | "error";
+  ts?: string;
 };
 
 type SessionIdentity = {
@@ -111,6 +175,64 @@ function readRunIdFromTrace(payload: RawPayload): string | null {
 
 function readRunIdFromPayload(payload: RawPayload): string | null {
   return readStringField(payload, "run_id") || readRunIdFromTrace(payload);
+}
+
+function resolvePptUrlFromSnapshot(value: unknown): string | null {
+  if (!value || typeof value !== "object") return null;
+  const source = value as Record<string, unknown>;
+  const direct =
+    readStringField(source, "ppt_url") ||
+    readStringField(source, "pptUrl");
+  if (direct) return direct;
+
+  const session =
+    source.session && typeof source.session === "object"
+      ? (source.session as Record<string, unknown>)
+      : null;
+  if (session) {
+    const sessionDirect =
+      readStringField(session, "ppt_url") ||
+      readStringField(session, "pptUrl");
+    if (sessionDirect) return sessionDirect;
+
+    const sessionResult =
+      session.result && typeof session.result === "object"
+        ? (session.result as Record<string, unknown>)
+        : null;
+    if (sessionResult) {
+      const sessionResultUrl =
+        readStringField(sessionResult, "ppt_url") ||
+        readStringField(sessionResult, "pptUrl");
+      if (sessionResultUrl) return sessionResultUrl;
+    }
+  }
+
+  const result =
+    source.result && typeof source.result === "object"
+      ? (source.result as Record<string, unknown>)
+      : null;
+  if (result) {
+    const resultUrl =
+      readStringField(result, "ppt_url") ||
+      readStringField(result, "pptUrl");
+    if (resultUrl) return resultUrl;
+  }
+
+  const currentRun =
+    source.current_run && typeof source.current_run === "object"
+      ? (source.current_run as Record<string, unknown>)
+      : null;
+  if (currentRun) {
+    const outputUrls =
+      currentRun.output_urls && typeof currentRun.output_urls === "object"
+        ? (currentRun.output_urls as Record<string, unknown>)
+        : null;
+    if (outputUrls) {
+      return readStringField(outputUrls, "pptx");
+    }
+  }
+
+  return null;
 }
 
 function normalizeTheme(value: unknown): DiegoPreviewContext["theme"] | undefined {
@@ -263,6 +385,320 @@ function buildSlidesContentMarkdown(slides: Slide[]): string {
   return sections.join("\n\n---\n\n").trim();
 }
 
+function normalizeAuthorityBlocks(value: unknown): AuthorityPreviewBlock[] {
+  if (!Array.isArray(value)) return [];
+  const blocks: AuthorityPreviewBlock[] = [];
+  for (const item of value) {
+    if (!item || typeof item !== "object") continue;
+    const record = item as Record<string, unknown>;
+    const blockId = readStringField(record, "block_id");
+    const kindRaw = readStringField(record, "kind");
+    if (!blockId || !kindRaw) continue;
+    const kind = kindRaw as AuthorityPreviewBlock["kind"];
+    if (!["heading", "paragraph", "bullet_list", "image"].includes(kind)) {
+      continue;
+    }
+    blocks.push({
+      block_id: blockId,
+      kind,
+      ...(typeof record.text === "string" && record.text.trim()
+        ? { text: record.text.trim() }
+        : {}),
+      ...(Array.isArray(record.items)
+        ? {
+            items: record.items
+              .map((entry) => String(entry || "").trim())
+              .filter(Boolean),
+          }
+        : {}),
+      ...(typeof record.src === "string" && record.src.trim()
+        ? { src: record.src.trim() }
+        : {}),
+      ...(typeof record.alt === "string" && record.alt.trim()
+        ? { alt: record.alt.trim() }
+        : {}),
+    });
+  }
+  return blocks;
+}
+
+function normalizeAuthorityFrames(value: unknown): AuthorityPreviewFrame[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((item): item is Record<string, unknown> => !!item && typeof item === "object")
+    .map((item) => ({
+      slide_id:
+        readStringField(item, "slide_id") ||
+        `slide-${readNumberField(item, "index") ?? 0}`,
+      index: readNumberField(item, "index") ?? 0,
+      split_index: readNumberField(item, "split_index") ?? 0,
+      split_count: readNumberField(item, "split_count") ?? 1,
+      ...(readStringField(item, "status")
+        ? { status: readStringField(item, "status") || undefined }
+        : {}),
+      ...(typeof item.html_preview === "string"
+        ? { html_preview: item.html_preview }
+        : {}),
+      ...(typeof item.image_url === "string"
+        ? { image_url: item.image_url }
+        : {}),
+      ...(typeof readNumberField(item, "width") === "number"
+        ? { width: readNumberField(item, "width") }
+        : {}),
+      ...(typeof readNumberField(item, "height") === "number"
+        ? { height: readNumberField(item, "height") }
+        : {}),
+    }))
+    .sort((left, right) => {
+      const slideDiff = left.index - right.index;
+      if (slideDiff !== 0) return slideDiff;
+      return left.split_index - right.split_index;
+    });
+}
+
+function buildHtmlAuthorityPreview(
+  slides: Slide[],
+  renderedPreview: RenderedPreview | null | undefined,
+  runId: string | null,
+  renderVersion: number | null,
+  context: DiegoPreviewContext | null
+): AuthorityPreview {
+  const renderedPages = normalizeAuthorityFrames(renderedPreview?.pages);
+  const framesByKey = new Map<string, AuthorityPreviewFrame[]>();
+  renderedPages.forEach((frame) => {
+    const key = `${frame.slide_id}:${frame.index}`;
+    framesByKey.set(key, [...(framesByKey.get(key) ?? []), frame]);
+  });
+  const slideMap = new Map<string, AuthorityPreviewSlide>();
+  slides.forEach((slide) => {
+    const slideId = slide.id || `slide-${slide.index}`;
+    const key = `${slideId}:${slide.index}`;
+    const frames = framesByKey.get(key) ?? [];
+    const firstFrame = frames[0];
+    slideMap.set(key, {
+      slide_id: slideId,
+      index: slide.index,
+      title: String(slide.title || "").trim() || undefined,
+      status: firstFrame?.status || (frames.length > 0 ? "ready" : "pending"),
+      render_version: renderVersion,
+      html_preview: firstFrame?.html_preview,
+      image_url: firstFrame?.image_url,
+      width: firstFrame?.width ?? renderedPages[0]?.width ?? 1280,
+      height: firstFrame?.height ?? renderedPages[0]?.height ?? 720,
+      frames,
+      editable_block_ids: [],
+      blocks: [],
+    });
+  });
+  renderedPages.forEach((frame) => {
+    const key = `${frame.slide_id}:${frame.index}`;
+    if (slideMap.has(key)) return;
+    slideMap.set(key, {
+      slide_id: frame.slide_id,
+      index: frame.index,
+      title: `Slide ${frame.index + 1}`,
+      status: frame.status || "ready",
+      render_version: renderVersion,
+      html_preview: frame.html_preview,
+      image_url: frame.image_url,
+      width: frame.width ?? renderedPages[0]?.width ?? 1280,
+      height: frame.height ?? renderedPages[0]?.height ?? 720,
+      frames: framesByKey.get(key) ?? [frame],
+      editable_block_ids: [],
+      blocks: [],
+    });
+  });
+  const normalizedSlides = [...slideMap.values()].sort((a, b) => a.index - b.index);
+  const viewportWidth =
+    renderedPages.find((frame) => typeof frame.width === "number")?.width ?? 1280;
+  const viewportHeight =
+    renderedPages.find((frame) => typeof frame.height === "number")?.height ?? 720;
+  return {
+    provider: "diego",
+    run_id: runId,
+    render_version: renderVersion,
+    viewport: { width: viewportWidth, height: viewportHeight },
+    compile_context_version: context?.source_event_seq ?? null,
+    compile_context: context,
+    theme: context?.theme,
+    fonts: context?.fonts,
+    slides: normalizedSlides,
+  };
+}
+
+function normalizeAuthorityPreview(
+  value: unknown,
+  slides: Slide[],
+  renderedPreview: RenderedPreview | null | undefined,
+  runId: string | null,
+  renderVersion: number | null,
+  context: DiegoPreviewContext | null
+): AuthorityPreview {
+  if (!value || typeof value !== "object") {
+    return buildHtmlAuthorityPreview(
+      slides,
+      renderedPreview,
+      runId,
+      renderVersion,
+      context
+    );
+  }
+  const source = value as Record<string, unknown>;
+  const normalizedSlides = Array.isArray(source.slides)
+    ? source.slides
+        .filter((item): item is Record<string, unknown> => !!item && typeof item === "object")
+        .map((item) => ({
+          slide_id:
+            readStringField(item, "slide_id") ||
+            `slide-${readNumberField(item, "index") ?? 0}`,
+          index: readNumberField(item, "index") ?? 0,
+          ...(readStringField(item, "title")
+            ? { title: readStringField(item, "title") || undefined }
+            : {}),
+          ...(readStringField(item, "status")
+            ? { status: readStringField(item, "status") || undefined }
+            : {}),
+          ...(readStringField(item, "layout_kind")
+            ? { layout_kind: readStringField(item, "layout_kind") || undefined }
+            : {}),
+          render_version:
+            readNumberField(item, "render_version") ?? renderVersion ?? undefined,
+          ...(typeof item.html_preview === "string"
+            ? { html_preview: item.html_preview }
+            : {}),
+          ...(typeof item.image_url === "string"
+            ? { image_url: item.image_url }
+            : {}),
+          ...(typeof readNumberField(item, "width") === "number"
+            ? { width: readNumberField(item, "width") }
+            : {}),
+          ...(typeof readNumberField(item, "height") === "number"
+            ? { height: readNumberField(item, "height") }
+            : {}),
+          frames: normalizeAuthorityFrames(item.frames),
+          editable_block_ids: Array.isArray(item.editable_block_ids)
+            ? item.editable_block_ids
+                .map((entry) => String(entry || "").trim())
+                .filter(Boolean)
+            : [],
+          blocks: normalizeAuthorityBlocks(item.blocks),
+        }))
+        .sort((left, right) => left.index - right.index)
+    : [];
+  if (normalizedSlides.length === 0) {
+    return buildHtmlAuthorityPreview(
+      slides,
+      renderedPreview,
+      runId,
+      renderVersion,
+      context
+    );
+  }
+  const viewportRaw =
+    source.viewport && typeof source.viewport === "object"
+      ? (source.viewport as Record<string, unknown>)
+      : {};
+  return {
+    provider: "diego",
+    run_id: readStringField(source, "run_id") || runId,
+    render_version: readNumberField(source, "render_version") ?? renderVersion,
+    viewport: {
+      width: readNumberField(viewportRaw, "width") ?? 1280,
+      height: readNumberField(viewportRaw, "height") ?? 720,
+    },
+    compile_context_version:
+      readNumberField(source, "compile_context_version") ?? context?.source_event_seq ?? null,
+    compile_context:
+      normalizeDiegoPreviewContext(source.compile_context, runId) ?? context ?? null,
+    theme: normalizeTheme(source.theme) ?? context?.theme,
+    fonts: normalizeFonts(source.fonts) ?? context?.fonts,
+    slides: normalizedSlides,
+  };
+}
+
+function extractPreviewPreambleLogs(events: GenerationEvent[]): PreviewPreambleLog[] {
+  const collected: PreviewPreambleLog[] = [];
+  const seen = new Set<string>();
+  for (const event of events) {
+    const id = resolveEventKey(event);
+    if (seen.has(id)) continue;
+    seen.add(id);
+
+    const eventType = String(event.event_type || "").trim();
+    if (!eventType) continue;
+
+    const payloadObject = parseEventPayloadObject(event.payload);
+    const payload = payloadObject as {
+      progress_message?: string;
+      section_payload?: {
+        diego_event_type?: string;
+        raw_payload?: Record<string, unknown>;
+      };
+    };
+
+    const sectionPayload =
+      payload.section_payload && typeof payload.section_payload === "object"
+        ? payload.section_payload
+        : null;
+
+    const diegoEventType = sectionPayload?.diego_event_type || eventType;
+    const rawPayload = (sectionPayload?.raw_payload && typeof sectionPayload.raw_payload === "object")
+      ? sectionPayload.raw_payload
+      : (payload as Record<string, unknown>);
+
+    // Only collect whitelisted event types to avoid internal noise and raw JSON display
+    if (
+      diegoEventType === "outline.token" ||
+      diegoEventType === "slide.token" ||
+      diegoEventType === "compile.token"
+    ) {
+      continue;
+    }
+
+    if (
+      diegoEventType !== "requirements.analyzing.started" &&
+      diegoEventType !== "requirements.analyzing.completed" &&
+      diegoEventType !== "requirements.analyzed" &&
+      diegoEventType !== "plan.completed" &&
+      diegoEventType !== "outline.completed" &&
+      diegoEventType !== "research.completed" &&
+      diegoEventType !== "outline.repair.started" &&
+      diegoEventType !== "outline.repair.completed" &&
+      diegoEventType !== "outline.repair.failed" &&
+      diegoEventType !== "llm.request.timeout" &&
+      diegoEventType !== "llm.request.retry" &&
+      diegoEventType !== "rag.retrieval.started" &&
+      diegoEventType !== "rag.retrieval.completed" &&
+      diegoEventType !== "rag.retrieval.failed" &&
+      // Also allow generic progress updates ONLY if they have a non-empty progress_message
+      !(eventType === "progress.updated" && typeof payload.progress_message === "string" && payload.progress_message.trim())
+    ) {
+      continue;
+    }
+
+    const normalized = resolveEventLog(diegoEventType, rawPayload);
+    // Double check that we aren't showing the raw eventType or a JSON-like string as the title
+    if (!normalized.title || normalized.title === eventType || normalized.title.startsWith("{")) {
+      continue;
+    }
+
+    // Content-based de-duplication: skip if the last added log has the same title and detail
+    const last = collected[collected.length - 1];
+    if (last && last.title === normalized.title && last.detail === normalized.detail) {
+      continue;
+    }
+
+    collected.push({
+      id,
+      title: normalized.title,
+      detail: normalized.detail,
+      tone: normalized.tone,
+      ts: event.timestamp,
+    });
+  }
+  return collected;
+}
+
 function hasRenderablePreviewFrame(
   page: RenderedPreviewFrame | null | undefined
 ): boolean {
@@ -355,6 +791,15 @@ export function useGeneratePreviewState({
   );
   const [diegoPreviewContext, setDiegoPreviewContext] =
     useState<DiegoPreviewContext | null>(null);
+  const [authorityPreview, setAuthorityPreview] =
+    useState<AuthorityPreview | null>(null);
+  const [previewOutline, setPreviewOutline] = useState<Record<string, unknown> | null>(
+    null
+  );
+  const [previewPreambleLogs, setPreviewPreambleLogs] = useState<
+    PreviewPreambleLog[]
+  >([]);
+  const [currentPptUrl, setCurrentPptUrl] = useState<string | null>(null);
 
   const processedEventKeysRef = useRef<Set<string>>(new Set());
 
@@ -396,6 +841,11 @@ export function useGeneratePreviewState({
     }
   }, [artifactIdFromQuery]);
 
+  useEffect(() => {
+    setCurrentArtifactId(artifactIdFromQuery ?? null);
+    setCurrentPptUrl(null);
+  }, [activeRunId, artifactIdFromQuery]);
+
   const loadSessionRuns = useCallback(async () => {
     if (!activeSessionId) {
       setSessionRuns([]);
@@ -419,6 +869,10 @@ export function useGeneratePreviewState({
       setPreviewBlockedReason("未找到可预览的会话。");
       setSessionFailureMessage(null);
       setPreviewSessionState(null);
+      setAuthorityPreview(null);
+      setPreviewOutline(null);
+      setPreviewPreambleLogs([]);
+      setCurrentPptUrl(null);
       setIsLoading(false);
       return;
     }
@@ -428,6 +882,11 @@ export function useGeneratePreviewState({
       setPreviewBlockedReason("请选择一个 Diego run 后再加载预览。");
       setSessionFailureMessage(null);
       setPreviewSessionState(null);
+      setAuthorityPreview(null);
+      setPreviewOutline(null);
+      setPreviewPreambleLogs([]);
+      setCurrentPptUrl(null);
+      setCurrentArtifactId(artifactIdFromQuery ?? null);
       setDiegoPreviewContext((current) =>
         mergeDiegoPreviewContext(current, null, null)
       );
@@ -439,20 +898,34 @@ export function useGeneratePreviewState({
       setIsLoading(true);
       setPreviewBlockedReason(null);
 
-      const response = await previewApi.getSessionPreview(activeSessionId, {
-        run_id: activeRunId,
-        artifact_id: currentArtifactId ?? undefined,
-      });
+      const [response, sessionSnapshotResponse, eventListResponse] =
+        await Promise.all([
+          previewApi.getSessionPreview(activeSessionId, {
+            run_id: activeRunId,
+            artifact_id: currentArtifactId ?? undefined,
+          }),
+          generateApi
+            .getSessionSnapshot(activeSessionId, { run_id: activeRunId })
+            .catch(() => null),
+          generateApi
+            .listEvents(activeSessionId, {
+              run_id: activeRunId,
+              limit: 200,
+            })
+            .catch(() => null),
+        ]);
       const previewData = (response.data ?? null) as {
         slides?: Slide[];
         rendered_preview?: RenderedPreview | null;
         diego_preview_context?: unknown;
+        authority_preview?: unknown;
       } | null;
 
       if (!response.success || !previewData?.slides) {
         setSlides([]);
         setSlidesContentMarkdown("");
         setPreviewBlockedReason("当前 run 暂无可展示预览。");
+        setAuthorityPreview(null);
         return;
       }
 
@@ -529,6 +1002,30 @@ export function useGeneratePreviewState({
       setSlidesContentMarkdown(markdown);
       setCurrentArtifactId(response.data.artifact_id ?? null);
       setCurrentRenderVersion(response.data.render_version ?? null);
+      setAuthorityPreview(
+        normalizeAuthorityPreview(
+          previewData.authority_preview,
+          nextSlides,
+          renderedPreview,
+          activeRunId,
+          response.data.render_version ?? null,
+          incomingContext
+        )
+      );
+      const snapshotData = (sessionSnapshotResponse?.data ?? null) as
+        | { outline?: Record<string, unknown> | null }
+        | null;
+      setCurrentPptUrl(resolvePptUrlFromSnapshot(sessionSnapshotResponse?.data ?? null));
+      setPreviewOutline(
+        snapshotData?.outline && typeof snapshotData.outline === "object"
+          ? snapshotData.outline
+          : null
+      );
+      setPreviewPreambleLogs(
+        extractPreviewPreambleLogs(
+          ((eventListResponse?.data?.events ?? []) as GenerationEvent[]) || []
+        )
+      );
       setPreviewBlockedReason(
         nextSlides.length === 0 ? "当前 run 暂无可展示预览。" : null
       );
@@ -552,10 +1049,12 @@ export function useGeneratePreviewState({
       }
       setSlides([]);
       setSlidesContentMarkdown("");
+      setAuthorityPreview(null);
+      setCurrentPptUrl(null);
     } finally {
       setIsLoading(false);
     }
-  }, [activeRunId, activeSessionId, currentArtifactId]);
+  }, [activeRunId, activeSessionId, currentArtifactId, artifactIdFromQuery]);
 
   const { events } = useGenerationEvents({
     sessionId: activeSessionId && activeRunId ? activeSessionId : null,
@@ -751,26 +1250,19 @@ export function useGeneratePreviewState({
     if (!activeSessionId || !activeRunId || isExporting) return;
     try {
       setIsExporting(true);
-      
-      const currentRunArtifactId = sessionRuns.find(r => r.run_id === activeRunId)?.artifact_id;
-      if (currentRunArtifactId) {
-        await exportArtifact(currentRunArtifactId);
+
+      const exportArtifactId =
+        sessionRuns.find((run) => run.run_id === activeRunId)?.artifact_id ||
+        currentArtifactId ||
+        null;
+      if (exportArtifactId) {
+        await exportArtifact(exportArtifactId);
         return;
       }
-      
-      const pptUrl = (generationSession?.session as any)?.result?.ppt_url;
-      if (pptUrl) {
-        const link = document.createElement("a");
-        link.href = pptUrl;
-        link.target = "_blank";
-        link.download = `presentation.pptx`;
-        link.click();
-        return;
-      }
-      
+
       toast({
         title: "导出失败",
-        description: "未找到绑定的 PPTX 产物",
+        description: "当前 run 尚未绑定可导出的 PPTX 产物",
         variant: "destructive",
       });
     } catch (error) {
@@ -782,7 +1274,14 @@ export function useGeneratePreviewState({
     } finally {
       setIsExporting(false);
     }
-  }, [activeSessionId, activeRunId, isExporting, exportArtifact, sessionRuns, generationSession]);
+  }, [
+    activeSessionId,
+    activeRunId,
+    isExporting,
+    exportArtifact,
+    sessionRuns,
+    currentArtifactId,
+  ]);
 
   const currentRunDetail = useMemo(() => {
     return sessionRuns.find(run => run.run_id === activeRunId) || null;
@@ -825,6 +1324,9 @@ export function useGeneratePreviewState({
       sessionState,
       sessionFailureMessage,
       slidesContentMarkdown,
+      authorityPreview,
+      previewOutline,
+      previewPreambleLogs,
       activeSessionId,
       activeRunId,
       currentArtifactId,
@@ -837,6 +1339,7 @@ export function useGeneratePreviewState({
       handleResume,
       loadSlides,
       loadSessionRuns,
+      currentPptUrl,
     }),
     [
       slides,
@@ -850,6 +1353,9 @@ export function useGeneratePreviewState({
       sessionState,
       sessionFailureMessage,
       slidesContentMarkdown,
+      authorityPreview,
+      previewOutline,
+      previewPreambleLogs,
       activeSessionId,
       activeRunId,
       currentArtifactId,
@@ -862,6 +1368,7 @@ export function useGeneratePreviewState({
       handleResume,
       loadSlides,
       loadSessionRuns,
+      currentPptUrl,
     ]
   );
 }

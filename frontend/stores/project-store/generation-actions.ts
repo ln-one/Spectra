@@ -49,6 +49,14 @@ function isFallbackSessionTitle(title: string, sessionId: string): boolean {
 function resolveOutlineBaseVersion(
   session: SessionStatePayload | null | undefined
 ): number {
+  const parsed = extractOutlineVersion(session);
+  if (parsed >= 1) return parsed;
+  return 1;
+}
+
+function extractOutlineVersion(
+  session: SessionStatePayload | null | undefined
+): number {
   const rawVersion =
     session && typeof session === "object" ? session.outline?.version : null;
   const parsed =
@@ -56,7 +64,7 @@ function resolveOutlineBaseVersion(
       ? rawVersion
       : Number.parseInt(String(rawVersion ?? ""), 10);
   if (Number.isFinite(parsed) && parsed >= 1) return parsed;
-  return 1;
+  return 0;
 }
 
 export function createGenerationActions({
@@ -292,10 +300,27 @@ export function createGenerationActions({
     updateOutline: async (sessionId: string, outline: OutlineDocument) => {
       try {
         const currentRunId = get().activeRunId ?? undefined;
-        const latestBeforeUpdate = await generateApi.getSessionSnapshot(sessionId, {
-          run_id: currentRunId,
-        });
-        const latestBeforePayload = latestBeforeUpdate?.data ?? null;
+        const [runScopedBeforeUpdate, sessionScopedBeforeUpdate] =
+          currentRunId
+            ? await Promise.all([
+                generateApi.getSessionSnapshot(sessionId, {
+                  run_id: currentRunId,
+                }),
+                generateApi.getSessionSnapshot(sessionId),
+              ])
+            : [await generateApi.getSessionSnapshot(sessionId), null];
+        const runScopedPayload = runScopedBeforeUpdate?.data ?? null;
+        const sessionScopedPayload = sessionScopedBeforeUpdate?.data ?? null;
+        const runScopedVersion = extractOutlineVersion(
+          runScopedPayload as SessionStatePayload | null
+        );
+        const sessionScopedVersion = extractOutlineVersion(
+          sessionScopedPayload as SessionStatePayload | null
+        );
+        const latestBeforePayload =
+          sessionScopedVersion > runScopedVersion
+            ? sessionScopedPayload
+            : runScopedPayload;
         const baseVersion = resolveOutlineBaseVersion(
           latestBeforePayload as SessionStatePayload | null
         );
@@ -305,6 +330,7 @@ export function createGenerationActions({
             command_type: "UPDATE_OUTLINE",
             base_version: baseVersion,
             outline,
+            run_id: currentRunId,
           },
         });
         const preferredRunId =

@@ -74,9 +74,16 @@ describe("generation actions confirm/update behavior", () => {
     mockedGenerateApi.getSessionSnapshot.mockReset();
   });
 
-  it("refreshes snapshot before updateOutline and uses latest outline version", async () => {
+  it("prefers the latest session outline version when run-scoped snapshot lags", async () => {
     const { actions } = createStoreHarness();
     mockedGenerateApi.getSessionSnapshot
+      .mockResolvedValueOnce({
+        data: {
+          session: { session_id: "sess-1", state: "AWAITING_OUTLINE_CONFIRM" },
+          outline: { version: 1, nodes: [], summary: "" },
+          current_run: { run_id: "run-1" },
+        },
+      } as never)
       .mockResolvedValueOnce({
         data: {
           session: { session_id: "sess-1", state: "AWAITING_OUTLINE_CONFIRM" },
@@ -108,6 +115,7 @@ describe("generation actions confirm/update behavior", () => {
           nodes: [],
           summary: "",
         },
+        run_id: "run-1",
       },
     });
   });
@@ -156,4 +164,3 @@ describe("generation actions confirm/update behavior", () => {
     expect(getState().error?.code).toBe("CONFIRM_OUTLINE_FAILED");
   });
 });
-

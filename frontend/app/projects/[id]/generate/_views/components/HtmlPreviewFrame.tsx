@@ -1,8 +1,28 @@
 "use client";
 
 import type { CSSProperties } from "react";
-import { useEffect, useRef, useState } from "react";
+import { forwardRef, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
+
+export type HtmlPreviewFrameLayout = {
+  scale: number;
+  left: number;
+  top: number;
+  viewportWidth: number;
+  viewportHeight: number;
+};
+
+type HtmlPreviewFrameProps = {
+  title: string;
+  html: string;
+  className?: string;
+  interactive?: boolean;
+  viewportWidth?: number;
+  viewportHeight?: number;
+  zoom?: number | "fit";
+  onDocumentReady?: (doc: Document, iframe: HTMLIFrameElement) => void;
+  onViewportLayoutChange?: (layout: HtmlPreviewFrameLayout) => void;
+};
 
 function withPreviewViewportStyle(html: string, width: number, height: number): string {
   const style = `
@@ -43,7 +63,8 @@ body {
   return `${style}${html}`;
 }
 
-export function HtmlPreviewFrame({
+export const HtmlPreviewFrame = forwardRef<HTMLIFrameElement, HtmlPreviewFrameProps>(
+  function HtmlPreviewFrame({
   title,
   html,
   className,
@@ -51,19 +72,26 @@ export function HtmlPreviewFrame({
   viewportWidth = 960,
   viewportHeight = 540,
   zoom = "fit",
-}: {
-  title: string;
-  html: string;
-  className?: string;
-  interactive?: boolean;
-  viewportWidth?: number;
-  viewportHeight?: number;
-}) {
+  onDocumentReady,
+  onViewportLayoutChange,
+}, forwardedRef) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const [frameStyle, setFrameStyle] = useState<CSSProperties>({
     transform: "scale(1)",
     transformOrigin: "0 0",
   });
+
+  const setRefs = (node: HTMLIFrameElement | null) => {
+    iframeRef.current = node;
+    if (typeof forwardedRef === "function") {
+      forwardedRef(node);
+      return;
+    }
+    if (forwardedRef) {
+      forwardedRef.current = node;
+    }
+  };
 
   useEffect(() => {
     const container = containerRef.current;
@@ -72,19 +100,27 @@ export function HtmlPreviewFrame({
     const updateFrameStyle = () => {
       const { width, height } = container.getBoundingClientRect();
       if (width <= 0 || height <= 0) return;
-      
+
       const fitScale = Math.min(width / viewportWidth, height / viewportHeight);
-      const scale = fitScale;
-      
+      const baseScale = typeof zoom === "number" ? zoom : fitScale;
+      const scale = zoom === "fit" ? fitScale : baseScale;
+
       const scaledWidth = viewportWidth * scale;
       const scaledHeight = viewportHeight * scale;
-      
+
       const left = Math.max(0, (width - scaledWidth) / 2);
       const top = Math.max(0, (height - scaledHeight) / 2);
-      
+
       setFrameStyle({
         transform: `translate(${left}px, ${top}px) scale(${scale})`,
         transformOrigin: "0 0",
+      });
+      onViewportLayoutChange?.({
+        scale,
+        left,
+        top,
+        viewportWidth,
+        viewportHeight,
       });
     };
 
@@ -92,7 +128,14 @@ export function HtmlPreviewFrame({
     const observer = new ResizeObserver(updateFrameStyle);
     observer.observe(container);
     return () => observer.disconnect();
-  }, [viewportWidth, viewportHeight]);
+  }, [onViewportLayoutChange, viewportHeight, viewportWidth, zoom]);
+
+  useEffect(() => {
+    const iframe = iframeRef.current;
+    const doc = iframe?.contentDocument;
+    if (!iframe || !doc) return;
+    onDocumentReady?.(doc, iframe);
+  }, [html, onDocumentReady]);
 
   return (
     <div
@@ -103,10 +146,18 @@ export function HtmlPreviewFrame({
       )}
     >
       <iframe
+        ref={setRefs}
         title={title}
         srcDoc={withPreviewViewportStyle(html, viewportWidth, viewportHeight)}
         sandbox="allow-scripts allow-same-origin"
         loading="lazy"
+        onLoad={() => {
+          const iframe = iframeRef.current;
+          const doc = iframe?.contentDocument;
+          if (iframe && doc) {
+            onDocumentReady?.(doc, iframe);
+          }
+        }}
         tabIndex={interactive ? 0 : -1}
         className={cn(
           "absolute left-0 top-0 block origin-top-left border-0 bg-white",
@@ -120,4 +171,4 @@ export function HtmlPreviewFrame({
       />
     </div>
   );
-}
+});
