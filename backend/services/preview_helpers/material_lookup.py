@@ -85,8 +85,8 @@ async def resolve_preview_material_context(
     resolved_artifact_id = _read_field(artifact, "id")
     resolved_run_id = getattr(run, "id", None) if run is not None else run_id
     render_job_id = (
-        str(resolved_artifact_id or "").strip()
-        or str(resolved_run_id or "").strip()
+        str(resolved_run_id or "").strip()
+        or str(resolved_artifact_id or "").strip()
         or f"session-{session_id}"
     )
     return {

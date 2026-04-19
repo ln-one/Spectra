@@ -387,6 +387,15 @@ model SessionRun {
   @@unique([runScopeKey, toolType, runNo])
 }
 
+/// Pagevra authority preview manifest cache.
+/// Keyed by run/artifact id; content is JSON text shaped by Spectra preview contracts.
+model PreviewCache {
+  key       String   @id
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 /// 大纲版本 - 每次用户或 AI 修改大纲时追加一条
 model OutlineVersion {
   id            String   @id @default(uuid())

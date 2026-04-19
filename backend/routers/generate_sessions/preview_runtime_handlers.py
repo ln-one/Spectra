@@ -22,6 +22,9 @@ from routers.generate_sessions.preview_runtime_support import (
     attach_candidate_change_if_needed,
     load_preview_material_for_snapshot,
 )
+from services.generation_session_service.diego_preview_backfill import (
+    ensure_svg_authority_preview,
+)
 from services.platform.state_transition_guard import GenerationCommandType
 from services.preview_helpers import (
     build_export_payload,
@@ -67,6 +70,14 @@ async def get_session_preview_response(
             resolve_preview_anchor=resolve_preview_anchor,
             load_preview_material=load_preview_material,
         )
+    )
+    resolved_run_id = anchor.get("run_id") or run_id
+    slides, content = await ensure_svg_authority_preview(
+        session_id=session_id,
+        run_id=resolved_run_id,
+        material_context=material_context,
+        slides=slides,
+        content=content,
     )
     if run_id and not run_material_ready(material_context, slides, content):
         raise_run_not_ready(run_id)
@@ -224,6 +235,14 @@ async def get_session_slide_preview_response(
             resolve_preview_anchor=resolve_preview_anchor,
             load_preview_material=load_preview_material,
         )
+    )
+    resolved_run_id = anchor.get("run_id") or run_id
+    slides, content = await ensure_svg_authority_preview(
+        session_id=session_id,
+        run_id=resolved_run_id,
+        material_context=material_context,
+        slides=slides,
+        content=content,
     )
     if run_id and not run_material_ready(material_context, slides, content):
         raise_run_not_ready(run_id)
