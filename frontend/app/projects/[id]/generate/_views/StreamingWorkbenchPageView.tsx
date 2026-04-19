@@ -1,6 +1,6 @@
 "use client";
 
-import { type CSSProperties, useMemo, useState } from "react";
+import { type CSSProperties, useCallback, useMemo, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -352,12 +352,36 @@ export default function StreamingWorkbenchPageView() {
     activeAuthorityFrames[resolvedActiveFrameIndex] || activeAuthorityFrames[0] || null;
   const activeFrame =
     activeSlideFrames[resolvedActiveFrameIndex] || activeSlideFrames[0] || null;
-  const activeScene =
-    activeAuthoritySlide?.slide_id ? sceneBySlideId[activeAuthoritySlide.slide_id] ?? null : null;
-  const selectedNodeId =
-    activeAuthoritySlide?.slide_id
-      ? selectedNodeBySlideId[activeAuthoritySlide.slide_id] ?? null
-      : null;
+  const activeAuthoritySlideId = activeAuthoritySlide?.slide_id ?? null;
+  const activeScene = activeAuthoritySlideId
+    ? sceneBySlideId[activeAuthoritySlideId] ?? null
+    : null;
+  const selectedNodeId = activeAuthoritySlideId
+    ? selectedNodeBySlideId[activeAuthoritySlideId] ?? null
+    : null;
+
+  const handleAuthoritySceneChange = useCallback((scene: AuthorityEditableScene) => {
+    setSceneBySlideId((previous) =>
+      previous[scene.slide_id] === scene
+        ? previous
+        : {
+            ...previous,
+            [scene.slide_id]: scene,
+          }
+    );
+  }, []);
+
+  const handleActiveAuthorityNodeSelect = (nodeId: string | null) => {
+    if (!activeAuthoritySlideId) return;
+    setSelectedNodeBySlideId((previous) =>
+      previous[activeAuthoritySlideId] === nodeId
+        ? previous
+        : {
+            ...previous,
+            [activeAuthoritySlideId]: nodeId,
+          }
+    );
+  };
 
   const totalSlides = expectedSlideCount;
   const currentSlideNumber = activeSlideSlot ? activeSlideSlot.index + 1 : 0;
@@ -676,18 +700,8 @@ export default function StreamingWorkbenchPageView() {
                               className="h-full rounded-none border-0 shadow-none"
                               interactive={false}
                               selectedNodeId={selectedNodeId}
-                              onSelectNode={(nodeId) =>
-                                setSelectedNodeBySlideId((prev) => ({
-                                  ...prev,
-                                  [activeAuthoritySlide.slide_id]: nodeId,
-                                }))
-                              }
-                              onSceneChange={(scene) =>
-                                setSceneBySlideId((prev) => ({
-                                  ...prev,
-                                  [scene.slide_id]: scene,
-                                }))
-                              }
+                              onSelectNode={handleActiveAuthorityNodeSelect}
+                              onSceneChange={handleAuthoritySceneChange}
                             />
                           </div>
                         ) : null}
@@ -703,18 +717,8 @@ export default function StreamingWorkbenchPageView() {
                         }}
                         className="h-full rounded-none border-0 shadow-none"
                         selectedNodeId={selectedNodeId}
-                        onSelectNode={(nodeId) =>
-                          setSelectedNodeBySlideId((prev) => ({
-                            ...prev,
-                            [activeAuthoritySlide.slide_id]: nodeId,
-                          }))
-                        }
-                        onSceneChange={(scene) =>
-                          setSceneBySlideId((prev) => ({
-                            ...prev,
-                            [scene.slide_id]: scene,
-                          }))
-                        }
+                        onSelectNode={handleActiveAuthorityNodeSelect}
+                        onSceneChange={handleAuthoritySceneChange}
                       />
                     ) : activeFrame?.html_preview ? (
                       <>
@@ -881,13 +885,7 @@ export default function StreamingWorkbenchPageView() {
             setActiveSlideIndex(slideIndex);
             setActiveFrameIndex(0);
           }}
-          onSelectNode={(nodeId) => {
-            if (!activeAuthoritySlide) return;
-            setSelectedNodeBySlideId((prev) => ({
-              ...prev,
-              [activeAuthoritySlide.slide_id]: nodeId,
-            }));
-          }}
+          onSelectNode={handleActiveAuthorityNodeSelect}
         />
       </div>
 

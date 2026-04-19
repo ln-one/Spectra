@@ -1,7 +1,7 @@
 "use client";
 
 import type { CSSProperties } from "react";
-import { forwardRef, useEffect, useRef, useState } from "react";
+import { forwardRef, useCallback, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 
 export type HtmlPreviewFrameLayout = {
@@ -77,12 +77,22 @@ export const HtmlPreviewFrame = forwardRef<HTMLIFrameElement, HtmlPreviewFramePr
 }, forwardedRef) {
   const containerRef = useRef<HTMLDivElement>(null);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  const onDocumentReadyRef = useRef(onDocumentReady);
+  const onViewportLayoutChangeRef = useRef(onViewportLayoutChange);
   const [frameStyle, setFrameStyle] = useState<CSSProperties>({
     transform: "scale(1)",
     transformOrigin: "0 0",
   });
 
-  const setRefs = (node: HTMLIFrameElement | null) => {
+  useEffect(() => {
+    onDocumentReadyRef.current = onDocumentReady;
+  }, [onDocumentReady]);
+
+  useEffect(() => {
+    onViewportLayoutChangeRef.current = onViewportLayoutChange;
+  }, [onViewportLayoutChange]);
+
+  const setRefs = useCallback((node: HTMLIFrameElement | null) => {
     iframeRef.current = node;
     if (typeof forwardedRef === "function") {
       forwardedRef(node);
@@ -91,7 +101,14 @@ export const HtmlPreviewFrame = forwardRef<HTMLIFrameElement, HtmlPreviewFramePr
     if (forwardedRef) {
       forwardedRef.current = node;
     }
-  };
+  }, [forwardedRef]);
+
+  const notifyDocumentReady = useCallback(() => {
+    const iframe = iframeRef.current;
+    const doc = iframe?.contentDocument;
+    if (!iframe || !doc) return;
+    onDocumentReadyRef.current?.(doc, iframe);
+  }, []);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -111,11 +128,20 @@ export const HtmlPreviewFrame = forwardRef<HTMLIFrameElement, HtmlPreviewFramePr
       const left = Math.max(0, (width - scaledWidth) / 2);
       const top = Math.max(0, (height - scaledHeight) / 2);
 
-      setFrameStyle({
-        transform: `translate(${left}px, ${top}px) scale(${scale})`,
-        transformOrigin: "0 0",
+      const nextTransform = `translate(${left}px, ${top}px) scale(${scale})`;
+      setFrameStyle((previous) => {
+        if (
+          previous.transform === nextTransform &&
+          previous.transformOrigin === "0 0"
+        ) {
+          return previous;
+        }
+        return {
+          transform: nextTransform,
+          transformOrigin: "0 0",
+        };
       });
-      onViewportLayoutChange?.({
+      onViewportLayoutChangeRef.current?.({
         scale,
         left,
         top,
@@ -128,14 +154,11 @@ export const HtmlPreviewFrame = forwardRef<HTMLIFrameElement, HtmlPreviewFramePr
     const observer = new ResizeObserver(updateFrameStyle);
     observer.observe(container);
     return () => observer.disconnect();
-  }, [onViewportLayoutChange, viewportHeight, viewportWidth, zoom]);
+  }, [viewportHeight, viewportWidth, zoom]);
 
   useEffect(() => {
-    const iframe = iframeRef.current;
-    const doc = iframe?.contentDocument;
-    if (!iframe || !doc) return;
-    onDocumentReady?.(doc, iframe);
-  }, [html, onDocumentReady]);
+    notifyDocumentReady();
+  }, [html, notifyDocumentReady]);
 
   return (
     <div
@@ -151,13 +174,7 @@ export const HtmlPreviewFrame = forwardRef<HTMLIFrameElement, HtmlPreviewFramePr
         srcDoc={withPreviewViewportStyle(html, viewportWidth, viewportHeight)}
         sandbox="allow-scripts allow-same-origin"
         loading="lazy"
-        onLoad={() => {
-          const iframe = iframeRef.current;
-          const doc = iframe?.contentDocument;
-          if (iframe && doc) {
-            onDocumentReady?.(doc, iframe);
-          }
-        }}
+        onLoad={notifyDocumentReady}
         tabIndex={interactive ? 0 : -1}
         className={cn(
           "absolute left-0 top-0 block origin-top-left border-0 bg-white",

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { HtmlPreviewFrame, type HtmlPreviewFrameLayout } from "./HtmlPreviewFrame";
 import type { AuthorityPreviewSlide } from "../useGeneratePreviewState";
@@ -145,6 +145,27 @@ function extractScene(
   return { slide_id: slideId, nodes };
 }
 
+function createEmptyScene(slideId: string): AuthorityEditableScene {
+  return { slide_id: slideId, nodes: [] };
+}
+
+function getSceneSignature(scene: AuthorityEditableScene): string {
+  return JSON.stringify(scene);
+}
+
+function isSameLayout(
+  current: HtmlPreviewFrameLayout | null,
+  next: HtmlPreviewFrameLayout
+): boolean {
+  return (
+    current?.scale === next.scale &&
+    current.left === next.left &&
+    current.top === next.top &&
+    current.viewportWidth === next.viewportWidth &&
+    current.viewportHeight === next.viewportHeight
+  );
+}
+
 export function EditableAuthorityHtmlStage({
   slide,
   className,
@@ -155,28 +176,68 @@ export function EditableAuthorityHtmlStage({
 }: Props) {
   const [frameDocument, setFrameDocument] = useState<Document | null>(null);
   const [layout, setLayout] = useState<HtmlPreviewFrameLayout | null>(null);
-  const [scene, setScene] = useState<AuthorityEditableScene>({
-    slide_id: slide.slide_id,
-    nodes: [],
-  });
+  const [scene, setScene] = useState<AuthorityEditableScene>(() =>
+    createEmptyScene(slide.slide_id)
+  );
+  const sceneSignatureRef = useRef<string | null>(null);
+  const onSceneChangeRef = useRef(onSceneChange);
 
   const activeHtml = slide.html_preview || slide.frames?.[0]?.html_preview || "";
   const viewportWidth = slide.width || slide.frames?.[0]?.width || 1280;
   const viewportHeight = slide.height || slide.frames?.[0]?.height || 720;
 
+  useEffect(() => {
+    onSceneChangeRef.current = onSceneChange;
+  }, [onSceneChange]);
+
+  useEffect(() => {
+    sceneSignatureRef.current = null;
+  }, [activeHtml, slide.slide_id]);
+
+  const handleDocumentReady = useCallback((doc: Document) => {
+    setFrameDocument((current) => (current === doc ? current : doc));
+  }, []);
+
+  const handleViewportLayoutChange = useCallback((nextLayout: HtmlPreviewFrameLayout) => {
+    setLayout((current) => (isSameLayout(current, nextLayout) ? current : nextLayout));
+  }, []);
+
+  const publishScene = useCallback((nextScene: AuthorityEditableScene) => {
+    const nextSignature = getSceneSignature(nextScene);
+    if (sceneSignatureRef.current === nextSignature) return;
+
+    sceneSignatureRef.current = nextSignature;
+    setScene(nextScene);
+    onSceneChangeRef.current?.(nextScene);
+  }, []);
+
   const refreshScene = useCallback(() => {
     if (!frameDocument) return;
     const nextScene = extractScene(frameDocument, layout, slide.slide_id);
-    setScene(nextScene);
-    onSceneChange?.(nextScene);
-  }, [frameDocument, layout, onSceneChange, slide.slide_id]);
+    publishScene(nextScene);
+  }, [frameDocument, layout, publishScene, slide.slide_id]);
 
   useEffect(() => {
     if (!frameDocument) return;
     const frameWindow = frameDocument.defaultView;
-    const frameId = frameWindow?.requestAnimationFrame(() => refreshScene());
+    let pendingRafId: number | null = null;
+    const scheduleRefresh = () => {
+      if (!frameWindow) {
+        refreshScene();
+        return;
+      }
+      if (pendingRafId !== null) {
+        frameWindow.cancelAnimationFrame(pendingRafId);
+      }
+      pendingRafId = frameWindow.requestAnimationFrame(() => {
+        pendingRafId = null;
+        refreshScene();
+      });
+    };
+
+    scheduleRefresh();
     const observer = new MutationObserver(() => {
-      frameWindow?.requestAnimationFrame(() => refreshScene());
+      scheduleRefresh();
     });
     observer.observe(frameDocument.body, {
       childList: true,
@@ -186,8 +247,8 @@ export function EditableAuthorityHtmlStage({
     });
     return () => {
       observer.disconnect();
-      if (frameWindow && typeof frameId === "number") {
-        frameWindow.cancelAnimationFrame(frameId);
+      if (frameWindow && pendingRafId !== null) {
+        frameWindow.cancelAnimationFrame(pendingRafId);
       }
     };
   }, [frameDocument, refreshScene]);
@@ -197,9 +258,14 @@ export function EditableAuthorityHtmlStage({
     return () => window.cancelAnimationFrame(rafId);
   }, [layout, refreshScene]);
 
+  const visibleScene = useMemo(
+    () => (scene.slide_id === slide.slide_id ? scene : createEmptyScene(slide.slide_id)),
+    [scene, slide.slide_id]
+  );
+
   const selectedNode = useMemo(
-    () => scene.nodes.find((node) => node.node_id === selectedNodeId) ?? null,
-    [scene.nodes, selectedNodeId]
+    () => visibleScene.nodes.find((node) => node.node_id === selectedNodeId) ?? null,
+    [visibleScene.nodes, selectedNodeId]
   );
 
   return (
@@ -211,11 +277,11 @@ export function EditableAuthorityHtmlStage({
         interactive={interactive}
         viewportWidth={viewportWidth}
         viewportHeight={viewportHeight}
-        onDocumentReady={(doc) => setFrameDocument(doc)}
-        onViewportLayoutChange={setLayout}
+        onDocumentReady={handleDocumentReady}
+        onViewportLayoutChange={handleViewportLayoutChange}
       />
       <div className="pointer-events-none absolute inset-0">
-        {scene.nodes.map((node) => {
+        {visibleScene.nodes.map((node) => {
           const isSelected = selectedNode?.node_id === node.node_id;
           return (
             <button
