@@ -5,10 +5,16 @@ from __future__ import annotations
 import asyncio
 from typing import Optional
 
+from services.generation_session_service.run_constants import (
+    RUN_STATUS_COMPLETED,
+    RUN_STEP_COMPLETED,
+)
+from services.generation_session_service.run_lifecycle import update_session_run
 from services.generation_session_service.constants import SessionLifecycleReason
 from services.platform.generation_event_constants import GenerationEventType
 from services.platform.state_transition_guard import GenerationState
 from services.task_executor.constants import TaskFailureStateReason
+from utils.exceptions import ExternalServiceException
 
 from ..diego_runtime_helpers import parse_options
 from .constants import (
@@ -22,12 +28,55 @@ from .constants import (
 from .dependencies import active
 from .events import (
     _extract_diego_events,
+    _extract_new_slide_payloads,
     _extract_new_slide_numbers,
     _extract_slide_numbers_from_run_detail,
 )
 from .pending_slides import _sync_pending_slide_previews
 
 _FINAL_PREVIEW_REFRESH_ATTEMPTS = 3
+
+
+def _has_diego_pptx_hint(detail: dict[str, object]) -> bool:
+    if bool(detail.get("pptx_ready")):
+        return True
+    pptx_path = str(detail.get("pptx_path") or "").strip()
+    if pptx_path:
+        return True
+    artifacts = detail.get("artifacts")
+    if isinstance(artifacts, dict):
+        pptx = artifacts.get("pptx")
+        if isinstance(pptx, dict):
+            if bool(pptx.get("downloadable")):
+                return True
+            if str(pptx.get("path") or "").strip():
+                return True
+    return False
+
+
+async def _try_download_ready_pptx(
+    *,
+    client,
+    diego_run_id: str,
+    detail: dict[str, object],
+) -> bytes | None:
+    should_probe = _has_diego_pptx_hint(detail) or str(detail.get("status") or "").strip().upper() in {
+        _DIEGO_STATUS_COMPILING,
+        _DIEGO_STATUS_SUCCEEDED,
+    }
+    if not should_probe:
+        return None
+    try:
+        return await client.download_pptx(diego_run_id)
+    except ExternalServiceException as exc:
+        details = exc.details if isinstance(exc.details, dict) else {}
+        try:
+            status_code = int(details.get("status_code") or 0)
+        except (TypeError, ValueError):
+            status_code = 0
+        if status_code in {404, 409}:
+            return None
+        raise
 
 
 async def sync_diego_generation_until_terminal(
@@ -49,21 +98,32 @@ async def sync_diego_generation_until_terminal(
         last_status: str | None = None
         last_diego_event_seq = 0
         pending_slide_numbers: set[int] = set()
+        pending_slide_payloads: dict[int, dict[str, object]] = {}
         preview_payload: dict | None = None
         while asyncio.get_running_loop().time() < deadline:
             detail = await client.get_run(diego_run_id)
             status = str(detail.get("status") or "").strip().upper()
             diego_events = _extract_diego_events(detail)
             if diego_events:
+                previous_seq = last_diego_event_seq
                 (
                     last_diego_event_seq,
                     newly_generated_slides,
                 ) = _extract_new_slide_numbers(
                     diego_events=diego_events,
-                    last_seq=last_diego_event_seq,
+                    last_seq=previous_seq,
                 )
                 if newly_generated_slides:
                     pending_slide_numbers.update(newly_generated_slides)
+                (
+                    _,
+                    newly_generated_payloads,
+                ) = _extract_new_slide_payloads(
+                    diego_events=diego_events,
+                    last_seq=previous_seq,
+                )
+                if newly_generated_payloads:
+                    pending_slide_payloads.update(newly_generated_payloads)
 
             if pending_slide_numbers:
                 pending_slide_numbers, preview_payload = (
@@ -77,8 +137,12 @@ async def sync_diego_generation_until_terminal(
                         diego_status=status,
                         pending_slide_numbers=pending_slide_numbers,
                         preview_payload=preview_payload,
+                        preview_by_slide_no=pending_slide_payloads,
                     )
                 )
+                for slide_no in list(pending_slide_payloads):
+                    if slide_no not in pending_slide_numbers:
+                        pending_slide_payloads.pop(slide_no, None)
 
             if status != last_status:
                 if status == _DIEGO_STATUS_SLIDES_GENERATING:
@@ -117,7 +181,12 @@ async def sync_diego_generation_until_terminal(
                     )
                 last_status = status
 
-            if status == _DIEGO_STATUS_SUCCEEDED:
+            pptx_bytes = await _try_download_ready_pptx(
+                client=client,
+                diego_run_id=diego_run_id,
+                detail=detail,
+            )
+            if pptx_bytes is not None:
                 pending_slide_numbers.update(
                     _extract_slide_numbers_from_run_detail(detail)
                 )
@@ -135,8 +204,12 @@ async def sync_diego_generation_until_terminal(
                             diego_status=status,
                             pending_slide_numbers=pending_slide_numbers,
                             preview_payload=preview_payload,
+                            preview_by_slide_no=pending_slide_payloads,
                         )
                     )
+                    for slide_no in list(pending_slide_payloads):
+                        if slide_no not in pending_slide_numbers:
+                            pending_slide_payloads.pop(slide_no, None)
                     if (
                         pending_slide_numbers
                         and attempt + 1 < _FINAL_PREVIEW_REFRESH_ATTEMPTS
@@ -148,7 +221,6 @@ async def sync_diego_generation_until_terminal(
                 if not session:
                     return
                 options = parse_options(getattr(session, "options", None))
-                pptx_bytes = await client.download_pptx(diego_run_id)
                 artifact_id, output_url = await active(
                     "persist_diego_success_artifact"
                 )(
@@ -173,6 +245,13 @@ async def sync_diego_generation_until_terminal(
                     "artifact_id": artifact_id,
                     "output_urls": {"pptx": output_url},
                 }
+                await update_session_run(
+                    db=db,
+                    run_id=run.id,
+                    status=RUN_STATUS_COMPLETED,
+                    step=RUN_STEP_COMPLETED,
+                    artifact_id=artifact_id,
+                )
                 await active("append_event")(
                     db=db,
                     schema_version=_SCHEMA_VERSION,

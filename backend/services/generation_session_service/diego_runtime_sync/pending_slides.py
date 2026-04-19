@@ -4,6 +4,11 @@ from __future__ import annotations
 
 from typing import Optional
 
+from services.generation_session_service.run_constants import (
+    RUN_STATUS_PROCESSING,
+    RUN_STEP_PREVIEW,
+)
+from services.generation_session_service.run_lifecycle import update_session_run
 from services.platform.generation_event_constants import GenerationEventType
 from utils.exceptions import ExternalServiceException
 
@@ -29,6 +34,7 @@ async def _sync_pending_slide_previews(
     diego_status: str,
     pending_slide_numbers: set[int],
     preview_payload: dict | None,
+    preview_by_slide_no: dict[int, dict[str, object]] | None = None,
 ) -> tuple[set[int], dict]:
     if not pending_slide_numbers:
         return set(), preview_payload or {}
@@ -40,44 +46,60 @@ async def _sync_pending_slide_previews(
     )
     remaining: set[int] = set()
     for slide_no in sorted(pending_slide_numbers):
-        try:
-            preview = await client.get_slide_preview(diego_run_id, slide_no)
-        except ExternalServiceException as exc:
-            if _is_diego_preview_not_ready_error(exc):
+        preview = None
+        if isinstance(preview_by_slide_no, dict):
+            candidate = preview_by_slide_no.get(slide_no)
+            if isinstance(candidate, dict):
+                preview = candidate
+
+        page = (
+            _build_spectra_preview_page(
+                spectra_run_id=run.id,
+                slide_no=slide_no,
+                preview=preview,
+            )
+            if isinstance(preview, dict)
+            else None
+        )
+        if page is None:
+            try:
+                preview = await client.get_slide_preview(diego_run_id, slide_no)
+            except ExternalServiceException as exc:
+                if _is_diego_preview_not_ready_error(exc):
+                    remaining.add(slide_no)
+                    continue
+                logger.warning(
+                    "Diego slide preview fetch failed: run=%s diego_run=%s "
+                    "slide_no=%s error=%s",
+                    run.id,
+                    diego_run_id,
+                    slide_no,
+                    exc,
+                    exc_info=True,
+                )
                 remaining.add(slide_no)
                 continue
-            logger.warning(
-                "Diego slide preview fetch failed: run=%s diego_run=%s "
-                "slide_no=%s error=%s",
-                run.id,
-                diego_run_id,
-                slide_no,
-                exc,
-                exc_info=True,
-            )
-            remaining.add(slide_no)
-            continue
-        except Exception as exc:
-            logger.warning(
-                "Diego slide preview fetch raised: run=%s diego_run=%s "
-                "slide_no=%s error=%s",
-                run.id,
-                diego_run_id,
-                slide_no,
-                exc,
-                exc_info=True,
-            )
-            remaining.add(slide_no)
-            continue
+            except Exception as exc:
+                logger.warning(
+                    "Diego slide preview fetch raised: run=%s diego_run=%s "
+                    "slide_no=%s error=%s",
+                    run.id,
+                    diego_run_id,
+                    slide_no,
+                    exc,
+                    exc_info=True,
+                )
+                remaining.add(slide_no)
+                continue
 
-        if not isinstance(preview, dict):
-            remaining.add(slide_no)
-            continue
-        page = _build_spectra_preview_page(
-            spectra_run_id=run.id,
-            slide_no=slide_no,
-            preview=preview,
-        )
+            if not isinstance(preview, dict):
+                remaining.add(slide_no)
+                continue
+            page = _build_spectra_preview_page(
+                spectra_run_id=run.id,
+                slide_no=slide_no,
+                preview=preview,
+            )
         if page is None:
             remaining.add(slide_no)
             continue
@@ -86,6 +108,12 @@ async def _sync_pending_slide_previews(
             continue
 
         await active("save_preview_content")(run.id, payload)
+        await update_session_run(
+            db=db,
+            run_id=run.id,
+            status=RUN_STATUS_PROCESSING,
+            step=RUN_STEP_PREVIEW,
+        )
         rendered = payload.get("rendered_preview")
         page_count = (
             int(rendered.get("page_count") or 0) if isinstance(rendered, dict) else 0
