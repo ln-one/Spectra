@@ -197,6 +197,15 @@ async def test_sync_diego_generation_streams_slide_preview(monkeypatch):
     ]
     assert GenerationEventType.PPT_SLIDE_GENERATED.value in event_types
     assert GenerationEventType.GENERATION_COMPLETED.value in event_types
+    preview_event = next(
+        call.kwargs["payload"]
+        for call in append_event_mock.await_args_list
+        if call.kwargs.get("event_type") == GenerationEventType.PPT_SLIDE_GENERATED.value
+    )
+    assert preview_event["html_preview"] == "<html><body>slide-1</body></html>"
+    assert preview_event["preview_width"] == 1600
+    assert preview_event["preview_height"] == 900
+    assert preview_event["is_final"] is True
 
 
 @pytest.mark.anyio

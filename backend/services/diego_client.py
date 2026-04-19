@@ -188,6 +188,18 @@ class DiegoClient:
             f"/v1/ppt/runs/{run_id}/slides/{int(slide_no)}/preview",
         )
 
+    async def regenerate_slide(
+        self,
+        run_id: str,
+        slide_no: int,
+        payload: dict[str, Any],
+    ) -> dict[str, Any]:
+        return await self._request_json(
+            "POST",
+            f"/v1/ppt/runs/{run_id}/slides/{int(slide_no)}/regenerate",
+            payload=payload,
+        )
+
 
 def build_diego_client(
     *,

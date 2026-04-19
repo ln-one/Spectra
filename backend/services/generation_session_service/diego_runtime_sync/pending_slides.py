@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Optional
 
 from services.platform.generation_event_constants import GenerationEventType
+from utils.exceptions import ExternalServiceException
 
 from .constants import _SCHEMA_VERSION, logger
 from .dependencies import active
@@ -100,8 +101,13 @@ async def _sync_pending_slide_previews(
             "slide_no": slide_no,
             "slide_index": int(page.get("index") or 0),
             "slide_id": str(page.get("slide_id") or ""),
+            "status": str(page.get("status") or "ready"),
             "preview_ready": True,
+            "html_preview": str(page.get("html_preview") or ""),
             "html_preview_ready": bool(str(page.get("html_preview") or "").strip()),
+            "preview_width": int(page.get("width") or 0) or None,
+            "preview_height": int(page.get("height") or 0) or None,
+            "is_final": True,
             "page_count": page_count,
         }
         await active("append_event")(
