@@ -139,7 +139,10 @@ export interface ProjectState {
   uploadingCount: number;
   error: ApiErrorShape | null;
 
-  fetchProject: (projectId: string) => Promise<void>;
+  fetchProject: (
+    projectId: string,
+    options?: { silent?: boolean }
+  ) => Promise<void>;
   fetchFiles: (projectId: string) => Promise<void>;
   fetchMessages: (
     projectId: string,

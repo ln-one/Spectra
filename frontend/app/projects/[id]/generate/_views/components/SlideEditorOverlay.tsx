@@ -26,8 +26,7 @@ export function SlideEditorOverlay({
         height: `${height}px`,
       }}
     >
-      <div className="pointer-events-auto rounded bg-white/90 px-3 py-1.5 text-xs font-medium text-black/60 shadow backdrop-blur">
-        页面 {slideNo} 前端可交互编辑层已加载 (Level 1)
+      <div className="pointer-events-auto rounded bg-white/0 px-3 py-1.5 text-xs font-medium text-black/0">
       </div>
     </div>
   );

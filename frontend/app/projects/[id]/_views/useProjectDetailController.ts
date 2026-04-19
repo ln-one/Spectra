@@ -63,11 +63,9 @@ function readRecordFromStorage<T extends Record<string, unknown>>(
 
 function mapRunStatusLabel(runStatus?: string, runStep?: string): string {
   if (runStatus === "completed" && runStep === "completed") return "已完成";
-  if (
-    runStatus === "processing" &&
-    (runStep === "outline" || runStep === "generate")
-  ) {
-    return "进行中";
+  if (runStatus === "processing") {
+    if (runStep === "outline" || runStep === "generate") return "课件生成中";
+    if (runStep === "preview") return "单页可预览";
   }
   if (runStatus === "failed") return "失败";
   return runStatus || "processing";
@@ -425,7 +423,7 @@ export function useProjectDetailController() {
     }
 
     const timer = window.setInterval(() => {
-      void fetchProject(projectId);
+      void fetchProject(projectId, { silent: true });
     }, TITLE_POLL_INTERVAL_MS);
     return () => {
       window.clearInterval(timer);

@@ -59,6 +59,8 @@ type SessionIdentity = {
 } | null;
 
 type RawPayload = Record<string, unknown>;
+const RUN_TITLE_POLL_INTERVAL_MS = 2500;
+const BAD_RUN_TITLE_RE = /[A-Za-z]{4,}_[A-Za-z0-9_]+/;
 
 function resolveEventKey(event: {
   event_id?: string;
@@ -277,6 +279,18 @@ function isGeneratingState(state: string | null | undefined): boolean {
   );
 }
 
+function isBadRunTitle(value: string | null | undefined): boolean {
+  const title = String(value || "").trim();
+  if (!title) return true;
+  const lowered = title.toLowerCase();
+  return (
+    BAD_RUN_TITLE_RE.test(title) ||
+    lowered.includes("generation_mode") ||
+    lowered.includes("style_preset") ||
+    lowered.includes("visual_policy")
+  );
+}
+
 export function resolveActivePreviewRunId({
   activeSessionId,
   runIdFromQuery,
@@ -348,12 +362,14 @@ export function useGeneratePreviewState({
     generationSession,
     generationHistory,
     fetchGenerationHistory,
+    exportArtifact,
     setActiveSessionId,
   } = useProjectStore(
     useShallow((state) => ({
       generationSession: state.generationSession,
       generationHistory: state.generationHistory,
       fetchGenerationHistory: state.fetchGenerationHistory,
+      exportArtifact: state.exportArtifact,
       setActiveSessionId: state.setActiveSessionId,
     }))
   );
@@ -564,6 +580,26 @@ export function useGeneratePreviewState({
   }, [activeRunId, activeSessionId, loadSessionRuns, loadSlides]);
 
   useEffect(() => {
+    const currentRun = sessionRuns.find((run) => run.run_id === activeRunId) || null;
+    const needsTitleRefresh = Boolean(
+      activeSessionId &&
+        activeRunId &&
+        currentRun &&
+        (
+          currentRun.run_title_source === "pending" ||
+          isBadRunTitle(currentRun.run_title)
+        )
+    );
+    if (!needsTitleRefresh) return;
+    const timer = window.setInterval(() => {
+      void loadSessionRuns();
+    }, RUN_TITLE_POLL_INTERVAL_MS);
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, [activeRunId, activeSessionId, loadSessionRuns, sessionRuns]);
+
+  useEffect(() => {
     if (!activeRunId) return;
     for (const event of events) {
       const key = resolveEventKey(event as never);
@@ -624,8 +660,11 @@ export function useGeneratePreviewState({
               };
             } else {
               updated.push({
+                id: `slide-${slideNo}`,
                 index: slideNo - 1,
                 title: `Slide ${slideNo}`,
+                content: "",
+                sources: [],
                 rendered_html_preview: htmlPreview,
               });
             }
@@ -712,45 +751,38 @@ export function useGeneratePreviewState({
     if (!activeSessionId || !activeRunId || isExporting) return;
     try {
       setIsExporting(true);
-      const response = await previewApi.exportSessionPreview(activeSessionId, {
-        artifact_id: currentArtifactId ?? undefined,
-        run_id: activeRunId,
-        format: "html",
-        include_sources: true,
-      });
-      const content = response?.data?.content ?? "";
-      if (!content) {
-        toast({
-          title: "导出失败",
-          description: "当前 run 暂无可导出的预览内容。",
-          variant: "destructive",
-        });
+      
+      const currentRunArtifactId = sessionRuns.find(r => r.run_id === activeRunId)?.artifact_id;
+      if (currentRunArtifactId) {
+        await exportArtifact(currentRunArtifactId);
         return;
       }
-
-      const blob = new Blob([content], { type: "text/html;charset=utf-8" });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `diego-preview-${activeRunId.slice(0, 8)}.html`;
-      link.click();
-      URL.revokeObjectURL(url);
-      toast({
-        title: "导出成功",
-        description: "已导出当前 Diego run 的 HTML 预览。",
-      });
-    } catch (error) {
-      const message =
-        error instanceof ApiError ? error.message : "导出失败，请稍后重试";
+      
+      const pptUrl = (generationSession?.session as any)?.result?.ppt_url;
+      if (pptUrl) {
+        const link = document.createElement("a");
+        link.href = pptUrl;
+        link.target = "_blank";
+        link.download = `presentation.pptx`;
+        link.click();
+        return;
+      }
+      
       toast({
         title: "导出失败",
-        description: message,
+        description: "未找到绑定的 PPTX 产物",
+        variant: "destructive",
+      });
+    } catch (error) {
+      toast({
+        title: "导出失败",
+        description: error instanceof Error ? error.message : "导出异常",
         variant: "destructive",
       });
     } finally {
       setIsExporting(false);
     }
-  }, [activeRunId, activeSessionId, currentArtifactId, isExporting]);
+  }, [activeSessionId, activeRunId, isExporting, exportArtifact, sessionRuns, generationSession]);
 
   const currentRunDetail = useMemo(() => {
     return sessionRuns.find(run => run.run_id === activeRunId) || null;
@@ -764,9 +796,21 @@ export function useGeneratePreviewState({
   }, [currentRunDetail]);
 
   const runTitle = useMemo(() => {
-    if (!currentRunDetail) return "未命名演示文稿";
-    return currentRunDetail.run_title || "未命名演示文稿";
-  }, [currentRunDetail]);
+    const currentRunTitle = currentRunDetail?.run_title?.trim() || "";
+    if (currentRunTitle && !isBadRunTitle(currentRunTitle)) {
+      return currentRunTitle;
+    }
+    const sessionTitle = generationHistory
+      .find((item) => item.id === activeSessionId)
+      ?.title?.trim();
+    if (sessionTitle) {
+      return sessionTitle;
+    }
+    if (currentRunTitle) {
+      return currentRunTitle;
+    }
+    return "未命名演示文稿";
+  }, [activeSessionId, currentRunDetail, generationHistory]);
 
   return useMemo(
     () => ({
@@ -777,6 +821,7 @@ export function useGeneratePreviewState({
       isResuming,
       previewBlockedReason,
       isSessionGenerating,
+      generationSession,
       sessionState,
       sessionFailureMessage,
       slidesContentMarkdown,
@@ -801,6 +846,7 @@ export function useGeneratePreviewState({
       isResuming,
       previewBlockedReason,
       isSessionGenerating,
+      generationSession,
       sessionState,
       sessionFailureMessage,
       slidesContentMarkdown,

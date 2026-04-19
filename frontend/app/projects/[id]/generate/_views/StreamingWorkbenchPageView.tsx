@@ -90,6 +90,18 @@ function hasAnyPreviewFrame(slide: SlideItem): boolean {
   );
 }
 
+function isBadRunTitle(value: string | null | undefined): boolean {
+  const title = String(value || "").trim();
+  if (!title) return true;
+  const lowered = title.toLowerCase();
+  return (
+    /[A-Za-z]{4,}_[A-Za-z0-9_]+/.test(title) ||
+    lowered.includes("generation_mode") ||
+    lowered.includes("style_preset") ||
+    lowered.includes("visual_policy")
+  );
+}
+
 export default function StreamingWorkbenchPageView() {
   const router = useRouter();
   const params = useParams();
@@ -111,6 +123,7 @@ export default function StreamingWorkbenchPageView() {
   const [activeFrameIndex, setActiveFrameIndex] = useState<number>(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [regenerateDialogOpen, setRegenerateDialogOpen] = useState(false);
+  const [zoom, setZoom] = useState<number | "fit">("fit");
 
   const {
     slides,
@@ -125,6 +138,7 @@ export default function StreamingWorkbenchPageView() {
     activeRunId,
     diegoPreviewContext,
     currentRunDetail,
+    generationSession,
     generationModeLabel,
     runTitle,
     handleExport,
@@ -182,7 +196,9 @@ export default function StreamingWorkbenchPageView() {
         .map((run) => ({
           value: run.run_id,
           label:
-            run.run_title?.trim() ||
+            (run.run_title?.trim() && !isBadRunTitle(run.run_title)
+              ? run.run_title.trim()
+              : "") ||
             `Run #${run.run_no ?? "?"} (${run.run_id.slice(0, 8)})`,
           status: run.run_status || "unknown",
         })),
@@ -239,19 +255,32 @@ export default function StreamingWorkbenchPageView() {
     !isLoading &&
     previewableSlides.length === 0 && !isSessionGenerating;
 
-  const expectedSlideCount = (currentRunDetail as any)?.target_slide_count || Math.max(orderedSlides.length, 10);
-  const allSlotSlides = useMemo(() => {
-    const totalCount = previewableSlides.length > 0 ? previewableSlides.length : (isSessionGenerating ? expectedSlideCount : previewableSlides.length);
-    if (totalCount === 0) return [];
+  const expectedSlideCount = useMemo(() => {
+    const runTarget = (currentRunDetail as any)?.target_slide_count;
+    if (typeof runTarget === 'number' && runTarget > 0) return runTarget;
     
-    return Array.from({ length: totalCount }, (_, i) => {
+    const outlineNodes = (generationSession?.session as any)?.outline?.nodes;
+    if (Array.isArray(outlineNodes) && outlineNodes.length > 0) return outlineNodes.length;
+    
+    if (previewableSlides.length > 0) {
+      return Math.max(...previewableSlides.map(s => s.index)) + 1;
+    }
+    
+    return 10;
+  }, [currentRunDetail, generationSession, previewableSlides]);
+
+  const allSlotSlides = useMemo(() => {
+    if (expectedSlideCount === 0) return [];
+    return Array.from({ length: expectedSlideCount }, (_, i) => {
       const existing = previewableSlides.find(s => s.index === i);
       return existing || { index: i, title: `Slide ${i + 1}`, _placeholder: true } as any;
     });
-  }, [previewableSlides, isSessionGenerating, expectedSlideCount]);
+  }, [previewableSlides, expectedSlideCount]);
 
-  const totalSlides = allSlotSlides.length;
+  const totalSlides = expectedSlideCount;
   const currentSlideNumber = activeSlidePos >= 0 ? activeSlidePos + 1 : 0;
+  
+  const canExport = !!(currentRunDetail?.artifact_id || (generationSession?.session as any)?.result?.ppt_url);
 
   return (
     <div
@@ -302,12 +331,12 @@ export default function StreamingWorkbenchPageView() {
           <button
             type="button"
             onClick={() => void handleExport()}
-            disabled={!activeRunId || isExporting}
+            disabled={!activeRunId || isExporting || !canExport}
             className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-[#1d1d1f] px-3 text-sm font-medium text-white transition hover:bg-black/80 disabled:opacity-50"
           >
-            <Download className="h-4 w-4" />
+            {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
             <span className="hidden sm:inline">
-              {isExporting ? "导出中" : "导出"}
+              {isExporting ? "导出中" : (!canExport ? "PPTX 生成中" : "导出")}
             </span>
           </button>
         </div>
@@ -464,47 +493,38 @@ export default function StreamingWorkbenchPageView() {
           ) : null}
 
           {/* Canvas */}
-          <section className="relative flex flex-1 items-center justify-center p-6">
+          <section className="relative flex flex-1 overflow-auto p-6">
             {isLoading ? (
-              <div className="flex flex-col items-center justify-center gap-3 text-white/70">
+              <div className="flex flex-col items-center justify-center m-auto gap-3 text-white/70">
                 <Loader2 className="h-10 w-10 animate-spin text-[var(--deck-accent)]" />
                 <p className="text-sm">正在同步 Diego 预览...</p>
               </div>
             ) : runSelectionBlocked ? (
-              <div className="flex flex-col items-center justify-center gap-3 px-6 text-center text-white/70">
+              <div className="flex flex-col items-center justify-center m-auto gap-3 px-6 text-center text-white/70">
                 <p className="text-lg font-semibold text-white">请选择 run</p>
                 <p className="max-w-[460px] text-sm text-white/60">
                   当前页面已切换为严格 Diego 预览链路，不再自动回退到 session 最新产物。
                 </p>
               </div>
             ) : previewBlockedReason ? (
-              <div className="flex flex-col items-center justify-center gap-3 px-6 text-center text-white/70">
-                <p className="text-lg font-semibold text-white">预览不可用</p>
-                <p className="max-w-[520px] text-sm text-white/60">
-                  {previewBlockedReason}
-                </p>
-                <button
-                  type="button"
-                  onClick={() => void handleResume()}
-                  disabled={!activeSessionId || isResuming}
-                  className="mt-2 inline-flex h-9 items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 text-sm text-white transition hover:bg-white/15 disabled:opacity-45"
-                >
-                  {isResuming ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Play className="h-4 w-4" />
-                  )}
-                  {isResuming ? "恢复中" : "继续会话"}
-                </button>
+              <div className="flex flex-col items-center justify-center m-auto gap-3 text-white/70">
+                <Loader2 className="h-10 w-10 animate-spin text-[var(--deck-accent)]" />
+                <p className="text-sm">课程内容加载中，请稍候...</p>
               </div>
             ) : showWaitingState ? (
-              <div className="flex flex-col items-center justify-center gap-3 text-white/70">
+              <div className="flex flex-col items-center justify-center m-auto gap-3 text-white/70">
                 <Loader2 className="h-10 w-10 animate-spin text-[var(--deck-accent)]" />
                 <p className="text-sm">run 已绑定，等待第一页渲染...</p>
               </div>
             ) : activeSlide && activeFrame ? (
               <>
-                <div className="relative w-full max-w-[1100px] overflow-hidden rounded-lg bg-white shadow-[0_24px_70px_-12px_rgba(0,0,0,0.35)]">
+                <div 
+                  className={cn(
+                    "relative bg-white shadow-[0_24px_70px_-12px_rgba(0,0,0,0.35)] transition-all duration-200 m-auto",
+                    zoom === "fit" ? "w-full max-w-[1100px] rounded-lg overflow-hidden" : "rounded-lg overflow-hidden"
+                  )}
+                  style={zoom !== "fit" ? { width: `${1100 * zoom}px`, minWidth: `${1100 * zoom}px` } : {}}
+                >
                   <div className="aspect-video w-full bg-white relative">
                     {activeFrame.html_preview ? (
                       <>
@@ -512,14 +532,8 @@ export default function StreamingWorkbenchPageView() {
                           title={activeSlide.title || `Slide ${activeSlide.index + 1}`}
                           html={activeFrame.html_preview}
                           className="h-full"
-                          viewportWidth={activeFrame.width || undefined}
-                          viewportHeight={activeFrame.height || undefined}
-                        />
-                        <SlideEditorOverlay
-                          slideNo={activeSlide.index + 1}
-                          width={activeFrame.width || undefined}
-                          height={activeFrame.height || undefined}
-                          interactive={true}
+                          viewportWidth={activeFrame.width || 960}
+                          viewportHeight={activeFrame.height || 540}
                         />
                       </>
                     ) : activeFrame.image_url ? (
@@ -626,7 +640,27 @@ export default function StreamingWorkbenchPageView() {
               ) : null}
 
               <div className="flex items-center gap-1 pl-1 text-xs text-white/70">
-                <span>113%</span>
+                <button
+                  type="button"
+                  onClick={() => setZoom(z => z === "fit" ? 0.75 : Math.max(0.25, z - 0.25))}
+                  className="inline-flex h-6 w-6 items-center justify-center rounded text-white/70 hover:bg-white/20 hover:text-white"
+                >
+                  <span className="text-sm">-</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setZoom(z => z === "fit" ? 1 : "fit")}
+                  className="w-10 text-center text-xs font-medium text-white/90 hover:text-white"
+                >
+                  {zoom === "fit" ? "Fit" : `${Math.round(zoom * 100)}%`}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setZoom(z => z === "fit" ? 1.25 : Math.min(3, z + 0.25))}
+                  className="inline-flex h-6 w-6 items-center justify-center rounded text-white/70 hover:bg-white/20 hover:text-white"
+                >
+                  <span className="text-sm">+</span>
+                </button>
                 <button
                   type="button"
                   className="inline-flex h-7 w-7 items-center justify-center rounded-xl transition hover:bg-white/10 hover:text-white"
@@ -665,8 +699,8 @@ export default function StreamingWorkbenchPageView() {
                       title={activeSlide.title || `Slide ${activeSlide.index + 1}`}
                       html={activeFrame.html_preview}
                       className="h-full"
-                      viewportWidth={activeFrame.width || undefined}
-                      viewportHeight={activeFrame.height || undefined}
+                      viewportWidth={activeFrame.width || 960}
+                      viewportHeight={activeFrame.height || 540}
                       interactive
                     />
                   ) : activeFrame.image_url ? (

@@ -15,23 +15,33 @@ export function createProjectActions({
   "fetchProject" | "updateProjectName" | "reset"
 > {
   return {
-    fetchProject: async (projectId: string) => {
-      set({ isLoading: true, error: null });
+    fetchProject: async (
+      projectId: string,
+      options?: { silent?: boolean }
+    ) => {
+      const silent = Boolean(options?.silent);
+      if (!silent) {
+        set({ isLoading: true, error: null });
+      }
       try {
         const response = await projectsApi.getProject(projectId);
         set({ project: response?.data?.project ?? null });
       } catch (error) {
         const message = getErrorMessage(error);
-        set({
-          error: createApiError({ code: "FETCH_PROJECT_FAILED", message }),
-        });
-        toast({
-          title: "获取项目失败",
-          description: message,
-          variant: "destructive",
-        });
+        if (!silent) {
+          set({
+            error: createApiError({ code: "FETCH_PROJECT_FAILED", message }),
+          });
+          toast({
+            title: "获取项目失败",
+            description: message,
+            variant: "destructive",
+          });
+        }
       } finally {
-        set({ isLoading: false });
+        if (!silent) {
+          set({ isLoading: false });
+        }
       }
     },
 

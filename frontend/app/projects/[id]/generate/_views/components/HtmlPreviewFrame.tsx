@@ -13,6 +13,7 @@ body {
   height: 100%;
   margin: 0;
   overflow: hidden;
+  background: transparent;
 }
 .spectra-page-preview {
   box-sizing: border-box !important;
@@ -31,6 +32,7 @@ body {
   max-width: 100% !important;
   border-radius: 0 !important;
   box-shadow: none !important;
+  margin: 0 !important;
 }
 </style>
   `.trim();
@@ -46,8 +48,9 @@ export function HtmlPreviewFrame({
   html,
   className,
   interactive = false,
-  viewportWidth = 1280,
-  viewportHeight = 720,
+  viewportWidth = 960,
+  viewportHeight = 540,
+  zoom = "fit",
 }: {
   title: string;
   html: string;
@@ -59,6 +62,7 @@ export function HtmlPreviewFrame({
   const containerRef = useRef<HTMLDivElement>(null);
   const [frameStyle, setFrameStyle] = useState<CSSProperties>({
     transform: "scale(1)",
+    transformOrigin: "0 0",
   });
 
   useEffect(() => {
@@ -68,11 +72,19 @@ export function HtmlPreviewFrame({
     const updateFrameStyle = () => {
       const { width, height } = container.getBoundingClientRect();
       if (width <= 0 || height <= 0) return;
-      const scale = Math.min(width / viewportWidth, height / viewportHeight);
-      const left = (width - viewportWidth * scale) / 2;
-      const top = (height - viewportHeight * scale) / 2;
+      
+      const fitScale = Math.min(width / viewportWidth, height / viewportHeight);
+      const scale = fitScale;
+      
+      const scaledWidth = viewportWidth * scale;
+      const scaledHeight = viewportHeight * scale;
+      
+      const left = Math.max(0, (width - scaledWidth) / 2);
+      const top = Math.max(0, (height - scaledHeight) / 2);
+      
       setFrameStyle({
         transform: `translate(${left}px, ${top}px) scale(${scale})`,
+        transformOrigin: "0 0",
       });
     };
 
@@ -80,20 +92,20 @@ export function HtmlPreviewFrame({
     const observer = new ResizeObserver(updateFrameStyle);
     observer.observe(container);
     return () => observer.disconnect();
-  }, []);
+  }, [viewportWidth, viewportHeight]);
 
   return (
     <div
       ref={containerRef}
       className={cn(
-        "relative h-full w-full overflow-hidden bg-white",
+        "relative h-full w-full overflow-hidden bg-transparent",
         className
       )}
     >
       <iframe
         title={title}
         srcDoc={withPreviewViewportStyle(html, viewportWidth, viewportHeight)}
-        sandbox=""
+        sandbox="allow-scripts allow-same-origin"
         loading="lazy"
         tabIndex={interactive ? 0 : -1}
         className={cn(
