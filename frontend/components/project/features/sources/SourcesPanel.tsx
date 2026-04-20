@@ -2,7 +2,6 @@
 
 import { useMemo } from "react";
 import * as ScrollAreaPrimitive from "@radix-ui/react-scroll-area";
-import { AnimatePresence } from "framer-motion";
 import { File } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
@@ -288,125 +287,62 @@ export function SourcesPanel({
                       isEffectiveCompact && "flex flex-col gap-2"
                     )}
                   >
-                    {shouldAnimateList ? (
-                      <AnimatePresence mode="popLayout">
-                        <div
-                          key={WEB_SOURCE_CARD_ID}
-                          ref={(element) =>
-                            registerFileRef(WEB_SOURCE_CARD_ID, element)
+                    <div
+                      key={WEB_SOURCE_CARD_ID}
+                      ref={(element) =>
+                        registerFileRef(WEB_SOURCE_CARD_ID, element)
+                      }
+                    >
+                      <WebSourceCard isCompact={isEffectiveCompact} />
+                    </div>
+                    {referencedLibraryCards.map((referenceCard) => (
+                      <div
+                        key={referenceCard.id}
+                        ref={(element) =>
+                          registerFileRef(
+                            `ref-${referenceCard.id}`,
+                            element
+                          )
+                        }
+                      >
+                        <FileItem
+                          file={referenceCard.file}
+                          isSelected={false}
+                          onToggle={() =>
+                            openLibraryDetailPanel(referenceCard)
                           }
-                        >
-                          <WebSourceCard isCompact={isEffectiveCompact} />
-                        </div>
-                        {referencedLibraryCards.map((referenceCard) => (
-                          <div
-                            key={referenceCard.id}
-                            ref={(element) =>
-                              registerFileRef(
-                                `ref-${referenceCard.id}`,
-                                element
-                              )
-                            }
-                          >
-                            <FileItem
-                              file={referenceCard.file}
-                              isSelected={false}
-                              onToggle={() =>
-                                openLibraryDetailPanel(referenceCard)
-                              }
-                              isCompact={isEffectiveCompact}
-                              isFocused={false}
-                              focusDetail={null}
-                              isExpanded={false}
-                              onCollapse={() => undefined}
-                              displayName={referenceCard.displayName}
-                              iconTypeOverride="library"
-                              statusText={referenceCard.statusText}
-                              hideDeleteAction={true}
-                            />
-                          </div>
-                        ))}
-                        {files.map((file) => (
-                          <div
-                            key={file.id}
-                            ref={(element) => registerFileRef(file.id, element)}
-                          >
-                            <FileItem
-                              file={file}
-                              isSelected={selectedFileIds.includes(file.id)}
-                              onToggle={() => toggleFileSelection(file.id)}
-                              onDelete={() => handleDelete(file.id)}
-                              isCompact={isEffectiveCompact}
-                              isFocused={focusedFileId === file.id}
-                              focusDetail={
-                                focusedFileId === file.id ? focusPayload : null
-                              }
-                              isExpanded={!!expandedIds[file.id]}
-                              onCollapse={() => collapseFile(file.id)}
-                            />
-                          </div>
-                        ))}
-                      </AnimatePresence>
-                    ) : (
-                      <>
-                        <div
-                          key={WEB_SOURCE_CARD_ID}
-                          ref={(element) =>
-                            registerFileRef(WEB_SOURCE_CARD_ID, element)
+                          isCompact={isEffectiveCompact}
+                          isFocused={false}
+                          focusDetail={null}
+                          isExpanded={false}
+                          onCollapse={() => undefined}
+                          displayName={referenceCard.displayName}
+                          iconTypeOverride="library"
+                          statusText={referenceCard.statusText}
+                          hideDeleteAction={true}
+                        />
+                      </div>
+                    ))}
+                    {files.map((file) => (
+                      <div
+                        key={file.id}
+                        ref={(element) => registerFileRef(file.id, element)}
+                      >
+                        <FileItem
+                          file={file}
+                          isSelected={selectedFileIds.includes(file.id)}
+                          onToggle={() => toggleFileSelection(file.id)}
+                          onDelete={() => handleDelete(file.id)}
+                          isCompact={isEffectiveCompact}
+                          isFocused={focusedFileId === file.id}
+                          focusDetail={
+                            focusedFileId === file.id ? focusPayload : null
                           }
-                        >
-                          <WebSourceCard isCompact={isEffectiveCompact} />
-                        </div>
-                        {referencedLibraryCards.map((referenceCard) => (
-                          <div
-                            key={referenceCard.id}
-                            ref={(element) =>
-                              registerFileRef(
-                                `ref-${referenceCard.id}`,
-                                element
-                              )
-                            }
-                          >
-                            <FileItem
-                              file={referenceCard.file}
-                              isSelected={false}
-                              onToggle={() =>
-                                openLibraryDetailPanel(referenceCard)
-                              }
-                              isCompact={isEffectiveCompact}
-                              isFocused={false}
-                              focusDetail={null}
-                              isExpanded={false}
-                              onCollapse={() => undefined}
-                              displayName={referenceCard.displayName}
-                              iconTypeOverride="library"
-                              statusText={referenceCard.statusText}
-                              hideDeleteAction={true}
-                            />
-                          </div>
-                        ))}
-                        {files.map((file) => (
-                          <div
-                            key={file.id}
-                            ref={(element) => registerFileRef(file.id, element)}
-                          >
-                            <FileItem
-                              file={file}
-                              isSelected={selectedFileIds.includes(file.id)}
-                              onToggle={() => toggleFileSelection(file.id)}
-                              onDelete={() => handleDelete(file.id)}
-                              isCompact={isEffectiveCompact}
-                              isFocused={focusedFileId === file.id}
-                              focusDetail={
-                                focusedFileId === file.id ? focusPayload : null
-                              }
-                              isExpanded={!!expandedIds[file.id]}
-                              onCollapse={() => collapseFile(file.id)}
-                            />
-                          </div>
-                        ))}
-                      </>
-                    )}
+                          isExpanded={!!expandedIds[file.id]}
+                          onCollapse={() => collapseFile(file.id)}
+                        />
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
