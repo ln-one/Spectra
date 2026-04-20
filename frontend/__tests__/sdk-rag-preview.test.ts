@@ -1,16 +1,28 @@
 import { previewApi } from "@/lib/sdk/preview";
 import { ragApi } from "@/lib/sdk/rag";
-import { sdkClient } from "@/lib/sdk/client";
+import { apiFetch, sdkClient } from "@/lib/sdk/client";
 
 jest.mock("@/lib/sdk/client", () => {
   const POST = jest.fn();
   const GET = jest.fn();
+  const apiFetch = jest.fn();
+  class ApiError extends Error {
+    code: string;
+    status?: number;
+    constructor(code: string, message: string, status?: number) {
+      super(message);
+      this.code = code;
+      this.status = status;
+    }
+  }
 
   return {
     sdkClient: {
       POST,
       GET,
     },
+    apiFetch,
+    ApiError,
     unwrap: jest.fn(async (result: { data?: unknown }) => result.data),
     withIdempotency: jest.fn(() => ({})),
   };
@@ -19,10 +31,12 @@ jest.mock("@/lib/sdk/client", () => {
 describe("sdk query passthrough", () => {
   const mockedPost = sdkClient.POST as jest.Mock;
   const mockedGet = sdkClient.GET as jest.Mock;
+  const mockedApiFetch = apiFetch as jest.Mock;
 
   beforeEach(() => {
     mockedPost.mockReset();
     mockedGet.mockReset();
+    mockedApiFetch.mockReset();
   });
 
   it("passes webSearch query params by contract", async () => {
@@ -162,6 +176,54 @@ describe("sdk query passthrough", () => {
           format: "html",
           include_sources: false,
         },
+      }
+    );
+  });
+
+  it("loads slide scene with run query params", async () => {
+    mockedApiFetch.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ success: true, data: { slide_id: "slide-1", nodes: [] } }),
+    });
+
+    await previewApi.getSessionSlideScene("sess_1", "slide-1", {
+      run_id: "run_1",
+      artifact_id: "art_1",
+    });
+
+    expect(mockedApiFetch).toHaveBeenCalledWith(
+      "/api/v1/generate/sessions/sess_1/preview/slides/slide-1/scene?artifact_id=art_1&run_id=run_1",
+      undefined
+    );
+  });
+
+  it("saves slide scene with explicit operations", async () => {
+    mockedApiFetch.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ success: true, data: { slide_id: "slide-1", scene: { nodes: [] } } }),
+    });
+
+    await previewApi.saveSessionSlideScene(
+      "sess_1",
+      "slide-1",
+      {
+        scene_version: "scene-v1",
+        operations: [{ op: "replace_text", node_id: "text:config:title", value: "New title" }],
+      },
+      { run_id: "run_1" }
+    );
+
+    expect(mockedApiFetch).toHaveBeenCalledWith(
+      "/api/v1/generate/sessions/sess_1/preview/slides/slide-1/scene/save?run_id=run_1",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          scene_version: "scene-v1",
+          operations: [{ op: "replace_text", node_id: "text:config:title", value: "New title" }],
+        }),
       }
     );
   });

@@ -474,6 +474,7 @@ ModifyRequest:
 ModifySessionRequest:
   type: object
   required: [instruction]
+  description: 单页 prompt 重做请求。精确文本/图片编辑改走 scene/save 接口。
   properties:
     artifact_id:
       type: string
@@ -515,8 +516,6 @@ ModifySessionRequest:
     preserve_deck_consistency:
       type: boolean
       default: true
-    patch:
-      $ref: './generate-command-core.yaml#/StructuredSlidePatch'
     candidate_change:
       $ref: "./project-space.yaml#/CandidateChangeRequest"
 

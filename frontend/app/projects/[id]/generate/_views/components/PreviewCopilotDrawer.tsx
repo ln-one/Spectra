@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { ChevronRight, Loader2, Sparkles, Wand2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { chatApi } from "@/lib/sdk/chat";
 import { previewApi } from "@/lib/sdk/preview";
@@ -15,10 +16,7 @@ import type {
   AuthorityPreviewSlide,
   PreviewPreambleLog,
 } from "../useGeneratePreviewState";
-import type {
-  AuthorityEditableNode,
-  AuthorityEditableScene,
-} from "./EditableAuthorityHtmlStage";
+import type { EditableSlideNode, EditableSlideScene } from "@/lib/sdk/preview";
 
 type PreviewChatMessage = {
   id: string;
@@ -34,12 +32,14 @@ interface PreviewCopilotDrawerProps {
   runId: string | null;
   artifactId: string | null;
   activeSlide: AuthorityPreviewSlide | null;
-  activeScene: AuthorityEditableScene | null;
+  activeScene: EditableSlideScene | null;
   selectedNodeId: string | null;
   preambleLogs: PreviewPreambleLog[];
   outline: Record<string, unknown> | null;
   onSelectSlide?: (slideIndex: number) => void;
   onSelectNode?: (nodeId: string | null) => void;
+  onSceneUpdated?: (scene: EditableSlideScene) => void;
+  onRefreshPreview?: () => void;
 }
 
 function filterPreviewMessages(
@@ -72,7 +72,7 @@ function resolveRequestedSlideIndex(
   return activeSlide?.index ?? null;
 }
 
-function summarizeNode(node: AuthorityEditableNode): string {
+function summarizeNode(node: EditableSlideNode): string {
   if (node.kind === "text") {
     return (node.text || "文本节点").slice(0, 36);
   }
@@ -91,13 +91,28 @@ export function PreviewCopilotDrawer({
   outline,
   onSelectSlide,
   onSelectNode,
+  onSceneUpdated,
+  onRefreshPreview,
 }: PreviewCopilotDrawerProps) {
   const [expanded, setExpanded] = useState(false);
   const [messages, setMessages] = useState<PreviewChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [nodeDraft, setNodeDraft] = useState("");
+  const [isSavingScene, setIsSavingScene] = useState(false);
+  const [draftValues, setDraftValues] = useState<Record<string, string>>({});
+  const [pexelsQuery, setPexelsQuery] = useState("");
+  const [pexelsResults, setPexelsResults] = useState<
+    Array<{
+      id: string;
+      thumbnail_url: string;
+      full_url: string;
+      photographer: string;
+      width: number;
+      height: number;
+    }>
+  >([]);
+  const [isSearchingImages, setIsSearchingImages] = useState(false);
 
   const selectedNode = useMemo(
     () => activeScene?.nodes.find((node) => node.node_id === selectedNodeId) ?? null,
@@ -105,12 +120,25 @@ export function PreviewCopilotDrawer({
   );
 
   useEffect(() => {
-    if (!selectedNode) {
-      setNodeDraft("");
+    if (!activeScene) {
+      setDraftValues({});
       return;
     }
-    setNodeDraft(selectedNode.kind === "text" ? selectedNode.text || "" : selectedNode.src || "");
-  }, [selectedNode]);
+    setDraftValues((previous) => {
+      const next: Record<string, string> = {};
+      for (const node of activeScene.nodes) {
+        next[node.node_id] =
+          previous[node.node_id] ??
+          (node.kind === "text" ? node.text || "" : node.src || "");
+      }
+      return next;
+    });
+  }, [activeScene]);
+
+  useEffect(() => {
+    setPexelsResults([]);
+    setPexelsQuery("");
+  }, [selectedNodeId]);
 
   useEffect(() => {
     if (!sessionId) {
@@ -164,6 +192,31 @@ export function PreviewCopilotDrawer({
       }));
   }, [outline]);
 
+  const selectedNodeDraft = selectedNode
+    ? draftValues[selectedNode.node_id] ??
+      (selectedNode.kind === "text" ? selectedNode.text || "" : selectedNode.src || "")
+    : "";
+
+  const dirtyOperations = useMemo(() => {
+    if (!activeScene) return [];
+    return activeScene.nodes
+      .map((node) => {
+        const original = node.kind === "text" ? node.text || "" : node.src || "";
+        const draft = draftValues[node.node_id] ?? original;
+        if (draft === original) return null;
+        return {
+          op: node.kind === "text" ? "replace_text" : "replace_image",
+          node_id: node.node_id,
+          value: draft,
+        } as const;
+      })
+      .filter(Boolean) as Array<{
+      op: "replace_text" | "replace_image";
+      node_id: string;
+      value: string;
+    }>;
+  }, [activeScene, draftValues]);
+
   const submitChatMessage = async (content: string) => {
     if (!sessionId) return;
     const response = await chatApi.sendMessage({
@@ -195,14 +248,12 @@ export function PreviewCopilotDrawer({
     );
   };
 
-  const submitModifyRequest = async ({
+  const submitRedoRequest = async ({
     content,
     requestedSlideIndex,
-    patch,
   }: {
     content: string;
     requestedSlideIndex: number;
-    patch?: Record<string, unknown>;
   }) => {
     if (!sessionId) return;
     await previewApi.modifySessionPreview(sessionId, {
@@ -216,7 +267,6 @@ export function PreviewCopilotDrawer({
       preserve_style: true,
       preserve_layout: true,
       preserve_deck_consistency: true,
-      patch: patch as never,
       context: {
         channel: "preview_copilot",
         current_slide_id: activeSlide?.slide_id,
@@ -224,12 +274,13 @@ export function PreviewCopilotDrawer({
       },
     });
     await submitChatMessage(content);
+    onRefreshPreview?.();
     setMessages((prev) => [
       ...prev,
       {
         id: `local-assistant-${Date.now()}`,
         role: "assistant",
-        content: `已提交第 ${requestedSlideIndex + 1} 页修改请求，等待新预览返回。`,
+        content: `已提交第 ${requestedSlideIndex + 1} 页重做请求，等待新预览返回。`,
         metadata: { channel: "preview_copilot", run_id: runId },
       },
     ]);
@@ -240,52 +291,72 @@ export function PreviewCopilotDrawer({
     if (!trimmed || !sessionId || isSubmitting) return;
     try {
       setIsSubmitting(true);
-      const requestedSlideIndex = resolveRequestedSlideIndex(trimmed, activeSlide);
-      if (/(重做|重写|重生成|改写|改成|修改)/.test(trimmed) && requestedSlideIndex !== null) {
-        await submitModifyRequest({
-          content: trimmed,
-          requestedSlideIndex,
-        });
-      } else {
-        await submitChatMessage(trimmed);
-      }
+      await submitChatMessage(trimmed);
       setInput("");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleApplyNodeEdit = async () => {
-    if (!selectedNode || !activeSlide || !sessionId || isSubmitting) return;
-    const nextValue = nodeDraft.trim();
-    if (!nextValue) return;
-    const content =
-      selectedNode.kind === "text"
-        ? `请修改第 ${activeSlide.index + 1} 页的文本节点，保持布局和样式不变，仅将内容改为：${nextValue}`
-        : `请修改第 ${activeSlide.index + 1} 页的图片节点，保持布局和样式不变，替换图片资源为：${nextValue}`;
-    const patch = {
-      schema_version: 2,
-      operations: [
-        {
-          op: selectedNode.kind === "text" ? "replace_text" : "replace_image",
-          path: `/slides/${activeSlide.index}/nodes/${encodeURIComponent(selectedNode.node_id)}`,
-          value:
-            selectedNode.kind === "text"
-              ? { node_id: selectedNode.node_id, text: nextValue }
-              : { node_id: selectedNode.node_id, src: nextValue },
-          note: "preview_copilot_node_edit",
-        },
-      ],
-    };
+  const handleRedoCurrentSlide = async () => {
+    const trimmed = input.trim();
+    const requestedSlideIndex = resolveRequestedSlideIndex(trimmed, activeSlide);
+    if (!trimmed || requestedSlideIndex === null || isSubmitting) return;
     try {
       setIsSubmitting(true);
-      await submitModifyRequest({
-        content,
-        requestedSlideIndex: activeSlide.index,
-        patch,
+      await submitRedoRequest({
+        content: trimmed,
+        requestedSlideIndex,
       });
+      setInput("");
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleSaveScene = async () => {
+    if (!activeScene || !sessionId || isSavingScene) return;
+    const sceneVersion = activeScene.scene_version?.trim();
+    if (!sceneVersion || dirtyOperations.length === 0) return;
+    try {
+      setIsSavingScene(true);
+      const response = await previewApi.saveSessionSlideScene(
+        sessionId,
+        activeScene.slide_id,
+        {
+          scene_version: sceneVersion,
+          operations: dirtyOperations,
+        },
+        {
+          artifact_id: artifactId ?? undefined,
+          run_id: runId ?? undefined,
+        }
+      );
+      onSceneUpdated?.(response.data.scene);
+      onRefreshPreview?.();
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `local-assistant-scene-${Date.now()}`,
+          role: "assistant",
+          content: `已保存第 ${response.data.slide_no} 页的节点修改。`,
+          metadata: { channel: "preview_copilot", run_id: runId },
+        },
+      ]);
+    } finally {
+      setIsSavingScene(false);
+    }
+  };
+
+  const handleSearchImages = async () => {
+    const query = pexelsQuery.trim();
+    if (!query || isSearchingImages) return;
+    try {
+      setIsSearchingImages(true);
+      const response = await previewApi.searchPexelsImages(query);
+      setPexelsResults(response.data.results);
+    } finally {
+      setIsSearchingImages(false);
     }
   };
 
@@ -436,15 +507,17 @@ export function PreviewCopilotDrawer({
                 size="sm"
                 variant="outline"
                 className="h-7 gap-1.5 border-black/10 px-2 text-xs hover:bg-black/5"
-                onClick={() => void handleApplyNodeEdit()}
-                disabled={isSubmitting || !selectedNode}
+                onClick={() => void handleSaveScene()}
+                disabled={isSavingScene || dirtyOperations.length === 0}
               >
-                {isSubmitting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wand2 className="h-3 w-3" />}
-                应用
+                {isSavingScene ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wand2 className="h-3 w-3" />}
+                保存
               </Button>
             </div>
             {!activeScene || activeScene.nodes.length === 0 ? (
-              <div className="text-sm italic text-black/40">当前页节点仍在解析中</div>
+              <div className="text-sm italic text-black/40">
+                {activeScene?.readonly_reason || "当前页节点仍在解析中"}
+              </div>
             ) : (
               <div className="space-y-3">
                 <div className="flex flex-wrap gap-2">
@@ -469,11 +542,67 @@ export function PreviewCopilotDrawer({
                     <div className="text-[11px] font-semibold uppercase tracking-wide text-black/35">
                       {selectedNode.kind === "text" ? "文本节点" : "图片节点"}
                     </div>
+                    <div className="text-xs text-black/45">{selectedNode.label}</div>
                     <Textarea
-                      value={nodeDraft}
-                      onChange={(event) => setNodeDraft(event.target.value)}
+                      value={selectedNodeDraft}
+                      onChange={(event) =>
+                        setDraftValues((previous) => ({
+                          ...previous,
+                          [selectedNode.node_id]: event.target.value,
+                        }))
+                      }
                       className="min-h-[88px] resize-y border-black/10 bg-white text-[13px] text-zinc-700 shadow-sm focus-visible:ring-1 focus-visible:ring-emerald-500"
                     />
+                    {selectedNode.kind === "image" ? (
+                      <div className="space-y-3 rounded-lg border border-black/5 bg-zinc-50 p-3">
+                        <div className="text-[11px] font-semibold uppercase tracking-wide text-black/35">
+                          搜索替换图片
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Input
+                            value={pexelsQuery}
+                            onChange={(event) => setPexelsQuery(event.target.value)}
+                            placeholder="搜索 Pexels 图片"
+                            className="h-9 border-black/10 bg-white text-[13px]"
+                          />
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-9 border-black/10 px-3 text-xs"
+                            onClick={() => void handleSearchImages()}
+                            disabled={isSearchingImages || !pexelsQuery.trim()}
+                          >
+                            {isSearchingImages ? <Loader2 className="h-3 w-3 animate-spin" /> : "搜索"}
+                          </Button>
+                        </div>
+                        {pexelsResults.length > 0 ? (
+                          <div className="grid grid-cols-2 gap-2">
+                            {pexelsResults.slice(0, 4).map((item) => (
+                              <button
+                                key={item.id}
+                                type="button"
+                                onClick={() =>
+                                  setDraftValues((previous) => ({
+                                    ...previous,
+                                    [selectedNode.node_id]: item.full_url,
+                                  }))
+                                }
+                                className="overflow-hidden rounded-lg border border-black/10 bg-white text-left transition hover:border-emerald-400"
+                              >
+                                <img
+                                  src={item.thumbnail_url}
+                                  alt={item.photographer || "Pexels image"}
+                                  className="h-20 w-full object-cover"
+                                />
+                                <div className="px-2 py-1.5 text-[11px] text-black/60">
+                                  {item.photographer || "Pexels"}
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : null}
                   </div>
                 ) : (
                   <div className="text-sm italic text-black/40">先在列表中选择一个节点</div>
@@ -527,7 +656,7 @@ export function PreviewCopilotDrawer({
           <Textarea
             value={input}
             onChange={(event) => setInput(event.target.value)}
-            placeholder="告诉 Copilot 需要如何修改..."
+            placeholder="输入聊天消息，或点击右侧按钮重做当前页..."
             className="min-h-[80px] resize-none border-black/10 bg-zinc-50 pb-10 text-[13px] shadow-inner-sm focus-visible:ring-1 focus-visible:ring-black/20"
             onKeyDown={(event) => {
               if (event.key === "Enter" && !event.shiftKey) {
@@ -537,15 +666,26 @@ export function PreviewCopilotDrawer({
             }}
           />
           <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between">
-            <span className="px-1 text-[10px] font-medium text-black/30">按 Enter 发送</span>
-            <Button
-              size="sm"
-              onClick={() => void handleSend()}
-              disabled={!sessionId || !input.trim() || isSubmitting}
-              className="h-7 rounded-md bg-black px-3 text-xs font-medium text-white shadow-sm transition-transform active:scale-95 disabled:bg-black/20"
-            >
-              {isSubmitting ? <Loader2 className="h-3 w-3 animate-spin" /> : "发送指令"}
-            </Button>
+            <span className="px-1 text-[10px] font-medium text-black/30">Enter 发送聊天</span>
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => void handleRedoCurrentSlide()}
+                disabled={!sessionId || !input.trim() || isSubmitting || !activeSlide}
+                className="h-7 rounded-md border-black/10 px-3 text-xs font-medium"
+              >
+                {isSubmitting ? <Loader2 className="h-3 w-3 animate-spin" /> : "重做单页"}
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => void handleSend()}
+                disabled={!sessionId || !input.trim() || isSubmitting}
+                className="h-7 rounded-md bg-black px-3 text-xs font-medium text-white shadow-sm transition-transform active:scale-95 disabled:bg-black/20"
+              >
+                {isSubmitting ? <Loader2 className="h-3 w-3 animate-spin" /> : "发送聊天"}
+              </Button>
+            </div>
           </div>
         </div>
       </div>

@@ -133,10 +133,6 @@ async def modify_session_preview_response(
 ):
     parse_candidate_change_payload(body.get("candidate_change"), "candidate_change")
     instruction = resolve_modify_instruction(body)
-    patch = body.get("patch") if isinstance(body.get("patch"), dict) else None
-    if patch is None:
-        patch = {"schema_version": 1, "operations": []}
-
     expected_render_version = resolve_modify_expected_render_version(body)
     validate_optional_positive_int(expected_render_version, "expected_render_version")
     snapshot = await get_preview_snapshot_or_raise(session_id, user_id)
@@ -166,7 +162,6 @@ async def modify_session_preview_response(
         "preserve_style": bool(body.get("preserve_style", True)),
         "preserve_layout": bool(body.get("preserve_layout", True)),
         "preserve_deck_consistency": bool(body.get("preserve_deck_consistency", True)),
-        "patch": patch,
         "expected_render_version": expected_render_version,
     }
     result = await execute_session_command_or_raise(

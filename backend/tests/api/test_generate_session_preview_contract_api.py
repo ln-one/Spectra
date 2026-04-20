@@ -356,6 +356,7 @@ def test_modify_preview_returns_contract_fields(client, monkeypatch, _as_user):
     assert command["preserve_style"] is False
     assert command["preserve_layout"] is False
     assert command["preserve_deck_consistency"] is False
+    assert "patch" not in command
 
 
 def test_modify_preview_accepts_base_render_version_alias(
@@ -582,6 +583,172 @@ def test_modify_preview_accepts_ppt_session_modify(client, monkeypatch, _as_user
     assert body["success"] is True
     assert body["data"]["artifact_id"] == "a-ppt-001"
     svc.execute_command.assert_awaited_once()
+
+
+def test_get_slide_scene_returns_diego_scene(client, monkeypatch, _as_user):
+    svc = SimpleNamespace(get_session_snapshot=AsyncMock(return_value=_ppt_snapshot()))
+    monkeypatch.setattr(
+        generate_sessions_preview_router, "_get_session_service", lambda: svc
+    )
+    monkeypatch.setattr(
+        generate_sessions_preview_router,
+        "_resolve_session_artifact_binding",
+        AsyncMock(return_value=SimpleNamespace(id="a-ppt-001", basedOnVersionId="v-ppt-001")),
+    )
+    monkeypatch.setattr(
+        generate_sessions_preview_router,
+        "_load_preview_material",
+        AsyncMock(
+            return_value=(
+                SimpleNamespace(id="t-ppt-001"),
+                [
+                    {
+                        "id": "run-001-slide-0",
+                        "index": 0,
+                        "title": "S1",
+                        "content": "C1",
+                        "sources": [],
+                    }
+                ],
+                None,
+                {},
+            )
+        ),
+    )
+    get_scene = AsyncMock(
+        return_value={
+            "run_id": "run-001",
+            "slide_id": "run-001-slide-0",
+            "slide_index": 0,
+            "slide_no": 1,
+            "scene_version": "scene-v1",
+            "nodes": [{"node_id": "text:config:title", "kind": "text", "label": "Title", "text": "S1"}],
+            "readonly": False,
+            "readonly_reason": None,
+        }
+    )
+    monkeypatch.setattr(
+        generate_sessions_preview_router,
+        "get_diego_slide_scene_for_run",
+        get_scene,
+    )
+
+    resp = client.get(
+        "/api/v1/generate/sessions/s-preview-001/preview/slides/run-001-slide-0/scene?run_id=run-001"
+    )
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["data"]["slide_no"] == 1
+    assert body["data"]["nodes"][0]["node_id"] == "text:config:title"
+    get_scene.assert_awaited_once()
+    assert get_scene.await_args.kwargs["run_id"] == "run-001"
+    assert get_scene.await_args.kwargs["slide_no"] == 1
+
+
+def test_save_slide_scene_forwards_operations_to_diego(client, monkeypatch, _as_user):
+    svc = SimpleNamespace(get_session_snapshot=AsyncMock(return_value=_ppt_snapshot()))
+    monkeypatch.setattr(
+        generate_sessions_preview_router, "_get_session_service", lambda: svc
+    )
+    monkeypatch.setattr(
+        generate_sessions_preview_router,
+        "_resolve_session_artifact_binding",
+        AsyncMock(return_value=SimpleNamespace(id="a-ppt-001", basedOnVersionId="v-ppt-001")),
+    )
+    monkeypatch.setattr(
+        generate_sessions_preview_router,
+        "_load_preview_material",
+        AsyncMock(
+            return_value=(
+                SimpleNamespace(id="t-ppt-001"),
+                [
+                    {
+                        "id": "run-001-slide-0",
+                        "index": 0,
+                        "title": "S1",
+                        "content": "C1",
+                        "sources": [],
+                    }
+                ],
+                None,
+                {},
+            )
+        ),
+    )
+    save_scene = AsyncMock(
+        return_value={
+            "run_id": "run-001",
+            "slide_id": "run-001-slide-0",
+            "slide_index": 0,
+            "slide_no": 1,
+            "status": "ready",
+            "scene": {
+                "run_id": "run-001",
+                "slide_id": "run-001-slide-0",
+                "slide_index": 0,
+                "slide_no": 1,
+                "scene_version": "scene-v2",
+                "nodes": [],
+                "readonly": False,
+                "readonly_reason": None,
+            },
+            "preview": {"slide_id": "run-001-slide-0", "svg_data_url": "data:image/svg+xml;base64,abc"},
+        }
+    )
+    monkeypatch.setattr(
+        generate_sessions_preview_router,
+        "save_diego_slide_scene_for_run",
+        save_scene,
+    )
+
+    resp = client.post(
+        "/api/v1/generate/sessions/s-preview-001/preview/slides/run-001-slide-0/scene/save?run_id=run-001",
+        json={
+            "scene_version": "scene-v1",
+            "operations": [
+                {
+                    "op": "replace_text",
+                    "node_id": "text:config:title",
+                    "value": "New Title",
+                }
+            ],
+        },
+    )
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["data"]["scene"]["scene_version"] == "scene-v2"
+    save_scene.assert_awaited_once()
+    assert save_scene.await_args.kwargs["slide_no"] == 1
+    assert save_scene.await_args.kwargs["payload"]["operations"][0]["node_id"] == "text:config:title"
+
+
+def test_search_pexels_assets_returns_proxy_payload(client, monkeypatch, _as_user):
+    search = AsyncMock(
+        return_value={
+            "query": "teacher classroom",
+            "results": [
+                {
+                    "id": "p1",
+                    "thumbnail_url": "https://img.test/thumb.jpg",
+                    "full_url": "https://img.test/full.jpg",
+                    "photographer": "Demo",
+                    "width": 1200,
+                    "height": 800,
+                }
+            ],
+        }
+    )
+    monkeypatch.setattr(generate_sessions_preview_router, "search_pexels_images", search)
+
+    resp = client.get("/api/v1/generate/assets/pexels/search?q=teacher classroom")
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["data"]["query"] == "teacher classroom"
+    assert body["data"]["results"][0]["id"] == "p1"
+    search.assert_awaited_once_with("teacher classroom", per_page=4)
 
 
 def test_get_slide_preview_returns_slide_shape(client, monkeypatch, _as_user):

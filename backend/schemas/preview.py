@@ -5,7 +5,7 @@ Preview Schemas - 预览相关 Pydantic 模型
 """
 
 from enum import Enum
-from typing import Optional
+from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -178,6 +178,71 @@ class AuthorityPreview(BaseModel):
     theme: Optional[DiegoPreviewTheme] = None
     fonts: Optional[DiegoPreviewFonts] = None
     slides: list[AuthorityPreviewSlide] = Field(default_factory=list)
+
+
+class EditableSlideNodeBox(BaseModel):
+    x: float
+    y: float
+    w: float
+    h: float
+
+
+class EditableSlideNode(BaseModel):
+    node_id: str
+    kind: Literal["text", "image"]
+    label: str
+    text: Optional[str] = None
+    src: Optional[str] = None
+    alt: Optional[str] = None
+    bbox: Optional[EditableSlideNodeBox] = None
+    style: dict[str, Any] = Field(default_factory=dict)
+    edit_capabilities: list[str] = Field(default_factory=list)
+
+
+class EditableSlideScene(BaseModel):
+    run_id: str
+    slide_id: str
+    slide_index: int = Field(..., ge=0)
+    slide_no: int = Field(..., ge=1)
+    scene_version: str
+    nodes: list[EditableSlideNode] = Field(default_factory=list)
+    readonly: bool = False
+    readonly_reason: Optional[str] = None
+
+
+class SaveSlideSceneOperation(BaseModel):
+    op: Literal["replace_text", "replace_image"]
+    node_id: str
+    value: str
+
+
+class SaveSlideSceneRequest(BaseModel):
+    scene_version: str = Field(..., min_length=1)
+    operations: list[SaveSlideSceneOperation] = Field(default_factory=list, min_length=1)
+
+
+class SaveSlideSceneData(BaseModel):
+    run_id: str
+    slide_id: str
+    slide_index: int = Field(..., ge=0)
+    slide_no: int = Field(..., ge=1)
+    status: str = "ready"
+    scene: EditableSlideScene
+    preview: dict[str, Any] = Field(default_factory=dict)
+
+
+class PexelsSearchItem(BaseModel):
+    id: str
+    thumbnail_url: str
+    full_url: str
+    photographer: str = ""
+    width: int = Field(default=0, ge=0)
+    height: int = Field(default=0, ge=0)
+
+
+class PexelsSearchData(BaseModel):
+    query: str
+    results: list[PexelsSearchItem] = Field(default_factory=list)
 
 
 class SlidePlan(BaseModel):

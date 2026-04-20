@@ -13,7 +13,7 @@ import {
   Save,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { AuthorityEditableScene } from "./components/EditableAuthorityHtmlStage";
+import { previewApi, type EditableSlideScene } from "@/lib/sdk/preview";
 import { PreviewCopilotDrawer } from "./components/PreviewCopilotDrawer";
 import { useGeneratePreviewState } from "./useGeneratePreviewState";
 import { RunSelectorPopover } from "./components/RunSelectorPopover";
@@ -218,7 +218,7 @@ export default function StreamingWorkbenchPageView() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [regenerateDialogOpen, setRegenerateDialogOpen] = useState(false);
   const [zoom, setZoom] = useState<number | "fit">("fit");
-  const [sceneBySlideId] = useState<Record<string, AuthorityEditableScene>>({});
+  const [sceneBySlideId, setSceneBySlideId] = useState<Record<string, EditableSlideScene>>({});
   const [selectedNodeBySlideId, setSelectedNodeBySlideId] = useState<Record<string, string | null>>({});
   const canvasRef = useRef<HTMLDivElement>(null);
 
@@ -437,6 +437,56 @@ export default function StreamingWorkbenchPageView() {
           }
     );
   };
+
+  useEffect(() => {
+    if (!activeSessionId || !activeAuthoritySlideId) {
+      return;
+    }
+    let cancelled = false;
+    const loadScene = async () => {
+      try {
+        const response = await previewApi.getSessionSlideScene(
+          activeSessionId,
+          activeAuthoritySlideId,
+          {
+            artifact_id: currentArtifactId ?? undefined,
+            run_id: activeRunId ?? undefined,
+          }
+        );
+        if (cancelled) return;
+        setSceneBySlideId((previous) => ({
+          ...previous,
+          [activeAuthoritySlideId]: response.data,
+        }));
+      } catch {
+        if (cancelled) return;
+        setSceneBySlideId((previous) => ({
+          ...previous,
+          [activeAuthoritySlideId]: {
+            run_id: activeRunId || "",
+            slide_id: activeAuthoritySlideId,
+            slide_index: activeAuthoritySlide?.index ?? 0,
+            slide_no: (activeAuthoritySlide?.index ?? 0) + 1,
+            scene_version: "",
+            nodes: [],
+            readonly: true,
+            readonly_reason: "当前页暂不支持结构化编辑",
+          },
+        }));
+      }
+    };
+    void loadScene();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    activeAuthoritySlide?.index,
+    activeAuthoritySlideId,
+    activeRunId,
+    activeSessionId,
+    currentArtifactId,
+    currentRenderVersion,
+  ]);
 
   const totalSlides = expectedSlideCount;
   const currentSlideNumber = activeSlideSlot ? activeSlideSlot.index + 1 : 0;
@@ -816,6 +866,13 @@ export default function StreamingWorkbenchPageView() {
             });
           }}
           onSelectNode={handleActiveAuthorityNodeSelect}
+          onSceneUpdated={(scene) => {
+            setSceneBySlideId((previous) => ({
+              ...previous,
+              [scene.slide_id]: scene,
+            }));
+          }}
+          onRefreshPreview={() => void loadSlides()}
         />
       </div>
 
