@@ -1,4 +1,4 @@
-import { apiFetch, toApiError } from "./client";
+import { apiFetch, apiFetchSameOrigin, toApiError } from "./client";
 
 export type StudioCardId =
   | "courseware_ppt"
@@ -142,8 +142,12 @@ export interface StudioCardExecutionPreviewRequest {
   config?: Record<string, unknown>;
   template_config?: Record<string, unknown>;
   visibility?: "private" | "project-visible" | "shared";
+  primary_source_id?: string;
+  selected_source_ids?: string[];
   source_artifact_id?: string;
+  selected_file_ids?: string[];
   rag_source_ids?: string[];
+  selected_library_ids?: string[];
   client_session_id?: string;
   run_id?: string;
 }
@@ -157,8 +161,12 @@ export interface StudioCardRefineRequest {
   selection_anchor?: StudioSelectionAnchor;
   config?: Record<string, unknown>;
   visibility?: "private" | "project-visible" | "shared";
+  primary_source_id?: string;
+  selected_source_ids?: string[];
   source_artifact_id?: string;
+  selected_file_ids?: string[];
   rag_source_ids?: string[];
+  selected_library_ids?: string[];
 }
 
 export interface StudioCardSourceArtifact {
@@ -185,9 +193,12 @@ export interface StudioCardSourceBindingCandidate {
 export interface StudioCardTurnRequest {
   project_id: string;
   artifact_id: string;
+  session_id?: string;
   teacher_answer: string;
   config?: Record<string, unknown>;
+  selected_file_ids?: string[];
   rag_source_ids?: string[];
+  selected_library_ids?: string[];
   turn_anchor?: string;
 }
 
@@ -249,7 +260,7 @@ export const studioCardsApi = {
   async getCatalog(): Promise<
     ApiEnvelope<{ studio_cards: StudioCardCapability[] }>
   > {
-    const response = await apiFetch("/api/v1/generate/studio-cards");
+    const response = await apiFetchSameOrigin("/api/v1/generate/studio-cards");
     return parseResponse<ApiEnvelope<{ studio_cards: StudioCardCapability[] }>>(
       response,
       "获取 Studio 卡片目录失败"
@@ -259,7 +270,7 @@ export const studioCardsApi = {
   async getCard(
     cardId: string
   ): Promise<ApiEnvelope<{ studio_card: StudioCardCapability }>> {
-    const response = await apiFetch(
+    const response = await apiFetchSameOrigin(
       `/api/v1/generate/studio-cards/${encodeURIComponent(cardId)}`
     );
     return parseResponse<ApiEnvelope<{ studio_card: StudioCardCapability }>>(
@@ -271,7 +282,7 @@ export const studioCardsApi = {
   async getExecutionPlan(
     cardId: string
   ): Promise<ApiEnvelope<{ execution_plan: StudioCardExecutionPlan }>> {
-    const response = await apiFetch(
+    const response = await apiFetchSameOrigin(
       `/api/v1/generate/studio-cards/${encodeURIComponent(cardId)}/execution-plan`
     );
     return parseResponse<
@@ -283,7 +294,7 @@ export const studioCardsApi = {
     cardId: string,
     body: StudioCardExecutionPreviewRequest
   ): Promise<ApiEnvelope<{ execution_preview: Record<string, unknown> }>> {
-    const response = await apiFetch(
+    const response = await apiFetchSameOrigin(
       `/api/v1/generate/studio-cards/${encodeURIComponent(cardId)}/execution-preview`,
       {
         method: "POST",
@@ -379,7 +390,7 @@ export const studioCardsApi = {
     if (sessionId?.trim()) {
       params.set("session_id", sessionId.trim());
     }
-    const response = await apiFetch(
+    const response = await apiFetchSameOrigin(
       `/api/v1/generate/studio-cards/${encodeURIComponent(cardId)}/sources?${params.toString()}`
     );
     return parseResponse<
@@ -393,7 +404,7 @@ export const studioCardsApi = {
   async turn(body: StudioCardTurnRequest): Promise<
     ApiEnvelope<StudioCardTurnResponseData>
   > {
-    const response = await apiFetch(
+    const response = await apiFetchSameOrigin(
       "/api/v1/generate/studio-cards/classroom_qa_simulator/turn",
       {
         method: "POST",
@@ -415,7 +426,7 @@ export const studioCardsApi = {
       artifact: Record<string, unknown>;
     }>
   > {
-    const response = await apiFetch(
+    const response = await apiFetchSameOrigin(
       "/api/v1/generate/studio-cards/demonstration_animations/recommend-placement",
       {
         method: "POST",
@@ -440,7 +451,7 @@ export const studioCardsApi = {
       ppt_artifact?: Record<string, unknown>;
     }>
   > {
-    const response = await apiFetch(
+    const response = await apiFetchSameOrigin(
       "/api/v1/generate/studio-cards/demonstration_animations/confirm-placement",
       {
         method: "POST",

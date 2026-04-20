@@ -47,6 +47,31 @@ describe("artifact history mapper", () => {
     expect(mapArtifactToToolType(artifact)).toBe("ppt");
   });
 
+  it("maps html animation storyboard artifact to animation", () => {
+    const artifact: Artifact = {
+      ...baseArtifact,
+      id: "art_html_anim",
+      type: "html",
+      metadata: {
+        kind: "animation_storyboard",
+        runtime_version: "animation_runtime.v4",
+      },
+    };
+    expect(mapArtifactToToolType(artifact)).toBe("animation");
+  });
+
+  it("maps html interactive game artifact to outline", () => {
+    const artifact: Artifact = {
+      ...baseArtifact,
+      id: "art_html_game",
+      type: "html",
+      metadata: {
+        kind: "interactive_game",
+      },
+    };
+    expect(mapArtifactToToolType(artifact)).toBe("outline");
+  });
+
   it("groups by session and sorts by created time desc", () => {
     const artifacts: Artifact[] = [
       {

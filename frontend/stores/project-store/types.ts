@@ -167,6 +167,8 @@ export interface ProjectState {
   files: UploadedFile[];
   messages: Message[];
   selectedFileIds: string[];
+  selectedLibraryIds: string[];
+  selectedArtifactSourceIds: string[];
   generationSession: SessionStatePayloadWithBrief | null;
   generationHistory: GenerationHistory[];
   artifactHistoryByTool: ArtifactHistoryByTool;
@@ -208,6 +210,10 @@ export interface ProjectState {
   ) => Promise<UploadedFile | void>;
   deleteFile: (fileId: string) => Promise<void>;
   toggleFileSelection: (fileId: string) => void;
+  toggleLibrarySelection: (libraryId: string) => void;
+  toggleArtifactSourceSelection: (sourceId: string) => void;
+  setSelectedLibraryIds: (libraryIds: string[]) => void;
+  setSelectedArtifactSourceIds: (sourceIds: string[]) => void;
   sendMessage: (
     projectId: string,
     content: string,
@@ -332,6 +338,8 @@ export const initialState = {
   files: [],
   messages: [],
   selectedFileIds: [],
+  selectedLibraryIds: [],
+  selectedArtifactSourceIds: [],
   generationSession: null,
   generationHistory: [],
   artifactHistoryByTool: groupArtifactsByTool([]),

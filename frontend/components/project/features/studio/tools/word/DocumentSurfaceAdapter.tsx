@@ -53,25 +53,34 @@ export function DocumentSurfaceAdapter({
   }, [editable, editor]);
 
   const toolbarButtonClass = "h-8 px-3 text-xs";
+  const shouldShowHeader = Boolean(title || description || badgeLabel);
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <p className="text-sm font-semibold text-zinc-900">{title}</p>
-          <p className="mt-1 text-[11px] text-zinc-500">
-            {description}
-          </p>
+      {shouldShowHeader ? (
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            {title ? (
+              <p className="text-sm font-semibold text-zinc-900">{title}</p>
+            ) : null}
+            {description ? (
+              <p className="mt-1 text-[11px] text-zinc-500">
+                {description}
+              </p>
+            ) : null}
+          </div>
+          <div className="flex items-center gap-2">
+            {badgeLabel ? (
+              <span className="rounded-full border border-zinc-200 bg-zinc-100 px-2.5 py-1 text-[11px] font-medium text-zinc-600">
+                {badgeLabel}
+              </span>
+            ) : null}
+            <span className="rounded-full border border-zinc-200 bg-white px-2.5 py-1 text-[11px] font-medium text-zinc-500">
+              {editable ? "Editable" : "Read only"}
+            </span>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <span className="rounded-full border border-zinc-200 bg-zinc-100 px-2.5 py-1 text-[11px] font-medium text-zinc-600">
-            {badgeLabel}
-          </span>
-          <span className="rounded-full border border-zinc-200 bg-white px-2.5 py-1 text-[11px] font-medium text-zinc-500">
-            {editable ? "Editable" : "Read only"}
-          </span>
-        </div>
-      </div>
+      ) : null}
       {editable && editor ? (
         <div className="flex flex-wrap gap-2 rounded-2xl border border-zinc-200 bg-zinc-50 p-3">
           <Button

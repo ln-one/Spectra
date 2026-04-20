@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Check, ChevronUp, Trash2 } from "lucide-react";
+import { ArrowUpRight, Check, ChevronUp, Trash2 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
 import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
@@ -38,6 +38,16 @@ function normalizeRelativeImagePath(src: string | undefined): string | null {
     return null;
   }
   return normalized;
+}
+
+function shouldSilenceImageError(message: string | null): boolean {
+  const normalized = (message || "").trim();
+  return (
+    !normalized ||
+    normalized.includes("当前来源无可用图片") ||
+    normalized.includes("来源图片不存在") ||
+    normalized.includes("仅支持 images/ 相对路径")
+  );
 }
 
 function SourceChunkImage({
@@ -115,14 +125,13 @@ function SourceChunkImage({
   }
 
   if (!chunkId || !relativePath) {
-    return (
-      <span className="my-2 block text-[10px] text-[var(--project-text-muted)]">
-        图片路径不支持
-      </span>
-    );
+    return null;
   }
 
   if (loadError) {
+    if (shouldSilenceImageError(loadError)) {
+      return null;
+    }
     return (
       <span className="my-2 block text-[10px] text-[var(--project-text-muted)]">
         {loadError}
@@ -208,6 +217,7 @@ interface FileItemProps {
   file: UploadedFile;
   isSelected: boolean;
   onToggle: () => void;
+  onOpen?: () => void;
   onDelete?: () => void;
   isCompact: boolean;
   isFocused: boolean;
@@ -224,6 +234,7 @@ export function FileItem({
   file,
   isSelected,
   onToggle,
+  onOpen,
   onDelete,
   isCompact,
   isFocused,
@@ -274,12 +285,45 @@ export function FileItem({
           <Icon className={cn("h-4 w-4 transition-colors", config.color)} />
         </div>
 
+        {onOpen ? (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={(event) => {
+              event.stopPropagation();
+              onOpen();
+            }}
+            className="absolute -left-1 -top-1 z-10 h-4 w-4 rounded-full bg-white/92 text-zinc-400 opacity-0 shadow-sm ring-1 ring-zinc-200 transition-all hover:bg-sky-50 hover:text-sky-600 group-hover:opacity-100"
+            aria-label="打开成果"
+          >
+            <ArrowUpRight className="h-2.5 w-2.5" />
+          </Button>
+        ) : null}
+
+        {!hideDeleteAction && onDelete ? (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={(event) => {
+              event.stopPropagation();
+              onDelete();
+            }}
+            className="absolute -right-1 -top-1 z-10 h-4 w-4 rounded-full bg-white/92 text-zinc-400 opacity-0 shadow-sm ring-1 ring-zinc-200 transition-all hover:bg-red-50 hover:text-red-500 group-hover:opacity-100"
+            aria-label="删除来源"
+          >
+            <Trash2 className="h-2.5 w-2.5" />
+          </Button>
+        ) : null}
+
         {isSelected ? (
           <motion.div
             initial={{ scale: 0, rotate: -180 }}
             animate={{ scale: 1, rotate: 0 }}
             transition={{ type: "spring", stiffness: 400, damping: 25 }}
-            className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-[var(--project-accent)] text-[var(--project-accent-text)] shadow-lg"
+            className={cn(
+              "absolute flex h-4 w-4 items-center justify-center rounded-full bg-[var(--project-accent)] text-[var(--project-accent-text)] shadow-lg",
+              !hideDeleteAction && onDelete ? "-left-1 -top-1" : "-right-1 -top-1"
+            )}
           >
             <Check className="h-2.5 w-2.5" strokeWidth={3} />
           </motion.div>
@@ -321,14 +365,31 @@ export function FileItem({
         />
       ) : null}
 
-      <div
-        className={cn(
-          "flex h-8 w-8 items-center justify-center rounded-lg transition-transform duration-200 group-hover:scale-105",
-          config.bgGradient
-        )}
-      >
-        <Icon className={cn("h-4 w-4 transition-colors", config.color)} />
-      </div>
+      {onOpen ? (
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            onOpen();
+          }}
+          className={cn(
+            "flex h-8 w-8 items-center justify-center rounded-lg transition-transform duration-200 group-hover:scale-105 hover:brightness-95",
+            config.bgGradient
+          )}
+          aria-label="打开成果"
+        >
+          <Icon className={cn("h-4 w-4 transition-colors", config.color)} />
+        </button>
+      ) : (
+        <div
+          className={cn(
+            "flex h-8 w-8 items-center justify-center rounded-lg transition-transform duration-200 group-hover:scale-105",
+            config.bgGradient
+          )}
+        >
+          <Icon className={cn("h-4 w-4 transition-colors", config.color)} />
+        </div>
+      )}
 
       <div className="min-w-0 flex flex-col justify-center">
         <p
@@ -364,6 +425,21 @@ export function FileItem({
             statusConfig.pulse && "animate-pulse"
           )}
         />
+
+        {onOpen ? (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={(event) => {
+              event.stopPropagation();
+              onOpen();
+            }}
+            className="h-6 w-6 shrink-0 rounded-md bg-[var(--project-surface-muted)] text-[var(--project-text-muted)] transition-colors hover:bg-sky-50 hover:text-sky-600"
+            aria-label="打开成果"
+          >
+            <ArrowUpRight className="h-3 w-3" />
+          </Button>
+        ) : null}
 
         {!hideDeleteAction ? (
           <Button

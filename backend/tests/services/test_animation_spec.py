@@ -331,8 +331,8 @@ def test_normalize_animation_spec_builds_algorithm_demo_for_bubble_sort():
     assert spec["animation_family"] == "algorithm_demo"
     assert spec["algorithm_type"] == "bubble_sort"
     assert spec["layout_type"] == "algorithm_bars"
-    assert spec["steps"][0]["action"] == "compare"
-    assert spec["steps"][-1]["snapshot"] == [2, 3, 5, 6, 8]
+    assert spec["family_hint"] == "algorithm_demo"
+    assert spec["scenes"]
 
 
 def test_normalize_animation_spec_builds_algorithm_demo_for_binary_search():
@@ -347,5 +347,21 @@ def test_normalize_animation_spec_builds_algorithm_demo_for_binary_search():
     assert spec["animation_family"] == "algorithm_demo"
     assert spec["algorithm_type"] == "binary_search"
     assert spec["layout_type"] == "algorithm_window"
-    assert spec["steps"][0]["pointer_indices"] == [0, 3, 6]
-    assert spec["steps"][-1]["action"] == "found"
+    assert spec["family_hint"] == "algorithm_demo"
+    assert spec["scenes"]
+
+
+def test_normalize_animation_spec_supports_deterministic_algorithm_seed_debug_mode():
+    spec = normalize_animation_spec(
+        {
+            "title": "冒泡排序演示动画",
+            "summary": "展示比较与交换过程",
+            "focus": "突出每一轮如何把最大值推到末尾",
+            "use_deterministic_algorithm_seed": True,
+        }
+    )
+
+    assert spec["animation_family"] == "algorithm_demo"
+    assert spec["algorithm_type"] == "bubble_sort"
+    assert spec["steps"][0]["action"] == "compare"
+    assert spec["steps"][-1]["snapshot"] == [2, 3, 5, 6, 8]

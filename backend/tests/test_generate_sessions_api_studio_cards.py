@@ -35,10 +35,14 @@ def _as_user(app):
 def _studio_generated_content(card_id: str) -> dict:
     if card_id == "word_document":
         return {
-            "kind": "word_document",
-            "title": "牛顿定律学生讲义",
-            "summary": "围绕牛顿定律生成分层教学讲义。",
-            "document_variant": "student_handout",
+            "kind": "teaching_document",
+            "legacy_kind": "word_document",
+            "schema_id": "lesson_plan_v1",
+            "schema_version": 1,
+            "preset": "lesson_plan",
+            "title": "牛顿定律教案",
+            "summary": "围绕牛顿定律生成教案。",
+            "document_variant": "layered_lesson_plan",
             "source_artifact_id": "a-ppt-001",
         }
     if card_id == "interactive_games":
@@ -125,6 +129,10 @@ async def test_execute_studio_card_creates_word_artifact(app, _as_user):
             AsyncMock(),
         ),
         patch(
+            "services.generation_session_service.card_execution_runtime_artifacts.resolve_execution_session_id",
+            AsyncMock(return_value="s-001"),
+        ),
+        patch(
             "services.generation_session_service.card_execution_runtime_artifacts.build_studio_tool_artifact_content",
             AsyncMock(return_value=_studio_generated_content("word_document")),
         ),
@@ -141,15 +149,111 @@ async def test_execute_studio_card_creates_word_artifact(app, _as_user):
             "/api/v1/generate/studio-cards/word_document/execute",
             json={
                 "project_id": "p-001",
+                "client_session_id": "s-001",
+                "primary_source_id": "a-ppt-001",
                 "source_artifact_id": "a-ppt-001",
-                "config": {"document_variant": "student_handout"},
+                "selected_source_ids": ["a-ppt-001"],
+                "config": {
+                    "schema_id": "lesson_plan_v1",
+                    "detail_level": "standard",
+                },
             },
         )
 
     assert response.status_code == 200
     kwargs = create_artifact_mock.await_args.kwargs
     assert kwargs["artifact_type"] == "docx"
-    assert kwargs["content"]["document_variant"] == "student_handout"
+    assert kwargs["content"]["kind"] == "teaching_document"
+    assert kwargs["content"]["schema_id"] == "lesson_plan_v1"
+    assert kwargs["content"]["primary_source_id"] == "a-ppt-001"
+    assert kwargs["session_id"] == "s-001"
+
+
+@pytest.mark.anyio
+async def test_execute_studio_card_creates_word_artifact_without_ppt_source(
+    app, _as_user
+):
+    client = TestClient(app)
+    artifact = SimpleNamespace(
+        id="a-word-002",
+        projectId="p-001",
+        sessionId=None,
+        basedOnVersionId=None,
+        ownerUserId="u-001",
+        type="docx",
+        visibility="private",
+        storagePath="uploads/artifacts/a-word-002.docx",
+        createdAt=datetime.now(timezone.utc),
+        updatedAt=datetime.now(timezone.utc),
+    )
+    generated_content = _studio_generated_content("word_document")
+    generated_content.pop("source_artifact_id", None)
+    generated_content["title"] = "物理层的基本概念教案"
+
+    with (
+        patch(
+            "services.project_space_service.project_space_service.check_project_permission",
+            AsyncMock(),
+        ),
+        patch(
+            "services.generation_session_service.card_execution_runtime_artifacts.resolve_execution_session_id",
+            AsyncMock(return_value="s-001"),
+        ),
+        patch(
+            "services.generation_session_service.card_execution_runtime_artifacts.build_studio_tool_artifact_content",
+            AsyncMock(return_value=generated_content),
+        ),
+        patch(
+            "services.project_space_service.project_space_service.get_artifact",
+            AsyncMock(),
+        ) as get_artifact_mock,
+        patch(
+            "services.project_space_service.project_space_service.create_artifact_with_file",
+            AsyncMock(return_value=artifact),
+        ) as create_artifact_mock,
+    ):
+        response = client.post(
+            "/api/v1/generate/studio-cards/word_document/execute",
+            json={
+                "project_id": "p-001",
+                "client_session_id": "s-001",
+                "config": {
+                    "schema_id": "lesson_plan_v1",
+                    "topic": "物理层的基本概念",
+                    "detail_level": "standard",
+                },
+            },
+        )
+
+    assert response.status_code == 200
+    get_artifact_mock.assert_not_awaited()
+    kwargs = create_artifact_mock.await_args.kwargs
+    assert kwargs["artifact_type"] == "docx"
+    assert kwargs["content"]["kind"] == "teaching_document"
+    assert kwargs["content"]["primary_source_id"] is None
+    assert kwargs["content"]["source_snapshot"]["source_artifact_id"] is None
+    assert kwargs["content"]["latest_runnable_state"]["source_binding_valid"] is True
+
+
+@pytest.mark.anyio
+async def test_execute_word_document_requires_client_session_id(app, _as_user):
+    client = TestClient(app)
+
+    response = client.post(
+        "/api/v1/generate/studio-cards/word_document/execute",
+        json={
+            "project_id": "p-001",
+            "config": {
+                "schema_id": "lesson_plan_v1",
+                "topic": "物理层的基本概念",
+            },
+        },
+    )
+
+    assert response.status_code == 409
+    payload = response.json()
+    detail = payload.get("detail") or payload.get("error") or {}
+    assert detail.get("code") == "RESOURCE_CONFLICT"
 
 
 @pytest.mark.anyio
@@ -174,6 +278,10 @@ async def test_execute_interactive_games_persists_compatibility_snapshot(app, _a
             AsyncMock(),
         ),
         patch(
+            "services.generation_session_service.card_execution_runtime_artifacts.resolve_execution_session_id",
+            AsyncMock(return_value="s-001"),
+        ),
+        patch(
             "services.generation_session_service.card_execution_runtime_artifacts.build_studio_tool_artifact_content",
             AsyncMock(return_value=_studio_generated_content("interactive_games")),
         ),
@@ -186,6 +294,7 @@ async def test_execute_interactive_games_persists_compatibility_snapshot(app, _a
             "/api/v1/generate/studio-cards/interactive_games/execute",
             json={
                 "project_id": "p-001",
+                "client_session_id": "s-001",
                 "config": {
                     "topic": "电路基础",
                     "game_pattern": "term_pairing",
@@ -211,6 +320,10 @@ async def test_execute_studio_card_strict_mode_returns_upstream_error(app, _as_u
             AsyncMock(),
         ),
         patch(
+            "services.generation_session_service.card_execution_runtime_artifacts.resolve_execution_session_id",
+            AsyncMock(return_value="s-001"),
+        ),
+        patch(
             "services.generation_session_service.card_execution_runtime_artifacts.build_studio_tool_artifact_content",
             AsyncMock(
                 side_effect=APIException(
@@ -232,7 +345,11 @@ async def test_execute_studio_card_strict_mode_returns_upstream_error(app, _as_u
     ):
         response = client.post(
             "/api/v1/generate/studio-cards/knowledge_mindmap/execute",
-            json={"project_id": "p-001", "config": {"topic": "Electromagnetism"}},
+            json={
+                "project_id": "p-001",
+                "client_session_id": "s-001",
+                "config": {"topic": "Electromagnetism"},
+            },
         )
 
     assert response.status_code == 502
@@ -254,9 +371,9 @@ async def test_execute_demonstration_animations_creates_runtime_graph_artifact(
         sessionId=None,
         basedOnVersionId=None,
         ownerUserId="u-001",
-        type="html",
+        type="gif",
         visibility="private",
-        storagePath="uploads/artifacts/a-animation-001.html",
+        storagePath="uploads/artifacts/a-animation-001.gif",
         createdAt=datetime.now(timezone.utc),
         updatedAt=datetime.now(timezone.utc),
     )
@@ -265,6 +382,10 @@ async def test_execute_demonstration_animations_creates_runtime_graph_artifact(
         patch(
             "services.project_space_service.project_space_service.check_project_permission",
             AsyncMock(),
+        ),
+        patch(
+            "services.generation_session_service.card_execution_runtime_artifacts.resolve_execution_session_id",
+            AsyncMock(return_value="s-001"),
         ),
         patch(
             "services.generation_session_service.card_execution_runtime_artifacts.build_studio_tool_artifact_content",
@@ -279,6 +400,7 @@ async def test_execute_demonstration_animations_creates_runtime_graph_artifact(
             "/api/v1/generate/studio-cards/demonstration_animations/execute",
             json={
                 "project_id": "p-001",
+                "client_session_id": "s-001",
                 "config": {"topic": "冒泡排序", "motion_brief": "解释交换过程"},
                 "visibility": "private",
             },
@@ -286,14 +408,99 @@ async def test_execute_demonstration_animations_creates_runtime_graph_artifact(
 
     assert response.status_code == 200
     kwargs = create_artifact_mock.await_args.kwargs
-    assert kwargs["artifact_type"] == "mp4"
+    assert kwargs["artifact_type"] == "html"
     assert kwargs["content"]["runtime_graph_version"] == "generic_explainer_graph.v1"
     assert kwargs["content"]["runtime_draft_version"] == "explainer_draft.v1"
     assert kwargs["content"]["runtime_source"] == "llm_draft_assembled_graph"
     assert kwargs["content"]["component_code"]
-    assert kwargs["content"]["render_mode"] == "cloud_video_wan"
-    assert kwargs["content"]["format"] == "mp4"
-    assert kwargs["content"]["cloud_video_model"] == "wan2.7-i2v"
+    assert kwargs["content"]["render_mode"] == "html5"
+    assert kwargs["content"]["format"] == "html5"
+    assert "cloud_video_model" not in kwargs["content"]
+
+
+@pytest.mark.anyio
+async def test_animation_execution_preview_rejects_mp4_with_problem_details(
+    app, _as_user
+):
+    client = TestClient(app)
+
+    response = client.post(
+        "/api/v1/generate/studio-cards/demonstration_animations/execution-preview",
+        json={
+            "project_id": "p-001",
+            "config": {
+                "topic": "冒泡排序",
+                "animation_format": "mp4",
+            },
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.headers["content-type"].startswith("application/problem+json")
+    payload = response.json()
+    assert payload["type"] == "https://spectra.dev/problems/animation-format-not-supported"
+    assert payload["title"] == "Animation format is not supported"
+    assert payload["status"] == 400
+    assert payload["instance"] == (
+        "/api/v1/generate/studio-cards/"
+        "demonstration_animations/execution-preview"
+    )
+    assert payload["error_code"] == "INVALID_ANIMATION_FORMAT"
+    assert payload["allowed_formats"] == ["gif", "html5"]
+    assert payload["invalid_field"] == "animation_format"
+    assert payload["invalid_value"] == "mp4"
+
+
+@pytest.mark.anyio
+async def test_execute_demonstration_animations_rejects_cloud_video_mode_with_problem_details(
+    app, _as_user
+):
+    client = TestClient(app)
+
+    response = client.post(
+        "/api/v1/generate/studio-cards/demonstration_animations/execute",
+        json={
+            "project_id": "p-001",
+            "client_session_id": "s-001",
+            "config": {
+                "topic": "冒泡排序",
+                "render_mode": "cloud_video_wan",
+            },
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.headers["content-type"].startswith("application/problem+json")
+    payload = response.json()
+    assert payload["error_code"] == "INVALID_ANIMATION_FORMAT"
+    assert payload["invalid_field"] == "render_mode"
+    assert payload["invalid_value"] == "cloud_video_wan"
+    assert payload["allowed_formats"] == ["gif", "html5"]
+
+
+@pytest.mark.anyio
+async def test_refine_demonstration_animations_rejects_mp4_with_problem_details(
+    app, _as_user
+):
+    client = TestClient(app)
+
+    response = client.post(
+        "/api/v1/generate/studio-cards/demonstration_animations/refine",
+        json={
+            "project_id": "p-001",
+            "artifact_id": "a-animation-001",
+            "refine_mode": "structured_refine",
+            "config": {"animation_format": "mp4"},
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.headers["content-type"].startswith("application/problem+json")
+    payload = response.json()
+    assert payload["error_code"] == "INVALID_ANIMATION_FORMAT"
+    assert payload["invalid_field"] == "animation_format"
+    assert payload["invalid_value"] == "mp4"
+    assert payload["allowed_formats"] == ["gif", "html5"]
 
 
 @pytest.mark.anyio
@@ -306,6 +513,10 @@ async def test_execute_demonstration_animations_surfaces_runtime_generation_erro
         patch(
             "services.project_space_service.project_space_service.check_project_permission",
             AsyncMock(),
+        ),
+        patch(
+            "services.generation_session_service.card_execution_runtime_artifacts.resolve_execution_session_id",
+            AsyncMock(return_value="s-001"),
         ),
         patch(
             "services.generation_session_service.card_execution_runtime_artifacts.build_studio_tool_artifact_content",
@@ -331,6 +542,7 @@ async def test_execute_demonstration_animations_surfaces_runtime_generation_erro
             "/api/v1/generate/studio-cards/demonstration_animations/execute",
             json={
                 "project_id": "p-001",
+                "client_session_id": "s-001",
                 "config": {"topic": "冒泡排序"},
                 "visibility": "private",
             },
@@ -546,7 +758,56 @@ async def test_confirm_animation_placement_records_binding_for_gif_artifact(app,
 
 
 @pytest.mark.anyio
-async def test_confirm_animation_placement_rejects_non_gif_artifact(app, _as_user):
+async def test_recommend_animation_placement_rejects_html_artifact_with_problem_details(
+    app, _as_user
+):
+    client = TestClient(app)
+    animation_artifact = SimpleNamespace(
+        id="a-animation-002",
+        projectId="p-001",
+        sessionId="sess-animation",
+        type="html",
+        metadata={"kind": "animation_storyboard"},
+        updatedAt=datetime.now(timezone.utc),
+    )
+
+    with (
+        patch(
+            "services.project_space_service.project_space_service.check_project_permission",
+            AsyncMock(),
+        ),
+        patch(
+            "services.project_space_service.project_space_service.get_artifact",
+            AsyncMock(return_value=animation_artifact),
+        ),
+        patch(
+            "services.project_space_service.project_space_service.update_artifact_metadata",
+            AsyncMock(),
+        ) as update_artifact_mock,
+    ):
+        response = client.post(
+            "/api/v1/generate/studio-cards/demonstration_animations/recommend-placement",
+            json={
+                "project_id": "p-001",
+                "artifact_id": "a-animation-002",
+                "ppt_artifact_id": "a-ppt-001",
+            },
+        )
+
+    assert response.status_code == 400
+    assert response.headers["content-type"].startswith("application/problem+json")
+    payload = response.json()
+    assert payload["error_code"] == "ANIMATION_PLACEMENT_FORMAT_NOT_SUPPORTED"
+    assert payload["invalid_field"] == "animation_format"
+    assert payload["invalid_value"] == "html5"
+    assert payload["allowed_formats"] == ["gif"]
+    update_artifact_mock.assert_not_awaited()
+
+
+@pytest.mark.anyio
+async def test_confirm_animation_placement_rejects_non_gif_artifact_with_problem_details(
+    app, _as_user
+):
     client = TestClient(app)
     animation_artifact = SimpleNamespace(
         id="a-animation-002",
@@ -583,6 +844,10 @@ async def test_confirm_animation_placement_rejects_non_gif_artifact(app, _as_use
         )
 
     assert response.status_code == 400
-    error_payload = response.json().get("error") or response.json().get("detail") or {}
-    assert "仅支持 GIF 动画成果" in error_payload.get("message", "")
+    assert response.headers["content-type"].startswith("application/problem+json")
+    payload = response.json()
+    assert payload["error_code"] == "ANIMATION_PLACEMENT_FORMAT_NOT_SUPPORTED"
+    assert payload["invalid_field"] == "animation_format"
+    assert payload["invalid_value"] == "mp4"
+    assert payload["allowed_formats"] == ["gif"]
     update_artifact_mock.assert_not_awaited()

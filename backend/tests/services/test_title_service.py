@@ -11,6 +11,7 @@ from services.title_service import service as title_service_module
 from services.title_service.prompting import (
     build_default_project_title,
     build_default_session_title,
+    build_run_pending_title,
     extract_run_context,
     extract_run_key_facts,
     normalize_effective_title,
@@ -144,6 +145,19 @@ def test_extract_run_key_facts_prefers_run_creation_prompt_fields():
     assert facts["config_topic"] == "图形系统功能结构与分类"
     assert facts["config_prompt"] == "图形系统功能结构与分类的课件"
     assert facts["topic"] == "课件生成"
+
+
+def test_build_run_pending_title_prefers_explicit_title_seed():
+    title = build_run_pending_title(
+        tool_type="studio_card:word_document",
+        snapshot={
+            "title": "计算机网络：物理层教案",
+            "topic": "网络分层",
+        },
+        run_no=25,
+    )
+
+    assert title == "计算机网络"
 
 
 @pytest.mark.anyio
@@ -440,7 +454,7 @@ async def test_generate_session_title_accepts_structured_title(monkeypatch):
         AsyncMock(
             return_value=StructuredTitleResult(
                 title="计算机图形学教学大纲",
-                basis_key="project_name_seed",
+                basis_key="first_message_seed",
                 scene="session",
                 model="minimax/MiniMax-M2.7",
                 latency_ms=8.1,
@@ -483,7 +497,7 @@ async def test_generate_session_title_retries_background_failures(monkeypatch):
             ValueError("temporary_format_error"),
             StructuredTitleResult(
                 title="计算机图形学教学大纲",
-                basis_key="project_name_seed",
+                basis_key="first_message_seed",
                 scene="session",
                 model="minimax/MiniMax-M2.7",
                 latency_ms=8.1,

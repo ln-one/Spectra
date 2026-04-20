@@ -183,6 +183,7 @@ class ProjectReference(BaseModel):
     id: str
     projectId: str
     targetProjectId: str
+    targetProjectName: Optional[str] = None
     relationType: ReferenceRelationType
     mode: ReferenceMode
     pinnedVersionId: Optional[str] = None

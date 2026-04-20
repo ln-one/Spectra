@@ -5,7 +5,6 @@ import { motion } from "framer-motion";
 import {
   Archive,
   HelpCircle,
-  Layers,
   Palette,
   Settings,
   Share2,
@@ -38,7 +37,6 @@ type UserInfo = components["schemas"]["UserInfo"];
 interface HeaderActionsProps {
   user: UserInfo | null;
   onLogout: () => void;
-  onOpenLibrary: () => void;
   selectedThemePreset: ThemePresetId;
   onThemePresetChange: (themeId: ThemePresetId) => void;
 }
@@ -59,7 +57,6 @@ const STYLE_LABELS = {
 export function HeaderActions({
   user,
   onLogout,
-  onOpenLibrary,
   selectedThemePreset,
   onThemePresetChange,
 }: HeaderActionsProps) {
@@ -73,24 +70,6 @@ export function HeaderActions({
 
   return (
     <div className="project-header-actions justify-self-end flex items-center gap-2">
-      <motion.div
-        whileHover={{ y: -1 }}
-        whileTap={{ scale: 0.97 }}
-        style={{ willChange: "transform" }}
-      >
-        <Button
-          size="sm"
-          className="project-header-control project-header-library-btn rounded-full border transition-all duration-300 font-semibold px-4 h-[var(--project-control-height)] backdrop-blur-sm group"
-          onClick={onOpenLibrary}
-          data-tour="library-toggle"
-        >
-          <Layers className="w-4 h-4 mr-2 text-[var(--project-control-muted)] group-hover:text-[var(--project-accent)] transition-colors duration-300" />
-          Lib
-        </Button>
-      </motion.div>
-
-      <div className="project-header-divider w-px h-4 bg-[var(--project-control-border)] mx-1.5" />
-
       <Button
         variant="ghost"
         size="icon"

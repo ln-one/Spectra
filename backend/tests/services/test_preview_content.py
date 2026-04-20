@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
@@ -473,6 +474,145 @@ async def test_load_preview_material_returns_explicitly_missing_without_artifact
     assert content == {}
     assert "rendered_preview" not in content
     save_mock.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_load_preview_material_recovers_docx_preview_for_bound_artifact(
+    monkeypatch,
+):
+    artifact = SimpleNamespace(
+        id="artifact-003",
+        sessionId="session-003",
+        projectId="project-003",
+        type="docx",
+        storagePath="/tmp/demo.docx",
+        metadata="{}",
+    )
+    monkeypatch.setattr(
+        "services.preview_helpers.content.db_service",
+        SimpleNamespace(
+            db=SimpleNamespace(
+                sessionrun=SimpleNamespace(find_unique=AsyncMock(return_value=None)),
+                artifact=SimpleNamespace(
+                    find_unique=AsyncMock(return_value=artifact),
+                    find_first=AsyncMock(return_value=artifact),
+                ),
+            ),
+        ),
+    )
+    monkeypatch.setattr(
+        "services.preview_helpers.content.load_docx_content_sidecar",
+        lambda _path: {
+            "title": "绑定讲义",
+            "markdown_content": "# Bound Docx",
+            "lesson_plan_markdown": "## Plan",
+        },
+    )
+    monkeypatch.setattr(
+        "services.preview_helpers.content.build_slides",
+        lambda _task_id, _md, _image_metadata=None, _render_markdown=None: [
+            SimpleNamespace(model_dump=lambda: {"id": "slide-1", "title": "S1"})
+        ],
+    )
+    monkeypatch.setattr(
+        "services.preview_helpers.content.build_lesson_plan",
+        lambda _slides, _plan_md: SimpleNamespace(
+            model_dump=lambda: {"summary": "ok", "steps": []}
+        ),
+    )
+    save_mock = AsyncMock()
+    monkeypatch.setattr(
+        "services.preview_helpers.content.save_preview_content",
+        save_mock,
+    )
+
+    material_context, slides, lesson_plan, content = await load_preview_material(
+        session_id="session-003",
+        project_id="project-003",
+    )
+
+    assert material_context is not None
+    assert material_context["artifact_id"] == "artifact-003"
+    assert slides == [{"id": "slide-1", "title": "S1"}]
+    assert lesson_plan == {"summary": "ok", "steps": []}
+    assert content["title"] == "绑定讲义"
+    assert content["markdown_content"] == "# Bound Docx"
+    save_mock.assert_awaited_once_with("artifact-003", content)
+
+
+@pytest.mark.asyncio
+async def test_load_preview_material_prefers_docx_companion_markdown(
+    monkeypatch, tmp_path: Path
+):
+    docx_path = tmp_path / "demo.docx"
+    docx_path.write_bytes(b"docx")
+    lesson_plan_path = tmp_path / "demo.lesson-plan.md"
+    lesson_plan_path.write_text(
+        "# 伴随Markdown标题\n\n## 二级标题\n\n1. 条目A\n2. 条目B\n",
+        encoding="utf-8",
+    )
+    artifact = SimpleNamespace(
+        id="artifact-004",
+        sessionId="session-004",
+        projectId="project-004",
+        type="docx",
+        storagePath=str(docx_path),
+        metadata="{}",
+    )
+    monkeypatch.setattr(
+        "services.preview_helpers.content.db_service",
+        SimpleNamespace(
+            db=SimpleNamespace(
+                sessionrun=SimpleNamespace(find_unique=AsyncMock(return_value=None)),
+                artifact=SimpleNamespace(
+                    find_unique=AsyncMock(return_value=artifact),
+                    find_first=AsyncMock(return_value=artifact),
+                ),
+            ),
+        ),
+    )
+    monkeypatch.setattr(
+        "services.preview_helpers.content.load_docx_content_sidecar",
+        lambda _path: {},
+    )
+    extract_text_mock = AsyncMock(
+        side_effect=AssertionError("should prefer companion markdown")
+    )
+    monkeypatch.setattr(
+        "services.preview_helpers.content.extract_text_for_rag",
+        extract_text_mock,
+    )
+    monkeypatch.setattr(
+        "services.preview_helpers.content.build_slides",
+        lambda _task_id, _md, _image_metadata=None, _render_markdown=None: [
+            SimpleNamespace(model_dump=lambda: {"id": "slide-1", "title": "S1"})
+        ],
+    )
+    monkeypatch.setattr(
+        "services.preview_helpers.content.build_lesson_plan",
+        lambda _slides, _plan_md: SimpleNamespace(
+            model_dump=lambda: {"summary": "ok", "steps": []}
+        ),
+    )
+    save_mock = AsyncMock()
+    monkeypatch.setattr(
+        "services.preview_helpers.content.save_preview_content",
+        save_mock,
+    )
+
+    material_context, slides, lesson_plan, content = await load_preview_material(
+        session_id="session-004",
+        project_id="project-004",
+    )
+
+    assert material_context is not None
+    assert material_context["artifact_id"] == "artifact-004"
+    assert slides == [{"id": "slide-1", "title": "S1"}]
+    assert lesson_plan == {"summary": "ok", "steps": []}
+    assert content["title"] == "伴随Markdown标题"
+    assert "## 二级标题" in content["markdown_content"]
+    assert "1. 条目A" in content["markdown_content"]
+    save_mock.assert_awaited_once_with("artifact-004", content)
 
 
 @pytest.mark.asyncio

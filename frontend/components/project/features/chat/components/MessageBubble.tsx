@@ -49,6 +49,56 @@ function dispatchOpenHistoryItem(message: ChatMessage): void {
   );
 }
 
+function dispatchOpenLibraryCitation(citation: {
+  sourceLibraryId: string;
+  sourceLibraryName?: string;
+  filename?: string;
+  chunkId: string;
+  pageNumber?: number;
+  timestamp?: number;
+}): void {
+  window.dispatchEvent(
+    new CustomEvent("spectra:open-library-citation", {
+      detail: citation,
+    })
+  );
+}
+
+function dispatchOpenArtifactCitation(citation: {
+  sourceArtifactId: string;
+  sourceArtifactTitle?: string;
+  sourceArtifactToolType?: string;
+  sourceArtifactSessionId?: string;
+}): void {
+  const rawToolType = String(citation.sourceArtifactToolType || "").trim();
+  const toolType =
+    rawToolType === "ppt" ||
+    rawToolType === "word" ||
+    rawToolType === "mindmap" ||
+    rawToolType === "outline" ||
+    rawToolType === "quiz" ||
+    rawToolType === "summary" ||
+    rawToolType === "animation" ||
+    rawToolType === "handout"
+      ? rawToolType
+      : "summary";
+  window.dispatchEvent(
+    new CustomEvent("spectra:open-history-item", {
+      detail: {
+        id: `artifact:${citation.sourceArtifactId}`,
+        origin: "artifact",
+        toolType,
+        title: citation.sourceArtifactTitle || "沉淀成果",
+        status: "completed",
+        createdAt: new Date().toISOString(),
+        sessionId: citation.sourceArtifactSessionId || null,
+        step: "preview",
+        artifactId: citation.sourceArtifactId,
+      },
+    })
+  );
+}
+
 export function MessageBubble({
   message,
   index,
@@ -86,6 +136,29 @@ export function MessageBubble({
     () => toCitationViewModels(message.citations),
     [message.citations]
   );
+  const handleCitationClick = (citation: (typeof citations)[number]) => {
+    if (citation.sourceScope === "attached_library" && citation.sourceLibraryId) {
+      dispatchOpenLibraryCitation({
+        sourceLibraryId: citation.sourceLibraryId,
+        sourceLibraryName: citation.sourceLibraryName,
+        filename: citation.filename,
+        chunkId: citation.chunkId,
+        pageNumber: citation.pageNumber,
+        timestamp: citation.timestamp,
+      });
+      return;
+    }
+    if (citation.sourceScope === "project_deposit" && citation.sourceArtifactId) {
+      dispatchOpenArtifactCitation({
+        sourceArtifactId: citation.sourceArtifactId,
+        sourceArtifactTitle: citation.sourceArtifactTitle,
+        sourceArtifactToolType: citation.sourceArtifactToolType,
+        sourceArtifactSessionId: citation.sourceArtifactSessionId,
+      });
+      return;
+    }
+    void focusSourceByChunk(citation.chunkId, projectId, citation);
+  };
 
   if (isInlineThinkingMessage) {
     return <ThinkingBubble toolColor={messageToolColor} />;
@@ -190,18 +263,16 @@ export function MessageBubble({
             transition={{ delay: index * 0.03 + 0.15 }}
             className="mt-0.5 flex flex-wrap gap-1.5"
           >
-            {citations.map((citation, i) => (
-              <CitationBadge
-                key={`${citation.chunkId}-${i}`}
-                citation={citation}
-                index={i}
-                onClick={() =>
-                  focusSourceByChunk(citation.chunkId, projectId, citation)
-                }
-              />
-            ))}
-          </motion.div>
-        )}
+              {citations.map((citation, i) => (
+                <CitationBadge
+                  key={`${citation.chunkId}-${i}`}
+                  citation={citation}
+                  index={i}
+                  onClick={() => handleCitationClick(citation)}
+                />
+              ))}
+            </motion.div>
+          )}
 
         <span className="px-1 text-[10px] font-medium text-[var(--project-text-muted)]">
           {new Date(message.timestamp).toLocaleTimeString("zh-CN", {

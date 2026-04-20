@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import json
+import re
 
+from services.database import db_service
+from services.file_parser import extract_text_for_rag
 from schemas.project_space import ArtifactType
 from schemas.studio_cards import ExecutionCarrier, RefineMode
 from services.project_space_service import project_space_service
@@ -48,7 +51,59 @@ def supports_structured_refine(card_id: str) -> bool:
 
 
 def _is_animation_artifact_type(artifact_type: str | None) -> bool:
-    return artifact_type in {ArtifactType.GIF.value, ArtifactType.MP4.value}
+    return artifact_type in {ArtifactType.GIF.value, ArtifactType.HTML.value}
+
+
+def _is_legacy_animation_artifact_type(artifact_type: str | None) -> bool:
+    return artifact_type in {
+        ArtifactType.GIF.value,
+        ArtifactType.HTML.value,
+        ArtifactType.MP4.value,
+    }
+
+
+def _normalize_docx_preview_markdown(title: str, text: str) -> str:
+    normalized_text = str(text or "").replace("\r\n", "\n").replace("\r", "\n")
+    normalized_text = re.sub(r"[\x00-\x08\x0B\x0C\x0E-\x1F]", "", normalized_text)
+    normalized_text = normalized_text.replace("\u21b5", "\n")
+    normalized_text = normalized_text.replace("\ufeff", "")
+    normalized_text = re.sub(r"[\u200b\u200c\u200d\xa0]", " ", normalized_text)
+    normalized_text = re.sub(r"[ \t]+", " ", normalized_text)
+    lines = [line.strip() for line in normalized_text.split("\n")]
+    lines = [line for line in lines if line]
+    body = "\n\n".join(lines).strip()
+    normalized_title = str(title or "").strip()
+    if normalized_title and body:
+        return f"# {normalized_title}\n\n{body}"
+    if normalized_title:
+        return f"# {normalized_title}"
+    return body
+
+
+def _load_docx_content_from_storage(artifact) -> dict:
+    storage_path = str(getattr(artifact, "storagePath", None) or "").strip()
+    if not storage_path:
+        return {}
+    sidecar = load_docx_content_sidecar(storage_path)
+    if sidecar:
+        return sidecar
+    metadata = artifact_metadata_dict(artifact)
+    extracted_text, _ = extract_text_for_rag(
+        storage_path,
+        str(getattr(artifact, "id", None) or "document.docx"),
+        "word",
+    )
+    markdown = _normalize_docx_preview_markdown(
+        str(metadata.get("title") or "").strip(),
+        extracted_text,
+    )
+    if not markdown:
+        return {}
+    return {
+        "title": str(metadata.get("title") or "").strip(),
+        "markdown_content": markdown,
+        "lesson_plan_markdown": markdown,
+    }
 
 
 def artifact_result_payload(
@@ -96,6 +151,99 @@ def artifact_metadata_dict(artifact) -> dict:
     return {}
 
 
+def _safe_parse_json_object(value) -> dict:
+    if isinstance(value, dict):
+        return dict(value)
+    if isinstance(value, str) and value.strip():
+        try:
+            parsed = json.loads(value)
+        except json.JSONDecodeError:
+            return {}
+        if isinstance(parsed, dict):
+            return parsed
+    return {}
+
+
+async def resolve_effective_source_artifact_id(
+    *,
+    project_id: str,
+    primary_source_id: str | None = None,
+    source_artifact_id: str | None = None,
+) -> str | None:
+    normalized_artifact_id = str(source_artifact_id or "").strip()
+    if normalized_artifact_id:
+        return normalized_artifact_id
+
+    normalized_primary_source_id = str(primary_source_id or "").strip()
+    if not normalized_primary_source_id:
+        return None
+
+    upload = await db_service.get_file(normalized_primary_source_id)
+    if upload and getattr(upload, "projectId", None) == project_id:
+        parse_result = _safe_parse_json_object(getattr(upload, "parseResult", None))
+        bridged_artifact_id = str(parse_result.get("artifact_id") or "").strip()
+        if bridged_artifact_id:
+            return bridged_artifact_id
+
+    return normalized_primary_source_id
+
+
+async def build_source_snapshot_payload(
+    *,
+    project_id: str,
+    primary_source_id: str | None = None,
+    selected_source_ids: list[str] | None = None,
+    source_artifact_id: str | None = None,
+) -> dict:
+    normalized_primary_source_id = str(primary_source_id or "").strip() or None
+    normalized_selected_source_ids = [
+        str(item).strip()
+        for item in (selected_source_ids or [])
+        if isinstance(item, str) and str(item).strip()
+    ]
+    resolved_source_artifact_id = await resolve_effective_source_artifact_id(
+        project_id=project_id,
+        primary_source_id=normalized_primary_source_id,
+        source_artifact_id=source_artifact_id,
+    )
+
+    snapshot = {
+        "primary_source_id": normalized_primary_source_id,
+        "selected_source_ids": normalized_selected_source_ids,
+        "source_artifact_id": resolved_source_artifact_id,
+    }
+
+    if normalized_primary_source_id:
+        if (
+            resolved_source_artifact_id
+            and normalized_primary_source_id == resolved_source_artifact_id
+        ):
+            return snapshot
+        upload = await db_service.get_file(normalized_primary_source_id)
+        if upload and getattr(upload, "projectId", None) == project_id:
+            parse_result = _safe_parse_json_object(getattr(upload, "parseResult", None))
+            snapshot.update(
+                {
+                    "primary_source_title": str(
+                        parse_result.get("artifact_title")
+                        or parse_result.get("title")
+                        or getattr(upload, "filename", "")
+                        or ""
+                    ).strip()
+                    or None,
+                    "primary_source_tool_type": str(
+                        parse_result.get("tool_type") or ""
+                    ).strip()
+                    or None,
+                    "primary_source_surface_kind": str(
+                        parse_result.get("surface_kind") or ""
+                    ).strip()
+                    or None,
+                }
+            )
+    return snapshot
+
+
 async def validate_source_artifact(
     *,
     project_id: str,
@@ -133,7 +281,7 @@ async def validate_source_artifact(
 
 async def load_artifact_content(artifact) -> dict:
     artifact_type = str(getattr(artifact, "type", None) or "").strip().lower()
-    if _is_animation_artifact_type(getattr(artifact, "type", None)):
+    if _is_legacy_animation_artifact_type(getattr(artifact, "type", None)):
         metadata = artifact_metadata_dict(artifact)
         snapshot = metadata.get("content_snapshot")
         if isinstance(snapshot, dict):
@@ -175,7 +323,7 @@ async def load_artifact_content(artifact) -> dict:
     if not storage_path:
         return {}
     if artifact_type == ArtifactType.DOCX.value:
-        return load_docx_content_sidecar(storage_path)
+        return _load_docx_content_from_storage(artifact)
     with open(storage_path, "r", encoding="utf-8") as handle:
         data = json.load(handle)
     return data if isinstance(data, dict) else {}
@@ -250,11 +398,15 @@ def build_latest_runnable_state(
     session_id: str | None,
     source_binding_valid: bool,
     refine_mode: RefineMode | None = None,
+    placement_supported: bool | None = None,
 ) -> dict:
     carrier = CARD_EXECUTION_CARRIERS.get(card_id, ExecutionCarrier.ARTIFACT).value
+    supports_placement = (
+        card_id == "demonstration_animations" and bool(placement_supported)
+    )
     if card_id == "classroom_qa_simulator":
         next_action = "follow_up_turn"
-    elif card_id == "demonstration_animations" and artifact_id:
+    elif supports_placement and artifact_id:
         next_action = "placement"
     elif card_id == "interactive_quick_quiz" and (artifact_id or session_id):
         next_action = "answer_or_refine"
@@ -268,9 +420,9 @@ def build_latest_runnable_state(
         "active_session_id": session_id,
         "can_refine": bool(artifact_id or session_id),
         "can_follow_up_turn": card_id == "classroom_qa_simulator",
-        "can_recommend_placement": card_id == "demonstration_animations" and bool(artifact_id),
+        "can_recommend_placement": supports_placement and bool(artifact_id),
         "can_confirm_placement": (
-            card_id == "demonstration_animations"
+            supports_placement
             and bool(artifact_id)
             and source_binding_valid
         ),

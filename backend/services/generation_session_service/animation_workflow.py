@@ -6,6 +6,9 @@ from datetime import datetime, timezone
 from typing import Any
 
 from schemas.project_space import ArtifactType
+from services.generation_session_service.animation_contract import (
+    AnimationContractViolation,
+)
 from services.project_space_service import project_space_service
 from utils.exceptions import APIException, ErrorCode
 
@@ -86,6 +89,13 @@ def _normalize_slot(raw_value: Any) -> str:
     return "bottom-right"
 
 
+def _normalize_animation_artifact_format(artifact_type: Any) -> str:
+    normalized = str(artifact_type or "").strip().lower()
+    if normalized == ArtifactType.HTML.value:
+        return "html5"
+    return normalized
+
+
 async def require_animation_artifact(project_id: str, artifact_id: str):
     artifact = await project_space_service.get_artifact(artifact_id)
     if not artifact or getattr(artifact, "projectId", None) != project_id:
@@ -95,10 +105,17 @@ async def require_animation_artifact(project_id: str, artifact_id: str):
             message="动画成果不存在",
         )
     if getattr(artifact, "type", None) != ArtifactType.GIF.value:
-        raise APIException(
-            status_code=400,
-            error_code=ErrorCode.INVALID_INPUT,
-            message="当前 PPT placement 仅支持 GIF 动画成果，请先生成 GIF 版动画再执行插入",
+        raise AnimationContractViolation(
+            field_name="animation_format",
+            invalid_value=_normalize_animation_artifact_format(
+                getattr(artifact, "type", None)
+            ),
+            detail=(
+                "当前 PPT placement 仅支持 GIF 动画成果；"
+                "请先生成 GIF 版动画再执行插入。"
+            ),
+            error_code="ANIMATION_PLACEMENT_FORMAT_NOT_SUPPORTED",
+            allowed_formats=("gif",),
         )
     metadata = artifact_metadata_dict(artifact)
     if str(metadata.get("kind") or "").strip() not in {"", "animation_storyboard"}:

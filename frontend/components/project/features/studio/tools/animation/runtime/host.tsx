@@ -14,6 +14,8 @@ import {
   compileRuntimeGraphToTheatreState,
   resolveTheatreFrameForSequencePosition,
 } from "./theatreState";
+import { PlaybackProvider } from "./runtimeApi";
+import { AnimationGraphRenderer } from "./graphRenderer";
 import type {
   AnimationArtifactRuntimeSnapshot,
   AnimationCompileError,
@@ -23,11 +25,16 @@ import type {
 } from "./types";
 
 function resolveTheme(snapshot: AnimationArtifactRuntimeSnapshot): AnimationRuntimeTheme {
-  const stylePack = snapshot.stylePack ?? resolveDefaultExplainerStylePack();
+  const defaultStylePack = resolveDefaultExplainerStylePack();
+  const stylePack = snapshot.stylePack ?? defaultStylePack;
   return (
     ANIMATION_STYLE_PACK_SWATCHES[
       stylePack as keyof typeof ANIMATION_STYLE_PACK_SWATCHES
-    ] ?? ANIMATION_STYLE_PACK_SWATCHES.teaching_ppt_minimal_gray
+    ] ??
+    ANIMATION_STYLE_PACK_SWATCHES[
+      defaultStylePack as keyof typeof ANIMATION_STYLE_PACK_SWATCHES
+    ] ??
+    ANIMATION_STYLE_PACK_SWATCHES.teaching_ppt_fresh_green
   );
 }
 
@@ -222,7 +229,7 @@ function AnimationRuntimeHostInner({
     if (!parentOrigin) return "";
     const query = new URLSearchParams({
       session: sessionToken,
-      parentOrigin: encodeURIComponent(parentOrigin),
+      parentOrigin,
     });
     return `/animation-runtime-sandbox?${query.toString()}`;
   }, [parentOrigin, sessionToken]);
@@ -254,6 +261,7 @@ function AnimationRuntimeHostInner({
 
   useEffect(() => {
     if (
+      snapshot.runtimeGraph ||
       !frameReady ||
       !iframeRef.current?.contentWindow ||
       (!snapshot.runtimeGraph && !snapshot.componentCode)
@@ -287,6 +295,7 @@ function AnimationRuntimeHostInner({
 
   const showPlayer =
     Boolean(snapshot.runtimeGraph || snapshot.componentCode) && errors.length === 0;
+  const showDirectRuntimeGraph = Boolean(snapshot.runtimeGraph);
   const currentSceneTitle = executionState.currentSceneTitle?.trim() ?? "";
 
   return (
@@ -314,7 +323,14 @@ function AnimationRuntimeHostInner({
           onTouchStart={() => setControlsPinned(true)}
         >
           <div className="relative min-h-[500px] overflow-hidden rounded-[28px] border border-white/40 bg-zinc-950 shadow-[0_24px_72px_rgba(15,23,42,0.16)]">
-            {mounted && frameSrc ? (
+            {showDirectRuntimeGraph ? (
+              <PlaybackProvider value={executionState}>
+                <AnimationGraphRenderer
+                  graph={snapshot.runtimeGraph!}
+                  theme={theme}
+                />
+              </PlaybackProvider>
+            ) : mounted && frameSrc ? (
               <iframe
                 ref={iframeRef}
                 title={snapshot.title ?? "Animation Runtime"}

@@ -22,7 +22,7 @@ def test_active_cards_expose_conservative_governance_snapshots():
     mindmap_card = get_studio_card_capability("knowledge_mindmap")
 
     assert word_card is not None
-    assert word_card["requires_source_artifact"] is True
+    assert word_card["requires_source_artifact"] is False
     assert word_card["supports_chat_refine"] is True
     assert word_card["governance_tag"] == "borrow"
 
@@ -101,7 +101,7 @@ def test_demonstration_animations_exposes_contract_first_execution_metadata():
     animation_format_field = next(
         field for field in card["config_fields"] if field["key"] == "animation_format"
     )
-    assert animation_format_field["default_value"] == "mp4"
+    assert animation_format_field["default_value"] == "html5"
 
     assert plan is not None
     assert plan["refine_binding"]["endpoint"].endswith(

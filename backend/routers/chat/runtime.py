@@ -7,6 +7,7 @@ from fastapi.encoders import jsonable_encoder
 
 from schemas.chat import ChatRouteTask, SendMessageRequest
 from services.chat import resolve_effective_rag_source_ids
+from services.chat import resolve_effective_selected_library_ids
 from services.database import db_service
 from services.generation_session_service.access import get_owned_session
 from services.generation_session_service.session_history import (
@@ -44,6 +45,7 @@ from .observability import (
 )
 from .runtime_helpers import (
     build_chat_prompt,
+    build_enabled_library_hint,
     build_image_analysis_hint,
     generate_assistant_reply,
     load_chat_context,
@@ -143,8 +145,18 @@ async def process_chat_message(
         user_message_metadata = {
             **(body.metadata or {}),
             **(
+                {"selected_file_ids": body.selected_file_ids}
+                if body.selected_file_ids is not None
+                else {}
+            ),
+            **(
                 {"rag_source_ids": body.rag_source_ids}
                 if body.rag_source_ids is not None
+                else {}
+            ),
+            **(
+                {"selected_library_ids": body.selected_library_ids}
+                if body.selected_library_ids is not None
                 else {}
             ),
             **({"idempotency_key": key_str} if key_str else {}),
@@ -215,7 +227,15 @@ async def process_chat_message(
         stage_timings_ms.update(context_timings)
         effective_rag_source_ids = resolve_effective_rag_source_ids(
             rag_source_ids=body.rag_source_ids,
+            selected_file_ids=body.selected_file_ids,
             metadata=body.metadata,
+        )
+        effective_selected_library_ids = resolve_effective_selected_library_ids(
+            selected_library_ids=body.selected_library_ids,
+            metadata=body.metadata,
+        )
+        enabled_library_hint = await build_enabled_library_hint(
+            selected_library_ids=effective_selected_library_ids
         )
 
         image_hint_started = time.perf_counter()
@@ -241,16 +261,22 @@ async def process_chat_message(
             selected_files_hint=selected_files_hint,
             rag_payload=rag_payload,
             history_payload=history_payload,
+            enabled_library_hint=enabled_library_hint,
             image_analysis_hint=image_analysis_hint,
             teaching_brief_hint=teaching_brief_hint,
         )
 
         request_id = str(uuid4())
         prompt_digest = prompt_hash(prompt)
+        metadata = body.metadata if isinstance(body.metadata, dict) else {}
+        is_word_studio_refine = (
+            str(metadata.get("card_id") or "").strip() == "word_document"
+        )
         assistant_content, generation_meta, generation_timings = (
             await generate_assistant_reply(
                 prompt=prompt,
                 rag_hit=rag_hit,
+                is_word_studio_refine=is_word_studio_refine,
             )
         )
         stage_timings_ms.update(generation_timings)
@@ -287,6 +313,12 @@ async def process_chat_message(
         observability_metadata.update(
             build_prompt_traceability(rag_source_ids=effective_rag_source_ids)
         )
+        if body.selected_file_ids is not None:
+            observability_metadata["selected_file_ids"] = effective_rag_source_ids or []
+        if effective_selected_library_ids:
+            observability_metadata["selected_library_ids"] = (
+                effective_selected_library_ids
+            )
         observability_metadata["stage_timings_ms"] = stage_timings_ms
 
         observability_with_rag = {

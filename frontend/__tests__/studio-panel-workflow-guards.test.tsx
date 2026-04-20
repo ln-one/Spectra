@@ -87,7 +87,7 @@ describe("studio panel workflow guards", () => {
       />
     );
 
-    expect(screen.getByText("知识导图智能工作台")).toBeInTheDocument();
+    expect(screen.getByText("生成要求")).toBeInTheDocument();
     expect(screen.queryByText("idle")).not.toBeInTheDocument();
     expect(screen.queryByText("preview_ready")).not.toBeInTheDocument();
   });

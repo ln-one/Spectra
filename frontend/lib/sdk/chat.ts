@@ -11,7 +11,10 @@ import type { components } from "./types";
 export type Message = components["schemas"]["Message"];
 export type SourceReference = NonNullable<Message["citations"]>[number];
 export type GetMessagesResponse = components["schemas"]["GetMessagesResponse"];
-export type SendMessageRequest = components["schemas"]["SendMessageRequest"];
+export type SendMessageRequest = components["schemas"]["SendMessageRequest"] & {
+  selected_file_ids?: string[];
+  selected_library_ids?: string[];
+};
 export type SendMessageResponse = components["schemas"]["SendMessageResponse"];
 export type VoiceMessageResponse =
   components["schemas"]["VoiceMessageResponse"];

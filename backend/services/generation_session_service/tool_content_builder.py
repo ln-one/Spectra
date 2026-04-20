@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
+import re
 from typing import Any
 
 from services.ai import ai_service
@@ -29,20 +31,92 @@ from utils.exceptions import ErrorCode
 
 logger = logging.getLogger(__name__)
 
+_RAG_CONTROL_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
+_RAG_SYMBOL_RUN_RE = re.compile(r"[`~^|<>]{3,}")
+_RAG_MULTI_PUNC_RE = re.compile(r"[，。；：、,.;:!?！？]{4,}")
+
+
+def _env_positive_int(name: str, default: int) -> int:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    try:
+        value = int(raw.strip())
+        return value if value > 0 else default
+    except ValueError:
+        return default
+
+
+def _resolve_word_rag_budget() -> tuple[int, int, int]:
+    top_k = _env_positive_int("WORD_LESSON_PLAN_RAG_TOPK", 8)
+    snippet_chars = _env_positive_int("WORD_LESSON_PLAN_RAG_SNIPPET_CHARS", 900)
+    max_snippets = _env_positive_int("WORD_LESSON_PLAN_RAG_MAX_SNIPPETS", 6)
+    return top_k, snippet_chars, max_snippets
+
+
+def _sanitize_rag_text(text: str) -> str:
+    candidate = str(text or "")
+    candidate = candidate.replace("\r\n", "\n").replace("\r", "\n")
+    candidate = _RAG_CONTROL_RE.sub("", candidate)
+    candidate = _RAG_SYMBOL_RUN_RE.sub(" ", candidate)
+    candidate = _RAG_MULTI_PUNC_RE.sub("。", candidate)
+    lines = [line.strip() for line in candidate.splitlines()]
+    cleaned_lines: list[str] = []
+    for line in lines:
+        if not line:
+            continue
+        symbols = sum(1 for ch in line if not ch.isalnum() and not ("\u4e00" <= ch <= "\u9fff"))
+        if len(line) >= 12 and symbols / max(len(line), 1) > 0.55:
+            continue
+        cleaned_lines.append(line)
+    normalized = " ".join(cleaned_lines)
+    normalized = re.sub(r"\s+", " ", normalized).strip()
+    return normalized
+
+
+def _should_skip_animation_rag_item(item: dict[str, Any]) -> bool:
+    metadata = item.get("metadata") if isinstance(item.get("metadata"), dict) else {}
+    source_type = str(
+        item.get("source_type") or metadata.get("source_type") or ""
+    ).strip().lower()
+    filename = str(item.get("filename") or "").strip().lower()
+    source_tool_type = str(metadata.get("source_artifact_tool_type") or "").strip().lower()
+    source_artifact_type = str(metadata.get("source_artifact_type") or "").strip().lower()
+
+    if source_type == "ai_generated":
+        return True
+    if filename in {"ai_generated", "ai-generated"}:
+        return True
+    if source_tool_type in {"animation", "demonstration_animations"}:
+        return True
+    if source_artifact_type in {"gif", "html", "animation_storyboard"}:
+        return True
+    return False
+
 
 async def _load_rag_snippets(
     *,
     project_id: str,
     query: str,
     rag_source_ids: list[str] | None,
+    card_id: str | None = None,
 ) -> list[str]:
+    if card_id == "demonstration_animations" and not rag_source_ids:
+        # Animation mainline defaults to prompt-driven generation.
+        # Do not pull broad library snippets when the user did not bind sources.
+        return []
+
+    if card_id == "word_document":
+        top_k, snippet_chars, max_snippets = _resolve_word_rag_budget()
+    else:
+        top_k, snippet_chars, max_snippets = 4, 400, 3
     timeout_seconds = system_settings_service.resolve_chat_rag_timeout_seconds()
     filters = {"file_ids": rag_source_ids} if rag_source_ids else None
     try:
         coroutine = ai_service._retrieve_rag_context(
             project_id=project_id,
             query=query,
-            top_k=4,
+            top_k=top_k,
             score_threshold=0.3,
             session_id=None,
             filters=filters,
@@ -61,13 +135,31 @@ async def _load_rag_snippets(
         return []
 
     snippets: list[str] = []
+    seen: set[str] = set()
     for item in results or []:
         if not isinstance(item, dict):
             continue
-        content = str(item.get("content") or "").strip()
+        if card_id == "demonstration_animations" and _should_skip_animation_rag_item(
+            item
+        ):
+            continue
+        content = _sanitize_rag_text(str(item.get("content") or ""))
         if content:
-            snippets.append(content[:400])
-    return snippets[:3]
+            metadata = item.get("metadata") if isinstance(item.get("metadata"), dict) else {}
+            source_label = (
+                str(item.get("filename") or "").strip()
+                or str(metadata.get("source_artifact_title") or "").strip()
+                or str(metadata.get("source_type") or "").strip()
+            )
+            snippet = content[:snippet_chars]
+            if source_label:
+                snippet = f"[来源:{source_label}] {snippet}"
+            dedup_key = re.sub(r"\s+", "", snippet.lower())[:240]
+            if dedup_key in seen:
+                continue
+            seen.add(dedup_key)
+            snippets.append(snippet)
+    return snippets[:max_snippets]
 
 
 async def _load_source_artifact_hint(
@@ -117,6 +209,7 @@ async def build_studio_tool_artifact_content(
             project_id=project_id,
             query=query,
             rag_source_ids=rag_source_ids,
+            card_id=card_id,
         ),
         _load_source_artifact_hint(
             source_artifact_id=source_artifact_id,
@@ -180,6 +273,7 @@ async def build_studio_simulator_turn_update(
         project_id=project_id,
         query=query,
         rag_source_ids=rag_source_ids,
+        card_id="classroom_qa_simulator",
     )
 
     if turn_anchor:

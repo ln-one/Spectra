@@ -258,4 +258,40 @@ figures:
   height_hint: 3.8in
   preferred_width_ratio: 1.0
   layout_mode: full_width
+
+- ordinal: 28
+  figure_id: fig-external-rag-metrics-01
+  source_image: 主方案质量与延迟对比图.png
+  source_chapter: 项目测试与成果展示
+  nearest_heading: 系统检索质量评估测试
+  source_caption: 图 7-2 60 题正式集质量与延迟对比图，说明 advanced 在主要质量指标上明显高于基础 dense 检索，且延迟仍处于可接受范围。
+  width_hint: 7.0in
+  height_hint: 3.8in
+  preferred_width_ratio: 1.0
+  layout_mode: full_width
+  output_path: assets/media/主方案质量与延迟对比图.png
+
+- ordinal: 29
+  figure_id: fig-external-rag-metrics-02
+  source_image: 两组正式集核心指标对比柱状图.png
+  source_chapter: 项目测试与成果展示
+  nearest_heading: 系统检索质量评估测试
+  source_caption: 图 7-3 两组正式集核心指标对比图，说明 advanced 在 60 题与 105 题正式集上都保持稳定提升，而不是只在少量样本上偶然有效。
+  width_hint: 7.0in
+  height_hint: 3.8in
+  preferred_width_ratio: 1.0
+  layout_mode: full_width
+  output_path: assets/media/两组正式集核心指标对比柱状图.png
+
+- ordinal: 30
+  figure_id: fig-external-rag-metrics-03
+  source_image: 不同重排策略质量—延迟对比图.png
+  source_chapter: 项目测试与成果展示
+  nearest_heading: 系统检索质量评估测试
+  source_caption: 图 7-4 不同重排策略质量与延迟对比图，说明 advanced(api) 在当前正式集上的综合平衡优于两组 late_interaction 补充方案。
+  width_hint: 7.0in
+  height_hint: 4.2in
+  preferred_width_ratio: 1.0
+  layout_mode: full_width
+  output_path: assets/media/不同重排策略质量—延迟对比图.png
   output_path: assets/media/spectra-deployment-architecture.png

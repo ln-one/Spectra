@@ -60,11 +60,16 @@ def to_artifact_model(artifact) -> Artifact:
     )
 
 
-def to_project_reference_model(reference) -> ProjectReference:
+def to_project_reference_model(
+    reference, *, target_project_name: str | None = None
+) -> ProjectReference:
     return ProjectReference(
         id=reference.id,
         projectId=reference.projectId,
         targetProjectId=reference.targetProjectId,
+        targetProjectName=target_project_name
+        if target_project_name is not None
+        else getattr(reference, "targetProjectName", None),
         relationType=reference.relationType,
         mode=reference.mode,
         pinnedVersionId=getattr(reference, "pinnedVersionId", None),

@@ -8,6 +8,7 @@ from services.generation_session_service import (
     tool_content_builder,
     tool_content_builder_generation,
     tool_content_builder_routing,
+    tool_content_builder_support,
 )
 from utils.exceptions import APIException, ErrorCode
 
@@ -59,11 +60,16 @@ async def test_build_studio_tool_artifact_content_strict_validates_minimum_field
         )
 
     exc = exc_info.value
-    assert exc.status_code == 400
+    expected_status = 422 if card_id == "word_document" else 400
+    assert exc.status_code == expected_status
     assert exc.error_code == ErrorCode.INVALID_INPUT
     assert exc.details["card_id"] == card_id
-    assert exc.details["phase"] == "validate"
-    assert exc.details["failure_reason"].startswith("field_")
+    if card_id == "word_document":
+        assert exc.details["phase"] == "quality_gate"
+        assert str(exc.details["failure_reason"]).startswith("markdown_quality_low:")
+    else:
+        assert exc.details["phase"] == "validate"
+        assert exc.details["failure_reason"].startswith("field_")
 
 
 @pytest.mark.asyncio
@@ -82,9 +88,11 @@ async def test_build_studio_tool_artifact_content_routes_animation_cards_to_runt
         "_load_source_artifact_hint",
         AsyncMock(return_value=None),
     )
-    animation_builder = AsyncMock(
+    generate_structured = AsyncMock(
         return_value={
             "kind": "animation_storyboard",
+            "title": "冒泡排序过程卡通演示动画",
+            "summary": "解释交换过程",
             "runtime_graph_version": "generic_explainer_graph.v1",
             "runtime_graph": {
                 "family_hint": "algorithm_demo",
@@ -103,16 +111,22 @@ async def test_build_studio_tool_artifact_content_routes_animation_cards_to_runt
             "runtime_source": "llm_draft_assembled_graph",
         }
     )
-    monkeypatch.setattr(
-        tool_content_builder,
-        "resolve_card_artifact_builder",
-        lambda _card_id: animation_builder,
+    normalize_runtime_payload = AsyncMock(
+        side_effect=lambda payload, _config: {
+            **payload,
+            "format": "html5",
+            "render_mode": "html5",
+        }
     )
-    generate_structured = AsyncMock()
     monkeypatch.setattr(
         tool_content_builder_routing,
         "generate_structured_artifact_content",
         generate_structured,
+    )
+    monkeypatch.setattr(
+        tool_content_builder_routing,
+        "normalize_demonstration_animation_payload",
+        normalize_runtime_payload,
     )
 
     payload = await tool_content_builder.build_studio_tool_artifact_content(
@@ -123,8 +137,9 @@ async def test_build_studio_tool_artifact_content_routes_animation_cards_to_runt
     )
 
     assert payload["runtime_graph_version"] == "generic_explainer_graph.v1"
-    animation_builder.assert_awaited_once()
-    generate_structured.assert_not_awaited()
+    assert payload["render_mode"] == "html5"
+    generate_structured.assert_awaited_once()
+    normalize_runtime_payload.assert_awaited_once()
 
 
 def test_resolve_card_artifact_builder_uses_dedicated_animation_builder():
@@ -137,6 +152,40 @@ def test_resolve_card_artifact_builder_uses_dedicated_animation_builder():
     assert (
         tool_content_builder_routing.resolve_card_artifact_builder("word_document")
         is not tool_content_builder_routing.STUDIO_CARD_BUILDERS["demonstration_animations"]
+    )
+
+
+def test_animation_schema_hint_includes_title_field():
+    schema_hint = tool_content_builder_support.build_schema_hint(
+        "demonstration_animations"
+    )
+    assert isinstance(schema_hint, str)
+    assert '"title"' in schema_hint
+
+
+def test_parse_ai_object_payload_recovers_json_object_from_prefixed_text():
+    parsed = tool_content_builder_support.parse_ai_object_payload(
+        card_id="knowledge_mindmap",
+        ai_raw=(
+            "模型附加说明：以下是结果。\n"
+            '{"title":"动量守恒","nodes":[{"id":"root","parent_id":null,"title":"动量守恒","summary":"核心概念"}]}'
+            "\n补充说明结束。"
+        ),
+        model="openai/gpt-4o-mini",
+        phase="parse",
+    )
+    assert parsed["title"] == "动量守恒"
+    assert isinstance(parsed.get("nodes"), list)
+
+
+def test_validate_animation_payload_allows_descriptive_draft_without_runtime_arrays():
+    tool_content_builder_support.validate_card_payload(
+        "demonstration_animations",
+        {
+            "kind": "animation_storyboard",
+            "topic": "冒泡排序",
+            "summary": "讲解每一轮交换后的变化",
+        },
     )
 
 
@@ -155,6 +204,30 @@ def test_structured_generation_uses_larger_token_budget_for_speaker_notes():
         )
         == 4800
     )
+    assert (
+        tool_content_builder_generation._resolve_card_generation_max_tokens(
+            "word_document"
+        )
+        == 5000
+    )
+
+
+def test_structured_generation_word_token_budget_can_be_overridden(monkeypatch):
+    monkeypatch.setenv("WORD_LESSON_PLAN_MAX_TOKENS", "5600")
+    assert (
+        tool_content_builder_generation._resolve_card_generation_max_tokens(
+            "word_document"
+        )
+        == 5600
+    )
+
+
+def test_word_rag_snippet_sanitization_removes_symbol_noise():
+    cleaned = tool_content_builder._sanitize_rag_text(
+        "###@@@@\n\n物理层负责比特传输！！！？？？？\n||||||||\n"
+    )
+    assert "||||" not in cleaned
+    assert "物理层负责比特传输" in cleaned
 
 
 @pytest.mark.parametrize(
@@ -210,8 +283,11 @@ async def test_build_studio_tool_artifact_content_routes_cards_through_normalize
 
     assert payload["title"] == expected_title
     if card_id == "word_document":
-        assert payload["kind"] == "word_document"
+        assert payload["kind"] == "teaching_document"
+        assert payload["legacy_kind"] == "word_document"
+        assert payload["schema_id"] == "lesson_plan_v1"
         assert payload["document_content"]["type"] == "doc"
+        assert isinstance(payload["lesson_plan"], dict)
         assert "preview_html" in payload
         assert "doc_source_html" in payload
     else:
@@ -258,6 +334,83 @@ async def test_build_studio_tool_artifact_content_strict_rejects_non_json(
     assert exc.details["card_id"] == "knowledge_mindmap"
     assert exc.details["phase"] == "parse"
     assert exc.details["failure_reason"] == "parse_json_failed"
+
+
+@pytest.mark.asyncio
+async def test_build_studio_tool_artifact_content_word_uses_markdown_first_generation(
+    monkeypatch,
+):
+    monkeypatch.setenv("STUDIO_TOOL_FALLBACK_MODE", "strict")
+    monkeypatch.setenv("STUDIO_TOOL_ENABLE_AI_GENERATION", "true")
+    monkeypatch.setattr(
+        tool_content_builder,
+        "_load_rag_snippets",
+        AsyncMock(return_value=[]),
+    )
+    monkeypatch.setattr(
+        tool_content_builder,
+        "_load_source_artifact_hint",
+        AsyncMock(return_value=None),
+    )
+    generate_mock = AsyncMock(
+        return_value={
+            "content": (
+                "# 计算机网络：物理层教案\n\n"
+                "聚焦物理层关键概念与课堂任务，强调信号传输、介质选择与课堂任务闭环。\n\n"
+                "## 教学定位\n\n"
+                "教学情境：以通信案例引导物理层学习。\n"
+                "学情画像：学生了解分层，但缺少底层传输直觉。\n\n"
+                "## 分层目标\n\n"
+                "A层目标：复述物理层职责。\n"
+                "B层目标：解释介质差异与编码关系。\n"
+                "C层目标：在场景中选择合适传输介质。\n\n"
+                "## 教学流程\n\n"
+                "### 情境导入（10分钟）\n"
+                "教师活动：讲解案例并提出问题。\n"
+                "学生活动：讨论问题并记录要点。\n"
+                "产出：形成待解决问题清单。\n\n"
+                "### 概念建构（20分钟）\n"
+                "教师活动：讲解核心概念与示例。\n"
+                "学生活动：完成对比分析。\n"
+                "产出：完成概念表。\n\n"
+                "### 迁移应用（15分钟）\n"
+                "教师活动：组织任务演练。\n"
+                "学生活动：完成小组任务并展示。\n"
+                "产出：提交方案说明。\n\n"
+                "## 评价与拓展\n\n"
+                "关键问题：物理层如何屏蔽介质差异？\n"
+                "差异化支持：基础层给出模板，进阶层给开放题。\n"
+                "评价方式：课堂提问与任务表现结合。\n\n"
+                "## 作业\n\n"
+                "- 作业建议：完成介质选择分析短文。\n"
+                "- 课后延伸：比较双绞线与光纤的应用场景。\n"
+                "1. 画出家庭网络中的物理层介质分布。\n"
+                "2. 给出一种校园场景下的介质选型理由。\n"
+            ),
+            "model": "dashscope/qwen3.5-flash-2026-02-23",
+            "tokens_used": 1200,
+        }
+    )
+    monkeypatch.setattr(
+        tool_content_builder_generation.ai_service,
+        "generate",
+        generate_mock,
+    )
+
+    await tool_content_builder.build_studio_tool_artifact_content(
+        card_id="word_document",
+        project_id="p-001",
+        user_id="u-001",
+        config={"topic": "计算机网络 物理层教案"},
+    )
+
+    assert generate_mock.await_count == 2
+    first_call = generate_mock.await_args_list[0].kwargs
+    review_call = generate_mock.await_args_list[1].kwargs
+    assert first_call["response_format"] is None
+    assert first_call["max_tokens"] == 5000
+    assert review_call["response_format"] is None
+    assert review_call["max_tokens"] == 3200
 
 
 @pytest.mark.asyncio

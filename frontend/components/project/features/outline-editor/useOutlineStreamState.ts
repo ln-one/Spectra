@@ -506,13 +506,16 @@ export function useOutlineStreamState({
       try {
         const latestSession = await hydrateRunScopedSnapshot();
         if (cancelled || !latestSession) return;
+        const latestSessionState = latestSession as {
+          session?: { state?: string };
+        };
 
         const latestState =
-          typeof latestSession?.session?.state === "string"
-            ? latestSession.session.state
+          typeof latestSessionState.session?.state === "string"
+            ? latestSessionState.session.state
             : "";
         if (latestState === "FAILED") {
-          setErrorMessage(resolveSessionFailureMessage(latestSession.session));
+          setErrorMessage(resolveSessionFailureMessage(latestSessionState.session));
         }
       } catch {
         if (cancelled) return;

@@ -9,7 +9,12 @@ from .fallback import build_word_fallback_payload
 from .html import render_word_doc_source_html, render_word_preview_html
 from .markdown import build_word_markdown
 from .payload import build_word_payload
-from .schema import build_word_prompt, build_word_schema_hint
+from .schema import (
+    build_word_markdown_prompt,
+    build_word_markdown_reviewer_prompt,
+    build_word_prompt,
+    build_word_schema_hint,
+)
 from .sections import build_word_sections
 from .validation import validate_word_layout_payload
 
@@ -18,6 +23,8 @@ __all__ = [
     "WORD_LAYOUT_VERSION",
     "build_word_fallback_payload",
     "build_word_markdown",
+    "build_word_markdown_prompt",
+    "build_word_markdown_reviewer_prompt",
     "build_word_payload",
     "build_word_prompt",
     "build_word_schema_hint",

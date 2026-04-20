@@ -11,6 +11,7 @@ import {
   Library,
   Music,
   Presentation,
+  Sparkles,
 } from "lucide-react";
 
 export const COMPACT_MODE_WIDTH = 140;
@@ -78,6 +79,11 @@ export const FILE_TYPE_CONFIG: Record<
     icon: Library,
     color: "text-amber-600",
     bgGradient: "bg-gradient-to-br from-amber-50 to-yellow-50",
+  },
+  artifact: {
+    icon: Sparkles,
+    color: "text-sky-600",
+    bgGradient: "bg-gradient-to-br from-sky-50 to-cyan-50",
   },
   other: {
     icon: File,

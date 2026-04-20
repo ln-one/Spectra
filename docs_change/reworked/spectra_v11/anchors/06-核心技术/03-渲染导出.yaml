@@ -1,5 +1,5 @@
 section_id: "06-03"
-title: "多格式文档高保真渲染与转换技术"
+title: "结果预览与导出技术"
 purpose: "只写当前预览、导出和结果绑定的实现，不重新引入本地第二渲染权威叙事。"
 source_doc_parts:
   - "source/06-核心技术/03-渲染导出.md"
@@ -28,9 +28,9 @@ figures:
   - "fig-image13-08"
   - "fig-image14-09"
 allowed_claims:
-  - "当前预览与导出属于同一条结果链路。"
-  - "预览接口会返回 artifact 与版本锚点。"
+  - "当前预览与导出属于同一套结果流程。"
+  - "预览接口会返回 artifact 与版本字段。"
   - "用户可以基于 preview 继续修改、查看历史并导出结果。"
 forbidden_claims:
   - "渲染链已完成所有 Office 级格式兼容验证"
-last_checked: "2026-04-19"
+last_checked: "2026-04-20"

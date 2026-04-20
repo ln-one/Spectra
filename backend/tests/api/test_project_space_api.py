@@ -25,6 +25,7 @@ def _fake_reference():
         id="r-001",
         projectId=_PROJECT_ID,
         targetProjectId="p-target-001",
+        targetProjectName="示例资料库",
         relationType="base",
         mode="follow",
         pinnedVersionId=None,
@@ -76,7 +77,9 @@ def _fake_artifact_with_namespace_metadata():
         visibility="private",
         storagePath="uploads/artifacts/p-ps-001/docx/a-002.docx",
         metadata=SimpleNamespace(
-            kind="word_document",
+            kind="teaching_document",
+            legacy_kind="word_document",
+            schema_id="lesson_plan_v1",
             content_snapshot=SimpleNamespace(
                 title="牛顿第一定律教案",
                 document_content=SimpleNamespace(
@@ -147,6 +150,7 @@ def test_get_project_references_returns_thin_ourograph_shape(
     body = resp.json()
     assert body["references"][0]["projectId"] == _PROJECT_ID
     assert body["references"][0]["targetProjectId"] == "p-target-001"
+    assert body["references"][0]["targetProjectName"] == "示例资料库"
     assert "success" not in body
 
 
@@ -212,7 +216,9 @@ def test_get_project_artifact_preserves_namespace_metadata_from_ourograph(
 
     assert resp.status_code == 200
     body = resp.json()
-    assert body["artifact"]["metadata"]["kind"] == "word_document"
+    assert body["artifact"]["metadata"]["kind"] == "teaching_document"
+    assert body["artifact"]["metadata"]["legacy_kind"] == "word_document"
+    assert body["artifact"]["metadata"]["schema_id"] == "lesson_plan_v1"
     assert (
         body["artifact"]["metadata"]["content_snapshot"]["document_content"]["content"][0][
             "content"

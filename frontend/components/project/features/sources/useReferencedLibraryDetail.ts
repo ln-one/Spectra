@@ -16,7 +16,16 @@ export interface ReferencedLibrarySession {
   createdAt: string;
 }
 
-interface LibraryDetailTarget {
+export interface ReferencedLibraryCitationTarget {
+  sourceLibraryId: string;
+  sourceLibraryName?: string;
+  filename?: string;
+  chunkId?: string;
+  pageNumber?: number;
+  timestamp?: number;
+}
+
+export interface LibraryDetailTarget {
   displayName: string;
   reference: ProjectReference;
 }
@@ -61,6 +70,8 @@ function normalizeLibrarySessions(
 export function useReferencedLibraryDetail() {
   const [selectedLibrary, setSelectedLibrary] =
     useState<LibraryDetailTarget | null>(null);
+  const [citationTarget, setCitationTarget] =
+    useState<ReferencedLibraryCitationTarget | null>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -71,13 +82,21 @@ export function useReferencedLibraryDetail() {
   const [references, setReferences] = useState<ProjectReference[]>([]);
   const [sourceFiles, setSourceFiles] = useState<UploadedFile[]>([]);
 
-  const openDetail = useCallback((target: LibraryDetailTarget) => {
-    setSelectedLibrary(target);
-    setIsOpen(true);
-  }, []);
+  const openDetail = useCallback(
+    (
+      target: LibraryDetailTarget,
+      nextCitationTarget?: ReferencedLibraryCitationTarget | null
+    ) => {
+      setSelectedLibrary(target);
+      setCitationTarget(nextCitationTarget ?? null);
+      setIsOpen(true);
+    },
+    []
+  );
 
   const closeDetail = useCallback(() => {
     setIsOpen(false);
+    setCitationTarget(null);
   }, []);
 
   const loadDetail = useCallback(async (target: LibraryDetailTarget) => {
@@ -189,6 +208,7 @@ export function useReferencedLibraryDetail() {
     loading,
     error,
     selectedLibrary,
+    citationTarget,
     sessions,
     historyByTool,
     references,

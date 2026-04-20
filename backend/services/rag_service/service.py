@@ -37,6 +37,8 @@ class RAGService:
         filters: dict | None = None,
         score_threshold: float = 0.0,
         session_id: str | None = None,
+        selected_library_ids: list[str] | None = None,
+        search_local_project: bool = True,
     ):
         return await search(
             self,
@@ -46,6 +48,8 @@ class RAGService:
             filters=filters,
             score_threshold=score_threshold,
             session_id=session_id,
+            selected_library_ids=selected_library_ids,
+            search_local_project=search_local_project,
         )
 
     async def get_chunk_detail(self, chunk_id: str, project_id: str | None = None):

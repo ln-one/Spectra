@@ -16,6 +16,7 @@ async def retry_transient_completion(
     prompt: str,
     max_tokens: Optional[int],
     timeout_seconds: float,
+    response_format: Optional[dict],
     retry_attempts: int,
     retry_delay_seconds: float,
     logger: logging.Logger,
@@ -31,6 +32,7 @@ async def retry_transient_completion(
                 prompt=prompt,
                 max_tokens=max_tokens,
                 timeout_seconds=timeout_seconds,
+                response_format=response_format,
             )
             return response, attempt
         except Exception as exc:

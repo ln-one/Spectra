@@ -41,6 +41,60 @@ type WorkflowEntryInput = {
   toolLabel?: string;
 };
 
+const TITLE_CANDIDATE_KEYS = [
+  "title",
+  "topic",
+  "name",
+  "prompt",
+  "query",
+  "question",
+  "goal",
+  "summary",
+  "output_requirements",
+  "learning_goal",
+  "preset",
+] as const;
+
+function collectTitleFragments(value: unknown, fragments: string[]): void {
+  if (fragments.length >= 2 || value == null) return;
+  if (typeof value === "string") {
+    const normalized = value.trim();
+    if (normalized) {
+      fragments.push(normalized);
+    }
+    return;
+  }
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      if (fragments.length >= 2) break;
+      collectTitleFragments(item, fragments);
+    }
+    return;
+  }
+  if (typeof value !== "object") return;
+  const record = value as Record<string, unknown>;
+  for (const key of TITLE_CANDIDATE_KEYS) {
+    if (fragments.length >= 2) break;
+    collectTitleFragments(record[key], fragments);
+  }
+}
+
+function summarizeTitleFromDraftJson(
+  text: string,
+  toolLabel: string
+): string | null {
+  try {
+    const parsed = JSON.parse(text) as unknown;
+    const fragments: string[] = [];
+    collectTitleFragments(parsed, fragments);
+    if (fragments.length === 0) return null;
+    const merged = fragments.join(" · ");
+    return summarizeTitleFromText(merged, toolLabel);
+  } catch {
+    return null;
+  }
+}
+
 function summarizeTitleFromText(text: string, toolLabel: string): string {
   const cleaned = text
     .replace(/[`*_#>[\](){}]/g, " ")
@@ -62,6 +116,9 @@ function toArtifactHistoryItem(item: ArtifactHistoryItem): StudioHistoryItem {
     sessionId: item.sessionId ?? null,
     step: "preview",
     artifactId: item.artifactId,
+    replacesArtifactId: item.replacesArtifactId ?? null,
+    supersededByArtifactId: item.supersededByArtifactId ?? null,
+    isCurrent: item.isCurrent ?? null,
     runId: item.runId ?? null,
     runNo: item.runNo ?? null,
   };
@@ -144,6 +201,15 @@ function pickPreferredWorkflowItem(
   return incomingTime >= currentTime ? incoming : current;
 }
 
+function isNonTerminalWorkflowItem(item: StudioHistoryItem): boolean {
+  return (
+    item.origin === "workflow" &&
+    item.status !== "completed" &&
+    item.status !== "failed" &&
+    !item.artifactId
+  );
+}
+
 type RequestedStepByTool = Partial<
   Record<GenerationToolType, StudioHistoryStep>
 >;
@@ -199,6 +265,24 @@ function shouldPromoteWorkflowStatus(
   if (!Number.isFinite(workflowTime) || !Number.isFinite(artifactTime))
     return true;
   return artifactTime >= workflowTime;
+}
+
+function filterCurrentMindmapReplacementHeads(
+  items: StudioHistoryItem[]
+): StudioHistoryItem[] {
+  const replacedIds = new Set(
+    items
+      .filter((item) => item.origin === "artifact")
+      .map((item) => item.replacesArtifactId)
+      .filter((id): id is string => Boolean(id))
+  );
+  return items.filter((item) => {
+    if (item.origin !== "artifact") return true;
+    if (item.supersededByArtifactId) return false;
+    if (item.isCurrent === false) return false;
+    if (item.artifactId && replacedIds.has(item.artifactId)) return false;
+    return true;
+  });
 }
 
 export function useStudioWorkflowHistory(
@@ -278,11 +362,20 @@ export function useStudioWorkflowHistory(
               item.sessionId === input.sessionId
           )
         : [];
+      const activeSessionWorkflow = sameSessionItems.filter(isNonTerminalWorkflowItem);
       if (normalizedInputRunId && input.sessionId) {
         const sameRunItem = sameSessionItems.find(
           (item) => normalizeRunId(item.runId) === normalizedInputRunId
         );
-        resolvedItemId = sameRunItem?.id ?? resolvedItemId;
+        resolvedItemId =
+          sameRunItem?.id ??
+          (activeSessionWorkflow.length === 1 ? activeSessionWorkflow[0]?.id : undefined) ??
+          resolvedItemId;
+      } else if (input.sessionId) {
+        const transientItem =
+          activeSessionWorkflow.find((item) => !normalizeRunId(item.runId)) ??
+          activeSessionWorkflow[0];
+        resolvedItemId = transientItem?.id ?? resolvedItemId;
       }
       const index = prev.findIndex((item) => item.id === resolvedItemId);
       const itemWithResolvedId: StudioHistoryItem =
@@ -318,10 +411,13 @@ export function useStudioWorkflowHistory(
     if (!input.titleSource?.trim()) return;
     if (polishedTitleRequestedRef.current[nextItem.id]) return;
     polishedTitleRequestedRef.current[nextItem.id] = true;
-    const polishedTitle = summarizeTitleFromText(
-      input.titleSource.trim(),
-      input.toolLabel || input.title
-    );
+    const rawTitleSource = input.titleSource.trim();
+    const polishedTitle =
+      summarizeTitleFromDraftJson(
+        rawTitleSource,
+        input.toolLabel || input.title
+      ) ??
+      summarizeTitleFromText(rawTitleSource, input.toolLabel || input.title);
     if (!polishedTitle) return;
     setWorkflowItems((prev) =>
       prev.map((item) =>
@@ -392,6 +488,24 @@ export function useStudioWorkflowHistory(
       const next = { ...prev };
       delete next[itemId];
       return next;
+    });
+  }, []);
+
+  const deleteArchivedHistoryItem = useCallback((itemId: string) => {
+    setArchivedHistoryById((prev) => {
+      if (!prev[itemId]) return prev;
+      const next = { ...prev };
+      delete next[itemId];
+      return next;
+    });
+    // Keep hidden marker so deleted archived entries do not reappear
+    // in the main generation timeline.
+    setHiddenHistoryIds((prev) => {
+      if (prev[itemId]) return prev;
+      return {
+        ...prev,
+        [itemId]: true,
+      };
     });
   }, []);
 
@@ -480,6 +594,50 @@ export function useStudioWorkflowHistory(
     );
 
     const filteredWorkflow = normalizedWorkflow.filter((item) => {
+      const normalizedRunId = normalizeRunId(item.runId);
+      const sessionArtifactsForTool =
+        item.sessionId
+          ? sessionScopedArtifacts.filter(
+              (artifact) =>
+                artifact.sessionId === item.sessionId &&
+                artifact.toolType === item.toolType
+            )
+          : [];
+      const matchedArtifact =
+        item.sessionId && normalizedRunId
+          ? artifactByRun.get(
+              `${item.toolType}:${item.sessionId}:${normalizedRunId}`
+            )
+          : item.artifactId
+            ? sessionScopedArtifacts.find(
+                (artifact) => artifact.artifactId === item.artifactId
+              )
+            : undefined;
+      if (matchedArtifact) {
+        return false;
+      }
+      if (
+        item.toolType === "word" &&
+        sessionArtifactsForTool.some((artifact) => {
+          if (artifact.status !== "completed" && artifact.status !== "failed") {
+            return false;
+          }
+          const workflowTime = new Date(item.createdAt).getTime();
+          const artifactTime = new Date(artifact.createdAt).getTime();
+          if (!Number.isFinite(workflowTime) || !Number.isFinite(artifactTime)) {
+            return true;
+          }
+          return artifactTime >= workflowTime;
+        })
+      ) {
+        return false;
+      }
+      if (
+        item.status === "previewing" &&
+        sessionArtifactsForTool.some((artifact) => artifact.status === "completed")
+      ) {
+        return false;
+      }
       if (
         (item.status !== "processing" && item.status !== "previewing") ||
         !item.sessionId
@@ -552,7 +710,14 @@ export function useStudioWorkflowHistory(
           (a, b) =>
             new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
         );
-      return [toolType, items] as [GenerationToolType, StudioHistoryItem[]];
+      const normalizedItems =
+        toolType === "mindmap"
+          ? filterCurrentMindmapReplacementHeads(items)
+          : items;
+      return [toolType, normalizedItems] as [
+        GenerationToolType,
+        StudioHistoryItem[],
+      ];
     }).filter(([, items]) => items.length > 0);
   }, [activeSessionId, artifactHistoryByTool, hiddenHistoryIds, workflowItems]);
 
@@ -567,5 +732,6 @@ export function useStudioWorkflowHistory(
     archiveHistoryItem,
     archivedHistory,
     unarchiveHistoryItem,
+    deleteArchivedHistoryItem,
   };
 }

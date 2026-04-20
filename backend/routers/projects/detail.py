@@ -4,11 +4,19 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Header, Query
 
 from schemas import ProjectUpdate
+from schemas.projects import (
+    ArtifactSourceCreateRequest,
+    ArtifactSourceResponse,
+    ArtifactSourcesResponse,
+)
 from services.application.access import get_owned_project
 from services.application.project_api import (
+    create_artifact_source_response,
     delete_project_response,
     get_project_files_response,
+    list_artifact_sources_response,
     update_project_response,
+    delete_artifact_source_response,
 )
 from services.database import db_service
 from utils.dependencies import get_current_user
@@ -158,4 +166,77 @@ async def get_project_files(
         raise InternalServerException(
             message="获取项目文件列表失败",
             details={"project_id": project_id, "page": page, "limit": limit},
+        )
+
+
+@router.get("/{project_id}/artifact-sources", response_model=ArtifactSourcesResponse)
+async def get_project_artifact_sources(
+    project_id: str,
+    user_id: str = Depends(get_current_user),
+):
+    try:
+        return await list_artifact_sources_response(project_id, user_id)
+    except APIException:
+        raise
+    except Exception as exc:
+        logger.error(
+            "Failed to get project artifact sources: %s",
+            exc,
+            extra={"user_id": user_id, "project_id": project_id},
+            exc_info=True,
+        )
+        raise InternalServerException(
+            message="获取项目沉淀来源失败",
+            details={"project_id": project_id},
+        )
+
+
+@router.post("/{project_id}/artifact-sources", response_model=ArtifactSourceResponse)
+async def create_project_artifact_source(
+    project_id: str,
+    body: ArtifactSourceCreateRequest,
+    user_id: str = Depends(get_current_user),
+):
+    try:
+        return await create_artifact_source_response(
+            project_id,
+            body.artifact_id,
+            surface_kind=body.surface_kind,
+            user_id=user_id,
+        )
+    except APIException:
+        raise
+    except Exception as exc:
+        logger.error(
+            "Failed to create project artifact source: %s",
+            exc,
+            extra={"user_id": user_id, "project_id": project_id},
+            exc_info=True,
+        )
+        raise InternalServerException(
+            message="加入项目来源失败",
+            details={"project_id": project_id, "artifact_id": body.artifact_id},
+        )
+
+
+@router.delete("/{project_id}/artifact-sources/{source_id}")
+async def delete_project_artifact_source(
+    project_id: str,
+    source_id: str,
+    user_id: str = Depends(get_current_user),
+):
+    try:
+        return await delete_artifact_source_response(project_id, source_id, user_id)
+    except APIException:
+        raise
+    except Exception as exc:
+        logger.error(
+            "Failed to delete project artifact source: %s",
+            exc,
+            extra={"user_id": user_id, "project_id": project_id, "source_id": source_id},
+            exc_info=True,
+        )
+        raise InternalServerException(
+            message="移出项目来源失败",
+            details={"project_id": project_id, "source_id": source_id},
         )

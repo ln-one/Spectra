@@ -22,21 +22,21 @@ function buildWordContext(
         empty: "当前还没有可绑定成果，点击上方按钮即可刷新。",
       },
     },
-    requiresSourceArtifact: true,
+    requiresSourceArtifact: false,
     ...overrides,
   };
 }
 
 describe("studio active workbench guards", () => {
-  it("keeps word shared source binding copy aligned when source is required but missing", () => {
+  it("keeps word shared source binding copy aligned when source is optional", () => {
     const viewModel = buildArtifactWorkbenchViewModel(
       buildWordContext(),
       null,
       "等待后端返回真实文档内容。"
     );
 
-    expect(viewModel.sourceBindingStatus).toBe("当前需要先绑定来源成果。");
-    expect(viewModel.recommendedAction).toBe("继续微调文档，或导出正式产物。");
+    expect(viewModel.sourceBindingStatus).toBe("未绑定课件来源：基于课题与资料来源生成。");
+    expect(viewModel.recommendedAction).toBe("继续微调教案，或导出正式产物。");
   });
 
   it("uses answer_or_refine guidance for quiz workbench when runtime state requests it", () => {

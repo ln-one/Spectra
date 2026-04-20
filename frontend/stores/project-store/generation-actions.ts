@@ -88,6 +88,104 @@ function extractOutlineVersion(
   return 0;
 }
 
+function readSessionSnapshotArtifacts(
+  snapshotData: unknown,
+  projectId: string,
+  sessionId: string
+): Artifact[] {
+  if (!snapshotData || typeof snapshotData !== "object") return [];
+  const rawArtifacts = (snapshotData as { session_artifacts?: unknown })
+    .session_artifacts;
+  if (!Array.isArray(rawArtifacts)) return [];
+
+  const fallbackTimestamp = new Date().toISOString();
+  const normalized: Artifact[] = [];
+
+  for (const raw of rawArtifacts) {
+    if (!raw || typeof raw !== "object") continue;
+    const row = raw as Record<string, unknown>;
+    const id = typeof row.artifact_id === "string" ? row.artifact_id.trim() : "";
+    if (!id) continue;
+
+    const type =
+      typeof row.type === "string" && row.type.trim()
+        ? row.type.trim()
+        : "summary";
+    const createdAt =
+      typeof row.created_at === "string" && row.created_at.trim()
+        ? row.created_at.trim()
+        : fallbackTimestamp;
+    const updatedAt =
+      typeof row.updated_at === "string" && row.updated_at.trim()
+        ? row.updated_at.trim()
+        : createdAt;
+    const basedOnVersionId =
+      typeof row.based_on_version_id === "string" &&
+      row.based_on_version_id.trim()
+        ? row.based_on_version_id.trim()
+        : null;
+    const sourceMetadata =
+      row.metadata && typeof row.metadata === "object" && !Array.isArray(row.metadata)
+        ? (row.metadata as Record<string, unknown>)
+        : null;
+    const metadata: Record<string, unknown> = {
+      ...(sourceMetadata ?? {}),
+    };
+
+    if (
+      typeof row.replaces_artifact_id === "string" &&
+      row.replaces_artifact_id.trim() &&
+      typeof metadata.replaces_artifact_id !== "string"
+    ) {
+      metadata.replaces_artifact_id = row.replaces_artifact_id.trim();
+    }
+    if (
+      typeof row.superseded_by_artifact_id === "string" &&
+      row.superseded_by_artifact_id.trim() &&
+      typeof metadata.superseded_by_artifact_id !== "string"
+    ) {
+      metadata.superseded_by_artifact_id = row.superseded_by_artifact_id.trim();
+    }
+    if (
+      typeof row.title === "string" &&
+      row.title.trim() &&
+      typeof metadata.title !== "string"
+    ) {
+      metadata.title = row.title.trim();
+    }
+
+    normalized.push({
+      id,
+      projectId,
+      sessionId,
+      basedOnVersionId,
+      ownerUserId: null,
+      type,
+      visibility: "private",
+      storagePath: null,
+      metadata,
+      createdAt,
+      updatedAt,
+    });
+  }
+
+  return normalized;
+}
+
+function mergeArtifacts(projectArtifacts: Artifact[], snapshotArtifacts: Artifact[]): Artifact[] {
+  if (snapshotArtifacts.length === 0) return projectArtifacts;
+  if (projectArtifacts.length === 0) return snapshotArtifacts;
+
+  const mergedById = new Map<string, Artifact>();
+  for (const artifact of snapshotArtifacts) {
+    mergedById.set(artifact.id, artifact);
+  }
+  for (const artifact of projectArtifacts) {
+    mergedById.set(artifact.id, artifact);
+  }
+  return Array.from(mergedById.values());
+}
+
 export function createGenerationActions({
   set,
   get,
@@ -180,10 +278,28 @@ export function createGenerationActions({
           return;
         }
 
-        const response = await projectSpaceApi.getArtifacts(projectId, {
-          session_id: effectiveSessionId,
-        });
-        const artifacts = ((response?.artifacts ?? []) as Artifact[]) || [];
+        const [artifactsResponse, sessionSnapshotResponse] = await Promise.all([
+          projectSpaceApi.getArtifacts(projectId, {
+            session_id: effectiveSessionId,
+          }),
+          generateApi
+            .getSessionSnapshot(effectiveSessionId)
+            .catch((error: unknown) => {
+              console.warn(
+                "Session snapshot fetch failed while loading artifact history:",
+                getErrorMessage(error)
+              );
+              return null;
+            }),
+        ]);
+        const projectArtifacts =
+          ((artifactsResponse?.artifacts ?? []) as Artifact[]) || [];
+        const snapshotArtifacts = readSessionSnapshotArtifacts(
+          sessionSnapshotResponse?.data,
+          projectId,
+          effectiveSessionId
+        );
+        const artifacts = mergeArtifacts(projectArtifacts, snapshotArtifacts);
         const sessionHistoryByTool = groupArtifactsByTool(artifacts);
         const sessionArtifacts = Object.values(sessionHistoryByTool)
           .flat()

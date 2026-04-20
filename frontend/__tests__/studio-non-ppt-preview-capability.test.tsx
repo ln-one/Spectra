@@ -15,6 +15,11 @@ jest.mock("remark-gfm", () => ({
   default: () => undefined,
 }));
 
+jest.mock("rehype-sanitize", () => ({
+  __esModule: true,
+  default: () => undefined,
+}));
+
 beforeAll(() => {
   class ResizeObserverMock {
     observe() {

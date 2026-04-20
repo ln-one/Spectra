@@ -67,6 +67,81 @@ def test_get_project_success(client, monkeypatch, _as_user):
     assert resp.json()["data"]["project"]["id"] == _PROJECT_ID
 
 
+def test_get_project_artifact_sources_success(client, monkeypatch, _as_user):
+    monkeypatch.setattr(
+        project_detail_router,
+        "list_artifact_sources_response",
+        AsyncMock(
+            return_value={
+                "success": True,
+                "data": {
+                    "sources": [
+                        {
+                            "id": "u-src-001",
+                            "artifact_id": "a-001",
+                            "artifact_type": "docx",
+                            "tool_type": "word",
+                            "title": "教学文档",
+                        }
+                    ]
+                },
+                "message": "ok",
+            }
+        ),
+    )
+
+    resp = client.get(f"/api/v1/projects/{_PROJECT_ID}/artifact-sources")
+    assert resp.status_code == 200
+    assert resp.json()["data"]["sources"][0]["artifact_id"] == "a-001"
+
+
+def test_create_project_artifact_source_success(client, monkeypatch, _as_user):
+    create_mock = AsyncMock(
+        return_value={
+            "success": True,
+            "data": {
+                "source": {
+                    "id": "u-src-001",
+                    "artifact_id": "a-001",
+                    "artifact_type": "docx",
+                    "tool_type": "word",
+                    "title": "教学文档",
+                }
+            },
+            "message": "ok",
+        }
+    )
+    monkeypatch.setattr(
+        project_detail_router, "create_artifact_source_response", create_mock
+    )
+
+    resp = client.post(
+        f"/api/v1/projects/{_PROJECT_ID}/artifact-sources",
+        json={"artifact_id": "a-001", "surface_kind": "document"},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["data"]["source"]["id"] == "u-src-001"
+    create_mock.assert_awaited_once_with(
+        _PROJECT_ID,
+        "a-001",
+        surface_kind="document",
+        user_id=_USER_ID,
+    )
+
+
+def test_delete_project_artifact_source_success(client, monkeypatch, _as_user):
+    delete_mock = AsyncMock(return_value={"success": True, "data": {}, "message": "ok"})
+    monkeypatch.setattr(
+        project_detail_router, "delete_artifact_source_response", delete_mock
+    )
+
+    resp = client.delete(
+        f"/api/v1/projects/{_PROJECT_ID}/artifact-sources/u-src-001"
+    )
+    assert resp.status_code == 200
+    delete_mock.assert_awaited_once_with(_PROJECT_ID, "u-src-001", _USER_ID)
+
+
 def test_get_project_not_found_404(client, monkeypatch, _as_user):
     _mock(monkeypatch, db_service, "get_project", None)
 
@@ -228,7 +303,27 @@ def test_update_project_rejects_invalid_visibility(client, _as_user):
     assert resp.status_code == 400
 
 
-def test_create_project_rejects_private_referenceable_combo(client, _as_user):
+def test_create_project_allows_private_referenceable_combo(
+    client, monkeypatch, _as_user
+):
+    created = _fake_project(visibility="private", isReferenceable=True)
+    _mock(monkeypatch, db_service, "create_project", created)
+    monkeypatch.setattr(
+        project_api,
+        "_create_formal_project",
+        AsyncMock(return_value=None),
+    )
+    monkeypatch.setattr(
+        project_api,
+        "_create_base_reference_if_needed",
+        AsyncMock(return_value=None),
+    )
+    monkeypatch.setattr(
+        project_api,
+        "_bootstrap_default_session",
+        AsyncMock(return_value=None),
+    )
+
     resp = client.post(
         "/api/v1/projects",
         json={
@@ -239,10 +334,30 @@ def test_create_project_rejects_private_referenceable_combo(client, _as_user):
         },
     )
 
-    assert resp.status_code == 400
+    assert resp.status_code == 200
+    assert resp.json()["data"]["project"]["isReferenceable"] is True
 
 
-def test_update_project_rejects_private_referenceable_combo(client, _as_user):
+def test_update_project_allows_private_referenceable_combo(
+    client, monkeypatch, _as_user
+):
+    _mock(monkeypatch, db_service, "get_project", _fake_project())
+    _mock(monkeypatch, db_service, "get_idempotency_response", None)
+    _mock(
+        monkeypatch,
+        db_service,
+        "update_project",
+        _fake_project(visibility="private", isReferenceable=True),
+    )
+    monkeypatch.setattr(
+        db_service, "save_idempotency_response", AsyncMock(return_value=None)
+    )
+    monkeypatch.setattr(
+        project_api.project_space_service,
+        "update_project_governance",
+        AsyncMock(return_value=None),
+    )
+
     resp = client.put(
         f"/api/v1/projects/{_PROJECT_ID}",
         json={
@@ -253,7 +368,7 @@ def test_update_project_rejects_private_referenceable_combo(client, _as_user):
         },
     )
 
-    assert resp.status_code == 400
+    assert resp.status_code == 200
 
 
 def test_update_project_success(client, monkeypatch, _as_user):

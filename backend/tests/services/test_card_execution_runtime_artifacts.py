@@ -11,19 +11,23 @@ from services.database import db_service
 from services.generation_session_service.card_execution_runtime_run_helpers import (
     create_artifact_run,
 )
+from services.generation_session_service.card_execution_runtime_artifacts import (
+    execute_studio_card_artifact_request,
+)
 from services.generation_session_service.card_execution_runtime_simulator import (
     normalize_simulator_turn_result,
 )
 from services.generation_session_service.card_execution_runtime_helpers import (
     build_latest_runnable_state,
 )
-from services.generation_session_service.tool_content_builder_generation import (
+from services.generation_session_service.simulator_turn_generation import (
     generate_simulator_turn_update,
 )
 from services.generation_session_service.card_execution_runtime_word import (
     resolve_word_document_title,
 )
 from services.project_space_service.service import project_space_service
+from utils.exceptions import APIException, ErrorCode
 
 
 @pytest.mark.anyio
@@ -138,11 +142,33 @@ async def test_resolve_word_document_title_prefers_source_ppt_title(monkeypatch)
 
     title = await resolve_word_document_title(
         source_artifact_id="ppt-art-001",
+        user_id="u-001",
         config={"topic": "不会被采用"},
         existing_title="",
     )
 
     assert title == "计算机图形学教案"
+
+
+@pytest.mark.anyio
+async def test_resolve_word_document_title_ignores_placeholder_existing_title(monkeypatch):
+    source_artifact = SimpleNamespace(
+        metadata={"title": "计算机网络物理层"},
+    )
+    monkeypatch.setattr(
+        project_space_service,
+        "get_artifact",
+        AsyncMock(return_value=source_artifact),
+    )
+
+    title = await resolve_word_document_title(
+        source_artifact_id="ppt-art-002",
+        user_id="u-001",
+        config={"topic": "不会被采用"},
+        existing_title="第31次讲义文档",
+    )
+
+    assert title == "计算机网络物理层教案"
 
 
 def test_normalize_simulator_turn_result_backfills_required_fields() -> None:
@@ -176,9 +202,28 @@ def test_build_latest_runnable_state_uses_card_specific_next_action() -> None:
         session_id="session-1",
         source_binding_valid=True,
     )
+    animation_html_state = build_latest_runnable_state(
+        card_id="demonstration_animations",
+        artifact_id="artifact-animation-html",
+        session_id="session-1",
+        source_binding_valid=False,
+        placement_supported=False,
+    )
+    animation_gif_state = build_latest_runnable_state(
+        card_id="demonstration_animations",
+        artifact_id="artifact-animation-gif",
+        session_id="session-1",
+        source_binding_valid=True,
+        placement_supported=True,
+    )
 
     assert quiz_state["next_action"] == "answer_or_refine"
     assert simulation_state["next_action"] == "follow_up_turn"
+    assert animation_html_state["next_action"] == "refine"
+    assert animation_html_state["can_recommend_placement"] is False
+    assert animation_gif_state["next_action"] == "placement"
+    assert animation_gif_state["can_recommend_placement"] is True
+    assert animation_gif_state["can_confirm_placement"] is True
 
 
 @pytest.mark.anyio
@@ -233,3 +278,88 @@ async def test_generate_simulator_turn_update_normalizes_turn_history(monkeypatc
     assert updated_content["turns"][1]["teacher_answer"] == "看速度变化趋势，再判断加速度方向。"
     assert turn_result["turn_anchor"] == "turn-2"
     assert turn_result["next_focus"] == "反例构造"
+
+
+@pytest.mark.anyio
+async def test_execute_studio_card_artifact_request_marks_requested_run_failed_on_generation_error(
+    monkeypatch,
+):
+    body = SimpleNamespace(
+        project_id="project-001",
+        client_session_id="session-001",
+        run_id="run-001",
+        config={"topic": "冒泡排序"},
+        primary_source_id=None,
+        source_artifact_id=None,
+        selected_source_ids=[],
+        rag_source_ids=[],
+    )
+    preview = SimpleNamespace(
+        readiness="foundation_ready",
+        initial_request=SimpleNamespace(
+            payload={
+                "content": {},
+                "type": "html",
+                "visibility": "private",
+                "based_on_version_id": None,
+            }
+        ),
+        execution_carrier="artifact",
+    )
+    mark_failed_mock = AsyncMock()
+    create_artifact_mock = AsyncMock()
+
+    monkeypatch.setattr(
+        project_space_service,
+        "check_project_permission",
+        AsyncMock(),
+    )
+    monkeypatch.setattr(
+        "services.generation_session_service.card_execution_runtime_artifacts.resolve_execution_session_id",
+        AsyncMock(return_value="session-001"),
+    )
+    monkeypatch.setattr(
+        "services.generation_session_service.card_execution_runtime_artifacts.resolve_effective_source_artifact_id",
+        AsyncMock(return_value=None),
+    )
+    monkeypatch.setattr(
+        "services.generation_session_service.card_execution_runtime_artifacts.validate_source_artifact",
+        AsyncMock(),
+    )
+    monkeypatch.setattr(
+        "services.generation_session_service.card_execution_runtime_artifacts.promote_requested_run_to_generating",
+        AsyncMock(),
+    )
+    monkeypatch.setattr(
+        "services.generation_session_service.card_execution_runtime_artifacts.build_studio_tool_artifact_content",
+        AsyncMock(
+            side_effect=APIException(
+                status_code=502,
+                error_code=ErrorCode.EXTERNAL_SERVICE_ERROR,
+                message="AI generation failed",
+                retryable=True,
+            )
+        ),
+    )
+    monkeypatch.setattr(
+        "services.generation_session_service.card_execution_runtime_artifacts.mark_requested_run_execution_failed",
+        mark_failed_mock,
+    )
+    monkeypatch.setattr(
+        project_space_service,
+        "create_artifact_with_file",
+        create_artifact_mock,
+    )
+
+    with pytest.raises(APIException):
+        await execute_studio_card_artifact_request(
+            card_id="demonstration_animations",
+            body=body,
+            user_id="user-001",
+            preview=preview,
+        )
+
+    mark_failed_mock.assert_awaited_once()
+    assert mark_failed_mock.await_args.kwargs["card_id"] == "demonstration_animations"
+    assert mark_failed_mock.await_args.kwargs["session_id"] == "session-001"
+    create_artifact_mock.assert_not_awaited()

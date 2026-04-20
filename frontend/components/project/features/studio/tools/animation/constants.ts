@@ -113,7 +113,7 @@ export const ANIMATION_STYLE_PACK_SWATCHES: Record<
 };
 
 export const DEFAULT_EXPLAINER_STYLE_PACK: AnimationStylePack =
-  "teaching_ppt_minimal_gray";
+  "teaching_ppt_fresh_green";
 
 export function resolveDefaultExplainerStylePack(): AnimationStylePack {
   return DEFAULT_EXPLAINER_STYLE_PACK;
@@ -173,7 +173,7 @@ export function getVisualTypeLabel(value?: string | null): string {
 }
 
 export function getStylePackLabel(value?: string | null): string {
-  if (!value) return "极简灰阶";
+  if (!value) return "清新绿意";
   return (
     ANIMATION_STYLE_PACK_OPTIONS.find((item) => item.value === value)?.label ??
     value

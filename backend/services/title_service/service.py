@@ -18,6 +18,7 @@ from services.generation_session_service.run_constants import (
     SESSION_TITLE_SOURCE_DEFAULT,
     SESSION_TITLE_SOURCE_FALLBACK,
     SESSION_TITLE_SOURCE_FIRST_MESSAGE,
+    resolve_tool_label,
 )
 from services.generation_session_service.run_lifecycle import (
     supports_session_run,

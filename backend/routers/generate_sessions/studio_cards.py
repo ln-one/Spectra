@@ -14,6 +14,9 @@ from services.generation_session_service.animation_workflow import (
     require_animation_artifact,
     require_ppt_artifact,
 )
+from services.generation_session_service.animation_contract import (
+    AnimationContractViolation,
+)
 from services.generation_session_service.card_capabilities import (
     get_studio_card_capabilities,
     get_studio_card_capability,
@@ -43,12 +46,14 @@ from utils.responses import success_response
 from .shared import get_session_service, get_task_queue_service
 from .studio_card_route_support import (
     _resolve_request_rag_source_ids,
+    build_animation_contract_problem_response,
     build_chat_refine_request,
     build_execution_request,
     build_refine_request,
     build_turn_request,
     require_body_field,
     require_project_id,
+    validate_animation_request_contract,
 )
 
 router = APIRouter()
@@ -72,6 +77,8 @@ def _build_preview_or_raise(card_id: str, body: dict):
         config=body.get("config"),
         template_config=body.get("template_config"),
         visibility=body.get("visibility"),
+        primary_source_id=body.get("primary_source_id"),
+        selected_source_ids=body.get("selected_source_ids"),
         source_artifact_id=body.get("source_artifact_id"),
         rag_source_ids=_resolve_request_rag_source_ids(body),
     )
@@ -136,11 +143,16 @@ async def get_studio_card_execution_plan_detail(
 async def preview_studio_card_execution(
     card_id: str,
     body: dict,
+    request: Request,
     user_id: str = Depends(get_current_user),
 ):
     """根据卡片配置返回当前可直接调用的后端请求预览。"""
-    body = {**body, "project_id": require_project_id(body)}
-    preview = _build_preview_or_raise(card_id, body)
+    try:
+        validate_animation_request_contract(card_id, body)
+        body = {**body, "project_id": require_project_id(body)}
+        preview = _build_preview_or_raise(card_id, body)
+    except AnimationContractViolation as violation:
+        return build_animation_contract_problem_response(request, violation)
 
     return success_response(
         data={"execution_preview": preview.model_dump(mode="json")},
@@ -156,15 +168,18 @@ async def execute_studio_card(
     user_id: str = Depends(get_current_user),
 ):
     """执行已达到 foundation-ready 的 Studio 卡片初始动作。"""
-    project_id = require_project_id(body)
-
-    result = await execute_studio_card_initial_request(
-        card_id=card_id,
-        body=build_execution_request(project_id=project_id, body=body),
-        user_id=user_id,
-        session_service=get_session_service(),
-        task_queue_service=get_task_queue_service(request),
-    )
+    try:
+        validate_animation_request_contract(card_id, body)
+        project_id = require_project_id(body)
+        result = await execute_studio_card_initial_request(
+            card_id=card_id,
+            body=build_execution_request(project_id=project_id, body=body),
+            user_id=user_id,
+            session_service=get_session_service(),
+            task_queue_service=get_task_queue_service(request),
+        )
+    except AnimationContractViolation as violation:
+        return build_animation_contract_problem_response(request, violation)
 
     return success_response(
         data={"execution_result": result.model_dump(mode="json")},
@@ -176,16 +191,21 @@ async def execute_studio_card(
 async def draft_studio_card(
     card_id: str,
     body: dict,
+    request: Request,
     user_id: str = Depends(get_current_user),
 ):
     """为 Studio 卡片创建草稿 run（不触发最终生成）。"""
-    project_id = require_project_id(body)
-    result = await execute_studio_card_draft_request(
-        card_id=card_id,
-        body=build_execution_request(project_id=project_id, body=body),
-        user_id=user_id,
-        session_service=get_session_service(),
-    )
+    try:
+        validate_animation_request_contract(card_id, body)
+        project_id = require_project_id(body)
+        result = await execute_studio_card_draft_request(
+            card_id=card_id,
+            body=build_execution_request(project_id=project_id, body=body),
+            user_id=user_id,
+            session_service=get_session_service(),
+        )
+    except AnimationContractViolation as violation:
+        return build_animation_contract_problem_response(request, violation)
     return success_response(
         data={"execution_result": result.model_dump(mode="json")},
         message="Studio 卡片草稿已创建",
@@ -196,55 +216,60 @@ async def draft_studio_card(
 async def refine_studio_card(
     card_id: str,
     body: dict,
+    request: Request,
     user_id: str = Depends(get_current_user),
 ):
     """执行卡片 refine；结构化更新优先，chat 作为兼容后备路径。"""
-    project_id = require_project_id(body)
-    refine_body = build_refine_request(project_id=project_id, body=body)
+    try:
+        validate_animation_request_contract(card_id, body)
+        project_id = require_project_id(body)
+        refine_body = build_refine_request(project_id=project_id, body=body)
 
-    if (
-        supports_structured_refine(card_id)
-        and refine_body.artifact_id
-        and refine_body.refine_mode != RefineMode.CHAT_REFINE
-    ):
-        result = await execute_studio_card_refine_request(
+        if (
+            supports_structured_refine(card_id)
+            and refine_body.artifact_id
+            and refine_body.refine_mode != RefineMode.CHAT_REFINE
+        ):
+            result = await execute_studio_card_refine_request(
+                card_id=card_id,
+                body=refine_body,
+                user_id=user_id,
+            )
+            return success_response(
+                data={"execution_result": result.model_dump(mode="json")},
+                message="Studio 卡片 refine 成功",
+            )
+
+        if not refine_body.message:
+            raise APIException(
+                status_code=400,
+                error_code=ErrorCode.INVALID_INPUT,
+                message="message 为必填字段",
+            )
+
+        body = {**body, "project_id": project_id}
+        preview = _build_preview_or_raise(card_id, body)
+        if preview.refine_request is None:
+            raise APIException(
+                status_code=409,
+                error_code=ErrorCode.RESOURCE_CONFLICT,
+                message="该 Studio 卡片当前尚未暴露 refine 协议",
+            )
+
+        payload = preview.refine_request.payload
+        chat_body = build_chat_refine_request(
             card_id=card_id,
-            body=refine_body,
-            user_id=user_id,
+            project_id=project_id,
+            body=body,
+            payload=payload,
         )
-        return success_response(
-            data={"execution_result": result.model_dump(mode="json")},
-            message="Studio 卡片 refine 成功",
-        )
-
-    if not refine_body.message:
-        raise APIException(
-            status_code=400,
-            error_code=ErrorCode.INVALID_INPUT,
-            message="message 为必填字段",
-        )
-
-    body = {**body, "project_id": project_id}
-    preview = _build_preview_or_raise(card_id, body)
-    if preview.refine_request is None:
-        raise APIException(
-            status_code=409,
-            error_code=ErrorCode.RESOURCE_CONFLICT,
-            message="该 Studio 卡片当前尚未暴露 refine 协议",
-        )
-
-    payload = preview.refine_request.payload
-    chat_body = build_chat_refine_request(
-        card_id=card_id,
-        project_id=project_id,
-        body=body,
-        payload=payload,
-    )
-    result = await process_chat_message(chat_body, user_id=user_id)
-    result["data"]["card_id"] = card_id
-    result["data"]["refine_request"] = preview.refine_request.model_dump(mode="json")
-    result["message"] = "Studio 卡片 refine 成功"
-    return result
+        result = await process_chat_message(chat_body, user_id=user_id)
+        result["data"]["card_id"] = card_id
+        result["data"]["refine_request"] = preview.refine_request.model_dump(mode="json")
+        result["message"] = "Studio 卡片 refine 成功"
+        return result
+    except AnimationContractViolation as violation:
+        return build_animation_contract_problem_response(request, violation)
 
 
 @router.post("/studio-cards/classroom_qa_simulator/turn")
@@ -289,6 +314,7 @@ async def advance_classroom_simulator_turn(
 @router.post("/studio-cards/demonstration_animations/recommend-placement")
 async def recommend_animation_placement(
     body: dict,
+    request: Request,
     user_id: str = Depends(get_current_user),
 ):
     project_id = require_project_id(body)
@@ -303,39 +329,43 @@ async def recommend_animation_placement(
         message="ppt_artifact_id 为必填字段",
     )
 
-    await project_space_service.check_project_permission(
-        project_id, user_id, ProjectPermission.COLLABORATE
-    )
-    animation_artifact = await require_animation_artifact(project_id, artifact_id)
-    ppt_artifact = await require_ppt_artifact(project_id, ppt_artifact_id)
-    recommendation = build_animation_placement_recommendation(
-        animation_artifact=animation_artifact,
-        ppt_artifact=ppt_artifact,
-    )
-    next_metadata = apply_animation_placement_update(
-        metadata=artifact_metadata_dict(animation_artifact),
-        recommendation=recommendation,
-    )
-    await project_space_service.update_artifact_metadata(
-        artifact_id=artifact_id,
-        metadata=next_metadata,
-        project_id=project_id,
-        user_id=user_id,
-    )
-    setattr(animation_artifact, "metadata", next_metadata)
+    try:
+        await project_space_service.check_project_permission(
+            project_id, user_id, ProjectPermission.COLLABORATE
+        )
+        animation_artifact = await require_animation_artifact(project_id, artifact_id)
+        ppt_artifact = await require_ppt_artifact(project_id, ppt_artifact_id)
+        recommendation = build_animation_placement_recommendation(
+            animation_artifact=animation_artifact,
+            ppt_artifact=ppt_artifact,
+        )
+        next_metadata = apply_animation_placement_update(
+            metadata=artifact_metadata_dict(animation_artifact),
+            recommendation=recommendation,
+        )
+        await project_space_service.update_artifact_metadata(
+            artifact_id=artifact_id,
+            metadata=next_metadata,
+            project_id=project_id,
+            user_id=user_id,
+        )
+        setattr(animation_artifact, "metadata", next_metadata)
 
-    return success_response(
-        data={
-            "recommendation": recommendation,
-            "artifact": _serialize_artifact_response_payload(animation_artifact),
-        },
-        message="动画插入推荐生成成功",
-    )
+        return success_response(
+            data={
+                "recommendation": recommendation,
+                "artifact": _serialize_artifact_response_payload(animation_artifact),
+            },
+            message="动画插入推荐生成成功",
+        )
+    except AnimationContractViolation as violation:
+        return build_animation_contract_problem_response(request, violation)
 
 
 @router.post("/studio-cards/demonstration_animations/confirm-placement")
 async def confirm_animation_placement(
     body: dict,
+    request: Request,
     user_id: str = Depends(get_current_user),
 ):
     project_id = require_project_id(body)
@@ -357,48 +387,51 @@ async def confirm_animation_placement(
             message="page_numbers 为必填字段，且至少包含一个页码",
         )
 
-    await project_space_service.check_project_permission(
-        project_id, user_id, ProjectPermission.COLLABORATE
-    )
-    animation_artifact = await require_animation_artifact(project_id, artifact_id)
-    ppt_artifact = await require_ppt_artifact(project_id, ppt_artifact_id)
-    placement_records = build_animation_placement_records(
-        ppt_artifact_id=ppt_artifact_id,
-        page_numbers=raw_page_numbers,
-        slot=body.get("slot"),
-    )
-    next_animation_metadata = apply_animation_placement_update(
-        metadata=artifact_metadata_dict(animation_artifact),
-        placement_records=placement_records,
-    )
-    next_ppt_metadata = apply_ppt_animation_binding_update(
-        metadata=artifact_metadata_dict(ppt_artifact),
-        animation_artifact_id=artifact_id,
-        placement_records=placement_records,
-    )
-    await project_space_service.update_artifact_metadata(
-        artifact_id=artifact_id,
-        metadata=next_animation_metadata,
-        project_id=project_id,
-        user_id=user_id,
-    )
-    await project_space_service.update_artifact_metadata(
-        artifact_id=ppt_artifact_id,
-        metadata=next_ppt_metadata,
-        project_id=project_id,
-        user_id=user_id,
-    )
-    setattr(animation_artifact, "metadata", next_animation_metadata)
-    setattr(ppt_artifact, "metadata", next_ppt_metadata)
+    try:
+        await project_space_service.check_project_permission(
+            project_id, user_id, ProjectPermission.COLLABORATE
+        )
+        animation_artifact = await require_animation_artifact(project_id, artifact_id)
+        ppt_artifact = await require_ppt_artifact(project_id, ppt_artifact_id)
+        placement_records = build_animation_placement_records(
+            ppt_artifact_id=ppt_artifact_id,
+            page_numbers=raw_page_numbers,
+            slot=body.get("slot"),
+        )
+        next_animation_metadata = apply_animation_placement_update(
+            metadata=artifact_metadata_dict(animation_artifact),
+            placement_records=placement_records,
+        )
+        next_ppt_metadata = apply_ppt_animation_binding_update(
+            metadata=artifact_metadata_dict(ppt_artifact),
+            animation_artifact_id=artifact_id,
+            placement_records=placement_records,
+        )
+        await project_space_service.update_artifact_metadata(
+            artifact_id=artifact_id,
+            metadata=next_animation_metadata,
+            project_id=project_id,
+            user_id=user_id,
+        )
+        await project_space_service.update_artifact_metadata(
+            artifact_id=ppt_artifact_id,
+            metadata=next_ppt_metadata,
+            project_id=project_id,
+            user_id=user_id,
+        )
+        setattr(animation_artifact, "metadata", next_animation_metadata)
+        setattr(ppt_artifact, "metadata", next_ppt_metadata)
 
-    return success_response(
-        data={
-            "placements": placement_records,
-            "artifact": _serialize_artifact_response_payload(animation_artifact),
-            "ppt_artifact": _serialize_artifact_response_payload(ppt_artifact),
-        },
-        message="动画插入关系记录成功",
-    )
+        return success_response(
+            data={
+                "placements": placement_records,
+                "artifact": _serialize_artifact_response_payload(animation_artifact),
+                "ppt_artifact": _serialize_artifact_response_payload(ppt_artifact),
+            },
+            message="动画插入关系记录成功",
+        )
+    except AnimationContractViolation as violation:
+        return build_animation_contract_problem_response(request, violation)
 
 
 @router.get("/studio-cards/{card_id}/sources")
@@ -424,6 +457,7 @@ async def get_studio_card_sources(
         sources.extend(
             await project_space_service.get_project_artifacts(
                 project_id,
+                user_id=user_id,
                 type_filter=artifact_type,
             )
         )

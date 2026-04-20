@@ -38,6 +38,9 @@ _build_provenance_payload = _runtime_helpers.build_provenance_payload
 _build_source_binding_payload = _runtime_helpers.build_source_binding_payload
 supports_structured_refine = _runtime_helpers.supports_structured_refine
 validate_source_artifact = _runtime_helpers.validate_source_artifact
+resolve_effective_source_artifact_id = (
+    _runtime_helpers.resolve_effective_source_artifact_id
+)
 
 
 def _build_foundation_ready_preview(
@@ -47,6 +50,8 @@ def _build_foundation_ready_preview(
     config,
     template_config=None,
     visibility=None,
+    primary_source_id=None,
+    selected_source_ids=None,
     source_artifact_id=None,
     rag_source_ids=None,
     not_found_message: str = "Studio 卡片不存在",
@@ -58,6 +63,8 @@ def _build_foundation_ready_preview(
         config=config,
         template_config=template_config,
         visibility=visibility,
+        primary_source_id=primary_source_id,
+        selected_source_ids=selected_source_ids,
         source_artifact_id=source_artifact_id,
         rag_source_ids=rag_source_ids,
     )
@@ -89,6 +96,8 @@ async def execute_studio_card_draft_request(
         config=body.config,
         template_config=body.template_config,
         visibility=body.visibility,
+        primary_source_id=body.primary_source_id,
+        selected_source_ids=body.selected_source_ids,
         source_artifact_id=body.source_artifact_id,
         rag_source_ids=body.rag_source_ids,
         not_ready_message="请等待 Studio 卡片执行协议就绪后再试",
@@ -100,9 +109,14 @@ async def execute_studio_card_draft_request(
             message="请先在会话管理器中创建或选择会话，再执行 Studio 卡片。",
         )
 
-    draft_source_artifact_id = body.source_artifact_id or (
-        preview.initial_request.payload.get("options") or {}
-    ).get("source_artifact_id")
+    draft_source_artifact_id = await resolve_effective_source_artifact_id(
+        project_id=body.project_id,
+        primary_source_id=body.primary_source_id,
+        source_artifact_id=body.source_artifact_id
+        or (preview.initial_request.payload.get("options") or {}).get(
+            "source_artifact_id"
+        ),
+    )
     await validate_source_artifact(
         project_id=body.project_id,
         card_id=card_id,
@@ -176,6 +190,8 @@ async def execute_studio_card_initial_request(
         config=body.config,
         template_config=body.template_config,
         visibility=body.visibility,
+        primary_source_id=body.primary_source_id,
+        selected_source_ids=body.selected_source_ids,
         source_artifact_id=body.source_artifact_id,
         rag_source_ids=body.rag_source_ids,
     )
@@ -234,6 +250,8 @@ async def execute_studio_card_refine_request(
         project_id=body.project_id,
         config=body.config,
         visibility=body.visibility,
+        primary_source_id=body.primary_source_id,
+        selected_source_ids=body.selected_source_ids,
         source_artifact_id=body.source_artifact_id,
         rag_source_ids=body.rag_source_ids,
     )

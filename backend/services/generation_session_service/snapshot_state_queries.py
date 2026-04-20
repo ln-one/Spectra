@@ -23,7 +23,7 @@ async def load_latest_state_event(db, session_id: str, run_id: str | None = None
         for event in scoped_events:
             payload = parse_json_object(getattr(event, "payload", None)) or {}
             event_run_id = str(payload.get("run_id") or "").strip()
-            if event_run_id and event_run_id != run_id:
+            if event_run_id != run_id:
                 continue
             return event
         return None

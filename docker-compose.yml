@@ -94,8 +94,9 @@ services:
       - NODE_ENV=development
       - NEXT_PUBLIC_API_URL=http://localhost:8000
       - INTERNAL_API_URL=http://backend:8000
-      - NEXT_PUBLIC_API_TIMEOUT_MS=30000
+      - NEXT_PUBLIC_API_TIMEOUT_MS=180000
       - NEXT_PUBLIC_CHAT_TIMEOUT_MS=300000
+      - NEXT_PUBLIC_STUDIO_GENERATION_TIMEOUT_MS=600000
     command: npm run dev
     depends_on:
       - backend

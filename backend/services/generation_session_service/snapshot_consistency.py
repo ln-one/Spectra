@@ -23,6 +23,7 @@ def validate_session_snapshot_contract(
     session,
     snapshot: dict,
     latest_state_event=None,
+    enforce_state_event_consistency: bool = True,
 ) -> None:
     session_id = getattr(session, "id", None)
     session_state = getattr(session, "state", None)
@@ -65,7 +66,7 @@ def validate_session_snapshot_contract(
                 },
             )
 
-    if latest_state_event is None:
+    if latest_state_event is None or not enforce_state_event_consistency:
         return
 
     event_state = getattr(latest_state_event, "state", None)

@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import { motion } from "framer-motion";
-import { ArchiveRestore, X } from "lucide-react";
+import { ArchiveRestore, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { TOOL_LABELS } from "../../constants";
 import type { StudioHistoryItem } from "../../history/types";
@@ -11,6 +11,7 @@ interface StudioArchiveHistoryDialogProps {
   onClose: () => void;
   archivedHistory: StudioHistoryItem[];
   onUnarchiveHistoryItem: (id: string) => void;
+  onDeleteHistoryItem: (id: string) => void;
 }
 
 export function StudioArchiveHistoryDialog({
@@ -18,6 +19,7 @@ export function StudioArchiveHistoryDialog({
   onClose,
   archivedHistory,
   onUnarchiveHistoryItem,
+  onDeleteHistoryItem,
 }: StudioArchiveHistoryDialogProps) {
   if (!isOpen) return null;
 
@@ -74,15 +76,26 @@ export function StudioArchiveHistoryDialog({
                         {new Date(item.createdAt).toLocaleString("zh-CN")}
                       </p>
                     </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-8 gap-1 rounded-[var(--project-chip-radius)] border-[var(--project-control-border)] bg-[var(--project-surface)] text-xs text-[var(--project-text-muted)] hover:bg-[var(--project-surface-muted)] hover:text-[var(--project-text-primary)]"
-                      onClick={() => onUnarchiveHistoryItem(item.id)}
-                    >
-                      <ArchiveRestore className="h-3.5 w-3.5" />
-                      取消归档
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 gap-1 rounded-[var(--project-chip-radius)] border-[var(--project-control-border)] bg-[var(--project-surface)] text-xs text-[var(--project-text-muted)] hover:bg-[var(--project-surface-muted)] hover:text-[var(--project-text-primary)]"
+                        onClick={() => onUnarchiveHistoryItem(item.id)}
+                      >
+                        <ArchiveRestore className="h-3.5 w-3.5" />
+                        取消归档
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 gap-1 rounded-[var(--project-chip-radius)] border-red-200 bg-red-50 text-xs text-red-700 hover:bg-red-100 hover:text-red-800"
+                        onClick={() => onDeleteHistoryItem(item.id)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        删除
+                      </Button>
+                    </div>
                   </div>
                 ))}
               </div>

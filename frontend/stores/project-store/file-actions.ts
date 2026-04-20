@@ -290,6 +290,10 @@ export function createFileActions({
   | "uploadFile"
   | "deleteFile"
   | "toggleFileSelection"
+  | "toggleLibrarySelection"
+  | "toggleArtifactSourceSelection"
+  | "setSelectedLibraryIds"
+  | "setSelectedArtifactSourceIds"
   | "focusSourceByChunk"
   | "clearActiveSource"
 > {
@@ -389,10 +393,20 @@ export function createFileActions({
           const nextFiles = response.data.files;
           set((state) => ({
             files: nextFiles,
-            selectedFileIds: resolveReadySelectedFileIds(
-              nextFiles,
-              state.selectedFileIds
-            ),
+            selectedFileIds: resolveReadySelectedFileIds(nextFiles, [
+              ...state.selectedFileIds,
+              ...nextFiles
+                .filter(
+                  (file) => {
+                    if (file.status !== "ready") return false;
+                    const existingFile = state.files.find(
+                      (candidate) => candidate.id === file.id
+                    );
+                    return !existingFile || existingFile.status !== "ready";
+                  }
+                )
+                .map((file) => file.id),
+            ]),
           }));
 
           let hasPending = false;
@@ -473,6 +487,48 @@ export function createFileActions({
           ? state.selectedFileIds.filter((id) => id !== fileId)
           : [...state.selectedFileIds, fileId],
       }));
+    },
+
+    toggleLibrarySelection: (libraryId: string) => {
+      set((state) => ({
+        selectedLibraryIds: state.selectedLibraryIds.includes(libraryId)
+          ? state.selectedLibraryIds.filter((id) => id !== libraryId)
+          : [...state.selectedLibraryIds, libraryId],
+      }));
+    },
+
+    toggleArtifactSourceSelection: (sourceId: string) => {
+      set((state) => ({
+        selectedArtifactSourceIds: state.selectedArtifactSourceIds.includes(
+          sourceId
+        )
+          ? state.selectedArtifactSourceIds.filter((id) => id !== sourceId)
+          : [...state.selectedArtifactSourceIds, sourceId],
+      }));
+    },
+
+    setSelectedLibraryIds: (libraryIds: string[]) => {
+      set({
+        selectedLibraryIds: Array.from(
+          new Set(
+            libraryIds
+              .map((libraryId) => String(libraryId || "").trim())
+              .filter((libraryId) => libraryId.length > 0)
+          )
+        ),
+      });
+    },
+
+    setSelectedArtifactSourceIds: (sourceIds: string[]) => {
+      set({
+        selectedArtifactSourceIds: Array.from(
+          new Set(
+            sourceIds
+              .map((sourceId) => String(sourceId || "").trim())
+              .filter((sourceId) => sourceId.length > 0)
+          )
+        ),
+      });
     },
 
     focusSourceByChunk: async (

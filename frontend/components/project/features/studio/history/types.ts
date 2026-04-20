@@ -26,6 +26,9 @@ export interface StudioHistoryItem {
   sessionId: string | null;
   step: StudioHistoryStep;
   artifactId?: string;
+  replacesArtifactId?: string | null;
+  supersededByArtifactId?: string | null;
+  isCurrent?: boolean | null;
   runId?: string | null;
   runNo?: number | null;
   ppt_status?: StudioPptHistoryStatus;

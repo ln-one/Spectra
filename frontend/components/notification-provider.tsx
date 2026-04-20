@@ -27,10 +27,10 @@ function isUploadInFlight(notification: Notification): boolean {
 }
 
 function getUploadStatusText(notification: Notification): string {
-  if (notification.status === "success") return "上传成功";
-  if (notification.status === "failed") return "上传失败";
+  if (notification.status === "success") return "已导入";
+  if (notification.status === "failed") return "导入失败";
   if (notification.status === "parsing") return "解析中";
-  return "上传中";
+  return "处理中";
 }
 
 function NotificationItem({ notification, docked }: NotificationItemProps) {

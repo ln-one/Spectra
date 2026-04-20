@@ -21,21 +21,31 @@ export function CitationBadge({
   index: number;
   onClick: () => void;
 }) {
+  const sourceLabel =
+    citation.sourceScope === "attached_library"
+      ? citation.sourceLibraryName || "资料库"
+      : citation.sourceScope === "project_deposit"
+        ? "沉淀"
+      : sourceLabelMap[citation.sourceType];
+  const filename =
+    citation.sourceScope === "project_deposit"
+      ? citation.sourceArtifactTitle || citation.filename
+      : citation.filename;
   return (
     <Badge
       variant="outline"
       onClick={onClick}
-      className="cursor-pointer gap-1.5 border-[var(--project-border)] bg-[var(--project-surface)] px-2.5 py-1 text-[10px] font-medium text-[var(--project-text-primary)] transition-colors hover:bg-[var(--project-surface-muted)]"
-      title={citation.contentPreview || citation.filename}
+      className="cursor-pointer gap-1.5 border-[var(--project-border)] bg-[var(--project-surface)] px-2.5 py-1 text-[10px] font-medium text-[var(--project-text-primary)] transition-[background-color,border-color,box-shadow] hover:border-[var(--project-border-strong)] hover:bg-[var(--project-surface-muted)] hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--project-accent)]/30"
+      title={citation.contentPreview || filename}
     >
       <span className="text-[10px] font-semibold text-[var(--project-text-primary)]">
         {index + 1}
       </span>
       <ExternalLink className="h-3 w-3 text-[var(--project-text-muted)]" />
       <span className="rounded bg-[var(--project-surface-muted)] px-1 py-0.5 text-[9px] text-[var(--project-text-muted)]">
-        {sourceLabelMap[citation.sourceType]}
+        {sourceLabel}
       </span>
-      <span className="max-w-[100px] truncate">{citation.filename}</span>
+      <span className="max-w-[100px] truncate">{filename}</span>
       {citation.pageNumber && (
         <span className="font-normal text-[var(--project-text-muted)]">
           P{citation.pageNumber}

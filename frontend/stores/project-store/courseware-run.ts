@@ -128,11 +128,23 @@ export function buildGenerationConfigFromTeachingBrief(
 export async function startCoursewarePptRun(params: {
   projectId: string;
   clientSessionId: string;
+  runId?: string | null;
   ragSourceIds?: string[];
+  selectedSourceIds?: string[];
+  selectedLibraryIds?: string[];
   config: CoursewareGenerationConfig;
   teachingBrief?: TeachingBriefSnapshot | null;
 }): Promise<{ sessionId: string; runId: string }> {
-  const { projectId, clientSessionId, ragSourceIds, config, teachingBrief } = params;
+  const {
+    projectId,
+    clientSessionId,
+    runId,
+    ragSourceIds,
+    selectedSourceIds,
+    selectedLibraryIds,
+    config,
+    teachingBrief,
+  } = params;
   const generationMode =
     config.layoutMode === "classic" ? "template" : "scratch";
   const normalizedPageCount = normalizePageCount(config.pageCount);
@@ -142,10 +154,28 @@ export async function startCoursewarePptRun(params: {
     generationMode === "scratch"
       ? mapVisualStyleToDiegoPreset(config.visualStyle)
       : "auto";
+  const effectiveSelectedSourceIds = Array.from(
+    new Set([
+      ...(selectedSourceIds ?? []),
+      ...(ragSourceIds ?? []),
+    ])
+  );
   const executeResponse = await studioCardsApi.execute("courseware_ppt", {
     project_id: projectId,
     client_session_id: clientSessionId,
-    rag_source_ids: ragSourceIds && ragSourceIds.length > 0 ? ragSourceIds : undefined,
+    run_id: runId ?? undefined,
+    selected_file_ids:
+      effectiveSelectedSourceIds.length > 0
+        ? effectiveSelectedSourceIds
+        : undefined,
+    rag_source_ids:
+      effectiveSelectedSourceIds.length > 0
+        ? effectiveSelectedSourceIds
+        : undefined,
+    selected_library_ids:
+      selectedLibraryIds && selectedLibraryIds.length > 0
+        ? selectedLibraryIds
+        : undefined,
     config: {
       topic: config.prompt,
       pages: normalizedPageCount,

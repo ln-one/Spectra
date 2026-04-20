@@ -1,6 +1,7 @@
 import {
   ANIMATION_RHYTHM_OPTIONS,
   ANIMATION_STEPS,
+  resolveDefaultExplainerStylePack,
 } from "@/components/project/features/studio/tools/animation/constants";
 
 describe("animation workflow config", () => {
@@ -20,5 +21,9 @@ describe("animation workflow config", () => {
       "balanced",
       "fast",
     ]);
+  });
+
+  test("defaults explainer style to a clean white-background theme", () => {
+    expect(resolveDefaultExplainerStylePack()).toBe("teaching_ppt_fresh_green");
   });
 });

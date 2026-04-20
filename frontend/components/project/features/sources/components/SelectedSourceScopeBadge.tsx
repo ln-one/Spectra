@@ -25,6 +25,10 @@ export function SelectedSourceScopeBadge({
   className,
 }: SelectedSourceScopeBadgeProps) {
   const selectedFileIds = useProjectStore((state) => state.selectedFileIds);
+  const selectedLibraryIds = useProjectStore((state) => state.selectedLibraryIds);
+  const selectedArtifactSourceIds = useProjectStore(
+    (state) => state.selectedArtifactSourceIds
+  );
   const files = useProjectStore((state) => state.files);
 
   const selectedFiles = useMemo(() => {
@@ -49,7 +53,11 @@ export function SelectedSourceScopeBadge({
       .filter(Boolean);
   }, [selectedFileIds, files]);
 
-  const isAll = selectedFileIds.length === 0;
+  const totalSelectedCount =
+    selectedFileIds.length +
+    selectedLibraryIds.length +
+    selectedArtifactSourceIds.length;
+  const isAll = totalSelectedCount === 0;
 
   return (
     <HoverCard openDelay={200} closeDelay={100}>
@@ -108,7 +116,7 @@ export function SelectedSourceScopeBadge({
             )}
           </AnimatePresence>
           <motion.span layout className="ml-0.5">
-            {isAll ? emptyModeLabel : `已选 ${selectedFileIds.length} 个文件`}
+            {isAll ? emptyModeLabel : `已选 ${totalSelectedCount} 个来源`}
           </motion.span>
         </motion.div>
       </HoverCardTrigger>
@@ -120,7 +128,7 @@ export function SelectedSourceScopeBadge({
       >
         <div className="space-y-1.5">
           <p className="font-semibold text-[var(--project-text-primary)] mb-1 px-0.5">
-            {isAll ? "当前范围：全部可用资料" : "当前范围：手动指定的文件"}
+            {isAll ? "当前范围：全部可用资料" : "当前范围：手动指定的资料来源"}
           </p>
           {!isAll && (
             <div className="flex flex-col gap-1 text-[var(--project-text-primary)]/80">
@@ -144,6 +152,16 @@ export function SelectedSourceScopeBadge({
               {selectedFiles.length > maxVisibleItems && (
                 <div className="text-[10px] text-[var(--project-text-muted)] pl-5 pt-0.5">
                   + 还有 {selectedFiles.length - maxVisibleItems} 个文件
+                </div>
+              )}
+              {selectedLibraryIds.length > 0 && (
+                <div className="px-0.5 pt-1 text-[10px] text-[var(--project-text-muted)]">
+                  已启用 {selectedLibraryIds.length} 个资料库
+                </div>
+              )}
+              {selectedArtifactSourceIds.length > 0 && (
+                <div className="px-0.5 text-[10px] text-[var(--project-text-muted)]">
+                  已启用 {selectedArtifactSourceIds.length} 个沉淀来源
                 </div>
               )}
             </div>

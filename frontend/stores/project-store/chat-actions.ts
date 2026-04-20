@@ -290,19 +290,29 @@ export function createChatActions({
         };
         set((state) => ({ messages: [...state.messages, userMessage] }));
 
-        const { selectedFileIds, files } = get();
+        const {
+          selectedFileIds,
+          selectedLibraryIds,
+          selectedArtifactSourceIds,
+          files,
+        } = get();
         const effectiveRagSourceIds = resolveReadySelectedFileIds(
           files,
           selectedFileIds
+        );
+        const effectiveSelectedSourceIds = Array.from(
+          new Set([...effectiveRagSourceIds, ...selectedArtifactSourceIds])
         );
         const response = await chatApi.sendMessage({
           project_id: projectId,
           session_id: effectiveSessionId,
           content,
+          selected_file_ids: effectiveSelectedSourceIds,
           rag_source_ids:
-            effectiveRagSourceIds.length > 0
-              ? effectiveRagSourceIds
+            effectiveSelectedSourceIds.length > 0
+              ? effectiveSelectedSourceIds
               : undefined,
+          selected_library_ids: selectedLibraryIds,
         });
 
         if (
@@ -462,10 +472,18 @@ export function createChatActions({
       appendLocalMessage(projectId, effectiveSessionId, userRefineMessage);
       appendLocalMessage(projectId, effectiveSessionId, refineStatusMessage);
 
-      const { selectedFileIds, files } = get();
+      const {
+        selectedFileIds,
+        selectedLibraryIds,
+        selectedArtifactSourceIds,
+        files,
+      } = get();
       const effectiveRagSourceIds = resolveReadySelectedFileIds(
         files,
         selectedFileIds
+      );
+      const effectiveSelectedSourceIds = Array.from(
+        new Set([...effectiveRagSourceIds, ...selectedArtifactSourceIds])
       );
 
       await enqueueRefineTask(async () => {
@@ -475,12 +493,18 @@ export function createChatActions({
             session_id: effectiveSessionId,
             artifact_id: context.targetArtifactId || undefined,
             message: normalizedContent,
+            refine_mode:
+              context.cardId === "word_document"
+                ? "structured_refine"
+                : undefined,
             source_artifact_id: context.sourceArtifactId || undefined,
             config: context.configSnapshot,
+            selected_file_ids: effectiveSelectedSourceIds,
             rag_source_ids:
-              effectiveRagSourceIds.length > 0
-                ? effectiveRagSourceIds
+              effectiveSelectedSourceIds.length > 0
+                ? effectiveSelectedSourceIds
                 : undefined,
+            selected_library_ids: selectedLibraryIds,
           });
           const executionResult =
             (response?.data as { execution_result?: Record<string, unknown> })
@@ -532,6 +556,25 @@ export function createChatActions({
           }
 
           await get().fetchArtifactHistory(projectId, refinedSessionId);
+          if (
+            typeof window !== "undefined" &&
+            context.toolType &&
+            (refinedArtifactId || refinedRunId)
+          ) {
+            window.dispatchEvent(
+              new CustomEvent("spectra:open-history-item", {
+                detail: {
+                  origin: "workflow",
+                  toolType: context.toolType,
+                  step: "preview",
+                  status: "completed",
+                  sessionId: refinedSessionId,
+                  runId: refinedRunId,
+                  artifactId: refinedArtifactId,
+                },
+              })
+            );
+          }
 
           updateLocalMessage(
             projectId,

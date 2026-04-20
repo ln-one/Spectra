@@ -6,7 +6,7 @@ describe("studio animation generate step", () => {
     topic: "冒泡排序",
     focus: "突出比较和交换过程",
     durationSeconds: 6,
-    animationFormat: "mp4" as const,
+    animationFormat: "html5" as const,
     rhythm: "balanced" as const,
     stylePack: "teaching_ppt_cartoon" as const,
     visualType: null,
@@ -33,15 +33,15 @@ describe("studio animation generate step", () => {
     jest.clearAllMocks();
   });
 
-  test("shows export-only guidance for mp4 output", () => {
+  test("shows export-only guidance for html output", () => {
     render(<GenerateStep {...baseProps} />);
 
-    expect(screen.getByText("正式输出：MP4")).toBeInTheDocument();
+    expect(screen.getByText("正式输出：HTML")).toBeInTheDocument();
     expect(
-      screen.getByText("本次生成后可导出 MP4，但不可直接 placement")
+      screen.getByText("本次生成后可预览/导出，但不可直接 placement")
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "按规格生成 MP4 动画" })
+      screen.getByRole("button", { name: "按规格生成 HTML 动画" })
     ).toBeInTheDocument();
   });
 

@@ -22,3 +22,7 @@
 	path = limora
 	url = https://github.com/ln-one/Limora.git
 	branch = main
+[submodule "docs_change/CompoundBreaker"]
+	path = docs_change/CompoundBreaker
+	url = git@github.com:ln-one/CompoundBreaker.git
+	branch = main

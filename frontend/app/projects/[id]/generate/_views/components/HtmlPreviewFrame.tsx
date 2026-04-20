@@ -65,127 +65,128 @@ body {
 
 export const HtmlPreviewFrame = forwardRef<HTMLIFrameElement, HtmlPreviewFrameProps>(
   function HtmlPreviewFrame({
-  title,
-  html,
-  className,
-  interactive = false,
-  viewportWidth = 960,
-  viewportHeight = 540,
-  zoom = "fit",
-  onDocumentReady,
-  onViewportLayoutChange,
-}, forwardedRef) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const iframeRef = useRef<HTMLIFrameElement | null>(null);
-  const onDocumentReadyRef = useRef(onDocumentReady);
-  const onViewportLayoutChangeRef = useRef(onViewportLayoutChange);
-  const [frameStyle, setFrameStyle] = useState<CSSProperties>({
-    transform: "scale(1)",
-    transformOrigin: "0 0",
-  });
+    title,
+    html,
+    className,
+    interactive = false,
+    viewportWidth = 960,
+    viewportHeight = 540,
+    zoom = "fit",
+    onDocumentReady,
+    onViewportLayoutChange,
+  }, forwardedRef) {
+    const containerRef = useRef<HTMLDivElement>(null);
+    const iframeRef = useRef<HTMLIFrameElement | null>(null);
+    const onDocumentReadyRef = useRef(onDocumentReady);
+    const onViewportLayoutChangeRef = useRef(onViewportLayoutChange);
+    const [frameStyle, setFrameStyle] = useState<CSSProperties>({
+      transform: "scale(1)",
+      transformOrigin: "0 0",
+    });
 
-  useEffect(() => {
-    onDocumentReadyRef.current = onDocumentReady;
-  }, [onDocumentReady]);
+    useEffect(() => {
+      onDocumentReadyRef.current = onDocumentReady;
+    }, [onDocumentReady]);
 
-  useEffect(() => {
-    onViewportLayoutChangeRef.current = onViewportLayoutChange;
-  }, [onViewportLayoutChange]);
+    useEffect(() => {
+      onViewportLayoutChangeRef.current = onViewportLayoutChange;
+    }, [onViewportLayoutChange]);
 
-  const setRefs = useCallback((node: HTMLIFrameElement | null) => {
-    iframeRef.current = node;
-    if (typeof forwardedRef === "function") {
-      forwardedRef(node);
-      return;
-    }
-    if (forwardedRef) {
-      forwardedRef.current = node;
-    }
-  }, [forwardedRef]);
+    const setRefs = useCallback((node: HTMLIFrameElement | null) => {
+      iframeRef.current = node;
+      if (typeof forwardedRef === "function") {
+        forwardedRef(node);
+        return;
+      }
+      if (forwardedRef) {
+        forwardedRef.current = node;
+      }
+    }, [forwardedRef]);
 
-  const notifyDocumentReady = useCallback(() => {
-    const iframe = iframeRef.current;
-    const doc = iframe?.contentDocument;
-    if (!iframe || !doc) return;
-    onDocumentReadyRef.current?.(doc, iframe);
-  }, []);
+    const notifyDocumentReady = useCallback(() => {
+      const iframe = iframeRef.current;
+      const doc = iframe?.contentDocument;
+      if (!iframe || !doc) return;
+      onDocumentReadyRef.current?.(doc, iframe);
+    }, []);
 
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
+    useEffect(() => {
+      const container = containerRef.current;
+      if (!container) return;
 
-    const updateFrameStyle = () => {
-      const { width, height } = container.getBoundingClientRect();
-      if (width <= 0 || height <= 0) return;
+      const updateFrameStyle = () => {
+        const { width, height } = container.getBoundingClientRect();
+        if (width <= 0 || height <= 0) return;
 
-      const fitScale = Math.min(width / viewportWidth, height / viewportHeight);
-      const baseScale = typeof zoom === "number" ? zoom : fitScale;
-      const scale = zoom === "fit" ? fitScale : baseScale;
+        const fitScale = Math.min(width / viewportWidth, height / viewportHeight);
+        const baseScale = typeof zoom === "number" ? zoom : fitScale;
+        const scale = zoom === "fit" ? fitScale : baseScale;
 
-      const scaledWidth = viewportWidth * scale;
-      const scaledHeight = viewportHeight * scale;
+        const scaledWidth = viewportWidth * scale;
+        const scaledHeight = viewportHeight * scale;
 
-      const left = Math.max(0, (width - scaledWidth) / 2);
-      const top = Math.max(0, (height - scaledHeight) / 2);
+        const left = Math.max(0, (width - scaledWidth) / 2);
+        const top = Math.max(0, (height - scaledHeight) / 2);
 
-      const nextTransform = `translate(${left}px, ${top}px) scale(${scale})`;
-      setFrameStyle((previous) => {
-        if (
-          previous.transform === nextTransform &&
-          previous.transformOrigin === "0 0"
-        ) {
-          return previous;
-        }
-        return {
-          transform: nextTransform,
-          transformOrigin: "0 0",
-        };
-      });
-      onViewportLayoutChangeRef.current?.({
-        scale,
-        left,
-        top,
-        viewportWidth,
-        viewportHeight,
-      });
-    };
+        const nextTransform = `translate(${left}px, ${top}px) scale(${scale})`;
+        setFrameStyle((previous) => {
+          if (
+            previous.transform === nextTransform &&
+            previous.transformOrigin === "0 0"
+          ) {
+            return previous;
+          }
+          return {
+            transform: nextTransform,
+            transformOrigin: "0 0",
+          };
+        });
+        onViewportLayoutChangeRef.current?.({
+          scale,
+          left,
+          top,
+          viewportWidth,
+          viewportHeight,
+        });
+      };
 
-    updateFrameStyle();
-    const observer = new ResizeObserver(updateFrameStyle);
-    observer.observe(container);
-    return () => observer.disconnect();
-  }, [viewportHeight, viewportWidth, zoom]);
+      updateFrameStyle();
+      const observer = new ResizeObserver(updateFrameStyle);
+      observer.observe(container);
+      return () => observer.disconnect();
+    }, [viewportHeight, viewportWidth, zoom]);
 
-  useEffect(() => {
-    notifyDocumentReady();
-  }, [html, notifyDocumentReady]);
+    useEffect(() => {
+      notifyDocumentReady();
+    }, [html, notifyDocumentReady]);
 
-  return (
-    <div
-      ref={containerRef}
-      className={cn(
-        "relative h-full w-full overflow-hidden bg-transparent",
-        className
-      )}
-    >
-      <iframe
-        ref={setRefs}
-        title={title}
-        srcDoc={withPreviewViewportStyle(html, viewportWidth, viewportHeight)}
-        sandbox="allow-scripts allow-same-origin"
-        loading="lazy"
-        onLoad={notifyDocumentReady}
-        tabIndex={interactive ? 0 : -1}
+    return (
+      <div
+        ref={containerRef}
         className={cn(
-          "absolute left-0 top-0 block origin-top-left border-0 bg-white",
-          interactive ? "pointer-events-auto" : "pointer-events-none"
+          "relative h-full w-full overflow-hidden bg-transparent",
+          className
         )}
-        style={{
-          ...frameStyle,
-          width: `${viewportWidth}px`,
-          height: `${viewportHeight}px`,
-        }}
-      />
-    </div>
-  );
-});
+      >
+        <iframe
+          ref={setRefs}
+          title={title}
+          srcDoc={withPreviewViewportStyle(html, viewportWidth, viewportHeight)}
+          sandbox="allow-scripts allow-same-origin"
+          loading="lazy"
+          onLoad={notifyDocumentReady}
+          tabIndex={interactive ? 0 : -1}
+          className={cn(
+            "absolute left-0 top-0 block origin-top-left border-0 bg-white",
+            interactive ? "pointer-events-auto" : "pointer-events-none"
+          )}
+          style={{
+            ...frameStyle,
+            width: `${viewportWidth}px`,
+            height: `${viewportHeight}px`,
+          }}
+        />
+      </div>
+    );
+  }
+);

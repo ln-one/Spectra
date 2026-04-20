@@ -4,13 +4,18 @@ from types import SimpleNamespace
 import pytest
 
 from services.artifact_generator.media import ArtifactMediaMixin
+from services.generation_session_service.animation_contract import (
+    AnimationContractViolation,
+)
 from services.generation_session_service.card_execution_preview import (
     build_studio_card_execution_preview,
 )
 from services.generation_session_service.card_execution_runtime_helpers import (
     load_artifact_content,
+    validate_structured_refine_artifact,
 )
 from services.project_space_service.artifact_content import build_artifact_metadata
+from utils.exceptions import APIException
 
 
 class _MediaGenerator(ArtifactMediaMixin):
@@ -23,36 +28,25 @@ class _MediaGenerator(ArtifactMediaMixin):
         return str(target_dir / f"{artifact_id}.{artifact_type}")
 
 
-def test_animation_preview_switches_to_mp4_for_cloud_video_mode():
-    preview = build_studio_card_execution_preview(
-        card_id="demonstration_animations",
-        project_id="p-001",
-        config={
-            "topic": "植物生长全过程",
-            "motion_brief": "突出种子发芽到开花结果的镜头变化",
-            "duration_seconds": 10,
-            "render_mode": "cloud_video_wan",
-        },
-    )
+def test_animation_preview_rejects_cloud_video_request():
+    with pytest.raises(AnimationContractViolation) as exc_info:
+        build_studio_card_execution_preview(
+            card_id="demonstration_animations",
+            project_id="p-001",
+            config={
+                "topic": "植物生长全过程",
+                "motion_brief": "突出种子发芽到开花结果的镜头变化",
+                "duration_seconds": 10,
+                "render_mode": "cloud_video_wan",
+            },
+        )
 
-    assert preview is not None
-    payload = preview.initial_request.payload
-    assert payload["type"] == "mp4"
-    assert payload["content"]["format"] == "mp4"
-    assert payload["content"]["render_mode"] == "cloud_video_wan"
-    assert payload["content"]["cloud_video_provider"] == "aliyun_wan"
-    assert payload["content"]["cloud_video_model"] == "wan2.7-i2v"
-    assert preview.spec_preview["artifact_type"] == "mp4"
-    assert preview.render_mode == "cloud_video_wan"
-    assert preview.artifact_type == "mp4"
-    assert preview.placement_supported is False
-    assert preview.runtime_preview_mode == "local_preview_only"
-    assert preview.cloud_render_mode == "async_media_export"
-    assert preview.protocol_status == "ready_to_execute"
-    assert preview.refine_request.refine_mode.value == "structured_refine"
+    exc = exc_info.value
+    assert exc.field_name == "render_mode"
+    assert exc.invalid_value == "cloud_video_wan"
 
 
-def test_animation_preview_defaults_to_cloud_video_wan():
+def test_animation_preview_defaults_to_html_runtime():
     preview = build_studio_card_execution_preview(
         card_id="demonstration_animations",
         project_id="p-001",
@@ -64,13 +58,14 @@ def test_animation_preview_defaults_to_cloud_video_wan():
     )
 
     payload = preview.initial_request.payload
-    assert payload["type"] == "mp4"
-    assert payload["content"]["format"] == "mp4"
-    assert payload["content"]["render_mode"] == "cloud_video_wan"
-    assert payload["content"]["cloud_video_provider"] == "aliyun_wan"
-    assert payload["content"]["cloud_video_model"] == "wan2.7-i2v"
+    assert payload["type"] == "html"
+    assert payload["content"]["format"] == "html5"
+    assert payload["content"]["render_mode"] == "html5"
     assert preview.source_request is not None
     assert preview.placement_request is not None
+    assert "若要 placement，请先生成 GIF 版动画" in (
+        preview.placement_request.notes or ""
+    )
     assert preview.spec_preview["placement_supported"] is False
 
 
@@ -238,3 +233,61 @@ async def test_load_artifact_content_supports_mp4_animation_snapshot():
     assert content["render_mode"] == "cloud_video_wan"
     assert content["cloud_video_provider"] == "aliyun_wan"
     assert content["scenes"][0]["title"] == "发芽"
+
+
+@pytest.mark.asyncio
+async def test_validate_structured_refine_artifact_accepts_html_animation(monkeypatch):
+    artifact = SimpleNamespace(
+        id="a-animation-html",
+        projectId="p-001",
+        type="html",
+        metadata={"kind": "animation_storyboard"},
+    )
+
+    async def _fake_get_artifact(*_args, **_kwargs):
+        return artifact
+
+    monkeypatch.setattr(
+        "services.project_space_service.project_space_service.get_artifact",
+        _fake_get_artifact,
+    )
+
+    resolved = await validate_structured_refine_artifact(
+        card_id="demonstration_animations",
+        project_id="p-001",
+        user_id="u-001",
+        artifact_id="a-animation-html",
+    )
+
+    assert resolved is artifact
+
+
+@pytest.mark.asyncio
+async def test_validate_structured_refine_artifact_rejects_legacy_mp4_animation(
+    monkeypatch,
+):
+    artifact = SimpleNamespace(
+        id="a-animation-mp4",
+        projectId="p-001",
+        type="mp4",
+        metadata={"kind": "animation_storyboard"},
+    )
+
+    async def _fake_get_artifact(*_args, **_kwargs):
+        return artifact
+
+    monkeypatch.setattr(
+        "services.project_space_service.project_space_service.get_artifact",
+        _fake_get_artifact,
+    )
+
+    with pytest.raises(APIException) as exc_info:
+        await validate_structured_refine_artifact(
+            card_id="demonstration_animations",
+            project_id="p-001",
+            user_id="u-001",
+            artifact_id="a-animation-mp4",
+        )
+
+    assert exc_info.value.status_code == 400
+    assert "类型与卡片 refine 协议不匹配" in exc_info.value.message

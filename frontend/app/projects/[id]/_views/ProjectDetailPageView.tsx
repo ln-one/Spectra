@@ -4,7 +4,6 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import {
   ChatPanel,
-  LibraryDrawer,
   ProjectHeader,
   SourcesPanel,
   StudioPanel,
@@ -47,8 +46,6 @@ export default function ProjectDetailPage() {
     sessionOptions,
     activeSessionId,
     isCreatingSession,
-    isLibraryOpen,
-    setIsLibraryOpen,
     activeReferences,
     handleReferencesChanged,
     selectedThemePreset,
@@ -169,7 +166,6 @@ export default function ProjectDetailPage() {
         onDeleteSession={handleDeleteSession}
         onCreateSession={handleCreateSession}
         isCreatingSession={isCreatingSession}
-        onOpenLibrary={() => setIsLibraryOpen(true)}
         selectedThemePreset={selectedThemePreset}
         onThemePresetChange={setSelectedThemePreset}
       />
@@ -335,6 +331,7 @@ export default function ProjectDetailPage() {
             <SourcesPanel
               projectId={projectId}
               referencedLibraries={activeReferences}
+              onReferencesChanged={handleReferencesChanged}
               isCollapsed={isSourcesCollapsedByWidth}
               onToggleCollapsed={toggleSourcesCollapsed}
               isStudioExpanded={isExpanded}
@@ -351,13 +348,6 @@ export default function ProjectDetailPage() {
           Spectra 输出内容可能存在偏差，请在课堂使用前进行复核。
         </p>
       </div>
-
-      <LibraryDrawer
-        open={isLibraryOpen}
-        onOpenChange={setIsLibraryOpen}
-        projectId={projectId}
-        onReferencesChanged={handleReferencesChanged}
-      />
 
       <OnboardingTour projectId={projectId} />
     </div>

@@ -7,7 +7,6 @@ import {
   Network,
   Projector,
   ScrollText,
-  Sparkles,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { GENERATION_TOOLS, type GenerationTool } from "@/stores/projectStore";
@@ -33,19 +32,19 @@ export const TOOL_LABELS: Record<string, string> = Object.fromEntries(
 export const TOOL_DISPLAY_MODELS: Record<StudioToolKey, ToolDisplayModel> = {
   word: {
     toolId: "word",
-    productTitle: TOOL_LABELS.word,
-    productDescription: "围绕已生成成果延展正式文档，统一处理来源绑定、文档预览与下载。",
+    productTitle: "教案",
+    productDescription: "围绕统一 Sources 生成、编辑并沉淀教案成果。",
     studioCardId: STUDIO_CARD_BY_TOOL.word,
     actionLabels: {
       preview: "执行预检",
       loadSources: "刷新来源",
-      execute: "生成正式文档",
+      execute: "生成教案",
       refine: "打开对话微调",
     },
     sourceBinding: {
-      required: "必选：请绑定一个 PPT 成果作为文档来源。",
-      optional: "可选：绑定已有成果后，文档内容会更贴近当前项目上下文。",
-      empty: "当前还没有可绑定成果，点击上方按钮即可刷新。",
+      required: "可选：选中课件后会优先参考课件生成教案。",
+      optional: "可选：右侧资料来源会一起参与教案生成。",
+      empty: "没有课件也可以先填写课题直接生成。",
     },
   },
   mindmap: {

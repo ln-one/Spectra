@@ -17,6 +17,7 @@ export { AnimationToolPanel } from "./AnimationToolPanel";
 export { SimulationToolPanel } from "./SimulationToolPanel";
 export type {
   CapabilityStatus,
+  ManagedResultTarget,
   ResolvedArtifactContentKind,
   ResolvedArtifactPayload,
   StudioGovernanceRubric,

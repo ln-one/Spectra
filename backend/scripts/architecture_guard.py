@@ -55,6 +55,12 @@ GENERATION_ROOT = BACKEND_ROOT / "services" / "generation"
 OUTLINE_DRAFT_ROOT = BACKEND_ROOT / "services" / "generation_session_service" / "outline_draft"
 
 SERVICE_BOUNDARIES_DOC = REPO_ROOT / "docs" / "architecture" / "service-boundaries.md"
+STUDIO_CARDS_ROUTER_FILE = (
+    BACKEND_ROOT / "routers" / "generate_sessions" / "studio_cards.py"
+)
+GENERATE_SESSION_CORE_OPENAPI_PATHS = (
+    REPO_ROOT / "docs" / "openapi" / "paths" / "generate-session-core.yaml"
+)
 REQUIRED_CAPABILITY_AUTHORITIES = {
     "diego",
     "pagevra",
@@ -79,6 +85,10 @@ GENERATION_BACKEND_LANGUAGE_RE = re.compile(
     r"(课件生成服务|render pipeline 与 ai service|ppt/doc rendering service)",
     re.IGNORECASE,
 )
+ROUTER_PATH_DECORATOR_RE = re.compile(
+    r'@router\.(?:get|post|put|patch|delete)\("([^"]+)"\)',
+)
+OPENAPI_PATH_KEY_RE = re.compile(r"^(/api/v1/generate/[^\s:]+):\s*$", re.MULTILINE)
 
 
 @dataclass
@@ -326,6 +336,50 @@ def check_residual_legacy_boundaries(paths: list[Path]) -> list[Finding]:
     return findings
 
 
+def check_studio_card_openapi_path_sync() -> list[Finding]:
+    findings: list[Finding] = []
+    if not STUDIO_CARDS_ROUTER_FILE.exists():
+        return [
+            Finding(
+                "error",
+                STUDIO_CARDS_ROUTER_FILE,
+                "missing studio cards router file",
+            )
+        ]
+    if not GENERATE_SESSION_CORE_OPENAPI_PATHS.exists():
+        return [
+            Finding(
+                "error",
+                GENERATE_SESSION_CORE_OPENAPI_PATHS,
+                "missing generate session core OpenAPI path file",
+            )
+        ]
+
+    router_text = STUDIO_CARDS_ROUTER_FILE.read_text(encoding="utf-8")
+    router_paths = {
+        f"/api/v1/generate{path}"
+        for path in ROUTER_PATH_DECORATOR_RE.findall(router_text)
+        if path.startswith("/studio-cards/")
+    }
+
+    openapi_text = GENERATE_SESSION_CORE_OPENAPI_PATHS.read_text(encoding="utf-8")
+    openapi_paths = set(OPENAPI_PATH_KEY_RE.findall(openapi_text))
+
+    missing_paths = sorted(router_paths - openapi_paths)
+    for missing_path in missing_paths:
+        findings.append(
+            Finding(
+                "error",
+                GENERATE_SESSION_CORE_OPENAPI_PATHS,
+                (
+                    "studio card router path missing from OpenAPI source-of-truth: "
+                    f"{missing_path}"
+                ),
+            )
+        )
+    return findings
+
+
 def summarize(findings: list[Finding]) -> tuple[int, int, int]:
     warnings = sum(1 for f in findings if f.level == "warning")
     errors = sum(1 for f in findings if f.level == "error")
@@ -351,6 +405,7 @@ def main() -> int:
     findings.extend(check_six_service_boundaries_doc())
     findings.extend(check_legacy_render_authority(files))
     findings.extend(check_residual_legacy_boundaries(files))
+    findings.extend(check_studio_card_openapi_path_sync())
     findings.sort(key=lambda item: (item.level, str(item.path)))
 
     warnings, errors, critical = summarize(findings)

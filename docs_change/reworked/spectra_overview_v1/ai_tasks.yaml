@@ -1,0 +1,12 @@
+summary:
+  action: 从详细稿抽取可验证事实并压缩为概要介绍页级摘要
+  target: 全稿总览与页面收口
+rewrite:
+  action: 按概要介绍口径改写各页正文，只保留可回溯到 spectra_v11 源稿与锚点的事实
+  target: source/*.md
+captions:
+  action: 为配图生成简洁图题和图文对应说明，保证每页有明确主承担点
+  target: figures.yaml 与 source/*.md
+compliance_check:
+  action: 对照老师要求与概要介绍体裁，删除高空概念、无证据新能力和夸张判断
+  target: 全稿复查

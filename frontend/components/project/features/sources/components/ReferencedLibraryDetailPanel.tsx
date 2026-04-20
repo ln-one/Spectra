@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useEffect, useMemo, useRef, type ReactNode } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { createPortal } from "react-dom";
 import {
@@ -26,8 +26,11 @@ import { TOOL_COLORS, TOOL_ICONS, TOOL_LABELS } from "../../studio/constants";
 import { FILE_TYPE_CONFIG } from "../constants";
 import type { ProjectReference } from "../../library/types";
 import type { UploadedFile } from "../types";
-import { getFileTypeFromExtension } from "../utils";
-import type { ReferencedLibrarySession } from "../useReferencedLibraryDetail";
+import { getFileTypeFromExtension, getReadableLibraryName } from "../utils";
+import type {
+  ReferencedLibraryCitationTarget,
+  ReferencedLibrarySession,
+} from "../useReferencedLibraryDetail";
 
 interface ReferencedLibraryDetailPanelProps {
   open: boolean;
@@ -39,6 +42,7 @@ interface ReferencedLibraryDetailPanelProps {
   historyByTool: Array<[string, ArtifactHistoryItem[]]>;
   references: ProjectReference[];
   sourceFiles: UploadedFile[];
+  citationTarget: ReferencedLibraryCitationTarget | null;
   onClose: () => void;
   onRefresh: () => void;
 }
@@ -136,15 +140,42 @@ export function ReferencedLibraryDetailPanel({
   historyByTool,
   references,
   sourceFiles,
+  citationTarget,
   onClose,
   onRefresh,
 }: ReferencedLibraryDetailPanelProps) {
+  const fileRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const effectiveVersion = reference?.pinnedVersionId || "-";
   const showUpstreamWarning = false;
   const totalHistoryCount = historyByTool.reduce(
     (count, [, items]) => count + items.length,
     0
   );
+  const normalizedTargetFilename = citationTarget?.filename?.trim() || "";
+  const matchedFile = useMemo(
+    () =>
+      normalizedTargetFilename
+        ? sourceFiles.find(
+            (file) => (file.filename || "").trim() === normalizedTargetFilename
+          ) || null
+        : null,
+    [normalizedTargetFilename, sourceFiles]
+  );
+  const hasCitationTarget = Boolean(citationTarget?.sourceLibraryId);
+  const targetFileNotLoaded =
+    Boolean(normalizedTargetFilename) && !loading && !matchedFile;
+
+  useEffect(() => {
+    if (!open || !matchedFile?.id) return;
+    const frame = window.requestAnimationFrame(() => {
+      fileRefs.current[matchedFile.id]?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [matchedFile?.id, open]);
+
   const portalTarget = typeof document !== "undefined" ? document.body : null;
   if (!portalTarget) return null;
 
@@ -221,6 +252,26 @@ export function ReferencedLibraryDetailPanel({
                 {loading ? (
                   <div className="rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs text-zinc-600">
                     正在加载库详情...
+                  </div>
+                ) : null}
+                {hasCitationTarget ? (
+                  <div className="rounded-2xl border border-sky-200/80 bg-sky-50/85 px-3.5 py-3 text-sm text-sky-900 shadow-[0_8px_30px_-28px_rgba(14,116,144,0.8)]">
+                    <p className="font-semibold">
+                      来自：{citationTarget?.filename || "当前资料库引用"}
+                      {citationTarget?.pageNumber
+                        ? ` / P${citationTarget.pageNumber}`
+                        : ""}
+                      {typeof citationTarget?.timestamp === "number"
+                        ? ` / ${Math.round(citationTarget.timestamp)}s`
+                        : ""}
+                    </p>
+                    <p className="mt-1 text-xs text-sky-700">
+                      {targetFileNotLoaded
+                        ? "目标文件未在当前列表中，可能不在本次已加载范围内。"
+                        : matchedFile
+                          ? "已为你定位到该引用对应的文件。"
+                          : "正在尝试定位该引用对应的文件。"}
+                    </p>
                   </div>
                 ) : null}
 
@@ -386,12 +437,14 @@ export function ReferencedLibraryDetailPanel({
                         ) : (
                           references.slice(0, 20).map((item) => (
                             <div
-                              key={item.id}
+                                key={item.id}
                               className="rounded-lg border border-zinc-200/70 bg-zinc-50 px-2 py-1.5 text-sm"
                             >
                               <span className="font-medium text-zinc-800">
-                                {item.targetProjectName?.trim() ||
-                                  item.targetProjectId}
+                                {getReadableLibraryName(
+                                  item.targetProjectName,
+                                  item.targetProjectId
+                                )}
                               </span>
                               <span className="ml-1 text-zinc-500">
                                 · {item.relationType} · {item.mode}
@@ -427,7 +480,15 @@ export function ReferencedLibraryDetailPanel({
                             return (
                               <div
                                 key={file.id}
-                                className="flex items-center gap-2 rounded-lg border border-zinc-200/70 bg-zinc-50 px-2 py-1.5"
+                                ref={(node) => {
+                                  fileRefs.current[file.id] = node;
+                                }}
+                                className={cn(
+                                  "flex items-center gap-2 rounded-lg border px-2 py-1.5 transition-colors",
+                                  matchedFile?.id === file.id
+                                    ? "border-sky-300 bg-sky-50 ring-1 ring-sky-200"
+                                    : "border-zinc-200/70 bg-zinc-50"
+                                )}
                                 title={file.filename}
                               >
                                 <span

@@ -10,12 +10,41 @@ from .card_execution_runtime_helpers import artifact_metadata_dict
 logger = logging.getLogger(__name__)
 
 
+def is_placeholder_word_title(value: str) -> bool:
+    normalized = str(value or "").strip()
+    if not normalized:
+        return True
+    lowered = normalized.lower()
+    return bool(
+        re.match(r"^第\s*\d+\s*次讲义文档(?:[。.!！])?$", normalized, flags=re.IGNORECASE)
+        or lowered in {
+            "教案",
+            "教学教案",
+            "教学文档",
+            "讲义文档",
+            "未命名教案",
+            "word 生成记录",
+            "word生成记录",
+        }
+    )
+
+
 def normalize_word_base_title(value: str) -> str:
     text = str(value or "").strip()
     if not text:
         return ""
+    if is_placeholder_word_title(text):
+        return ""
     text = re.sub(r"\.(pptx?|docx?)$", "", text, flags=re.IGNORECASE).strip()
     text = re.sub(r"(课件|PPT)\s*$", "", text, flags=re.IGNORECASE).strip()
+    text = re.sub(r"^第\s*\d+\s*次讲义文档(?:[。.!！])?$", "", text, flags=re.IGNORECASE).strip()
+    text = re.sub(
+        r"(?:[；;，,\s]+)?(?:standard|high|detail[_ -]?level|lesson_plan(?:_v1)?)\b.*$",
+        "",
+        text,
+        flags=re.IGNORECASE,
+    ).strip()
+    text = re.sub(r"[；;，,\-_/:\s]+$", "", text).strip()
     return text[:120]
 
 
@@ -35,7 +64,7 @@ async def resolve_word_document_title(
     config: dict | None,
     existing_title: str,
 ) -> str:
-    if existing_title:
+    if existing_title and not is_placeholder_word_title(existing_title):
         return compose_word_title(existing_title)
 
     source_id = str(source_artifact_id or "").strip()

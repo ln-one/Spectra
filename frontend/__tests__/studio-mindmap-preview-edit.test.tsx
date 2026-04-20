@@ -1,4 +1,4 @@
-﻿import React from "react";
+import React from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { PreviewStep } from "@/components/project/features/studio/tools/mindmap/PreviewStep";
 import type { ToolFlowContext } from "@/components/project/features/studio/tools";
@@ -45,14 +45,11 @@ describe("mindmap preview child insertion", () => {
 
     render(<SelectionHarness />);
 
-    expect(screen.getAllByText("进程管理").length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText("基本概念")).toHaveLength(1);
+    expect(screen.getByDisplayValue("进程管理")).toBeInTheDocument();
 
-    fireEvent.pointerDown(screen.getAllByText("基本概念")[0]);
     fireEvent.click(screen.getAllByText("基本概念")[0]);
 
-    expect(screen.getByText("当前选中节点")).toBeInTheDocument();
-    expect(screen.getAllByText("基本概念")).toHaveLength(2);
+    expect(screen.getByDisplayValue("基本概念")).toBeInTheDocument();
   });
 
   it("submits structured refine request for selected node", async () => {
@@ -73,23 +70,26 @@ describe("mindmap preview child insertion", () => {
       />
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "添加子节点" }));
-    fireEvent.change(screen.getByPlaceholderText("例如：进程切换开销"), {
+    fireEvent.change(screen.getByPlaceholderText("子节点名称"), {
       target: { value: "进程切换开销" },
     });
-    fireEvent.change(
-      screen.getByPlaceholderText("补充一句说明，后端会写入新节点摘要。"),
-      {
-        target: { value: "描述调度与上下文切换的额外成本" },
-      }
-    );
+    fireEvent.change(screen.getByPlaceholderText("子节点说明（可选）"), {
+      target: { value: "描述调度与上下文切换的额外成本" },
+    });
 
-    fireEvent.click(screen.getByRole("button", { name: "确认新增" }));
+    fireEvent.click(screen.getByRole("button", { name: "新增子节点" }));
 
     await waitFor(() => {
       expect(onStructuredRefineArtifact).toHaveBeenCalledWith({
         artifactId: "artifact-map-1",
         message: "进程切换开销",
+        refineMode: "structured_refine",
+        selectionAnchor: {
+          scope: "node",
+          anchor_id: "root",
+          artifact_id: "artifact-map-1",
+          label: "进程管理",
+        },
         config: {
           selected_node_path: "root",
           manual_child_summary: "描述调度与上下文切换的额外成本",
@@ -122,6 +122,6 @@ describe("mindmap preview child insertion", () => {
       />
     );
 
-    expect(screen.getByRole("button", { name: "添加子节点" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "新增子节点" })).toBeDisabled();
   });
 });

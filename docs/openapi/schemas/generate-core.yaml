@@ -158,7 +158,7 @@ GenerationOptions:
       description: 是否生成互动游戏
     animation_format:
       type: string
-      enum: [gif, mp4, html5]
+      enum: [gif, html5]
       description: 动画输出格式（当 include_animations 为 true 时）
     use_text_to_image:
       type: boolean
