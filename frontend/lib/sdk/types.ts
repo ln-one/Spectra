@@ -2865,10 +2865,23 @@ export interface components {
             };
             message: string;
         };
+        ProjectCreateRequest: {
+            name?: string | null;
+            description: string;
+            grade_level?: string;
+        };
         ProjectRequest: {
             name: string;
             description: string;
             grade_level?: string;
+        };
+        ProjectCreateRequestTarget: components["schemas"]["ProjectCreateRequest"] & {
+            base_project_id?: string | null;
+            /** @enum {string} */
+            reference_mode?: "follow" | "pinned";
+            /** @enum {string} */
+            visibility?: "private" | "shared";
+            is_referenceable?: boolean;
         };
         ProjectRequestTarget: components["schemas"]["ProjectRequest"] & {
             base_project_id?: string | null;
@@ -4714,7 +4727,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ProjectRequestTarget"];
+                "application/json": components["schemas"]["ProjectCreateRequestTarget"];
             };
         };
         responses: {

@@ -1610,7 +1610,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ProjectRequest'
+              $ref: '#/components/schemas/ProjectCreateRequest'
       responses:
         '200':
           description: 项目创建成功
@@ -5288,6 +5288,22 @@ components:
             limit:
               type: integer
         message:
+          type: string
+    ProjectCreateRequest:
+      type: object
+      required:
+        - description
+      properties:
+        name:
+          type: string
+          nullable: true
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          minLength: 1
+          maxLength: 2000
+        grade_level:
           type: string
     ProjectRequest:
       type: object

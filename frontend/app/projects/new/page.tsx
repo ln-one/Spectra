@@ -191,17 +191,17 @@ export default function NewProjectPage() {
     setSubmitError(null);
     setIsLoading(true);
     try {
-      const projectName =
-        formData.name.trim() || prompt.trim().replace(/\s+/g, " ").slice(0, 32);
-      const response = await projectsApi.createProject({
-        name: projectName,
+      const projectName = formData.name.trim();
+      const createPayload = {
         description: prompt,
         grade_level: formData.grade_level,
         base_project_id: formData.base_project_id || undefined,
         reference_mode: formData.reference_mode,
         visibility: formData.visibility,
         is_referenceable: formData.is_referenceable,
-      });
+        ...(projectName ? { name: projectName } : {}),
+      };
+      const response = await projectsApi.createProject(createPayload);
 
       const projectId = response?.data?.project?.id;
       if (projectId) {

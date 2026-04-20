@@ -1787,7 +1787,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ProjectRequestTarget'
+              $ref: '#/components/schemas/ProjectCreateRequestTarget'
       responses:
         '200':
           description: 项目创建成功
@@ -6325,6 +6325,22 @@ components:
               type: integer
         message:
           type: string
+    ProjectCreateRequest:
+      type: object
+      required:
+        - description
+      properties:
+        name:
+          type: string
+          nullable: true
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          minLength: 1
+          maxLength: 2000
+        grade_level:
+          type: string
     ProjectRequest:
       type: object
       required:
@@ -6341,6 +6357,26 @@ components:
           maxLength: 2000
         grade_level:
           type: string
+    ProjectCreateRequestTarget:
+      allOf:
+        - $ref: '#/components/schemas/ProjectCreateRequest'
+        - type: object
+          properties:
+            base_project_id:
+              type: string
+              nullable: true
+            reference_mode:
+              type: string
+              enum:
+                - follow
+                - pinned
+            visibility:
+              type: string
+              enum:
+                - private
+                - shared
+            is_referenceable:
+              type: boolean
     ProjectRequestTarget:
       allOf:
         - $ref: '#/components/schemas/ProjectRequest'
