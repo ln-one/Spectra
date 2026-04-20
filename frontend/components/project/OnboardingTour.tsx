@@ -6,9 +6,9 @@ import {
   ChevronRight,
   ChevronLeft,
   X,
-  Sparkles,
   Lightbulb,
 } from "lucide-react";
+import { ThinkingMark } from "@/components/icons/status/ThinkingMark";
 import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -284,7 +284,7 @@ export function OnboardingTour({ projectId }: OnboardingTourProps) {
         >
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center text-primary shadow-inner">
-              <Sparkles className="w-6 h-6" />
+              <ThinkingMark className="w-6 h-6" />
             </div>
             <div className="flex-1">
               <div className="text-[10px] font-bold text-primary tracking-widest uppercase opacity-70 mb-0.5">

@@ -7,16 +7,16 @@ import {
   Check,
   CircleOff,
   Globe2,
-  Library,
   Link as LinkIcon,
   LockKeyhole,
   RefreshCw,
   RotateCcw,
   Settings2,
-  Sparkles,
   ToggleLeft,
   Trash2,
 } from "lucide-react";
+import { LibraryPanelMark } from "@/components/icons/library/LibraryPanelMark";
+import { ContextTargetMark } from "@/components/icons/status/ContextTargetMark";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -575,7 +575,7 @@ export function ReferencesTab({
           <div className="relative">
             <div className="mb-3 flex items-center gap-2">
               <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-zinc-900 to-zinc-700 text-white shadow-[0_10px_22px_-14px_rgba(0,0,0,0.65)]">
-                <Library className="h-4 w-4" />
+                <LibraryPanelMark className="h-4 w-4" />
               </span>
               <div>
                 <p className="text-sm font-semibold text-[var(--project-text-primary)]">
@@ -917,7 +917,7 @@ export function ReferencesTab({
             {editingReference ? (
               <div className={cn(SURFACE_CLASS, "space-y-1.5 px-3 py-2.5")}>
                 <p className="flex items-center gap-1.5 text-xs uppercase tracking-[0.12em] text-zinc-500">
-                  <Sparkles className="h-3.5 w-3.5 text-zinc-500" />
+                  <ContextTargetMark className="h-3.5 w-3.5 text-zinc-500" />
                   当前目标
                 </p>
                 <p

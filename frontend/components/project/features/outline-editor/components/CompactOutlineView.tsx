@@ -6,9 +6,9 @@ import {
   Play,
   Plus,
   RefreshCw,
-  Sparkles,
   Trash2,
 } from "lucide-react";
+import { ThinkingMark } from "@/components/icons/status/ThinkingMark";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -275,7 +275,7 @@ export function CompactOutlineView({
                 }
                 className="w-full h-9 border border-zinc-800 bg-zinc-900 text-zinc-50 text-xs font-medium shadow-sm transition-all hover:bg-zinc-800"
               >
-                <Sparkles className="w-3.5 h-3.5 mr-1.5" />
+                <ThinkingMark className="w-3.5 h-3.5 mr-1.5" />
                 开始生成
               </Button>
               <p className="text-[10px] text-zinc-400 text-center mt-1.5">

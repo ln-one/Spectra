@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ChevronRight, Loader2, Sparkles, Wand2 } from "lucide-react";
+import { ChevronRight, Loader2, Wand2 } from "lucide-react";
+import { ThinkingMark } from "@/components/icons/status/ThinkingMark";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -368,7 +369,7 @@ export function PreviewCopilotDrawer({
         className="absolute right-0 top-1/2 z-40 flex h-14 w-10 -translate-y-1/2 items-center justify-center rounded-l-xl border border-r-0 border-black/10 bg-white/90 shadow-lg backdrop-blur-md transition-all hover:shadow-xl group"
         title="展开 Preview Copilot"
       >
-        <Sparkles className="h-5 w-5 text-blue-600 transition-transform group-hover:scale-110" />
+        <ThinkingMark className="h-5 w-5 text-blue-600 transition-transform group-hover:scale-110" />
       </button>
     );
   }
@@ -378,7 +379,7 @@ export function PreviewCopilotDrawer({
       <div className="flex h-14 shrink-0 items-center justify-between border-b border-black/5 bg-white/50 px-4">
         <div className="min-w-0 flex items-center gap-2">
           <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-50">
-            <Sparkles className="h-4 w-4 text-blue-600" />
+            <ThinkingMark className="h-4 w-4 text-blue-600" />
           </div>
           <div>
             <div className="truncate text-sm font-semibold text-[#1d1d1f]">

@@ -2,8 +2,9 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowUp, Loader2, Sparkles, Mic } from "lucide-react";
+import { ArrowUp, Loader2, Mic } from "lucide-react";
 import { toast } from "sonner";
+import { ThinkingMark } from "@/components/icons/status/ThinkingMark";
 import { useProjectStore } from "@/stores/projectStore";
 import { useShallow } from "zustand/react/shallow";
 import { cn } from "@/lib/utils";
@@ -622,7 +623,7 @@ export function ChatPanel({
                     transition={{ type: "spring", stiffness: 300, damping: 20 }}
                     className="project-empty-icon mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--project-surface-muted)] shadow-sm"
                   >
-                    <Sparkles className="h-7 w-7 text-[var(--project-text-muted)]" />
+                    <ThinkingMark className="h-7 w-7 text-[var(--project-text-muted)]" />
                   </motion.div>
                   <p className="text-sm font-semibold text-[var(--project-text-primary)]">
                     {EMPTY_TITLE}
@@ -741,7 +742,7 @@ export function ChatPanel({
                     }}
                   >
                     <span className="truncate flex items-center gap-1.5">
-                      <Sparkles className="h-3.5 w-3.5" />
+                      <ThinkingMark className="h-3.5 w-3.5" />
                       正在微调：{refineToolLabel}
                     </span>
                     {isStudioRefining ? (

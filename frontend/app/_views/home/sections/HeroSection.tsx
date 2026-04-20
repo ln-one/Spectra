@@ -1,8 +1,9 @@
 ﻿import Link from "next/link";
 import { motion, useReducedMotion } from "framer-motion";
-import { ArrowRight, ChevronRight, Play, Sparkles } from "lucide-react";
+import { ArrowRight, ChevronRight, Play } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { BrandMark } from "@/components/icons/brand/BrandMark";
 import { LightRays } from "@/components/ui/light-rays";
 import { WordRotate } from "@/components/ui/word-rotate";
 
@@ -33,7 +34,7 @@ export function HeroSection({ onShowVideo }: { onShowVideo: () => void }) {
             variant="secondary"
             className="gap-2 px-4 py-1.5 text-sm shadow-sm"
           >
-            <Sparkles className="h-3.5 w-3.5 text-primary" />
+            <BrandMark className="h-3.5 w-3.5 text-primary" />
             AI 驱动的教学革命
           </Badge>
         </motion.div>

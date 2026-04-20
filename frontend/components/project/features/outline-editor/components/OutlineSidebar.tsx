@@ -7,10 +7,10 @@ import {
   Monitor,
   Play,
   Settings2,
-  Sparkles,
   Tag,
   X,
 } from "lucide-react";
+import { ThinkingMark } from "@/components/icons/status/ThinkingMark";
 import { cn } from "@/lib/utils";
 import {
   ASPECT_RATIO_OPTIONS,
@@ -127,7 +127,7 @@ export function OutlineSidebar(props: OutlineSidebarProps) {
                 }
                 className="h-11 w-full rounded-xl border border-blue-600 bg-blue-600 text-sm font-medium text-white shadow-sm transition-all hover:bg-blue-500"
               >
-                <Sparkles className="mr-2 h-4 w-4" />
+                <ThinkingMark className="mr-2 h-4 w-4" />
                 开始生成课件
               </Button>
               <p className="text-center text-[10px] text-zinc-400">

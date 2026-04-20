@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { Sparkles } from "lucide-react";
+import { BrandMark } from "@/components/icons/brand/BrandMark";
 import { useAuthStore } from "@/stores/authStore";
 import { useProjectStore } from "@/stores/projectStore";
 import { HeaderActions } from "./components/HeaderActions";
@@ -62,7 +62,7 @@ export function ProjectHeader({
             className="project-header-logo w-9 h-9 rounded-2xl bg-[linear-gradient(135deg,var(--project-logo-start),var(--project-logo-end))] flex items-center justify-center shadow-md shadow-zinc-900/20 relative overflow-hidden"
           >
             <div className="project-header-logo-gloss absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity" />
-            <Sparkles className="w-4 h-4 text-[var(--project-logo-text)]" />
+            <BrandMark className="w-4 h-4 text-[var(--project-logo-text)]" />
           </motion.div>
         </Link>
 

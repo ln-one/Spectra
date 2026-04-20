@@ -12,8 +12,8 @@ import {
   LayoutTemplate,
   Lightbulb,
   RefreshCw,
-  Sparkles,
 } from "lucide-react";
+import { ThinkingMark } from "@/components/icons/status/ThinkingMark";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -353,7 +353,7 @@ export function GenerationConfigPanel({
                 <motion.section variants={itemVariants}>
                   <div className="flex flex-wrap items-center gap-2">
                     <div className="flex h-8 items-center gap-1.5 rounded-full bg-amber-50 px-3 text-[12px] font-semibold text-amber-700 ring-1 ring-amber-100">
-                      <Sparkles className="h-3.5 w-3.5" />
+                      <ThinkingMark className="h-3.5 w-3.5" />
                       灵感
                     </div>
                     {suggestions.map((item, idx) => (

@@ -1,18 +1,13 @@
 import { motion } from "framer-motion";
 import {
-  Clock,
   ChevronRight,
-  FolderOpen,
   MoreVertical,
   Settings,
   Trash2,
   Plus,
-  Sparkles,
-  Globe,
-  Laptop,
-  FileText,
-  Beaker,
 } from "lucide-react";
+import { ProjectFeaturedMark } from "@/components/icons/project/ProjectFeaturedMark";
+import { getProjectKindVisuals } from "@/components/icons/project/ProjectKindIcons";
 import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
@@ -20,7 +15,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { formatDate, Project, statusConfig } from "./project-types";
+import { formatDate, Project } from "./project-types";
 
 interface ProjectCardProps {
   project: Project;
@@ -76,7 +71,7 @@ export function FeaturedProjectCard({
       <div className="absolute bottom-0 inset-x-0 p-6 bg-gradient-to-t from-black/80 via-black/40 to-transparent">
         <div className="flex items-center gap-2 mb-2">
           <div className="w-6 h-6 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center">
-            <Sparkles className="w-3.5 h-3.5 text-white" />
+            <ProjectFeaturedMark className="w-3.5 h-3.5 text-white" />
           </div>
           <span className="text-[10px] font-bold text-white/70 uppercase tracking-widest">
             Featured
@@ -93,7 +88,7 @@ export function FeaturedProjectCard({
       </div>
       <div className="absolute top-4 right-4">
         <div className="w-8 h-8 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity">
-          <Globe className="w-4 h-4" />
+          {getProjectKindVisuals("w-4 h-4")[0].icon}
         </div>
       </div>
     </motion.div>
@@ -106,22 +101,7 @@ export function ProjectCard({
   onDelete,
   isDeleting = false,
 }: ProjectCardProps) {
-  const pastelColors = [
-    {
-      bg: "bg-emerald-50 text-emerald-600",
-      icon: <Globe className="w-6 h-6" />,
-    },
-    { bg: "bg-blue-50 text-blue-600", icon: <Laptop className="w-6 h-6" /> },
-    {
-      bg: "bg-purple-50 text-purple-600",
-      icon: <FolderOpen className="w-6 h-6" />,
-    },
-    {
-      bg: "bg-orange-50 text-orange-600",
-      icon: <FileText className="w-6 h-6" />,
-    },
-    { bg: "bg-rose-50 text-rose-600", icon: <Beaker className="w-6 h-6" /> },
-  ];
+  const pastelColors = getProjectKindVisuals("w-6 h-6");
   const color = pastelColors[project.id.length % pastelColors.length];
 
   return (
@@ -225,22 +205,7 @@ export function ProjectListItem({
   project: Project;
   onClick: () => void;
 }) {
-  const pastelColors = [
-    {
-      bg: "bg-emerald-50 text-emerald-600",
-      icon: <Globe className="w-5 h-5" />,
-    },
-    { bg: "bg-blue-50 text-blue-600", icon: <Laptop className="w-5 h-5" /> },
-    {
-      bg: "bg-purple-50 text-purple-600",
-      icon: <FolderOpen className="w-5 h-5" />,
-    },
-    {
-      bg: "bg-orange-50 text-orange-600",
-      icon: <FileText className="w-5 h-5" />,
-    },
-    { bg: "bg-rose-50 text-rose-600", icon: <Beaker className="w-5 h-5" /> },
-  ];
+  const pastelColors = getProjectKindVisuals("w-5 h-5");
   const color = pastelColors[project.id.length % pastelColors.length];
 
   return (
