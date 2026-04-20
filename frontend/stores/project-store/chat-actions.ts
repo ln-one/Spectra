@@ -15,6 +15,7 @@ import {
   readStudioLocalPayload,
   writeStudioLocalPayload,
 } from "./studio-chat.helpers";
+import { isGenerateCoursewareIntent } from "./courseware-run";
 import { resolveReadySelectedFileIds } from "./source-scope";
 import type {
   Message,
@@ -356,6 +357,23 @@ export function createChatActions({
               response.data!.message!,
             ],
           }));
+        }
+
+        const refreshedSnapshot = await get().refreshGenerationSession(
+          response?.data?.session_id ?? effectiveSessionId
+        );
+        if (
+          refreshedSnapshot?.teaching_brief?.status === "confirmed" &&
+          refreshedSnapshot?.teaching_brief?.readiness?.can_generate === true &&
+          isGenerateCoursewareIntent(content)
+        ) {
+          try {
+            await get().startPptFromTeachingBrief(
+              refreshedSnapshot.session?.session_id ?? effectiveSessionId
+            );
+          } catch {
+            // Auto-start failure should not turn the chat request into a failed send.
+          }
         }
       } catch (error) {
         const message = getChatRequestErrorMessage(error);

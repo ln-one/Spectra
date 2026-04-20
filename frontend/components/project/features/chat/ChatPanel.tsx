@@ -21,6 +21,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { SUGGESTIONS } from "./constants";
 import { MessageBubble } from "./components/MessageBubble";
 import { ThinkingBubble } from "./components/ThinkingBubble";
+import { TeachingBriefDialog } from "./components/TeachingBriefDialog";
 import { SelectedSourceScopeBadge } from "@/components/project/features/sources/components/SelectedSourceScopeBadge";
 import { TOOL_COLORS } from "@/components/project/features/studio/constants";
 import type { ChatMessage } from "./types";
@@ -573,28 +574,31 @@ export function ChatPanel({
               {CHAT_DESCRIPTION}
             </CardDescription>
           </div>
-          {showHeaderThinkingIndicator ? (
-            <motion.div
-              initial={{ opacity: 0, x: 10 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 10 }}
-              className="flex items-center gap-2 rounded-full border border-[var(--project-border)] bg-[var(--project-surface-muted)] px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-[var(--project-text-muted)] shadow-sm"
-            >
+          <div className="flex items-center gap-2">
+            <TeachingBriefDialog />
+            {showHeaderThinkingIndicator ? (
               <motion.div
-                animate={{
-                  scale: [1, 1.2, 1],
-                  opacity: [0.5, 1, 0.5],
-                }}
-                transition={{
-                  duration: 2,
-                  repeat: Infinity,
-                  ease: "easeInOut",
-                }}
-                className="h-1.5 w-1.5 rounded-full bg-[var(--project-accent)]"
-              />
-              <span>{THINKING_LABEL}</span>
-            </motion.div>
-          ) : null}
+                initial={{ opacity: 0, x: 10 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 10 }}
+                className="flex items-center gap-2 rounded-full border border-[var(--project-border)] bg-[var(--project-surface-muted)] px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-[var(--project-text-muted)] shadow-sm"
+              >
+                <motion.div
+                  animate={{
+                    scale: [1, 1.2, 1],
+                    opacity: [0.5, 1, 0.5],
+                  }}
+                  transition={{
+                    duration: 2,
+                    repeat: Infinity,
+                    ease: "easeInOut",
+                  }}
+                  className="h-1.5 w-1.5 rounded-full bg-[var(--project-accent)]"
+                />
+                <span>{THINKING_LABEL}</span>
+              </motion.div>
+            ) : null}
+          </div>
         </CardHeader>
 
         <CardContent className="relative h-[calc(100%-52px)] overflow-hidden p-0">

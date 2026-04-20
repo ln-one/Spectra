@@ -75,6 +75,9 @@ SendMessageResponse:
         session_title_source:
           type: string
           enum: [default, first_message, manual]
+        teaching_brief_hint:
+          type: object
+          additionalProperties: true
     message:
       type: string
 

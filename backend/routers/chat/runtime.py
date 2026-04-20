@@ -1,3 +1,4 @@
+import json
 import time
 from uuid import UUID, uuid4
 
@@ -10,6 +11,14 @@ from services.generation_session_service.access import get_owned_session
 from services.generation_session_service.session_history import (
     SESSION_TITLE_SOURCE_DEFAULT,
     request_session_title_generation,
+)
+from services.generation_session_service.teaching_brief import (
+    build_brief_prompt_hint,
+    infer_teaching_brief_proposal,
+    load_teaching_brief,
+    load_teaching_brief_proposals,
+    proposal_conflicts_with_confirmed_brief,
+    store_teaching_brief,
 )
 from services.prompt_service import build_prompt_traceability
 from utils.exceptions import (
@@ -141,7 +150,7 @@ async def process_chat_message(
             **({"session_id": session_id} if session_id else {}),
         } or None
         stage_started = time.perf_counter()
-        await db_service.create_conversation_message(
+        user_message = await db_service.create_conversation_message(
             project_id=body.project_id,
             role="user",
             content=body.content,
@@ -158,6 +167,9 @@ async def process_chat_message(
         try:
             session_record = await db_service.db.generationsession.find_unique(
                 where={"id": session_id}
+            )
+            teaching_brief_hint = build_brief_prompt_hint(
+                getattr(session_record, "options", None)
             )
             session_title = getattr(session_record, "displayTitle", None)
             session_title_source = getattr(session_record, "displayTitleSource", None)
@@ -183,6 +195,8 @@ async def process_chat_message(
                 session_id,
                 exc,
             )
+            session_record = None
+            teaching_brief_hint = None
 
         rag_result, history_payload, context_timings = await load_chat_context(
             body=body,
@@ -226,6 +240,7 @@ async def process_chat_message(
             rag_payload=rag_payload,
             history_payload=history_payload,
             image_analysis_hint=image_analysis_hint,
+            teaching_brief_hint=teaching_brief_hint,
         )
 
         request_id = str(uuid4())
@@ -306,6 +321,64 @@ async def process_chat_message(
         msg_dict = to_message(assistant_msg)
         msg_dict["citations"] = citations or []
 
+        brief_proposal = infer_teaching_brief_proposal(
+            content=body.content,
+            source_message_id=str(getattr(user_message, "id", "") or ""),
+        )
+        teaching_brief_hint_payload = None
+        if session_record is not None:
+            current_brief = load_teaching_brief(getattr(session_record, "options", None))
+            current_proposals = load_teaching_brief_proposals(
+                getattr(session_record, "options", None)
+            )
+            if brief_proposal is not None:
+                next_status = current_brief.get("status")
+                if proposal_conflicts_with_confirmed_brief(current_brief, brief_proposal):
+                    current_brief["status"] = "stale"
+                    next_status = "stale"
+                current_proposals.append(brief_proposal)
+                current_state = str(getattr(session_record, "state", "") or "")
+                next_state = current_state
+                if current_state in {
+                    "IDLE",
+                    "CONFIGURING",
+                    "ANALYZING",
+                    "AWAITING_REQUIREMENTS_CONFIRM",
+                }:
+                    next_state = (
+                        "AWAITING_REQUIREMENTS_CONFIRM"
+                        if next_status != "confirmed"
+                        else "CONFIGURING"
+                    )
+                next_options = store_teaching_brief(
+                    getattr(session_record, "options", None),
+                    brief=current_brief,
+                    proposals=current_proposals,
+                )
+                await db_service.db.generationsession.update(
+                    where={"id": session_id},
+                    data={
+                        "options": json.dumps(next_options, ensure_ascii=False),
+                        "state": next_state,
+                    },
+                )
+                teaching_brief_hint_payload = {
+                    "proposal_id": brief_proposal["proposal_id"],
+                    "proposal_count": len(current_proposals),
+                    "status": current_brief.get("status"),
+                    "can_generate": (
+                        current_brief.get("readiness") or {}
+                    ).get("can_generate"),
+                }
+            else:
+                teaching_brief_hint_payload = {
+                    "proposal_count": len(current_proposals),
+                    "status": current_brief.get("status"),
+                    "can_generate": (
+                        current_brief.get("readiness") or {}
+                    ).get("can_generate"),
+                }
+
         response_payload = success_response(
             data={
                 "session_id": session_id,
@@ -320,6 +393,7 @@ async def process_chat_message(
                 "session_title_updated": session_title_updated,
                 "session_title": session_title,
                 "session_title_source": session_title_source,
+                "teaching_brief_hint": teaching_brief_hint_payload,
             },
             message="Message sent successfully",
         )

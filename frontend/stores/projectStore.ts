@@ -4,6 +4,7 @@ import { createFileActions } from "./project-store/file-actions";
 import { createChatActions } from "./project-store/chat-actions";
 import { createGenerationActions } from "./project-store/generation-actions";
 import { createLayoutActions } from "./project-store/layout-actions";
+import { createTeachingBriefActions } from "./project-store/teaching-brief-actions";
 import {
   GENERATION_TOOLS,
   initialState,
@@ -30,5 +31,6 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
   ...createFileActions({ set, get }),
   ...createChatActions({ set, get }),
   ...createGenerationActions({ set, get }),
+  ...createTeachingBriefActions({ set, get }),
   ...createLayoutActions({ set, get }),
 }));

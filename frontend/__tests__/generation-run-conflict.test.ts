@@ -44,6 +44,7 @@ describe("generation run conflict helpers", () => {
   });
 
   it("recognizes active and terminal session states", () => {
+    expect(isSessionRunActive("AWAITING_REQUIREMENTS_CONFIRM")).toBe(true);
     expect(isSessionRunActive("DRAFTING_OUTLINE")).toBe(true);
     expect(isSessionRunActive("RENDERING")).toBe(true);
     expect(isSessionRunActive("SUCCESS")).toBe(false);

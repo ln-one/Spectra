@@ -67,6 +67,33 @@ def validate_command_payload(command: dict):
         GenerationCommandType.REDRAFT_OUTLINE.value,
     }:
         validate_positive_int(command.get("base_version"), "base_version")
+    if command_type == GenerationCommandType.UPDATE_TEACHING_BRIEF_DRAFT.value:
+        patch = command.get("patch")
+        if not isinstance(patch, dict):
+            raise APIException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                error_code=ErrorCode.INVALID_INPUT,
+                message="command.patch is required",
+            )
+    if command_type in {
+        GenerationCommandType.APPLY_TEACHING_BRIEF_PROPOSAL.value,
+        GenerationCommandType.DISMISS_TEACHING_BRIEF_PROPOSAL.value,
+    }:
+        proposal_id = str(command.get("proposal_id") or "").strip()
+        if not proposal_id:
+            raise APIException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                error_code=ErrorCode.INVALID_INPUT,
+                message="command.proposal_id is required",
+            )
+    if command_type == GenerationCommandType.CONFIRM_TEACHING_BRIEF.value:
+        patch = command.get("patch")
+        if patch is not None and not isinstance(patch, dict):
+            raise APIException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                error_code=ErrorCode.INVALID_INPUT,
+                message="command.patch must be an object",
+            )
     if command_type == GenerationCommandType.REGENERATE_SLIDE.value:
         slide_id = str(command.get("slide_id") or "").strip()
         if not slide_id:

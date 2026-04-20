@@ -67,3 +67,24 @@ def test_validate_resume_session_transitions_failed_to_configuring():
     )
     assert result.allowed is True
     assert result.to_state == GenerationState.CONFIGURING.value
+
+
+def test_validate_teaching_brief_confirm_transitions_to_configuring():
+    guard = StateTransitionGuard()
+    result = guard.validate(
+        GenerationState.AWAITING_REQUIREMENTS_CONFIRM.value,
+        GenerationCommandType.CONFIRM_TEACHING_BRIEF.value,
+    )
+    assert result.allowed is True
+    assert result.to_state == GenerationState.CONFIGURING.value
+
+
+def test_get_allowed_actions_for_requirements_confirm_state():
+    actions = StateTransitionGuard.get_allowed_actions(
+        GenerationState.AWAITING_REQUIREMENTS_CONFIRM.value
+    )
+    assert actions == [
+        "update_teaching_brief",
+        "confirm_teaching_brief",
+        "set_session_title",
+    ]

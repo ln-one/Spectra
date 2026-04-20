@@ -92,6 +92,7 @@ def build_chat_prompt(
     rag_payload,
     history_payload: list[dict],
     image_analysis_hint: str | None = None,
+    teaching_brief_hint: str | None = None,
 ) -> str:
     message_hints = []
     if selected_files_hint:
@@ -106,6 +107,8 @@ def build_chat_prompt(
         message_hints.append(card_context_hint)
     if image_analysis_hint:
         message_hints.append(image_analysis_hint)
+    if teaching_brief_hint:
+        message_hints.append("当前教学需求单：\n" + teaching_brief_hint)
 
     user_message_for_prompt = body.content
     if message_hints:

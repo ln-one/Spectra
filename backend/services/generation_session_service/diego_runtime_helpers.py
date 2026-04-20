@@ -3,6 +3,11 @@ from __future__ import annotations
 import json
 from typing import Any, Optional
 
+from services.generation_session_service.teaching_brief import (
+    extract_brief_fields_from_options,
+    load_teaching_brief,
+)
+
 _DIEGO_BINDING_KEY = "diego"
 
 
@@ -97,6 +102,10 @@ def resolve_topic_from_options(options: dict[str, Any]) -> str:
     if explicit:
         return explicit
 
+    brief_topic = str(load_teaching_brief(options).get("topic") or "").strip()
+    if brief_topic:
+        return brief_topic
+
     # Backward compatibility for older sessions that persisted `prompt`.
     explicit = str(options.get("prompt") or "").strip()
     if explicit:
@@ -106,13 +115,18 @@ def resolve_topic_from_options(options: dict[str, Any]) -> str:
 
 
 def resolve_target_slide_count(options: dict[str, Any]) -> int:
+    brief_fields = extract_brief_fields_from_options(options)
     raw = (
         options.get("pages")
         if options.get("pages") is not None
         else (
             options.get("target_slide_count")
             if options.get("target_slide_count") is not None
-            else options.get("page_count")
+            else (
+                options.get("page_count")
+                if options.get("page_count") is not None
+                else brief_fields.get("target_pages")
+            )
         )
     )
     try:
