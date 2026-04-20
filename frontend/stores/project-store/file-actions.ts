@@ -169,24 +169,6 @@ function isSameSourceDetail(
   );
 }
 
-function cloneSourceDetail(detail: SourceDetail): SourceDetail {
-  return {
-    ...detail,
-    file_info:
-      detail.file_info && typeof detail.file_info === "object"
-        ? { ...detail.file_info }
-        : detail.file_info,
-    source:
-      detail.source && typeof detail.source === "object"
-        ? { ...detail.source }
-        : detail.source,
-    context:
-      detail.context && typeof detail.context === "object"
-        ? { ...detail.context }
-        : detail.context,
-  };
-}
-
 export function createFileActions({
   set,
   get,
@@ -309,7 +291,9 @@ export function createFileActions({
       try {
         const activeSourceDetail = get().activeSourceDetail;
         if (activeSourceDetail?.chunk_id === chunkId) {
-          set({ activeSourceDetail: cloneSourceDetail(activeSourceDetail) });
+          set((state) => ({
+            activeSourceFocusNonce: state.activeSourceFocusNonce + 1,
+          }));
           return;
         }
 
@@ -319,7 +303,10 @@ export function createFileActions({
           projectId ?? undefined
         );
         const detail = response?.data ?? null;
-        set({ activeSourceDetail: detail });
+        set((state) => ({
+          activeSourceDetail: detail,
+          activeSourceFocusNonce: state.activeSourceFocusNonce + 1,
+        }));
 
         const repairDecision = resolveAutoRepairDecision(detail);
         if (repairDecision.fileId && repairDecision.reason) {

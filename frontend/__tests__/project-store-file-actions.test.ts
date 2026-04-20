@@ -24,6 +24,7 @@ type MutableStoreState = {
   uploadingCount: number;
   isUploading: boolean;
   activeSourceDetail: unknown;
+  activeSourceFocusNonce: number;
   fetchFiles: (projectId: string) => Promise<void>;
 };
 
@@ -35,6 +36,7 @@ function createStoreHarness() {
     uploadingCount: 0,
     isUploading: false,
     activeSourceDetail: null,
+    activeSourceFocusNonce: 0,
     fetchFiles: async () => undefined,
   };
 
@@ -124,12 +126,15 @@ describe("project store source lazy repair", () => {
 
     await actions.focusSourceByChunk("chunk-1", "proj-1");
     const firstActiveDetail = getState().activeSourceDetail;
+    const firstFocusNonce = getState().activeSourceFocusNonce;
 
     await actions.focusSourceByChunk("chunk-1", "proj-1");
     const secondActiveDetail = getState().activeSourceDetail;
+    const secondFocusNonce = getState().activeSourceFocusNonce;
 
     expect(mockedGetSourceDetail).toHaveBeenCalledTimes(1);
     expect(secondActiveDetail).toEqual(firstActiveDetail);
-    expect(secondActiveDetail).not.toBe(firstActiveDetail);
+    expect(secondActiveDetail).toBe(firstActiveDetail);
+    expect(secondFocusNonce).toBe(firstFocusNonce + 1);
   });
 });

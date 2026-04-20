@@ -34,6 +34,7 @@ export function useSourcesPanelController({
     deleteFile,
     toggleFileSelection,
     activeSourceDetail,
+    activeSourceFocusNonce,
   } = useProjectStore(
     useShallow((state) => ({
       files: state.files,
@@ -42,6 +43,7 @@ export function useSourcesPanelController({
       deleteFile: state.deleteFile,
       toggleFileSelection: state.toggleFileSelection,
       activeSourceDetail: state.activeSourceDetail,
+      activeSourceFocusNonce: state.activeSourceFocusNonce,
     }))
   );
   const { addNotification, updateNotification, replaceNotification } =
@@ -139,7 +141,7 @@ export function useSourcesPanelController({
         block: "center",
       });
     }
-  }, [focusedFileId, activeSourceDetail]);
+  }, [focusedFileId, activeSourceDetail?.chunk_id, activeSourceFocusNonce]);
 
   useEffect(() => {
     const targetId = activeSourceDetail?.file_info?.id;
@@ -148,7 +150,11 @@ export function useSourcesPanelController({
       setExpandedIds((prev) => ({ ...prev, [targetId]: true }));
     });
     return () => cancelAnimationFrame(frame);
-  }, [activeSourceDetail]);
+  }, [
+    activeSourceDetail?.file_info?.id,
+    activeSourceDetail?.chunk_id,
+    activeSourceFocusNonce,
+  ]);
 
   const collapseFile = useCallback(
     (fileId: string) => {

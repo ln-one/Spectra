@@ -173,6 +173,7 @@ export interface ProjectState {
   activeRunId: string | null;
   lastFailedInput: string | null;
   activeSourceDetail: SourceDetail | null;
+  activeSourceFocusNonce: number;
 
   layoutMode: LayoutMode;
   expandedTool: ExpandedTool;
@@ -336,6 +337,7 @@ export const initialState = {
   activeRunId: null as string | null,
   lastFailedInput: null as string | null,
   activeSourceDetail: null as SourceDetail | null,
+  activeSourceFocusNonce: 0,
   layoutMode: "normal" as LayoutMode,
   expandedTool: null as ExpandedTool,
   isLoading: false,

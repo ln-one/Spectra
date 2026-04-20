@@ -29,11 +29,17 @@ jest.mock("framer-motion", () => {
               { children, ...props }: React.HTMLAttributes<HTMLElement>,
               ref: React.Ref<HTMLElement>
             ) => {
-              const domProps = Object.fromEntries(
-                Object.entries(props).filter(
-                  ([propName]) => !MOTION_PROP_NAMES.has(propName)
-                )
+              const propEntries = Object.entries(
+                props as Record<string, unknown>
               );
+              const domProps = propEntries.reduce<
+                Record<string, unknown>
+              >((acc, [propName, value]) => {
+                if (!MOTION_PROP_NAMES.has(propName)) {
+                  acc[propName] = value;
+                }
+                return acc;
+              }, {});
               return React.createElement(tagName, { ...domProps, ref }, children);
             }
           ),
@@ -166,6 +172,7 @@ describe("SourcesPanel focused source collapse", () => {
         },
         context: {},
       },
+      activeSourceFocusNonce: 1,
       clearActiveSource,
     };
 
@@ -192,6 +199,7 @@ describe("SourcesPanel focused source collapse", () => {
         },
         context: {},
       },
+      activeSourceFocusNonce: 2,
     };
     rerender(<SourcesPanel projectId="proj_1" />);
 
