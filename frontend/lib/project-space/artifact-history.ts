@@ -57,6 +57,75 @@ const TOOL_TITLE_MAP: Record<GenerationToolType, string> = {
   handout: "Simulation",
 };
 
+function readTrimmedString(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
+}
+
+function readHeadingFromMarkdown(markdown: unknown): string | null {
+  const text = readTrimmedString(markdown);
+  if (!text) return null;
+  const firstLine = text.split(/\r?\n/, 1)[0]?.trim() ?? "";
+  if (!firstLine) return null;
+  const headingMatch = firstLine.match(/^#{1,6}\s+(.+)$/);
+  if (headingMatch?.[1]) {
+    return headingMatch[1].trim();
+  }
+  return null;
+}
+
+function readNestedTitleFromMetadata(metadata: Artifact["metadata"]): string | null {
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
+    return null;
+  }
+  const row = metadata as Record<string, unknown>;
+  const snapshot =
+    row.content_snapshot && typeof row.content_snapshot === "object"
+      ? (row.content_snapshot as Record<string, unknown>)
+      : null;
+  if (!snapshot) return null;
+
+  const directTitle =
+    readTrimmedString(snapshot.title) ??
+    readTrimmedString(snapshot.document_title) ??
+    readTrimmedString(snapshot.name);
+  if (directTitle) return directTitle;
+
+  const topic =
+    readTrimmedString(snapshot.topic) ??
+    readTrimmedString((snapshot.lesson_plan as Record<string, unknown> | undefined)?.topic);
+  if (topic) return `${topic} 教案`;
+
+  const sourceSnapshot =
+    snapshot.source_snapshot && typeof snapshot.source_snapshot === "object"
+      ? (snapshot.source_snapshot as Record<string, unknown>)
+      : null;
+  const sourceTitle = readTrimmedString(sourceSnapshot?.primary_source_title);
+  if (sourceTitle) return `${sourceTitle} 教案`;
+
+  const markdownTitle =
+    readHeadingFromMarkdown(snapshot.lesson_plan_markdown) ??
+    readHeadingFromMarkdown(snapshot.markdown_content);
+  if (markdownTitle) return markdownTitle;
+
+  return null;
+}
+
+function sanitizeWordDisplayTitle(raw: string): string {
+  const normalized = raw.replace(/\s+/g, " ").trim();
+  if (!normalized) return "";
+  const cleaned = normalized
+    .replace(/^第\s*\d+\s*次讲义文档$/i, "")
+    .replace(
+      /(?:[；;，,]\s*)?(?:standard|high|lesson_plan(?:_v1)?|detail[_ -]?level)\b.*$/i,
+      ""
+    )
+    .replace(/[；;，,\s]+$/g, "")
+    .trim();
+  return cleaned || normalized;
+}
+
 function normalizeStatus(statusRaw: unknown): ArtifactHistoryItem["status"] {
   const normalized =
     typeof statusRaw === "string" ? statusRaw.toLowerCase() : "";
@@ -179,16 +248,28 @@ export function toArtifactHistoryItem(artifact: Artifact): ArtifactHistoryItem {
   const artifactKind = readArtifactKind(artifact) ?? undefined;
   const metadataTitle = readMetadataField(artifact.metadata, "title");
   const metadataName = readMetadataField(artifact.metadata, "name");
+  const metadataRunTitle = readMetadataField(artifact.metadata, "run_title");
   const metadataSourceArtifactId = readMetadataField(
     artifact.metadata,
     "source_artifact_id"
   );
-  const title =
+  const nestedTitle = readNestedTitleFromMetadata(artifact.metadata);
+  const rawTitle =
     typeof metadataTitle === "string" && metadataTitle.trim()
       ? metadataTitle.trim()
       : typeof metadataName === "string" && metadataName.trim()
         ? metadataName.trim()
-        : `${titlePrefix} 生成记录`;
+        : nestedTitle ??
+          (typeof metadataRunTitle === "string" && metadataRunTitle.trim()
+            ? metadataRunTitle.trim()
+            : toolType === "word"
+              ? "未命名教案"
+              : `${titlePrefix} 生成记录`)
+;
+  const title =
+    toolType === "word"
+      ? sanitizeWordDisplayTitle(rawTitle) || "未命名教案"
+      : rawTitle;
 
   return {
     artifactId: artifact.id,

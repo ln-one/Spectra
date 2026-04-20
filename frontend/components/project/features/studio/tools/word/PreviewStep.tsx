@@ -1,31 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
-import type { JSONContent } from "@tiptap/react";
-import { FileText, Loader2, PencilLine, Save, Sparkles } from "lucide-react";
+import { FileText, Loader2, Save } from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import rehypeSanitize from "rehype-sanitize";
+import remarkGfm from "remark-gfm";
 import { Button } from "@/components/ui/button";
-import { ArtifactWorkbenchShell } from "../ArtifactWorkbenchShell";
+import { Textarea } from "@/components/ui/textarea";
 import type { ToolFlowContext } from "../types";
-import { buildArtifactWorkbenchViewModel } from "../workbenchViewModel";
-import { DocumentSurfaceAdapter } from "./DocumentSurfaceAdapter";
-import {
-  extractDocumentBlocks,
-  markdownToDoc,
-  type DocumentBlockItem,
-} from "./documentContent";
-
-function formatBlockTypeLabel(type: DocumentBlockItem["type"]): string {
-  switch (type) {
-    case "heading":
-      return "标题";
-    case "paragraph":
-      return "正文";
-    case "bulletList":
-      return "项目符号";
-    case "orderedList":
-      return "有序列表";
-    default:
-      return type;
-  }
-}
+import { documentToMarkdown, markdownToDoc } from "./documentContent";
 
 interface PreviewStepProps {
   markdown: string;
@@ -34,20 +15,58 @@ interface PreviewStepProps {
   flowContext?: ToolFlowContext;
   isBackendPreviewLoading?: boolean;
   backendPreviewError?: string | null;
+  toolbarMode?: "internal" | "external";
+  resultStatus?:
+    | "pending"
+    | "draft"
+    | "processing"
+    | "previewing"
+    | "completed"
+    | "failed"
+    | null;
+}
+
+type WordTab = "edit" | "preview";
+
+function isUuidLike(value: string | null): boolean {
+  if (!value) return false;
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    value
+  );
+}
+
+function extractHeadingTitle(markdown: string): string | null {
+  const firstLine = markdown.split(/\r?\n/, 1)[0]?.trim() ?? "";
+  if (!firstLine) return null;
+  const headingMatch = firstLine.match(/^#{1,6}\s+(.+)$/);
+  if (headingMatch?.[1]?.trim()) return headingMatch[1].trim();
+  return null;
+}
+
+function isGenericDocumentTitle(value: string | null): boolean {
+  if (!value) return true;
+  const original = value.trim();
+  const normalized = original.toLowerCase();
+  return (
+    normalized === "教案" ||
+    normalized === "讲义文档" ||
+    normalized === "未命名教案" ||
+    normalized === "word 生成记录" ||
+    normalized === "word生成记录" ||
+    /^第\s*\d+\s*次讲义文档$/i.test(original)
+  );
 }
 
 export function PreviewStep({
   markdown,
   isGenerating,
-  lastGeneratedAt,
+  lastGeneratedAt: _lastGeneratedAt,
   flowContext,
   isBackendPreviewLoading = false,
   backendPreviewError = null,
+  toolbarMode = "internal",
+  resultStatus = null,
 }: PreviewStepProps) {
-  const capabilityStatus =
-    flowContext?.capabilityStatus ?? "backend_placeholder";
-  const capabilityReason =
-    flowContext?.capabilityReason ?? "正在等待后端文档产物返回。";
   const latestArtifact =
     flowContext?.latestArtifacts?.[0] ?? flowContext?.resolvedArtifact ?? null;
   const exportArtifactId =
@@ -79,95 +98,92 @@ export function PreviewStep({
           (item) => item.id === sourceArtifactId
         )?.title ?? null)
       : null);
-  const hasMarkdownContent = markdown.trim().length > 0;
-  const hasBackendArtifact = Boolean(exportArtifactId);
-  const hasContent =
-    capabilityStatus === "backend_ready" &&
-    (hasMarkdownContent || hasBackendArtifact);
-  const initialDocument = useMemo(() => {
-    const content =
-      flowContext?.resolvedArtifact?.content &&
-      typeof flowContext.resolvedArtifact.content === "object"
-        ? (flowContext.resolvedArtifact.content as Record<string, unknown>)
-        : null;
-    if (content?.document_content && typeof content.document_content === "object") {
-      return content.document_content as JSONContent;
+  const displaySourceTitle =
+    sourceArtifactTitle && !isUuidLike(sourceArtifactTitle)
+      ? sourceArtifactTitle
+      : null;
+
+  const displayTitle =
+    (typeof artifactContent?.title === "string" && artifactContent.title.trim()) ||
+    ((latestArtifact as { title?: string | null } | null)?.title ?? null) ||
+    "教案";
+
+  const initialMarkdown = useMemo(() => {
+    const fromContent =
+      artifactContent && typeof artifactContent.markdown_content === "string"
+        ? artifactContent.markdown_content.trim()
+        : "";
+    if (fromContent) return fromContent;
+    if (
+      artifactContent?.document_content &&
+      typeof artifactContent.document_content === "object"
+    ) {
+      const converted = documentToMarkdown(artifactContent.document_content as never);
+      if (converted.trim()) return converted.trim();
     }
-    return markdownToDoc(markdown);
-  }, [flowContext?.resolvedArtifact?.content, markdown]);
-  const [isEditing, setIsEditing] = useState(false);
-  const [documentContent, setDocumentContent] = useState(initialDocument);
-  const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
-  const [isSaving, setIsSaving] = useState(false);
-  const documentBlocks = useMemo(
-    () => extractDocumentBlocks(documentContent),
-    [documentContent]
+    const fromExport = markdown.trim();
+    if (fromExport) return fromExport;
+    return "";
+  }, [artifactContent, markdown]);
+
+  const [activeTab, setActiveTab] = useState<WordTab>("preview");
+  const [markdownDraft, setMarkdownDraft] = useState(initialMarkdown);
+  const [savedBaselineMarkdown, setSavedBaselineMarkdown] = useState(initialMarkdown);
+  const [latestSavedArtifactId, setLatestSavedArtifactId] = useState<string>(
+    exportArtifactId
   );
-  const hasDocumentBlocks = documentBlocks.length > 0;
-  const selectedBlock =
-    documentBlocks.find((item) => item.id === selectedBlockId) ?? documentBlocks[0] ?? null;
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveNotice, setSaveNotice] = useState<string | null>(null);
+  const hasDraftContent = markdownDraft.trim().length > 0;
+  const isPreviewLoading =
+    isGenerating ||
+    (!hasDraftContent && isBackendPreviewLoading) ||
+    (resultStatus === "processing" && !hasDraftContent);
+  const isFailed = resultStatus === "failed";
+  const isBackendPlaceholder =
+    (flowContext?.capabilityStatus ?? "backend_placeholder") !== "backend_ready";
   const canStructuredSave = Boolean(
     flowContext?.resolvedArtifact?.artifactId && flowContext?.onStructuredRefineArtifact
   );
-  const canChatRefine =
-    flowContext?.supportsChatRefine &&
-    typeof flowContext?.onRefine === "function";
-  const refineLabel =
-    flowContext?.display?.actionLabels.refine ?? "打开对话微调";
-  const sourceBinding =
-    artifactContent && typeof artifactContent.source_binding === "object"
-      ? (artifactContent.source_binding as Record<string, unknown>)
-      : null;
-  const provenance =
-    artifactContent && typeof artifactContent.provenance === "object"
-      ? (artifactContent.provenance as Record<string, unknown>)
-      : null;
-  const normalizedFlowContext: ToolFlowContext = {
-    ...flowContext,
-    sourceBinding: flowContext?.sourceBinding ?? sourceBinding ?? null,
-    provenance: flowContext?.provenance ?? provenance ?? null,
-  };
-  const viewModel = buildArtifactWorkbenchViewModel(
-    normalizedFlowContext,
-    lastGeneratedAt,
-    sourceArtifactTitle
-      ? `已基于 ${sourceArtifactTitle} 生成教案，可继续微调、加入来源或导出。`
-      : "已生成教案，可继续微调、加入来源或导出。"
-  );
 
   useEffect(() => {
-    setDocumentContent(initialDocument);
-    setIsEditing(false);
-  }, [initialDocument]);
+    setMarkdownDraft(initialMarkdown);
+    setSavedBaselineMarkdown(initialMarkdown);
+  }, [initialMarkdown]);
 
   useEffect(() => {
-    if (!selectedBlockId && documentBlocks[0]) {
-      setSelectedBlockId(documentBlocks[0].id);
-    }
-  }, [documentBlocks, selectedBlockId]);
+    if (!exportArtifactId) return;
+    setLatestSavedArtifactId(exportArtifactId);
+  }, [exportArtifactId]);
 
-  const handleSaveReplacement = async () => {
-    if (!canStructuredSave || !flowContext?.resolvedArtifact?.artifactId) return;
+  const handleSaveReplacement = async (): Promise<string | null> => {
+    if (!canStructuredSave || !flowContext?.resolvedArtifact?.artifactId) return null;
     setIsSaving(true);
+    setSaveNotice(null);
     try {
-      await flowContext.onStructuredRefineArtifact?.({
+      const response = await flowContext.onStructuredRefineArtifact?.({
         artifactId: flowContext.resolvedArtifact.artifactId,
-        message: selectedBlock?.text || "更新文档内容",
+        message: "更新文档内容",
         refineMode: "structured_refine",
-        selectionAnchor: selectedBlock
-          ? {
-              scope: "document_block",
-              anchor_id: selectedBlock.id,
-              artifact_id: flowContext.resolvedArtifact.artifactId,
-              label: selectedBlock.text.slice(0, 32) || selectedBlock.id,
-            }
-          : undefined,
         config: {
-          document_content: documentContent,
-          document_title:
-            typeof artifactContent?.title === "string" && artifactContent.title.trim()
-              ? artifactContent.title.trim()
-              : "教案",
+          markdown_content: markdownDraft,
+          document_content: markdownToDoc(markdownDraft),
+          document_title: (() => {
+            const existingTitle =
+              typeof artifactContent?.title === "string" && artifactContent.title.trim()
+                ? artifactContent.title.trim()
+                : displayTitle && !isUuidLike(displayTitle)
+                  ? displayTitle
+                  : null;
+            if (existingTitle && !isGenericDocumentTitle(existingTitle)) {
+              return existingTitle;
+            }
+            return (
+              extractHeadingTitle(markdownDraft) ??
+              existingTitle ??
+              (displaySourceTitle ? `${displaySourceTitle} 教案` : "未命名教案")
+            );
+          })(),
           document_summary:
             typeof artifactContent?.summary === "string" && artifactContent.summary.trim()
               ? artifactContent.summary.trim()
@@ -183,92 +199,140 @@ export function PreviewStep({
               : undefined,
         },
       });
-      setIsEditing(false);
+      const nextArtifactId =
+        response?.artifactId ?? flowContext.resolvedArtifact.artifactId;
+      setLatestSavedArtifactId(nextArtifactId);
+      setSavedBaselineMarkdown(markdownDraft);
+      setSaveNotice("已保存为当前文档的新版本。");
+      return nextArtifactId;
     } finally {
       setIsSaving(false);
     }
   };
 
-  return (
-    <ArtifactWorkbenchShell
-      flowContext={{
-        ...normalizedFlowContext,
-        capabilityStatus,
-        capabilityReason,
-      }}
-      viewModel={viewModel}
-      emptyState={
-        <div className="mt-4 rounded-2xl border border-dashed border-zinc-300 bg-zinc-50 px-4 py-10 text-center">
-          <FileText className="mx-auto h-8 w-8 text-zinc-400" />
-          <p className="mt-3 text-sm font-medium text-zinc-700">
-            暂未收到后端真实教案内容
-          </p>
-          <p className="mt-1 text-[11px] text-zinc-500">
-            生成完成后，这里会直接显示由后端返回的教案预览。
-          </p>
-        </div>
-      }
-    >
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <p className="text-sm font-semibold text-zinc-900">教案工作台</p>
-          <p className="mt-1 text-[11px] text-zinc-500">
-            这里展示后端返回的真实教案内容，并支持结构化块编辑与版本化保存。
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center justify-end gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-8 text-xs"
-            disabled={!hasContent}
-            onClick={() => setIsEditing((previous) => !previous)}
-          >
-            <PencilLine className="mr-1.5 h-3.5 w-3.5" />
-            {isEditing ? "退出编辑" : "编辑文档"}
-          </Button>
-          {canChatRefine ? (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-8 text-xs"
-              onClick={() => void flowContext?.onRefine?.()}
-            >
-              <Sparkles className="mr-1.5 h-3.5 w-3.5" />
-              {refineLabel}
-            </Button>
-          ) : null}
-          {hasBackendArtifact ? (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-8 text-xs"
-              onClick={() =>
-                void flowContext?.onExportArtifact?.(exportArtifactId)
-              }
-            >
-              导出教案文档
-            </Button>
-          ) : null}
-          {isEditing && canStructuredSave ? (
-            <Button
-              type="button"
-              size="sm"
-              className="h-8 text-xs"
-              disabled={isSaving}
-              onClick={() => void handleSaveReplacement()}
-            >
-              <Save className="mr-1.5 h-3.5 w-3.5" />
-              {isSaving ? "保存中..." : "保存为新版本"}
-            </Button>
-          ) : null}
-        </div>
-      </div>
+  const handleExportWithLatest = async () => {
+    if (!flowContext?.onExportArtifact || !exportArtifactId) return;
+    const isDirty = markdownDraft.trim() !== savedBaselineMarkdown.trim();
+    let artifactIdForExport = latestSavedArtifactId || exportArtifactId;
+    if (isDirty && canStructuredSave && !isSaving) {
+      const savedArtifactId = await handleSaveReplacement();
+      if (savedArtifactId) artifactIdForExport = savedArtifactId;
+    }
+    setSaveNotice("导出将使用当前已保存版本。");
+    await flowContext.onExportArtifact(artifactIdForExport);
+  };
 
-      {isGenerating || isBackendPreviewLoading ? (
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== "s") return;
+      if (!canStructuredSave || isSaving) return;
+      event.preventDefault();
+      void handleSaveReplacement();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [canStructuredSave, isSaving, handleSaveReplacement]);
+
+  useEffect(() => {
+    if (toolbarMode !== "external") return;
+    const onSetMode = (event: Event) => {
+      const customEvent = event as CustomEvent<{ mode?: WordTab }>;
+      const mode = customEvent.detail?.mode;
+      if (mode === "edit" || mode === "preview") {
+        setActiveTab(mode);
+      }
+    };
+    const onSave = () => {
+      if (isSaving || !hasDraftContent) return;
+      void handleSaveReplacement();
+    };
+    const onExport = () => {
+      if (isSaving || !exportArtifactId) return;
+      void handleExportWithLatest();
+    };
+    window.addEventListener("spectra:word:set-mode", onSetMode as EventListener);
+    window.addEventListener("spectra:word:save", onSave);
+    window.addEventListener("spectra:word:export", onExport);
+    return () => {
+      window.removeEventListener("spectra:word:set-mode", onSetMode as EventListener);
+      window.removeEventListener("spectra:word:save", onSave);
+      window.removeEventListener("spectra:word:export", onExport);
+    };
+  }, [
+    toolbarMode,
+    isSaving,
+    hasDraftContent,
+    exportArtifactId,
+    handleSaveReplacement,
+    handleExportWithLatest,
+  ]);
+
+  if (isBackendPlaceholder) {
+    return (
+      <div className="rounded-2xl border border-dashed border-zinc-300 bg-zinc-50 px-4 py-10 text-center">
+        <FileText className="mx-auto h-8 w-8 text-zinc-400" />
+        <p className="mt-3 text-sm font-medium text-zinc-700">后端等待中</p>
+        <p className="mt-1 text-[11px] text-zinc-500">暂未收到后端真实文档内容</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      {toolbarMode === "internal" ? (
+        <>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-zinc-900">{displayTitle}</p>
+              {displaySourceTitle ? (
+                <p className="mt-0.5 text-[11px] text-zinc-500">
+                  基于 {displaySourceTitle} 生成
+                </p>
+              ) : null}
+            </div>
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs"
+                onClick={() =>
+                  setActiveTab((prev) => (prev === "edit" ? "preview" : "edit"))
+                }
+              >
+                {activeTab === "edit" ? "预览" : "编辑"}
+              </Button>
+              {canStructuredSave ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  className="h-7 text-xs"
+                  disabled={isSaving || !hasDraftContent}
+                  onClick={() => void handleSaveReplacement()}
+                >
+                  <Save className="mr-1.5 h-3.5 w-3.5" />
+                  {isSaving ? "保存中..." : "保存修改"}
+                </Button>
+              ) : null}
+              {exportArtifactId ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs"
+                  disabled={isSaving}
+                  onClick={() => void handleExportWithLatest()}
+                >
+                  导出教案文档
+                </Button>
+              ) : null}
+            </div>
+          </div>
+          {saveNotice ? <p className="text-[11px] text-emerald-700">{saveNotice}</p> : null}
+        </>
+      ) : null}
+
+      {isPreviewLoading ? (
         <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-[11px] text-blue-700">
           <Loader2 className="h-3.5 w-3.5 animate-spin" />
           正在加载教案内容...
@@ -277,77 +341,65 @@ export function PreviewStep({
 
       {backendPreviewError ? (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-700">
-          后端预览读取失败：{backendPreviewError}
+          预览暂时加载失败，你仍可直接编辑并保存。
         </div>
       ) : null}
 
-      {hasContent ? (
-        <div className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-5">
-          {hasMarkdownContent || hasDocumentBlocks ? (
-            <div className="grid gap-4 xl:grid-cols-[220px_minmax(0,1fr)]">
-              <div className="space-y-3">
-                <div className="rounded-2xl border border-zinc-200 bg-white p-3">
-                  <p className="text-xs font-semibold text-zinc-900">结构化区块</p>
-                  <div className="mt-3 space-y-2">
-                    {documentBlocks.map((block: DocumentBlockItem) => {
-                      const isSelected = block.id === (selectedBlock?.id ?? selectedBlockId);
-                      return (
-                        <button
-                          key={block.id}
-                          type="button"
-                          onClick={() => setSelectedBlockId(block.id)}
-                          className={`w-full rounded-xl border px-3 py-2 text-left text-xs transition ${
-                            isSelected
-                              ? "border-blue-500 bg-blue-50 text-blue-950"
-                              : "border-zinc-200 bg-zinc-50 text-zinc-700"
-                          }`}
-                        >
-                          <div className="font-semibold">{block.type}</div>
-                          <div className="mt-1 line-clamp-2">{block.text || "空内容区块"}</div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-                {selectedBlock ? (
-                  <div className="rounded-2xl border border-blue-200 bg-blue-50/80 px-4 py-3">
-                    <p className="text-xs font-semibold text-blue-900">当前选中区块</p>
-                    <p className="mt-1 text-[11px] text-blue-700">
-                      {formatBlockTypeLabel(selectedBlock.type)} · {selectedBlock.id}
-                    </p>
-                    <p className="mt-2 text-sm leading-6 text-blue-950">
-                      {selectedBlock.text || "当前区块暂时为空，可直接在右侧编辑器补充内容。"}
-                    </p>
-                  </div>
-                ) : null}
-              </div>
-              <DocumentSurfaceAdapter
-                markdown={markdown}
-                document={documentContent}
-                editable={isEditing}
-                onDocumentChange={setDocumentContent}
-                title="教案结构编辑面"
-                description="当前工作面由 Tiptap / ProseMirror 承载，保存时会回写为结构化 lesson plan 内容。"
-                badgeLabel="Lesson Plan"
-              />
-            </div>
-          ) : (
-            <p className="text-sm text-zinc-700">
-              教案已由后端生成完成，可直接导出文档。
-            </p>
-          )}
-        </div>
-      ) : !isGenerating && !isBackendPreviewLoading && !backendPreviewError ? (
-        <div className="rounded-2xl border border-dashed border-zinc-300 bg-zinc-50 px-4 py-10 text-center">
-          <FileText className="mx-auto h-8 w-8 text-zinc-400" />
-          <p className="mt-3 text-sm font-medium text-zinc-700">
-            暂未收到后端真实文档内容
-          </p>
-          <p className="mt-1 text-[11px] text-zinc-500">
-            生成完成后，这里会直接显示教案预览与结构化编辑面。
-          </p>
+      {isFailed ? (
+        <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-[11px] text-rose-700">
+          本次教学文档生成失败，可直接改写内容后保存新版本。
         </div>
       ) : null}
-    </ArtifactWorkbenchShell>
+
+      {activeTab === "edit" ? (
+        <div className="space-y-2">
+          <Textarea
+            value={markdownDraft}
+            onChange={(event) => setMarkdownDraft(event.target.value)}
+            className="min-h-[620px] resize-y rounded-2xl border-zinc-200 bg-white font-mono text-sm leading-7 shadow-sm"
+            placeholder="在这里直接改字。支持 # 标题、## 小节、- 列表。"
+          />
+          <p className="text-[11px] text-zinc-500">
+            快捷键：Ctrl/Cmd + S 保存修改
+          </p>
+        </div>
+      ) : (
+        <div className="min-h-[620px] rounded-2xl border border-zinc-200 bg-white px-6 py-4">
+          {markdownDraft.trim() ? (
+            <article className="prose prose-zinc mx-auto max-w-3xl leading-7">
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                rehypePlugins={[rehypeSanitize]}
+                components={{
+                  h1: (props) => (
+                    <h1 className="mt-6 text-3xl font-bold tracking-tight" {...props} />
+                  ),
+                  h2: (props) => (
+                    <h2
+                      className="mt-8 border-b border-zinc-200 pb-2 text-2xl font-semibold"
+                      {...props}
+                    />
+                  ),
+                  h3: (props) => (
+                    <h3 className="mt-6 text-xl font-semibold" {...props} />
+                  ),
+                  p: (props) => <p className="my-4 leading-7 text-zinc-800" {...props} />,
+                  ul: (props) => <ul className="my-4 list-disc space-y-1 pl-6" {...props} />,
+                  ol: (props) => (
+                    <ol className="my-4 list-decimal space-y-1 pl-6" {...props} />
+                  ),
+                }}
+              >
+                {markdownDraft}
+              </ReactMarkdown>
+            </article>
+          ) : (
+            <div className="rounded-xl border border-dashed border-zinc-300 bg-zinc-50 px-4 py-10 text-center text-sm text-zinc-500">
+              暂无内容，请先在“编辑”中输入教案文本。
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }

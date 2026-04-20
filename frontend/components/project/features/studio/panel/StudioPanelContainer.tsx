@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { LayoutGroup } from "framer-motion";
 import { Sparkles } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "@/hooks/use-toast";
+import { generateApi } from "@/lib/sdk";
 import { studioCardsApi } from "@/lib/sdk/studio-cards";
 import { cn } from "@/lib/utils";
 import { useProjectStore, GENERATION_TOOLS } from "@/stores/projectStore";
@@ -24,7 +25,9 @@ import { useStudioCapabilityState } from "./useStudioCapabilityState";
 import { useStudioExecutionHandlers } from "./useStudioExecutionHandlers";
 import { useStudioHistoryHandlers } from "./useStudioHistoryHandlers";
 import { usePptHistoryStatusSync } from "./usePptHistoryStatusSync";
-import type { StudioPanelProps } from "./types";
+import { useManagedHistoryStatusSync } from "./useManagedHistoryStatusSync";
+import { STUDIO_CARD_BY_TOOL } from "./constants";
+import type { ManagedWorkbenchState, StudioPanelProps } from "./types";
 import {
   isDraftStateEqual,
   isPptStep2Stage,
@@ -130,6 +133,24 @@ function getAuthorityBoundaryRisk(cardId: string | null): "low" | "medium" | "hi
   }
 }
 
+function buildWorkflowTitleSource(
+  toolType: GenerationToolType,
+  draft: ToolDraftState
+): string {
+  if (toolType === "word") {
+    const topic = typeof draft.topic === "string" ? draft.topic.trim() : "";
+    const outputRequirements =
+      typeof draft.output_requirements === "string"
+        ? draft.output_requirements.trim()
+        : "";
+    return JSON.stringify({
+      topic,
+      output_requirements: outputRequirements,
+    });
+  }
+  return JSON.stringify(draft);
+}
+
 export function StudioPanelContainer({
   onToolClick,
   onPptStep2LayoutChange,
@@ -193,11 +214,24 @@ export function StudioPanelContainer({
   const [pptResumeSignal, setPptResumeSignal] = useState(0);
   const [isArchiveHistoryPanelOpen, setIsArchiveHistoryPanelOpen] =
     useState(false);
+  const [wordViewMode, setWordViewMode] = useState<"edit" | "preview">(
+    "preview"
+  );
   const [managedToolRunSeedByType, setManagedToolRunSeedByType] = useState<
     Partial<
       Record<StudioToolKey, { runId: string | null; sessionId: string | null }>
     >
   >({});
+  const managedToolRunSeedRef = useRef<
+    Partial<
+      Record<StudioToolKey, { runId: string | null; sessionId: string | null }>
+    >
+  >({});
+  const [managedWorkbenchState, setManagedWorkbenchState] =
+    useState<ManagedWorkbenchState>({
+    mode: "draft",
+    target: null,
+  });
 
   const isExpanded = layoutMode === "expanded";
   const {
@@ -211,6 +245,7 @@ export function StudioPanelContainer({
     recordWorkflowEntry,
     archiveHistoryItem,
     unarchiveHistoryItem,
+    deleteArchivedHistoryItem,
   } = useStudioWorkflowHistory(
     artifactHistoryByTool,
     activeSessionId,
@@ -230,8 +265,173 @@ export function StudioPanelContainer({
     }
     return null;
   }, [activeSessionId, expandedTool, managedToolRunSeedByType]);
+
+  useEffect(() => {
+    managedToolRunSeedRef.current = managedToolRunSeedByType;
+  }, [managedToolRunSeedByType]);
   const managedActiveRunId =
     expandedTool && expandedTool !== "ppt" ? seededRunIdForManagedTool : null;
+  const isWordExpanded = expandedTool === "word";
+  const isManagedHistoryMode =
+    Boolean(expandedTool) &&
+    expandedTool !== "ppt" &&
+    managedWorkbenchState.mode === "history" &&
+    managedWorkbenchState.target?.toolType === expandedTool;
+  const isWordHistoryMode = isWordExpanded && isManagedHistoryMode;
+
+  useEffect(() => {
+    if (!project?.id || !activeSessionId) return;
+    if (expandedTool !== "word") return;
+    if (isWordHistoryMode) return;
+
+    let cancelled = false;
+    const recoverWordRunState = async () => {
+      try {
+        const snapshotResponse = await generateApi.getSessionSnapshot(
+          activeSessionId
+        );
+        if (cancelled) return;
+        const currentRun =
+          snapshotResponse?.data?.current_run &&
+          typeof snapshotResponse.data.current_run === "object"
+            ? (snapshotResponse.data.current_run as Record<string, unknown>)
+            : null;
+        if (!currentRun) return;
+        const expectedToolType = `studio_card:${STUDIO_CARD_BY_TOOL.word}`;
+        const runToolType =
+          typeof currentRun.tool_type === "string"
+            ? currentRun.tool_type.trim()
+            : "";
+        if (runToolType !== expectedToolType) return;
+
+        const runStatusRaw =
+          typeof currentRun.run_status === "string"
+            ? currentRun.run_status.toLowerCase()
+            : "";
+        const status: "processing" | "completed" | "failed" =
+          runStatusRaw === "completed"
+            ? "completed"
+            : runStatusRaw === "failed"
+              ? "failed"
+              : "processing";
+        // Only resume into history mode for in-flight runs.
+        // Completed/failed runs should not override an explicit "start new draft" action.
+        if (status !== "processing") return;
+        const runId =
+          typeof currentRun.run_id === "string" && currentRun.run_id.trim()
+            ? currentRun.run_id
+            : null;
+        const artifactId =
+          typeof currentRun.artifact_id === "string" &&
+          currentRun.artifact_id.trim()
+            ? currentRun.artifact_id
+            : null;
+        setManagedWorkbenchState({
+          mode: "history",
+          target: {
+            toolType: "word",
+            sessionId: activeSessionId,
+            runId,
+            artifactId,
+            status,
+          },
+        });
+        recordWorkflowEntry({
+          toolType: "word",
+          title: "教学文档 - 生成中",
+          status,
+          step: "preview",
+          sessionId: activeSessionId,
+          runId: runId ?? undefined,
+          artifactId: artifactId ?? undefined,
+          toolLabel: TOOL_LABELS.word,
+        });
+      } catch {
+        // Ignore recovery failures and keep draft mode.
+      }
+    };
+
+    void recoverWordRunState();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    activeSessionId,
+    expandedTool,
+    isWordHistoryMode,
+    project?.id,
+    recordWorkflowEntry,
+  ]);
+
+  const doesManagedArtifactMatchTarget = useCallback(
+    (item: {
+      toolType?: string | null;
+      artifactId?: string | null;
+      sessionId?: string | null;
+      runId?: string | null;
+    }) => {
+      const target = managedWorkbenchState.target;
+      if (!target) return false;
+      if (target.toolType && item.toolType && item.toolType !== target.toolType) {
+        return false;
+      }
+      if (target.artifactId && item.artifactId === target.artifactId) return true;
+      if (target.runId && target.sessionId) {
+        return item.runId === target.runId && item.sessionId === target.sessionId;
+      }
+      if (target.sessionId) {
+        return item.sessionId === target.sessionId;
+      }
+      return false;
+    },
+    [managedWorkbenchState.target]
+  );
+
+  useEffect(() => {
+    if (managedWorkbenchState.mode !== "history" || !managedWorkbenchState.target) {
+      return;
+    }
+    const targetTool = managedWorkbenchState.target.toolType;
+    if (!targetTool) return;
+    const toolItems =
+      groupedHistory.find(([toolType]) => toolType === targetTool)?.[1] ?? [];
+    const matched = toolItems.find((item) =>
+      doesManagedArtifactMatchTarget({
+        toolType: item.toolType,
+        artifactId: item.artifactId ?? null,
+        sessionId: item.sessionId ?? null,
+        runId: item.runId ?? null,
+      })
+    );
+    if (!matched) return;
+    setManagedWorkbenchState((prev) => {
+      if (prev.mode !== "history" || !prev.target) return prev;
+      const nextTarget = {
+        toolType: matched.toolType as StudioToolKey,
+        sessionId: matched.sessionId ?? prev.target.sessionId,
+        runId: matched.runId ?? prev.target.runId,
+        artifactId: matched.artifactId ?? prev.target.artifactId,
+        status: matched.status,
+      };
+      if (
+        prev.target.sessionId === nextTarget.sessionId &&
+        prev.target.runId === nextTarget.runId &&
+        prev.target.artifactId === nextTarget.artifactId &&
+        prev.target.status === nextTarget.status
+      ) {
+        return prev;
+      }
+      return {
+        mode: "history",
+        target: nextTarget,
+      };
+    });
+  }, [
+    doesManagedArtifactMatchTarget,
+    groupedHistory,
+    managedWorkbenchState.mode,
+    managedWorkbenchState.target,
+  ]);
 
   useEffect(() => {
     if (!expandedTool) return;
@@ -295,8 +495,21 @@ export function StudioPanelContainer({
     expandedTool: (expandedTool as GenerationToolType | null) ?? null,
     artifactHistoryByTool,
     draftSourceArtifactId,
+    managedWorkbenchState,
   });
 
+  const effectiveSelectedSourceId =
+    capability.currentCardId === "word_document"
+      ? selectedArtifactSourceIds[0] ?? capability.selectedSourceId
+      : capability.selectedSourceId;
+  const effectiveHasSourceBinding =
+    !capability.requiresSourceArtifact ||
+    Boolean(effectiveSelectedSourceId || capability.draftSourceArtifactId);
+  const allowSourcelessWordHistoryRefine =
+    capability.currentCardId === "word_document" &&
+    isWordHistoryMode &&
+    capability.activeCapabilityState.status === "backend_ready" &&
+    Boolean(capability.activeCapabilityState.resolvedArtifact?.artifactId);
   const canRefineBase =
     Boolean(capability.currentCardId) &&
     !capability.isProtocolPending &&
@@ -306,18 +519,13 @@ export function StudioPanelContainer({
       capability.currentExecutionPlan?.supported_refine_modes?.length ??
         capability.supportsChatRefine
     ) &&
-    (!capability.requiresSourceArtifact || capability.hasSourceBinding);
+    (allowSourcelessWordHistoryRefine ||
+      !capability.requiresSourceArtifact ||
+      effectiveHasSourceBinding);
   const supportedRefineModes =
     capability.currentExecutionPlan?.supported_refine_modes ??
     capability.currentCapability?.supported_refine_modes ??
     [];
-  const effectiveSelectedSourceId =
-    capability.currentCardId === "word_document"
-      ? selectedArtifactSourceIds[0] ?? capability.selectedSourceId
-      : capability.selectedSourceId;
-  const effectiveHasSourceBinding =
-    !capability.requiresSourceArtifact ||
-    Boolean(effectiveSelectedSourceId || capability.draftSourceArtifactId);
 
   const syncStudioChatContextByStep = useCallback(
     (
@@ -528,6 +736,18 @@ export function StudioPanelContainer({
     recordWorkflowEntry,
     syncStudioChatContextByStep,
     pushStudioStageHint,
+    onManagedOpenHistoryResult: (target) => {
+      setManagedWorkbenchState({
+        mode: "history",
+        target,
+      });
+    },
+    onManagedStartNewDraft: () => {
+      setManagedWorkbenchState({
+        mode: "draft",
+        target: null,
+      });
+    },
   });
 
   usePptHistoryStatusSync({
@@ -535,6 +755,15 @@ export function StudioPanelContainer({
     activeRunId,
     groupedHistory,
     resolvePptRunId: execution.resolvePptRunId,
+    recordWorkflowEntry,
+  });
+
+  useManagedHistoryStatusSync({
+    projectId: project?.id ?? null,
+    activeSessionId,
+    groupedHistory,
+    managedResultTarget: managedWorkbenchState.target,
+    fetchArtifactHistory,
     recordWorkflowEntry,
   });
 
@@ -556,6 +785,44 @@ export function StudioPanelContainer({
       );
     };
   }, [historyHandlers]);
+
+  const handleArchiveHistoryItem = useCallback(
+    (item: Parameters<typeof archiveHistoryItem>[0]) => {
+      archiveHistoryItem(item);
+      if (
+        item.toolType !== "ppt" &&
+        managedWorkbenchState.mode === "history" &&
+        doesManagedArtifactMatchTarget({
+          toolType: item.toolType,
+          artifactId: item.artifactId ?? null,
+          sessionId: item.sessionId ?? null,
+          runId: item.runId ?? null,
+        })
+      ) {
+        setManagedWorkbenchState({
+          mode: "draft",
+          target: null,
+        });
+        setManagedToolRunSeedByType((prev) => ({
+          ...prev,
+          [item.toolType as StudioToolKey]: {
+            runId: null,
+            sessionId: activeSessionId ?? null,
+          },
+        }));
+        requestStep(item.toolType as GenerationToolType, "config");
+        trackStep(item.toolType as GenerationToolType, "config");
+      }
+    },
+    [
+      activeSessionId,
+      archiveHistoryItem,
+      doesManagedArtifactMatchTarget,
+      requestStep,
+      trackStep,
+      managedWorkbenchState.mode,
+    ]
+  );
 
   const handleExpandedToolDraftChange = useMemo(() => {
     if (!expandedTool || expandedTool === "ppt") {
@@ -595,11 +862,13 @@ export function StudioPanelContainer({
       currentStepByTool[currentManagedToolType] ?? "config"
     );
     const normalizedStep =
-      trackedStep === "preview"
+      currentManagedToolType === "word" && isWordHistoryMode
         ? "preview"
-        : trackedStep === "generate"
-          ? "generate"
-          : "config";
+        : trackedStep === "preview"
+          ? "preview"
+          : trackedStep === "generate"
+            ? "generate"
+            : "config";
 
     syncStudioChatContextByStep(
       currentManagedToolType,
@@ -615,6 +884,7 @@ export function StudioPanelContainer({
     currentStepByTool,
     expandedTool,
     isExpanded,
+    isWordHistoryMode,
     project,
     pushStudioStageHint,
     setStudioChatContext,
@@ -629,8 +899,31 @@ export function StudioPanelContainer({
     expandedTool === "summary" ||
     expandedTool === "animation" ||
     expandedTool === "handout";
+  const effectiveManagedArtifacts = isManagedHistoryMode
+    ? capability.currentToolArtifacts.filter((item) =>
+        doesManagedArtifactMatchTarget({
+          toolType: item.toolType,
+          artifactId: item.artifactId,
+          sessionId: item.sessionId ?? null,
+          runId: item.runId ?? null,
+        })
+      )
+    : [];
+  const effectiveResolvedArtifact =
+    isCardManagedFlowExpanded && !isManagedHistoryMode
+      ? null
+      : isManagedHistoryMode &&
+          capability.activeCapabilityState.resolvedArtifact &&
+          !doesManagedArtifactMatchTarget({
+            toolType: expandedTool,
+            artifactId: capability.activeCapabilityState.resolvedArtifact.artifactId,
+            sessionId: managedWorkbenchState.target?.sessionId ?? activeSessionId,
+            runId: managedWorkbenchState.target?.runId ?? managedActiveRunId,
+          })
+        ? null
+        : capability.activeCapabilityState.resolvedArtifact;
   const resolvedArtifactMetadata =
-    capability.activeCapabilityState.resolvedArtifact?.artifactMetadata ?? null;
+    effectiveResolvedArtifact?.artifactMetadata ?? null;
   const resolvedLatestRunnableState =
     resolvedArtifactMetadata &&
     typeof resolvedArtifactMetadata.latest_runnable_state === "object"
@@ -669,16 +962,18 @@ export function StudioPanelContainer({
     capabilityStatus: effectiveCapabilityStatus,
     capabilityReason:
       !sourceBindingReady && capability.requiresSourceArtifact
-        ? "当前教案主链要求先在右侧资料来源中选中一个课件来源。"
+        ? "当前卡片要求先在右侧资料来源中选择一个来源成果。"
         : !protocolReady
           ? "当前卡片协议仍有缺口，Studio 只允许显示真实可走的正式链路。"
           : capability.activeCapabilityState.reason,
     isCapabilityLoading: capability.activeCapabilityState.isLoading,
-    resolvedArtifact: capability.activeCapabilityState.resolvedArtifact,
+    resolvedArtifact: effectiveResolvedArtifact,
     sourceOptions: capability.sourceOptions,
     selectedSourceId: effectiveSelectedSourceId,
     requestedStep: requestedHistoryStep,
-    latestArtifacts: capability.currentToolArtifacts.map((item) => ({
+    latestArtifacts: (
+      isManagedHistoryMode ? effectiveManagedArtifacts : capability.currentToolArtifacts
+    ).map((item) => ({
       artifactId: item.artifactId,
       title: item.title,
       status: item.status,
@@ -690,6 +985,11 @@ export function StudioPanelContainer({
     latestRunnableState: resolvedLatestRunnableState,
     provenance: resolvedProvenance,
     sourceBinding: resolvedSourceBinding,
+    currentDraft: currentToolDraft,
+    managedWorkbenchMode: isManagedHistoryMode ? "history" : "draft",
+    managedResultTarget: isManagedHistoryMode ? managedWorkbenchState.target : null,
+    wordWorkbenchMode: isWordHistoryMode ? "history" : "draft",
+    wordResultTarget: isWordHistoryMode ? managedWorkbenchState.target : null,
     onStepChange: historyHandlers.handleManagedToolStepChange,
     onSelectedSourceChange: (sourceId) => {
       capability.setSelectedSourceForCurrentCard(sourceId);
@@ -713,7 +1013,7 @@ export function StudioPanelContainer({
         sessionId: resolvedSessionId,
         runId: result.runId ?? undefined,
         runNo: result.runNo ?? undefined,
-        titleSource: JSON.stringify(currentToolDraft),
+        titleSource: buildWorkflowTitleSource(toolType, currentToolDraft),
         toolLabel: TOOL_LABELS[toolType],
       });
       setManagedToolRunSeedByType((prev) => ({
@@ -723,6 +1023,13 @@ export function StudioPanelContainer({
           sessionId: resolvedSessionId,
         },
       }));
+      managedToolRunSeedRef.current = {
+        ...managedToolRunSeedRef.current,
+        [toolType as StudioToolKey]: {
+          runId: result.runId ?? null,
+          sessionId: resolvedSessionId,
+        },
+      };
       syncStudioChatContextByStep(toolType, "generate", resolvedSessionId);
       return true;
     },
@@ -731,35 +1038,60 @@ export function StudioPanelContainer({
       const toolType = expandedTool as GenerationToolType;
       const contextSessionId = activeSessionId ?? null;
       const seededRun =
-        managedToolRunSeedByType[toolType as StudioToolKey] ?? null;
+        managedToolRunSeedRef.current[toolType as StudioToolKey] ?? null;
+      const effectiveContextSessionId =
+        seededRun?.sessionId ?? contextSessionId ?? null;
       const seededRunId =
-        seededRun?.sessionId === contextSessionId ? seededRun.runId : null;
-      syncStudioChatContextByStep(toolType, "generate", contextSessionId);
-      if (contextSessionId) {
+        seededRun?.sessionId === effectiveContextSessionId
+          ? seededRun.runId
+          : null;
+      syncStudioChatContextByStep(
+        toolType,
+        "generate",
+        effectiveContextSessionId
+      );
+      if (effectiveContextSessionId) {
         recordWorkflowEntry({
           toolType,
           title: TOOL_LABELS[toolType] + " - Generating",
           status: "processing",
           step: "preview",
-          sessionId: contextSessionId,
+          sessionId: effectiveContextSessionId,
           runId: seededRunId ?? undefined,
-          titleSource: JSON.stringify(currentToolDraft),
+          titleSource: buildWorkflowTitleSource(toolType, currentToolDraft),
           toolLabel: TOOL_LABELS[toolType],
         });
       }
       const result = await execution.handleStudioExecute();
       if (result.ok) {
-        const resolvedSessionId = result.effectiveSessionId ?? contextSessionId;
+        const resolvedSessionId =
+          result.effectiveSessionId ?? effectiveContextSessionId;
+        const resolvedStatus =
+          result.status ??
+          (result.artifactId ? "previewing" : result.resourceKind === "session"
+            ? "processing"
+            : "previewing");
+        setManagedWorkbenchState({
+          mode: "history",
+          target: {
+            toolType: toolType as StudioToolKey,
+            sessionId: resolvedSessionId ?? null,
+            runId: result.runId ?? seededRunId ?? null,
+            artifactId: result.artifactId ?? null,
+            status: resolvedStatus,
+          },
+        });
         if (resolvedSessionId) {
           recordWorkflowEntry({
             toolType,
             title: TOOL_LABELS[toolType] + " - Preview",
-            status: "previewing",
+            status: resolvedStatus,
             step: "preview",
             sessionId: resolvedSessionId,
+            artifactId: result.artifactId ?? undefined,
             runId: result.runId ?? seededRunId ?? undefined,
             runNo: result.runNo ?? undefined,
-            titleSource: JSON.stringify(currentToolDraft),
+            titleSource: buildWorkflowTitleSource(toolType, currentToolDraft),
             toolLabel: TOOL_LABELS[toolType],
           });
           setManagedToolRunSeedByType((prev) => ({
@@ -775,20 +1107,47 @@ export function StudioPanelContainer({
         return true;
       }
       const fallbackRunId = result.runId ?? seededRunId ?? null;
-      if (contextSessionId && fallbackRunId) {
-        syncStudioChatContextByStep(toolType, "preview", contextSessionId);
-        pushStudioStageHint(toolType, "preview", contextSessionId);
+      if (effectiveContextSessionId || fallbackRunId) {
+        setManagedWorkbenchState({
+          mode: "history",
+          target: {
+            toolType: toolType as StudioToolKey,
+            sessionId: effectiveContextSessionId,
+            runId: fallbackRunId,
+            artifactId: result.artifactId ?? null,
+            status: result.status ?? "failed",
+          },
+        });
+      }
+      if (effectiveContextSessionId && fallbackRunId) {
+        recordWorkflowEntry({
+          toolType,
+          title: TOOL_LABELS[toolType] + " - Failed",
+          status: result.status ?? "failed",
+          step: "preview",
+          sessionId: effectiveContextSessionId,
+          artifactId: result.artifactId ?? undefined,
+          runId: fallbackRunId ?? undefined,
+          titleSource: buildWorkflowTitleSource(toolType, currentToolDraft),
+          toolLabel: TOOL_LABELS[toolType],
+        });
+        syncStudioChatContextByStep(
+          toolType,
+          "preview",
+          effectiveContextSessionId
+        );
+        pushStudioStageHint(toolType, "preview", effectiveContextSessionId);
         return true;
       }
-      if (contextSessionId) {
+      if (effectiveContextSessionId) {
         recordWorkflowEntry({
           toolType,
           title: TOOL_LABELS[toolType] + " - Failed",
           status: "failed",
           step: "generate",
-          sessionId: contextSessionId,
+          sessionId: effectiveContextSessionId,
           runId: seededRunId ?? undefined,
-          titleSource: JSON.stringify(currentToolDraft),
+          titleSource: buildWorkflowTitleSource(toolType, currentToolDraft),
           toolLabel: TOOL_LABELS[toolType],
         });
       }
@@ -881,6 +1240,35 @@ export function StudioPanelContainer({
     onExportArtifact: (artifactId) => exportArtifact(artifactId),
   };
 
+  const isWordHeaderActionsVisible = isExpanded && expandedTool === "word";
+  useEffect(() => {
+    if (!isWordHeaderActionsVisible) return;
+    setWordViewMode("preview");
+    window.dispatchEvent(
+      new CustomEvent("spectra:word:set-mode", {
+        detail: { mode: "preview" },
+      })
+    );
+  }, [isWordHeaderActionsVisible]);
+
+  const resolvedWordTitleFromContent = (() => {
+    if (expandedTool !== "word") return null;
+    const content = toolFlowContext.resolvedArtifact?.content;
+    if (!content || typeof content !== "object") return null;
+    const value = (content as Record<string, unknown>).title;
+    return typeof value === "string" && value.trim() ? value.trim() : null;
+  })();
+  const resolvedWordHeaderTitle =
+    (expandedTool === "word"
+      ? toolFlowContext.latestArtifacts?.[0]?.title || resolvedWordTitleFromContent
+      : null) ?? null;
+  const canWordHeaderSave = Boolean(
+    expandedTool === "word" && toolFlowContext.resolvedArtifact?.artifactId
+  );
+  const canWordHeaderExport = Boolean(
+    expandedTool === "word" && toolFlowContext.latestArtifacts?.[0]?.artifactId
+  );
+
   return (
     <div
       className={cn("project-panel-root h-full bg-transparent", className)}
@@ -895,6 +1283,26 @@ export function StudioPanelContainer({
             onClose={historyHandlers.handleClose}
             currentIcon={CurrentIcon}
             currentColor={currentColor}
+            customTitle={resolvedWordHeaderTitle}
+            showWordActions={isWordHeaderActionsVisible}
+            canWordSave={canWordHeaderSave}
+            canWordExport={canWordHeaderExport}
+            wordModeActionLabel={wordViewMode === "preview" ? "编辑" : "预览"}
+            onWordSwitchMode={() => {
+              const nextMode = wordViewMode === "preview" ? "edit" : "preview";
+              setWordViewMode(nextMode);
+              window.dispatchEvent(
+                new CustomEvent("spectra:word:set-mode", {
+                  detail: { mode: nextMode },
+                })
+              );
+            }}
+            onWordSave={() => {
+              window.dispatchEvent(new CustomEvent("spectra:word:save"));
+            }}
+            onWordExport={() => {
+              window.dispatchEvent(new CustomEvent("spectra:word:export"));
+            }}
           />
           <CardContent
             className={cn(
@@ -916,7 +1324,7 @@ export function StudioPanelContainer({
               activeSessionId={activeSessionId}
               fetchArtifactHistory={fetchArtifactHistory}
               onOpenHistoryItem={historyHandlers.handleOpenHistoryItem}
-              onArchiveHistoryItem={archiveHistoryItem}
+              onArchiveHistoryItem={handleArchiveHistoryItem}
             />
             <StudioExpandedView
               isExpanded={isExpanded}
@@ -1000,6 +1408,8 @@ export function StudioPanelContainer({
                   liveStoreState.activeSessionId ??
                   activeSessionId ??
                   undefined;
+                const liveRunId =
+                  liveStoreState.activeRunId ?? activeRunId ?? undefined;
                 const readySelectedFileIds = resolveReadySelectedFileIds(
                   files,
                   selectedFileIds
@@ -1124,6 +1534,7 @@ export function StudioPanelContainer({
         onClose={() => setIsArchiveHistoryPanelOpen(false)}
         archivedHistory={archivedHistory}
         onUnarchiveHistoryItem={unarchiveHistoryItem}
+        onDeleteHistoryItem={deleteArchivedHistoryItem}
       />
     </div>
   );
