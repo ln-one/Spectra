@@ -269,6 +269,30 @@ def extract_run_context(snapshot: Any) -> str:
     return "；".join(values[:3])
 
 
+def _extract_run_prompt_fields(snapshot: dict[str, Any]) -> list[tuple[str, Any]]:
+    prioritized_fields: list[tuple[str, Any]] = []
+
+    def _append_from_mapping(prefix: str, value: Any) -> None:
+        if not isinstance(value, dict):
+            return
+        for key in RUN_CONTEXT_PRIORITY_KEYS:
+            if key in value:
+                prioritized_fields.append((f"{prefix}_{key}", value.get(key)))
+
+    _append_from_mapping("config", snapshot.get("config"))
+    _append_from_mapping("options", snapshot.get("options"))
+    _append_from_mapping("request", snapshot.get("request"))
+    _append_from_mapping("request_snapshot", snapshot.get("request_snapshot"))
+    request_snapshot = snapshot.get("request_snapshot")
+    if isinstance(request_snapshot, dict):
+        _append_from_mapping("request_config", request_snapshot.get("config"))
+
+    for key in RUN_CONTEXT_PRIORITY_KEYS:
+        if key in snapshot:
+            prioritized_fields.append((str(key), snapshot.get(key)))
+    return prioritized_fields
+
+
 def extract_run_key_facts(snapshot: Any) -> dict[str, str]:
     facts: dict[str, str] = {}
 
@@ -278,9 +302,8 @@ def extract_run_key_facts(snapshot: Any) -> dict[str, str]:
             facts[key] = cleaned
 
     if isinstance(snapshot, dict):
-        for key in RUN_CONTEXT_PRIORITY_KEYS:
-            if key in snapshot:
-                _put(str(key), snapshot.get(key))
+        for key, value in _extract_run_prompt_fields(snapshot):
+            _put(key, value)
         outline = snapshot.get("outline")
         if isinstance(outline, dict):
             if "title" in outline:

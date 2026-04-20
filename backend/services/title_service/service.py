@@ -305,7 +305,7 @@ async def generate_session_title(
         ),
     )
     next_source = SESSION_TITLE_SOURCE_FIRST_MESSAGE
-    payload = build_session_title_payload(first_message, project_name=project_name)
+    payload = build_session_title_payload(first_message)
     try:
         title = await _generate_validated_title_with_retries(
             scene="session",

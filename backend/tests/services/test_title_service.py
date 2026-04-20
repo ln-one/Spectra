@@ -12,6 +12,7 @@ from services.title_service.prompting import (
     build_default_project_title,
     build_default_session_title,
     extract_run_context,
+    extract_run_key_facts,
     normalize_effective_title,
 )
 from services.title_service.structured_prompting import build_session_title_payload
@@ -120,14 +121,29 @@ def test_normalize_effective_title_enriches_short_session_title():
     )
 
 
-def test_build_session_title_payload_includes_project_context():
-    payload = build_session_title_payload(
-        "生成一份教学大纲",
-        project_name="计算机图形学教学",
-    )
+def test_build_session_title_payload_only_uses_first_message_context():
+    payload = build_session_title_payload("生成一份教学大纲")
 
     assert payload["key_facts"]["first_message_seed"] == "教学大纲"
-    assert payload["key_facts"]["project_name_seed"] == "计算机图形学教学"
+    assert "project_name_seed" not in payload["key_facts"]
+
+
+def test_extract_run_key_facts_prefers_run_creation_prompt_fields():
+    facts = extract_run_key_facts(
+        {
+            "config": {
+                "topic": "图形系统功能结构与分类",
+                "prompt": "生成一份图形系统功能结构与分类的课件",
+                "generation_mode": "scratch",
+            },
+            "topic": "课件生成",
+            "preview": {"title": "预览态标题"},
+        }
+    )
+
+    assert facts["config_topic"] == "图形系统功能结构与分类"
+    assert facts["config_prompt"] == "图形系统功能结构与分类的课件"
+    assert facts["topic"] == "课件生成"
 
 
 @pytest.mark.anyio

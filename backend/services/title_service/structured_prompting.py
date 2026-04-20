@@ -32,20 +32,8 @@ def build_project_title_payload(description: str) -> dict[str, Any]:
     }
 
 
-def build_session_title_payload(
-    first_message: str,
-    *,
-    project_name: str | None = None,
-) -> dict[str, Any]:
+def build_session_title_payload(first_message: str) -> dict[str, Any]:
     seed = extract_topic_seed(first_message)
-    key_facts = {
-        "first_message_seed": seed,
-        "first_message_text": normalize_text(first_message)[:200],
-    }
-    project_seed = extract_topic_seed(project_name)
-    if project_seed:
-        key_facts["project_name_seed"] = project_seed
-        key_facts["project_name"] = normalize_text(project_name)[:80]
     return {
         "scene": "session",
         "scene_label": "教学会话",
@@ -54,7 +42,10 @@ def build_session_title_payload(
             "min_chars": TITLE_MIN_LENGTH,
             "max_chars": 20,
         },
-        "key_facts": key_facts,
+        "key_facts": {
+            "first_message_seed": seed,
+            "first_message_text": normalize_text(first_message)[:200],
+        },
     }
 
 
