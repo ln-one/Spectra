@@ -115,7 +115,6 @@ def template_protocol_exchange(slots: dict[str, Any]) -> TemplateResult:
 
         arrow_id = f"arrow_step_{i}"
         packet_id = f"packet_step_{i}"
-        note_id = f"note_step_{i}"
         ring_id = f"ring_step_{i}"
 
         ring_pos = [-4.0, 0.0] if direction == "left_to_right" else [4.0, 0.0]
@@ -136,14 +135,6 @@ def template_protocol_exchange(slots: dict[str, Any]) -> TemplateResult:
                     "color": "ORANGE",
                     "position": [0.0, 0.56],
                     "style": {"font_size": 24},
-                },
-                {
-                    "id": note_id,
-                    "type": "text",
-                    "label": _clip(step["description"], 24),
-                    "color": "TEAL",
-                    "position": [0.0, -1.35],
-                    "style": {"font_size": 18},
                 },
                 {
                     "id": ring_id,
@@ -168,7 +159,7 @@ def template_protocol_exchange(slots: dict[str, Any]) -> TemplateResult:
                     },
                     {
                         "type": "fade_in",
-                        "target": [packet_id, note_id],
+                        "target": [packet_id],
                         "params": {"run_time": 0.42},
                         "lag_ratio": 0.15,
                     },
@@ -189,7 +180,7 @@ def template_protocol_exchange(slots: dict[str, Any]) -> TemplateResult:
                     "actions": [
                         {
                             "type": "fade_out",
-                            "target": [arrow_id, packet_id, note_id, ring_id],
+                            "target": [arrow_id, packet_id, ring_id],
                             "params": {"run_time": 0.34},
                         }
                     ],
