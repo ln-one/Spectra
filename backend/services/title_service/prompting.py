@@ -11,6 +11,7 @@ from services.generation_session_service.run_constants import (
     resolve_tool_label,
 )
 
+TITLE_MIN_LENGTH = 5
 PROJECT_TITLE_MAX_LENGTH = 24
 SESSION_TITLE_MAX_LENGTH = 18
 RUN_TITLE_MAX_LENGTH = 18
@@ -111,6 +112,11 @@ def clean_title_candidate(value: Any, *, max_length: int) -> str:
     return title[:max_length].strip()
 
 
+def count_visible_title_chars(value: Any) -> int:
+    title = clean_title_candidate(value, max_length=64)
+    return len(title.replace(" ", ""))
+
+
 def extract_topic_seed(value: Any) -> str:
     text = normalize_text(value)
     if not text:
@@ -128,6 +134,67 @@ def extract_topic_seed(value: Any) -> str:
     if len(candidate) > 14:
         candidate = candidate[:14].strip()
     return candidate
+
+
+def has_basis_overlap(title: str, basis_value: Any) -> bool:
+    normalized_title = clean_title_candidate(title, max_length=32)
+    basis_seed = extract_topic_seed(basis_value)
+    if not normalized_title or not basis_seed:
+        return False
+    if basis_seed in normalized_title:
+        return True
+    if len(basis_seed) < 2:
+        return False
+    return any(fragment in normalized_title for fragment in _iter_bigrams(basis_seed))
+
+
+def build_scene_suffix(scene: str, *, tool_type: str | None = None) -> str:
+    normalized_scene = str(scene or "").strip().lower()
+    if normalized_scene == "project":
+        return "资料库"
+    if normalized_scene == "session":
+        return "备课"
+    if normalized_scene == "run":
+        label = clean_title_candidate(
+            resolve_tool_label(tool_type or ""),
+            max_length=RUN_TITLE_MAX_LENGTH,
+        )
+        if label.endswith("生成") and len(label) > 2:
+            label = label[:-2].strip()
+        return label or "任务"
+    return ""
+
+
+def normalize_effective_title(
+    *,
+    raw_title: Any,
+    basis_value: Any,
+    scene: str,
+    max_length: int,
+    tool_type: str | None = None,
+) -> str:
+    title = clean_title_candidate(raw_title, max_length=max_length)
+    basis_seed = extract_topic_seed(basis_value)
+    suffix = build_scene_suffix(scene, tool_type=tool_type)
+
+    if (
+        (not title)
+        or is_generic_title(title)
+        or is_bad_run_title(title)
+        or (basis_seed and not has_basis_overlap(title, basis_seed))
+        or count_visible_title_chars(title) < TITLE_MIN_LENGTH
+    ):
+        if basis_seed:
+            title = clean_title_candidate(
+                f"{basis_seed}{suffix}",
+                max_length=max_length,
+            )
+        else:
+            title = ""
+
+    if count_visible_title_chars(title) < TITLE_MIN_LENGTH:
+        return ""
+    return title
 
 
 def extract_seed_from_model_response(value: Any) -> str:
@@ -202,21 +269,50 @@ def extract_run_context(snapshot: Any) -> str:
     return "；".join(values[:3])
 
 
+def extract_run_key_facts(snapshot: Any) -> dict[str, str]:
+    facts: dict[str, str] = {}
+
+    def _put(key: str, value: Any) -> None:
+        cleaned = extract_topic_seed(value)
+        if cleaned and key not in facts:
+            facts[key] = cleaned
+
+    if isinstance(snapshot, dict):
+        for key in RUN_CONTEXT_PRIORITY_KEYS:
+            if key in snapshot:
+                _put(str(key), snapshot.get(key))
+        outline = snapshot.get("outline")
+        if isinstance(outline, dict):
+            if "title" in outline:
+                _put("outline_title", outline.get("title"))
+            if "summary" in outline:
+                _put("outline_summary", outline.get("summary"))
+        for key, value in snapshot.items():
+            normalized_key = str(key or "").strip().lower()
+            if normalized_key in RUN_CONTEXT_NOISE_KEYS:
+                continue
+            if normalized_key in RUN_CONTEXT_PRIORITY_KEYS:
+                continue
+            _put(normalized_key, value)
+            if len(facts) >= 5:
+                break
+    elif snapshot is not None:
+        _put("topic", snapshot)
+
+    return facts
+
+
 def build_run_pending_title(
     *,
     tool_type: str,
     snapshot: Any,
     run_no: int | None,
 ) -> str:
-    seed = extract_run_context(snapshot)
-    tool_label = resolve_tool_label(tool_type)
-    if seed:
-        return clean_title_candidate(
-            f"{seed}{tool_label}", max_length=RUN_TITLE_MAX_LENGTH
-        )
     if run_no is not None:
         return build_pending_run_title(run_no, tool_type)
-    return clean_title_candidate(tool_label, max_length=RUN_TITLE_MAX_LENGTH)
+    return clean_title_candidate(
+        resolve_tool_label(tool_type), max_length=RUN_TITLE_MAX_LENGTH
+    )
 
 
 def is_generic_title(title: str) -> bool:
@@ -250,18 +346,10 @@ def stringify_snapshot(snapshot: Any) -> str:
 
 
 def build_project_fallback_title(*, description: str, project_id: str | None) -> str:
-    seed = extract_topic_seed(description)
-    if seed:
-        return clean_title_candidate(
-            f"{seed}教学库", max_length=PROJECT_TITLE_MAX_LENGTH
-        )
     return build_default_project_title(project_id)
 
 
 def build_session_fallback_title(*, first_message: str, session_id: str) -> str:
-    seed = extract_topic_seed(first_message)
-    if seed:
-        return clean_title_candidate(seed, max_length=SESSION_TITLE_MAX_LENGTH)
     return build_default_session_title(session_id)
 
 
@@ -320,3 +408,10 @@ def build_run_prompt(tool_type: str, snapshot: Any) -> str:
         f"主题上下文：{context or '未提取到明确主题'}\n"
         f"原始配置：{stringify_snapshot(snapshot)}"
     )
+
+
+def _iter_bigrams(value: str) -> list[str]:
+    normalized = str(value or "").strip()
+    if len(normalized) < 2:
+        return []
+    return [normalized[index : index + 2] for index in range(len(normalized) - 1)]

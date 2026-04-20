@@ -6,6 +6,7 @@ def _resolve_model_name(model: str) -> str:
         return f"dashscope/{model}"
 
     minimax_aliases = {
+        "minimax-m2.7": "MiniMax-M2.7",
         "minimax-m2.5": "MiniMax-M2.5",
         "minimax-m2.5-lightning": "MiniMax-M2.5-lightning",
         "minimax-m2.1": "MiniMax-M2.1",

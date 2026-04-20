@@ -189,6 +189,7 @@ async def process_chat_message(
                     db=db_service.db,
                     session_id=session_id,
                     first_message=body.content,
+                    project_name=getattr(project, "name", None),
                 )
         except Exception as exc:
             logger.warning(

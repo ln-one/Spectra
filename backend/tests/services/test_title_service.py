@@ -6,11 +6,18 @@ from unittest.mock import AsyncMock
 import pytest
 
 from services import title_service
+from services.generation_session_service.run_constants import build_pending_run_title
+from services.title_service import service as title_service_module
 from services.title_service.prompting import (
-    build_run_fallback_title,
-    build_run_pending_title,
-    build_session_fallback_title,
+    build_default_project_title,
+    build_default_session_title,
     extract_run_context,
+    normalize_effective_title,
+)
+from services.title_service.structured_prompting import build_session_title_payload
+from services.title_service.structured_runtime import StructuredTitleResult
+from services.title_service.structured_runtime import (
+    generate_structured_title,
 )
 
 
@@ -49,9 +56,7 @@ async def test_request_run_title_generation_claims_only_once(monkeypatch):
 
 
 @pytest.mark.anyio
-async def test_request_run_title_generation_prefills_pending_title_from_snapshot(
-    monkeypatch,
-):
+async def test_request_run_title_generation_keeps_default_pending_title(monkeypatch):
     run = SimpleNamespace(
         id="run-001",
         runNo=2,
@@ -65,8 +70,7 @@ async def test_request_run_title_generation_prefills_pending_title_from_snapshot
         ),
     )
     monkeypatch.setattr(
-        title_service,
-        "update_session_run",
+        "services.title_service.service.update_session_run",
         AsyncMock(return_value=run),
     )
     spawned_labels: list[str] = []
@@ -86,16 +90,7 @@ async def test_request_run_title_generation_prefills_pending_title_from_snapshot
     )
 
     assert result is True
-    title_service.update_session_run.assert_awaited_once_with(
-        db=db,
-        run_id="run-001",
-        title=build_run_pending_title(
-            tool_type="studio_card:courseware_ppt",
-            snapshot={"topic": "牛顿第二定律"},
-            run_no=2,
-        ),
-        title_source="pending",
-    )
+    title_service_module.update_session_run.assert_not_awaited()
     assert spawned_labels == ["run-title:run-001"]
 
 
@@ -112,52 +107,212 @@ def test_extract_run_context_prefers_topic_fields_over_config_noise():
     assert extract_run_context(snapshot) == "牛顿第二定律；受力分析与公式应用"
 
 
-def test_build_session_fallback_title_prefers_clean_seed():
+def test_normalize_effective_title_enriches_short_session_title():
     assert (
-        build_session_fallback_title(
-            first_message="生成一份教学大纲",
-            session_id="session-001",
+        normalize_effective_title(
+            raw_title="教学大纲",
+            basis_value="教学大纲",
+            scene="session",
+            max_length=18,
         )
-        == "教学大纲"
+        == "教学大纲备课"
     )
 
 
+def test_build_session_title_payload_includes_project_context():
+    payload = build_session_title_payload(
+        "生成一份教学大纲",
+        project_name="计算机图形学教学",
+    )
+
+    assert payload["key_facts"]["first_message_seed"] == "教学大纲"
+    assert payload["key_facts"]["project_name_seed"] == "计算机图形学教学"
+
+
 @pytest.mark.anyio
-async def test_generate_run_title_falls_back_when_model_returns_config_fragment(
+async def test_generate_structured_title_uses_forced_tool_call_and_reasoning_split(
     monkeypatch,
 ):
+    captured: dict[str, object] = {}
+
+    async def _fake_completion(**kwargs):
+        captured.update(kwargs)
+
+        class _Function:
+            arguments = (
+                '{"title":"牛顿第二定律课件","basis_key":"topic","scene":"run"}'
+            )
+
+        class _ToolCall:
+            function = _Function()
+
+        class _Message:
+            tool_calls = [_ToolCall()]
+
+        class _Choice:
+            message = _Message()
+
+        class _Response:
+            choices = [_Choice()]
+
+        return _Response()
+
+    monkeypatch.setattr(
+        "services.title_service.structured_runtime.acompletion",
+        _fake_completion,
+    )
+    monkeypatch.setattr(
+        "services.title_service.structured_runtime.resolve_requested_model",
+        lambda **_: (SimpleNamespace(reason="lightweight_task"), "minimax-m2.7", "title_polish"),
+    )
+
+    result = await generate_structured_title(
+        scene="run",
+        payload={"scene": "run", "key_facts": {"topic": "牛顿第二定律"}},
+        entity_id="run-001",
+    )
+
+    assert captured["tool_choice"] == {
+        "type": "function",
+        "function": {"name": "set_title"},
+    }
+    assert captured["tools"][0]["function"]["name"] == "set_title"
+    assert captured["max_retries"] == 0
+    assert captured["extra_body"] == {"reasoning_split": True}
+    assert result.title == "牛顿第二定律课件"
+
+
+@pytest.mark.anyio
+async def test_generate_structured_title_parses_minimax_raw_tool_call_content(
+    monkeypatch,
+):
+    async def _fake_completion(**kwargs):
+        class _Message:
+            tool_calls = []
+            content = (
+                "<think>选择首条需求中的教学大纲作为依据。</think>\n"
+                "<tool_calls>\n"
+                '{"name":"set_title","arguments":'
+                '{"title":"教学大纲备课","basis_key":"first_message_seed","scene":"session"}}\n'
+                "</tool_calls>"
+            )
+
+        class _Choice:
+            message = _Message()
+
+        class _Response:
+            choices = [_Choice()]
+
+        return _Response()
+
+    monkeypatch.setattr(
+        "services.title_service.structured_runtime.acompletion",
+        _fake_completion,
+    )
+    monkeypatch.setattr(
+        "services.title_service.structured_runtime.resolve_requested_model",
+        lambda **_: (
+            SimpleNamespace(reason="lightweight_task"),
+            "minimax-m2.7",
+            "title_polish",
+        ),
+    )
+
+    result = await generate_structured_title(
+        scene="session",
+        payload={"scene": "session", "key_facts": {"first_message_seed": "教学大纲"}},
+        entity_id="session-001",
+    )
+
+    assert result.title == "教学大纲备课"
+    assert result.basis_key == "first_message_seed"
+
+
+@pytest.mark.anyio
+async def test_generate_structured_title_does_not_retry_format_errors(monkeypatch):
+    calls = 0
+
+    async def _fake_completion(**kwargs):
+        nonlocal calls
+        calls += 1
+
+        class _Message:
+            tool_calls = []
+            content = "我会生成一个标题"
+
+        class _Choice:
+            message = _Message()
+
+        class _Response:
+            choices = [_Choice()]
+
+        return _Response()
+
+    monkeypatch.setattr(
+        "services.title_service.structured_runtime.acompletion",
+        _fake_completion,
+    )
+    monkeypatch.setattr(
+        "services.title_service.structured_runtime.resolve_requested_model",
+        lambda **_: (
+            SimpleNamespace(reason="lightweight_task"),
+            "minimax-m2.7",
+            "title_polish",
+        ),
+    )
+
+    with pytest.raises(ValueError, match="structured_title_missing_tool_arguments"):
+        await generate_structured_title(
+            scene="session",
+            payload={
+                "scene": "session",
+                "key_facts": {"first_message_seed": "教学大纲"},
+            },
+            entity_id="session-001",
+        )
+
+    assert calls == 1
+
+
+@pytest.mark.anyio
+async def test_generate_run_title_accepts_structured_title_and_syncs(monkeypatch):
     pending_run = SimpleNamespace(
         id="run-001",
-        artifactId=None,
+        artifactId="artifact-001",
         runNo=3,
-        title="第3次课件生成",
+        title=build_pending_run_title(3, "studio_card:courseware_ppt"),
         titleSource="pending",
     )
     updated_run = SimpleNamespace(
         id="run-001",
-        artifactId=None,
+        artifactId="artifact-001",
         runNo=3,
-        title="牛顿第二定律课件生成",
-        titleSource="fallback",
+        title="牛顿第二定律课件",
+        titleSource="auto",
     )
     db = SimpleNamespace(
         sessionrun=SimpleNamespace(find_unique=AsyncMock(return_value=pending_run)),
     )
 
     monkeypatch.setattr(
-        title_service,
-        "update_session_run",
+        "services.title_service.service.update_session_run",
         AsyncMock(return_value=updated_run),
     )
     monkeypatch.setattr(
-        title_service,
-        "sync_run_title_to_artifact_metadata",
+        "services.title_service.service.sync_run_title_to_artifact_metadata",
         AsyncMock(return_value=None),
     )
     monkeypatch.setattr(
-        title_service.ai_service,
-        "generate",
-        AsyncMock(return_value={"content": "generation_mode课程生成"}),
+        "services.title_service.service.generate_structured_title",
+        AsyncMock(
+            return_value=StructuredTitleResult(
+                title="牛顿第二定律课件",
+                basis_key="topic",
+                scene="run",
+                model="minimax/MiniMax-M2.7",
+                latency_ms=12.3,
+            )
+        ),
     )
 
     result = await title_service.generate_run_title(
@@ -171,18 +326,70 @@ async def test_generate_run_title_falls_back_when_model_returns_config_fragment(
         },
     )
 
-    expected_title = build_run_fallback_title(
-        tool_type="studio_card:courseware_ppt",
-        snapshot={
-            "topic": "牛顿第二定律",
-            "generation_mode": "scratch",
-            "style_preset": "geo-bold",
-        },
-        run_no=3,
+    assert result["run_title"] == "牛顿第二定律课件"
+    assert result["run_title_source"] == "auto"
+    title_service_module.update_session_run.assert_awaited_once_with(
+        db=db,
+        run_id="run-001",
+        title="牛顿第二定律课件",
+        title_source="auto",
     )
+
+
+@pytest.mark.anyio
+async def test_generate_run_title_keeps_default_title_when_structured_payload_invalid(
+    monkeypatch,
+):
+    pending_run = SimpleNamespace(
+        id="run-001",
+        artifactId=None,
+        runNo=3,
+        title=build_pending_run_title(3, "studio_card:courseware_ppt"),
+        titleSource="pending",
+    )
+    updated_run = SimpleNamespace(
+        id="run-001",
+        artifactId=None,
+        runNo=3,
+        title=build_pending_run_title(3, "studio_card:courseware_ppt"),
+        titleSource="fallback",
+    )
+    db = SimpleNamespace(
+        sessionrun=SimpleNamespace(find_unique=AsyncMock(return_value=pending_run)),
+    )
+
+    monkeypatch.setattr(
+        "services.title_service.service.update_session_run",
+        AsyncMock(return_value=updated_run),
+    )
+    monkeypatch.setattr(
+        "services.title_service.service.sync_run_title_to_artifact_metadata",
+        AsyncMock(return_value=None),
+    )
+    monkeypatch.setattr(
+        "services.title_service.service.generate_structured_title",
+        AsyncMock(
+            return_value=StructuredTitleResult(
+                title="课件生成",
+                basis_key="missing",
+                scene="run",
+                model="minimax/MiniMax-M2.7",
+                latency_ms=12.3,
+            )
+        ),
+    )
+
+    result = await title_service.generate_run_title(
+        db=db,
+        run_id="run-001",
+        tool_type="studio_card:courseware_ppt",
+        snapshot={"topic": "牛顿第二定律"},
+    )
+
+    expected_title = build_pending_run_title(3, "studio_card:courseware_ppt")
     assert result["run_title"] == expected_title
     assert result["run_title_source"] == "fallback"
-    title_service.update_session_run.assert_awaited_once_with(
+    title_service_module.update_session_run.assert_awaited_once_with(
         db=db,
         run_id="run-001",
         title=expected_title,
@@ -191,17 +398,15 @@ async def test_generate_run_title_falls_back_when_model_returns_config_fragment(
 
 
 @pytest.mark.anyio
-async def test_generate_session_title_extracts_seed_from_meta_model_response(
-    monkeypatch,
-):
+async def test_generate_session_title_accepts_structured_title(monkeypatch):
     session = SimpleNamespace(
         id="session-001",
-        displayTitle="会话-001",
+        displayTitle=None,
         displayTitleSource="default",
     )
     updated_session = SimpleNamespace(
         id="session-001",
-        displayTitle="教学大纲",
+        displayTitle="计算机图形学教学大纲",
         displayTitleSource="first_message",
         displayTitleUpdatedAt=None,
     )
@@ -213,15 +418,15 @@ async def test_generate_session_title_extracts_seed_from_meta_model_response(
     )
 
     monkeypatch.setattr(
-        title_service.ai_service,
-        "generate",
+        "services.title_service.service.generate_structured_title",
         AsyncMock(
-            return_value={
-                "content": (
-                    "用户要求我根据用户的第一条教学需求生成一个简短、明确、自然的中文标题。 "
-                    '用户的第一条教学需求是："生成一份教学大纲" 这是一个非常简短的需求。'
-                )
-            }
+            return_value=StructuredTitleResult(
+                title="计算机图形学教学大纲",
+                basis_key="project_name_seed",
+                scene="session",
+                model="minimax/MiniMax-M2.7",
+                latency_ms=8.1,
+            )
         ),
     )
 
@@ -229,7 +434,57 @@ async def test_generate_session_title_extracts_seed_from_meta_model_response(
         db=db,
         session_id="session-001",
         first_message="生成一份教学大纲",
+        project_name="计算机图形学教学",
     )
 
-    assert result["display_title"] == "教学大纲"
+    assert result["display_title"] == "计算机图形学教学大纲"
     assert result["display_title_source"] == "first_message"
+
+
+@pytest.mark.anyio
+async def test_generate_project_title_keeps_default_name_on_invalid_structured_title(
+    monkeypatch,
+):
+    project = SimpleNamespace(
+        id="project-001",
+        name=build_default_project_title("project-001"),
+        nameSource="default",
+    )
+    updated_project = SimpleNamespace(
+        id="project-001",
+        name=build_default_project_title("project-001"),
+        nameSource="fallback",
+        nameUpdatedAt=None,
+    )
+    db = SimpleNamespace(
+        project=SimpleNamespace(
+            find_unique=AsyncMock(return_value=project),
+            update=AsyncMock(return_value=updated_project),
+        )
+    )
+
+    monkeypatch.setattr(
+        "services.title_service.service.generate_structured_title",
+        AsyncMock(
+            return_value=StructuredTitleResult(
+                title="知识库",
+                basis_key="unknown_key",
+                scene="project",
+                model="minimax/MiniMax-M2.7",
+                latency_ms=9.8,
+            )
+        ),
+    )
+
+    result = await title_service.generate_project_title(
+        db=db,
+        project_id="project-001",
+        description="整理高中生物光合作用备课资料",
+    )
+
+    assert result["name"] == build_default_project_title("project-001")
+    assert result["name_source"] == "fallback"
+
+
+def test_build_default_session_title_is_used_for_session_failure():
+    assert build_default_session_title("session-001").startswith("会话-")

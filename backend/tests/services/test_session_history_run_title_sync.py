@@ -10,6 +10,7 @@ from services.generation_session_service.session_history import (
     RUN_TITLE_SOURCE_AUTO,
     generate_semantic_run_title,
 )
+from services.title_service.structured_runtime import StructuredTitleResult
 
 
 @pytest.mark.anyio
@@ -53,8 +54,16 @@ async def test_generate_semantic_run_title_syncs_title_to_artifact_metadata(
     )
 
     monkeypatch.setattr(
-        "services.generation_session_service.session_history.ai_service.generate",
-        AsyncMock(return_value={"content": "线性回归教学课件"}),
+        "services.title_service.service.generate_structured_title",
+        AsyncMock(
+            return_value=StructuredTitleResult(
+                title="线性回归教学课件",
+                basis_key="topic",
+                scene="run",
+                model="minimax/MiniMax-M2.7",
+                latency_ms=7.2,
+            )
+        ),
     )
 
     result = await generate_semantic_run_title(

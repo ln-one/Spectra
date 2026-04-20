@@ -1595,7 +1595,7 @@ export interface components {
         /** @enum {string} */
         GenerationState: "IDLE" | "CONFIGURING" | "ANALYZING" | "DRAFTING_OUTLINE" | "AWAITING_OUTLINE_CONFIRM" | "GENERATING_CONTENT" | "RENDERING" | "SUCCESS" | "FAILED";
         /** @enum {string} */
-        SessionTitleSource: "default" | "first_message" | "manual";
+        SessionTitleSource: "default" | "first_message" | "manual" | "fallback";
         GenerationSessionListItem: {
             session_id: string;
             project_id: string;

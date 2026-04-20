@@ -4,8 +4,6 @@ import logging
 from datetime import datetime, timezone
 from typing import Any, Awaitable, Callable
 
-from services.ai import ai_service
-from services.ai.model_router import ModelRouteTask
 from services.generation_session_service.background_tasks import spawn_background_task
 from services.generation_session_service.run_artifact_sync import (
     sync_run_title_to_artifact_metadata,
@@ -32,18 +30,19 @@ from .prompting import (
     RUN_TITLE_MAX_LENGTH,
     SESSION_TITLE_MAX_LENGTH,
     build_project_fallback_title,
-    build_project_prompt,
-    build_run_fallback_title,
-    build_run_pending_title,
-    build_run_prompt,
     build_session_fallback_title,
-    build_session_prompt,
+    build_run_fallback_title,
     clean_title_candidate,
-    extract_seed_from_model_response,
-    extract_run_context,
-    is_meta_title_response,
-    is_bad_run_title,
-    is_generic_title,
+    normalize_effective_title,
+)
+from .structured_prompting import (
+    build_project_title_payload,
+    build_run_title_payload,
+    build_session_title_payload,
+)
+from .structured_runtime import (
+    StructuredTitleResult,
+    generate_structured_title,
 )
 
 logger = logging.getLogger(__name__)
@@ -54,12 +53,44 @@ def utc_now() -> datetime:
 
 
 async def generate_title(prompt: str, *, max_length: int) -> str:
-    result = await ai_service.generate(
-        prompt,
-        route_task=ModelRouteTask.TITLE_POLISH.value,
-        max_tokens=40,
+    raise RuntimeError(
+        "legacy_text_title_generation_removed: use generate_structured_title instead"
     )
-    return clean_title_candidate((result or {}).get("content"), max_length=max_length)
+
+
+def _keep_existing_title(value: Any, *, max_length: int, default_title: str) -> str:
+    title = clean_title_candidate(value, max_length=max_length)
+    return title or clean_title_candidate(default_title, max_length=max_length)
+
+
+def _resolve_basis_value(payload: dict[str, Any], basis_key: str) -> str:
+    key_facts = payload.get("key_facts")
+    if not isinstance(key_facts, dict):
+        return ""
+    basis_value = key_facts.get(basis_key)
+    return str(basis_value or "").strip()
+
+
+def _validate_structured_title(
+    *,
+    result: StructuredTitleResult,
+    payload: dict[str, Any],
+    max_length: int,
+    tool_type: str | None = None,
+) -> str:
+    basis_value = _resolve_basis_value(payload, result.basis_key)
+    if not basis_value:
+        raise ValueError(f"structured_title_invalid_basis:{result.basis_key}")
+    normalized = normalize_effective_title(
+        raw_title=result.title,
+        basis_value=basis_value,
+        scene=result.scene,
+        max_length=max_length,
+        tool_type=tool_type,
+    )
+    if not normalized:
+        raise ValueError("structured_title_invalid_title")
+    return normalized
 
 
 async def claim_generation_request(
@@ -136,26 +167,27 @@ async def generate_project_title(*, db, project_id: str, description: str) -> di
     if source not in {PROJECT_TITLE_SOURCE_DEFAULT, PROJECT_TITLE_SOURCE_FALLBACK}:
         return None
 
-    fallback_title = build_project_fallback_title(
-        description=description,
-        project_id=project_id,
+    fallback_title = _keep_existing_title(
+        getattr(project, "name", None),
+        max_length=PROJECT_TITLE_MAX_LENGTH,
+        default_title=build_project_fallback_title(
+            description=description,
+            project_id=project_id,
+        ),
     )
     next_source = PROJECT_TITLE_SOURCE_AUTO
+    payload = build_project_title_payload(description)
     try:
-        title = await generate_title(
-            build_project_prompt(description),
+        result = await generate_structured_title(
+            scene="project",
+            payload=payload,
+            entity_id=project_id,
+        )
+        title = _validate_structured_title(
+            result=result,
+            payload=payload,
             max_length=PROJECT_TITLE_MAX_LENGTH,
         )
-        if is_meta_title_response(title):
-            extracted_seed = extract_seed_from_model_response(title)
-            if extracted_seed:
-                title = clean_title_candidate(
-                    f"{extracted_seed}教学库",
-                    max_length=PROJECT_TITLE_MAX_LENGTH,
-                )
-        if is_generic_title(title):
-            title = fallback_title
-            next_source = PROJECT_TITLE_SOURCE_FALLBACK
     except Exception as exc:
         logger.warning("Auto project title generation failed: %s", exc)
         title = fallback_title
@@ -185,6 +217,7 @@ async def request_session_title_generation(
     db,
     session_id: str,
     first_message: str,
+    project_name: str | None = None,
 ) -> bool:
     session_model = getattr(db, "generationsession", None)
     if session_model is None:
@@ -206,6 +239,7 @@ async def request_session_title_generation(
             db=db,
             session_id=session_id,
             first_message=first_message,
+            project_name=project_name,
         ),
     )
     return True
@@ -216,6 +250,7 @@ async def generate_session_title(
     db,
     session_id: str,
     first_message: str,
+    project_name: str | None = None,
 ) -> dict | None:
     session = await db.generationsession.find_unique(where={"id": session_id})
     if not session:
@@ -224,26 +259,27 @@ async def generate_session_title(
     if source not in {SESSION_TITLE_SOURCE_DEFAULT, SESSION_TITLE_SOURCE_FALLBACK}:
         return None
 
-    fallback_title = build_session_fallback_title(
-        first_message=first_message,
-        session_id=session_id,
+    fallback_title = _keep_existing_title(
+        getattr(session, "displayTitle", None),
+        max_length=SESSION_TITLE_MAX_LENGTH,
+        default_title=build_session_fallback_title(
+            first_message=first_message,
+            session_id=session_id,
+        ),
     )
     next_source = SESSION_TITLE_SOURCE_FIRST_MESSAGE
+    payload = build_session_title_payload(first_message, project_name=project_name)
     try:
-        title = await generate_title(
-            build_session_prompt(first_message),
+        result = await generate_structured_title(
+            scene="session",
+            payload=payload,
+            entity_id=session_id,
+        )
+        title = _validate_structured_title(
+            result=result,
+            payload=payload,
             max_length=SESSION_TITLE_MAX_LENGTH,
         )
-        if is_meta_title_response(title):
-            extracted_seed = extract_seed_from_model_response(title)
-            if extracted_seed:
-                title = clean_title_candidate(
-                    extracted_seed,
-                    max_length=SESSION_TITLE_MAX_LENGTH,
-                )
-        if is_generic_title(title):
-            title = fallback_title
-            next_source = SESSION_TITLE_SOURCE_FALLBACK
     except Exception as exc:
         logger.warning("Auto session title generation failed: %s", exc)
         title = fallback_title
@@ -286,28 +322,6 @@ async def request_run_title_generation(
     )
     if not claimed:
         return False
-    try:
-        run = await db.sessionrun.find_unique(where={"id": run_id})
-    except Exception as exc:
-        logger.warning("Run title prefill lookup failed: %s", exc)
-        run = None
-    if run and getattr(run, "titleSource", RUN_TITLE_SOURCE_PENDING) == RUN_TITLE_SOURCE_PENDING:
-        pending_title = build_run_pending_title(
-            tool_type=tool_type,
-            snapshot=snapshot,
-            run_no=getattr(run, "runNo", None),
-        )
-        current_title = clean_title_candidate(
-            getattr(run, "title", None),
-            max_length=RUN_TITLE_MAX_LENGTH,
-        )
-        if pending_title and pending_title != current_title:
-            await update_session_run(
-                db=db,
-                run_id=run_id,
-                title=pending_title,
-                title_source=RUN_TITLE_SOURCE_PENDING,
-            )
     spawn_once(
         f"run-title:{run_id}",
         lambda: generate_run_title(
@@ -342,36 +356,29 @@ async def generate_run_title(
     }:
         return None
 
-    fallback_title = build_run_fallback_title(
-        tool_type=tool_type,
-        snapshot=snapshot,
-        run_no=getattr(run, "runNo", None),
+    fallback_title = _keep_existing_title(
+        getattr(run, "title", None),
+        max_length=RUN_TITLE_MAX_LENGTH,
+        default_title=build_run_fallback_title(
+            tool_type=tool_type,
+            snapshot=snapshot,
+            run_no=getattr(run, "runNo", None),
+        ),
     )
-    run_context = extract_run_context(snapshot)
     next_source = RUN_TITLE_SOURCE_AUTO
+    payload = build_run_title_payload(tool_type, snapshot)
     try:
-        title = await generate_title(
-            build_run_prompt(tool_type, snapshot),
-            max_length=RUN_TITLE_MAX_LENGTH,
+        result = await generate_structured_title(
+            scene="run",
+            payload=payload,
+            entity_id=run_id,
         )
-        if is_meta_title_response(title):
-            extracted_seed = extract_seed_from_model_response(title)
-            if extracted_seed:
-                title = clean_title_candidate(
-                    f"{extracted_seed}{resolve_tool_label(tool_type)}",
-                    max_length=RUN_TITLE_MAX_LENGTH,
-                )
-        if (
-            is_generic_title(title)
-            or is_bad_run_title(title)
-            or (
-                clean_title_candidate(title, max_length=RUN_TITLE_MAX_LENGTH)
-                == clean_title_candidate(resolve_tool_label(tool_type), max_length=RUN_TITLE_MAX_LENGTH)
-                and run_context
-            )
-        ):
-            title = fallback_title
-            next_source = RUN_TITLE_SOURCE_FALLBACK
+        title = _validate_structured_title(
+            result=result,
+            payload=payload,
+            max_length=RUN_TITLE_MAX_LENGTH,
+            tool_type=tool_type,
+        )
     except Exception as exc:
         logger.warning("Auto run title generation failed: %s", exc)
         title = fallback_title
