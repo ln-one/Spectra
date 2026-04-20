@@ -1,6 +1,6 @@
 "use client";
 
-import { type CSSProperties, useMemo, useState } from "react";
+import { type CSSProperties, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -26,6 +26,10 @@ import { PreviewCopilotDrawer } from "./components/PreviewCopilotDrawer";
 import { useGeneratePreviewState } from "./useGeneratePreviewState";
 import { RunSelectorPopover } from "./components/RunSelectorPopover";
 import { RegenerateSlideDialog } from "./components/RegenerateSlideDialog";
+import {
+  resolveRenderableSlideIndex,
+  slotHasRenderablePreview,
+} from "./streamingWorkbenchPreview";
 
 type SlideFrame = {
   index: number;
@@ -351,8 +355,20 @@ export default function StreamingWorkbenchPageView() {
           });
         })();
 
+  const resolvedStageSlideIndex = useMemo(
+    () => resolveRenderableSlideIndex(slideSlots, activeSlideIndex),
+    [activeSlideIndex, slideSlots]
+  );
+
+  useEffect(() => {
+    setActiveSlideIndex(0);
+    setActiveFrameIndex(0);
+  }, [activeRunId]);
+
   const activeSlideSlot =
-    slideSlots.find((slide) => slide.index === activeSlideIndex) ?? slideSlots[0] ?? null;
+    slideSlots.find((slide) => slide.index === resolvedStageSlideIndex) ??
+    slideSlots[0] ??
+    null;
 
   const activeLegacySlide = activeSlideSlot?.legacySlide ?? null;
   const activeAuthoritySlide = activeSlideSlot?.authoritySlide ?? null;
@@ -392,13 +408,17 @@ export default function StreamingWorkbenchPageView() {
   const canRenderStage = Boolean(
     hasAuthorityPreviewContent(activeAuthoritySlide) || (activeLegacySlide && activeFrame)
   );
+  const hasAnyRenderableSlide = slideSlots.some((slot) =>
+    slotHasRenderablePreview(slot)
+  );
   const canModifyCurrentSlide = Boolean(activeSessionId && activeRunId && activeSlideSlot);
   const showWaitingState =
     !runSelectionBlocked &&
     !previewBlockedReason &&
     !isLoading &&
     !canRenderStage &&
-    !isSessionGenerating;
+    !isSessionGenerating &&
+    !hasAnyRenderableSlide;
 
   const canExport = Boolean(
     currentRunDetail?.artifact_id || currentArtifactId
@@ -646,10 +666,10 @@ export default function StreamingWorkbenchPageView() {
                   当前页面已切换为严格 Diego 预览链路，不再自动回退到 session 最新产物。
                 </p>
               </div>
-            ) : previewBlockedReason ? (
-              <div className="flex flex-col items-center justify-center m-auto gap-3 text-white/70">
-                <Loader2 className="h-10 w-10 animate-spin text-[var(--deck-accent)]" />
-                <p className="text-sm">课程内容加载中，请稍候...</p>
+            ) : previewBlockedReason && !hasAnyRenderableSlide ? (
+                <div className="flex flex-col items-center justify-center m-auto gap-3 text-white/70">
+                  <Loader2 className="h-10 w-10 animate-spin text-[var(--deck-accent)]" />
+                  <p className="text-sm">课程内容加载中，请稍候...</p>
               </div>
             ) : showWaitingState ? (
               <div className="flex flex-col items-center justify-center m-auto gap-3 text-white/70">

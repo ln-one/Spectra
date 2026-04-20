@@ -82,6 +82,7 @@ export type AuthorityPreviewFrame = {
   status?: string;
   format?: "svg" | string | null;
   svg_data_url?: string | null;
+  html_preview?: string | null;
   preview?: SvgPreviewManifest | null;
   width?: number | null;
   height?: number | null;
@@ -96,6 +97,7 @@ export type AuthorityPreviewSlide = {
   render_version?: number | null;
   format?: "svg" | string | null;
   svg_data_url?: string | null;
+  html_preview?: string | null;
   preview?: SvgPreviewManifest | null;
   width?: number | null;
   height?: number | null;
@@ -1109,6 +1111,8 @@ export function useGeneratePreviewState({
         nextSlides.length === 0 ? "当前 run 暂无可展示预览。" : null
       );
     } catch (error) {
+      const shouldPreserveExistingPreview =
+        error instanceof ApiError && error.status === 409;
       if (error instanceof ApiError && error.status === 409) {
         const reason =
           typeof error.details?.reason === "string"
@@ -1126,10 +1130,12 @@ export function useGeneratePreviewState({
       } else {
         setPreviewBlockedReason("预览加载失败，请稍后重试。");
       }
-      setSlides([]);
-      setSlidesContentMarkdown("");
-      setAuthorityPreview(null);
-      setCurrentPptUrl(null);
+      if (!shouldPreserveExistingPreview) {
+        setSlides([]);
+        setSlidesContentMarkdown("");
+        setAuthorityPreview(null);
+        setCurrentPptUrl(null);
+      }
     } finally {
       setIsLoading(false);
     }
