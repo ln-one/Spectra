@@ -139,7 +139,7 @@ export function useSourcesPanelController({
         block: "center",
       });
     }
-  }, [focusedFileId, activeSourceDetail?.chunk_id]);
+  }, [focusedFileId, activeSourceDetail]);
 
   useEffect(() => {
     const targetId = activeSourceDetail?.file_info?.id;
@@ -148,7 +148,7 @@ export function useSourcesPanelController({
       setExpandedIds((prev) => ({ ...prev, [targetId]: true }));
     });
     return () => cancelAnimationFrame(frame);
-  }, [activeSourceDetail?.file_info?.id, activeSourceDetail?.chunk_id]);
+  }, [activeSourceDetail]);
 
   const collapseFile = useCallback(
     (fileId: string) => {

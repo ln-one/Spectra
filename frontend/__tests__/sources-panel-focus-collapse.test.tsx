@@ -76,6 +76,7 @@ describe("SourcesPanel focused source collapse", () => {
   const mockedProjectStore = useProjectStore as unknown as jest.Mock;
   const mockedNotificationStore =
     useNotificationStore as unknown as jest.Mock;
+  let storeState: Record<string, unknown>;
 
   beforeAll(() => {
     class ResizeObserverMock {
@@ -132,11 +133,12 @@ describe("SourcesPanel focused source collapse", () => {
       updateNotification: jest.fn(),
       replaceNotification: jest.fn(),
     });
+    mockedProjectStore.mockImplementation(() => storeState);
   });
 
-  it("keeps the active source detail when collapsing focused content", async () => {
+  it("re-expands focused content when the same chunk is focused again after collapse", async () => {
     const clearActiveSource = jest.fn();
-    mockedProjectStore.mockReturnValue({
+    storeState = {
       files: [
         {
           id: "file-1",
@@ -165,12 +167,34 @@ describe("SourcesPanel focused source collapse", () => {
         context: {},
       },
       clearActiveSource,
-    });
+    };
 
-    render(<SourcesPanel projectId="proj_1" />);
+    const { rerender } = render(<SourcesPanel projectId="proj_1" />);
 
-    fireEvent.click(await screen.findByRole("button", { name: "收起内容" }));
+    expect(await screen.findByRole("button", { name: "收起内容" })).toBeInTheDocument();
 
+    fireEvent.click(screen.getByRole("button", { name: "收起内容" }));
+
+    expect(screen.queryByRole("button", { name: "收起内容" })).not.toBeInTheDocument();
     expect(clearActiveSource).not.toHaveBeenCalled();
+
+    storeState = {
+      ...storeState,
+      activeSourceDetail: {
+        chunk_id: "chunk-1",
+        content: "quoted content",
+        file_info: {
+          id: "file-1",
+        },
+        source: {
+          source_type: "document",
+          page_number: 2,
+        },
+        context: {},
+      },
+    };
+    rerender(<SourcesPanel projectId="proj_1" />);
+
+    expect(await screen.findByRole("button", { name: "收起内容" })).toBeInTheDocument();
   });
 });
