@@ -9,6 +9,7 @@ from schemas.rag import (
     SourceReference,
 )
 from services.rag_api_service import prompt_suggestions as prompt_suggestion_module
+from services.ai import ai_service
 from utils.exceptions import APIException, ErrorCode, ExternalServiceException
 
 
@@ -39,7 +40,7 @@ async def test_prompt_suggestions_use_rag_and_llm(monkeypatch):
         }
     )
     monkeypatch.setattr(prompt_suggestion_module.rag_service, "search", search_mock)
-    monkeypatch.setattr(prompt_suggestion_module.ai_service, "generate", generate_mock)
+    monkeypatch.setattr(ai_service, "generate", generate_mock)
 
     response = await prompt_suggestion_module.prompt_suggestions_response(
         PromptSuggestionRequest(
@@ -99,7 +100,7 @@ async def test_prompt_suggestions_fail_explicitly_on_invalid_model_json(monkeypa
         AsyncMock(return_value=[_rag_result()]),
     )
     monkeypatch.setattr(
-        prompt_suggestion_module.ai_service,
+        ai_service,
         "generate",
         AsyncMock(return_value={"content": "not json"}),
     )
@@ -132,7 +133,7 @@ async def test_prompt_suggestions_preserve_upstream_failure_with_tool_reason(
         AsyncMock(return_value=[_rag_result()]),
     )
     monkeypatch.setattr(
-        prompt_suggestion_module.ai_service,
+        ai_service,
         "generate",
         AsyncMock(
             side_effect=ExternalServiceException(

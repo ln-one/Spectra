@@ -14,9 +14,9 @@ from services.rag_api_service import (
     get_source_detail_response,
     get_source_image_response,
     index_file_response,
-    prompt_suggestions_response,
     search_knowledge_base_response,
 )
+from services.rag_api_service.prompt_suggestions import prompt_suggestions_response
 from utils.dependencies import get_current_user
 from utils.exceptions import APIException
 

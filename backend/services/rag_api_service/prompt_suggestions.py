@@ -8,7 +8,6 @@ from typing import Any
 from fastapi import status
 
 from schemas.rag import PromptSuggestionRequest
-from services.ai import ai_service
 from services.ai.model_router import ModelRouteTask
 from services.prompt_service import (
     PROMPT_SUGGESTION_SURFACE_POLICIES,
@@ -116,6 +115,8 @@ async def prompt_suggestions_response(
     )
 
     try:
+        from services.ai import ai_service
+
         ai_result = await ai_service.generate(
             prompt=prompt,
             route_task=ModelRouteTask.PROMPT_SUGGESTION,
