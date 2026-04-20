@@ -494,6 +494,7 @@ def test_send_message_response_contract_aligns_rag_and_observability(
     assert body["observability"]["has_rag_context"] is True
     assert isinstance(body["message"]["citations"], list)
     assert body["message"]["citations"][0]["chunk_id"] == "chunk-1"
+    assert body["message"]["citations"][0]["content_preview"] == "资料内容"
 
 
 def test_send_message_exposes_rag_failure_reason_when_retrieval_fails(

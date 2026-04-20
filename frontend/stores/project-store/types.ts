@@ -1,4 +1,5 @@
 import type { components as sdkComponents } from "@/lib/sdk/types";
+import type { CitationViewModel } from "@/lib/chat/citation-view-model";
 import {
   groupArtifactsByTool,
   type ArtifactHistoryByTool,
@@ -104,6 +105,11 @@ export type ExpandedTool =
   | null;
 export type StudioManagedTool = Exclude<ExpandedTool, "ppt" | null>;
 export type StudioChatWorkflowStep = "config" | "generate" | "preview";
+export interface SourceFocusRequest
+  extends Pick<
+    CitationViewModel,
+    "chunkId" | "filename" | "pageNumber" | "timestamp" | "contentPreview"
+  > {}
 
 export interface StudioChatContext {
   projectId: string;
@@ -217,7 +223,8 @@ export interface ProjectState {
   focusChatComposer: () => void;
   focusSourceByChunk: (
     chunkId: string,
-    projectId?: string | null
+    projectId?: string | null,
+    citation?: SourceFocusRequest | null
   ) => Promise<void>;
   clearActiveSource: () => void;
   refreshGenerationSession: (

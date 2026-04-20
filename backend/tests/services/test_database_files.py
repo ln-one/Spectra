@@ -15,7 +15,11 @@ class _FileDb(FileMixin):
                 find_many=AsyncMock(return_value=[]),
                 count=AsyncMock(return_value=0),
             ),
-            parsedchunk=SimpleNamespace(delete_many=AsyncMock(return_value=0)),
+            parsedchunk=SimpleNamespace(
+                create=AsyncMock(return_value=SimpleNamespace(id="chunk-1")),
+                find_many=AsyncMock(return_value=[]),
+                delete_many=AsyncMock(return_value=0),
+            ),
         )
 
 
@@ -76,3 +80,36 @@ async def test_delete_parsed_chunks_supports_count_attr_result():
     deleted = await db.delete_parsed_chunks("f-001")
 
     assert deleted == 5
+
+
+@pytest.mark.asyncio
+async def test_create_parsed_chunks_preserves_explicit_id():
+    db = _FileDb()
+
+    await db.create_parsed_chunks(
+        upload_id="f-001",
+        source_type="pdf",
+        chunks=[
+            {
+                "id": "chunk-stable-1",
+                "content": "stable content",
+                "chunk_index": 0,
+                "metadata": {"filename": "lesson.pdf"},
+            }
+        ],
+    )
+
+    data = db.db.parsedchunk.create.await_args.kwargs["data"]
+    assert data["id"] == "chunk-stable-1"
+    assert data["chunkIndex"] == 0
+
+
+@pytest.mark.asyncio
+async def test_list_parsed_chunks_orders_by_chunk_index():
+    db = _FileDb()
+
+    await db.list_parsed_chunks("f-001")
+
+    kwargs = db.db.parsedchunk.find_many.await_args.kwargs
+    assert kwargs["where"] == {"uploadId": "f-001"}
+    assert kwargs["order"] == {"chunkIndex": "asc"}

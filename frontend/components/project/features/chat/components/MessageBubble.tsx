@@ -195,7 +195,9 @@ export function MessageBubble({
                 key={`${citation.chunkId}-${i}`}
                 citation={citation}
                 index={i}
-                onClick={() => focusSourceByChunk(citation.chunkId, projectId)}
+                onClick={() =>
+                  focusSourceByChunk(citation.chunkId, projectId, citation)
+                }
               />
             ))}
           </motion.div>

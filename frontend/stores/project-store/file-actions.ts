@@ -2,7 +2,12 @@ import { filesApi, ragApi } from "@/lib/sdk";
 import { createApiError, getErrorMessage } from "@/lib/sdk/errors";
 import { toast } from "@/hooks/use-toast";
 import { resolveReadySelectedFileIds } from "./source-scope";
-import type { ProjectState, ProjectStoreContext, SourceDetail } from "./types";
+import type {
+  ProjectState,
+  ProjectStoreContext,
+  SourceDetail,
+  SourceFocusRequest,
+} from "./types";
 
 const SOURCE_REPAIR_COOLDOWN_MS = 5 * 60 * 1000;
 const ARCHIVE_URL_KEYS = [
@@ -126,6 +131,113 @@ function normalizeComparableText(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
+function normalizeSearchableText(value: unknown): string {
+  return normalizeComparableText(value).toLowerCase();
+}
+
+function isChunkMissingError(error: unknown): boolean {
+  const message = getErrorMessage(error);
+  return message.includes("分块不存在");
+}
+
+type SearchResultCandidate = {
+  chunk_id?: string;
+  content?: string;
+  score?: number;
+  source?: {
+    filename?: string;
+    page_number?: number;
+    timestamp?: number;
+  };
+};
+
+function toSearchResultCandidates(payload: unknown): SearchResultCandidate[] {
+  if (!Array.isArray(payload)) {
+    return [];
+  }
+  return payload.filter(
+    (item): item is SearchResultCandidate =>
+      Boolean(item) && typeof item === "object"
+  );
+}
+
+function buildReplacementQueries(citation: SourceFocusRequest): string[] {
+  const queries = [
+    citation.contentPreview,
+    citation.pageNumber
+      ? `${citation.filename} 第${citation.pageNumber}页`
+      : undefined,
+    typeof citation.timestamp === "number"
+      ? `${citation.filename} ${Math.round(citation.timestamp)}秒`
+      : undefined,
+    citation.filename,
+  ];
+  const seen = new Set<string>();
+  return queries
+    .map((value) => normalizeComparableText(value))
+    .filter((value) => {
+      if (!value || seen.has(value)) {
+        return false;
+      }
+      seen.add(value);
+      return true;
+    });
+}
+
+function pickBestReplacementChunkId(
+  candidates: SearchResultCandidate[],
+  citation: SourceFocusRequest
+): string | null {
+  const normalizedFilename = normalizeSearchableText(citation.filename);
+  const normalizedPreview = normalizeSearchableText(citation.contentPreview);
+  let bestChunkId: string | null = null;
+  let bestScore = Number.NEGATIVE_INFINITY;
+
+  for (const candidate of candidates) {
+    const chunkId = normalizeComparableText(candidate.chunk_id);
+    if (!chunkId) {
+      continue;
+    }
+
+    let score = Number(candidate.score) || 0;
+    const candidateFilename = normalizeSearchableText(candidate.source?.filename);
+    if (normalizedFilename && candidateFilename === normalizedFilename) {
+      score += 100;
+    }
+    if (
+      typeof citation.pageNumber === "number" &&
+      candidate.source?.page_number === citation.pageNumber
+    ) {
+      score += 60;
+    }
+    if (
+      typeof citation.timestamp === "number" &&
+      typeof candidate.source?.timestamp === "number" &&
+      Math.abs(candidate.source.timestamp - citation.timestamp) <= 3
+    ) {
+      score += 60;
+    }
+    if (normalizedPreview) {
+      const candidateContent = normalizeSearchableText(candidate.content);
+      if (candidateContent.includes(normalizedPreview)) {
+        score += 80;
+      } else if (
+        normalizedPreview.length >= 24 &&
+        candidateContent.includes(normalizedPreview.slice(0, 24))
+      ) {
+        score += 40;
+      }
+    }
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestChunkId = chunkId;
+    }
+  }
+
+  return bestChunkId;
+}
+
 function isSameSourceDetail(
   currentDetail: SourceDetail | null,
   nextDetail: SourceDetail | null
@@ -184,12 +296,88 @@ export function createFileActions({
   let filesPollingTimer: ReturnType<typeof setTimeout> | null = null;
   const sourceRepairLastTriggeredAt = new Map<string, number>();
   const sourceRepairInFlight = new Map<string, Promise<void>>();
+  const sourceDetailCache = new Map<string, SourceDetail>();
+  const sourceChunkRedirects = new Map<string, string>();
 
   const clearFilesPollingTimer = () => {
     if (filesPollingTimer) {
       clearTimeout(filesPollingTimer);
       filesPollingTimer = null;
     }
+  };
+
+  const cacheSourceDetail = (
+    detail: SourceDetail | null,
+    requestedChunkIds: Array<string | null | undefined> = []
+  ) => {
+    const actualChunkId = normalizeComparableText(detail?.chunk_id);
+    if (!actualChunkId || !detail) {
+      return;
+    }
+
+    sourceDetailCache.set(actualChunkId, detail);
+    for (const requestedChunkId of requestedChunkIds) {
+      const normalizedRequestedChunkId =
+        normalizeComparableText(requestedChunkId);
+      if (!normalizedRequestedChunkId) {
+        continue;
+      }
+      sourceDetailCache.set(normalizedRequestedChunkId, detail);
+      if (normalizedRequestedChunkId !== actualChunkId) {
+        sourceChunkRedirects.set(normalizedRequestedChunkId, actualChunkId);
+      }
+    }
+  };
+
+  const getCachedSourceDetail = (chunkId: string): SourceDetail | null => {
+    const normalizedChunkId = normalizeComparableText(chunkId);
+    if (!normalizedChunkId) {
+      return null;
+    }
+    const redirectedChunkId =
+      sourceChunkRedirects.get(normalizedChunkId) ?? normalizedChunkId;
+    return (
+      sourceDetailCache.get(normalizedChunkId) ??
+      sourceDetailCache.get(redirectedChunkId) ??
+      null
+    );
+  };
+
+  const resolveSourceDetailByCitation = async (
+    citation: SourceFocusRequest,
+    projectId: string
+  ): Promise<SourceDetail | null> => {
+    const matchingFileIds = get()
+      .files.filter(
+        (file) =>
+          normalizeSearchableText(file.filename) ===
+          normalizeSearchableText(citation.filename)
+      )
+      .map((file) => file.id);
+
+    const queries = buildReplacementQueries(citation);
+    for (const query of queries) {
+      const searchResponse = await ragApi.search({
+        project_id: projectId,
+        query,
+        top_k: 12,
+        filters:
+          matchingFileIds.length > 0 ? { file_ids: matchingFileIds } : undefined,
+      });
+      const replacementChunkId = pickBestReplacementChunkId(
+        toSearchResultCandidates(searchResponse?.data?.results),
+        citation
+      );
+      if (!replacementChunkId) {
+        continue;
+      }
+      const detailResponse = await ragApi.getSourceDetail(
+        replacementChunkId,
+        projectId
+      );
+      return detailResponse?.data ?? null;
+    }
+    return null;
   };
 
   return {
@@ -287,9 +475,21 @@ export function createFileActions({
       }));
     },
 
-    focusSourceByChunk: async (chunkId: string, projectId?: string | null) => {
+    focusSourceByChunk: async (
+      chunkId: string,
+      projectId?: string | null,
+      citation?: SourceFocusRequest | null
+    ) => {
       try {
         const activeSourceDetail = get().activeSourceDetail;
+        const cachedDetail = getCachedSourceDetail(chunkId);
+        if (cachedDetail) {
+          set((state) => ({
+            activeSourceDetail: cachedDetail,
+            activeSourceFocusNonce: state.activeSourceFocusNonce + 1,
+          }));
+          return;
+        }
         if (activeSourceDetail?.chunk_id === chunkId) {
           set((state) => ({
             activeSourceFocusNonce: state.activeSourceFocusNonce + 1,
@@ -298,11 +498,28 @@ export function createFileActions({
         }
 
         const currentProjectId = projectId ?? get().project?.id ?? undefined;
-        const response = await ragApi.getSourceDetail(
-          chunkId,
-          projectId ?? undefined
-        );
-        const detail = response?.data ?? null;
+        let detail: SourceDetail | null = null;
+        try {
+          const response = await ragApi.getSourceDetail(
+            chunkId,
+            projectId ?? undefined
+          );
+          detail = response?.data ?? null;
+        } catch (error) {
+          if (
+            currentProjectId &&
+            citation &&
+            isChunkMissingError(error)
+          ) {
+            detail = await resolveSourceDetailByCitation(citation, currentProjectId);
+          } else {
+            throw error;
+          }
+        }
+        if (!detail) {
+          throw new Error(`分块不存在: ${chunkId}`);
+        }
+        cacheSourceDetail(detail, [chunkId, citation?.chunkId]);
         set((state) => ({
           activeSourceDetail: detail,
           activeSourceFocusNonce: state.activeSourceFocusNonce + 1,
@@ -325,17 +542,51 @@ export function createFileActions({
                 if (currentProjectId && activeChunkIdBeforeRefresh !== chunkId) {
                   await get().fetchFiles(currentProjectId);
                 }
-                const refreshed = await ragApi.getSourceDetail(
-                  chunkId,
-                  currentProjectId
-                );
-                const refreshedDetail = refreshed?.data ?? null;
+                let refreshedDetail: SourceDetail | null = null;
+                try {
+                  const refreshed = await ragApi.getSourceDetail(
+                    chunkId,
+                    currentProjectId
+                  );
+                  refreshedDetail = refreshed?.data ?? null;
+                } catch (refreshError) {
+                  if (currentProjectId) {
+                    refreshedDetail = await resolveSourceDetailByCitation(
+                      {
+                        chunkId,
+                        filename:
+                          normalizeComparableText(detail?.source?.filename) ||
+                          normalizeComparableText(detail?.file_info?.filename),
+                        pageNumber:
+                          typeof detail?.source?.page_number === "number"
+                            ? detail.source.page_number
+                            : undefined,
+                        timestamp:
+                          typeof detail?.source?.timestamp === "number"
+                            ? detail.source.timestamp
+                            : undefined,
+                        contentPreview:
+                          normalizeComparableText(detail?.content) || undefined,
+                      },
+                      currentProjectId
+                    );
+                  }
+                  if (!refreshedDetail && !isChunkMissingError(refreshError)) {
+                    throw refreshError;
+                  }
+                }
                 if (!refreshedDetail) {
                   return;
                 }
+                cacheSourceDetail(refreshedDetail, [chunkId]);
                 set((state) => {
                   const activeDetail = state.activeSourceDetail;
-                  if (activeDetail?.chunk_id !== chunkId) {
+                  const expectedChunkId =
+                    sourceChunkRedirects.get(chunkId) ?? chunkId;
+                  if (
+                    activeDetail?.chunk_id !== chunkId &&
+                    activeDetail?.chunk_id !== expectedChunkId
+                  ) {
                     return {};
                   }
                   if (isSameSourceDetail(activeDetail, refreshedDetail)) {

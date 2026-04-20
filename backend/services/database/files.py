@@ -86,17 +86,27 @@ class FileMixin:
     ):
         created = []
         for idx, chunk in enumerate(chunks):
+            data = {
+                "uploadId": upload_id,
+                "content": chunk["content"],
+                "chunkIndex": chunk.get("chunk_index", idx),
+                "metadata": json.dumps(chunk.get("metadata", {})),
+                "sourceType": source_type,
+            }
+            explicit_id = chunk.get("id")
+            if explicit_id is not None:
+                data["id"] = explicit_id
             item = await self.db.parsedchunk.create(
-                data={
-                    "uploadId": upload_id,
-                    "content": chunk["content"],
-                    "chunkIndex": chunk.get("chunk_index", idx),
-                    "metadata": json.dumps(chunk.get("metadata", {})),
-                    "sourceType": source_type,
-                }
+                data=data
             )
             created.append(item)
         return created
+
+    async def list_parsed_chunks(self, upload_id: str):
+        return await self.db.parsedchunk.find_many(
+            where={"uploadId": upload_id},
+            order={"chunkIndex": "asc"},
+        )
 
     async def delete_parsed_chunks(self, upload_id: str) -> int:
         result = await self.db.parsedchunk.delete_many(where={"uploadId": upload_id})
