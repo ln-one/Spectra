@@ -311,7 +311,7 @@ export function PreviewCopilotDrawer({
           </div>
           <div>
             <div className="truncate text-sm font-semibold text-[#1d1d1f]">
-              Preview Copilot
+              智能助手
             </div>
             <div className="mt-0.5 text-[10px] leading-none text-black/45">
               预览上下文、节点编辑与单页重做
@@ -485,7 +485,7 @@ export function PreviewCopilotDrawer({
           <section className="space-y-4">
             <div className="flex items-center gap-2">
               <div className="h-4 w-1 rounded-full bg-orange-500" />
-              <h3 className="text-sm font-semibold text-[#1d1d1f]">Copilot 对话</h3>
+              <h3 className="text-sm font-semibold text-[#1d1d1f]">Spectra 助手</h3>
             </div>
             <div className="space-y-3">
               {isLoading ? (

@@ -452,7 +452,7 @@ export default function StreamingWorkbenchPageView() {
     : hasAnyRenderableSlide
       ? "单页可预览"
       : isLoading
-        ? "读取单页 SVG"
+        ? "读取单页预览图"
         : isSessionGenerating
           ? "同步预览中"
           : "已同步";
@@ -596,7 +596,7 @@ export default function StreamingWorkbenchPageView() {
                   <Loader2 className="h-4 w-4 animate-spin text-amber-500 shrink-0" />
                   <div className="min-w-0 flex-1">
                     <p className="text-xs font-medium text-amber-700">
-                      {showPreviewLoadingNotice ? "正在读取单页 SVG..." : "正在同步可预览页..."}
+                      {showPreviewLoadingNotice ? "正在读取单页预览图..." : "正在同步可预览页..."}
                     </p>
                     <div className="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-amber-200/50">
                       <div className="h-full bg-amber-400" style={{ width: `${Math.max(5, (orderedSlides.length / Math.max(1, 10)) * 100)}%` }} />
