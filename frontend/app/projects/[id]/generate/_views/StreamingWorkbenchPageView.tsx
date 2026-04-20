@@ -9,16 +9,8 @@ import {
   ChevronRight,
   Download,
   Loader2,
-  Menu,
   MonitorPlay,
-  Play,
   Save,
-  Square,
-  Table,
-  Type,
-  Image as ImageIcon,
-  FunctionSquare,
-  Wand2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { AuthorityEditableScene } from "./components/EditableAuthorityHtmlStage";
@@ -179,6 +171,14 @@ function summarizeAuthoritySlide(slide: AuthoritySlide | null | undefined): stri
   }
   if (slide.svg_data_url) return "Pagevra SVG preview";
   return "";
+}
+
+function isCompletedRun(
+  run: { run_status?: string | null; run_step?: string | null } | null | undefined
+): boolean {
+  const status = String(run?.run_status || "").toLowerCase();
+  const step = String(run?.run_step || "").toLowerCase();
+  return status === "completed" || step === "completed";
 }
 
 function isBadRunTitle(value: string | null | undefined): boolean {
@@ -444,7 +444,23 @@ export default function StreamingWorkbenchPageView() {
   const hasAnyRenderableSlide = slideSlots.some((slot) =>
     slotHasRenderablePreview(slot)
   );
-  const canModifyCurrentSlide = Boolean(activeSessionId && activeRunId && activeSlideSlot);
+  const isRunCompleted = isCompletedRun(currentRunDetail);
+  const showPreviewLoadingNotice = isLoading && !hasAnyRenderableSlide;
+  const showGeneratingNotice = isSessionGenerating && !hasAnyRenderableSlide && !isLoading;
+  const syncStatusLabel = isRunCompleted
+    ? "已完成"
+    : hasAnyRenderableSlide
+      ? "单页可预览"
+      : isLoading
+        ? "读取单页 SVG"
+        : isSessionGenerating
+          ? "同步预览中"
+          : "已同步";
+  const syncStatusDotClass = isRunCompleted || hasAnyRenderableSlide
+    ? "bg-emerald-500"
+    : isLoading || isSessionGenerating
+      ? "animate-pulse bg-amber-500"
+      : "bg-emerald-500";
   const showWaitingState =
     !runSelectionBlocked &&
     !previewBlockedReason &&
@@ -453,9 +469,7 @@ export default function StreamingWorkbenchPageView() {
     !isSessionGenerating &&
     !hasAnyRenderableSlide;
 
-  const canExport = Boolean(
-    currentRunDetail?.artifact_id || currentArtifactId
-  );
+  const canExport = isRunCompleted;
 
   return (
     <div
@@ -577,20 +591,25 @@ export default function StreamingWorkbenchPageView() {
           {/* Thumbnails */}
           <div className="flex-1 overflow-y-auto px-3 pb-3">
             <div className="flex flex-col gap-2">
-              {isSessionGenerating && (
+              {showPreviewLoadingNotice || showGeneratingNotice ? (
                 <div className="flex items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 mb-1 shadow-sm">
                   <Loader2 className="h-4 w-4 animate-spin text-amber-500 shrink-0" />
                   <div className="min-w-0 flex-1">
-                    <p className="text-xs font-medium text-amber-700">生成中...</p>
+                    <p className="text-xs font-medium text-amber-700">
+                      {showPreviewLoadingNotice ? "正在读取单页 SVG..." : "正在同步可预览页..."}
+                    </p>
                     <div className="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-amber-200/50">
                       <div className="h-full bg-amber-400" style={{ width: `${Math.max(5, (orderedSlides.length / Math.max(1, 10)) * 100)}%` }} />
                     </div>
                   </div>
                 </div>
-              )}
+              ) : null}
               {slideSlots.map((slide) => {
                 if (slide.isPlaceholder) {
                   if (hasAnyRenderableSlide) {
+                    return null;
+                  }
+                  if (isLoading && slide.index > 0) {
                     return null;
                   }
                   return (
@@ -605,7 +624,7 @@ export default function StreamingWorkbenchPageView() {
                         {String(slide.index + 1).padStart(2, "0")}
                       </span>
                       <span className="absolute bottom-2 left-2 right-2 line-clamp-1 text-[11px] font-medium text-black/40">
-                        等待生成...
+                        {isLoading ? "正在加载预览..." : "等待 Pagevra SVG"}
                       </span>
                     </div>
                   );
@@ -692,10 +711,10 @@ export default function StreamingWorkbenchPageView() {
               <span
                 className={cn(
                   "inline-flex h-1.5 w-1.5 rounded-full",
-                  isSessionGenerating ? "animate-pulse bg-amber-500" : "bg-emerald-500"
+                  syncStatusDotClass
                 )}
               />
-              <span>{isSessionGenerating ? "生成中" : "已同步"}</span>
+              <span>{syncStatusLabel}</span>
               {diegoPreviewContext?.palette ? (
                 <span className="rounded bg-black/5 px-1 py-0.5">
                   {diegoPreviewContext.palette}
@@ -764,7 +783,7 @@ export default function StreamingWorkbenchPageView() {
             ) : isLoading ? (
               <div className="flex flex-col items-center justify-center m-auto gap-3 text-white/70">
                 <Loader2 className="h-10 w-10 animate-spin text-[var(--deck-accent)]" />
-                <p className="text-sm">正在同步 Diego 预览...</p>
+                <p className="text-sm">正在读取 Pagevra 单页 SVG...</p>
               </div>
             ) : previewBlockedReason && !hasAnyRenderableSlide ? (
               <div className="flex flex-col items-center justify-center m-auto gap-3 text-white/70">
@@ -774,7 +793,7 @@ export default function StreamingWorkbenchPageView() {
             ) : showWaitingState ? (
               <div className="flex flex-col items-center justify-center m-auto gap-3 text-white/70">
                 <Loader2 className="h-10 w-10 animate-spin text-[var(--deck-accent)]" />
-                <p className="text-sm">run 已绑定，等待第一页渲染...</p>
+                <p className="text-sm">run 已绑定，正在等待第一页 SVG...</p>
               </div>
             ) : null}
           </section>
