@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 import json
 import re
 from datetime import datetime, timezone
@@ -35,7 +36,11 @@ def extract_json_object(raw: str) -> dict[str, Any]:
         match = re.search(r"\{.*\}", text, flags=re.DOTALL)
         if not match:
             raise
-        parsed = json.loads(match.group(0))
+        candidate = match.group(0)
+        try:
+            parsed = json.loads(candidate)
+        except json.JSONDecodeError:
+            parsed = ast.literal_eval(candidate)
     if not isinstance(parsed, dict):
         raise ValueError("model response is not a JSON object")
     return parsed

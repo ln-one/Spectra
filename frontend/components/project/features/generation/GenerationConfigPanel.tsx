@@ -400,6 +400,13 @@ export function GenerationConfigPanel({
                         正在刷新提示池
                       </span>
                     ) : null}
+                    {suggestionStatus === "failed" &&
+                    suggestions.length === 0 &&
+                    !loadingSuggestions ? (
+                      <span className="text-xs text-amber-600">
+                        提示池生成失败，点击“换一批”重试
+                      </span>
+                    ) : null}
                     {!loadingSuggestions &&
                     suggestions.length === 0 &&
                     suggestionErrorMessage ? (

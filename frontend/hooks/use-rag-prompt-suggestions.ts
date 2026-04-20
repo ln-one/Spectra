@@ -101,8 +101,9 @@ export function useRagPromptSuggestions({
   );
 
   const reload = useCallback(async () => {
-    await loadBatch(nextCursor ?? cursorRef.current, false);
-  }, [loadBatch, nextCursor]);
+    const shouldRefresh = status === "failed" || status === "empty";
+    await loadBatch(nextCursor ?? cursorRef.current, shouldRefresh);
+  }, [loadBatch, nextCursor, status]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {

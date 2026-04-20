@@ -112,7 +112,8 @@ async def test_prompt_suggestion_pool_miss_returns_generating_and_enqueues(
     assert response["data"]["status"] == "generating"
     assert response["data"]["suggestions"] == []
     assert mark_generating.await_count == 1
-    assert enqueued[0]["surfaces"] == [PromptSuggestionSurface.STUDIO_GAME]
+    assert PromptSuggestionSurface.STUDIO_GAME in enqueued[0]["surfaces"]
+    assert PromptSuggestionSurface.PPT_GENERATION_CONFIG in enqueued[0]["surfaces"]
 
 
 @pytest.mark.asyncio

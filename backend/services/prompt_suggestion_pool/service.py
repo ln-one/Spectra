@@ -23,6 +23,7 @@ from .storage import (
     should_refresh,
     upsert_cache,
 )
+from .constants import ALL_PROMPT_SUGGESTION_SURFACES
 
 logger = logging.getLogger(__name__)
 
@@ -107,10 +108,15 @@ async def prompt_suggestions_pool_response(
                 surface=request.surface,
                 source_fingerprint=source_fingerprint,
             )
+            surfaces_to_enqueue = (
+                list(ALL_PROMPT_SUGGESTION_SURFACES)
+                if cache is None
+                else [request.surface]
+            )
             enqueue_project_prompt_suggestion_refresh(
                 task_queue_service=task_queue_service,
                 project_id=request.project_id,
-                surfaces=[request.surface],
+                surfaces=surfaces_to_enqueue,
                 source_fingerprint=source_fingerprint,
             )
 
