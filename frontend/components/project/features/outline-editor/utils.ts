@@ -748,6 +748,7 @@ export function readOutlineRunCache(
       -120000
     );
     const analysisPageCount = Number(parsed.analysisPageCount || 0);
+    const lastDiegoSeq = Number(parsed.lastDiegoSeq || 0);
     return {
       sessionId,
       runId,
@@ -759,6 +760,10 @@ export function readOutlineRunCache(
       analysisPageCount:
         Number.isFinite(analysisPageCount) && analysisPageCount > 0
           ? Math.round(analysisPageCount)
+          : 0,
+      lastDiegoSeq:
+        Number.isFinite(lastDiegoSeq) && lastDiegoSeq > 0
+          ? Math.round(lastDiegoSeq)
           : 0,
       updatedAt: updatedAtText || new Date().toISOString(),
     };
@@ -784,6 +789,7 @@ export function writeOutlineRunCache(
       outlineStreamText: payload.outlineStreamText.slice(-120000),
       slides: payload.slides.slice(0, 60),
       analysisPageCount: payload.analysisPageCount,
+      lastDiegoSeq: payload.lastDiegoSeq,
       updatedAt: new Date().toISOString(),
     };
     window.localStorage.setItem(storageKey, JSON.stringify(serializable));
