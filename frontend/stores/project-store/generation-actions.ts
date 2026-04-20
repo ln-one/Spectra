@@ -100,6 +100,23 @@ function readSessionSnapshotArtifacts(
 
   const fallbackTimestamp = new Date().toISOString();
   const normalized: Artifact[] = [];
+  const allowedArtifactTypes: Artifact["type"][] = [
+    "summary",
+    "html",
+    "gif",
+    "pptx",
+    "docx",
+    "mindmap",
+    "exercise",
+    "mp4",
+  ];
+  const normalizeArtifactType = (value: unknown): Artifact["type"] => {
+    if (typeof value !== "string") return "summary";
+    const normalizedValue = value.trim() as Artifact["type"];
+    return allowedArtifactTypes.includes(normalizedValue)
+      ? normalizedValue
+      : "summary";
+  };
 
   for (const raw of rawArtifacts) {
     if (!raw || typeof raw !== "object") continue;
@@ -107,10 +124,7 @@ function readSessionSnapshotArtifacts(
     const id = typeof row.artifact_id === "string" ? row.artifact_id.trim() : "";
     if (!id) continue;
 
-    const type =
-      typeof row.type === "string" && row.type.trim()
-        ? row.type.trim()
-        : "summary";
+    const type = normalizeArtifactType(row.type);
     const createdAt =
       typeof row.created_at === "string" && row.created_at.trim()
         ? row.created_at.trim()
@@ -156,16 +170,16 @@ function readSessionSnapshotArtifacts(
 
     normalized.push({
       id,
-      projectId,
-      sessionId,
-      basedOnVersionId,
-      ownerUserId: null,
+      project_id: projectId,
+      session_id: sessionId,
+      based_on_version_id: basedOnVersionId,
+      owner_user_id: null,
       type,
       visibility: "private",
-      storagePath: null,
+      storage_path: undefined,
       metadata,
-      createdAt,
-      updatedAt,
+      created_at: createdAt,
+      updated_at: updatedAt,
     });
   }
 
