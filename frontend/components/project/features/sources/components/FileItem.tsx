@@ -247,7 +247,7 @@ export function FileItem({
     const compactHint = `${resolvedDisplayName}\n${resolvedStatusText}`;
     return (
       <motion.div
-        layout="position"
+        layout
         initial={{ opacity: 0, y: 8, scale: 0.96 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={{ opacity: 0, y: -8, scale: 0.96 }}
@@ -290,7 +290,7 @@ export function FileItem({
 
   return (
     <motion.div
-      layout="position"
+      layout
       initial={{ opacity: 0, y: 8, scale: 0.96 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, y: -8, scale: 0.96 }}
@@ -309,7 +309,7 @@ export function FileItem({
     >
       {isFocused ? (
         <motion.div
-          layout="position"
+          layout
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -391,7 +391,7 @@ export function FileItem({
         </motion.div>
       ) : null}
 
-      <AnimatePresence initial={false}>
+      <AnimatePresence>
         {isExpanded ? (
           <motion.div
             key={`expand-${file.id}`}
@@ -429,7 +429,7 @@ export function FileItem({
         ) : null}
       </AnimatePresence>
 
-      <AnimatePresence initial={false}>
+      <AnimatePresence>
         {isExpanded && isFocused && focusDetail?.content ? (
           <motion.div
             key={`focus-${file.id}`}

@@ -46,6 +46,27 @@ function isFallbackSessionTitle(title: string, sessionId: string): boolean {
   return normalized === `会话 ${sessionId.slice(-6)}`;
 }
 
+function areGenerationHistoriesEquivalent(
+  currentHistory: GenerationHistory[],
+  nextHistory: GenerationHistory[]
+): boolean {
+  if (currentHistory === nextHistory) return true;
+  if (currentHistory.length !== nextHistory.length) return false;
+  return currentHistory.every((currentItem, index) => {
+    const nextItem = nextHistory[index];
+    return (
+      currentItem?.id === nextItem?.id &&
+      currentItem?.toolId === nextItem?.toolId &&
+      currentItem?.toolName === nextItem?.toolName &&
+      currentItem?.status === nextItem?.status &&
+      currentItem?.sessionState === nextItem?.sessionState &&
+      currentItem?.createdAt === nextItem?.createdAt &&
+      currentItem?.title === nextItem?.title &&
+      currentItem?.titleSource === nextItem?.titleSource
+    );
+  });
+}
+
 function resolveOutlineBaseVersion(
   session: SessionStatePayload | null | undefined
 ): number {
@@ -113,8 +134,23 @@ export function createGenerationActions({
           activeSessionId === get().generationSession?.session?.session_id
             ? extractCurrentRunId(get().generationSession)
             : null;
-        set({ generationHistory: history, activeSessionId, activeRunId });
-        await get().fetchArtifactHistory(projectId, activeSessionId);
+        const previousState = get();
+        const historyChanged = !areGenerationHistoriesEquivalent(
+          previousState.generationHistory,
+          history
+        );
+        const activeSessionChanged =
+          previousState.activeSessionId !== activeSessionId;
+        const activeRunChanged = previousState.activeRunId !== activeRunId;
+
+        if (historyChanged || activeSessionChanged || activeRunChanged) {
+          set({
+            generationHistory: history,
+            activeSessionId,
+            activeRunId,
+          });
+          await get().fetchArtifactHistory(projectId, activeSessionId);
+        }
       } catch (error) {
         const message = getErrorMessage(error);
         toast({
