@@ -34,7 +34,6 @@ export function useSourcesPanelController({
     deleteFile,
     toggleFileSelection,
     activeSourceDetail,
-    clearActiveSource,
   } = useProjectStore(
     useShallow((state) => ({
       files: state.files,
@@ -43,7 +42,6 @@ export function useSourcesPanelController({
       deleteFile: state.deleteFile,
       toggleFileSelection: state.toggleFileSelection,
       activeSourceDetail: state.activeSourceDetail,
-      clearActiveSource: state.clearActiveSource,
     }))
   );
   const { addNotification, updateNotification, replaceNotification } =
@@ -155,11 +153,8 @@ export function useSourcesPanelController({
   const collapseFile = useCallback(
     (fileId: string) => {
       setExpandedIds((prev) => ({ ...prev, [fileId]: false }));
-      if (focusedFileId === fileId) {
-        clearActiveSource();
-      }
     },
-    [focusedFileId, clearActiveSource]
+    []
   );
 
   const handleFileSelect = useCallback(

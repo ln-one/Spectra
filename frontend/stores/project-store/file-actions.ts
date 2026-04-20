@@ -169,6 +169,24 @@ function isSameSourceDetail(
   );
 }
 
+function cloneSourceDetail(detail: SourceDetail): SourceDetail {
+  return {
+    ...detail,
+    file_info:
+      detail.file_info && typeof detail.file_info === "object"
+        ? { ...detail.file_info }
+        : detail.file_info,
+    source:
+      detail.source && typeof detail.source === "object"
+        ? { ...detail.source }
+        : detail.source,
+    context:
+      detail.context && typeof detail.context === "object"
+        ? { ...detail.context }
+        : detail.context,
+  };
+}
+
 export function createFileActions({
   set,
   get,
@@ -289,6 +307,12 @@ export function createFileActions({
 
     focusSourceByChunk: async (chunkId: string, projectId?: string | null) => {
       try {
+        const activeSourceDetail = get().activeSourceDetail;
+        if (activeSourceDetail?.chunk_id === chunkId) {
+          set({ activeSourceDetail: cloneSourceDetail(activeSourceDetail) });
+          return;
+        }
+
         const currentProjectId = projectId ?? get().project?.id ?? undefined;
         const response = await ragApi.getSourceDetail(
           chunkId,

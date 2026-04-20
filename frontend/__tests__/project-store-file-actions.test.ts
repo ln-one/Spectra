@@ -57,7 +57,10 @@ function createStoreHarness() {
     ...state,
     ...(actions as unknown as Partial<MutableStoreState>),
   };
-  return { actions };
+  return {
+    actions,
+    getState: () => state,
+  };
 }
 
 describe("project store source lazy repair", () => {
@@ -100,5 +103,33 @@ describe("project store source lazy repair", () => {
 
     expect(mockedIndexFile).toHaveBeenCalledTimes(1);
     expect(mockedIndexFile).toHaveBeenCalledWith({ file_id: "file-1" });
+  });
+
+  it("reuses the active source detail when the same chunk is focused again", async () => {
+    const { actions, getState } = createStoreHarness();
+    mockedGetSourceDetail.mockResolvedValue({
+      data: {
+        chunk_id: "chunk-1",
+        content: "quoted content",
+        file_info: {
+          id: "file-1",
+          parse_result: {},
+        },
+        source: {
+          source_type: "document",
+          page_number: 3,
+        },
+      },
+    } as never);
+
+    await actions.focusSourceByChunk("chunk-1", "proj-1");
+    const firstActiveDetail = getState().activeSourceDetail;
+
+    await actions.focusSourceByChunk("chunk-1", "proj-1");
+    const secondActiveDetail = getState().activeSourceDetail;
+
+    expect(mockedGetSourceDetail).toHaveBeenCalledTimes(1);
+    expect(secondActiveDetail).toEqual(firstActiveDetail);
+    expect(secondActiveDetail).not.toBe(firstActiveDetail);
   });
 });

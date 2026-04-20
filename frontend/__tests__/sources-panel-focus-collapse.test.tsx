@@ -1,0 +1,176 @@
+import type { ReactNode } from "react";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { SourcesPanel } from "@/components/project/features/sources/SourcesPanel";
+import { useProjectStore } from "@/stores/projectStore";
+import { useNotificationStore } from "@/stores/notificationStore";
+
+jest.mock("framer-motion", () => {
+  const React = require("react") as typeof import("react");
+  const MOTION_PROP_NAMES = new Set([
+    "animate",
+    "exit",
+    "initial",
+    "layout",
+    "transition",
+    "whileHover",
+    "whileTap",
+    "whileInView",
+    "viewport",
+  ]);
+
+  return {
+    AnimatePresence: ({ children }: { children: ReactNode }) => <>{children}</>,
+    motion: new Proxy(
+      {},
+      {
+        get: (_target, tagName: string) =>
+          React.forwardRef(
+            (
+              { children, ...props }: React.HTMLAttributes<HTMLElement>,
+              ref: React.Ref<HTMLElement>
+            ) => {
+              const domProps = Object.fromEntries(
+                Object.entries(props).filter(
+                  ([propName]) => !MOTION_PROP_NAMES.has(propName)
+                )
+              );
+              return React.createElement(tagName, { ...domProps, ref }, children);
+            }
+          ),
+      }
+    ),
+  };
+});
+
+jest.mock("react-markdown", () => ({
+  __esModule: true,
+  default: ({ children }: { children: ReactNode }) => <>{children}</>,
+}));
+
+jest.mock("remark-gfm", () => ({
+  __esModule: true,
+  default: () => undefined,
+}));
+
+jest.mock("rehype-raw", () => ({
+  __esModule: true,
+  default: () => undefined,
+}));
+
+jest.mock("rehype-sanitize", () => ({
+  __esModule: true,
+  default: () => undefined,
+  defaultSchema: {},
+}));
+
+jest.mock("@/stores/projectStore", () => ({
+  ...jest.requireActual("@/stores/projectStore"),
+  useProjectStore: jest.fn(),
+}));
+
+jest.mock("@/stores/notificationStore", () => ({
+  useNotificationStore: jest.fn(),
+}));
+
+describe("SourcesPanel focused source collapse", () => {
+  const mockedProjectStore = useProjectStore as unknown as jest.Mock;
+  const mockedNotificationStore =
+    useNotificationStore as unknown as jest.Mock;
+
+  beforeAll(() => {
+    class ResizeObserverMock {
+      observe() {
+        return undefined;
+      }
+      disconnect() {
+        return undefined;
+      }
+    }
+
+    Object.defineProperty(globalThis, "ResizeObserver", {
+      writable: true,
+      configurable: true,
+      value: ResizeObserverMock,
+    });
+
+    Object.defineProperty(globalThis, "requestAnimationFrame", {
+      writable: true,
+      configurable: true,
+      value: (callback: FrameRequestCallback) => setTimeout(callback, 0),
+    });
+
+    Object.defineProperty(globalThis, "cancelAnimationFrame", {
+      writable: true,
+      configurable: true,
+      value: (handle: number) => clearTimeout(handle),
+    });
+
+    Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+      writable: true,
+      configurable: true,
+      value: jest.fn(),
+    });
+
+    Object.defineProperty(HTMLElement.prototype, "offsetWidth", {
+      configurable: true,
+      get() {
+        return 480;
+      },
+    });
+
+    Object.defineProperty(HTMLElement.prototype, "offsetHeight", {
+      configurable: true,
+      get() {
+        return 720;
+      },
+    });
+  });
+
+  beforeEach(() => {
+    mockedNotificationStore.mockReturnValue({
+      addNotification: jest.fn(),
+      updateNotification: jest.fn(),
+      replaceNotification: jest.fn(),
+    });
+  });
+
+  it("keeps the active source detail when collapsing focused content", async () => {
+    const clearActiveSource = jest.fn();
+    mockedProjectStore.mockReturnValue({
+      files: [
+        {
+          id: "file-1",
+          filename: "lesson.pdf",
+          file_type: "pdf",
+          file_size: 128,
+          status: "ready",
+          created_at: "2026-04-20T00:00:00Z",
+          updated_at: "2026-04-20T00:00:00Z",
+        },
+      ],
+      selectedFileIds: [],
+      uploadFile: jest.fn(),
+      deleteFile: jest.fn(),
+      toggleFileSelection: jest.fn(),
+      activeSourceDetail: {
+        chunk_id: "chunk-1",
+        content: "quoted content",
+        file_info: {
+          id: "file-1",
+        },
+        source: {
+          source_type: "document",
+          page_number: 2,
+        },
+        context: {},
+      },
+      clearActiveSource,
+    });
+
+    render(<SourcesPanel projectId="proj_1" />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "收起内容" }));
+
+    expect(clearActiveSource).not.toHaveBeenCalled();
+  });
+});
