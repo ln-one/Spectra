@@ -292,6 +292,7 @@ class StudioCardRefineRequest(BaseModel):
 class StudioCardTurnRequest(BaseModel):
     project_id: str
     artifact_id: str
+    session_id: Optional[str] = None
     teacher_answer: str
     config: dict = Field(default_factory=dict)
     selected_file_ids: Optional[List[str]] = None

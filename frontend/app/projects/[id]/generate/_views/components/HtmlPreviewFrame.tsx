@@ -50,7 +50,6 @@ export function HtmlPreviewFrame({
   interactive = false,
   viewportWidth = 960,
   viewportHeight = 540,
-  zoom = "fit",
 }: {
   title: string;
   html: string;

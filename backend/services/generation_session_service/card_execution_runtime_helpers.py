@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import json
+import re
 
 from services.database import db_service
+from services.file_parser import extract_text_for_rag
 from schemas.project_space import ArtifactType
 from schemas.studio_cards import ExecutionCarrier, RefineMode
 from services.project_space_service import project_space_service
@@ -49,7 +51,59 @@ def supports_structured_refine(card_id: str) -> bool:
 
 
 def _is_animation_artifact_type(artifact_type: str | None) -> bool:
-    return artifact_type in {ArtifactType.GIF.value, ArtifactType.MP4.value}
+    return artifact_type in {ArtifactType.GIF.value, ArtifactType.HTML.value}
+
+
+def _is_legacy_animation_artifact_type(artifact_type: str | None) -> bool:
+    return artifact_type in {
+        ArtifactType.GIF.value,
+        ArtifactType.HTML.value,
+        ArtifactType.MP4.value,
+    }
+
+
+def _normalize_docx_preview_markdown(title: str, text: str) -> str:
+    normalized_text = str(text or "").replace("\r\n", "\n").replace("\r", "\n")
+    normalized_text = re.sub(r"[\x00-\x08\x0B\x0C\x0E-\x1F]", "", normalized_text)
+    normalized_text = normalized_text.replace("\u21b5", "\n")
+    normalized_text = normalized_text.replace("\ufeff", "")
+    normalized_text = re.sub(r"[\u200b\u200c\u200d\xa0]", " ", normalized_text)
+    normalized_text = re.sub(r"[ \t]+", " ", normalized_text)
+    lines = [line.strip() for line in normalized_text.split("\n")]
+    lines = [line for line in lines if line]
+    body = "\n\n".join(lines).strip()
+    normalized_title = str(title or "").strip()
+    if normalized_title and body:
+        return f"# {normalized_title}\n\n{body}"
+    if normalized_title:
+        return f"# {normalized_title}"
+    return body
+
+
+def _load_docx_content_from_storage(artifact) -> dict:
+    storage_path = str(getattr(artifact, "storagePath", None) or "").strip()
+    if not storage_path:
+        return {}
+    sidecar = load_docx_content_sidecar(storage_path)
+    if sidecar:
+        return sidecar
+    metadata = artifact_metadata_dict(artifact)
+    extracted_text, _ = extract_text_for_rag(
+        storage_path,
+        str(getattr(artifact, "id", None) or "document.docx"),
+        "word",
+    )
+    markdown = _normalize_docx_preview_markdown(
+        str(metadata.get("title") or "").strip(),
+        extracted_text,
+    )
+    if not markdown:
+        return {}
+    return {
+        "title": str(metadata.get("title") or "").strip(),
+        "markdown_content": markdown,
+        "lesson_plan_markdown": markdown,
+    }
 
 
 def artifact_result_payload(
@@ -227,7 +281,7 @@ async def validate_source_artifact(
 
 async def load_artifact_content(artifact) -> dict:
     artifact_type = str(getattr(artifact, "type", None) or "").strip().lower()
-    if _is_animation_artifact_type(getattr(artifact, "type", None)):
+    if _is_legacy_animation_artifact_type(getattr(artifact, "type", None)):
         metadata = artifact_metadata_dict(artifact)
         snapshot = metadata.get("content_snapshot")
         if isinstance(snapshot, dict):
@@ -269,7 +323,7 @@ async def load_artifact_content(artifact) -> dict:
     if not storage_path:
         return {}
     if artifact_type == ArtifactType.DOCX.value:
-        return load_docx_content_sidecar(storage_path)
+        return _load_docx_content_from_storage(artifact)
     with open(storage_path, "r", encoding="utf-8") as handle:
         data = json.load(handle)
     return data if isinstance(data, dict) else {}
@@ -344,11 +398,15 @@ def build_latest_runnable_state(
     session_id: str | None,
     source_binding_valid: bool,
     refine_mode: RefineMode | None = None,
+    placement_supported: bool | None = None,
 ) -> dict:
     carrier = CARD_EXECUTION_CARRIERS.get(card_id, ExecutionCarrier.ARTIFACT).value
+    supports_placement = (
+        card_id == "demonstration_animations" and bool(placement_supported)
+    )
     if card_id == "classroom_qa_simulator":
         next_action = "follow_up_turn"
-    elif card_id == "demonstration_animations" and artifact_id:
+    elif supports_placement and artifact_id:
         next_action = "placement"
     elif card_id == "interactive_quick_quiz" and (artifact_id or session_id):
         next_action = "answer_or_refine"
@@ -362,9 +420,9 @@ def build_latest_runnable_state(
         "active_session_id": session_id,
         "can_refine": bool(artifact_id or session_id),
         "can_follow_up_turn": card_id == "classroom_qa_simulator",
-        "can_recommend_placement": card_id == "demonstration_animations" and bool(artifact_id),
+        "can_recommend_placement": supports_placement and bool(artifact_id),
         "can_confirm_placement": (
-            card_id == "demonstration_animations"
+            supports_placement
             and bool(artifact_id)
             and source_binding_valid
         ),

@@ -1,171 +1,381 @@
 "use client";
 
-import { useMemo } from "react";
+import dagre from "@dagrejs/dagre";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import ReactFlow, {
+  Background,
+  Controls,
+  MarkerType,
+  NodeToolbar,
+  Position,
+} from "reactflow";
+import type { Edge, Node, NodeProps, ReactFlowInstance } from "reactflow";
+import "reactflow/dist/style.css";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 import type { MindNode } from "./types";
 
 interface MindmapCanvasProps {
   tree: MindNode;
   selectedId: string;
   onSelectNode: (id: string) => void;
+  canStructuredEdit: boolean;
+  isSubmitting: boolean;
+  onRenameNode: (nodeId: string, nextLabel: string) => Promise<boolean>;
+  onAddChildNode: (
+    nodeId: string,
+    childTitle: string,
+    childSummary: string
+  ) => Promise<boolean>;
+  onDeleteNode: (nodeId: string) => Promise<boolean>;
   collapsedNodeIds?: string[];
 }
 
-type LayoutNode = {
-  id: string;
-  label: string;
+type FlowNodeData = {
+  nodeId: string;
+  rawLabel: string;
   summary?: string;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  parentId?: string | null;
   childCount: number;
+  isRoot: boolean;
+  canStructuredEdit: boolean;
+  isSubmitting: boolean;
+  onRenameNode: (nodeId: string, nextLabel: string) => Promise<boolean>;
+  onAddChildNode: (
+    nodeId: string,
+    childTitle: string,
+    childSummary: string
+  ) => Promise<boolean>;
+  onDeleteNode: (nodeId: string) => Promise<boolean>;
 };
 
-const NODE_WIDTH = 240;
-const NODE_HEIGHT = 92;
-const X_GAP = 300;
-const Y_GAP = 126;
+const NODE_WIDTH = 300;
+const NODE_HEIGHT = 120;
+const DAGRE_LAYOUT_OPTIONS = {
+  rankdir: "LR",
+  align: "UL",
+  nodesep: 72,
+  ranksep: 188,
+  edgesep: 36,
+  ranker: "tight-tree",
+} as const;
 
 function shouldHideNode(
-  node: MindNode,
+  _node: MindNode,
   collapsedNodeIds: Set<string>,
   ancestors: string[]
 ): boolean {
   return ancestors.some((ancestorId) => collapsedNodeIds.has(ancestorId));
 }
 
-function layoutMindTree(
-  root: MindNode,
-  collapsedNodeIds: Set<string>
-): LayoutNode[] {
-  const nodes: LayoutNode[] = [];
-  let rowCursor = 0;
+function toVisibleTree(root: MindNode, collapsedNodeIds: Set<string>) {
+  const visibleNodes: MindNode[] = [];
+  const treeEdges: Array<{ parentId: string; nodeId: string }> = [];
 
   const walk = (
     node: MindNode,
-    depth: number,
-    parentId?: string | null,
+    parentId: string | null = null,
     ancestors: string[] = []
   ) => {
-    if (shouldHideNode(node, collapsedNodeIds, ancestors)) {
-      return;
+    if (shouldHideNode(node, collapsedNodeIds, ancestors)) return;
+    visibleNodes.push(node);
+    if (parentId) {
+      treeEdges.push({ parentId, nodeId: node.id });
     }
-    const currentRow = rowCursor;
-    rowCursor += 1;
-    nodes.push({
-      id: node.id,
-      label: node.label,
-      summary: node.summary,
-      x: depth * X_GAP,
-      y: currentRow * Y_GAP,
-      width: NODE_WIDTH,
-      height: NODE_HEIGHT,
-      parentId: parentId ?? null,
-      childCount: node.children?.length ?? 0,
-    });
     (node.children ?? []).forEach((child) =>
-      walk(child, depth + 1, node.id, [...ancestors, node.id])
+      walk(child, node.id, [...ancestors, node.id])
     );
   };
 
-  walk(root, 0, null);
-  return nodes;
+  walk(root);
+  return { visibleNodes, treeEdges };
 }
+
+function buildFlow(
+  root: MindNode,
+  collapsedNodeIds: Set<string>,
+  handlers: Pick<
+    FlowNodeData,
+    "canStructuredEdit" | "isSubmitting" | "onRenameNode" | "onAddChildNode" | "onDeleteNode"
+  >
+): { nodes: Node<FlowNodeData>[]; edges: Edge[] } {
+  const { visibleNodes, treeEdges } = toVisibleTree(root, collapsedNodeIds);
+  const graph = new dagre.graphlib.Graph();
+  graph.setDefaultEdgeLabel(() => ({}));
+  graph.setGraph(DAGRE_LAYOUT_OPTIONS);
+
+  visibleNodes.forEach((node) => {
+    graph.setNode(node.id, { width: NODE_WIDTH, height: NODE_HEIGHT });
+  });
+
+  treeEdges.forEach(({ parentId, nodeId }) => {
+    graph.setEdge(parentId, nodeId);
+  });
+
+  dagre.layout(graph);
+
+  const nodes: Node<FlowNodeData>[] = visibleNodes.map((node) => {
+    const point = graph.node(node.id) ?? { x: 0, y: 0 };
+    return {
+      id: node.id,
+      type: "mindNode",
+      position: {
+        x: point.x - NODE_WIDTH / 2,
+        y: point.y - NODE_HEIGHT / 2,
+      },
+      sourcePosition: Position.Right,
+      targetPosition: Position.Left,
+      draggable: false,
+      selectable: true,
+      data: {
+        nodeId: node.id,
+        rawLabel: node.label,
+        summary: node.summary,
+        childCount: node.children?.length ?? 0,
+        isRoot: !node.parentId || node.parentId === node.id,
+        canStructuredEdit: handlers.canStructuredEdit,
+        isSubmitting: handlers.isSubmitting,
+        onRenameNode: handlers.onRenameNode,
+        onAddChildNode: handlers.onAddChildNode,
+        onDeleteNode: handlers.onDeleteNode,
+      },
+    };
+  });
+
+  const edges: Edge[] = [];
+
+  treeEdges.forEach(({ parentId, nodeId }) => {
+    edges.push({
+      id: `${parentId}-${nodeId}`,
+      source: parentId,
+      target: nodeId,
+      type: "smoothstep",
+      markerEnd: { type: MarkerType.ArrowClosed, color: "#94a3b8" },
+      style: { stroke: "#cbd5e1", strokeWidth: 1.8 },
+    });
+  });
+
+  return { nodes, edges };
+}
+
+const MindmapNode = memo(function MindmapNode({
+  data,
+  selected,
+}: NodeProps<FlowNodeData>) {
+  const [renameTitle, setRenameTitle] = useState(data.rawLabel);
+  const [childTitle, setChildTitle] = useState("");
+  const [childSummary, setChildSummary] = useState("");
+
+  useEffect(() => {
+    setRenameTitle(data.rawLabel);
+  }, [data.rawLabel]);
+
+  useEffect(() => {
+    if (selected) return;
+    setChildTitle("");
+    setChildSummary("");
+  }, [selected]);
+
+  const summaryText = data.summary
+    ? data.summary.length > 80
+      ? `${data.summary.slice(0, 80)}...`
+      : data.summary
+    : null;
+  const disableActions = !data.canStructuredEdit || data.isSubmitting;
+  const canRename = !disableActions && renameTitle.trim().length > 0;
+  const canAddChild = !disableActions && childTitle.trim().length > 0;
+
+  return (
+    <>
+      <NodeToolbar
+        isVisible={selected}
+        position={Position.Top}
+        offset={14}
+        className="nodrag nopan nowheel"
+      >
+        <div className="w-[360px] rounded-xl border border-zinc-200 bg-white/95 p-2 shadow-lg backdrop-blur">
+          <div className="flex items-center gap-2">
+            <Input
+              value={renameTitle}
+              disabled={disableActions}
+              className="nodrag nopan h-8 text-xs"
+              placeholder="节点名称"
+              onChange={(event) => setRenameTitle(event.target.value)}
+            />
+            <Button
+              type="button"
+              size="sm"
+              className="nodrag nopan h-8 text-xs"
+              disabled={!canRename}
+              onClick={() => void data.onRenameNode(data.nodeId, renameTitle.trim())}
+            >
+              重命名
+            </Button>
+          </div>
+          <div className="mt-2 flex items-center gap-2">
+            <Input
+              value={childTitle}
+              disabled={disableActions}
+              className="nodrag nopan h-8 text-xs"
+              placeholder="子节点名称"
+              maxLength={60}
+              onChange={(event) => setChildTitle(event.target.value)}
+            />
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="nodrag nopan h-8 text-xs"
+              disabled={!canAddChild}
+              onClick={async () => {
+                const ok = await data.onAddChildNode(
+                  data.nodeId,
+                  childTitle.trim(),
+                  childSummary.trim()
+                );
+                if (!ok) return;
+                setChildTitle("");
+                setChildSummary("");
+              }}
+            >
+              新增子节点
+            </Button>
+          </div>
+          <div className="mt-2 flex items-center gap-2">
+            <Input
+              value={childSummary}
+              disabled={disableActions}
+              className="nodrag nopan h-8 text-xs"
+              placeholder="子节点说明（可选）"
+              onChange={(event) => setChildSummary(event.target.value)}
+            />
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className="nodrag nopan h-8 text-xs"
+              disabled={disableActions || data.isRoot}
+              onClick={() => void data.onDeleteNode(data.nodeId)}
+            >
+              删除节点
+            </Button>
+          </div>
+        </div>
+      </NodeToolbar>
+
+      <div
+        className={cn(
+          "rounded-2xl border bg-white p-3 shadow-sm transition-colors",
+          selected
+            ? "border-emerald-600 bg-emerald-50/80"
+            : "border-zinc-300 hover:border-zinc-400"
+        )}
+        style={{ width: NODE_WIDTH, minHeight: NODE_HEIGHT }}
+      >
+        <p
+          className={cn(
+            "text-sm font-semibold",
+            selected ? "text-emerald-900" : "text-zinc-900"
+          )}
+        >
+          {data.rawLabel}
+        </p>
+        {summaryText ? (
+          <p className="mt-1 line-clamp-2 text-xs leading-5 text-zinc-600">{summaryText}</p>
+        ) : null}
+        <p className="mt-1 text-xs text-zinc-500">子节点：{data.childCount}</p>
+      </div>
+    </>
+  );
+});
 
 export function MindmapCanvas({
   tree,
   selectedId,
   onSelectNode,
+  canStructuredEdit,
+  isSubmitting,
+  onRenameNode,
+  onAddChildNode,
+  onDeleteNode,
   collapsedNodeIds = [],
 }: MindmapCanvasProps) {
+  const reactFlowRef = useRef<ReactFlowInstance | null>(null);
   const collapsedSet = useMemo(() => new Set(collapsedNodeIds), [collapsedNodeIds]);
-  const layoutNodes = useMemo(
-    () => layoutMindTree(tree, collapsedSet),
-    [tree, collapsedSet]
+  const flow = useMemo(
+    () =>
+      buildFlow(tree, collapsedSet, {
+        canStructuredEdit,
+        isSubmitting,
+        onRenameNode,
+        onAddChildNode,
+        onDeleteNode,
+      }),
+    [
+      tree,
+      collapsedSet,
+      canStructuredEdit,
+      isSubmitting,
+      onRenameNode,
+      onAddChildNode,
+      onDeleteNode,
+    ]
   );
-  const nodeMap = useMemo(
-    () => new Map(layoutNodes.map((node) => [node.id, node])),
-    [layoutNodes]
+  const nodes = useMemo(
+    () =>
+      flow.nodes.map((node) => ({
+        ...node,
+        selected: node.id === selectedId,
+      })),
+    [flow.nodes, selectedId]
   );
-  const canvasWidth =
-    Math.max(...layoutNodes.map((node) => node.x + node.width), 0) + 80;
-  const canvasHeight =
-    Math.max(...layoutNodes.map((node) => node.y + node.height), 0) + 80;
+  const defaultEdgeOptions = useMemo(
+    () => ({
+      type: "smoothstep",
+      style: { stroke: "#cbd5e1", strokeWidth: 1.8 },
+      markerEnd: { type: MarkerType.ArrowClosed, color: "#94a3b8" },
+    }),
+    []
+  );
+  const nodeTypes = useMemo(() => ({ mindNode: MindmapNode }), []);
+
+  const fitToView = useCallback(() => {
+    reactFlowRef.current?.fitView({
+      padding: 0.16,
+      maxZoom: 1.15,
+      duration: 280,
+    });
+  }, []);
+
+  useEffect(() => {
+    fitToView();
+  }, [fitToView, nodes, flow.edges]);
 
   return (
-    <div className="overflow-auto rounded-xl border border-zinc-200 bg-[radial-gradient(circle_at_1px_1px,_rgba(148,163,184,0.22)_1px,_transparent_0)] [background-size:16px_16px] p-4">
-      <svg
-        width={Math.max(canvasWidth, 720)}
-        height={Math.max(canvasHeight, 420)}
-        viewBox={`0 0 ${Math.max(canvasWidth, 720)} ${Math.max(canvasHeight, 420)}`}
-        className="min-h-[420px] min-w-full"
+    <div className="h-full min-h-0 w-full overflow-hidden rounded-none border-0 bg-white">
+      <ReactFlow
+        nodes={nodes}
+        edges={flow.edges}
+        nodeTypes={nodeTypes}
+        defaultEdgeOptions={defaultEdgeOptions}
+        fitView
+        fitViewOptions={{ padding: 0.16, duration: 280, maxZoom: 1.15 }}
+        onInit={(instance) => {
+          reactFlowRef.current = instance;
+        }}
+        nodesDraggable={false}
+        nodesConnectable={false}
+        elementsSelectable
+        panOnDrag
+        zoomOnScroll
+        minZoom={0.3}
+        maxZoom={1.8}
+        proOptions={{ hideAttribution: true }}
+        onNodeClick={(_, node) => onSelectNode(node.id)}
       >
-        {layoutNodes.map((node) => {
-          if (!node.parentId) return null;
-          const parent = nodeMap.get(node.parentId);
-          if (!parent) return null;
-          return (
-            <path
-              key={`${parent.id}-${node.id}`}
-              d={`M ${parent.x + parent.width} ${parent.y + parent.height / 2} C ${
-                parent.x + parent.width + 56
-              } ${parent.y + parent.height / 2}, ${node.x - 56} ${
-                node.y + node.height / 2
-              }, ${node.x} ${node.y + node.height / 2}`}
-              fill="none"
-              stroke="#cbd5e1"
-              strokeWidth="2"
-            />
-          );
-        })}
-
-        {layoutNodes.map((node) => {
-          const isSelected = node.id === selectedId;
-          return (
-            <g
-              key={node.id}
-              transform={`translate(${node.x}, ${node.y})`}
-              className="cursor-pointer"
-              onClick={() => onSelectNode(node.id)}
-            >
-              <rect
-                width={node.width}
-                height={node.height}
-                rx="18"
-                fill={isSelected ? "#ecfdf5" : "#ffffff"}
-                stroke={isSelected ? "#047857" : "#d4d4d8"}
-                strokeWidth={isSelected ? "2.5" : "1.5"}
-                filter="drop-shadow(0 2px 6px rgba(15,23,42,0.06))"
-              />
-              <text
-                x="18"
-                y="28"
-                fontSize="14"
-                fontWeight="600"
-                fill={isSelected ? "#065f46" : "#18181b"}
-              >
-                {node.label}
-              </text>
-              {node.summary ? (
-                <text
-                  x="18"
-                  y="50"
-                  fontSize="11"
-                  fill="#52525b"
-                >
-                  {node.summary.length > 36
-                    ? `${node.summary.slice(0, 36)}...`
-                    : node.summary}
-                </text>
-              ) : null}
-              <text x="18" y="72" fontSize="11" fill="#71717a">
-                子节点：{node.childCount}
-              </text>
-            </g>
-          );
-        })}
-      </svg>
+        <Controls className="!shadow-md" position="bottom-left" />
+        <Background color="#e2e8f0" gap={16} size={1} />
+      </ReactFlow>
     </div>
   );
 }

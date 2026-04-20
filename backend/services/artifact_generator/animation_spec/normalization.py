@@ -59,6 +59,14 @@ _PHYSICS_KEYWORD_TOKENS = (
 )
 
 
+def _coerce_bool(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() in {"1", "true", "yes", "on"}
+    return bool(value)
+
+
 def _infer_algorithm_type(*parts: str) -> str | None:
     text = " ".join(part for part in parts if part).lower()
     for algorithm_type, pattern in _ALGORITHM_KEYWORDS:
@@ -89,6 +97,8 @@ def _infer_animation_family(
         _clean_text(content.get(key))
         for key in ("title", "topic", "summary", "scene", "focus", "teaching_goal")
     ).lower()
+    if _infer_algorithm_type(text):
+        return "algorithm_demo"
     if any(token in text for token in _PHYSICS_KEYWORD_TOKENS):
         return "physics_mechanics"
 
@@ -161,27 +171,27 @@ def _build_algorithm_demo_spec(
             {
                 "action": "compare",
                 "active_indices": [0, 1],
-                "caption": "先比较第 1 对元素，观察较大的数字是否需要后移。",
+                "caption": "开始扫描未排序区，比较相邻元素是否需要交换。",
                 "snapshot": [5, 3, 8, 2, 6],
             },
             {
                 "action": "swap",
                 "active_indices": [0, 1],
                 "swap_indices": [0, 1],
-                "caption": "5 大于 3，交换位置，让较小元素向前。",
+                "caption": "当前一对元素发生交换，较小值前移。",
                 "snapshot": [3, 5, 8, 2, 6],
             },
             {
                 "action": "compare",
                 "active_indices": [2, 3],
-                "caption": "继续扫描下一对，发现 8 仍需和后面的 2 比较。",
+                "caption": "继续向后比较下一对相邻元素。",
                 "snapshot": [3, 5, 8, 2, 6],
             },
             {
                 "action": "swap",
                 "active_indices": [2, 3],
                 "swap_indices": [2, 3],
-                "caption": "8 大于 2，交换后最大值开始向右冒泡。",
+                "caption": "再次交换后，较大值继续向右移动。",
                 "snapshot": [3, 5, 2, 8, 6],
             },
             {
@@ -189,7 +199,7 @@ def _build_algorithm_demo_spec(
                 "active_indices": [3, 4],
                 "swap_indices": [3, 4],
                 "sorted_indices": [4],
-                "caption": "第一轮结束前再交换一次，最大值稳定落到末尾。",
+                "caption": "第一轮结束，当前最大值归位到末尾。",
                 "snapshot": [3, 5, 2, 6, 8],
             },
             {
@@ -197,7 +207,7 @@ def _build_algorithm_demo_spec(
                 "active_indices": [1, 2],
                 "swap_indices": [1, 2],
                 "sorted_indices": [3, 4],
-                "caption": "第二轮继续比较，5 与 2 交换，未排序区逐渐缩短。",
+                "caption": "下一轮继续收缩未排序区并执行交换。",
                 "snapshot": [3, 2, 5, 6, 8],
             },
             {
@@ -205,7 +215,7 @@ def _build_algorithm_demo_spec(
                 "active_indices": [0, 1],
                 "swap_indices": [0, 1],
                 "sorted_indices": [2, 3, 4],
-                "caption": "最后一轮把 2 放到最前面，序列完成升序。",
+                "caption": "最后一轮完成后，序列达到升序。",
                 "snapshot": [2, 3, 5, 6, 8],
             },
         ]
@@ -335,21 +345,32 @@ def _build_algorithm_demo_spec(
         ]
         summary = summary or f"在有序序列中查找目标值 {target_value}。"
 
+    intro_title = f"{topic}：输入与目标"
+    process_title = f"{topic}：关键步骤推进"
+    summary_title = f"{topic}：结果与规律"
+    intro_description = summary or f"先明确 {topic} 的输入数据、执行目标与观察重点。"
+    process_description = focus or "按步骤观察比较、交换与有序区变化。"
+    summary_description = (
+        steps[-1]["caption"]
+        if steps
+        else f"回看 {topic} 的结果并提炼可迁移规律。"
+    )
+
     scenes = [
         {
-            "title": "先看数据初始状态",
-            "description": f"展示 {topic} 的起始数据集，并明确本轮演示目标。",
-            "emphasis": "说明数据初始排列和观察重点。",
+            "title": intro_title,
+            "description": intro_description,
+            "emphasis": "明确输入状态与学习目标。",
         },
         {
-            "title": "逐步观察关键动作",
-            "description": steps[min(1, len(steps) - 1)]["caption"],
-            "emphasis": "高亮比较、交换或窗口移动。",
+            "title": process_title,
+            "description": process_description,
+            "emphasis": "高亮关键动作与状态变化。",
         },
         {
-            "title": "回看结果与规律",
-            "description": steps[-1]["caption"],
-            "emphasis": "总结算法完成后的结果与可迁移规律。",
+            "title": summary_title,
+            "description": summary_description,
+            "emphasis": "总结最终结果与可迁移规律。",
         },
     ]
 
@@ -398,19 +419,30 @@ def normalize_animation_spec(content: dict[str, Any]) -> dict[str, Any]:
     if rhythm not in {"slow", "balanced", "fast"}:
         rhythm = "balanced"
     style_pack = _resolve_style_pack(content.get("style_pack"))
-
-    algorithm_demo_spec = _build_algorithm_demo_spec(
-        content=content,
-        title=title,
-        topic=topic,
-        summary=summary,
-        focus=focus,
-        duration_seconds=duration_seconds,
-        rhythm=rhythm,
-        style_pack=style_pack,
+    algorithm_type = _infer_algorithm_type(
+        title,
+        topic,
+        summary,
+        focus,
+        str(content.get("algorithm_type") or ""),
+        str(content.get("motion_brief") or ""),
     )
-    if algorithm_demo_spec is not None:
-        return algorithm_demo_spec
+
+    # Deterministic algorithm templates are now debug-only. Runtime default is
+    # API-driven AI generation + structural normalization.
+    if _coerce_bool(content.get("use_deterministic_algorithm_seed")):
+        algorithm_demo_spec = _build_algorithm_demo_spec(
+            content=content,
+            title=title,
+            topic=topic,
+            summary=summary,
+            focus=focus,
+            duration_seconds=duration_seconds,
+            rhythm=rhythm,
+            style_pack=style_pack,
+        )
+        if algorithm_demo_spec is not None:
+            return algorithm_demo_spec
 
     visual_type = infer_visual_type(content)
     subject_family, animation_family = _resolve_subject_family(
@@ -418,6 +450,10 @@ def normalize_animation_spec(content: dict[str, Any]) -> dict[str, Any]:
         visual_type=visual_type,
     )
     layout_type = infer_layout_type(subject_family, visual_type)
+    if animation_family == "algorithm_demo":
+        layout_type = (
+            "algorithm_window" if algorithm_type == "binary_search" else "algorithm_bars"
+        )
     raw_scenes = content.get("scenes")
     normalized_scenes = [
         _normalize_scene(
@@ -491,4 +527,14 @@ def normalize_animation_spec(content: dict[str, Any]) -> dict[str, Any]:
         "objects": [item["label"] for item in semantic_objects],
         "object_details": semantic_objects,
     }
+    if algorithm_type:
+        spec["algorithm_type"] = algorithm_type
+    raw_steps = content.get("steps")
+    if isinstance(raw_steps, list):
+        normalized_steps = [dict(item) for item in raw_steps if isinstance(item, dict)]
+        if normalized_steps:
+            spec["steps"] = normalized_steps
+    raw_dataset = content.get("dataset")
+    if isinstance(raw_dataset, list):
+        spec["dataset"] = list(raw_dataset)
     return spec

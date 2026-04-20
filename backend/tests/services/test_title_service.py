@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from services import title_service
+from services.title_service import service as title_service
 from services.title_service.prompting import (
     build_run_fallback_title,
     build_run_pending_title,
@@ -122,6 +122,19 @@ def test_build_session_fallback_title_prefers_clean_seed():
     )
 
 
+def test_build_run_pending_title_prefers_explicit_title_seed():
+    title = build_run_pending_title(
+        tool_type="studio_card:word_document",
+        snapshot={
+            "title": "计算机网络：物理层教案",
+            "topic": "网络分层",
+        },
+        run_no=25,
+    )
+
+    assert title == "计算机网络"
+
+
 @pytest.mark.anyio
 async def test_generate_run_title_falls_back_when_model_returns_config_fragment(
     monkeypatch,
@@ -188,6 +201,62 @@ async def test_generate_run_title_falls_back_when_model_returns_config_fragment(
         title=expected_title,
         title_source="fallback",
     )
+
+
+@pytest.mark.anyio
+async def test_generate_run_title_handles_meta_response_without_name_error(
+    monkeypatch,
+):
+    pending_run = SimpleNamespace(
+        id="run-001",
+        artifactId=None,
+        runNo=1,
+        title="第1次教案生成",
+        titleSource="pending",
+    )
+    updated_run = SimpleNamespace(
+        id="run-001",
+        artifactId=None,
+        runNo=1,
+        title="牛顿第二定律教案",
+        titleSource="auto",
+    )
+    db = SimpleNamespace(
+        sessionrun=SimpleNamespace(find_unique=AsyncMock(return_value=pending_run)),
+    )
+
+    monkeypatch.setattr(
+        title_service,
+        "update_session_run",
+        AsyncMock(return_value=updated_run),
+    )
+    monkeypatch.setattr(
+        title_service,
+        "sync_run_title_to_artifact_metadata",
+        AsyncMock(return_value=None),
+    )
+    monkeypatch.setattr(
+        title_service.ai_service,
+        "generate",
+        AsyncMock(
+            return_value={
+                "content": (
+                    "用户要生成一个标题。"
+                    '主题是："牛顿第二定律"。'
+                )
+            }
+        ),
+    )
+
+    result = await title_service.generate_run_title(
+        db=db,
+        run_id="run-001",
+        tool_type="studio_card:word_document",
+        snapshot={"topic": "牛顿第二定律"},
+    )
+
+    assert result["run_title"] == "牛顿第二定律教案"
+    assert result["run_title_source"] == "auto"
 
 
 @pytest.mark.anyio

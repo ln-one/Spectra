@@ -71,15 +71,15 @@ CARD_CAPABILITIES: tuple[StudioCardCapability, ...] = (
         primary_capabilities=["word", "handout"],
         related_capabilities=["outline", "summary", "quiz"],
         artifact_types=["docx", "summary", "exercise"],
-        requires_source_artifact=True,
+        requires_source_artifact=False,
         supports_chat_refine=True,
         config_fields=[
             StudioCardConfigField(
                 key="source_artifact_id",
                 label="对应 PPT",
                 type=StudioCardFieldType.REFERENCE,
-                required=True,
-                notes="必须绑定一个已生成的 PPT artifact。",
+                required=False,
+                notes="可选绑定一个已生成的 PPT artifact，未绑定时基于课题与资料来源生成。",
             ),
             StudioCardConfigField(
                 key="document_variant",
@@ -241,7 +241,7 @@ CARD_CAPABILITIES: tuple[StudioCardCapability, ...] = (
         execution_mode=StudioCardExecutionMode.ARTIFACT_CREATE,
         primary_capabilities=["animation"],
         related_capabilities=["summary", "outline"],
-        artifact_types=["html", "gif", "mp4"],
+        artifact_types=["html", "gif"],
         supports_chat_refine=True,
         config_fields=[
             StudioCardConfigField(
@@ -249,11 +249,10 @@ CARD_CAPABILITIES: tuple[StudioCardCapability, ...] = (
                 label="动画格式",
                 type=StudioCardFieldType.SELECT,
                 options=[
-                    StudioCardConfigOption(value="gif", label="GIF"),
-                    StudioCardConfigOption(value="mp4", label="MP4"),
                     StudioCardConfigOption(value="html5", label="HTML5"),
+                    StudioCardConfigOption(value="gif", label="GIF"),
                 ],
-                default_value="mp4",
+                default_value="html5",
             ),
             StudioCardConfigField(
                 key="motion_brief",

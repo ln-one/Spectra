@@ -87,7 +87,7 @@ describe("studio word card", () => {
     });
   });
 
-  it("keeps the lesson plan workbench minimal and only needs a topic when no source is selected", () => {
+  it("keeps pre-generate form minimal with one big prompt box", () => {
     render(
       <WordToolPanel
         toolName="教案"
@@ -100,10 +100,13 @@ describe("studio word card", () => {
     );
 
     expect(
-      screen.getByText("未选课件：将按课题与资料来源生成")
+      screen.getByText("未选课件：将按要求与资料来源生成")
     ).toBeInTheDocument();
-    expect(screen.getByLabelText("课题")).toBeInTheDocument();
-    expect(screen.getByLabelText("补充要求")).toBeInTheDocument();
+    expect(
+      screen.getByPlaceholderText(/输入本次教案/)
+    ).toBeInTheDocument();
+    expect(screen.queryByLabelText("课题")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("补充要求")).not.toBeInTheDocument();
     expect(screen.queryByText("详细程度")).not.toBeInTheDocument();
     expect(screen.queryByText("适用学段")).not.toBeInTheDocument();
     expect(screen.queryByText("学习目标")).not.toBeInTheDocument();
@@ -112,13 +115,15 @@ describe("studio word card", () => {
     expect(screen.queryByText("输出要求")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "生成教案" })).not.toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText("课题"), {
+    fireEvent.change(screen.getByPlaceholderText(/输入本次教案/), {
       target: { value: "物理层的基本概念" },
     });
-    expect(screen.getByLabelText("课题")).toHaveValue("物理层的基本概念");
+    expect(
+      screen.getByPlaceholderText(/输入本次教案/)
+    ).toHaveValue("物理层的基本概念");
   });
 
-  it("allows users to clear auto-filled topic and requirements", () => {
+  it("accepts long-form prompt text in one field", () => {
     render(
       <WordToolPanel
         toolName="教案"
@@ -132,20 +137,14 @@ describe("studio word card", () => {
       />
     );
 
-    const topicInput = screen.getByLabelText("课题");
-    fireEvent.change(topicInput, { target: { value: "牛顿第二定律" } });
-    fireEvent.click(screen.getByRole("button", { name: "清空课题" }));
-    expect(topicInput).toHaveValue("");
-
-    const requirementsInput = screen.getByLabelText("补充要求");
-    fireEvent.change(requirementsInput, {
-      target: { value: "突出评价任务" },
+    const promptInput = screen.getByPlaceholderText(/输入本次教案/);
+    fireEvent.change(promptInput, {
+      target: { value: "突出评价任务，加入课堂活动和分层练习" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "清空补充要求" }));
-    expect(requirementsInput).toHaveValue("");
+    expect(promptInput).toHaveValue("突出评价任务，加入课堂活动和分层练习");
   });
 
-  it("updates draft payload directly from topic input when no PPT source is selected", async () => {
+  it("updates draft payload directly from prompt text when no PPT source is selected", async () => {
     const onDraftChange = jest.fn();
 
     render(
@@ -160,10 +159,7 @@ describe("studio word card", () => {
       />
     );
 
-    fireEvent.change(screen.getByLabelText("课题"), {
-      target: { value: "物理层的基本概念" },
-    });
-    fireEvent.change(screen.getByLabelText("补充要求"), {
+    fireEvent.change(screen.getByPlaceholderText(/输入本次教案/), {
       target: { value: "补充学情分析，突出重难点突破" },
     });
 
@@ -172,7 +168,7 @@ describe("studio word card", () => {
         expect.objectContaining({
           kind: "teaching_document",
           schema_id: "lesson_plan_v1",
-          topic: "物理层的基本概念",
+          topic: "",
           output_requirements: "补充学情分析，突出重难点突破",
           primary_source_id: null,
           source_artifact_id: null,
@@ -199,10 +195,7 @@ describe("studio word card", () => {
     );
 
     expect(screen.getByText("已选择：牛顿第二定律课件")).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText("课题"), {
-      target: { value: "牛顿第二定律" },
-    });
-    fireEvent.change(screen.getByLabelText("补充要求"), {
+    fireEvent.change(screen.getByPlaceholderText(/输入本次教案/), {
       target: { value: "突出评价任务，加入课堂活动" },
     });
 
@@ -211,7 +204,7 @@ describe("studio word card", () => {
         expect.objectContaining({
           kind: "teaching_document",
           schema_id: "lesson_plan_v1",
-          topic: "牛顿第二定律",
+          topic: "",
           output_requirements: "突出评价任务，加入课堂活动",
           detail_level: "standard",
           primary_source_id: "ppt-artifact-1",
@@ -248,7 +241,9 @@ describe("studio word card", () => {
       />
     );
 
-    expect(screen.getByLabelText("课题")).toBeInTheDocument();
+    expect(
+      screen.getByPlaceholderText(/输入本次教案/)
+    ).toBeInTheDocument();
     expect(screen.queryByText("旧教案")).not.toBeInTheDocument();
     expect(screen.queryByText("编辑文档")).not.toBeInTheDocument();
   });
@@ -267,8 +262,9 @@ describe("studio word card", () => {
       />
     );
 
-    expect(screen.getByLabelText("课题")).toHaveValue("低轨道卫星系统");
-    expect(screen.getByLabelText("补充要求")).toHaveValue("突出重难点突破");
+    expect(screen.getByPlaceholderText(/输入本次教案/)).toHaveValue(
+      "突出重难点突破"
+    );
     expect(screen.queryByDisplayValue("jpg")).not.toBeInTheDocument();
   });
 
@@ -328,6 +324,37 @@ describe("studio word card", () => {
     expect(screen.queryByRole("button", { name: "正在生成教案..." })).not.toBeInTheDocument();
   });
 
+  it("does not stay in generating state when processing target already has artifact", async () => {
+    render(
+      <WordToolPanel
+        toolName="教案"
+        flowContext={buildFlowContext({
+          wordWorkbenchMode: "history",
+          wordResultTarget: {
+            sessionId: "sess-history",
+            runId: "run-history",
+            artifactId: "word-artifact-1",
+            status: "processing",
+          },
+          capabilityStatus: "backend_ready",
+          latestArtifacts: [
+            {
+              artifactId: "word-artifact-1",
+              title: "历史教案",
+              status: "processing",
+              createdAt: "2026-04-19T15:45:00.000Z",
+            },
+          ],
+        })}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(/# 教案预览/)).toBeInTheDocument();
+    });
+    expect(screen.queryByText("正在加载教案内容...")).not.toBeInTheDocument();
+  });
+
   it("does not let history mode overwrite the viewed result with draft values", () => {
     render(
       <WordToolPanel
@@ -357,7 +384,9 @@ describe("studio word card", () => {
       />
     );
 
-    expect(screen.queryByLabelText("课题")).not.toBeInTheDocument();
+    expect(
+      screen.queryByPlaceholderText(/输入本次教案/)
+    ).not.toBeInTheDocument();
     expect(screen.queryByDisplayValue("会被保留在草稿里的课题")).not.toBeInTheDocument();
   });
 
@@ -473,5 +502,22 @@ describe("studio word card", () => {
     );
 
     expect(screen.getByText("本次教学文档生成失败，可直接改写内容后保存新版本。")).toBeInTheDocument();
+  });
+
+  it("keeps editable content visible while backend capability is syncing", () => {
+    render(
+      <PreviewStep
+        markdown="# 教案标题\n\n正文"
+        isGenerating={false}
+        lastGeneratedAt={null}
+        flowContext={buildFlowContext({
+          capabilityStatus: "backend_placeholder",
+          wordWorkbenchMode: "history",
+        })}
+      />
+    );
+
+    expect(screen.queryByText("后端等待中")).not.toBeInTheDocument();
+    expect(screen.getByText(/# 教案标题/)).toBeInTheDocument();
   });
 });

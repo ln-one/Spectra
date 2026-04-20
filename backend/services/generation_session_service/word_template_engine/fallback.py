@@ -17,7 +17,8 @@ def build_word_fallback_payload(
     variant = resolve_word_document_variant(document_variant)
     topic = str(config.get("topic") or "教学主题").strip()
     teaching_model = str(config.get("teaching_model") or "scaffolded").strip()
-    grade_band = str(config.get("grade_band") or "high").strip()
+    grade_band = str(config.get("grade_band") or "").strip()
+    audience_label = f"{grade_band} 学段" if grade_band else "通用学习场景"
     difficulty_layer = str(config.get("difficulty_layer") or "B").strip()
     learning_goal = str(config.get("learning_goal") or "帮助学生掌握核心知识点").strip()
     teaching_context = str(
@@ -38,7 +39,7 @@ def build_word_fallback_payload(
             payload={
                 "title": f"{topic}分层教学教案",
                 "summary": (
-                    f"基于 {teaching_model} 教学模式，面向 {grade_band} 学段，围绕"
+                    f"基于 {teaching_model} 教学模式，面向 {audience_label}，围绕"
                     f"{learning_goal} 组织 {difficulty_layer} 层分层教学活动。"
                 ),
                 "layout_payload": {
@@ -105,7 +106,7 @@ def build_word_fallback_payload(
             document_variant=variant,
             payload={
                 "title": f"{topic}学生讲义",
-                "summary": f"面向 {grade_band} 学段的课堂讲义，聚焦 {learning_goal}，兼顾课上阅读与课后复习。",
+                "summary": f"面向 {audience_label} 的课堂讲义，聚焦 {learning_goal}，兼顾课上阅读与课后复习。",
                 "layout_payload": {
                     "learning_goals": [
                         f"理解 {topic} 的核心概念",

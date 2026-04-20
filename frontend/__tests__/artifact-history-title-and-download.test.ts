@@ -80,6 +80,96 @@ describe("artifact history and download filename", () => {
     });
   });
 
+  it("uses content_snapshot title for word history when metadata title is missing", () => {
+    const item = toArtifactHistoryItem({
+      id: "a-004",
+      project_id: "p-001",
+      session_id: "s-001",
+      based_on_version_id: null,
+      owner_user_id: "u-001",
+      type: "docx",
+      visibility: "project-visible",
+      storage_path: "uploads/a-004.docx",
+      metadata: {
+        content_snapshot: {
+          kind: "teaching_document",
+          title: "电磁感应教案",
+        },
+      },
+      created_at: "2026-04-01T10:00:00.000Z",
+      updated_at: "2026-04-01T10:01:00.000Z",
+    } as any);
+
+    expect(item.title).toBe("电磁感应教案");
+  });
+
+  it("derives word history title from content_snapshot topic", () => {
+    const item = toArtifactHistoryItem({
+      id: "a-005",
+      project_id: "p-001",
+      session_id: "s-001",
+      based_on_version_id: null,
+      owner_user_id: "u-001",
+      type: "docx",
+      visibility: "project-visible",
+      storage_path: "uploads/a-005.docx",
+      metadata: {
+        content_snapshot: {
+          kind: "teaching_document",
+          topic: "牛顿第二定律",
+        },
+      },
+      created_at: "2026-04-01T10:00:00.000Z",
+      updated_at: "2026-04-01T10:01:00.000Z",
+    } as any);
+
+    expect(item.title).toBe("牛顿第二定律 教案");
+  });
+
+  it("cleans config garbage suffix from word history title", () => {
+    const item = toArtifactHistoryItem({
+      id: "a-006",
+      project_id: "p-001",
+      session_id: "s-001",
+      based_on_version_id: null,
+      owner_user_id: "u-001",
+      type: "docx",
+      visibility: "project-visible",
+      storage_path: "uploads/a-006.docx",
+      metadata: {
+        title: "计算机网络 物理层教案；standard",
+      },
+      created_at: "2026-04-01T10:00:00.000Z",
+      updated_at: "2026-04-01T10:01:00.000Z",
+    } as any);
+
+    expect(item.title).toBe("计算机网络 物理层教案");
+  });
+
+  it("does not keep numbered run placeholder title for word artifacts", () => {
+    const item = toArtifactHistoryItem({
+      id: "a-007",
+      project_id: "p-001",
+      session_id: "s-001",
+      based_on_version_id: null,
+      owner_user_id: "u-001",
+      type: "docx",
+      visibility: "project-visible",
+      storage_path: "uploads/a-007.docx",
+      metadata: {
+        run_title: "第31次讲义文档",
+        content_snapshot: {
+          kind: "teaching_document",
+          topic: "计算机网络物理层",
+        },
+      },
+      created_at: "2026-04-01T10:00:00.000Z",
+      updated_at: "2026-04-01T10:01:00.000Z",
+    } as any);
+
+    expect(item.title).toBe("计算机网络物理层 教案");
+  });
+
   it("builds filename from artifact title and extension", () => {
     const filename = buildArtifactDownloadFilename({
       title: "函数单调性教案",

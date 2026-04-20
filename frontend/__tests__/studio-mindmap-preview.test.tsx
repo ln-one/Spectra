@@ -60,7 +60,7 @@ function buildFlowContext(
 }
 
 describe("mindmap preview", () => {
-  it("renders graph surface adapter and retains refine controls", () => {
+  it("renders pure workspace surface and removes legacy wrappers", () => {
     render(
       <PreviewStep
         selectedId="root"
@@ -70,15 +70,15 @@ describe("mindmap preview", () => {
       />
     );
 
-    expect(screen.getByText("导图工作面")).toBeInTheDocument();
-    expect(screen.getByText("Stable graph surface")).toBeInTheDocument();
-    expect(screen.getByText("治理：借底座 · 清理优先级：P1")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "添加子节点" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "保存名称" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "调整父节点" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "折叠当前节点" })).toBeInTheDocument();
-    expect(screen.getByText("子节点：2")).toBeInTheDocument();
-    expect(screen.getAllByText("牛顿第二定律").length).toBeGreaterThan(0);
+    expect(screen.queryByText("导图工作面")).not.toBeInTheDocument();
+    expect(screen.queryByText("ReactFlow substrate")).not.toBeInTheDocument();
+    expect(screen.queryByText("节点工作台")).not.toBeInTheDocument();
+    expect(screen.queryByText("知识导图")).not.toBeInTheDocument();
+
+    expect(screen.getByRole("button", { name: "重命名" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "新增子节点" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "删除节点" })).toBeInTheDocument();
+    expect(screen.getByText("牛顿第二定律")).toBeInTheDocument();
   });
 
   it("submits child refinement against the selected node", async () => {
@@ -96,11 +96,10 @@ describe("mindmap preview", () => {
       />
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "添加子节点" }));
-    fireEvent.change(screen.getByPlaceholderText("例如：进程切换开销"), {
+    fireEvent.change(screen.getByPlaceholderText("子节点名称"), {
       target: { value: "质量" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "确认新增" }));
+    fireEvent.click(screen.getByRole("button", { name: "新增子节点" }));
 
     await waitFor(() => {
       expect(onStructuredRefineArtifact).toHaveBeenCalledWith({
@@ -123,9 +122,7 @@ describe("mindmap preview", () => {
   });
 
   it("submits rename and delete operations through structured refine", async () => {
-    const onStructuredRefineArtifact = jest
-      .fn()
-      .mockResolvedValue({ ok: true });
+    const onStructuredRefineArtifact = jest.fn().mockResolvedValue({ ok: true });
 
     render(
       <PreviewStep
@@ -136,10 +133,10 @@ describe("mindmap preview", () => {
       />
     );
 
-    fireEvent.change(screen.getByPlaceholderText("合力"), {
+    fireEvent.change(screen.getByPlaceholderText("节点名称"), {
       target: { value: "质量" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "保存名称" }));
+    fireEvent.click(screen.getByRole("button", { name: "重命名" }));
 
     await waitFor(() => {
       expect(onStructuredRefineArtifact).toHaveBeenNthCalledWith(
@@ -155,7 +152,7 @@ describe("mindmap preview", () => {
       );
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "删除当前节点" }));
+    fireEvent.click(screen.getByRole("button", { name: "删除节点" }));
 
     await waitFor(() => {
       expect(onStructuredRefineArtifact).toHaveBeenNthCalledWith(

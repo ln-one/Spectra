@@ -11,6 +11,7 @@ CARD_SOURCE_ARTIFACT_TYPES: dict[str, tuple[str, ...]] = {
 }
 
 OPTIONAL_SOURCE_CARD_IDS = {
+    "word_document",
     "demonstration_animations",
 }
 

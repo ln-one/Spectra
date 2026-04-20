@@ -903,7 +903,14 @@ paths:
               schema:
                 $ref: '#/components/schemas/StudioCardExecutionPreviewResponse'
         '400':
-          $ref: '#/components/responses/BadRequest'
+          description: 请求参数错误；演示动画卡片格式契约错误时返回 RFC 9457 Problem Details。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/AnimationFormatProblemDetails'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -940,7 +947,14 @@ paths:
               schema:
                 $ref: '#/components/schemas/StudioCardExecutionResponse'
         '400':
-          $ref: '#/components/responses/BadRequest'
+          description: 请求参数错误；演示动画卡片格式契约错误时返回 RFC 9457 Problem Details。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/AnimationFormatProblemDetails'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -985,7 +999,14 @@ paths:
               schema:
                 $ref: '#/components/schemas/StudioCardExecutionResponse'
         '400':
-          $ref: '#/components/responses/BadRequest'
+          description: 请求参数错误；演示动画卡片格式契约错误时返回 RFC 9457 Problem Details。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/AnimationFormatProblemDetails'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -1030,7 +1051,14 @@ paths:
               schema:
                 $ref: '#/components/schemas/StudioCardRefineResponse'
         '400':
-          $ref: '#/components/responses/BadRequest'
+          description: 请求参数错误；演示动画卡片格式契约错误时返回 RFC 9457 Problem Details。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/AnimationFormatProblemDetails'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -1085,6 +1113,84 @@ paths:
           $ref: '#/components/responses/ServiceUnavailable'
         '504':
           $ref: '#/components/responses/GatewayTimeout'
+  /api/v1/generate/studio-cards/demonstration_animations/recommend-placement:
+    post:
+      summary: 推荐动画 placement 位置
+      operationId: postGenerateAnimationRecommendPlacement
+      description: 基于 GIF 动画成果与 PPT 成果生成推荐插入位置并回写动画 metadata。
+      tags:
+        - Generate
+      security:
+        - SessionAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ContractVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnimationPlacementRecommendationRequest'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnimationPlacementRecommendResponse'
+        '400':
+          description: 请求参数错误；当动画成果非 GIF 时返回 RFC 9457 Problem Details。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/AnimationFormatProblemDetails'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/generate/studio-cards/demonstration_animations/confirm-placement:
+    post:
+      summary: 确认动画 placement
+      operationId: postGenerateAnimationConfirmPlacement
+      description: 把 GIF 动画成果与 PPT 页码/槽位绑定关系写入双方 lineage metadata。
+      tags:
+        - Generate
+      security:
+        - SessionAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ContractVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnimationPlacementConfirmRequest'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnimationPlacementConfirmResponse'
+        '400':
+          description: 请求参数错误；当动画成果非 GIF 时返回 RFC 9457 Problem Details。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/AnimationFormatProblemDetails'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
   /api/v1/generate/studio-cards/{card_id}/sources:
     get:
       summary: 获取 Studio 卡片可绑定源成果
@@ -3402,7 +3508,6 @@ components:
           type: string
           enum:
             - gif
-            - mp4
             - html5
           description: 动画输出格式（当 include_animations 为 true 时）
         use_text_to_image:
@@ -4661,7 +4766,11 @@ components:
           $ref: '#/components/schemas/StudioCardExecutionBinding'
         refine_binding:
           $ref: '#/components/schemas/StudioCardExecutionBinding'
+        follow_up_turn_binding:
+          $ref: '#/components/schemas/StudioCardExecutionBinding'
         source_binding:
+          $ref: '#/components/schemas/StudioCardExecutionBinding'
+        placement_binding:
           $ref: '#/components/schemas/StudioCardExecutionBinding'
     StudioCardExecutionPlanResponse:
       type: object
@@ -4742,6 +4851,37 @@ components:
           $ref: '#/components/schemas/StudioCardResolvedRequest'
         source_request:
           $ref: '#/components/schemas/StudioCardResolvedRequest'
+        placement_request:
+          $ref: '#/components/schemas/StudioCardResolvedRequest'
+        execution_carrier:
+          type: string
+          enum:
+            - session
+            - artifact
+            - hybrid
+        render_mode:
+          type: string
+          enum:
+            - gif
+            - html5
+        artifact_type:
+          type: string
+          enum:
+            - gif
+            - html
+        placement_supported:
+          type: boolean
+        runtime_preview_mode:
+          type: string
+        cloud_render_mode:
+          type: string
+        cloud_video_status:
+          type: string
+        protocol_status:
+          type: string
+        spec_preview:
+          type: object
+          additionalProperties: true
     StudioCardExecutionPreviewResponse:
       type: object
       required:
@@ -4760,6 +4900,60 @@ components:
               $ref: '#/components/schemas/StudioCardExecutionPreview'
         message:
           type: string
+    ProblemDetails:
+      type: object
+      required:
+        - type
+        - title
+        - status
+        - detail
+        - instance
+      properties:
+        type:
+          type: string
+          format: uri
+        title:
+          type: string
+        status:
+          type: integer
+          minimum: 100
+          maximum: 599
+        detail:
+          type: string
+        instance:
+          type: string
+          description: 本次错误对应的请求路径
+      additionalProperties: true
+    AnimationFormatProblemDetails:
+      allOf:
+        - $ref: '#/components/schemas/ProblemDetails'
+        - type: object
+          required:
+            - error_code
+            - allowed_formats
+            - invalid_field
+            - invalid_value
+          properties:
+            error_code:
+              type: string
+              enum:
+                - INVALID_ANIMATION_FORMAT
+                - ANIMATION_FORMAT_MISMATCH
+                - ANIMATION_PLACEMENT_FORMAT_NOT_SUPPORTED
+            allowed_formats:
+              type: array
+              items:
+                type: string
+                enum:
+                  - gif
+                  - html5
+            invalid_field:
+              type: string
+              enum:
+                - animation_format
+                - render_mode
+            invalid_value:
+              type: string
     StudioCardExecutionResult:
       type: object
       required:
@@ -4946,6 +5140,94 @@ components:
               additionalProperties: true
             turn_result:
               $ref: '#/components/schemas/StudioCardTurnResult'
+        message:
+          type: string
+    AnimationPlacementRecommendationRequest:
+      type: object
+      required:
+        - project_id
+        - artifact_id
+        - ppt_artifact_id
+      properties:
+        project_id:
+          type: string
+        artifact_id:
+          type: string
+        ppt_artifact_id:
+          type: string
+    AnimationPlacementRecommendResponse:
+      type: object
+      required:
+        - success
+        - data
+        - message
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          required:
+            - recommendation
+            - artifact
+          properties:
+            recommendation:
+              type: object
+              additionalProperties: true
+            artifact:
+              type: object
+              additionalProperties: true
+        message:
+          type: string
+    AnimationPlacementConfirmRequest:
+      type: object
+      required:
+        - project_id
+        - artifact_id
+        - ppt_artifact_id
+        - page_numbers
+        - slot
+      properties:
+        project_id:
+          type: string
+        artifact_id:
+          type: string
+        ppt_artifact_id:
+          type: string
+        page_numbers:
+          type: array
+          minItems: 1
+          items:
+            type: integer
+            minimum: 1
+        slot:
+          type: string
+    AnimationPlacementConfirmResponse:
+      type: object
+      required:
+        - success
+        - data
+        - message
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          required:
+            - placements
+            - artifact
+            - ppt_artifact
+          properties:
+            placements:
+              type: array
+              items:
+                type: object
+                additionalProperties: true
+            artifact:
+              type: object
+              additionalProperties: true
+            ppt_artifact:
+              type: object
+              additionalProperties: true
         message:
           type: string
     StudioCardSourceArtifact:

@@ -18,7 +18,7 @@ _PAYLOAD_REQUIREMENTS: dict[str, tuple[str, ...]] = {
     "interactive_quick_quiz": ("title", "questions"),
     "interactive_games": ("title", "html"),
     "classroom_qa_simulator": ("title", "turns"),
-    "demonstration_animations": ("title",),
+    "demonstration_animations": (),
     "speaker_notes": ("title", "slides", "anchors"),
 }
 
@@ -89,6 +89,32 @@ def strip_json_fence(text: str) -> str:
     return candidate
 
 
+def _extract_first_json_object(text: str) -> str | None:
+    candidate = (text or "").strip()
+    if not candidate:
+        return None
+    decoder = json.JSONDecoder()
+    try:
+        parsed, end = decoder.raw_decode(candidate)
+        if isinstance(parsed, dict):
+            return candidate[:end]
+    except json.JSONDecodeError:
+        pass
+
+    start = candidate.find("{")
+    while start != -1:
+        fragment = candidate[start:]
+        try:
+            parsed, end = decoder.raw_decode(fragment)
+        except json.JSONDecodeError:
+            start = candidate.find("{", start + 1)
+            continue
+        if isinstance(parsed, dict):
+            return fragment[:end]
+        start = candidate.find("{", start + 1)
+    return None
+
+
 def require_non_empty_str(payload: dict[str, Any], key: str) -> None:
     value = payload.get(key)
     if not isinstance(value, str) or not value.strip():
@@ -119,8 +145,33 @@ def validate_card_payload(card_id: str, payload: dict[str, Any]) -> None:
         require_non_empty_str(payload, "title")
         require_non_empty_list(payload, "turns")
     elif card_id == "demonstration_animations":
-        require_non_empty_str(payload, "title")
-        require_non_empty_list(payload, "scenes")
+        title = payload.get("title")
+        topic = payload.get("topic")
+        summary = payload.get("summary")
+        focus = payload.get("focus")
+        motion_brief = payload.get("motion_brief")
+        has_descriptive_text = any(
+            isinstance(value, str) and value.strip()
+            for value in (title, topic, summary, focus, motion_brief)
+        )
+        if isinstance(payload.get("steps"), list) and payload.get("steps"):
+            return
+        scenes = payload.get("scenes")
+        if isinstance(scenes, list) and scenes:
+            return
+        runtime_graph = payload.get("runtime_graph")
+        if isinstance(runtime_graph, dict):
+            graph_steps = runtime_graph.get("steps")
+            if isinstance(graph_steps, list) and graph_steps:
+                return
+        runtime_draft = payload.get("runtime_draft")
+        if isinstance(runtime_draft, dict):
+            step_captions = runtime_draft.get("step_captions")
+            if isinstance(step_captions, list) and step_captions:
+                return
+        if has_descriptive_text:
+            return
+        raise ValueError("field_animation_runtime_empty")
     elif card_id == "speaker_notes":
         require_non_empty_str(payload, "title")
         require_non_empty_list(payload, "slides")
@@ -161,20 +212,36 @@ def parse_ai_object_payload(
     phase: str,
 ) -> dict[str, Any]:
     normalized = strip_json_fence(ai_raw)
+    recovered = _extract_first_json_object(normalized)
     try:
         parsed = json.loads(normalized)
     except Exception as exc:
-        raise_generation_error(
-            status_code=502,
-            error_code=ErrorCode.EXTERNAL_SERVICE_ERROR,
-            message="AI returned non-JSON content for studio card generation.",
-            card_id=card_id,
-            model=model,
-            phase=phase,
-            failure_reason="parse_json_failed",
-            retryable=True,
-            extra={"raw_error": str(exc)[:300]},
-        )
+        if not recovered:
+            raise_generation_error(
+                status_code=502,
+                error_code=ErrorCode.EXTERNAL_SERVICE_ERROR,
+                message="AI returned non-JSON content for studio card generation.",
+                card_id=card_id,
+                model=model,
+                phase=phase,
+                failure_reason="parse_json_failed",
+                retryable=True,
+                extra={"raw_error": str(exc)[:300]},
+            )
+        try:
+            parsed = json.loads(recovered)
+        except Exception as recovered_exc:
+            raise_generation_error(
+                status_code=502,
+                error_code=ErrorCode.EXTERNAL_SERVICE_ERROR,
+                message="AI returned non-JSON content for studio card generation.",
+                card_id=card_id,
+                model=model,
+                phase=phase,
+                failure_reason="parse_json_failed",
+                retryable=True,
+                extra={"raw_error": str(recovered_exc)[:300]},
+            )
     if not isinstance(parsed, dict):
         raise_generation_error(
             status_code=502,
@@ -213,7 +280,7 @@ def build_schema_hint(card_id: str, config: dict[str, Any] | None = None) -> str
             '"feedback":""}]}'
         ),
         "demonstration_animations": (
-            '{"kind":"animation_storyboard", "topic":"", "summary":"", '
+            '{"kind":"animation_storyboard", "title":"", "topic":"", "summary":"", '
             '"runtime_graph_version":"generic_explainer_graph.v1", '
             '"runtime_graph":{"family_hint":"algorithm_demo","timeline":{"total_steps":1},"steps":[{"primary_caption":{"title":"","body":""},"entities":[{"id":"subject-0","kind":"track_stack"}]}]}, '
             '"runtime_draft_version":"explainer_draft.v1", '

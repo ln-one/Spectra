@@ -19,11 +19,19 @@ tests_or_metrics:
   - "backend/tests/services/chat/test_rag_sources.py"
   - "60题正式集"
   - "105题正式集"
+  - "105题正式集重排策略补充比较（advanced(api) / late_interaction / late_interaction_jina）"
 figures:
   - "fig-image15-10"
+  - "fig-external-rag-metrics-01"
+  - "fig-external-rag-metrics-02"
+  - "fig-external-rag-metrics-03"
 allowed_claims:
   - "advanced 链路相较基础 dense 检索有显著提升。"
   - "检索质量结论可以围绕 Hit@3、MRR、Evidence 指标展开。"
+  - "advanced(api) 在当前实现中通过 Dualweave 的 /rerank/text 接口调用 DashScope qwen3-rerank。"
+  - "late_interaction 补充比较使用 Stratumind late-interaction sidecar 的默认模型 answerdotai/answerai-colbert-small-v1。"
+  - "late_interaction_jina 补充比较使用同一 sidecar 下的 jinaai/jina-colbert-v2。"
+  - "在当前测试条件下，advanced(api) 相比 late_interaction 相关方案表现出更好的综合平衡。"
 forbidden_claims:
   - "检索已经彻底解决所有教学场景的知识匹配问题"
   - "所有生成质量提升都可以完全归因于检索模块"

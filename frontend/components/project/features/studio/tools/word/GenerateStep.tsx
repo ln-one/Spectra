@@ -76,7 +76,7 @@ export function GenerateStep({
       <section className="rounded-xl border border-zinc-200 bg-white p-4">
         <p className="text-xs font-semibold text-zinc-800">主来源</p>
         <p className="mt-1 text-[11px] text-zinc-500">
-          当前教案主链要求先在右侧资料来源中选中一个课件来源。
+          有课件会优先参考课件；没有课件时，可基于课题和资料来源生成。
         </p>
         {sourceLabel ? (
           <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] text-emerald-700">
@@ -84,7 +84,7 @@ export function GenerateStep({
           </div>
         ) : (
           <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-700">
-            请先在右侧 Sources 中选中一个 PPT Source，再生成教案。
+            未选课件：请填写课题，系统将按当前资料来源生成。
           </div>
         )}
       </section>
@@ -108,8 +108,7 @@ export function GenerateStep({
             Boolean(flowContext?.isLoadingProtocol) ||
             flowContext?.canExecute === false ||
             missingRequiredSource ||
-            !topic.trim() ||
-            !goal.trim()
+            !topic.trim()
           }
           onClick={onGenerate}
         >

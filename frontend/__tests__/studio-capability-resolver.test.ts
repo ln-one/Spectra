@@ -128,6 +128,57 @@ describe("studio capability resolver", () => {
     expect(result.status).toBe("backend_placeholder");
   });
 
+  it("treats html animation artifact with runtime snapshot as runtime json payload", async () => {
+    const artifact = makeArtifact({
+      toolType: "animation",
+      artifactType: "html",
+      metadata: {
+        content_snapshot: {
+          kind: "animation_storyboard",
+          runtime_version: "animation_runtime.v4",
+          runtime_graph: {
+            family_hint: "algorithm_demo",
+            timeline: { total_steps: 1 },
+            steps: [],
+          },
+        },
+      },
+    });
+    const result = await resolveCapabilityFromArtifact({
+      toolId: "animation",
+      artifact,
+      blob: new Blob(["<html><body>legacy-template</body></html>"]),
+    });
+
+    expect(result.status).toBe("backend_ready");
+    expect(result.resolvedArtifact?.contentKind).toBe("json");
+    expect(
+      (result.resolvedArtifact?.content as Record<string, unknown>)?.kind
+    ).toBe("animation_storyboard");
+  });
+
+  it("extracts runtime storyboard from legacy html payload when metadata snapshot is missing", async () => {
+    const artifact = makeArtifact({
+      toolType: "animation",
+      artifactType: "html",
+      metadata: {
+        tool_type: "studio_card:demonstration_animations",
+      },
+    });
+    const html = `<!doctype html><html><body><script>window.__SPECTRA_DEBUG_SPEC__ = {"kind":"animation_storyboard","runtime_version":"animation_runtime.v4","runtime_graph":{"family_hint":"algorithm_demo","timeline":{"total_steps":1},"steps":[]}};(function bootstrapSpectraAnimation(){})();</script></body></html>`;
+    const result = await resolveCapabilityFromArtifact({
+      toolId: "animation",
+      artifact,
+      blob: new Blob([html]),
+    });
+
+    expect(result.status).toBe("backend_ready");
+    expect(result.resolvedArtifact?.contentKind).toBe("json");
+    expect(
+      (result.resolvedArtifact?.content as Record<string, unknown>)?.kind
+    ).toBe("animation_storyboard");
+  });
+
   it("marks interactive game compatibility payload as protocol_limited", async () => {
     const artifact = makeArtifact({
       toolType: "outline",

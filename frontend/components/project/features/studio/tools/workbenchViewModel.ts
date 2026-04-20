@@ -7,6 +7,64 @@ function readArtifactContent(flowContext?: ToolFlowContext): Record<string, unkn
   return content as Record<string, unknown>;
 }
 
+function readMetadataSnapshot(
+  flowContext?: ToolFlowContext
+): Record<string, unknown> | null {
+  const metadata = flowContext?.resolvedArtifact?.artifactMetadata;
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
+    return null;
+  }
+  const rawSnapshot = (metadata as Record<string, unknown>).content_snapshot;
+  if (
+    rawSnapshot &&
+    typeof rawSnapshot === "object" &&
+    !Array.isArray(rawSnapshot)
+  ) {
+    return rawSnapshot as Record<string, unknown>;
+  }
+  return null;
+}
+
+function readResolvedMetadataKind(flowContext?: ToolFlowContext): string {
+  const metadata = flowContext?.resolvedArtifact?.artifactMetadata;
+  if (metadata && typeof metadata === "object" && !Array.isArray(metadata)) {
+    const kind = (metadata as Record<string, unknown>).kind;
+    if (typeof kind === "string" && kind.trim()) return kind.trim();
+  }
+  const snapshot = readMetadataSnapshot(flowContext);
+  const snapshotKind = snapshot?.kind;
+  if (typeof snapshotKind === "string" && snapshotKind.trim()) {
+    return snapshotKind.trim();
+  }
+  return "";
+}
+
+function hasAnimationRuntimeHints(flowContext?: ToolFlowContext): boolean {
+  const metadata = flowContext?.resolvedArtifact?.artifactMetadata;
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
+    return false;
+  }
+  const row = metadata as Record<string, unknown>;
+  const snapshot = readMetadataSnapshot(flowContext);
+  const hasRuntimeGraph = (value: unknown): boolean =>
+    Boolean(value) && typeof value === "object" && !Array.isArray(value);
+  return Boolean(
+    (typeof row.runtime_contract === "string" && row.runtime_contract.trim()) ||
+      (typeof row.runtime_version === "string" && row.runtime_version.trim()) ||
+      (typeof row.runtime_graph_version === "string" &&
+        row.runtime_graph_version.trim()) ||
+      hasRuntimeGraph(row.runtime_graph) ||
+      (snapshot &&
+        ((typeof snapshot.runtime_contract === "string" &&
+          snapshot.runtime_contract.trim()) ||
+          (typeof snapshot.runtime_version === "string" &&
+            snapshot.runtime_version.trim()) ||
+          (typeof snapshot.runtime_graph_version === "string" &&
+            snapshot.runtime_graph_version.trim()) ||
+          hasRuntimeGraph(snapshot.runtime_graph)))
+  );
+}
+
 function getCardId(flowContext?: ToolFlowContext): string {
   const fromCapability = flowContext?.cardCapability?.id?.trim();
   if (fromCapability) return fromCapability;
@@ -24,6 +82,7 @@ function getCardId(flowContext?: ToolFlowContext): string {
   if (toolId === "animation") return "demonstration_animations";
 
   const contentKind = readArtifactContent(flowContext)?.kind;
+  const metadataKind = readResolvedMetadataKind(flowContext);
   if (contentKind === "speaker_notes") return "speaker_notes";
   if (contentKind === "word_document" || contentKind === "teaching_document") {
     return "word_document";
@@ -33,12 +92,17 @@ function getCardId(flowContext?: ToolFlowContext): string {
   if (contentKind === "classroom_qa_simulator") return "classroom_qa_simulator";
   if (contentKind === "interactive_game") return "interactive_games";
   if (contentKind === "animation_storyboard") return "demonstration_animations";
+  if (metadataKind === "interactive_game") return "interactive_games";
+  if (metadataKind === "animation_storyboard") return "demonstration_animations";
 
   const artifactType = flowContext?.resolvedArtifact?.artifactType;
   if (artifactType === "docx") return "word_document";
   if (artifactType === "summary") return "speaker_notes";
   if (artifactType === "exercise") return "interactive_quick_quiz";
-  if (artifactType === "html") return "interactive_games";
+  if (artifactType === "html") {
+    if (hasAnimationRuntimeHints(flowContext)) return "demonstration_animations";
+    return "interactive_games";
+  }
   if (artifactType === "gif" || artifactType === "mp4") return "demonstration_animations";
   if (artifactType === "mindmap") return "knowledge_mindmap";
   if (artifactType === "handout") return "classroom_qa_simulator";
@@ -82,7 +146,7 @@ function formatSourceReference(
   if (!sourceId) return "";
   const matched = (flowContext?.sourceOptions ?? []).find((item) => item.id === sourceId);
   const title = matched?.title?.trim();
-  return title ? `${title}` : sourceId;
+  return title ? `${title}` : "";
 }
 
 function normalizeBindingStatusLabel(status: string): string {
@@ -125,6 +189,10 @@ function getSourceBindingStatus(flowContext?: ToolFlowContext): string {
   }
   return flowContext?.requiresSourceArtifact
     ? "当前需要先绑定来源成果。"
+    : cardId === "word_document"
+      ? sourceLabel
+        ? `当前课件来源：${sourceLabel}`
+        : "未绑定课件来源：基于课题与资料来源生成。"
     : cardId === "demonstration_animations"
       ? sourceLabel
         ? artifactType === "gif"
@@ -149,7 +217,9 @@ function getLineageSummary(flowContext?: ToolFlowContext): string {
       : [];
     if (sourceIds.length > 0) {
       const sourceTitle = formatSourceReference(flowContext, sourceIds[0]);
-      return `从 ${sourceTitle || sourceIds[0]} 延展为${currentTitle}`;
+      return sourceTitle
+        ? `从 ${sourceTitle} 延展为${currentTitle}`
+        : `从已绑定来源延展为${currentTitle}`;
     }
     const replacesArtifactId =
       typeof row.replaces_artifact_id === "string" ? row.replaces_artifact_id : "";
@@ -164,7 +234,9 @@ function getLineageSummary(flowContext?: ToolFlowContext): string {
       : "";
   if (sourceArtifactId) {
     const sourceTitle = formatSourceReference(flowContext, sourceArtifactId);
-    return `从 ${sourceTitle || sourceArtifactId} 延展为${currentTitle}`;
+    return sourceTitle
+      ? `从 ${sourceTitle} 延展为${currentTitle}`
+      : `从已绑定来源延展为${currentTitle}`;
   }
   return "当前还没有可展示的生成链信息。";
 }

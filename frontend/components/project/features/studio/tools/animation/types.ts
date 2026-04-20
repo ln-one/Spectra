@@ -2,7 +2,7 @@ export type AnimationStep = "config" | "generate" | "preview";
 
 export type AnimationRhythm = "slow" | "balanced" | "fast";
 
-export type AnimationOutputFormat = "gif" | "mp4" | "html5";
+export type AnimationOutputFormat = "gif" | "html5";
 
 export type AnimationStylePack =
   | "teaching_ppt_cartoon"

@@ -2,7 +2,10 @@ import { promises as fs } from "fs";
 import { unstable_noStore as noStore } from "next/cache";
 import { PreviewStep } from "@/components/project/features/studio/tools/animation/PreviewStep";
 import { DebugLegacyCompare } from "./DebugLegacyCompare";
-import { buildDebugAnimationRuntimeFlowContext } from "./fixture";
+import {
+  DEBUG_CAPTURED_ANIMATION_RUNTIME_SNAPSHOT,
+  buildDebugAnimationRuntimeFlowContext,
+} from "./fixture";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -33,26 +36,8 @@ async function loadDebugFlowContext() {
     );
   } catch {
     return buildDebugAnimationRuntimeFlowContext(
-      {
-        kind: "animation_storyboard",
-        runtime_version: "animation_runtime.v4-missing",
-        runtime_contract: "animation_runtime.v4",
-        runtime_source: "missing_runtime",
-        compile_status: "error",
-        compile_errors: [
-          {
-            message: "未找到真实 animation runtime snapshot。请先运行真实生成链。",
-            source: "schema",
-          },
-        ],
-        family_hint: "generic_animation",
-        title: "Animation Runtime",
-        summary: "Debug harness is waiting for a real generated snapshot.",
-        duration_seconds: 6,
-        rhythm: "balanced",
-        style_pack: "teaching_ppt_minimal_gray",
-      },
-      "No real generated animation runtime snapshot is available yet."
+      DEBUG_CAPTURED_ANIMATION_RUNTIME_SNAPSHOT,
+      "Loaded bundled bubble-sort runtime fixture."
     );
   }
 }

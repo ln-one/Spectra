@@ -38,23 +38,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/auth/refresh": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** 刷新 Access Token */
-        post: operations["postAuthRefresh"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/auth/logout": {
         parameters: {
             query?: never;
@@ -531,6 +514,46 @@ export interface paths {
          * @description 基于已有 classroom_qa_simulator artifact 追加或替换一轮问答模拟。
          */
         post: operations["postGenerateStudioCardSimulatorTurn"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/generate/studio-cards/demonstration_animations/recommend-placement": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 推荐动画 placement 位置
+         * @description 基于 GIF 动画成果与 PPT 成果生成推荐插入位置并回写动画 metadata。
+         */
+        post: operations["postGenerateAnimationRecommendPlacement"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/generate/studio-cards/demonstration_animations/confirm-placement": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 确认动画 placement
+         * @description 把 GIF 动画成果与 PPT 页码/槽位绑定关系写入双方 lineage metadata。
+         */
+        post: operations["postGenerateAnimationConfirmPlacement"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1287,10 +1310,7 @@ export interface components {
         AuthResponse: {
             success: boolean;
             data: {
-                access_token?: string;
-                refresh_token?: string;
-                expires_in?: number;
-                user?: components["schemas"]["UserInfo"];
+                user: components["schemas"]["UserInfo"];
             };
             message: string;
         };
@@ -1670,7 +1690,7 @@ export interface components {
              * @description 动画输出格式（当 include_animations 为 true 时）
              * @enum {string}
              */
-            animation_format?: "gif" | "mp4" | "html5";
+            animation_format?: "gif" | "html5";
             /**
              * @description 是否启用自动配图
              * @default false
@@ -2157,7 +2177,9 @@ export interface components {
             readiness: "ready" | "foundation_ready" | "protocol_pending";
             initial_binding: components["schemas"]["StudioCardExecutionBinding"];
             refine_binding?: components["schemas"]["StudioCardExecutionBinding"];
+            follow_up_turn_binding?: components["schemas"]["StudioCardExecutionBinding"];
             source_binding?: components["schemas"]["StudioCardExecutionBinding"];
+            placement_binding?: components["schemas"]["StudioCardExecutionBinding"];
         };
         StudioCardExecutionPlanResponse: {
             success: boolean;
@@ -2192,6 +2214,21 @@ export interface components {
             initial_request: components["schemas"]["StudioCardResolvedRequest"];
             refine_request?: components["schemas"]["StudioCardResolvedRequest"];
             source_request?: components["schemas"]["StudioCardResolvedRequest"];
+            placement_request?: components["schemas"]["StudioCardResolvedRequest"];
+            /** @enum {string} */
+            execution_carrier?: "session" | "artifact" | "hybrid";
+            /** @enum {string} */
+            render_mode?: "gif" | "html5";
+            /** @enum {string} */
+            artifact_type?: "gif" | "html";
+            placement_supported?: boolean;
+            runtime_preview_mode?: string;
+            cloud_render_mode?: string;
+            cloud_video_status?: string;
+            protocol_status?: string;
+            spec_preview?: {
+                [key: string]: unknown;
+            };
         };
         StudioCardExecutionPreviewResponse: {
             success: boolean;
@@ -2199,6 +2236,25 @@ export interface components {
                 execution_preview: components["schemas"]["StudioCardExecutionPreview"];
             };
             message: string;
+        };
+        ProblemDetails: {
+            /** Format: uri */
+            type: string;
+            title: string;
+            status: number;
+            detail: string;
+            /** @description 本次错误对应的请求路径 */
+            instance: string;
+        } & {
+            [key: string]: unknown;
+        };
+        AnimationFormatProblemDetails: components["schemas"]["ProblemDetails"] & {
+            /** @enum {string} */
+            error_code: "INVALID_ANIMATION_FORMAT" | "ANIMATION_FORMAT_MISMATCH" | "ANIMATION_PLACEMENT_FORMAT_NOT_SUPPORTED";
+            allowed_formats: ("gif" | "html5")[];
+            /** @enum {string} */
+            invalid_field: "animation_format" | "render_mode";
+            invalid_value: string;
         };
         StudioCardExecutionResult: {
             card_id: string;
@@ -2279,6 +2335,45 @@ export interface components {
             };
             message: string;
         };
+        AnimationPlacementRecommendationRequest: {
+            project_id: string;
+            artifact_id: string;
+            ppt_artifact_id: string;
+        };
+        AnimationPlacementRecommendResponse: {
+            success: boolean;
+            data: {
+                recommendation: {
+                    [key: string]: unknown;
+                };
+                artifact: {
+                    [key: string]: unknown;
+                };
+            };
+            message: string;
+        };
+        AnimationPlacementConfirmRequest: {
+            project_id: string;
+            artifact_id: string;
+            ppt_artifact_id: string;
+            page_numbers: number[];
+            slot: string;
+        };
+        AnimationPlacementConfirmResponse: {
+            success: boolean;
+            data: {
+                placements: {
+                    [key: string]: unknown;
+                }[];
+                artifact: {
+                    [key: string]: unknown;
+                };
+                ppt_artifact: {
+                    [key: string]: unknown;
+                };
+            };
+            message: string;
+        };
         StudioCardSourceArtifact: {
             id: string;
             type: string;
@@ -2321,6 +2416,30 @@ export interface components {
             /** @default 0 */
             page_count: number;
             pages?: components["schemas"]["RenderedPreviewPage"][];
+        };
+        DiegoPreviewContext: {
+            /**
+             * @default diego
+             * @enum {string}
+             */
+            provider: "diego";
+            run_id?: string;
+            palette?: string;
+            style?: string;
+            style_dna_id?: string;
+            effective_template_style?: string;
+            source_event_seq?: number;
+            theme?: {
+                primary?: string;
+                secondary?: string;
+                accent?: string;
+                light?: string;
+                bg?: string;
+            };
+            fonts?: {
+                title?: string;
+                body?: string;
+            };
         };
         preview_SourceReference: {
             /** @description 来源片段唯一标识，可用于查询来源详情 */
@@ -2403,6 +2522,7 @@ export interface components {
                 render_version?: number;
                 artifact_anchor?: components["schemas"]["ArtifactAnchor"];
                 rendered_preview?: components["schemas"]["RenderedPreview"];
+                diego_preview_context?: components["schemas"]["DiegoPreviewContext"];
                 slides?: components["schemas"]["Slide"][];
                 lesson_plan?: components["schemas"]["LessonPlan"];
             };
@@ -2624,26 +2744,29 @@ export interface components {
             redis: "connected" | "disconnected";
             db_required: boolean;
             redis_required: boolean;
-            generation_tools: {
-                /** @enum {string} */
-                marp: "available" | "unavailable" | "unknown";
-                /** @enum {string} */
-                pandoc: "available" | "unavailable" | "unknown";
+            service_authorities: {
                 required: boolean;
                 healthy: boolean;
+                services: {
+                    [key: string]: {
+                        configured: boolean;
+                        env: string;
+                        base_url?: string | null;
+                    };
+                };
                 timed_out: boolean;
             };
             /** Format: float */
             dependency_timeout_seconds: number;
             /** Format: float */
-            tool_timeout_seconds: number;
+            service_authority_timeout_seconds: number;
             latency_ms: {
                 /** Format: float */
                 database: number;
                 /** Format: float */
                 redis: number;
                 /** Format: float */
-                generation_tools: number;
+                service_authorities: number;
             };
         };
         HealthLivenessResponse: {
@@ -3112,35 +3235,6 @@ export interface operations {
         };
         responses: {
             /** @description 登录成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AuthResponse"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-        };
-    };
-    postAuthRefresh: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    /** @description 长期有效的刷新令牌 */
-                    refresh_token: string;
-                };
-            };
-        };
-        responses: {
-            /** @description 刷新成功 */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -3905,7 +3999,16 @@ export interface operations {
                     "application/json": components["schemas"]["StudioCardExecutionPreviewResponse"];
                 };
             };
-            400: components["responses"]["BadRequest"];
+            /** @description 请求参数错误；演示动画卡片格式契约错误时返回 RFC 9457 Problem Details。 */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                    "application/problem+json": components["schemas"]["AnimationFormatProblemDetails"];
+                };
+            };
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
@@ -3938,7 +4041,16 @@ export interface operations {
                     "application/json": components["schemas"]["StudioCardExecutionResponse"];
                 };
             };
-            400: components["responses"]["BadRequest"];
+            /** @description 请求参数错误；演示动画卡片格式契约错误时返回 RFC 9457 Problem Details。 */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                    "application/problem+json": components["schemas"]["AnimationFormatProblemDetails"];
+                };
+            };
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
@@ -3975,7 +4087,16 @@ export interface operations {
                     "application/json": components["schemas"]["StudioCardExecutionResponse"];
                 };
             };
-            400: components["responses"]["BadRequest"];
+            /** @description 请求参数错误；演示动画卡片格式契约错误时返回 RFC 9457 Problem Details。 */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                    "application/problem+json": components["schemas"]["AnimationFormatProblemDetails"];
+                };
+            };
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
@@ -4012,7 +4133,16 @@ export interface operations {
                     "application/json": components["schemas"]["StudioCardRefineResponse"];
                 };
             };
-            400: components["responses"]["BadRequest"];
+            /** @description 请求参数错误；演示动画卡片格式契约错误时返回 RFC 9457 Problem Details。 */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                    "application/problem+json": components["schemas"]["AnimationFormatProblemDetails"];
+                };
+            };
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
@@ -4055,6 +4185,86 @@ export interface operations {
             502: components["responses"]["BadGateway"];
             503: components["responses"]["ServiceUnavailable"];
             504: components["responses"]["GatewayTimeout"];
+        };
+    };
+    postGenerateAnimationRecommendPlacement: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description 客户端期望的契约版本；服务端可据此做兼容降级与告警。 */
+                "X-Contract-Version"?: components["parameters"]["ContractVersion"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AnimationPlacementRecommendationRequest"];
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnimationPlacementRecommendResponse"];
+                };
+            };
+            /** @description 请求参数错误；当动画成果非 GIF 时返回 RFC 9457 Problem Details。 */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                    "application/problem+json": components["schemas"]["AnimationFormatProblemDetails"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    postGenerateAnimationConfirmPlacement: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description 客户端期望的契约版本；服务端可据此做兼容降级与告警。 */
+                "X-Contract-Version"?: components["parameters"]["ContractVersion"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AnimationPlacementConfirmRequest"];
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnimationPlacementConfirmResponse"];
+                };
+            };
+            /** @description 请求参数错误；当动画成果非 GIF 时返回 RFC 9457 Problem Details。 */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                    "application/problem+json": components["schemas"]["AnimationFormatProblemDetails"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
         };
     };
     getGenerateStudioCardSources: {

@@ -10,7 +10,7 @@ import type {
   StudioHistoryStep,
   StudioPptHistoryStatus,
 } from "../history/types";
-import type { StudioToolKey } from "../tools";
+import type { ManagedResultTarget, StudioToolKey } from "../tools";
 import { normalizeHistoryStep } from "./utils";
 
 interface UseStudioHistoryHandlersArgs {
@@ -69,6 +69,8 @@ interface UseStudioHistoryHandlersArgs {
     stage: "generate" | "preview",
     sessionId: string | null
   ) => void;
+  onManagedOpenHistoryResult?: (payload: ManagedResultTarget) => void;
+  onManagedStartNewDraft?: (toolType: GenerationToolType) => void;
 }
 
 export function useStudioHistoryHandlers({
@@ -94,6 +96,8 @@ export function useStudioHistoryHandlers({
   recordWorkflowEntry,
   syncStudioChatContextByStep,
   pushStudioStageHint,
+  onManagedOpenHistoryResult,
+  onManagedStartNewDraft,
 }: UseStudioHistoryHandlersArgs) {
   const router = useRouter();
 
@@ -328,22 +332,28 @@ export function useStudioHistoryHandlers({
 
       setLayoutMode("expanded");
       setExpandedTool(item.toolType as StudioToolKey);
+      onManagedOpenHistoryResult?.({
+        toolType: item.toolType as StudioToolKey,
+        sessionId: item.sessionId ?? null,
+        runId: item.runId ?? null,
+        artifactId: item.artifactId ?? null,
+        status: item.status,
+      });
       setManagedToolRunSeed(
         item.toolType as StudioToolKey,
         item.runId ?? null,
         item.sessionId ?? null
       );
       const targetStep: StudioHistoryStep =
+        item.status === "processing" ||
+        item.status === "previewing" ||
+        item.status === "completed" ||
         item.status === "failed" ||
-        item.status === "draft" ||
-        item.status === "pending"
-          ? "generate"
-          : item.status === "processing" ||
-              item.status === "previewing" ||
-              item.status === "completed" ||
-              item.origin === "artifact" ||
-              item.step === "preview"
-            ? "preview"
+        item.origin === "artifact" ||
+        item.step === "preview"
+          ? "preview"
+          : item.status === "draft" || item.status === "pending"
+            ? "generate"
             : normalizeHistoryStep(item.step);
       requestStep(item.toolType, targetStep);
     },
@@ -363,6 +373,7 @@ export function useStudioHistoryHandlers({
       setManagedToolRunSeed,
       setPptResumeStage,
       trackStep,
+      onManagedOpenHistoryResult,
     ]
   );
 
@@ -400,6 +411,7 @@ export function useStudioHistoryHandlers({
     (tool: StudioTool) => {
       setLayoutMode("expanded");
       setExpandedTool(tool.type);
+      onManagedStartNewDraft?.(tool.type as GenerationToolType);
       requestStep(tool.type as GenerationToolType, "config");
       if (tool.type !== "ppt") {
         setManagedToolRunSeed(
@@ -426,6 +438,7 @@ export function useStudioHistoryHandlers({
       setPptResumeStage,
       bumpPptResumeSignal,
       trackStep,
+      onManagedStartNewDraft,
     ]
   );
 

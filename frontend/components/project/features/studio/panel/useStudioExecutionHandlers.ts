@@ -1,14 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { studioCardsApi } from "@/lib/sdk";
+import { generateApi, studioCardsApi } from "@/lib/sdk";
 import { getErrorMessage } from "@/lib/sdk/errors";
 import { ApiError } from "@/lib/sdk/client";
+import { getArtifacts } from "@/lib/sdk/project-space/artifacts";
 import type {
   ArtifactHistoryItem,
   GenerationToolType,
 } from "@/lib/project-space/artifact-history";
+import { toArtifactHistoryItem } from "@/lib/project-space/artifact-history";
 import { toast } from "@/hooks/use-toast";
 import type { StudioToolKey, ToolDraftState } from "../tools";
 import { TOOL_LABELS } from "../constants";
+import type { StudioHistoryStatus } from "../history/types";
 import type { StudioExecutionResult, StudioSourceOption } from "./types";
 
 interface UseStudioExecutionHandlersArgs {
@@ -29,7 +32,6 @@ interface UseStudioExecutionHandlersArgs {
   requiresSourceArtifact: boolean;
   hasSourceBinding: boolean;
   canRefine: boolean;
-  setActiveSessionId: (sessionId: string | null) => void;
   fetchArtifactHistory: (
     projectId: string,
     sessionId: string | null
@@ -54,6 +56,19 @@ type StudioActionKind =
   | "refine"
   | "follow_up_turn"
   | "load_sources";
+
+function readString(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
+}
+
+function isUuidLike(value: string | null): boolean {
+  if (!value) return false;
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    value
+  );
+}
 
 function resolveExecutionRunNo(
   run: Record<string, unknown> | null
@@ -108,6 +123,27 @@ function formatStudioExecutionError(error: unknown): string {
   return getErrorMessage(error);
 }
 
+function resolveManagedArtifactForRun(
+  artifacts: ArtifactHistoryItem[],
+  toolType: StudioToolKey,
+  sessionId: string,
+  runId: string | null,
+  artifactId: string | null
+): ArtifactHistoryItem | null {
+  const toolArtifacts = artifacts.filter(
+    (item) => item.toolType === toolType && item.sessionId === sessionId
+  );
+  if (artifactId) {
+    const matched = toolArtifacts.find((item) => item.artifactId === artifactId);
+    if (matched) return matched;
+  }
+  if (runId) {
+    const matched = toolArtifacts.find((item) => item.runId === runId);
+    if (matched) return matched;
+  }
+  return toolArtifacts[0] ?? null;
+}
+
 export function useStudioExecutionHandlers({
   project,
   expandedTool,
@@ -126,7 +162,6 @@ export function useStudioExecutionHandlers({
   requiresSourceArtifact,
   hasSourceBinding,
   canRefine,
-  setActiveSessionId,
   fetchArtifactHistory,
   focusChatComposer,
   syncStudioChatContextByStep,
@@ -243,13 +278,44 @@ export function useStudioExecutionHandlers({
   const ensureActiveSession = useCallback(() => {
     if (activeSessionId) return true;
     toast({
-      title: "Create session first",
+      title: "请先选择会话",
       description:
-        "Create a session from Session Switcher > New Session before running tools.",
+        "执行 Studio 卡片前，请先在会话选择器中创建或切换到目标会话。",
       variant: "destructive",
     });
     return false;
   }, [activeSessionId]);
+
+  const assertSessionConsistency = useCallback(
+    ({
+      expectedSessionId,
+      returnedSessionId,
+      action,
+    }: {
+      expectedSessionId: string | null;
+      returnedSessionId: string | null;
+      action: "draft" | "execute" | "refine" | "follow_up_turn";
+    }): boolean => {
+      if (!expectedSessionId) return false;
+      if (!returnedSessionId || returnedSessionId === expectedSessionId) {
+        return true;
+      }
+      console.warn("[studio.session_mismatch]", {
+        card_id: currentCardId,
+        action,
+        expected_session_id: expectedSessionId,
+        returned_session_id: returnedSessionId,
+        mismatch_reason: "response_session_differs_from_active_session",
+      });
+      toast({
+        title: "会话不一致，已阻断执行",
+        description: "返回会话与当前会话不一致，请刷新后重试。",
+        variant: "destructive",
+      });
+      return false;
+    },
+    [currentCardId]
+  );
 
   const handleStudioLoadSources = useCallback(async () => {
     const cardId = currentCardId;
@@ -259,7 +325,10 @@ export function useStudioExecutionHandlers({
       const response = await studioCardsApi.getSources(cardId, project.id);
       const sources = (response?.data?.sources ?? []).map((item) => ({
         id: item.id,
-        title: item.title,
+        title: (() => {
+          const title = readString(item.title);
+          return title && !isUuidLike(title) ? title : undefined;
+        })(),
         type: item.type,
         sessionId: item.session_id ?? null,
       }));
@@ -365,6 +434,101 @@ export function useStudioExecutionHandlers({
     [activeRunId, generationSession]
   );
 
+  const reconcileManagedExecutionOutcome = useCallback(
+    async ({
+      toolType,
+      sessionId,
+      runId,
+      artifactId,
+    }: {
+      toolType: StudioToolKey;
+      sessionId: string | null;
+      runId: string | null;
+      artifactId?: string | null;
+    }): Promise<StudioExecutionResult | null> => {
+      if (!project?.id || !sessionId) return null;
+
+      try {
+        await fetchArtifactHistory(project.id, sessionId);
+        const resolvedRunId = runId ?? null;
+        const [runResponse, artifactsResponse] = await Promise.all([
+          resolvedRunId
+            ? generateApi.getRun(sessionId, resolvedRunId).catch(() => null)
+            : null,
+          getArtifacts(project.id, { session_id: sessionId }),
+        ]);
+        const runRecord =
+          typeof runResponse?.data?.run === "object" && runResponse.data.run
+            ? (runResponse.data.run as unknown as Record<string, unknown>)
+            : null;
+        const runNo = resolveExecutionRunNo(runRecord);
+        const runStatus =
+          readString(runRecord?.run_status) ?? null;
+        const artifactItems = (artifactsResponse.artifacts ?? []).map(
+          toArtifactHistoryItem
+        );
+        const matchedArtifact = resolveManagedArtifactForRun(
+          artifactItems,
+          toolType,
+          sessionId,
+          resolvedRunId,
+          artifactId ?? null
+        );
+
+        if (matchedArtifact) {
+          appendRuntimeArtifact(toolType, matchedArtifact);
+          return {
+            ok: true,
+            sessionId,
+            effectiveSessionId: sessionId,
+            resourceKind: "artifact",
+            runId: resolvedRunId ?? matchedArtifact.runId ?? null,
+            runNo: runNo ?? matchedArtifact.runNo ?? null,
+            artifactId: matchedArtifact.artifactId,
+            status: runStatus === "completed" ? "completed" : "previewing",
+            recovered: true,
+          };
+        }
+
+        if (runStatus === "failed") {
+          return {
+            ok: false,
+            sessionId,
+            effectiveSessionId: sessionId,
+            resourceKind: null,
+            runId: resolvedRunId,
+            runNo,
+            artifactId: null,
+            status: "failed",
+            recovered: true,
+          };
+        }
+
+        if (
+          runStatus === "processing" ||
+          runStatus === "pending"
+        ) {
+          return {
+            ok: true,
+            sessionId,
+            effectiveSessionId: sessionId,
+            resourceKind: "session",
+            runId: resolvedRunId,
+            runNo,
+            artifactId: null,
+            status: "processing",
+            recovered: true,
+          };
+        }
+      } catch {
+        // Keep the original execution result when reconciliation cannot establish truth.
+      }
+
+      return null;
+    },
+    [appendRuntimeArtifact, fetchArtifactHistory, project?.id]
+  );
+
   const handleStudioPrepareDraft =
     useCallback(async (): Promise<StudioExecutionResult> => {
       if (!project || !currentCardId) {
@@ -433,6 +597,7 @@ export function useStudioExecutionHandlers({
       }
       try {
         startCardAction(currentCardId, "prepare");
+        const expectedSessionId = activeSessionId;
         const response = await studioCardsApi.createDraft(
           currentCardId,
           requestBody
@@ -461,12 +626,28 @@ export function useStudioExecutionHandlers({
           (run?.id as string | undefined) ||
           null;
         const runNo = resolveExecutionRunNo(run);
-        if (sessionId) setActiveSessionId(sessionId);
+        if (
+          !assertSessionConsistency({
+            expectedSessionId,
+            returnedSessionId: sessionId,
+            action: "draft",
+          })
+        ) {
+          return {
+            ok: false,
+            sessionId: sessionId ?? null,
+            effectiveSessionId: expectedSessionId,
+            resourceKind: null,
+            runId: null,
+            runNo: null,
+            status: "failed",
+          };
+        }
         draftRunIdRef.current = runId ?? null;
         return {
           ok: true,
-          sessionId,
-          effectiveSessionId: sessionId ?? activeSessionId ?? null,
+          sessionId: sessionId ?? expectedSessionId,
+          effectiveSessionId: expectedSessionId,
           resourceKind,
           runId,
           runNo,
@@ -499,7 +680,7 @@ export function useStudioExecutionHandlers({
       isProtocolPending,
       project,
       requiresSourceArtifact,
-      setActiveSessionId,
+      assertSessionConsistency,
       startCardAction,
     ]);
 
@@ -590,6 +771,7 @@ export function useStudioExecutionHandlers({
       const requestRunId = draftRunIdRef.current ?? null;
       try {
         startCardAction(currentCardId, "execute");
+        const expectedSessionId = activeSessionId;
         const requestPayload = {
           ...requestBody,
           run_id: requestRunId ?? undefined,
@@ -621,6 +803,7 @@ export function useStudioExecutionHandlers({
           (run?.id as string | undefined) ||
           null;
         const runNo = resolveExecutionRunNo(run);
+        let createdArtifactId: string | null = null;
         const responseData = (response?.data ?? {}) as {
           request_preview?: unknown;
         };
@@ -630,8 +813,24 @@ export function useStudioExecutionHandlers({
             responseData.request_preview
           );
         }
-
-        if (sessionId) setActiveSessionId(sessionId);
+        if (
+          !assertSessionConsistency({
+            expectedSessionId,
+            returnedSessionId: sessionId,
+            action: "execute",
+          })
+        ) {
+          return {
+            ok: false,
+            sessionId: sessionId ?? null,
+            effectiveSessionId: expectedSessionId,
+            resourceKind: null,
+            runId: null,
+            runNo: null,
+            artifactId: null,
+            status: "failed",
+          };
+        }
         if (
           runId &&
           (requestRunId === null || draftRunIdRef.current === requestRunId)
@@ -639,7 +838,22 @@ export function useStudioExecutionHandlers({
           draftRunIdRef.current = runId;
         }
 
-        const effectiveSessionId = sessionId ?? activeSessionId;
+        const effectiveSessionId = expectedSessionId;
+        const immediateResult: StudioExecutionResult = {
+          ok: true,
+          sessionId: sessionId ?? expectedSessionId,
+          effectiveSessionId,
+          resourceKind,
+          runId,
+          runNo,
+          artifactId: null,
+          status:
+            resourceKind === "artifact"
+              ? "previewing"
+              : resourceKind === "session"
+                ? "processing"
+                : "previewing",
+        };
 
         if (
           resourceKind === "artifact" &&
@@ -664,14 +878,32 @@ export function useStudioExecutionHandlers({
             typeof artifactPayload.metadata === "object"
               ? (artifactPayload.metadata as Record<string, unknown>)
               : null;
+          const artifactSessionId =
+            (artifactPayload.session_id as string | undefined) ?? null;
+          if (
+            !assertSessionConsistency({
+              expectedSessionId,
+              returnedSessionId: artifactSessionId,
+              action: "execute",
+            })
+          ) {
+            return {
+              ok: false,
+              sessionId: sessionId ?? artifactSessionId,
+              effectiveSessionId: expectedSessionId,
+              resourceKind: null,
+              runId: null,
+              runNo: null,
+              artifactId: null,
+              status: "failed",
+            };
+          }
 
           if (artifactId) {
+            createdArtifactId = artifactId;
             appendRuntimeArtifact(expandedTool as StudioToolKey, {
               artifactId,
-              sessionId:
-                (artifactPayload.session_id as string | undefined) ??
-                effectiveSessionId ??
-                null,
+              sessionId: artifactSessionId ?? effectiveSessionId ?? null,
               toolType: expandedTool,
               artifactType,
               metadata: artifactMetadata,
@@ -690,31 +922,73 @@ export function useStudioExecutionHandlers({
               runId,
               runNo,
             });
+            immediateResult.artifactId = artifactId;
           }
         }
 
         await fetchArtifactHistory(project.id, effectiveSessionId);
-        scheduleArtifactRefresh(project.id, effectiveSessionId);
+
+        const finalResult =
+          expandedTool && expandedTool !== "ppt"
+            ? (await reconcileManagedExecutionOutcome({
+                toolType: expandedTool as StudioToolKey,
+                sessionId: effectiveSessionId,
+                runId: runId ?? requestRunId,
+                artifactId: createdArtifactId,
+              })) ?? immediateResult
+            : immediateResult;
+        if (
+          finalResult.status === "processing" &&
+          typeof effectiveSessionId === "string" &&
+          effectiveSessionId.trim()
+        ) {
+          scheduleArtifactRefresh(project.id, effectiveSessionId);
+        }
 
         toast({
-          title: "Studio execution succeeded",
+          title:
+            finalResult.recovered && finalResult.status === "processing"
+              ? "Studio execution continues"
+              : "Studio execution succeeded",
           description:
-            resourceKind === "session" && sessionId
-              ? `Started session flow ${sessionId.slice(0, 8)}`
-              : sessionId
-                ? `Generated session ${sessionId.slice(0, 8)}`
-                : "Generation submitted and artifacts refreshed.",
+            finalResult.recovered && finalResult.status === "processing"
+              ? "请求已发出，后端仍在继续处理本次教学文档。"
+              : finalResult.resourceKind === "session" && finalResult.sessionId
+                ? `Started session flow ${finalResult.sessionId.slice(0, 8)}`
+                : finalResult.sessionId
+                  ? `Generated session ${finalResult.sessionId.slice(0, 8)}`
+                  : "Generation submitted and artifacts refreshed.",
         });
 
-        return {
-          ok: true,
-          sessionId,
-          effectiveSessionId,
-          resourceKind,
-          runId,
-          runNo,
-        };
+        return finalResult;
       } catch (error) {
+        const reconciled =
+          expandedTool && expandedTool !== "ppt"
+            ? await reconcileManagedExecutionOutcome({
+                toolType: expandedTool as StudioToolKey,
+                sessionId: activeSessionId ?? null,
+                runId: requestRunId ?? activeRunId ?? null,
+                artifactId: null,
+              })
+            : null;
+        if (reconciled) {
+          toast({
+            title:
+              reconciled.ok && reconciled.status === "processing"
+                ? "Studio execution continues"
+                : reconciled.ok
+                  ? "Studio execution recovered"
+                  : "Studio execution failed",
+            description:
+              reconciled.ok && reconciled.status === "processing"
+                ? "请求链路有抖动，但后端仍在继续处理本次教学文档。"
+                : reconciled.ok
+                  ? "请求链路有抖动，但后端结果已成功对账恢复。"
+                  : "后端已确认本次教学文档执行失败。",
+            variant: reconciled.ok ? undefined : "destructive",
+          });
+          return reconciled;
+        }
         toast({
           title: "Studio execution failed",
           description: formatStudioExecutionError(error),
@@ -728,6 +1002,8 @@ export function useStudioExecutionHandlers({
           resourceKind: null,
           runId: fallbackRunId,
           runNo: null,
+          artifactId: null,
+          status: "failed",
         };
       } finally {
         endCardAction(currentCardId);
@@ -747,10 +1023,11 @@ export function useStudioExecutionHandlers({
       hasSourceBinding,
       isProtocolPending,
       project,
+      reconcileManagedExecutionOutcome,
       requiresSourceArtifact,
       scheduleArtifactRefresh,
       selectedSourceId,
-      setActiveSessionId,
+      assertSessionConsistency,
       startCardAction,
     ]);
 
@@ -802,6 +1079,14 @@ export function useStudioExecutionHandlers({
           insertedNodeId: null,
         };
       }
+      if (!activeSessionId) {
+        return {
+          ok: false,
+          artifactId: null,
+          effectiveSessionId: null,
+          insertedNodeId: null,
+        };
+      }
 
       try {
         startCardAction(currentCardId, "refine");
@@ -829,17 +1114,32 @@ export function useStudioExecutionHandlers({
           executionResult.artifact !== null
             ? (executionResult.artifact as Record<string, unknown>)
             : null;
-        const effectiveSessionId =
+        const returnedSessionId =
           (typeof executionResult.session === "object" &&
           executionResult.session !== null
             ? ((executionResult.session as Record<string, unknown>)
                 .session_id ??
               (executionResult.session as Record<string, unknown>).id)
-            : null) ?? activeSessionId;
+            : null) ?? null;
+        if (
+          !assertSessionConsistency({
+            expectedSessionId: activeSessionId,
+            returnedSessionId:
+              typeof returnedSessionId === "string" ? returnedSessionId : null,
+            action: "refine",
+          })
+        ) {
+          return {
+            ok: false,
+            artifactId: null,
+            effectiveSessionId: activeSessionId,
+            insertedNodeId: null,
+          };
+        }
+        const effectiveSessionId = activeSessionId;
 
         if (effectiveSessionId) {
-          await fetchArtifactHistory(project.id, String(effectiveSessionId));
-          scheduleArtifactRefresh(project.id, String(effectiveSessionId));
+          void fetchArtifactHistory(project.id, String(effectiveSessionId));
         }
 
         return {
@@ -907,6 +1207,18 @@ export function useStudioExecutionHandlers({
           raw: null,
         };
       }
+      if (!activeSessionId) {
+        return {
+          ok: false,
+          artifactId: null,
+          effectiveSessionId: null,
+          turnResult: null,
+          latestRunnableState: null,
+          nextFocus: null,
+          turnAnchor: null,
+          raw: null,
+        };
+      }
 
       try {
         startCardAction(currentCardId, "follow_up_turn");
@@ -918,6 +1230,7 @@ export function useStudioExecutionHandlers({
         );
         const response = await studioCardsApi.turn({
           project_id: project.id,
+          session_id: activeSessionId,
           artifact_id: artifactId,
           teacher_answer: teacherAnswer,
           turn_anchor: turnAnchor,
@@ -927,9 +1240,30 @@ export function useStudioExecutionHandlers({
           selected_library_ids: selectedLibraryIds,
         });
         const payload = response?.data ?? null;
+        const returnedSessionId =
+          (typeof payload?.artifact?.session_id === "string" &&
+            payload.artifact.session_id) ||
+          null;
+        if (
+          !assertSessionConsistency({
+            expectedSessionId: activeSessionId,
+            returnedSessionId,
+            action: "follow_up_turn",
+          })
+        ) {
+          return {
+            ok: false,
+            artifactId: null,
+            effectiveSessionId: activeSessionId,
+            turnResult: null,
+            latestRunnableState: null,
+            nextFocus: null,
+            turnAnchor: null,
+            raw: null,
+          };
+        }
         if (activeSessionId) {
           await fetchArtifactHistory(project.id, activeSessionId);
-          scheduleArtifactRefresh(project.id, activeSessionId);
         }
         return {
           ok: true,

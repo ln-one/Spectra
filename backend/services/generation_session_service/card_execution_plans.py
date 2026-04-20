@@ -54,7 +54,7 @@ CARD_EXECUTION_PLANS: dict[str, StudioCardExecutionPlan] = {
             status=StudioCardBindingStatus.READY,
             method="POST",
             endpoint="/api/v1/projects/{project_id}/artifacts",
-            required_fields=["project_id", "type", "visibility", "source_artifact_id"],
+            required_fields=["project_id", "type", "visibility"],
             bound_config_keys=[
                 "type",
                 "source_artifact_id",
@@ -157,7 +157,7 @@ CARD_EXECUTION_PLANS: dict[str, StudioCardExecutionPlan] = {
             ],
             pending_config_keys=[],
             result_fields=["artifact.id", "artifact.type"],
-            notes="动画生成以 animation_storyboard artifact 为正式输入，可正式输出 HTML5、GIF 与 MP4 成果。",
+            notes="动画生成以 animation_storyboard artifact 为正式输入，第一阶段正式输出仅支持 HTML5 与 GIF。",
         ),
         refine_binding=StudioCardExecutionBinding(
             transport=StudioCardTransport.ARTIFACT_CREATE,

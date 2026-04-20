@@ -475,6 +475,10 @@ export function createChatActions({
             session_id: effectiveSessionId,
             artifact_id: context.targetArtifactId || undefined,
             message: normalizedContent,
+            refine_mode:
+              context.cardId === "word_document"
+                ? "structured_refine"
+                : undefined,
             source_artifact_id: context.sourceArtifactId || undefined,
             config: context.configSnapshot,
             selected_file_ids: effectiveSelectedSourceIds,
@@ -534,6 +538,25 @@ export function createChatActions({
           }
 
           await get().fetchArtifactHistory(projectId, refinedSessionId);
+          if (
+            typeof window !== "undefined" &&
+            context.toolType &&
+            (refinedArtifactId || refinedRunId)
+          ) {
+            window.dispatchEvent(
+              new CustomEvent("spectra:open-history-item", {
+                detail: {
+                  origin: "workflow",
+                  toolType: context.toolType,
+                  step: "preview",
+                  status: "completed",
+                  sessionId: refinedSessionId,
+                  runId: refinedRunId,
+                  artifactId: refinedArtifactId,
+                },
+              })
+            );
+          }
 
           updateLocalMessage(
             projectId,

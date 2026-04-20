@@ -87,6 +87,21 @@ export interface ToolArtifactPreviewItem {
   runNo?: number | null;
 }
 
+export interface ManagedResultTarget {
+  toolType?: StudioToolKey | null;
+  sessionId?: string | null;
+  runId?: string | null;
+  artifactId?: string | null;
+  status?:
+    | "pending"
+    | "draft"
+    | "processing"
+    | "previewing"
+    | "completed"
+    | "failed"
+    | null;
+}
+
 export interface ToolDisplayModel {
   toolId: StudioToolKey;
   productTitle: string;
@@ -133,6 +148,11 @@ export interface ToolFlowContext {
   latestRunnableState?: Record<string, unknown> | null;
   provenance?: Record<string, unknown> | null;
   sourceBinding?: Record<string, unknown> | null;
+  currentDraft?: ToolDraftState;
+  managedWorkbenchMode?: "draft" | "history";
+  managedResultTarget?: ManagedResultTarget | null;
+  wordWorkbenchMode?: "draft" | "history";
+  wordResultTarget?: ManagedResultTarget | null;
   onStepChange?: (stepId: string) => void;
   onSelectedSourceChange?: (sourceId: string | null) => void;
   onLoadSources?: () => Promise<void> | void;

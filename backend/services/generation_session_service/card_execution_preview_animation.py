@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from schemas.project_space import ArtifactType
 from schemas.studio_cards import (
     ExecutionCarrier,
     RefineMode,
@@ -10,6 +9,9 @@ from schemas.studio_cards import (
 )
 from services.artifact_generator.animation_runtime import build_scene_outline, resolve_family_hint
 from services.artifact_generator.animation_spec import normalize_animation_spec
+from services.generation_session_service.animation_contract import (
+    resolve_animation_contract,
+)
 
 
 def build_animation_execution_preview(
@@ -20,14 +22,11 @@ def build_animation_execution_preview(
     artifact_visibility: str,
     rag_source_ids: list[str] | None,
 ) -> StudioCardExecutionPreview:
-    render_mode = str(cfg.get("render_mode") or "cloud_video_wan").strip().lower()
-    animation_format = "mp4" if render_mode == "cloud_video_wan" else str(cfg.get("animation_format", "html5")).lower()
-    placement_supported = animation_format == "gif"
-    artifact_type = (
-        ArtifactType.GIF.value
-        if animation_format == "gif"
-        else (ArtifactType.MP4.value if animation_format == "mp4" else ArtifactType.HTML.value)
-    )
+    resolved_contract = resolve_animation_contract(config=cfg, default_format="html5")
+    render_mode = resolved_contract.render_mode
+    animation_format = resolved_contract.animation_format
+    placement_supported = resolved_contract.placement_supported
+    artifact_type = resolved_contract.artifact_type
     source_artifact_id = str(cfg.get("source_artifact_id") or "").strip()
     placement_prerequisites = [
         "bind_ppt_artifact",
@@ -56,7 +55,7 @@ def build_animation_execution_preview(
         placement_supported=placement_supported,
         runtime_preview_mode="local_preview_only",
         cloud_render_mode="async_media_export",
-        cloud_video_status=("pending" if render_mode == "cloud_video_wan" else None),
+        cloud_video_status=None,
         protocol_status="ready_to_execute",
         initial_request=StudioCardResolvedRequest(
             method="POST",
@@ -69,9 +68,6 @@ def build_animation_execution_preview(
                     "kind": "animation_storyboard",
                     "format": animation_format,
                     "render_mode": render_mode or animation_format,
-                    "cloud_video_provider": (
-                        "aliyun_wan" if render_mode == "cloud_video_wan" else None
-                    ),
                     "topic": cfg.get("topic"),
                     "scene": cfg.get("scene"),
                     "duration_seconds": cfg.get("duration_seconds"),
@@ -80,22 +76,12 @@ def build_animation_execution_preview(
                     "split_view": cfg.get("split_view"),
                     "line_color": cfg.get("line_color"),
                     "summary": cfg.get("motion_brief") or cfg.get("topic"),
-                    "cloud_video_model": (
-                        "wan2.7-i2v" if render_mode == "cloud_video_wan" else None
-                    ),
-                    "cloud_video_resolution": (
-                        str(cfg.get("resolution") or "720P").strip()
-                        if render_mode == "cloud_video_wan"
-                        else None
-                    ),
-                    "cloud_video_watermark": (
-                        bool(cfg.get("watermark"))
-                        if render_mode == "cloud_video_wan"
-                        else None
-                    ),
                 },
             },
-            notes="动画卡片默认走百炼 Wan 图生视频异步任务，正式成果输出 MP4。",
+            notes=(
+                "动画卡片第一阶段正式输出仅支持 GIF/HTML5；"
+                "runtime preview 仅为辅助层。"
+            ),
         ),
         refine_request=StudioCardResolvedRequest(
             method="POST",
@@ -115,6 +101,7 @@ def build_animation_execution_preview(
                     "style_pack": cfg.get("style_pack"),
                     "visual_type": cfg.get("visual_type"),
                     "focus": cfg.get("motion_brief"),
+                    "animation_format": animation_format,
                     "render_mode": render_mode,
                 },
             },

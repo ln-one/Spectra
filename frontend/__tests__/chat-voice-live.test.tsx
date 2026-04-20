@@ -233,5 +233,26 @@ describe("ChatPanel voice live transcript", () => {
       window as Window & { webkitSpeechRecognition?: unknown }
     ).webkitSpeechRecognition = originalWebkit;
   });
-});
 
+  it("does not keep loading overlay forever when first-load marker is unresolved", async () => {
+    jest.useFakeTimers();
+
+    const { container } = render(<ChatPanel projectId="proj_1" />);
+
+    expect(
+      container.querySelector(".project-chat-loading-overlay")
+    ).toBeInTheDocument();
+
+    act(() => {
+      jest.advanceTimersByTime(2200);
+    });
+
+    await waitFor(() => {
+      expect(
+        container.querySelector(".project-chat-loading-overlay")
+      ).not.toBeInTheDocument();
+    });
+
+    jest.useRealTimers();
+  });
+});

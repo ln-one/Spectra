@@ -1,0 +1,76 @@
+source_file: spectra_overview_v1
+input_format: markdown
+media_extracted: false
+figures:
+  - ordinal: 1
+    figure_id: overview-flow-01
+    source_image: image19.jpeg
+    source_chapter: 前言与创意描述
+    nearest_heading: 问题与项目定位
+    source_caption: 项目主线示意图，展示资料进入、会话生成、多模态结果、预览导出与结果沉淀之间的连续关系。
+    output_path: ../spectra_v11/assets/media/image19.jpeg
+    layout_mode: full_width
+  - ordinal: 2
+    figure_id: overview-workbench-02
+    source_image: spectra-frontend-workbench.png
+    source_chapter: 功能介绍
+    nearest_heading: 统一工作台与结果组织
+    source_caption: 前端工作台截图，展示教师如何在同一界面内查看资料、推进会话并承接多模态结果。
+    output_path: ../spectra_v11/assets/media/spectra-frontend-workbench.png
+    layout_mode: full_width
+  - ordinal: 3
+    figure_id: overview-studio-03
+    source_image: image3.png
+    source_chapter: 功能介绍
+    nearest_heading: Studio 与多模态结果
+    source_caption: "`Studio` 统一内容工坊示意图，展示课堂主交付、互动练习和教学辅助如何围绕同一课程空间组织。"
+    output_path: ../spectra_v11/assets/media/image3.png
+    layout_mode: full_width
+  - ordinal: 4
+    figure_id: overview-highlight-04
+    source_image: image2.png
+    source_chapter: 系统特色
+    nearest_heading: 三层结构与模块分工
+    source_caption: 三层结构示意图，展示产品工作台、控制平面和正式能力层之间的分工关系。
+    output_path: ../spectra_v11/assets/media/image2.png
+    layout_mode: portrait_safe
+  - ordinal: 5
+    figure_id: overview-deploy-04
+    source_image: spectra-deployment-architecture.png
+    source_chapter: 开发工具与技术
+    nearest_heading: 当前工程部署形态
+    source_caption: 当前部署架构图，展示统一入口、应用节点、能力服务和数据节点之间的连接方式。
+    output_path: ../spectra_v11/assets/media/spectra-deployment-architecture.png
+    layout_mode: full_width
+  - ordinal: 6
+    figure_id: overview-retrieval-06
+    source_image: image15.png
+    source_chapter: 开发工具与技术
+    nearest_heading: 检索与证据链
+    source_caption: 检索与证据核心流程图，展示查询改写、召回、重排、证据打包与观测链路。
+    output_path: ../spectra_v11/assets/media/image15.png
+    layout_mode: full_width
+  - ordinal: 7
+    figure_id: overview-test-latency-07
+    source_image: 主方案质量与延迟对比图.png
+    source_chapter: 测试与效果
+    nearest_heading: 主方案质量与延迟
+    source_caption: 主检索方案在两组正式集上的质量与延迟对比。
+    output_path: ../spectra_v11/assets/media/主方案质量与延迟对比图.png
+    layout_mode: full_width
+  - ordinal: 8
+    figure_id: overview-test-core-08
+    source_image: 两组正式集核心指标对比柱状图.png
+    source_chapter: 测试与效果
+    nearest_heading: 两组正式集核心指标
+    source_caption: 两组正式集上的核心质量指标对比。
+    output_path: ../spectra_v11/assets/media/两组正式集核心指标对比柱状图.png
+    layout_mode: full_width
+  - ordinal: 9
+    figure_id: overview-actors-05
+    source_image: image24.png
+    source_chapter: 应用对象与应用环境
+    nearest_heading: 参与方与协作关系
+    source_caption: 参与方关系示意图，反映教师、学校、内容侧和合作侧围绕平台与资产节点形成的协作关系。
+    output_path: ../spectra_v11/assets/media/image24.png
+    layout_mode: portrait_safe

@@ -37,30 +37,41 @@ def _build_list_node(lines: list[str], *, ordered: bool) -> dict[str, Any]:
 
 
 def markdown_to_document_content(markdown: str) -> dict[str, Any]:
-    blocks = [block.strip() for block in re.split(r"\n{2,}", markdown or "") if block.strip()]
     content: list[dict[str, Any]] = []
-    for block in blocks:
-        lines = [line.strip() for line in block.splitlines() if line.strip()]
-        if not lines:
-            continue
-        if len(lines) > 1 and all(re.match(r"^[-*]\s+", line) for line in lines):
+    paragraph_buffer: list[str] = []
+    list_buffer: list[str] = []
+    list_ordered: bool | None = None
+
+    def flush_paragraph() -> None:
+        nonlocal paragraph_buffer
+        text = " ".join(part.strip() for part in paragraph_buffer if part.strip()).strip()
+        if text:
+            content.append(_paragraph_node(text))
+        paragraph_buffer = []
+
+    def flush_list() -> None:
+        nonlocal list_buffer, list_ordered
+        if list_buffer:
             content.append(
                 _build_list_node(
-                    [re.sub(r"^[-*]\s+", "", line).strip() for line in lines],
-                    ordered=False,
+                    [line for line in list_buffer if line],
+                    ordered=bool(list_ordered),
                 )
             )
+        list_buffer = []
+        list_ordered = None
+
+    for raw_line in str(markdown or "").splitlines():
+        line = raw_line.strip()
+        if not line:
+            flush_paragraph()
+            flush_list()
             continue
-        if len(lines) > 1 and all(re.match(r"^\d+\.\s+", line) for line in lines):
-            content.append(
-                _build_list_node(
-                    [re.sub(r"^\d+\.\s+", "", line).strip() for line in lines],
-                    ordered=True,
-                )
-            )
-            continue
-        heading_match = re.match(r"^(#{1,3})\s+(.+)$", block)
+
+        heading_match = re.match(r"^(#{1,3})\s+(.+)$", line)
         if heading_match:
+            flush_paragraph()
+            flush_list()
             content.append(
                 {
                     "type": "heading",
@@ -69,7 +80,30 @@ def markdown_to_document_content(markdown: str) -> dict[str, Any]:
                 }
             )
             continue
-        content.append(_paragraph_node(" ".join(lines).strip()))
+
+        bullet_match = re.match(r"^[-*+]\s+(.+)$", line)
+        if bullet_match:
+            flush_paragraph()
+            if list_ordered is True:
+                flush_list()
+            list_ordered = False
+            list_buffer.append(bullet_match.group(1).strip())
+            continue
+
+        ordered_match = re.match(r"^\d+\.\s+(.+)$", line)
+        if ordered_match:
+            flush_paragraph()
+            if list_ordered is False:
+                flush_list()
+            list_ordered = True
+            list_buffer.append(ordered_match.group(1).strip())
+            continue
+
+        flush_list()
+        paragraph_buffer.append(line)
+
+    flush_paragraph()
+    flush_list()
     return {"type": "doc", "content": content or [_paragraph_node("暂无可展示正文。")]}
 
 

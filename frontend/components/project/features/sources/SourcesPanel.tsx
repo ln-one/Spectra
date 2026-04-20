@@ -49,6 +49,25 @@ interface ReferencedLibrarySummary {
   lastActivity?: string | null;
 }
 
+function isUuidLike(value: string | null | undefined): boolean {
+  const normalized = String(value || "").trim();
+  if (!normalized) return false;
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    normalized
+  );
+}
+
+function resolveArtifactSourceTitle(
+  rawTitle: string | null | undefined,
+  preferredTitle?: string | null
+): string {
+  const preferred = String(preferredTitle || "").trim();
+  if (preferred && !isUuidLike(preferred)) return preferred;
+  const normalized = String(rawTitle || "").trim();
+  if (normalized && !isUuidLike(normalized)) return normalized;
+  return "未命名来源成果";
+}
+
 function formatLibrarySummaryDate(value?: string | null): string | null {
   if (!value) return null;
   const date = new Date(value);
@@ -218,7 +237,7 @@ export function SourcesPanel({
           id: source.id,
           artifactId: source.artifact_id,
           toolType: source.tool_type,
-          title: source.title,
+          title: resolveArtifactSourceTitle(source.title),
           surfaceKind: source.surface_kind,
           source,
           file: syntheticFile,
@@ -318,7 +337,12 @@ export function SourcesPanel({
       const nextSources = Array.isArray(response?.data?.sources)
         ? response.data.sources
         : [];
-      setArtifactSources(nextSources);
+      setArtifactSources(
+        nextSources.map((item) => ({
+          ...item,
+          title: resolveArtifactSourceTitle(item.title),
+        }))
+      );
     } catch (error) {
       setArtifactSourcesError(
         error instanceof Error ? error.message : "获取沉淀来源失败"
@@ -461,9 +485,11 @@ export function SourcesPanel({
     async ({
       artifactId,
       surfaceKind,
+      preferredTitle,
     }: {
       artifactId: string;
       surfaceKind?: string | null;
+      preferredTitle?: string | null;
     }) => {
       try {
         setPendingArtifactSourceIds((prev) => ({ ...prev, [artifactId]: true }));
@@ -474,9 +500,13 @@ export function SourcesPanel({
         });
         const nextSource = response?.data?.source ?? null;
         if (nextSource?.id) {
+          const normalizedSource: ArtifactBackedSource = {
+            ...nextSource,
+            title: resolveArtifactSourceTitle(nextSource.title, preferredTitle),
+          };
           setArtifactSources((prev) => {
-            const existing = prev.filter((item) => item.id !== nextSource.id);
-            return [nextSource, ...existing];
+            const existing = prev.filter((item) => item.id !== normalizedSource.id);
+            return [normalizedSource, ...existing];
           });
           window.dispatchEvent(
             new CustomEvent("spectra:artifact-source-added", {
@@ -607,13 +637,18 @@ export function SourcesPanel({
       event: Event
     ) => {
       const detail = (
-        event as CustomEvent<{ artifactId?: string; surfaceKind?: string | null }>
+        event as CustomEvent<{
+          artifactId?: string;
+          surfaceKind?: string | null;
+          title?: string | null;
+        }>
       ).detail;
       const artifactId = String(detail?.artifactId || "").trim();
       if (!artifactId) return;
       void handleCreateArtifactSource({
         artifactId,
         surfaceKind: detail?.surfaceKind ?? null,
+        preferredTitle: detail?.title ?? null,
       });
     };
 

@@ -208,6 +208,17 @@ def build_run_pending_title(
     snapshot: Any,
     run_no: int | None,
 ) -> str:
+    if isinstance(snapshot, dict):
+        explicit_title = (
+            snapshot.get("run_title")
+            or snapshot.get("title")
+            or snapshot.get("artifact_title")
+            or snapshot.get("topic_title")
+        )
+        explicit_seed = extract_topic_seed(explicit_title)
+        if explicit_seed:
+            return clean_title_candidate(explicit_seed, max_length=RUN_TITLE_MAX_LENGTH)
+
     seed = extract_run_context(snapshot)
     tool_label = resolve_tool_label(tool_type)
     if seed:

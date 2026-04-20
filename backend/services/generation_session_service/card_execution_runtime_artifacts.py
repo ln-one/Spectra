@@ -13,6 +13,7 @@ from schemas.studio_cards import (
     StudioCardTurnResult,
 )
 from services.project_space_service.service import project_space_service
+from utils.exceptions import APIException, ErrorCode
 
 from .card_source_bindings import get_card_source_artifact_types
 from .card_execution_runtime_helpers import (
@@ -30,6 +31,7 @@ from .card_execution_runtime_helpers import (
 )
 from .card_execution_runtime_run_helpers import (
     create_artifact_run,
+    mark_requested_run_execution_failed,
     promote_requested_run_to_generating,
     resolve_execution_session_id,
 )
@@ -45,6 +47,45 @@ from .tool_content_builder import (
 from .tool_refine_builder import build_structured_refine_artifact_content
 
 
+def _has_valid_source_binding(card_id: str, source_artifact_id: str | None) -> bool:
+    return bool(
+        source_artifact_id
+        or card_id == "word_document"
+        or not get_card_source_artifact_types(card_id)
+    )
+
+
+def _normalize_animation_output_format(
+    artifact_type: str | None,
+    content: dict[str, object] | None,
+) -> str:
+    normalized_type = str(artifact_type or "").strip().lower()
+    if normalized_type == "html":
+        return "html5"
+    if normalized_type in {"gif", "html5"}:
+        return normalized_type
+    if not isinstance(content, dict):
+        return ""
+    for key in ("animation_format", "format", "render_mode"):
+        value = str(content.get(key) or "").strip().lower()
+        if value in {"gif", "html5"}:
+            return value
+        if value == "html":
+            return "html5"
+    return ""
+
+
+def _resolve_animation_placement_supported(
+    *,
+    card_id: str,
+    artifact_type: str | None,
+    content: dict[str, object] | None,
+) -> bool | None:
+    if card_id != "demonstration_animations":
+        return None
+    return _normalize_animation_output_format(artifact_type, content) == "gif"
+
+
 async def execute_studio_card_artifact_request(
     *,
     card_id: str,
@@ -53,10 +94,22 @@ async def execute_studio_card_artifact_request(
     preview,
 ) -> StudioCardExecutionResult:
     payload = dict(preview.initial_request.payload)
+    client_session_id = str(body.client_session_id or "").strip() or None
     execution_session_id = await resolve_execution_session_id(
         project_id=body.project_id,
         user_id=user_id,
-        client_session_id=body.client_session_id,
+        client_session_id=client_session_id,
+        require_client_session_id=True,
+    )
+    requested_run_id = str(getattr(body, "run_id", None) or "").strip() or None
+    logger.info(
+        "studio_card_execute_session_resolved card_id=%s client_session_id=%s "
+        "resolved_session_id=%s run_id=%s mismatch_reason=%s",
+        card_id,
+        client_session_id,
+        execution_session_id,
+        requested_run_id,
+        None,
     )
     await project_space_service.check_project_permission(
         body.project_id,
@@ -79,107 +132,51 @@ async def execute_studio_card_artifact_request(
         body=body,
         session_id=execution_session_id,
     )
-    artifact_content = dict(payload.get("content") or {})
-    generated_content = await build_studio_tool_artifact_content(
-        card_id=card_id,
-        project_id=body.project_id,
-        user_id=user_id,
-        config=body.config,
-        source_artifact_id=effective_source_artifact_id,
-        rag_source_ids=body.rag_source_ids,
-    )
-    if generated_content:
-        artifact_content.update(generated_content)
-    source_artifact_id = str(
-        effective_source_artifact_id
-        or artifact_content.get("source_artifact_id")
-        or payload.get("source_artifact_id")
-        or ""
-    ).strip()
-    artifact_content["primary_source_id"] = body.primary_source_id
-    artifact_content["selected_source_ids"] = body.selected_source_ids or []
-    artifact_content["source_snapshot"] = await build_source_snapshot_payload(
-        project_id=body.project_id,
-        primary_source_id=body.primary_source_id,
-        selected_source_ids=body.selected_source_ids,
-        source_artifact_id=source_artifact_id or None,
-    )
-    if card_id == "word_document":
-        artifact_content["title"] = await resolve_word_document_title(
-            source_artifact_id=source_artifact_id,
-            user_id=user_id,
-            config=(body.config if isinstance(body.config, dict) else {}),
-            existing_title=str(artifact_content.get("title") or "").strip(),
-        )
-    artifact_content["provenance"] = build_provenance_payload(
-        card_id=card_id,
-        session_id=execution_session_id,
-        source_artifact_id=source_artifact_id or None,
-        request_snapshot={
-            "config": body.config,
-            "preview": payload,
-            "primary_source_id": body.primary_source_id,
-            "selected_source_ids": body.selected_source_ids,
-        },
-    )
-    artifact_content["source_binding"] = build_source_binding_payload(
-        card_id=card_id,
-        source_artifact_id=source_artifact_id or None,
-        accepted_types=get_card_source_artifact_types(card_id),
-    )
-    artifact_content["latest_runnable_state"] = build_latest_runnable_state(
-        card_id=card_id,
-        artifact_id=None,
-        session_id=execution_session_id,
-        source_binding_valid=bool(
-            source_artifact_id or not get_card_source_artifact_types(card_id)
-        ),
-    )
-
-    artifact = await project_space_service.create_artifact_with_file(
-        project_id=body.project_id,
-        artifact_type=payload["type"],
-        visibility=payload["visibility"],
-        user_id=user_id,
-        session_id=execution_session_id or payload.get("session_id"),
-        based_on_version_id=payload.get("based_on_version_id"),
-        content=artifact_content,
-        artifact_mode="replace",
-    )
-    if card_id == "word_document" and source_artifact_id:
-        await sync_word_source_metadata(
-            artifact=artifact,
-            user_id=user_id,
-            source_artifact_id=source_artifact_id,
-        )
-    run = await create_artifact_run(
-        card_id=card_id,
-        body=body,
-        user_id=user_id,
-        artifact=artifact,
-        session_id=execution_session_id,
-    )
-    return StudioCardExecutionResult(
-        card_id=card_id,
-        readiness=preview.readiness,
-        transport=StudioCardTransport.ARTIFACT_CREATE,
-        resource_kind=StudioCardExecutionResultKind.ARTIFACT,
-        session=(
-            {"session_id": execution_session_id} if execution_session_id else None
-        ),
-        artifact=artifact_result_payload(artifact),
-        run=run,
-        request_preview=preview.initial_request,
-        execution_carrier=getattr(preview, "execution_carrier", None),
-        latest_runnable_state=build_latest_runnable_state(
+    try:
+        artifact_content = dict(payload.get("content") or {})
+        placement_supported = _resolve_animation_placement_supported(
             card_id=card_id,
-            artifact_id=artifact.id,
-            session_id=execution_session_id,
-            source_binding_valid=bool(source_artifact_id or not get_card_source_artifact_types(card_id)),
-        ),
-        provenance=build_provenance_payload(
+            artifact_type=payload.get("type"),
+            content=artifact_content,
+        )
+        generated_content = await build_studio_tool_artifact_content(
             card_id=card_id,
-            artifact_id=artifact.id,
+            project_id=body.project_id,
+            user_id=user_id,
+            config=body.config,
+            source_artifact_id=effective_source_artifact_id,
+            rag_source_ids=body.rag_source_ids,
+        )
+        if generated_content:
+            artifact_content.update(generated_content)
+        placement_supported = _resolve_animation_placement_supported(
+            card_id=card_id,
+            artifact_type=payload.get("type"),
+            content=artifact_content,
+        )
+        source_artifact_id = str(
+            effective_source_artifact_id
+            or artifact_content.get("source_artifact_id")
+            or payload.get("source_artifact_id")
+            or ""
+        ).strip()
+        artifact_content["primary_source_id"] = body.primary_source_id
+        artifact_content["selected_source_ids"] = body.selected_source_ids or []
+        artifact_content["source_snapshot"] = await build_source_snapshot_payload(
+            project_id=body.project_id,
+            primary_source_id=body.primary_source_id,
+            selected_source_ids=body.selected_source_ids,
+            source_artifact_id=source_artifact_id or None,
+        )
+        if card_id == "word_document":
+            artifact_content["title"] = await resolve_word_document_title(
+                source_artifact_id=source_artifact_id,
+                user_id=user_id,
+                config=(body.config if isinstance(body.config, dict) else {}),
+                existing_title=str(artifact_content.get("title") or "").strip(),
+            )
+        artifact_content["provenance"] = build_provenance_payload(
+            card_id=card_id,
             session_id=execution_session_id,
             source_artifact_id=source_artifact_id or None,
             request_snapshot={
@@ -188,14 +185,93 @@ async def execute_studio_card_artifact_request(
                 "primary_source_id": body.primary_source_id,
                 "selected_source_ids": body.selected_source_ids,
             },
-        ),
-        source_binding=build_source_binding_payload(
+        )
+        artifact_content["source_binding"] = build_source_binding_payload(
             card_id=card_id,
             source_artifact_id=source_artifact_id or None,
             accepted_types=get_card_source_artifact_types(card_id),
-        ),
-        selection_anchor_schema_version="studio.selection_anchor.v1",
-    )
+        )
+        if card_id == "demonstration_animations":
+            artifact_content["placement_supported"] = bool(placement_supported)
+            artifact_content["runtime_preview_mode"] = "local_preview_only"
+        artifact_content["latest_runnable_state"] = build_latest_runnable_state(
+            card_id=card_id,
+            artifact_id=None,
+            session_id=execution_session_id,
+            source_binding_valid=_has_valid_source_binding(card_id, source_artifact_id),
+            placement_supported=placement_supported,
+        )
+
+        artifact = await project_space_service.create_artifact_with_file(
+            project_id=body.project_id,
+            artifact_type=payload["type"],
+            visibility=payload["visibility"],
+            user_id=user_id,
+            session_id=execution_session_id or payload.get("session_id"),
+            based_on_version_id=payload.get("based_on_version_id"),
+            content=artifact_content,
+            artifact_mode="replace",
+        )
+        if card_id == "word_document" and source_artifact_id:
+            await sync_word_source_metadata(
+                artifact=artifact,
+                user_id=user_id,
+                source_artifact_id=source_artifact_id,
+            )
+        run = await create_artifact_run(
+            card_id=card_id,
+            body=body,
+            user_id=user_id,
+            artifact=artifact,
+            session_id=execution_session_id,
+            title_snapshot=artifact_content if isinstance(artifact_content, dict) else None,
+        )
+        return StudioCardExecutionResult(
+            card_id=card_id,
+            readiness=preview.readiness,
+            transport=StudioCardTransport.ARTIFACT_CREATE,
+            resource_kind=StudioCardExecutionResultKind.ARTIFACT,
+            session=(
+                {"session_id": execution_session_id} if execution_session_id else None
+            ),
+            artifact=artifact_result_payload(artifact),
+            run=run,
+            request_preview=preview.initial_request,
+            execution_carrier=getattr(preview, "execution_carrier", None),
+            latest_runnable_state=build_latest_runnable_state(
+                card_id=card_id,
+                artifact_id=artifact.id,
+                session_id=execution_session_id,
+                source_binding_valid=_has_valid_source_binding(card_id, source_artifact_id),
+                placement_supported=placement_supported,
+            ),
+            provenance=build_provenance_payload(
+                card_id=card_id,
+                artifact_id=artifact.id,
+                session_id=execution_session_id,
+                source_artifact_id=source_artifact_id or None,
+                request_snapshot={
+                    "config": body.config,
+                    "preview": payload,
+                    "primary_source_id": body.primary_source_id,
+                    "selected_source_ids": body.selected_source_ids,
+                },
+            ),
+            source_binding=build_source_binding_payload(
+                card_id=card_id,
+                source_artifact_id=source_artifact_id or None,
+                accepted_types=get_card_source_artifact_types(card_id),
+            ),
+            selection_anchor_schema_version="studio.selection_anchor.v1",
+        )
+    except Exception as exc:
+        await mark_requested_run_execution_failed(
+            card_id=card_id,
+            body=body,
+            session_id=execution_session_id,
+            error=exc,
+        )
+        raise
 
 
 logger = logging.getLogger(__name__)
@@ -245,6 +321,12 @@ async def execute_studio_card_structured_refine(
         user_id=user_id,
         artifact=new_artifact,
         session_id=getattr(new_artifact, "sessionId", None) or body.session_id,
+        title_snapshot=updated_content if isinstance(updated_content, dict) else None,
+    )
+    placement_supported = _resolve_animation_placement_supported(
+        card_id=card_id,
+        artifact_type=str(getattr(new_artifact, "type", "") or "").strip(),
+        content=updated_content if isinstance(updated_content, dict) else None,
     )
     return StudioCardExecutionResult(
         card_id=card_id,
@@ -266,6 +348,7 @@ async def execute_studio_card_structured_refine(
             session_id=getattr(new_artifact, "sessionId", None) or body.session_id,
             source_binding_valid=True,
             refine_mode=body.refine_mode,
+            placement_supported=placement_supported,
         ),
         provenance=build_provenance_payload(
             card_id=card_id,
@@ -307,6 +390,19 @@ async def execute_classroom_simulator_turn_artifact(
         user_id=user_id,
         artifact_id=body.artifact_id,
     )
+    expected_session_id = str(body.session_id or "").strip()
+    artifact_session_id = str(getattr(artifact, "sessionId", None) or "").strip()
+    if expected_session_id and artifact_session_id and artifact_session_id != expected_session_id:
+        raise APIException(
+            status_code=409,
+            error_code=ErrorCode.RESOURCE_CONFLICT,
+            message="artifact_id 不属于当前会话，请刷新后重试。",
+            details={
+                "reason": "session_mismatch",
+                "expected_session_id": expected_session_id,
+                "artifact_session_id": artifact_session_id,
+            },
+        )
     current_content = await load_content(artifact)
     updated_content, turn_result = await build_studio_simulator_turn_update(
         current_content=current_content,

@@ -33,6 +33,7 @@ async def generate_with_routing(
     route_task: Optional[ModelRouteTask | str] = None,
     has_rag_context: bool = False,
     max_tokens: Optional[int] = 500,
+    response_format: Optional[dict] = None,
 ) -> dict:
     started_at = time.perf_counter()
 
@@ -69,6 +70,7 @@ async def generate_with_routing(
             prompt=prompt,
             max_tokens=max_tokens,
             timeout_seconds=timeout_seconds,
+            response_format=response_format,
         )
         content, tokens_used = extract_completion_payload(response)
         latency_ms = _elapsed_ms()
@@ -103,6 +105,7 @@ async def generate_with_routing(
                     prompt=prompt,
                     max_tokens=max_tokens,
                     timeout_seconds=timeout_seconds,
+                    response_format=response_format,
                 )
                 content, tokens_used = extract_completion_payload(response)
                 fallback_triggered = True
@@ -172,6 +175,7 @@ async def generate_with_routing(
                     prompt=prompt,
                     max_tokens=max_tokens,
                     timeout_seconds=timeout_seconds,
+                    response_format=response_format,
                     retry_attempts=service.upstream_retry_attempts,
                     retry_delay_seconds=service.upstream_retry_delay_seconds,
                     logger=logger,
@@ -218,6 +222,7 @@ async def generate_with_routing(
                     prompt=prompt,
                     max_tokens=max_tokens,
                     timeout_seconds=timeout_seconds,
+                    response_format=response_format,
                 )
                 content, tokens_used = extract_completion_payload(response)
                 fallback_triggered = True

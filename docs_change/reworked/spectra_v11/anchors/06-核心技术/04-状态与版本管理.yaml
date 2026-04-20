@@ -1,6 +1,6 @@
 section_id: "06-04"
-title: "知识空间状态与版本管理技术"
-purpose: "把状态、artifact、version 和 reference 语义锚定到当前项目空间实现，不泛化为抽象知识本体。"
+title: "成果对象状态与版本管理技术"
+purpose: "把状态、artifact、version 和 reference 语义锚定到当前项目与成果实现，不泛化为抽象知识本体。"
 source_doc_parts:
   - "source/06-核心技术/04-状态与版本管理.md"
   - "source/05-系统设计/04-数据库设计.md"
@@ -31,9 +31,9 @@ figures:
 allowed_claims:
   - "结果保存、版本记录和引用关系已经进入当前系统设计。"
   - "对象关系可以从 Prisma 模型与 focused tests 同时核对。"
-  - "成果不只是下载文件，也会回到项目空间语义层。"
+  - "成果不只是下载文件，也会进入当前项目与结果关系中。"
   - "成员边界与会话语义由 Limora 承接，Better Auth 只作为身份实现依据出现。"
 forbidden_claims:
   - "正式知识状态沉淀已经在所有场景完成"
   - "跨项目引用语义已全面对外可用"
-last_checked: "2026-04-19"
+last_checked: "2026-04-20"

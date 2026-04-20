@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { Download, Eye, PencilLine, Save } from "lucide-react";
+import { Download, Eye, Loader2, PencilLine, Save, Sparkles } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,12 +17,16 @@ interface StudioPanelHeaderProps {
   currentColor: { primary: string; glow: string };
   customTitle?: string | null;
   showWordActions?: boolean;
+  showWordGenerate?: boolean;
   canWordSave?: boolean;
   canWordExport?: boolean;
+  canWordGenerate?: boolean;
+  isWordGenerating?: boolean;
   wordModeActionLabel?: "编辑" | "预览";
   onWordSwitchMode?: () => void;
   onWordSave?: () => void;
   onWordExport?: () => void;
+  onWordGenerate?: () => void;
 }
 
 function renderMorphChars(text: string, kind: "title" | "desc") {
@@ -63,12 +67,16 @@ export function StudioPanelHeader({
   currentColor,
   customTitle = null,
   showWordActions = false,
+  showWordGenerate = false,
   canWordSave = false,
   canWordExport = false,
+  canWordGenerate = false,
+  isWordGenerating = false,
   wordModeActionLabel = "编辑",
   onWordSwitchMode,
   onWordSave,
   onWordExport,
+  onWordGenerate,
 }: StudioPanelHeaderProps) {
   const titleText = isExpanded
     ? customTitle?.trim() || TOOL_LABELS[expandedTool || "ppt"]
@@ -171,6 +179,21 @@ export function StudioPanelHeader({
                     导出
                   </Button>
                 </>
+              ) : null}
+              {showWordGenerate ? (
+                <Button
+                  size="sm"
+                  className="h-8 px-3 text-xs"
+                  disabled={!canWordGenerate || isWordGenerating}
+                  onClick={onWordGenerate}
+                >
+                  {isWordGenerating ? (
+                    <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Sparkles className="mr-1 h-3.5 w-3.5" />
+                  )}
+                  {isWordGenerating ? "生成中" : "生成"}
+                </Button>
               ) : null}
               <Button
                 variant="ghost"

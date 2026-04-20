@@ -251,10 +251,15 @@ async def process_chat_message(
 
         request_id = str(uuid4())
         prompt_digest = prompt_hash(prompt)
+        metadata = body.metadata if isinstance(body.metadata, dict) else {}
+        is_word_studio_refine = (
+            str(metadata.get("card_id") or "").strip() == "word_document"
+        )
         assistant_content, generation_meta, generation_timings = (
             await generate_assistant_reply(
                 prompt=prompt,
                 rag_hit=rag_hit,
+                is_word_studio_refine=is_word_studio_refine,
             )
         )
         stage_timings_ms.update(generation_timings)

@@ -6,7 +6,6 @@ import { Sparkles } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "@/hooks/use-toast";
-import { generateApi } from "@/lib/sdk";
 import { studioCardsApi } from "@/lib/sdk/studio-cards";
 import { cn } from "@/lib/utils";
 import { useProjectStore, GENERATION_TOOLS } from "@/stores/projectStore";
@@ -26,7 +25,6 @@ import { useStudioExecutionHandlers } from "./useStudioExecutionHandlers";
 import { useStudioHistoryHandlers } from "./useStudioHistoryHandlers";
 import { usePptHistoryStatusSync } from "./usePptHistoryStatusSync";
 import { useManagedHistoryStatusSync } from "./useManagedHistoryStatusSync";
-import { STUDIO_CARD_BY_TOOL } from "./constants";
 import type { ManagedWorkbenchState, StudioPanelProps } from "./types";
 import {
   isDraftStateEqual,
@@ -279,90 +277,6 @@ export function StudioPanelContainer({
     managedWorkbenchState.target?.toolType === expandedTool;
   const isWordHistoryMode = isWordExpanded && isManagedHistoryMode;
 
-  useEffect(() => {
-    if (!project?.id || !activeSessionId) return;
-    if (expandedTool !== "word") return;
-    if (isWordHistoryMode) return;
-
-    let cancelled = false;
-    const recoverWordRunState = async () => {
-      try {
-        const snapshotResponse = await generateApi.getSessionSnapshot(
-          activeSessionId
-        );
-        if (cancelled) return;
-        const currentRun =
-          snapshotResponse?.data?.current_run &&
-          typeof snapshotResponse.data.current_run === "object"
-            ? (snapshotResponse.data.current_run as Record<string, unknown>)
-            : null;
-        if (!currentRun) return;
-        const expectedToolType = `studio_card:${STUDIO_CARD_BY_TOOL.word}`;
-        const runToolType =
-          typeof currentRun.tool_type === "string"
-            ? currentRun.tool_type.trim()
-            : "";
-        if (runToolType !== expectedToolType) return;
-
-        const runStatusRaw =
-          typeof currentRun.run_status === "string"
-            ? currentRun.run_status.toLowerCase()
-            : "";
-        const status: "processing" | "completed" | "failed" =
-          runStatusRaw === "completed"
-            ? "completed"
-            : runStatusRaw === "failed"
-              ? "failed"
-              : "processing";
-        // Only resume into history mode for in-flight runs.
-        // Completed/failed runs should not override an explicit "start new draft" action.
-        if (status !== "processing") return;
-        const runId =
-          typeof currentRun.run_id === "string" && currentRun.run_id.trim()
-            ? currentRun.run_id
-            : null;
-        const artifactId =
-          typeof currentRun.artifact_id === "string" &&
-          currentRun.artifact_id.trim()
-            ? currentRun.artifact_id
-            : null;
-        setManagedWorkbenchState({
-          mode: "history",
-          target: {
-            toolType: "word",
-            sessionId: activeSessionId,
-            runId,
-            artifactId,
-            status,
-          },
-        });
-        recordWorkflowEntry({
-          toolType: "word",
-          title: "教学文档 - 生成中",
-          status,
-          step: "preview",
-          sessionId: activeSessionId,
-          runId: runId ?? undefined,
-          artifactId: artifactId ?? undefined,
-          toolLabel: TOOL_LABELS.word,
-        });
-      } catch {
-        // Ignore recovery failures and keep draft mode.
-      }
-    };
-
-    void recoverWordRunState();
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    activeSessionId,
-    expandedTool,
-    isWordHistoryMode,
-    project?.id,
-    recordWorkflowEntry,
-  ]);
-
   const doesManagedArtifactMatchTarget = useCallback(
     (item: {
       toolType?: string | null;
@@ -595,7 +509,6 @@ export function StudioPanelContainer({
     requiresSourceArtifact: capability.requiresSourceArtifact,
     hasSourceBinding: effectiveHasSourceBinding,
     canRefine: canRefineBase,
-    setActiveSessionId,
     fetchArtifactHistory,
     focusChatComposer,
     syncStudioChatContextByStep,
@@ -742,7 +655,7 @@ export function StudioPanelContainer({
         target,
       });
     },
-    onManagedStartNewDraft: () => {
+    onManagedStartNewDraft: (_toolType) => {
       setManagedWorkbenchState({
         mode: "draft",
         target: null,
@@ -1039,24 +952,18 @@ export function StudioPanelContainer({
       const contextSessionId = activeSessionId ?? null;
       const seededRun =
         managedToolRunSeedRef.current[toolType as StudioToolKey] ?? null;
-      const effectiveContextSessionId =
-        seededRun?.sessionId ?? contextSessionId ?? null;
       const seededRunId =
-        seededRun?.sessionId === effectiveContextSessionId
+        seededRun?.sessionId === contextSessionId
           ? seededRun.runId
           : null;
-      syncStudioChatContextByStep(
-        toolType,
-        "generate",
-        effectiveContextSessionId
-      );
-      if (effectiveContextSessionId) {
+      syncStudioChatContextByStep(toolType, "generate", contextSessionId);
+      if (contextSessionId) {
         recordWorkflowEntry({
           toolType,
           title: TOOL_LABELS[toolType] + " - Generating",
           status: "processing",
           step: "preview",
-          sessionId: effectiveContextSessionId,
+          sessionId: contextSessionId,
           runId: seededRunId ?? undefined,
           titleSource: buildWorkflowTitleSource(toolType, currentToolDraft),
           toolLabel: TOOL_LABELS[toolType],
@@ -1064,8 +971,7 @@ export function StudioPanelContainer({
       }
       const result = await execution.handleStudioExecute();
       if (result.ok) {
-        const resolvedSessionId =
-          result.effectiveSessionId ?? effectiveContextSessionId;
+        const resolvedSessionId = result.effectiveSessionId ?? contextSessionId;
         const resolvedStatus =
           result.status ??
           (result.artifactId ? "previewing" : result.resourceKind === "session"
@@ -1107,45 +1013,41 @@ export function StudioPanelContainer({
         return true;
       }
       const fallbackRunId = result.runId ?? seededRunId ?? null;
-      if (effectiveContextSessionId || fallbackRunId) {
+      if (contextSessionId || fallbackRunId) {
         setManagedWorkbenchState({
           mode: "history",
           target: {
             toolType: toolType as StudioToolKey,
-            sessionId: effectiveContextSessionId,
+            sessionId: contextSessionId,
             runId: fallbackRunId,
             artifactId: result.artifactId ?? null,
             status: result.status ?? "failed",
           },
         });
       }
-      if (effectiveContextSessionId && fallbackRunId) {
+      if (contextSessionId && fallbackRunId) {
         recordWorkflowEntry({
           toolType,
           title: TOOL_LABELS[toolType] + " - Failed",
           status: result.status ?? "failed",
           step: "preview",
-          sessionId: effectiveContextSessionId,
+          sessionId: contextSessionId,
           artifactId: result.artifactId ?? undefined,
           runId: fallbackRunId ?? undefined,
           titleSource: buildWorkflowTitleSource(toolType, currentToolDraft),
           toolLabel: TOOL_LABELS[toolType],
         });
-        syncStudioChatContextByStep(
-          toolType,
-          "preview",
-          effectiveContextSessionId
-        );
-        pushStudioStageHint(toolType, "preview", effectiveContextSessionId);
+        syncStudioChatContextByStep(toolType, "preview", contextSessionId);
+        pushStudioStageHint(toolType, "preview", contextSessionId);
         return true;
       }
-      if (effectiveContextSessionId) {
+      if (contextSessionId) {
         recordWorkflowEntry({
           toolType,
           title: TOOL_LABELS[toolType] + " - Failed",
           status: "failed",
           step: "generate",
-          sessionId: effectiveContextSessionId,
+          sessionId: contextSessionId,
           runId: seededRunId ?? undefined,
           titleSource: buildWorkflowTitleSource(toolType, currentToolDraft),
           toolLabel: TOOL_LABELS[toolType],
@@ -1240,16 +1142,29 @@ export function StudioPanelContainer({
     onExportArtifact: (artifactId) => exportArtifact(artifactId),
   };
 
-  const isWordHeaderActionsVisible = isExpanded && expandedTool === "word";
+  const isWordProcessingTarget = Boolean(
+    isWordHistoryMode &&
+      managedWorkbenchState.target?.status === "processing" &&
+      !managedWorkbenchState.target?.artifactId
+  );
+  const isWordHeaderActionsVisible =
+    isExpanded &&
+    expandedTool === "word" &&
+    isWordHistoryMode &&
+    !isWordProcessingTarget;
+  const isWordHeaderGenerateVisible =
+    isExpanded &&
+    expandedTool === "word" &&
+    (!isWordHistoryMode || isWordProcessingTarget);
   useEffect(() => {
-    if (!isWordHeaderActionsVisible) return;
+    if (!isWordHeaderActionsVisible && !isWordHeaderGenerateVisible) return;
     setWordViewMode("preview");
     window.dispatchEvent(
       new CustomEvent("spectra:word:set-mode", {
         detail: { mode: "preview" },
       })
     );
-  }, [isWordHeaderActionsVisible]);
+  }, [isWordHeaderActionsVisible, isWordHeaderGenerateVisible]);
 
   const resolvedWordTitleFromContent = (() => {
     if (expandedTool !== "word") return null;
@@ -1259,14 +1174,33 @@ export function StudioPanelContainer({
     return typeof value === "string" && value.trim() ? value.trim() : null;
   })();
   const resolvedWordHeaderTitle =
-    (expandedTool === "word"
-      ? toolFlowContext.latestArtifacts?.[0]?.title || resolvedWordTitleFromContent
-      : null) ?? null;
+    expandedTool === "word"
+      ? isWordProcessingTarget
+        ? "教学文档（生成中）"
+        : isWordHistoryMode
+          ? toolFlowContext.latestArtifacts?.[0]?.title ||
+            resolvedWordTitleFromContent ||
+            "教学文档"
+          : "教学文档"
+      : null;
   const canWordHeaderSave = Boolean(
     expandedTool === "word" && toolFlowContext.resolvedArtifact?.artifactId
   );
   const canWordHeaderExport = Boolean(
     expandedTool === "word" && toolFlowContext.latestArtifacts?.[0]?.artifactId
+  );
+  const canWordHeaderGenerate = Boolean(
+    expandedTool === "word" &&
+      (effectiveSelectedSourceId ||
+        (typeof currentToolDraft.output_requirements === "string" &&
+          currentToolDraft.output_requirements.trim())) &&
+      !isWordProcessingTarget &&
+      !execution.isStudioActionRunning
+  );
+  const isWordHeaderGenerating = Boolean(
+    expandedTool === "word" &&
+      isWordHeaderGenerateVisible &&
+      execution.isStudioActionRunning
   );
 
   return (
@@ -1285,8 +1219,11 @@ export function StudioPanelContainer({
             currentColor={currentColor}
             customTitle={resolvedWordHeaderTitle}
             showWordActions={isWordHeaderActionsVisible}
+            showWordGenerate={isWordHeaderGenerateVisible}
             canWordSave={canWordHeaderSave}
             canWordExport={canWordHeaderExport}
+            canWordGenerate={canWordHeaderGenerate}
+            isWordGenerating={isWordHeaderGenerating}
             wordModeActionLabel={wordViewMode === "preview" ? "编辑" : "预览"}
             onWordSwitchMode={() => {
               const nextMode = wordViewMode === "preview" ? "edit" : "preview";
@@ -1302,6 +1239,9 @@ export function StudioPanelContainer({
             }}
             onWordExport={() => {
               window.dispatchEvent(new CustomEvent("spectra:word:export"));
+            }}
+            onWordGenerate={() => {
+              window.dispatchEvent(new CustomEvent("spectra:word:generate"));
             }}
           />
           <CardContent
@@ -1395,21 +1335,30 @@ export function StudioPanelContainer({
                   toolLabel: TOOL_LABELS.ppt,
                 });
               }}
-              onPptGenerate={async (config) => {
-                const tool = GENERATION_TOOLS.find(
-                  (item) => item.type === expandedTool
-                );
-                if (!project || !tool) return null;
+	              onPptGenerate={async (config) => {
+	                const tool = GENERATION_TOOLS.find(
+	                  (item) => item.type === expandedTool
+	                );
+	                if (!project || !tool) return null;
 
                 let sessionId: string | null = null;
                 let runId: string | null = null;
                 const liveStoreState = useProjectStore.getState();
-                const liveSessionId =
-                  liveStoreState.activeSessionId ??
-                  activeSessionId ??
-                  undefined;
-                const liveRunId =
-                  liveStoreState.activeRunId ?? activeRunId ?? undefined;
+	                const liveSessionId =
+	                  liveStoreState.activeSessionId ??
+	                  activeSessionId ??
+	                  undefined;
+	                if (!liveSessionId) {
+	                  toast({
+	                    title: "请先选择会话",
+	                    description:
+	                      "执行 Studio 卡片前，请先在会话选择器中创建或切换到目标会话。",
+	                    variant: "destructive",
+	                  });
+	                  throw new Error("Missing active session for courseware execution");
+	                }
+	                const liveRunId =
+	                  liveStoreState.activeRunId ?? activeRunId ?? undefined;
                 const readySelectedFileIds = resolveReadySelectedFileIds(
                   files,
                   selectedFileIds
@@ -1465,23 +1414,38 @@ export function StudioPanelContainer({
                   extractSessionIdFromExecutionResult(executionResult);
                 runId = extractRunIdFromExecutionResult(executionResult);
 
-                if (!sessionId) {
-                  throw new Error(
-                    "Missing session_id in courseware execution result"
-                  );
-                }
+	                if (!sessionId) {
+	                  throw new Error(
+	                    "Missing session_id in courseware execution result"
+	                  );
+	                }
+	                if (sessionId !== liveSessionId) {
+	                  console.warn("[studio.session_mismatch]", {
+	                    card_id: "courseware_ppt",
+	                    action: "execute",
+	                    expected_session_id: liveSessionId,
+	                    returned_session_id: sessionId,
+	                    mismatch_reason:
+	                      "response_session_differs_from_active_session",
+	                  });
+	                  toast({
+	                    title: "会话不一致，已阻断执行",
+	                    description: "返回会话与当前会话不一致，请刷新后重试。",
+	                    variant: "destructive",
+	                  });
+	                  throw new Error("Session mismatch in courseware execution result");
+	                }
 
-                if (!runId) {
-                  throw new Error(
-                    "Missing run.run_id in courseware execution result"
-                  );
-                }
-                const resolvedRunId = runId;
+	                if (!runId) {
+	                  throw new Error(
+	                    "Missing run.run_id in courseware execution result"
+	                  );
+	                }
+	                const resolvedRunId = runId;
 
-                useProjectStore.setState({
-                  activeSessionId: sessionId,
-                  activeRunId: resolvedRunId,
-                });
+	                useProjectStore.setState({
+	                  activeRunId: resolvedRunId,
+	                });
                 recordWorkflowEntry({
                   toolType: "ppt",
                   title: "课件大纲",

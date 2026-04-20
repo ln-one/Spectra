@@ -42,9 +42,9 @@ export const TOOL_DISPLAY_MODELS: Record<StudioToolKey, ToolDisplayModel> = {
       refine: "打开对话微调",
     },
     sourceBinding: {
-      required: "必选：请先在右侧 Sources 中选中一个课件来源。",
-      optional: "可选：补充资料会一起参与教案生成。",
-      empty: "当前还没有可用来源，请先准备一个 PPT Source。",
+      required: "可选：选中课件后会优先参考课件生成教案。",
+      optional: "可选：右侧资料来源会一起参与教案生成。",
+      empty: "没有课件也可以先填写课题直接生成。",
     },
   },
   mindmap: {

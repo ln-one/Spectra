@@ -49,11 +49,13 @@ function isGenericDocumentTitle(value: string | null): boolean {
   const normalized = original.toLowerCase();
   return (
     normalized === "教案" ||
+    normalized === "教学文档" ||
+    normalized === "教学教案" ||
     normalized === "讲义文档" ||
     normalized === "未命名教案" ||
     normalized === "word 生成记录" ||
     normalized === "word生成记录" ||
-    /^第\s*\d+\s*次讲义文档$/i.test(original)
+    /^第\s*\d+\s*次讲义文档(?:[。.!！])?$/i.test(original)
   );
 }
 
@@ -103,10 +105,19 @@ export function PreviewStep({
       ? sourceArtifactTitle
       : null;
 
-  const displayTitle =
-    (typeof artifactContent?.title === "string" && artifactContent.title.trim()) ||
-    ((latestArtifact as { title?: string | null } | null)?.title ?? null) ||
-    "教案";
+  const contentTitle =
+    typeof artifactContent?.title === "string" && artifactContent.title.trim()
+      ? artifactContent.title.trim()
+      : null;
+  const latestArtifactTitle =
+    (latestArtifact as { title?: string | null } | null)?.title ?? null;
+  const displayTitle = !isGenericDocumentTitle(contentTitle)
+    ? contentTitle
+    : !isGenericDocumentTitle(latestArtifactTitle)
+      ? latestArtifactTitle
+      : displaySourceTitle
+        ? `${displaySourceTitle} 教案`
+        : "教案";
 
   const initialMarkdown = useMemo(() => {
     const fromContent =
@@ -175,14 +186,9 @@ export function PreviewStep({
                 : displayTitle && !isUuidLike(displayTitle)
                   ? displayTitle
                   : null;
-            if (existingTitle && !isGenericDocumentTitle(existingTitle)) {
-              return existingTitle;
-            }
-            return (
-              extractHeadingTitle(markdownDraft) ??
-              existingTitle ??
-              (displaySourceTitle ? `${displaySourceTitle} 教案` : "未命名教案")
-            );
+            return existingTitle && !isGenericDocumentTitle(existingTitle)
+              ? existingTitle
+              : undefined;
           })(),
           document_summary:
             typeof artifactContent?.summary === "string" && artifactContent.summary.trim()
@@ -267,18 +273,17 @@ export function PreviewStep({
     handleExportWithLatest,
   ]);
 
-  if (isBackendPlaceholder) {
-    return (
-      <div className="rounded-2xl border border-dashed border-zinc-300 bg-zinc-50 px-4 py-10 text-center">
-        <FileText className="mx-auto h-8 w-8 text-zinc-400" />
-        <p className="mt-3 text-sm font-medium text-zinc-700">后端等待中</p>
-        <p className="mt-1 text-[11px] text-zinc-500">暂未收到后端真实文档内容</p>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-2">
+      {isBackendPlaceholder && !hasDraftContent && !isPreviewLoading ? (
+        <div className="rounded-2xl border border-dashed border-zinc-300 bg-zinc-50 px-4 py-4 text-center">
+          <FileText className="mx-auto h-6 w-6 text-zinc-400" />
+          <p className="mt-2 text-xs font-medium text-zinc-700">后端内容同步中</p>
+          <p className="mt-1 text-[11px] text-zinc-500">
+            你可以继续编辑并保存，界面将优先显示本地最新内容。
+          </p>
+        </div>
+      ) : null}
       {toolbarMode === "internal" ? (
         <>
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -393,6 +398,10 @@ export function PreviewStep({
                 {markdownDraft}
               </ReactMarkdown>
             </article>
+          ) : isPreviewLoading ? (
+            <div className="rounded-xl border border-dashed border-blue-200 bg-blue-50 px-4 py-10 text-center text-sm text-blue-700">
+              正在生成教案，完成后自动展示内容。
+            </div>
           ) : (
             <div className="rounded-xl border border-dashed border-zinc-300 bg-zinc-50 px-4 py-10 text-center text-sm text-zinc-500">
               暂无内容，请先在“编辑”中输入教案文本。

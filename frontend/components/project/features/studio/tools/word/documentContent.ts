@@ -33,40 +33,64 @@ function buildListNode(lines: string[], ordered = false): ProseMirrorNode {
 }
 
 export function markdownToDoc(markdown: string): JSONContent {
-  const blocks = markdown
-    .split(/\n{2,}/)
-    .map((block) => block.trim())
-    .filter(Boolean);
+  const normalized = markdown.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  const lines = normalized.split("\n");
+  const content: ProseMirrorNode[] = [];
+  let paragraphLines: string[] = [];
 
-  const content: ProseMirrorNode[] = blocks.map((block) => {
-    const listLines = block
-      .split("\n")
-      .map((line) => line.trim())
-      .filter(Boolean);
-    if (listLines.length > 1 && listLines.every((line) => /^[-*]\s+/.test(line))) {
-      return buildListNode(
-        listLines.map((line) => line.replace(/^[-*]\s+/, "").trim()),
-        false
-      );
-    }
-    if (listLines.length > 1 && listLines.every((line) => /^\d+\.\s+/.test(line))) {
-      return buildListNode(
-        listLines.map((line) => line.replace(/^\d+\.\s+/, "").trim()),
-        true
-      );
+  const flushParagraph = () => {
+    const text = paragraphLines.join(" ").replace(/\s+/g, " ").trim();
+    if (text) content.push(paragraphNode(text));
+    paragraphLines = [];
+  };
+
+  const parseListItem = (line: string) => {
+    const unordered = line.match(/^\s*[-*+]\s+(.+)$/);
+    if (unordered) return { ordered: false, text: unordered[1].trim() };
+    const ordered = line.match(/^\s*\d+[.)]\s+(.+)$/);
+    if (ordered) return { ordered: true, text: ordered[1].trim() };
+    return null;
+  };
+
+  for (let i = 0; i < lines.length; i += 1) {
+    const rawLine = lines[i] ?? "";
+    const line = rawLine.trim();
+
+    if (!line) {
+      flushParagraph();
+      continue;
     }
 
-    const headingMatch = block.match(/^(#{1,3})\s+(.+)$/);
+    const headingMatch = line.match(/^(#{1,3})\s+(.+)$/);
     if (headingMatch) {
-      return {
+      flushParagraph();
+      content.push({
         type: "heading",
         attrs: { level: headingMatch[1].length },
         content: [{ type: "text", text: headingMatch[2].trim() }],
-      };
+      });
+      continue;
     }
 
-    return paragraphNode(block.replace(/\n+/g, " ").trim());
-  });
+    const listItem = parseListItem(rawLine);
+    if (listItem) {
+      flushParagraph();
+      const listLines: string[] = [listItem.text];
+      const ordered = listItem.ordered;
+      while (i + 1 < lines.length) {
+        const next = parseListItem(lines[i + 1] ?? "");
+        if (!next || next.ordered !== ordered) break;
+        listLines.push(next.text);
+        i += 1;
+      }
+      content.push(buildListNode(listLines, ordered));
+      continue;
+    }
+
+    paragraphLines.push(line);
+  }
+
+  flushParagraph();
 
   return {
     type: "doc",
@@ -95,4 +119,49 @@ export function extractDocumentBlocks(document?: JSONContent | null): DocumentBl
       };
     })
     .filter((item): item is DocumentBlockItem => Boolean(item));
+}
+
+function extractNodeText(node?: JSONContent | null): string {
+  if (!node) return "";
+  if (node.type === "text") return typeof node.text === "string" ? node.text : "";
+  return (node.content ?? []).map((child) => extractNodeText(child)).join("").trim();
+}
+
+export function documentToMarkdown(document?: JSONContent | null): string {
+  const nodes = Array.isArray(document?.content) ? document.content : [];
+  const blocks: string[] = [];
+
+  nodes.forEach((node) => {
+    if (!node?.type) return;
+    if (node.type === "heading") {
+      const level =
+        typeof node.attrs?.level === "number"
+          ? Math.min(3, Math.max(1, node.attrs.level))
+          : 1;
+      const text = extractNodeText(node);
+      if (text) blocks.push(`${"#".repeat(level)} ${text}`);
+      return;
+    }
+
+    if (node.type === "paragraph") {
+      const text = extractNodeText(node);
+      if (text) blocks.push(text);
+      return;
+    }
+
+    if (node.type === "bulletList" || node.type === "orderedList") {
+      const items = Array.isArray(node.content) ? node.content : [];
+      const listLines = items
+        .map((item, index) => {
+          const text = extractNodeText(item);
+          if (!text) return "";
+          if (node.type === "orderedList") return `${index + 1}. ${text}`;
+          return `- ${text}`;
+        })
+        .filter(Boolean);
+      if (listLines.length > 0) blocks.push(listLines.join("\n"));
+    }
+  });
+
+  return blocks.join("\n\n").trim();
 }

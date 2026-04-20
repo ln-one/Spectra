@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from services.ai import ai_service
 from services.ai.model_router import ModelRouteTask
 from utils.exceptions import APIException, ErrorCode
@@ -7,26 +9,32 @@ from utils.exceptions import APIException, ErrorCode
 from .tool_content_builder_support import build_error_details, parse_ai_object_payload, raise_generation_error
 
 
-async def generate_card_json_payload(
+async def _generate_card_response(
     *,
     prompt: str,
     card_id: str,
     phase: str,
     rag_snippets: list[str],
     max_tokens: int,
-) -> tuple[dict, str]:
+    route_task: ModelRouteTask | str = ModelRouteTask.LESSON_PLAN_REASONING,
+    response_format: dict[str, Any] | None = None,
+    model: str | None = None,
+) -> tuple[dict[str, Any], str]:
     try:
         response = await ai_service.generate(
             prompt=prompt,
-            route_task=ModelRouteTask.LESSON_PLAN_REASONING,
+            model=model,
+            route_task=route_task,
             has_rag_context=bool(rag_snippets),
             max_tokens=max_tokens,
+            response_format=response_format,
         )
     except APIException as exc:
         details = dict(exc.details or {})
         model_name = str(
             details.get("resolved_model")
             or details.get("requested_model")
+            or model
             or ai_service.large_model
             or ""
         )
@@ -52,14 +60,38 @@ async def generate_card_json_payload(
             error_code=ErrorCode.EXTERNAL_SERVICE_ERROR,
             message="AI generation failed with an unexpected runtime error.",
             card_id=card_id,
-            model=ai_service.large_model,
+            model=model or ai_service.large_model,
             phase=phase,
             failure_reason="unexpected_runtime_error",
             retryable=True,
             extra={"raw_error": str(exc)[:300]},
         )
 
-    model_name = str(response.get("model") or ai_service.large_model or "")
+    model_name = str(response.get("model") or model or ai_service.large_model or "")
+    return response, model_name
+
+
+async def generate_card_json_payload(
+    *,
+    prompt: str,
+    card_id: str,
+    phase: str,
+    rag_snippets: list[str],
+    max_tokens: int,
+    route_task: ModelRouteTask | str = ModelRouteTask.LESSON_PLAN_REASONING,
+    model: str | None = None,
+    response_format: dict[str, Any] | None = None,
+) -> tuple[dict, str]:
+    response, model_name = await _generate_card_response(
+        prompt=prompt,
+        card_id=card_id,
+        phase=phase,
+        rag_snippets=rag_snippets,
+        max_tokens=max_tokens,
+        route_task=route_task,
+        model=model,
+        response_format=response_format or {"type": "json_object"},
+    )
     return (
         parse_ai_object_payload(
             card_id=card_id,
@@ -69,3 +101,38 @@ async def generate_card_json_payload(
         ),
         model_name,
     )
+
+
+async def generate_card_text_payload(
+    *,
+    prompt: str,
+    card_id: str,
+    phase: str,
+    rag_snippets: list[str],
+    max_tokens: int,
+    route_task: ModelRouteTask | str = ModelRouteTask.LESSON_PLAN_REASONING,
+    model: str | None = None,
+) -> tuple[str, str, dict[str, Any]]:
+    response, model_name = await _generate_card_response(
+        prompt=prompt,
+        card_id=card_id,
+        phase=phase,
+        rag_snippets=rag_snippets,
+        max_tokens=max_tokens,
+        route_task=route_task,
+        model=model,
+        response_format=None,
+    )
+    content = str(response.get("content") or "").strip()
+    if not content:
+        raise_generation_error(
+            status_code=502,
+            error_code=ErrorCode.EXTERNAL_SERVICE_ERROR,
+            message="AI returned empty content for studio card generation.",
+            card_id=card_id,
+            model=model_name,
+            phase="parse",
+            failure_reason="empty_text_payload",
+            retryable=True,
+        )
+    return content, model_name, response

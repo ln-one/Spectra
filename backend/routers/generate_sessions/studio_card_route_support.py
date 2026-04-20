@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from fastapi import Request
+from fastapi.responses import JSONResponse
 from schemas.chat import SendMessageRequest
 from schemas.studio_cards import (
     RefineMode,
@@ -10,6 +12,10 @@ from schemas.studio_cards import (
 from services.chat import (
     resolve_effective_rag_source_ids,
     resolve_effective_selected_library_ids,
+)
+from services.generation_session_service.animation_contract import (
+    AnimationContractViolation,
+    resolve_animation_contract,
 )
 from services.generation_session_service.card_execution_preview import (
     build_studio_card_execution_preview,
@@ -55,6 +61,34 @@ def require_body_field(body: dict, field_name: str, *, message: str) -> str:
 
 def require_project_id(body: dict) -> str:
     return require_body_field(body, "project_id", message="project_id 为必填字段")
+
+
+def validate_animation_request_contract(card_id: str, body: dict) -> None:
+    if card_id != "demonstration_animations":
+        return
+    config = body.get("config")
+    resolve_animation_contract(config=config if isinstance(config, dict) else {})
+
+
+def build_animation_contract_problem_response(
+    request: Request,
+    violation: AnimationContractViolation,
+) -> JSONResponse:
+    return JSONResponse(
+        status_code=400,
+        media_type="application/problem+json",
+        content={
+            "type": "https://spectra.dev/problems/animation-format-not-supported",
+            "title": "Animation format is not supported",
+            "status": 400,
+            "detail": violation.detail,
+            "instance": request.url.path,
+            "error_code": violation.error_code,
+            "allowed_formats": list(violation.allowed_formats),
+            "invalid_field": violation.field_name,
+            "invalid_value": violation.invalid_value,
+        },
+    )
 
 
 def build_preview_or_raise(card_id: str, body: dict):
@@ -147,6 +181,7 @@ def build_turn_request(
     return StudioCardTurnRequest(
         project_id=project_id,
         artifact_id=artifact_id,
+        session_id=body.get("session_id"),
         teacher_answer=teacher_answer,
         config=body.get("config") or {},
         selected_file_ids=_resolve_request_selected_file_ids(body),

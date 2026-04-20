@@ -69,6 +69,7 @@ async def get_session_snapshot(
         session=session,
         snapshot=snapshot,
         latest_state_event=latest_state_event,
+        enforce_state_event_consistency=run_id is None,
     )
     return snapshot
 

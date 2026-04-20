@@ -146,6 +146,33 @@ describe("studio cards sdk", () => {
     ).rejects.toBeInstanceOf(ApiError);
   });
 
+  test("executes studio card through direct backend transport", async () => {
+    const fetchMock = jest.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          success: true,
+          message: "ok",
+          data: {
+            execution_result: {
+              resource_kind: "session",
+              session: { session_id: "session-1" },
+              run: { run_id: "run-1" },
+            },
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      )
+    );
+    global.fetch = fetchMock as typeof global.fetch;
+
+    await studioCardsApi.execute("courseware_ppt", { project_id: "proj_1" });
+
+    const request = fetchMock.mock.calls[0]?.[0] as Request;
+    expect(request.url).toBe(
+      "http://localhost:8000/api/v1/generate/studio-cards/courseware_ppt/execute"
+    );
+  });
+
   test("posts simulator turn payload", async () => {
     const fetchMock = jest.fn().mockResolvedValue(
       new Response(

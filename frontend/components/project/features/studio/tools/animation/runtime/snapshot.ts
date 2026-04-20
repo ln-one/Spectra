@@ -264,6 +264,21 @@ export function readAnimationRuntimeSnapshot(params: {
     if (normalized) return normalized;
   }
 
+  const resolved = params.flowContext?.resolvedArtifact;
+  if (resolved?.contentKind === "json" && isRecord(resolved.content)) {
+    const normalizedFromResolved = normalizeRuntimeSnapshot(
+      resolved.content as Record<string, unknown>,
+      {
+        allowMissingRuntime:
+          resolved.content.kind === "animation_storyboard" ||
+          typeof resolved.content.animation_family === "string" ||
+          Array.isArray(resolved.content.scenes) ||
+          Array.isArray(resolved.content.steps),
+      }
+    );
+    if (normalizedFromResolved) return normalizedFromResolved;
+  }
+
   if (isRecord(params.serverSpecPreview)) {
     return normalizeRuntimeSnapshot(params.serverSpecPreview, {
       allowMissingRuntime: false,

@@ -102,15 +102,25 @@ class AIService:
         prompt: str,
         max_tokens: Optional[int],
         timeout_seconds: float,
+        response_format: Optional[dict] = None,
     ):
         from services.ai import acompletion
 
+        request_kwargs = {
+            "model": model,
+            "messages": [{"role": "user", "content": prompt}],
+            "max_tokens": max_tokens,
+        }
+        if response_format is not None:
+            request_kwargs["response_format"] = response_format
+            if model.startswith("dashscope/"):
+                request_kwargs["extra_body"] = {
+                    "result_format": "message",
+                    "enable_thinking": False,
+                }
+
         return await asyncio.wait_for(
-            acompletion(
-                model=model,
-                messages=[{"role": "user", "content": prompt}],
-                max_tokens=max_tokens,
-            ),
+            acompletion(**request_kwargs),
             timeout=timeout_seconds,
         )
 
@@ -173,6 +183,7 @@ class AIService:
         route_task: Optional[ModelRouteTask | str] = None,
         has_rag_context: bool = False,
         max_tokens: Optional[int] = 500,
+        response_format: Optional[dict] = None,
     ) -> dict:
         return await generate_with_routing(
             self,
@@ -181,6 +192,7 @@ class AIService:
             route_task=route_task,
             has_rag_context=has_rag_context,
             max_tokens=max_tokens,
+            response_format=response_format,
         )
 
     async def classify_intent(self, user_message: str):

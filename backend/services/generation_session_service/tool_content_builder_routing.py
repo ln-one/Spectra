@@ -36,13 +36,20 @@ async def _build_demonstration_animation_artifact_content(
     source_artifact_id: str | None = None,
     rag_source_ids: list[str] | None = None,
 ) -> dict[str, Any]:
-    del card_id, rag_snippets, source_hint
+    generated = await generate_structured_artifact_content(
+        card_id=card_id,
+        config=config,
+        rag_snippets=rag_snippets,
+        source_hint=source_hint,
+    )
+    merged_payload = dict(generated)
+    merged_payload.setdefault("kind", "animation_storyboard")
+    if source_artifact_id:
+        merged_payload["source_artifact_id"] = source_artifact_id
+    if rag_source_ids:
+        merged_payload["rag_source_ids"] = list(rag_source_ids)
     return await normalize_demonstration_animation_payload(
-        {
-            "kind": "animation_storyboard",
-            "source_artifact_id": source_artifact_id,
-            "rag_source_ids": list(rag_source_ids or []),
-        },
+        merged_payload,
         config,
     )
 

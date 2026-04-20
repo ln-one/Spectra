@@ -146,9 +146,7 @@ export function GenerateStep({
   const predictedRenderMode =
     typeof serverSpecPreview?.render_mode === "string"
       ? serverSpecPreview.render_mode
-      : animationFormat === "mp4"
-        ? "cloud_video_wan"
-        : animationFormat;
+      : animationFormat;
   const predictedArtifactType =
     typeof serverSpecPreview?.artifact_type === "string"
       ? serverSpecPreview.artifact_type
@@ -167,17 +165,13 @@ export function GenerateStep({
       ? ["bind_ppt_artifact"]
       : ["bind_ppt_artifact", "placement_ready_artifact"];
   const generateLabel =
-    predictedArtifactType === "mp4"
-      ? "按规格生成 MP4 动画"
-      : predictedArtifactType === "html"
-        ? "按规格生成 HTML 动画"
-        : "按规格生成 GIF 动画";
+    predictedArtifactType === "html"
+      ? "按规格生成 HTML 动画"
+      : "按规格生成 GIF 动画";
   const generatingLabel =
-    predictedArtifactType === "mp4"
-      ? "正在生成规格化 MP4 动画..."
-      : predictedArtifactType === "html"
-        ? "正在生成规格化 HTML 动画..."
-        : "正在生成规格化 GIF 动画...";
+    predictedArtifactType === "html"
+      ? "正在生成规格化 HTML 动画..."
+      : "正在生成规格化 GIF 动画...";
 
   return (
     <div className="space-y-4">
@@ -191,9 +185,7 @@ export function GenerateStep({
           <p>正式输出：{predictedArtifactType.toUpperCase()}</p>
           <p>
             渲染链路：
-            {predictedRenderMode === "cloud_video_wan"
-              ? "百炼 Wan 异步视频导出"
-              : predictedRenderMode === "gif"
+            {predictedRenderMode === "gif"
                 ? "本地 GIF 导出"
                 : "HTML runtime 导出"}
           </p>
@@ -210,9 +202,8 @@ export function GenerateStep({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="gif">GIF（支持后续 placement）</SelectItem>
-              <SelectItem value="mp4">MP4（云视频导出）</SelectItem>
               <SelectItem value="html5">HTML（本地 runtime 导出）</SelectItem>
+              <SelectItem value="gif">GIF（支持后续 placement）</SelectItem>
             </SelectContent>
           </Select>
           <p className="text-[11px] text-zinc-500">
@@ -281,9 +272,7 @@ export function GenerateStep({
           <p className="font-medium">
             {placementSupported
               ? "本次生成后可进入 PPT placement"
-              : predictedArtifactType === "mp4"
-                ? "本次生成后可导出 MP4，但不可直接 placement"
-                : "本次生成后可预览/导出，但不可直接 placement"}
+              : "本次生成后可预览/导出，但不可直接 placement"}
           </p>
           <p className="mt-1">
             {placementSupported

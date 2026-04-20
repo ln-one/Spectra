@@ -54,6 +54,13 @@ GatewayTimeout:
       schema:
         $ref: '../schemas/common.yaml#/ErrorResponse'
 
+AnimationFormatProblem:
+  description: 动画格式契约校验失败（RFC 9457 Problem Details）
+  content:
+    application/problem+json:
+      schema:
+        $ref: '../schemas/common.yaml#/AnimationFormatProblemDetails'
+
 InternalServerError:
   description: 服务端内部错误
   content:

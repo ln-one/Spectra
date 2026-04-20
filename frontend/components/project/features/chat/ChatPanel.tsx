@@ -112,6 +112,8 @@ export function ChatPanel({
   const [isFocused, setIsFocused] = useState(false);
   const [voiceState, setVoiceState] = useState<VoiceInputState>("idle");
   const [loadingTimedOut, setLoadingTimedOut] = useState(false);
+  const [awaitingFirstLoadTimedOut, setAwaitingFirstLoadTimedOut] =
+    useState(false);
   const [loadedSessionId, setLoadedSessionId] = useState<string | null>(null);
   const [isSessionTransitioning, setIsSessionTransitioning] = useState(true);
   const [hasResolvedInitialLoad, setHasResolvedInitialLoad] = useState(false);
@@ -350,13 +352,31 @@ export function ChatPanel({
     !!activeSessionId &&
     mergedMessages.length === 0 &&
     loadedSessionId !== activeSessionId;
+  const shouldShowAwaitingFirstLoad =
+    awaitingSessionFirstLoad && !awaitingFirstLoadTimedOut;
   const shouldBlockEmptyState =
-    !hasResolvedInitialLoad && mergedMessages.length === 0;
+    !hasResolvedInitialLoad &&
+    mergedMessages.length === 0 &&
+    (isSessionTransitioning ||
+      isMessagesLoading ||
+      shouldShowAwaitingFirstLoad);
   const showLoading =
     isSessionTransitioning ||
     shouldBlockEmptyState ||
     (isMessagesLoading && !loadingTimedOut) ||
-    awaitingSessionFirstLoad;
+    shouldShowAwaitingFirstLoad;
+
+  useEffect(() => {
+    if (!awaitingSessionFirstLoad) {
+      setAwaitingFirstLoadTimedOut(false);
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      setAwaitingFirstLoadTimedOut(true);
+    }, 1800);
+    return () => clearTimeout(timer);
+  }, [awaitingSessionFirstLoad]);
 
   const handleSend = async () => {
     if (!input.trim() || !activeSessionId) return;

@@ -247,6 +247,7 @@ export function SessionArtifacts({
         detail: {
           artifactId,
           surfaceKind,
+          title: item.title,
         },
       })
     );
@@ -368,9 +369,8 @@ export function SessionArtifacts({
           <p className="text-[10px] uppercase tracking-wide text-[var(--project-text-muted)]">
             历史记录
           </p>
-        <AnimatePresence>
-          {groupedHistory.map(([toolKey, items]) =>
-            (() => {
+          <AnimatePresence>
+            {groupedHistory.map(([toolKey, items]) => {
               const toolAccent = getToolAccentColor(toolKey);
               const isExpanded = Boolean(expandedTools[toolKey]);
               const canExpand = items.length > 4;
@@ -419,83 +419,81 @@ export function SessionArtifacts({
                       isExpanded && "max-h-[20rem] overflow-y-auto pr-1"
                     )}
                   >
-                    {visibleItems.map((item, index) => {
-                      return (
-                        <motion.div
-                          key={item.id}
-                          initial={{ opacity: 0, x: -10 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          exit={{ opacity: 0, x: 10 }}
-                          transition={{ delay: index * 0.04 }}
-                          className="group flex items-center gap-2 rounded-xl bg-[var(--project-surface-muted)] p-2 transition-colors hover:brightness-95"
+                    {visibleItems.map((item, index) => (
+                      <motion.div
+                        key={item.id}
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: 10 }}
+                        transition={{ delay: index * 0.04 }}
+                        className="group flex items-center gap-2 rounded-xl bg-[var(--project-surface-muted)] p-2 transition-colors hover:brightness-95"
+                      >
+                        <button
+                          type="button"
+                          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[var(--project-surface-elevated)] shadow-sm"
+                          onClick={() => handleOpen(item)}
                         >
-                          <button
+                          {statusIcon(item)}
+                        </button>
+                        <div className="flex min-w-0 flex-1 flex-col justify-center">
+                          <p className="w-full truncate text-[11px] font-medium text-[var(--project-text-primary)]">
+                            {item.title}
+                          </p>
+                          <p className="flex w-full min-w-0 items-center gap-1.5 text-[10px] text-[var(--project-text-muted)]">
+                            <span
+                              className={cn(
+                                "shrink-0 rounded-full px-1.5 py-0.5 whitespace-nowrap",
+                                statusBadgeClass(item)
+                              )}
+                            >
+                              {statusText(item)}
+                            </span>
+                            <span
+                              className="inline-block h-1.5 w-1.5 shrink-0 rounded-full"
+                              style={{ backgroundColor: toolAccent }}
+                            />
+                            <span
+                              className="min-w-0 flex-1 truncate whitespace-nowrap"
+                              title={new Date(item.createdAt).toLocaleString(
+                                "zh-CN"
+                              )}
+                            >
+                              {formatHistoryTime(item.createdAt)}
+                            </span>
+                          </p>
+                        </div>
+
+                        <div className="flex shrink-0 items-center gap-1">
+                          <Button
                             type="button"
-                            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[var(--project-surface-elevated)] shadow-sm"
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 rounded-lg text-[var(--project-text-muted)]"
                             onClick={() => handleOpen(item)}
+                            aria-label="查看预览"
                           >
-                            {statusIcon(item)}
-                          </button>
-                          <div className="flex flex-1 min-w-0 flex-col justify-center">
-                            <p className="w-full truncate text-[11px] font-medium text-[var(--project-text-primary)]">
-                              {item.title}
-                            </p>
-                            <p className="flex w-full min-w-0 items-center gap-1.5 text-[10px] text-[var(--project-text-muted)]">
-                              <span
-                                className={cn(
-                                  "shrink-0 rounded-full px-1.5 py-0.5 whitespace-nowrap",
-                                  statusBadgeClass(item)
-                                )}
-                              >
-                                {statusText(item)}
-                              </span>
-                              <span
-                                className="inline-block h-1.5 w-1.5 shrink-0 rounded-full"
-                                style={{ backgroundColor: toolAccent }}
-                              />
-                              <span
-                                className="min-w-0 flex-1 truncate whitespace-nowrap"
-                                title={new Date(item.createdAt).toLocaleString(
-                                  "zh-CN"
-                                )}
-                              >
-                                {formatHistoryTime(item.createdAt)}
-                              </span>
-                            </p>
-                          </div>
+                            <Eye className="h-3.5 w-3.5" />
+                          </Button>
 
-                          <div className="flex shrink-0 items-center gap-1">
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7 rounded-lg text-[var(--project-text-muted)]"
-                              onClick={() => handleOpen(item)}
-                              aria-label="查看预览"
-                            >
-                              <Eye className="h-3.5 w-3.5" />
-                            </Button>
-
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7 rounded-lg text-[var(--project-text-muted)] transition-colors hover:bg-red-50 hover:text-red-600"
-                              onClick={() => setPendingArchiveItem(item)}
-                              aria-label="归档历史记录"
-                            >
-                              <Archive className="h-3.5 w-3.5" />
-                            </Button>
-                          </div>
-                        </motion.div>
-                      );
-                    })}
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 rounded-lg text-[var(--project-text-muted)] transition-colors hover:bg-red-50 hover:text-red-600"
+                            onClick={() => setPendingArchiveItem(item)}
+                            aria-label="归档历史记录"
+                          >
+                            <Archive className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </motion.div>
+                    ))}
                   </div>
                 </motion.div>
               );
-            })()
-          )}
-        </AnimatePresence>
+            })}
+          </AnimatePresence>
+        </div>
       </div>
 
       <LightDeleteConfirm

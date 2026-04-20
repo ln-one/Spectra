@@ -31,6 +31,17 @@ _IMAGE_EXTENSIONS = {
 }
 
 
+def _env_positive_int(name: str, default: int) -> int:
+    raw = os.getenv(name, "").strip()
+    if not raw:
+        return default
+    try:
+        value = int(raw)
+        return value if value > 0 else default
+    except ValueError:
+        return default
+
+
 def _project_upload_fields(upload, *, select: dict | None = None) -> dict | object:
     if not select:
         return upload
@@ -303,6 +314,7 @@ async def generate_assistant_reply(
     *,
     prompt: str,
     rag_hit: bool,
+    is_word_studio_refine: bool = False,
 ) -> tuple[str, dict, dict[str, float]]:
     route_info = {}
     attempted_route = ai_service.model_router.route(
@@ -317,14 +329,31 @@ async def generate_assistant_reply(
     latency_ms = None
     assistant_digest = ""
     stage_timings_ms: dict[str, float] = {}
+    token_budget = (
+        _env_positive_int("STUDIO_WORD_REFINE_MAX_TOKENS", 3200)
+        if is_word_studio_refine
+        else _env_positive_int("CHAT_RESPONSE_MAX_TOKENS", 1800)
+    )
+    rewrite_token_budget = (
+        _env_positive_int("STUDIO_WORD_REFINE_REWRITE_MAX_TOKENS", 2000)
+        if is_word_studio_refine
+        else _env_positive_int("CHAT_REWRITE_MAX_TOKENS", 1200)
+    )
+    refine_model = (
+        str(os.getenv("STUDIO_WORD_REFINE_MODEL", "") or "").strip()
+        if is_word_studio_refine
+        else ""
+    )
+    requested_model = refine_model or None
 
     try:
         stage_started = time.perf_counter()
         ai_result = await ai_service.generate(
             prompt=prompt,
+            model=requested_model,
             route_task=ModelRouteTask.CHAT_RESPONSE,
             has_rag_context=rag_hit,
-            max_tokens=500,
+            max_tokens=token_budget,
         )
         stage_timings_ms["ai_generate_ms"] = round(
             (time.perf_counter() - stage_started) * 1000, 2
@@ -353,8 +382,9 @@ async def generate_assistant_reply(
             stage_started = time.perf_counter()
             rewrite_result = await ai_service.generate(
                 prompt=rewrite_prompt,
+                model=requested_model,
                 route_task=ModelRouteTask.SHORT_TEXT_POLISH,
-                max_tokens=500,
+                max_tokens=rewrite_token_budget,
             )
             stage_timings_ms["ai_rewrite_ms"] = round(
                 (time.perf_counter() - stage_started) * 1000, 2

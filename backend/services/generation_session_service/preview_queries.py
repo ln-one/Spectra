@@ -32,6 +32,7 @@ from services.task_executor.constants import TaskFailureStateReason
 logger = logging.getLogger(__name__)
 
 _DIEGO_FAILED_STATUS = "FAILED"
+_DIEGO_RECONCILE_TOOL_TYPES = {"courseware_ppt", "studio_card:courseware_ppt"}
 _DIEGO_ACTIVE_SESSION_STATES = {
     GenerationState.GENERATING_CONTENT.value,
     GenerationState.RENDERING.value,
@@ -62,6 +63,32 @@ def _read_diego_binding(options: Optional[dict]) -> Optional[dict]:
     return binding if isinstance(binding, dict) else None
 
 
+async def _resolve_diego_reconcile_run(
+    *,
+    db,
+    run_id: str,
+):
+    if not run_id:
+        return None
+    run_model = getattr(db, "sessionrun", None)
+    if run_model is None or not hasattr(run_model, "find_unique"):
+        return None
+    run = await run_model.find_unique(where={"id": run_id})
+    if run is None:
+        return None
+    tool_type = str(getattr(run, "toolType", "") or "").strip().lower()
+    if tool_type not in _DIEGO_RECONCILE_TOOL_TYPES:
+        return None
+    return run
+
+
+async def _is_latest_session_run(*, db, session_id: str, run_id: str) -> bool:
+    latest_run = await get_latest_session_run(db, session_id)
+    if latest_run is None:
+        return False
+    return str(getattr(latest_run, "id", "") or "").strip() == run_id
+
+
 async def _load_latest_session_artifact(db, project_id: str, session_id: str):
     artifact_model = getattr(db, "artifact", None)
     if artifact_model is None or not hasattr(artifact_model, "find_first"):
@@ -86,7 +113,13 @@ async def _reconcile_diego_failed_session(
         return session
 
     diego_run_id = str(binding.get("diego_run_id") or "").strip()
-    if not diego_run_id:
+    run_id = str(binding.get("spectra_run_id") or "").strip()
+    if not diego_run_id or not run_id:
+        return session
+    run = await _resolve_diego_reconcile_run(db=db, run_id=run_id)
+    if run is None:
+        return session
+    if not await _is_latest_session_run(db=db, session_id=session.id, run_id=run_id):
         return session
 
     client = build_diego_client()
@@ -127,7 +160,7 @@ async def _reconcile_diego_failed_session(
     await mark_diego_failed(
         db=db,
         session_id=session.id,
-        run_id=str(binding.get("spectra_run_id") or "").strip() or None,
+        run_id=run.id,
         diego_run_id=diego_run_id,
         error_code=str(detail.get("error_code") or "DIEGO_RUN_FAILED"),
         error_message=error_message,
@@ -197,6 +230,12 @@ async def _reconcile_diego_success_session(
     if not diego_run_id or not run_id:
         return session
 
+    run = await _resolve_diego_reconcile_run(db=db, run_id=run_id)
+    if run is None:
+        return session
+    if not await _is_latest_session_run(db=db, session_id=session.id, run_id=run_id):
+        return session
+
     client = build_diego_client()
     if client is None:
         return session
@@ -220,10 +259,6 @@ async def _reconcile_diego_success_session(
     try:
         pptx_bytes = await client.download_pptx(diego_run_id)
     except Exception:
-        return session
-
-    run = await db.sessionrun.find_unique(where={"id": run_id})
-    if run is None:
         return session
 
     artifact_id, output_url = await persist_diego_success_artifact(

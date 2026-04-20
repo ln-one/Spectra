@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from typing import Any
 
 SUPPORTED_EXPLAINER_FAMILIES = {
@@ -35,7 +36,17 @@ GRAPH_ACTION_ALIASES = {
     "recap": "highlight",
     "reveal_layout": "reveal",
     "trace": "focus",
+    "trace_path": "focus",
     "transition": "move",
+    # Common LLM drift tokens observed in algorithm demos.
+    "skip": "compare",
+    "inspect": "compare",
+    "scan": "compare",
+    "visit": "focus",
+    "lock": "complete",
+    "settle": "complete",
+    "mark_sorted": "complete",
+    "stabilize": "complete",
 }
 
 
@@ -43,8 +54,93 @@ def clean_text(value: Any) -> str:
     return str(value or "").strip()
 
 
+def _coerce_numeric_dataset(value: Any) -> list[float]:
+    if not isinstance(value, list):
+        return []
+    dataset: list[float] = []
+    for item in value:
+        if isinstance(item, (int, float)):
+            dataset.append(float(item))
+    return dataset
+
+
+def _normalize_indices(value: Any, length: int) -> list[int]:
+    if not isinstance(value, list):
+        return []
+    normalized: list[int] = []
+    for item in value:
+        if not isinstance(item, int):
+            continue
+        if item < 0 or item >= length:
+            continue
+        normalized.append(item)
+    return normalized
+
+
+def _seed_algorithm_snapshots(
+    raw_steps: list[dict[str, Any]],
+    content: dict[str, Any],
+) -> list[dict[str, Any]]:
+    if not raw_steps:
+        return []
+
+    dataset = _coerce_numeric_dataset(content.get("dataset"))
+    if not dataset:
+        dataset = [5.0, 3.0, 8.0, 2.0, 6.0]
+    working = list(dataset)
+    if not working:
+        return []
+
+    seeded_steps: list[dict[str, Any]] = []
+    pair_cursor = 0
+    unsorted_right = max(len(working) - 1, 1)
+    algorithm_type = clean_text(content.get("algorithm_type")).lower()
+    prefer_bubble_mode = algorithm_type in {"", "bubble_sort"}
+
+    for step_index, step in enumerate(raw_steps):
+        next_step = dict(step)
+        active_indices = _normalize_indices(step.get("active_indices"), len(working))
+        swap_indices = _normalize_indices(step.get("swap_indices"), len(working))
+        swapped = False
+
+        if step_index > 0:
+            if len(swap_indices) >= 2:
+                left, right = swap_indices[0], swap_indices[1]
+                if left != right:
+                    working[left], working[right] = working[right], working[left]
+                    swapped = True
+                if not active_indices:
+                    active_indices = [left, right]
+            elif prefer_bubble_mode and len(working) >= 2:
+                if pair_cursor >= unsorted_right:
+                    pair_cursor = 0
+                    unsorted_right = max(unsorted_right - 1, 1)
+                left = pair_cursor
+                right = min(pair_cursor + 1, len(working) - 1)
+                active_indices = [left, right]
+                if left != right and working[left] > working[right]:
+                    working[left], working[right] = working[right], working[left]
+                    swap_indices = [left, right]
+                    swapped = True
+                pair_cursor += 1
+
+        if not active_indices and len(working) >= 2:
+            active_indices = [0, 1]
+
+        if swapped and not swap_indices and len(active_indices) >= 2:
+            swap_indices = active_indices[:2]
+
+        next_step["snapshot"] = list(working)
+        next_step["active_indices"] = active_indices
+        next_step["swap_indices"] = swap_indices
+        seeded_steps.append(next_step)
+
+    return seeded_steps
+
+
 def canonical_action_hint(value: Any) -> str:
     action_name = clean_text(value).lower().replace("-", "_").replace(" ", "_")
+    action_name = re.sub(r"[^a-z0-9_]+", "_", action_name).strip("_")
     if action_name in ALLOWED_GRAPH_ACTIONS:
         return action_name
     return GRAPH_ACTION_ALIASES.get(action_name, "")
@@ -82,8 +178,112 @@ def scene_outline(content: dict[str, Any]) -> list[dict[str, Any]]:
 
 def normalized_steps(content: dict[str, Any]) -> list[dict[str, Any]]:
     raw_steps = content.get("steps")
-    if isinstance(raw_steps, list) and raw_steps:
-        return [step for step in raw_steps if isinstance(step, dict)]
+    normalized_raw_steps = (
+        [step for step in raw_steps if isinstance(step, dict)]
+        if isinstance(raw_steps, list)
+        else []
+    )
+    is_algorithm_family = clean_text(
+        content.get("animation_family") or content.get("family_hint")
+    ).lower() == "algorithm_demo"
+    has_algorithm_snapshot = False
+    needs_algorithm_snapshot_seed = False
+    if normalized_raw_steps:
+        if not is_algorithm_family:
+            return normalized_raw_steps
+        has_algorithm_snapshot = any(
+            isinstance(step.get("snapshot"), list) and bool(step.get("snapshot"))
+            for step in normalized_raw_steps
+        )
+        if has_algorithm_snapshot:
+            return normalized_raw_steps
+        needs_algorithm_snapshot_seed = True
+
+    runtime_graph = content.get("runtime_graph")
+    if isinstance(runtime_graph, dict):
+        graph_steps = runtime_graph.get("steps")
+        if isinstance(graph_steps, list) and graph_steps:
+            converted_steps: list[dict[str, Any]] = []
+            for index, graph_step in enumerate(graph_steps, start=1):
+                if not isinstance(graph_step, dict):
+                    continue
+                caption = graph_step.get("primary_caption")
+                caption_title = ""
+                caption_body = ""
+                if isinstance(caption, dict):
+                    caption_title = clean_text(caption.get("title"))
+                    caption_body = clean_text(caption.get("body"))
+
+                snapshot: list[float] = []
+                active_indices: list[int] = []
+                swap_indices: list[int] = []
+                entities = graph_step.get("entities")
+                if isinstance(entities, list):
+                    for entity in entities:
+                        if not isinstance(entity, dict):
+                            continue
+                        if clean_text(entity.get("kind")) != "track_stack":
+                            continue
+                        raw_items = entity.get("items")
+                        if isinstance(raw_items, list) and raw_items:
+                            for item_index, item in enumerate(raw_items):
+                                if not isinstance(item, dict):
+                                    continue
+                                raw_value = item.get("value")
+                                if not isinstance(raw_value, (int, float)):
+                                    continue
+                                snapshot.append(float(raw_value))
+                                accent = clean_text(item.get("accent")).lower()
+                                if accent == "active":
+                                    active_indices.append(item_index)
+                                elif accent == "swap":
+                                    swap_indices.append(item_index)
+                        else:
+                            raw_data = entity.get("data")
+                            if isinstance(raw_data, list) and raw_data:
+                                parsed_snapshot: list[float] = []
+                                for raw_value in raw_data:
+                                    if isinstance(raw_value, (int, float)):
+                                        parsed_snapshot.append(float(raw_value))
+                                if parsed_snapshot:
+                                    snapshot = parsed_snapshot
+                                raw_highlight = entity.get("highlight")
+                                if isinstance(raw_highlight, list):
+                                    highlight_indices = [
+                                        value
+                                        for value in raw_highlight
+                                        if isinstance(value, int)
+                                    ]
+                                    if len(highlight_indices) >= 2:
+                                        swap_indices = highlight_indices
+                                    elif len(highlight_indices) == 1:
+                                        active_indices = highlight_indices
+                        if snapshot:
+                            break
+
+                action = "reveal"
+                if swap_indices:
+                    action = "swap"
+                elif active_indices:
+                    action = "compare"
+                converted_steps.append(
+                    {
+                        "title": caption_title or f"Step {index}",
+                        "caption": caption_body or caption_title or f"Step {index}",
+                        "action": action,
+                        "snapshot": snapshot,
+                        "active_indices": active_indices,
+                        "swap_indices": swap_indices,
+                    }
+                )
+            if converted_steps:
+                return converted_steps
+
+    if needs_algorithm_snapshot_seed:
+        seeded_steps = _seed_algorithm_snapshots(normalized_raw_steps, content)
+        if seeded_steps:
+            return seeded_steps
+
     steps: list[dict[str, Any]] = []
     for scene in content.get("scenes") or []:
         if not isinstance(scene, dict):

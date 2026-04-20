@@ -26,6 +26,9 @@ export interface ArtifactHistoryItem {
   storagePath?: string;
   runId?: string | null;
   runNo?: number | null;
+  replacesArtifactId?: string | null;
+  supersededByArtifactId?: string | null;
+  isCurrent?: boolean | null;
 }
 
 export type ArtifactHistoryByTool = Record<
@@ -115,8 +118,19 @@ function readNestedTitleFromMetadata(metadata: Artifact["metadata"]): string | n
 function sanitizeWordDisplayTitle(raw: string): string {
   const normalized = raw.replace(/\s+/g, " ").trim();
   if (!normalized) return "";
+  const lowered = normalized.toLowerCase();
+  const isPlaceholder =
+    /^第\s*\d+\s*次讲义文档(?:[。.!！])?$/i.test(normalized) ||
+    lowered === "讲义文档" ||
+    lowered === "教学文档" ||
+    lowered === "教案" ||
+    lowered === "教学教案" ||
+    lowered === "未命名教案" ||
+    lowered === "word 生成记录" ||
+    lowered === "word生成记录";
+  if (isPlaceholder) return "";
   const cleaned = normalized
-    .replace(/^第\s*\d+\s*次讲义文档$/i, "")
+    .replace(/^第\s*\d+\s*次讲义文档(?:[。.!！])?$/i, "")
     .replace(
       /(?:[；;，,]\s*)?(?:standard|high|lesson_plan(?:_v1)?|detail[_ -]?level)\b.*$/i,
       ""
@@ -143,11 +157,70 @@ function readMetadataField(
   return (metadata as Record<string, unknown>)[key];
 }
 
+function readMetadataBoolean(
+  metadata: Artifact["metadata"],
+  key: string
+): boolean | null {
+  const value = readMetadataField(metadata, key);
+  if (typeof value === "boolean") return value;
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (normalized === "true") return true;
+    if (normalized === "false") return false;
+  }
+  return null;
+}
+
 function readArtifactKind(artifact: Artifact): string | null {
   const rawKind = readMetadataField(artifact.metadata, "kind");
   if (typeof rawKind !== "string") return null;
   const normalized = rawKind.trim();
   return normalized || null;
+}
+
+function readMetadataSnapshot(
+  metadata: Artifact["metadata"]
+): Record<string, unknown> | null {
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
+    return null;
+  }
+  const row = metadata as Record<string, unknown>;
+  const snapshot = row.content_snapshot;
+  if (snapshot && typeof snapshot === "object" && !Array.isArray(snapshot)) {
+    return snapshot as Record<string, unknown>;
+  }
+  if (typeof snapshot === "string" && snapshot.trim()) {
+    try {
+      const parsed = JSON.parse(snapshot);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        return parsed as Record<string, unknown>;
+      }
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+function hasAnimationRuntimeHints(metadata: Artifact["metadata"]): boolean {
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
+    return false;
+  }
+  const row = metadata as Record<string, unknown>;
+  const snapshot = readMetadataSnapshot(metadata);
+  const hasRuntimeGraph = (value: unknown): boolean =>
+    Boolean(value) && typeof value === "object" && !Array.isArray(value);
+  return Boolean(
+    readTrimmedString(row.runtime_contract) ||
+      readTrimmedString(row.runtime_version) ||
+      readTrimmedString(row.runtime_graph_version) ||
+      hasRuntimeGraph(row.runtime_graph) ||
+      (snapshot &&
+        (readTrimmedString(snapshot.runtime_contract) ||
+          readTrimmedString(snapshot.runtime_version) ||
+          readTrimmedString(snapshot.runtime_graph_version) ||
+          hasRuntimeGraph(snapshot.runtime_graph)))
+  );
 }
 
 function readStudioCardToolType(
@@ -210,6 +283,8 @@ export function mapArtifactToToolType(artifact: Artifact): GenerationToolType {
   if (studioCardToolType) return studioCardToolType;
 
   const artifactKind = readArtifactKind(artifact);
+  const snapshot = readMetadataSnapshot(artifact.metadata);
+  const snapshotKind = readTrimmedString(snapshot?.kind);
   if (artifactKind === "teaching_document") return "word";
   if (artifactKind === "interactive_game") return "outline";
   if (artifactKind === "animation_storyboard") return "animation";
@@ -217,6 +292,11 @@ export function mapArtifactToToolType(artifact: Artifact): GenerationToolType {
   if (artifactKind === "classroom_qa_simulator") return "handout";
   if (artifactKind === "quiz") return "quiz";
   if (artifactKind === "mindmap") return "mindmap";
+  if (snapshotKind === "interactive_game") return "outline";
+  if (snapshotKind === "animation_storyboard") return "animation";
+  if (artifact.type === "html" && hasAnimationRuntimeHints(artifact.metadata)) {
+    return "animation";
+  }
 
   switch (artifact.type) {
     case "pptx":
@@ -233,7 +313,7 @@ export function mapArtifactToToolType(artifact: Artifact): GenerationToolType {
     case "mp4":
       return "animation";
     case "html":
-      return "handout";
+      return "outline";
     default:
       return "summary";
   }
@@ -253,23 +333,39 @@ export function toArtifactHistoryItem(artifact: Artifact): ArtifactHistoryItem {
     artifact.metadata,
     "source_artifact_id"
   );
+  const metadataReplacesArtifactId = readMetadataField(
+    artifact.metadata,
+    "replaces_artifact_id"
+  );
+  const metadataSupersededByArtifactId = readMetadataField(
+    artifact.metadata,
+    "superseded_by_artifact_id"
+  );
+  const metadataIsCurrent = readMetadataBoolean(artifact.metadata, "is_current");
   const nestedTitle = readNestedTitleFromMetadata(artifact.metadata);
-  const rawTitle =
-    typeof metadataTitle === "string" && metadataTitle.trim()
-      ? metadataTitle.trim()
-      : typeof metadataName === "string" && metadataName.trim()
-        ? metadataName.trim()
-        : nestedTitle ??
-          (typeof metadataRunTitle === "string" && metadataRunTitle.trim()
-            ? metadataRunTitle.trim()
-            : toolType === "word"
-              ? "未命名教案"
-              : `${titlePrefix} 生成记录`)
-;
-  const title =
+  const wordCandidates =
     toolType === "word"
-      ? sanitizeWordDisplayTitle(rawTitle) || "未命名教案"
-      : rawTitle;
+      ? [
+          typeof metadataTitle === "string" ? metadataTitle.trim() : "",
+          typeof metadataName === "string" ? metadataName.trim() : "",
+          nestedTitle ?? "",
+          typeof metadataRunTitle === "string" ? metadataRunTitle.trim() : "",
+        ]
+          .map(sanitizeWordDisplayTitle)
+          .filter((value) => Boolean(value))
+      : [];
+  const rawTitle =
+    toolType === "word"
+      ? (wordCandidates[0] ?? "未命名教案")
+      : typeof metadataTitle === "string" && metadataTitle.trim()
+        ? metadataTitle.trim()
+        : typeof metadataName === "string" && metadataName.trim()
+          ? metadataName.trim()
+          : nestedTitle ??
+            (typeof metadataRunTitle === "string" && metadataRunTitle.trim()
+              ? metadataRunTitle.trim()
+              : `${titlePrefix} 生成记录`);
+  const title = toolType === "word" ? rawTitle || "未命名教案" : rawTitle;
 
   return {
     artifactId: artifact.id,
@@ -296,6 +392,17 @@ export function toArtifactHistoryItem(artifact: Artifact): ArtifactHistoryItem {
       (readMetadataField(artifact.metadata, "run_id") as string | undefined) ||
       null,
     runNo: readRunNo(artifact.metadata),
+    replacesArtifactId:
+      typeof metadataReplacesArtifactId === "string" &&
+      metadataReplacesArtifactId.trim()
+        ? metadataReplacesArtifactId.trim()
+        : null,
+    supersededByArtifactId:
+      typeof metadataSupersededByArtifactId === "string" &&
+      metadataSupersededByArtifactId.trim()
+        ? metadataSupersededByArtifactId.trim()
+        : null,
+    isCurrent: metadataIsCurrent,
   };
 }
 

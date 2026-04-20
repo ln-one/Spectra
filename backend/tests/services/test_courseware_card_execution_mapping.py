@@ -1,9 +1,120 @@
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, patch
+
+import pytest
+
+from schemas.studio_cards import (
+    StudioCardExecutionPreview,
+    StudioCardExecutionPreviewRequest,
+    StudioCardReadiness,
+    StudioCardResolvedRequest,
+)
+from services.generation_session_service.card_execution_runtime_sessions import (
+    execute_studio_card_session_request,
+)
 from services.generation_session_service.card_execution_preview import (
     build_studio_card_execution_preview,
 )
 from services.generation_session_service.diego_runtime_helpers import (
     build_diego_create_payload,
 )
+
+
+class _FakeGenerationSessionModel:
+    def __init__(self):
+        self.find_first = AsyncMock(
+            return_value=SimpleNamespace(id="session-1", projectId="proj-1")
+        )
+        self.update = AsyncMock()
+
+
+class _FakeSessionService:
+    def __init__(self):
+        self._db = SimpleNamespace(generationsession=_FakeGenerationSessionModel())
+        self._append_event = AsyncMock()
+        self.create_session = AsyncMock(
+            return_value={"session_id": "session-1", "id": "session-1"}
+        )
+
+
+@pytest.mark.anyio
+async def test_courseware_session_execute_validates_source_with_current_user():
+    session_service = _FakeSessionService()
+    body = StudioCardExecutionPreviewRequest(
+        project_id="proj-1",
+        client_session_id="session-1",
+        config={"topic": "牛顿第二定律"},
+    )
+    request_preview = StudioCardResolvedRequest(
+        method="POST",
+        endpoint="/api/v1/generate/sessions",
+        payload={},
+    )
+    preview = StudioCardExecutionPreview(
+        card_id="courseware_ppt",
+        readiness=StudioCardReadiness.FOUNDATION_READY,
+        initial_request=request_preview,
+    )
+    run = SimpleNamespace(
+        id="run-1",
+        sessionId="session-1",
+        projectId="proj-1",
+        toolType="studio_card:courseware_ppt",
+        runNo=1,
+        title=None,
+        titleSource=None,
+        titleUpdatedAt=None,
+        status="pending",
+        step="outline",
+        artifactId=None,
+        createdAt=None,
+        updatedAt=None,
+    )
+
+    with (
+        patch(
+            "services.generation_session_service.card_execution_runtime_sessions.get_owned_project",
+            AsyncMock(),
+        ),
+        patch(
+            "services.generation_session_service.card_execution_runtime_sessions.validate_source_artifact",
+            AsyncMock(),
+        ) as validate_source_mock,
+        patch(
+            "services.generation_session_service.card_execution_runtime_sessions.create_session_run",
+            AsyncMock(return_value=run),
+        ),
+        patch(
+            "services.generation_session_service.card_execution_runtime_sessions.start_diego_outline_workflow",
+            AsyncMock(),
+        ),
+        patch(
+            "services.generation_session_service.card_execution_runtime_sessions.request_run_title_generation",
+            AsyncMock(),
+        ),
+    ):
+        result = await execute_studio_card_session_request(
+            card_id="courseware_ppt",
+            body=body,
+            user_id="user-1",
+            payload={
+                "output_type": "ppt",
+                "options": {"source_artifact_id": "artifact-1"},
+            },
+            request_preview=request_preview,
+            preview=preview,
+            session_service=session_service,
+            task_queue_service=None,
+        )
+
+    validate_source_mock.assert_awaited_once_with(
+        project_id="proj-1",
+        card_id="courseware_ppt",
+        user_id="user-1",
+        source_artifact_id="artifact-1",
+    )
+    assert result.session["session_id"] == "session-1"
+    assert result.run["run_id"] == "run-1"
 
 
 def test_courseware_preview_maps_config_to_options():
