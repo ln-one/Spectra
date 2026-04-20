@@ -4,16 +4,36 @@ import json
 import re
 from copy import deepcopy
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any, Optional, TypedDict
 from uuid import uuid4
 
 TEACHING_BRIEF_KEY = "teaching_brief"
 TEACHING_BRIEF_PROPOSALS_KEY = "teaching_brief_proposals"
+ALLOWED_TEACHING_BRIEF_FIELDS = {
+    "topic",
+    "audience",
+    "duration_minutes",
+    "lesson_hours",
+    "target_pages",
+    "teaching_objectives",
+    "knowledge_points",
+    "global_emphasis",
+    "global_difficulties",
+    "teaching_strategy",
+    "style_profile",
+}
 
 _MISSING_TOPIC = "topic"
 _MISSING_AUDIENCE = "audience"
 _MISSING_KNOWLEDGE_POINTS = "knowledge_points"
 _MISSING_TIME_OR_PAGES = "duration_or_pages"
+
+
+class TeachingBriefPromptContext(TypedDict):
+    status: str
+    can_generate: bool
+    missing_fields: list[str]
+    brief: dict[str, Any]
 
 
 def parse_session_options(raw: Any) -> dict[str, Any]:
@@ -219,6 +239,19 @@ def load_teaching_brief_proposals(options_raw: Any) -> list[dict[str, Any]]:
     return normalized
 
 
+def build_teaching_brief_prompt_context(
+    options_raw: Any,
+) -> TeachingBriefPromptContext:
+    brief = load_teaching_brief(options_raw)
+    readiness = dict(brief.get("readiness") or {})
+    return {
+        "status": _normalize_text(brief.get("status")) or "draft",
+        "can_generate": bool(readiness.get("can_generate")),
+        "missing_fields": list(readiness.get("missing_fields") or []),
+        "brief": brief,
+    }
+
+
 def _apply_patch_list(existing: list[str], incoming: Any) -> list[str]:
     if incoming is None:
         return existing
@@ -303,36 +336,80 @@ def apply_proposal_to_brief(
     return patch_teaching_brief(brief_raw, proposed_changes, next_status="review_pending")
 
 
-def build_brief_prompt_hint(brief_raw: Any) -> str:
+def _normalize_field_value(field_name: str, value: Any) -> Any:
+    if field_name in {"topic", "audience", "teaching_strategy"}:
+        return _normalize_text(value)
+    if field_name in {"duration_minutes", "lesson_hours", "target_pages"}:
+        return _normalize_int(value)
+    if field_name in {
+        "teaching_objectives",
+        "global_emphasis",
+        "global_difficulties",
+    }:
+        return _normalize_list(value)
+    if field_name == "knowledge_points":
+        return _normalize_knowledge_points(value)
+    if field_name == "style_profile":
+        return _normalize_style_profile(value)
+    return value
+
+
+def _filter_changed_proposed_changes(
+    brief_raw: Any,
+    proposed_changes: dict[str, Any],
+) -> dict[str, Any]:
     brief = normalize_teaching_brief(brief_raw)
-    lines: list[str] = []
-    if brief.get("topic"):
-        lines.append(f"教学主题：{brief['topic']}")
-    if brief.get("audience"):
-        lines.append(f"目标受众：{brief['audience']}")
-    if brief.get("duration_minutes"):
-        lines.append(f"目标时长：{brief['duration_minutes']} 分钟")
-    elif brief.get("lesson_hours"):
-        lines.append(f"课时：{brief['lesson_hours']} 课时")
-    if brief.get("target_pages"):
-        lines.append(f"目标页数：{brief['target_pages']} 页")
-    if brief.get("teaching_objectives"):
-        lines.append("教学目标：" + "；".join(brief["teaching_objectives"][:3]))
-    if brief.get("knowledge_points"):
-        lines.append(
-            "知识点：" + "；".join(item["title"] for item in brief["knowledge_points"][:5])
+    changed: dict[str, Any] = {}
+    for field_name, value in proposed_changes.items():
+        if field_name not in ALLOWED_TEACHING_BRIEF_FIELDS:
+            continue
+        if _normalize_field_value(field_name, brief.get(field_name)) == _normalize_field_value(
+            field_name, value
+        ):
+            continue
+        changed[field_name] = value
+    return changed
+
+
+def auto_apply_ai_proposal(brief_raw: Any, proposal: dict[str, Any]) -> dict[str, Any]:
+    proposed_changes = _filter_changed_proposed_changes(
+        brief_raw,
+        dict(proposal.get("proposed_changes") or {}),
+    )
+    current_brief = normalize_teaching_brief(brief_raw)
+    if not proposed_changes:
+        return {
+            "brief": current_brief,
+            "applied_fields": [],
+            "status": current_brief.get("status"),
+        }
+
+    next_status = (
+        "stale"
+        if proposal_conflicts_with_confirmed_brief(
+            current_brief,
+            {"proposed_changes": proposed_changes},
         )
-    if brief.get("global_emphasis"):
-        lines.append("重点：" + "；".join(brief["global_emphasis"][:3]))
-    if brief.get("global_difficulties"):
-        lines.append("难点：" + "；".join(brief["global_difficulties"][:3]))
-    if brief.get("teaching_strategy"):
-        lines.append(f"教学策略：{brief['teaching_strategy']}")
-    style_profile = brief.get("style_profile") or {}
-    visual_tone = _normalize_text(style_profile.get("visual_tone"))
-    if visual_tone:
-        lines.append(f"风格偏好：{visual_tone}")
-    return "\n".join(lines)
+        else "review_pending"
+    )
+    next_brief = patch_teaching_brief(
+        current_brief,
+        proposed_changes,
+        next_status=next_status,
+    )
+    return {
+        "brief": next_brief,
+        "applied_fields": list(proposed_changes.keys()),
+        "status": next_brief.get("status"),
+    }
+
+
+def build_brief_prompt_hint(brief_raw: Any) -> str:
+    from services.generation_session_service.teaching_brief_prompting import (
+        build_brief_prompt_hint as _build_brief_prompt_hint,
+    )
+
+    return _build_brief_prompt_hint(brief_raw)
 
 
 def extract_brief_fields_from_options(options_raw: Any) -> dict[str, Any]:
@@ -354,81 +431,19 @@ def extract_brief_fields_from_options(options_raw: Any) -> dict[str, Any]:
     return result
 
 
-def _extract_match(pattern: str, content: str) -> str:
-    matched = re.search(pattern, content, re.IGNORECASE)
-    if not matched:
-        return ""
-    return _normalize_text(matched.group(1))
-
-
 def infer_teaching_brief_proposal(
     *,
     content: str,
     source_message_id: str,
 ) -> Optional[dict[str, Any]]:
-    normalized = _normalize_text(content)
-    if not normalized:
-        return None
-
-    proposed_changes: dict[str, Any] = {}
-    page_match = re.search(r"(\d{1,2})\s*(?:页|p\b|pages?)", normalized, re.IGNORECASE)
-    if page_match:
-        proposed_changes["target_pages"] = int(page_match.group(1))
-
-    duration_match = re.search(r"(\d{1,3})\s*分钟", normalized)
-    if duration_match:
-        proposed_changes["duration_minutes"] = int(duration_match.group(1))
-
-    lesson_match = re.search(r"(\d{1,2})\s*课时", normalized)
-    if lesson_match:
-        proposed_changes["lesson_hours"] = int(lesson_match.group(1))
-
-    audience = _extract_match(r"(?:面向|给|针对)\s*([^，。,\n]{2,30})", normalized)
-    if audience:
-        proposed_changes["audience"] = audience
-
-    topic = _extract_match(r"(?:主题|课题|内容)[是为:]?\s*([^，。,\n]{2,40})", normalized)
-    if topic:
-        proposed_changes["topic"] = topic
-
-    strategy = _extract_match(r"(?:教学策略|授课方式)[是为:]?\s*([^。,\n]{2,60})", normalized)
-    if strategy:
-        proposed_changes["teaching_strategy"] = strategy
-
-    emphasis = _extract_match(r"(?:重点|突出)\s*[是为:]?\s*([^。,\n]{2,80})", normalized)
-    if emphasis:
-        proposed_changes["global_emphasis"] = _normalize_list(emphasis)
-
-    difficulties = _extract_match(r"(?:难点|困难点)\s*[是为:]?\s*([^。,\n]{2,80})", normalized)
-    if difficulties:
-        proposed_changes["global_difficulties"] = _normalize_list(difficulties)
-
-    knowledge_match = _extract_match(
-        r"(?:知识点|内容包括|包括|涵盖)\s*[：: ]?\s*([^。]{4,120})", normalized
+    from services.generation_session_service.teaching_brief_prompting import (
+        infer_teaching_brief_proposal as _infer_teaching_brief_proposal,
     )
-    if knowledge_match:
-        proposed_changes["knowledge_points"] = _normalize_list(knowledge_match)
 
-    objective_match = _extract_match(r"(?:教学目标|目标)\s*[：: ]?\s*([^。]{4,120})", normalized)
-    if objective_match:
-        proposed_changes["teaching_objectives"] = _normalize_list(objective_match)
-
-    style_match = _extract_match(r"(?:风格|版式|视觉风格)\s*[：: ]?\s*([^。,\n]{2,40})", normalized)
-    if style_match:
-        proposed_changes["style_profile"] = {"visual_tone": style_match}
-
-    if not proposed_changes:
-        return None
-
-    return {
-        "proposal_id": str(uuid4()),
-        "source_message_id": source_message_id,
-        "proposed_changes": proposed_changes,
-        "reasoning_summary": "根据最新对话提取到新的教学需求候选字段。",
-        "confidence": 0.62,
-        "requires_user_confirmation": True,
-        "created_at": now_iso(),
-    }
+    return _infer_teaching_brief_proposal(
+        content=content,
+        source_message_id=source_message_id,
+    )
 
 
 def proposal_conflicts_with_confirmed_brief(

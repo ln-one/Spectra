@@ -15,11 +15,11 @@ from services.generation_session_service.session_history import (
     request_session_title_generation,
 )
 from services.generation_session_service.teaching_brief import (
-    build_brief_prompt_hint,
-    infer_teaching_brief_proposal,
+    auto_apply_ai_proposal,
+    build_teaching_brief_prompt_context,
     load_teaching_brief,
     load_teaching_brief_proposals,
-    proposal_conflicts_with_confirmed_brief,
+    now_iso,
     store_teaching_brief,
 )
 from services.prompt_service import build_prompt_traceability
@@ -35,6 +35,12 @@ from .citation_utils import (
     align_citations_with_content,
     append_citation_markers,
     sanitize_cite_tags,
+)
+from .brief_extract_parser import (
+    detect_brief_summary_block,
+    parse_structured_brief_extract,
+    strip_brief_extract_block,
+    strip_brief_summary_markers,
 )
 from .observability import (
     FEW_SHOT_VERSION,
@@ -177,11 +183,12 @@ async def process_chat_message(
         session_title_updated = False
         session_title = None
         session_title_source = None
+        teaching_brief_context = None
         try:
             session_record = await db_service.db.generationsession.find_unique(
                 where={"id": session_id}
             )
-            teaching_brief_hint = build_brief_prompt_hint(
+            teaching_brief_context = build_teaching_brief_prompt_context(
                 getattr(session_record, "options", None)
             )
             session_title = getattr(session_record, "displayTitle", None)
@@ -210,7 +217,7 @@ async def process_chat_message(
                 exc,
             )
             session_record = None
-            teaching_brief_hint = None
+            teaching_brief_context = None
 
         rag_result, history_payload, context_timings = await load_chat_context(
             body=body,
@@ -263,7 +270,7 @@ async def process_chat_message(
             history_payload=history_payload,
             enabled_library_hint=enabled_library_hint,
             image_analysis_hint=image_analysis_hint,
-            teaching_brief_hint=teaching_brief_hint,
+            teaching_brief_context=teaching_brief_context,
         )
 
         request_id = str(uuid4())
@@ -280,6 +287,10 @@ async def process_chat_message(
             )
         )
         stage_timings_ms.update(generation_timings)
+        structured_brief_extract = parse_structured_brief_extract(assistant_content)
+        assistant_content = strip_brief_extract_block(assistant_content)
+        confirmation_requested = detect_brief_summary_block(assistant_content)
+        assistant_content = strip_brief_summary_markers(assistant_content)
         route_info = generation_meta["route_info"]
         selected_model = generation_meta["selected_model"]
         provider_model = generation_meta["provider_model"]
@@ -355,63 +366,83 @@ async def process_chat_message(
         msg_dict = to_message(assistant_msg)
         msg_dict["citations"] = citations or []
 
-        brief_proposal = infer_teaching_brief_proposal(
-            content=body.content,
-            source_message_id=str(getattr(user_message, "id", "") or ""),
-        )
+        brief_proposal = None
+        if structured_brief_extract is not None:
+            brief_proposal = {
+                "proposal_id": str(uuid4()),
+                "source_message_id": str(getattr(user_message, "id", "") or ""),
+                "proposed_changes": structured_brief_extract["fields"],
+                "reasoning_summary": "AI 从本轮对话中识别到新的教学需求字段。",
+                "confidence": structured_brief_extract.get("confidence", 0.85),
+                "requires_user_confirmation": False,
+                "created_at": now_iso(),
+            }
         teaching_brief_hint_payload = None
         if session_record is not None:
             current_brief = load_teaching_brief(getattr(session_record, "options", None))
             current_proposals = load_teaching_brief_proposals(
                 getattr(session_record, "options", None)
             )
+            auto_applied_fields: list[str] = []
             if brief_proposal is not None:
-                next_status = current_brief.get("status")
-                if proposal_conflicts_with_confirmed_brief(current_brief, brief_proposal):
-                    current_brief["status"] = "stale"
-                    next_status = "stale"
-                current_proposals.append(brief_proposal)
-                current_state = str(getattr(session_record, "state", "") or "")
-                next_state = current_state
-                if current_state in {
-                    "IDLE",
-                    "CONFIGURING",
-                    "ANALYZING",
-                    "AWAITING_REQUIREMENTS_CONFIRM",
-                }:
-                    next_state = (
-                        "AWAITING_REQUIREMENTS_CONFIRM"
-                        if next_status != "confirmed"
-                        else "CONFIGURING"
+                apply_result = auto_apply_ai_proposal(current_brief, brief_proposal)
+                current_brief = apply_result["brief"]
+                auto_applied_fields = list(apply_result.get("applied_fields") or [])
+                if auto_applied_fields:
+                    current_state = str(getattr(session_record, "state", "") or "")
+                    next_state = current_state
+                    if current_state in {
+                        "IDLE",
+                        "CONFIGURING",
+                        "ANALYZING",
+                        "AWAITING_REQUIREMENTS_CONFIRM",
+                    }:
+                        next_state = (
+                            "CONFIGURING"
+                            if current_brief.get("status") == "confirmed"
+                            else "AWAITING_REQUIREMENTS_CONFIRM"
+                        )
+                    next_options = store_teaching_brief(
+                        getattr(session_record, "options", None),
+                        brief=current_brief,
+                        proposals=current_proposals,
                     )
-                next_options = store_teaching_brief(
-                    getattr(session_record, "options", None),
-                    brief=current_brief,
-                    proposals=current_proposals,
-                )
-                await db_service.db.generationsession.update(
-                    where={"id": session_id},
-                    data={
-                        "options": json.dumps(next_options, ensure_ascii=False),
-                        "state": next_state,
-                    },
-                )
-                teaching_brief_hint_payload = {
-                    "proposal_id": brief_proposal["proposal_id"],
-                    "proposal_count": len(current_proposals),
-                    "status": current_brief.get("status"),
-                    "can_generate": (
-                        current_brief.get("readiness") or {}
-                    ).get("can_generate"),
-                }
+                    await db_service.db.generationsession.update(
+                        where={"id": session_id},
+                        data={
+                            "options": json.dumps(next_options, ensure_ascii=False),
+                            "state": next_state,
+                        },
+                    )
             else:
-                teaching_brief_hint_payload = {
-                    "proposal_count": len(current_proposals),
-                    "status": current_brief.get("status"),
-                    "can_generate": (
-                        current_brief.get("readiness") or {}
-                    ).get("can_generate"),
-                }
+                auto_applied_fields = []
+
+            confirmation_requested = bool(
+                confirmation_requested
+                and (current_brief.get("readiness") or {}).get("can_generate")
+                and current_brief.get("status") != "confirmed"
+            )
+            if brief_proposal is not None and not auto_applied_fields:
+                brief_proposal = None
+
+            teaching_brief_hint_payload = {
+                "proposal_id": (
+                    brief_proposal.get("proposal_id") if brief_proposal is not None else None
+                ),
+                "proposal_count": len(current_proposals),
+                "status": current_brief.get("status"),
+                "can_generate": (current_brief.get("readiness") or {}).get(
+                    "can_generate"
+                ),
+                "brief_snapshot": current_brief,
+                "ai_requests_confirmation": confirmation_requested,
+                "auto_applied_fields": auto_applied_fields,
+                "missing_fields": (current_brief.get("readiness") or {}).get(
+                    "missing_fields"
+                )
+                or [],
+                "brief_status": current_brief.get("status"),
+            }
 
         response_payload = success_response(
             data={

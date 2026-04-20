@@ -1,6 +1,7 @@
 """Chat API endpoint tests (PR-34 compatible C5)."""
 
 from datetime import datetime, timezone
+import json
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
@@ -132,6 +133,159 @@ def test_send_message_success(client, monkeypatch, _as_user):
     assert body["data"]["session_title_updated"] is False
     assert len(body["data"]["suggestions"]) == 3
     assert ai_service.generate.await_args.kwargs["max_tokens"] == 2000
+
+
+def test_send_message_auto_applies_ai_brief_extract(client, monkeypatch, _as_user):
+    _mock(monkeypatch, db_service, "get_project", _fake_project())
+    update_mock = AsyncMock()
+    create_mock = AsyncMock(
+        side_effect=[
+            _fake_conv(role="user", conv_id="c-user"),
+            _fake_conv(role="assistant", content="assistant reply", conv_id="c-ai"),
+        ]
+    )
+    recent_mock = AsyncMock(
+        return_value=[_fake_conv(role="user", content="previous message")]
+    )
+    monkeypatch.setattr(
+        db_service,
+        "_instance",
+        SimpleNamespace(
+            db=SimpleNamespace(
+                generationsession=SimpleNamespace(
+                    find_unique=AsyncMock(
+                        return_value=SimpleNamespace(
+                            id="s-bootstrap-001",
+                            displayTitle="会话-ap-001",
+                            displayTitleSource="default",
+                            options="{}",
+                            state="IDLE",
+                        )
+                    ),
+                    update=update_mock,
+                ),
+                conversation=SimpleNamespace(count=AsyncMock(return_value=1)),
+            ),
+            create_conversation_message=create_mock,
+            get_recent_conversation_messages=recent_mock,
+        ),
+    )
+    monkeypatch.setattr(
+        "routers.chat.runtime.request_session_title_generation",
+        AsyncMock(return_value=False),
+    )
+    _mock(
+        monkeypatch,
+        ai_service,
+        "generate",
+        {
+            "content": (
+                "我先把已识别的信息沉淀下来。\n\n"
+                "接下来请补充这节课的时长或目标页数。\n"
+                "```spectra_brief_extract\n"
+                '{"topic":"牛顿第二定律","audience":"高一学生"}\n'
+                "```"
+            )
+        },
+    )
+
+    resp = client.post("/api/v1/chat/messages", json=_MSG)
+
+    assert resp.status_code == 200
+    body = resp.json()["data"]
+    hint = body["teaching_brief_hint"]
+    assert hint["auto_applied_fields"] == ["topic", "audience"]
+    assert hint["ai_requests_confirmation"] is False
+    assert hint["brief_status"] == "review_pending"
+    assert hint["brief_snapshot"]["topic"] == "牛顿第二定律"
+    assert "knowledge_points" in hint["missing_fields"]
+
+    saved_assistant_content = create_mock.await_args_list[1].kwargs["content"]
+    assert "spectra_brief_extract" not in saved_assistant_content
+
+    update_payload = update_mock.await_args.kwargs["data"]
+    updated_options = json.loads(update_payload["options"])
+    assert updated_options["teaching_brief"]["topic"] == "牛顿第二定律"
+    assert updated_options["teaching_brief"]["audience"] == "高一学生"
+    assert update_payload["state"] == "AWAITING_REQUIREMENTS_CONFIRM"
+
+
+def test_send_message_marks_ai_confirmation_request_in_brief_hint(
+    client, monkeypatch, _as_user
+):
+    _mock(monkeypatch, db_service, "get_project", _fake_project())
+    session_options = json.dumps(
+        {
+            "teaching_brief": {
+                "status": "review_pending",
+                "topic": "牛顿第二定律",
+                "audience": "高一学生",
+                "target_pages": 12,
+                "knowledge_points": ["受力分析", "加速度与合力"],
+            }
+        },
+        ensure_ascii=False,
+    )
+    update_mock = AsyncMock()
+    create_mock = AsyncMock(
+        side_effect=[
+            _fake_conv(role="user", conv_id="c-user"),
+            _fake_conv(role="assistant", content="assistant reply", conv_id="c-ai"),
+        ]
+    )
+    recent_mock = AsyncMock(
+        return_value=[_fake_conv(role="user", content="previous message")]
+    )
+    monkeypatch.setattr(
+        db_service,
+        "_instance",
+        SimpleNamespace(
+            db=SimpleNamespace(
+                generationsession=SimpleNamespace(
+                    find_unique=AsyncMock(
+                        return_value=SimpleNamespace(
+                            id="s-bootstrap-001",
+                            displayTitle="会话-ap-001",
+                            displayTitleSource="default",
+                            options=session_options,
+                            state="AWAITING_REQUIREMENTS_CONFIRM",
+                        )
+                    ),
+                    update=update_mock,
+                ),
+                conversation=SimpleNamespace(count=AsyncMock(return_value=2)),
+            ),
+            create_conversation_message=create_mock,
+            get_recent_conversation_messages=recent_mock,
+        ),
+    )
+    _mock(
+        monkeypatch,
+        ai_service,
+        "generate",
+        {
+            "content": (
+                "我先总结一下当前需求：面向高一学生，主题是牛顿第二定律，预计 12 页。\n\n"
+                "如果这些信息准确，我下一步会把需求单标记为已确认。\n"
+                "```spectra_brief_summary\n"
+                '{"request_confirmation": true}\n'
+                "```"
+            )
+        },
+    )
+
+    resp = client.post("/api/v1/chat/messages", json=_MSG)
+
+    assert resp.status_code == 200
+    hint = resp.json()["data"]["teaching_brief_hint"]
+    assert hint["ai_requests_confirmation"] is True
+    assert hint["auto_applied_fields"] == []
+    assert hint["can_generate"] is True
+    assert hint["brief_status"] == "review_pending"
+    assert update_mock.await_count == 0
+
+    saved_assistant_content = create_mock.await_args_list[1].kwargs["content"]
+    assert "spectra_brief_summary" not in saved_assistant_content
 
 
 def test_chat_response_max_tokens_is_env_configurable(monkeypatch):

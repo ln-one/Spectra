@@ -1,4 +1,6 @@
 from services.generation_session_service.teaching_brief import (
+    auto_apply_ai_proposal,
+    build_teaching_brief_prompt_context,
     build_brief_prompt_hint,
     confirm_teaching_brief,
     infer_teaching_brief_proposal,
@@ -69,3 +71,59 @@ def test_build_brief_prompt_hint_reads_from_session_options():
     assert "教学主题：分数加减法" in hint
     assert "目标受众：五年级学生" in hint
     assert loaded["topic"] == "分数加减法"
+
+
+def test_build_teaching_brief_prompt_context_exposes_status_and_missing_fields():
+    options = store_teaching_brief(
+        {},
+        brief={
+            "topic": "牛顿第二定律",
+            "audience": "高一学生",
+            "status": "review_pending",
+        },
+    )
+
+    context = build_teaching_brief_prompt_context(options)
+
+    assert context["status"] == "review_pending"
+    assert context["can_generate"] is False
+    assert "knowledge_points" in context["missing_fields"]
+    assert context["brief"]["topic"] == "牛顿第二定律"
+
+
+def test_auto_apply_ai_proposal_updates_brief_without_queueing():
+    result = auto_apply_ai_proposal(
+        {},
+        {
+            "proposed_changes": {
+                "topic": "牛顿第二定律",
+                "audience": "高一学生",
+            }
+        },
+    )
+
+    assert result["applied_fields"] == ["topic", "audience"]
+    assert result["brief"]["status"] == "review_pending"
+    assert result["brief"]["topic"] == "牛顿第二定律"
+    assert result["brief"]["audience"] == "高一学生"
+
+
+def test_auto_apply_ai_proposal_marks_confirmed_brief_as_stale_on_conflict():
+    result = auto_apply_ai_proposal(
+        {
+            "status": "confirmed",
+            "topic": "牛顿第一定律",
+            "audience": "高一学生",
+            "target_pages": 12,
+            "knowledge_points": ["惯性", "受力与运动"],
+        },
+        {
+            "proposed_changes": {
+                "topic": "牛顿第二定律",
+            }
+        },
+    )
+
+    assert result["applied_fields"] == ["topic"]
+    assert result["brief"]["status"] == "stale"
+    assert result["brief"]["topic"] == "牛顿第二定律"

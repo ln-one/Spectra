@@ -93,6 +93,7 @@ class PromptService:
         session_id: Optional[str] = None,
         rag_context: Optional[list[dict]] = None,
         conversation_history: Optional[list[dict]] = None,
+        teaching_brief_context: Optional[dict] = None,
     ) -> str:
         return build_chat_response_prompt(
             user_message=user_message,
@@ -100,6 +101,7 @@ class PromptService:
             session_id=session_id,
             rag_context=rag_context,
             conversation_history=conversation_history,
+            teaching_brief_context=teaching_brief_context,
         )
 
     def build_courseware_render_rewrite_prompt(

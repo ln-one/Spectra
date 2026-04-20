@@ -153,6 +153,23 @@ class TestPromptService:
         assert "<response_contract>" in prompt
         assert "Markdown 自然分段" in prompt
 
+    def test_chat_response_prompt_includes_teaching_brief_protocol(self):
+        prompt = self.svc.build_chat_response_prompt(
+            user_message="我要做一个高一物理课件",
+            intent="general_chat",
+            teaching_brief_context={
+                "status": "review_pending",
+                "can_generate": False,
+                "missing_fields": ["knowledge_points", "duration_or_pages"],
+                "brief": {"topic": "牛顿第二定律", "audience": "高一学生"},
+            },
+        )
+
+        assert '<teaching_brief_protocol status="review_pending"' in prompt
+        assert "&quot;knowledge_points&quot;" in prompt
+        assert "spectra_brief_extract" in prompt
+        assert "教学需求单" in prompt
+
     def test_prompt_suggestion_prompt_requires_json_and_rag_grounding(self):
         rag = [{"content": "细胞分裂包含间期和分裂期", "source": {"filename": "bio.pdf"}}]
         prompt = self.svc.build_prompt_suggestion_prompt(

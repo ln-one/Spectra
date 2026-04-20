@@ -13,6 +13,7 @@ from services.chat import (
     resolve_effective_selected_library_ids,
 )
 from services.database import db_service
+from services.generation_session_service.teaching_brief import TeachingBriefPromptContext
 from services.prompt_service import contains_mechanical_option_pattern, prompt_service
 
 from .message_flow import build_history_payload, load_rag_context
@@ -40,6 +41,11 @@ def _env_positive_int(name: str, default: int) -> int:
         return value if value > 0 else default
     except ValueError:
         return default
+
+
+def _resolve_chat_response_max_tokens() -> int:
+    configured = _env_positive_int("CHAT_RESPONSE_MAX_TOKENS", 1800)
+    return max(256, min(configured, 8000))
 
 
 def _project_upload_fields(upload, *, select: dict | None = None) -> dict | object:
@@ -117,7 +123,7 @@ def build_chat_prompt(
     history_payload: list[dict],
     enabled_library_hint: str | None = None,
     image_analysis_hint: str | None = None,
-    teaching_brief_hint: str | None = None,
+    teaching_brief_context: TeachingBriefPromptContext | None = None,
 ) -> str:
     message_hints = []
     if selected_files_hint:
@@ -134,12 +140,10 @@ def build_chat_prompt(
         message_hints.append(card_context_hint)
     if image_analysis_hint:
         message_hints.append(image_analysis_hint)
-    if teaching_brief_hint:
-        message_hints.append("当前教学需求单：\n" + teaching_brief_hint)
 
     user_message_for_prompt = body.content
     if message_hints:
-        user_message_for_prompt = f"{body.content}\n\n绯荤粺鎻愮ず锛歕n" + "\n".join(
+        user_message_for_prompt = f"{body.content}\n\n系统提示：\n" + "\n".join(
             message_hints
         )
 
@@ -149,6 +153,7 @@ def build_chat_prompt(
         session_id=session_id,
         rag_context=rag_payload,
         conversation_history=history_payload,
+        teaching_brief_context=teaching_brief_context,
     )
     return f"项目：{project_name}\n{prompt}"
 
@@ -335,7 +340,7 @@ async def generate_assistant_reply(
     token_budget = (
         _env_positive_int("STUDIO_WORD_REFINE_MAX_TOKENS", 3200)
         if is_word_studio_refine
-        else _env_positive_int("CHAT_RESPONSE_MAX_TOKENS", 1800)
+        else _resolve_chat_response_max_tokens()
     )
     rewrite_token_budget = (
         _env_positive_int("STUDIO_WORD_REFINE_REWRITE_MAX_TOKENS", 2000)
