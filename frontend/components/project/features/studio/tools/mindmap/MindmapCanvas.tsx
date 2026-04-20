@@ -1,6 +1,5 @@
 "use client";
 
-import dagre from "@dagrejs/dagre";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ReactFlow, {
   Background,
@@ -51,14 +50,8 @@ type FlowNodeData = {
 
 const NODE_WIDTH = 300;
 const NODE_HEIGHT = 120;
-const DAGRE_LAYOUT_OPTIONS = {
-  rankdir: "LR",
-  align: "UL",
-  nodesep: 72,
-  ranksep: 188,
-  edgesep: 36,
-  ranker: "tight-tree",
-} as const;
+const HORIZONTAL_GAP = 220;
+const VERTICAL_GAP = 34;
 
 function shouldHideNode(
   _node: MindNode,
@@ -66,29 +59,6 @@ function shouldHideNode(
   ancestors: string[]
 ): boolean {
   return ancestors.some((ancestorId) => collapsedNodeIds.has(ancestorId));
-}
-
-function toVisibleTree(root: MindNode, collapsedNodeIds: Set<string>) {
-  const visibleNodes: MindNode[] = [];
-  const treeEdges: Array<{ parentId: string; nodeId: string }> = [];
-
-  const walk = (
-    node: MindNode,
-    parentId: string | null = null,
-    ancestors: string[] = []
-  ) => {
-    if (shouldHideNode(node, collapsedNodeIds, ancestors)) return;
-    visibleNodes.push(node);
-    if (parentId) {
-      treeEdges.push({ parentId, nodeId: node.id });
-    }
-    (node.children ?? []).forEach((child) =>
-      walk(child, node.id, [...ancestors, node.id])
-    );
-  };
-
-  walk(root);
-  return { visibleNodes, treeEdges };
 }
 
 function buildFlow(
@@ -99,30 +69,13 @@ function buildFlow(
     "canStructuredEdit" | "isSubmitting" | "onRenameNode" | "onAddChildNode" | "onDeleteNode"
   >
 ): { nodes: Node<FlowNodeData>[]; edges: Edge[] } {
-  const { visibleNodes, treeEdges } = toVisibleTree(root, collapsedNodeIds);
-  const graph = new dagre.graphlib.Graph();
-  graph.setDefaultEdgeLabel(() => ({}));
-  graph.setGraph(DAGRE_LAYOUT_OPTIONS);
-
-  visibleNodes.forEach((node) => {
-    graph.setNode(node.id, { width: NODE_WIDTH, height: NODE_HEIGHT });
-  });
-
-  treeEdges.forEach(({ parentId, nodeId }) => {
-    graph.setEdge(parentId, nodeId);
-  });
-
-  dagre.layout(graph);
-
-  const nodes: Node<FlowNodeData>[] = visibleNodes.map((node) => {
-    const point = graph.node(node.id) ?? { x: 0, y: 0 };
-    return {
+  const nodes: Node<FlowNodeData>[] = [];
+  const edges: Edge[] = [];
+  const pushNode = (node: MindNode, x: number, y: number) => {
+    nodes.push({
       id: node.id,
       type: "mindNode",
-      position: {
-        x: point.x - NODE_WIDTH / 2,
-        y: point.y - NODE_HEIGHT / 2,
-      },
+      position: { x, y },
       sourcePosition: Position.Right,
       targetPosition: Position.Left,
       draggable: false,
@@ -139,21 +92,56 @@ function buildFlow(
         onAddChildNode: handlers.onAddChildNode,
         onDeleteNode: handlers.onDeleteNode,
       },
-    };
-  });
-
-  const edges: Edge[] = [];
-
-  treeEdges.forEach(({ parentId, nodeId }) => {
+    });
+  };
+  const pushEdge = (parentId: string, childId: string) => {
     edges.push({
-      id: `${parentId}-${nodeId}`,
+      id: `${parentId}-${childId}`,
       source: parentId,
-      target: nodeId,
+      target: childId,
       type: "smoothstep",
       markerEnd: { type: MarkerType.ArrowClosed, color: "#94a3b8" },
       style: { stroke: "#cbd5e1", strokeWidth: 1.8 },
     });
-  });
+  };
+  const walk = (
+    node: MindNode,
+    depth: number,
+    yStart: number,
+    ancestors: string[]
+  ): { centerY: number; nextY: number } => {
+    const visibleChildren = (node.children ?? []).filter(
+      (child) =>
+        !shouldHideNode(child, collapsedNodeIds, [...ancestors, node.id])
+    );
+    const x = depth * (NODE_WIDTH + HORIZONTAL_GAP);
+    if (visibleChildren.length === 0) {
+      pushNode(node, x, yStart);
+      return {
+        centerY: yStart + NODE_HEIGHT / 2,
+        nextY: yStart + NODE_HEIGHT + VERTICAL_GAP,
+      };
+    }
+
+    let cursorY = yStart;
+    const childCenters: number[] = [];
+    visibleChildren.forEach((child) => {
+      const childLayout = walk(child, depth + 1, cursorY, [...ancestors, node.id]);
+      childCenters.push(childLayout.centerY);
+      cursorY = childLayout.nextY;
+      pushEdge(node.id, child.id);
+    });
+
+    const centerY = (childCenters[0] + childCenters[childCenters.length - 1]) / 2;
+    const nodeTop = centerY - NODE_HEIGHT / 2;
+    pushNode(node, x, nodeTop);
+    return {
+      centerY,
+      nextY: Math.max(cursorY, nodeTop + NODE_HEIGHT + VERTICAL_GAP),
+    };
+  };
+
+  walk(root, 0, 0, []);
 
   return { nodes, edges };
 }
