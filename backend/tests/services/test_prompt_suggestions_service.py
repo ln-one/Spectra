@@ -13,6 +13,7 @@ from schemas.rag import (
 )
 from services.ai import ai_service
 from services.prompt_suggestion_pool import generation as generation_module
+from services.prompt_suggestion_pool import normalization as normalization_module
 from services.prompt_suggestion_pool import service as pool_service
 from services.rag_api_service import access as rag_access
 from utils.exceptions import APIException
@@ -174,7 +175,7 @@ async def test_prompt_suggestion_pool_rejects_file_filters(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_generate_ppt_pool_keeps_only_complete_ppt_prompts(monkeypatch):
+async def test_generate_ppt_pool_keeps_complete_and_open_prompts(monkeypatch):
     saved = []
     monkeypatch.setattr(
         generation_module,
@@ -194,6 +195,8 @@ async def test_generate_ppt_pool_keeps_only_complete_ppt_prompts(monkeypatch):
                 "content": (
                     '{"suggestions":["制作一份 12 页均衡型 PPT，围绕函数图像平移'
                     '与伸缩展开，采用清爽学术图解风格，突出变换规律。",'
+                    '"制作一份讲解函数图像平移与伸缩核心方法的课堂课件，重点用对比例子'
+                    '呈现概念差异。",'
                     '"函数图像平移与伸缩"],"summary":"PPT 生成方向"}'
                 )
             }
@@ -213,6 +216,33 @@ async def test_generate_ppt_pool_keeps_only_complete_ppt_prompts(monkeypatch):
     )
 
     assert suggestions == [
-        "制作一份 12 页均衡型 PPT，围绕函数图像平移与伸缩展开，采用清爽学术图解风格，突出变换规律。"
+        "制作一份 12 页均衡型 PPT，围绕函数图像平移与伸缩展开，采用清爽学术图解风格，突出变换规律。",
+        "制作一份讲解函数图像平移与伸缩核心方法的课堂课件，重点用对比例子呈现概念差异。",
     ]
     assert saved[-1]["status"] == "ready"
+
+
+def test_normalize_ppt_suggestions_mix_complete_and_open():
+    payload = {
+        "suggestions": [
+            "制作一份 12 页均衡型 PPT，围绕函数图像平移与伸缩展开，采用清爽学术图解风格，突出变换规律。",
+            "制作一份 8 页简洁型课件，比较函数图像对称变化，采用现代信息图风格。",
+            "制作一份讲解函数图像平移与伸缩核心方法的课堂课件，重点用对比例子呈现概念差异。",
+            "制作一份梳理函数图像变换研究脉络的 PPT，突出常见误区和课堂提问切入点。",
+        ],
+        "summary": "PPT 生成方向",
+    }
+
+    suggestions, summary = normalization_module.normalize_suggestions(
+        payload,
+        surface=PromptSuggestionSurface.PPT_GENERATION_CONFIG,
+        max_suggestion_chars=180,
+        limit=4,
+    )
+
+    assert len(suggestions) == 4
+    assert "12 页均衡型 PPT" in suggestions[0]
+    assert "8 页简洁型课件" in suggestions[1]
+    assert "核心方法" in suggestions[2]
+    assert "研究脉络" in suggestions[3]
+    assert summary == "PPT 生成方向"

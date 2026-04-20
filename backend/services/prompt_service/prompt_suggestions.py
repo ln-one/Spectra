@@ -23,14 +23,15 @@ PROMPT_SUGGESTION_SURFACE_POLICIES: dict[
 ] = {
     PromptSuggestionSurface.PPT_GENERATION_CONFIG: PromptSuggestionSurfacePolicy(
         retrieval_intent="教学目标、知识推进、重难点、课堂活动、课件生成方向",
-        output_focus="可直接填入 PPT 生成输入框的完整课件生成提示",
+        output_focus="适合填入 PPT 生成输入框的课件生成提示，允许完整型和开放型两种表达",
         suggestion_max_chars=180,
         tool_rules=(
             "每条必须明确这是 PPT 或课件生成任务。",
-            "每条必须同时写出生成内容主题、讲解重点、视觉风格倾向、内容量或页数。",
-            "视觉风格要具体，例如清爽学术图解、现代信息图、黑板手绘、科技蓝、极简留白等。",
-            "内容量要具体，例如 8 页简洁型、12 页均衡型、16 页详细型或一课时完整课件。",
-            "禁止输出只描述知识点的短句，禁止输出“围绕……设计一组页面”这类不完整指令。",
+            "建议池要混合两类提示：一部分是可直接使用的完整型提示，一部分是更开放的内容方向型提示。",
+            "完整型提示可以同时写出生成内容主题、讲解重点、视觉风格倾向、内容量或页数。",
+            "开放型提示只要明确生成什么内容、重点呈现什么，不必条条都写风格和页数。",
+            "视觉风格和内容量是可选增强项，不是每条都必须具备。",
+            "禁止输出只描述知识点的短句，禁止输出过度模板化、机械重复的句式。",
         ),
     ),
     PromptSuggestionSurface.STUDIO_MINDMAP: PromptSuggestionSurfacePolicy(

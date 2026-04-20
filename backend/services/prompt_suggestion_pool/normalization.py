@@ -55,7 +55,7 @@ def normalize_text(value: Any, max_chars: int) -> str:
     return text
 
 
-def looks_like_ppt_prompt(text: str) -> bool:
+def looks_like_ppt_complete_prompt(text: str) -> bool:
     if not re.search(r"(PPT|课件|幻灯片)", text, flags=re.IGNORECASE):
         return False
     if not re.search(r"(\d+\s*页|页数|内容量|简洁|均衡|详细|完整)", text):
@@ -66,6 +66,37 @@ def looks_like_ppt_prompt(text: str) -> bool:
             text,
         )
     )
+
+
+def looks_like_ppt_open_prompt(text: str) -> bool:
+    if not re.search(r"(PPT|课件|幻灯片)", text, flags=re.IGNORECASE):
+        return False
+    if len(text) < 16:
+        return False
+    if not re.search(r"(制作|生成|做一份|整理成|设计|呈现|梳理|讲解)", text):
+        return False
+    if re.search(r"围绕.+设计一组页面", text):
+        return False
+    return True
+
+
+def _rebalance_ppt_suggestions(suggestions: list[str]) -> list[str]:
+    complete = [text for text in suggestions if looks_like_ppt_complete_prompt(text)]
+    open_ended = [
+        text
+        for text in suggestions
+        if text not in complete and looks_like_ppt_open_prompt(text)
+    ]
+    remaining = [text for text in suggestions if text not in complete and text not in open_ended]
+
+    ordered: list[str] = []
+    while complete or open_ended:
+        ordered.extend(complete[:2])
+        complete = complete[2:]
+        ordered.extend(open_ended[:2])
+        open_ended = open_ended[2:]
+    ordered.extend(remaining)
+    return ordered
 
 
 def normalize_suggestions(
@@ -86,12 +117,15 @@ def normalize_suggestions(
         if not text or text in seen:
             continue
         if surface == PromptSuggestionSurface.PPT_GENERATION_CONFIG:
-            if not looks_like_ppt_prompt(text):
+            if not looks_like_ppt_open_prompt(text):
                 continue
         seen.add(text)
         suggestions.append(text)
-        if len(suggestions) >= limit:
-            break
+
+    if surface == PromptSuggestionSurface.PPT_GENERATION_CONFIG:
+        suggestions = _rebalance_ppt_suggestions(suggestions)
+
+    suggestions = suggestions[:limit]
 
     summary = normalize_text(payload.get("summary"), 80)
     return suggestions, summary or None
