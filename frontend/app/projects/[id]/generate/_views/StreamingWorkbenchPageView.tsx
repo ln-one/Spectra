@@ -19,6 +19,7 @@ import {
   MonitorPlay,
   Save,
 } from "lucide-react";
+import { readOutlineRunCache } from "@/components/project/features/outline-editor/utils";
 import { cn } from "@/lib/utils";
 import { previewApi, type EditableSlideScene } from "@/lib/sdk/preview";
 import { derivePptStatus } from "@/components/project/features/studio/panel/usePptHistoryStatusSync";
@@ -235,6 +236,23 @@ function resolveCopilotOutline(
     }
   }
   return null;
+}
+
+function resolveCachedCopilotOutline(
+  sessionId: string | null,
+  runId: string | null
+): Record<string, unknown> | null {
+  const cached = readOutlineRunCache(sessionId, runId);
+  if (!cached?.slides.length) return null;
+  return {
+    slides: cached.slides.map((slide, index) => ({
+      id: slide.id || `slide-${slide.order || index + 1}`,
+      order: slide.order || index + 1,
+      title: slide.title,
+      keyPoints: slide.keyPoints,
+      estimatedMinutes: slide.estimatedMinutes,
+    })),
+  };
 }
 
 export default function StreamingWorkbenchPageView() {
@@ -539,8 +557,8 @@ export default function StreamingWorkbenchPageView() {
         previewOutline,
         (generationSession as Record<string, unknown> | null | undefined) ??
           null
-      ),
-    [generationSession, previewOutline]
+      ) || resolveCachedCopilotOutline(activeSessionId, activeRunId),
+    [activeRunId, activeSessionId, generationSession, previewOutline]
   );
   const derivedRunStatus = useMemo(
     () =>

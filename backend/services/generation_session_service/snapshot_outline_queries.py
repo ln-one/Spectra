@@ -65,7 +65,8 @@ async def load_latest_outline(
         )
         if run_outline_version is not None:
             return await load_outline_by_version(db, session.id, run_outline_version)
-        return None
+        # A run-specific lookup may narrow the outline version, but it must not
+        # hide the session's confirmed outline when no run binding was recorded.
 
     relation_versions = getattr(session, "outlineVersions", None)
     if relation_versions:

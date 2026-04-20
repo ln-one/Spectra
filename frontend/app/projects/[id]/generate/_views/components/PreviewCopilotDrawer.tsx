@@ -949,63 +949,42 @@ export function PreviewCopilotDrawer({
         </div>
       </div>
 
-      <div className="shrink-0 border-t border-black/5 bg-white p-5">
-        <div className="relative overflow-hidden rounded-[30px] border border-[#1f2937]/10 bg-[#101828] p-4 text-white shadow-[0_18px_44px_rgba(15,23,42,0.24)]">
-          <div className="pointer-events-none absolute -right-16 -top-24 h-44 w-44 rounded-full bg-[#f8d57e]/25 blur-3xl" />
-          <div className="pointer-events-none absolute -bottom-20 left-8 h-36 w-36 rounded-full bg-blue-400/20 blur-3xl" />
-          <div className="relative">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <div className="inline-flex items-center rounded-full border border-white/10 bg-white/8 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/65">
-                  Current slide redo
-                </div>
-                <div className="mt-3 text-[18px] font-semibold leading-tight">
-                  {activeSlide
-                    ? `重做第 ${activeSlide.index + 1} 页`
-                    : "重做当前页"}
-                </div>
-                <div className="mt-1.5 text-sm leading-relaxed text-white/62">
-                  这不是普通聊天，会直接调用 Diego
-                  单页重做链路并刷新当前页预览。
-                </div>
-              </div>
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#f8d57e] text-[#101828] shadow-[0_12px_24px_rgba(248,213,126,0.25)]">
-                <Wand2 className="h-5 w-5" />
-              </div>
+      <div className="shrink-0 border-t border-black/5 bg-white px-5 py-4">
+        <div className="rounded-2xl border border-black/10 bg-white px-4 py-3 shadow-sm">
+          <Textarea
+            value={input}
+            onChange={(event) => setInput(event.target.value)}
+            placeholder={
+              activeSlide
+                ? `输入提示词，重做第 ${activeSlide.index + 1} 页`
+                : "输入提示词，重做当前页"
+            }
+            className="min-h-[82px] resize-none border-0 bg-transparent p-0 text-[15px] leading-relaxed text-zinc-800 shadow-none placeholder:text-black/35 focus-visible:ring-0"
+            onKeyDown={(event) => {
+              if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+                event.preventDefault();
+                void handleRedoCurrentSlide();
+              }
+            }}
+          />
+          <div className="mt-3 flex items-center justify-between gap-3 border-t border-black/5 pt-3">
+            <div className="text-xs text-black/35">
+              Ctrl/Command + Enter 提交单页重做
             </div>
-
-            <Textarea
-              value={input}
-              onChange={(event) => setInput(event.target.value)}
-              placeholder="例如：重做当前页，减少文字密度，突出课程目标和结果对比。"
-              className="mt-4 min-h-[124px] resize-none rounded-[24px] border-white/10 bg-white/10 px-4 py-4 text-[15px] leading-relaxed text-white shadow-inner placeholder:text-white/35 focus-visible:ring-1 focus-visible:ring-[#f8d57e]/70"
-              onKeyDown={(event) => {
-                if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
-                  event.preventDefault();
-                  void handleRedoCurrentSlide();
-                }
-              }}
-            />
-
-            <div className="mt-4 flex items-center justify-between gap-3">
-              <div className="text-xs text-white/50">
-                Ctrl/Command + Enter 提交单页重做
-              </div>
-              <Button
-                size="sm"
-                onClick={() => void handleRedoCurrentSlide()}
-                disabled={
-                  !sessionId || !input.trim() || isSubmitting || !activeSlide
-                }
-                className="h-11 rounded-full bg-[#f8d57e] px-5 text-sm font-semibold text-[#101828] shadow-sm transition hover:bg-[#f2c85a] disabled:bg-white/20 disabled:text-white/45"
-              >
-                {isSubmitting ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  "提交重做"
-                )}
-              </Button>
-            </div>
+            <Button
+              size="sm"
+              onClick={() => void handleRedoCurrentSlide()}
+              disabled={
+                !sessionId || !input.trim() || isSubmitting || !activeSlide
+              }
+              className="h-9 rounded-full bg-[#1d1d1f] px-4 text-sm font-medium text-white transition hover:bg-black/80 disabled:bg-black/10 disabled:text-black/35"
+            >
+              {isSubmitting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                "重做当前页"
+              )}
+            </Button>
           </div>
         </div>
       </div>
