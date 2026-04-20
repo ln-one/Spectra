@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { previewApi } from "@/lib/sdk/preview";
-import { generateApi, type GenerationEvent, type SessionRun } from "@/lib/sdk/generate";
+import {
+  generateApi,
+  type GenerationEvent,
+  type SessionRun,
+} from "@/lib/sdk/generate";
 import { ApiError } from "@/lib/sdk/client";
 import { useGenerationEvents } from "@/hooks/useGenerationEvents";
 import { useProjectStore } from "@/stores/projectStore";
@@ -201,8 +205,7 @@ function resolvePptUrlFromSnapshot(value: unknown): string | null {
   if (!value || typeof value !== "object") return null;
   const source = value as Record<string, unknown>;
   const direct =
-    readStringField(source, "ppt_url") ||
-    readStringField(source, "pptUrl");
+    readStringField(source, "ppt_url") || readStringField(source, "pptUrl");
   if (direct) return direct;
 
   const session =
@@ -211,8 +214,7 @@ function resolvePptUrlFromSnapshot(value: unknown): string | null {
       : null;
   if (session) {
     const sessionDirect =
-      readStringField(session, "ppt_url") ||
-      readStringField(session, "pptUrl");
+      readStringField(session, "ppt_url") || readStringField(session, "pptUrl");
     if (sessionDirect) return sessionDirect;
 
     const sessionResult =
@@ -233,8 +235,7 @@ function resolvePptUrlFromSnapshot(value: unknown): string | null {
       : null;
   if (result) {
     const resultUrl =
-      readStringField(result, "ppt_url") ||
-      readStringField(result, "pptUrl");
+      readStringField(result, "ppt_url") || readStringField(result, "pptUrl");
     if (resultUrl) return resultUrl;
   }
 
@@ -255,18 +256,126 @@ function resolvePptUrlFromSnapshot(value: unknown): string | null {
   return null;
 }
 
-function normalizeTheme(value: unknown): DiegoPreviewContext["theme"] | undefined {
+function isOutlineLike(value: unknown): boolean {
+  if (!value || typeof value !== "object") return false;
+  const source = value as Record<string, unknown>;
+  return (
+    Array.isArray(source.nodes) ||
+    Array.isArray(source.sections) ||
+    Array.isArray(source.slides)
+  );
+}
+
+function resolveOutlineFromSnapshot(
+  value: unknown
+): Record<string, unknown> | null {
+  if (!value || typeof value !== "object") return null;
+  const source = value as Record<string, unknown>;
+  if (isOutlineLike(source)) return source;
+
+  const containers: Array<Record<string, unknown> | null> = [
+    source,
+    source.session && typeof source.session === "object"
+      ? (source.session as Record<string, unknown>)
+      : null,
+    source.result && typeof source.result === "object"
+      ? (source.result as Record<string, unknown>)
+      : null,
+  ];
+
+  for (const container of containers) {
+    const outline = container?.outline;
+    if (isOutlineLike(outline)) {
+      return outline as Record<string, unknown>;
+    }
+  }
+  return null;
+}
+
+function extractPreviewOutline(
+  events: GenerationEvent[]
+): Record<string, unknown> | null {
+  for (let index = events.length - 1; index >= 0; index -= 1) {
+    const event = events[index];
+    const eventType = String(event.event_type || "").trim();
+    if (
+      eventType !== "outline.ready" &&
+      eventType !== "outline.updated" &&
+      eventType !== "outline.completed" &&
+      eventType !== "progress.updated"
+    ) {
+      continue;
+    }
+
+    const payloadObject = parseEventPayloadObject(event.payload);
+    const payload = payloadObject as {
+      outline?: unknown;
+      section_payload?: {
+        outline?: unknown;
+        diego_event_type?: string;
+        raw_payload?: Record<string, unknown>;
+      };
+    };
+    const sectionPayload =
+      payload.section_payload && typeof payload.section_payload === "object"
+        ? payload.section_payload
+        : null;
+    const diegoEventType = sectionPayload?.diego_event_type || eventType;
+    if (
+      diegoEventType !== "outline.ready" &&
+      diegoEventType !== "outline.updated" &&
+      diegoEventType !== "outline.completed"
+    ) {
+      continue;
+    }
+
+    const rawPayload =
+      sectionPayload?.raw_payload &&
+      typeof sectionPayload.raw_payload === "object"
+        ? sectionPayload.raw_payload
+        : (payload as Record<string, unknown>);
+    const candidates = [
+      payload.outline,
+      sectionPayload?.outline,
+      rawPayload.outline,
+      rawPayload,
+      rawPayload.result && typeof rawPayload.result === "object"
+        ? (rawPayload.result as Record<string, unknown>).outline
+        : null,
+      rawPayload.session && typeof rawPayload.session === "object"
+        ? (rawPayload.session as Record<string, unknown>).outline
+        : null,
+    ];
+    const outline = candidates.find(isOutlineLike);
+    if (outline && typeof outline === "object") {
+      return outline as Record<string, unknown>;
+    }
+  }
+  return null;
+}
+
+function normalizeTheme(
+  value: unknown
+): DiegoPreviewContext["theme"] | undefined {
   if (!value || typeof value !== "object") return undefined;
   const source = value as RawPayload;
   const theme: DiegoPreviewContext["theme"] = {};
-  for (const key of ["primary", "secondary", "accent", "light", "bg"] as const) {
+  for (const key of [
+    "primary",
+    "secondary",
+    "accent",
+    "light",
+    "bg",
+  ] as const) {
     const parsed = readStringField(source, key);
     if (parsed) theme[key] = parsed;
   }
   return Object.keys(theme).length > 0 ? theme : undefined;
 }
 
-function normalizeFonts(value: unknown): DiegoPreviewContext["fonts"] | undefined {
+function normalizeFonts(
+  value: unknown
+): DiegoPreviewContext["fonts"] | undefined {
   if (!value || typeof value !== "object") return undefined;
   const source = value as RawPayload;
   const fonts: DiegoPreviewContext["fonts"] = {};
@@ -384,7 +493,10 @@ function mergeDiegoPreviewContext(
       ...(update.fonts ?? {}),
     };
   }
-  if (typeof base.source_event_seq === "number" || typeof update.source_event_seq === "number") {
+  if (
+    typeof base.source_event_seq === "number" ||
+    typeof update.source_event_seq === "number"
+  ) {
     merged.source_event_seq = Math.max(
       base.source_event_seq ?? 0,
       update.source_event_seq ?? 0
@@ -445,13 +557,21 @@ function normalizeAuthorityBlocks(value: unknown): AuthorityPreviewBlock[] {
 function normalizeAuthorityFrames(value: unknown): AuthorityPreviewFrame[] {
   if (!Array.isArray(value)) return [];
   return value
-    .filter((item): item is Record<string, unknown> => !!item && typeof item === "object")
+    .filter(
+      (item): item is Record<string, unknown> =>
+        !!item && typeof item === "object"
+    )
     .map((item) =>
       normalizeSvgPreviewFrame(item, {
         status: readStringField(item, "status") || undefined,
       })
     )
-    .filter((frame): frame is AuthorityPreviewFrame => Boolean(frame))
+    .filter(
+      (
+        frame
+      ): frame is NonNullable<ReturnType<typeof normalizeSvgPreviewFrame>> =>
+        Boolean(frame)
+    )
     .sort((left, right) => {
       const slideDiff = left.index - right.index;
       if (slideDiff !== 0) return slideDiff;
@@ -513,11 +633,15 @@ function buildHtmlAuthorityPreview(
       blocks: [],
     });
   });
-  const normalizedSlides = [...slideMap.values()].sort((a, b) => a.index - b.index);
+  const normalizedSlides = [...slideMap.values()].sort(
+    (a, b) => a.index - b.index
+  );
   const viewportWidth =
-    renderedPages.find((frame) => typeof frame.width === "number")?.width ?? 1280;
+    renderedPages.find((frame) => typeof frame.width === "number")?.width ??
+    1280;
   const viewportHeight =
-    renderedPages.find((frame) => typeof frame.height === "number")?.height ?? 720;
+    renderedPages.find((frame) => typeof frame.height === "number")?.height ??
+    720;
   return {
     provider: "pagevra",
     run_id: runId,
@@ -551,7 +675,10 @@ function normalizeAuthorityPreview(
   const source = value as Record<string, unknown>;
   const normalizedSlides = Array.isArray(source.slides)
     ? source.slides
-        .filter((item): item is Record<string, unknown> => !!item && typeof item === "object")
+        .filter(
+          (item): item is Record<string, unknown> =>
+            !!item && typeof item === "object"
+        )
         .map((item) => {
           const frames = normalizeAuthorityFrames(item.frames);
           const previewSource =
@@ -603,10 +730,15 @@ function normalizeAuthorityPreview(
               ? { status: readStringField(item, "status") || undefined }
               : {}),
             ...(readStringField(item, "layout_kind")
-              ? { layout_kind: readStringField(item, "layout_kind") || undefined }
+              ? {
+                  layout_kind:
+                    readStringField(item, "layout_kind") || undefined,
+                }
               : {}),
             render_version:
-              readNumberField(item, "render_version") ?? renderVersion ?? undefined,
+              readNumberField(item, "render_version") ??
+              renderVersion ??
+              undefined,
             format: primaryFrame ? "svg" : null,
             svg_data_url: primaryFrame?.svg_data_url ?? null,
             preview: normalizedPreview,
@@ -624,7 +756,8 @@ function normalizeAuthorityPreview(
                 : typeof primaryFrame?.height === "number"
                   ? { height: primaryFrame.height }
                   : {}),
-            frames: frames.length > 0 ? frames : primaryFrame ? [primaryFrame] : [],
+            frames:
+              frames.length > 0 ? frames : primaryFrame ? [primaryFrame] : [],
             editable_block_ids: Array.isArray(item.editable_block_ids)
               ? item.editable_block_ids
                   .map((entry) => String(entry || "").trim())
@@ -636,7 +769,9 @@ function normalizeAuthorityPreview(
         .filter(
           (slide) =>
             isRenderableSvgDataUrl(slide.svg_data_url) ||
-            slide.frames.some((frame) => isRenderableSvgDataUrl(frame.svg_data_url))
+            slide.frames.some((frame) =>
+              isRenderableSvgDataUrl(frame.svg_data_url)
+            )
         )
         .sort((left, right) => left.index - right.index)
     : [];
@@ -662,16 +797,22 @@ function normalizeAuthorityPreview(
       height: readNumberField(viewportRaw, "height") ?? 720,
     },
     compile_context_version:
-      readNumberField(source, "compile_context_version") ?? context?.source_event_seq ?? null,
+      readNumberField(source, "compile_context_version") ??
+      context?.source_event_seq ??
+      null,
     compile_context:
-      normalizeDiegoPreviewContext(source.compile_context, runId) ?? context ?? null,
+      normalizeDiegoPreviewContext(source.compile_context, runId) ??
+      context ??
+      null,
     theme: normalizeTheme(source.theme) ?? context?.theme,
     fonts: normalizeFonts(source.fonts) ?? context?.fonts,
     slides: normalizedSlides,
   };
 }
 
-function extractPreviewPreambleLogs(events: GenerationEvent[]): PreviewPreambleLog[] {
+function extractPreviewPreambleLogs(
+  events: GenerationEvent[]
+): PreviewPreambleLog[] {
   const collected: PreviewPreambleLog[] = [];
   const seen = new Set<string>();
   for (const event of events) {
@@ -697,9 +838,11 @@ function extractPreviewPreambleLogs(events: GenerationEvent[]): PreviewPreambleL
         : null;
 
     const diegoEventType = sectionPayload?.diego_event_type || eventType;
-    const rawPayload = (sectionPayload?.raw_payload && typeof sectionPayload.raw_payload === "object")
-      ? sectionPayload.raw_payload
-      : (payload as Record<string, unknown>);
+    const rawPayload =
+      sectionPayload?.raw_payload &&
+      typeof sectionPayload.raw_payload === "object"
+        ? sectionPayload.raw_payload
+        : (payload as Record<string, unknown>);
 
     // Only collect whitelisted event types to avoid internal noise and raw JSON display
     if (
@@ -726,20 +869,32 @@ function extractPreviewPreambleLogs(events: GenerationEvent[]): PreviewPreambleL
       diegoEventType !== "rag.retrieval.completed" &&
       diegoEventType !== "rag.retrieval.failed" &&
       // Also allow generic progress updates ONLY if they have a non-empty progress_message
-      !(eventType === "progress.updated" && typeof payload.progress_message === "string" && payload.progress_message.trim())
+      !(
+        eventType === "progress.updated" &&
+        typeof payload.progress_message === "string" &&
+        payload.progress_message.trim()
+      )
     ) {
       continue;
     }
 
     const normalized = resolveEventLog(diegoEventType, rawPayload);
     // Double check that we aren't showing the raw eventType or a JSON-like string as the title
-    if (!normalized.title || normalized.title === eventType || normalized.title.startsWith("{")) {
+    if (
+      !normalized.title ||
+      normalized.title === eventType ||
+      normalized.title.startsWith("{")
+    ) {
       continue;
     }
 
     // Content-based de-duplication: skip if the last added log has the same title and detail
     const last = collected[collected.length - 1];
-    if (last && last.title === normalized.title && last.detail === normalized.detail) {
+    if (
+      last &&
+      last.title === normalized.title &&
+      last.detail === normalized.detail
+    ) {
       continue;
     }
 
@@ -828,15 +983,15 @@ export function useGeneratePreviewState({
   const [currentArtifactId, setCurrentArtifactId] = useState<string | null>(
     artifactIdFromQuery
   );
-  const [currentRenderVersion, setCurrentRenderVersion] = useState<number | null>(
-    null
-  );
+  const [currentRenderVersion, setCurrentRenderVersion] = useState<
+    number | null
+  >(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isExporting, setIsExporting] = useState(false);
   const [isResuming, setIsResuming] = useState(false);
-  const [previewBlockedReason, setPreviewBlockedReason] = useState<string | null>(
-    null
-  );
+  const [previewBlockedReason, setPreviewBlockedReason] = useState<
+    string | null
+  >(null);
   const [slidesContentMarkdown, setSlidesContentMarkdown] = useState("");
   const [sessionFailureMessage, setSessionFailureMessage] = useState<
     string | null
@@ -848,9 +1003,10 @@ export function useGeneratePreviewState({
     useState<DiegoPreviewContext | null>(null);
   const [authorityPreview, setAuthorityPreview] =
     useState<AuthorityPreview | null>(null);
-  const [previewOutline, setPreviewOutline] = useState<Record<string, unknown> | null>(
-    null
-  );
+  const [previewOutline, setPreviewOutline] = useState<Record<
+    string,
+    unknown
+  > | null>(null);
   const [previewPreambleLogs, setPreviewPreambleLogs] = useState<
     PreviewPreambleLog[]
   >([]);
@@ -970,7 +1126,9 @@ export function useGeneratePreviewState({
       const renderedPreview = previewData.rendered_preview as
         | RenderedPreview
         | undefined;
-      const renderedPages = ((renderedPreview?.pages ?? []) as RenderedPreviewFrame[])
+      const renderedPages = (
+        (renderedPreview?.pages ?? []) as RenderedPreviewFrame[]
+      )
         .filter(
           (page) =>
             page &&
@@ -1013,12 +1171,13 @@ export function useGeneratePreviewState({
               : {}),
           };
         })
-        .sort((a, b) => a.index - b.index);
+        .sort((a, b) => a.index - b.index) as Slide[];
 
       const payload = previewData as RawPayload;
       const incomingSlidesContent = payload.slides_content_markdown;
       const markdown =
-        typeof incomingSlidesContent === "string" && incomingSlidesContent.trim()
+        typeof incomingSlidesContent === "string" &&
+        incomingSlidesContent.trim()
           ? incomingSlidesContent
           : buildSlidesContentMarkdown(nextSlides);
       const incomingSessionState = payload.session_state;
@@ -1053,30 +1212,32 @@ export function useGeneratePreviewState({
         generateApi
           .getSessionSnapshot(activeSessionId, { run_id: activeRunId })
           .catch(() => null),
+        generateApi.getSessionSnapshot(activeSessionId).catch(() => null),
         generateApi
           .listEvents(activeSessionId, {
             run_id: activeRunId,
             limit: 200,
           })
           .catch(() => null),
-      ]).then(([sessionSnapshotResponse, eventListResponse]) => {
-        const snapshotData = (sessionSnapshotResponse?.data ?? null) as
-          | { outline?: Record<string, unknown> | null }
-          | null;
-        setCurrentPptUrl(
-          resolvePptUrlFromSnapshot(sessionSnapshotResponse?.data ?? null)
-        );
-        setPreviewOutline(
-          snapshotData?.outline && typeof snapshotData.outline === "object"
-            ? snapshotData.outline
-            : null
-        );
-        setPreviewPreambleLogs(
-          extractPreviewPreambleLogs(
-            ((eventListResponse?.data?.events ?? []) as GenerationEvent[]) || []
-          )
-        );
-      });
+      ]).then(
+        ([runSnapshotResponse, sessionSnapshotResponse, eventListResponse]) => {
+          const eventList =
+            ((eventListResponse?.data?.events ?? []) as GenerationEvent[]) ||
+            [];
+          setCurrentPptUrl(
+            resolvePptUrlFromSnapshot(runSnapshotResponse?.data ?? null) ||
+              resolvePptUrlFromSnapshot(sessionSnapshotResponse?.data ?? null)
+          );
+          setPreviewOutline(
+            resolveOutlineFromSnapshot(runSnapshotResponse?.data ?? null) ||
+              resolveOutlineFromSnapshot(
+                sessionSnapshotResponse?.data ?? null
+              ) ||
+              extractPreviewOutline(eventList)
+          );
+          setPreviewPreambleLogs(extractPreviewPreambleLogs(eventList));
+        }
+      );
     } catch (error) {
       const shouldPreserveExistingPreview =
         error instanceof ApiError && error.status === 409;
@@ -1088,7 +1249,9 @@ export function useGeneratePreviewState({
         if (reason === "run_not_ready") {
           setPreviewBlockedReason("当前 run 仍在生成中，请稍后刷新。");
         } else {
-          setPreviewBlockedReason(error.message || "预览版本冲突，请稍后重试。");
+          setPreviewBlockedReason(
+            error.message || "预览版本冲突，请稍后重试。"
+          );
         }
       } else if (error instanceof ApiError && error.status === 404) {
         setPreviewBlockedReason("该 run 不存在或不属于当前会话。");
@@ -1118,7 +1281,9 @@ export function useGeneratePreviewState({
     (generationSession as { session?: { state?: string } } | null)?.session
       ?.state ?? null;
   const sessionState = previewSessionState || snapshotSessionState;
-  const isSessionGenerating = isGeneratingState(sessionState || latestEvent?.state);
+  const isSessionGenerating = isGeneratingState(
+    sessionState || latestEvent?.state
+  );
 
   useEffect(() => {
     processedEventKeysRef.current.clear();
@@ -1131,15 +1296,14 @@ export function useGeneratePreviewState({
   }, [activeRunId, activeSessionId, loadSessionRuns, loadSlides]);
 
   useEffect(() => {
-    const currentRun = sessionRuns.find((run) => run.run_id === activeRunId) || null;
+    const currentRun =
+      sessionRuns.find((run) => run.run_id === activeRunId) || null;
     const needsTitleRefresh = Boolean(
       activeSessionId &&
-        activeRunId &&
-        currentRun &&
-        (
-          currentRun.run_title_source === "pending" ||
-          isBadRunTitle(currentRun.run_title)
-        )
+      activeRunId &&
+      currentRun &&
+      (currentRun.run_title_source === "pending" ||
+        isBadRunTitle(currentRun.run_title))
     );
     if (!needsTitleRefresh) return;
     const timer = window.setInterval(() => {
@@ -1173,10 +1337,13 @@ export function useGeneratePreviewState({
           ? sectionPayload.diego_event_type
           : eventType;
       const rawPayload =
-        sectionPayload?.raw_payload && typeof sectionPayload.raw_payload === "object"
+        sectionPayload?.raw_payload &&
+        typeof sectionPayload.raw_payload === "object"
           ? (sectionPayload.raw_payload as RawPayload)
           : null;
-      const diegoSeq = sectionPayload ? readNumberField(sectionPayload, "diego_seq") : null;
+      const diegoSeq = sectionPayload
+        ? readNumberField(sectionPayload, "diego_seq")
+        : null;
 
       if (rawPayload) {
         const update = buildDiegoContextUpdateFromEvent(
@@ -1216,9 +1383,11 @@ export function useGeneratePreviewState({
               `slide-${slideNo}`
             : null;
         const previewWidth =
-          readNumberField(source, "preview_width") ?? readNumberField(preview, "width");
+          readNumberField(source, "preview_width") ??
+          readNumberField(preview, "width");
         const previewHeight =
-          readNumberField(source, "preview_height") ?? readNumberField(preview, "height");
+          readNumberField(source, "preview_height") ??
+          readNumberField(preview, "height");
         const frame =
           slideIndex !== null && slideId
             ? normalizeSvgPreviewFrame(
@@ -1252,13 +1421,16 @@ export function useGeneratePreviewState({
             : null;
 
         if (slideNo !== null && frame && isFinal) {
-          setSlides(prev => {
+          const frameSvgDataUrl = frame.svg_data_url;
+          setSlides((prev) => {
             const updated = [...prev];
-            const existingIndex = updated.findIndex(s => s.index === slideNo - 1);
+            const existingIndex = updated.findIndex(
+              (s) => s.index === slideNo - 1
+            );
             if (existingIndex >= 0) {
               updated[existingIndex] = {
                 ...updated[existingIndex],
-                thumbnail_url: svgDataUrl,
+                thumbnail_url: frameSvgDataUrl,
                 rendered_previews: [frame],
               };
             } else {
@@ -1268,7 +1440,7 @@ export function useGeneratePreviewState({
                 title: `Slide ${slideNo}`,
                 content: "",
                 sources: [],
-                thumbnail_url: svgDataUrl,
+                thumbnail_url: frameSvgDataUrl,
                 rendered_previews: [frame],
               });
             }
@@ -1285,11 +1457,17 @@ export function useGeneratePreviewState({
         void loadSlides();
         continue;
       }
-      if (eventType === "ppt.completed" || diegoEventType === "compile.completed") {
+      if (
+        eventType === "ppt.completed" ||
+        diegoEventType === "compile.completed"
+      ) {
         void Promise.all([loadSessionRuns(), loadSlides()]);
         continue;
       }
-      if (diegoEventType === "run.failed" || diegoEventType === "slide.failed") {
+      if (
+        diegoEventType === "run.failed" ||
+        diegoEventType === "slide.failed"
+      ) {
         const failedMessage =
           readStringField(payload, "progress_message") ||
           readStringField(payload, "error_message") ||
@@ -1363,7 +1541,10 @@ export function useGeneratePreviewState({
         currentArtifactId ||
         null;
       if (!exportArtifactId) {
-        const runResponse = await generateApi.getRun(activeSessionId, activeRunId);
+        const runResponse = await generateApi.getRun(
+          activeSessionId,
+          activeRunId
+        );
         exportArtifactId = runResponse?.data?.run?.artifact_id || null;
       }
       if (exportArtifactId) {
@@ -1395,7 +1576,7 @@ export function useGeneratePreviewState({
   ]);
 
   const currentRunDetail = useMemo(() => {
-    return sessionRuns.find(run => run.run_id === activeRunId) || null;
+    return sessionRuns.find((run) => run.run_id === activeRunId) || null;
   }, [sessionRuns, activeRunId]);
 
   const generationModeLabel = useMemo(() => {

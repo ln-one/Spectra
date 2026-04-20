@@ -210,17 +210,27 @@ function resolveCopilotOutline(
   previewOutline: Record<string, unknown> | null,
   generationSession: Record<string, unknown> | null | undefined
 ): Record<string, unknown> | null {
-  if (previewOutline && typeof previewOutline === "object") {
+  const isOutlineLike = (value: unknown): value is Record<string, unknown> => {
+    if (!value || typeof value !== "object") return false;
+    const source = value as Record<string, unknown>;
+    return (
+      Array.isArray(source.nodes) ||
+      Array.isArray(source.sections) ||
+      Array.isArray(source.slides)
+    );
+  };
+  if (isOutlineLike(previewOutline)) {
     return previewOutline;
   }
   const candidates = [
+    generationSession,
     generationSession?.outline,
     generationSession?.session && typeof generationSession.session === "object"
       ? (generationSession.session as { outline?: unknown }).outline
       : null,
   ];
   for (const candidate of candidates) {
-    if (candidate && typeof candidate === "object") {
+    if (isOutlineLike(candidate)) {
       return candidate as Record<string, unknown>;
     }
   }

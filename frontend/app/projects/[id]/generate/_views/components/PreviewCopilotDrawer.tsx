@@ -6,6 +6,7 @@ import { ThinkingMark } from "@/components/icons/status/ThinkingMark";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { stripInlineCitationTags } from "@/lib/chat/citation-view-model";
 import { chatApi } from "@/lib/sdk/chat";
 import { previewApi } from "@/lib/sdk/preview";
 import { cn } from "@/lib/utils";
@@ -37,9 +38,12 @@ type PexelsResult = {
 };
 
 type OutlineCard = {
-  index: number;
+  id: string;
+  order: number;
+  slideIndex: number;
   title: string;
-  bullets: string[];
+  keyPoints: string[];
+  estimatedMinutes?: number;
 };
 
 interface PreviewCopilotDrawerProps {
@@ -95,20 +99,45 @@ function summarizeNode(node: EditableSlideNode): string {
   return node.alt || node.label || node.src || "图片节点";
 }
 
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object"
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function normalizeText(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function normalizeTextList(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => {
+      if (typeof item === "string") return item.trim();
+      const record = asRecord(item);
+      return normalizeText(record?.text || record?.title || record?.content);
+    })
+    .filter(Boolean);
+}
+
+function normalizeNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
 function normalizeOutlineCards(
   outline: Record<string, unknown> | null
 ): OutlineCard[] {
   if (!outline || typeof outline !== "object") return [];
-  const nestedOutline =
-    outline.outline && typeof outline.outline === "object"
-      ? (outline.outline as Record<string, unknown>)
-      : null;
-  const candidates = [
-    outline.nodes,
-    outline.sections,
-    nestedOutline?.nodes,
-    nestedOutline?.sections,
-  ];
+  const nestedOutline = asRecord(outline.outline);
+  const sessionOutline = asRecord(asRecord(outline.session)?.outline);
+  const candidates = [outline, nestedOutline, sessionOutline].flatMap(
+    (source) => (source ? [source.nodes, source.sections, source.slides] : [])
+  );
   const rawItems = candidates.find((candidate) => Array.isArray(candidate));
   if (!Array.isArray(rawItems)) return [];
   return rawItems
@@ -117,25 +146,32 @@ function normalizeOutlineCards(
         !!item && typeof item === "object"
     )
     .map((item, index) => {
-      const bulletCandidates = [
+      const order = normalizeNumber(item.order) ?? index + 1;
+      const keyPointCandidates = [
         item.key_points,
+        item.keyPoints,
         item.bullets,
         item.items,
         item.points,
       ];
-      const bullets =
-        bulletCandidates
-          .find((candidate) => Array.isArray(candidate))
-          ?.map((bullet) => String(bullet || "").trim())
-          .filter(Boolean) ?? [];
+      const keyPoints =
+        keyPointCandidates
+          .map(normalizeTextList)
+          .find((points) => points.length > 0) ?? [];
       return {
-        index,
-        title: String(
-          item.title || item.heading || `Slide ${index + 1}`
-        ).trim(),
-        bullets,
+        id: normalizeText(item.id) || `slide-${order}`,
+        order,
+        slideIndex: order > 0 ? order - 1 : index,
+        title:
+          normalizeText(item.title || item.heading) || `Slide ${index + 1}`,
+        keyPoints,
+        estimatedMinutes:
+          normalizeNumber(item.estimated_minutes) ??
+          normalizeNumber(item.estimatedMinutes) ??
+          undefined,
       };
-    });
+    })
+    .sort((left, right) => left.order - right.order);
 }
 
 export function PreviewCopilotDrawer({
@@ -153,10 +189,9 @@ export function PreviewCopilotDrawer({
   onSceneUpdated,
   onRefreshPreview,
 }: PreviewCopilotDrawerProps) {
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(true);
   const [messages, setMessages] = useState<PreviewChatMessage[]>([]);
   const [input, setInput] = useState("");
-  const [composerMode, setComposerMode] = useState<"redo" | "chat">("redo");
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSavingScene, setIsSavingScene] = useState(false);
@@ -365,18 +400,6 @@ export function PreviewCopilotDrawer({
     ]);
   };
 
-  const handleChatSubmit = async () => {
-    const trimmed = input.trim();
-    if (!trimmed || !sessionId || isSubmitting) return;
-    try {
-      setIsSubmitting(true);
-      await submitChatMessage(trimmed);
-      setInput("");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
   const handleRedoCurrentSlide = async () => {
     const trimmed = input.trim();
     const requestedSlideIndex = resolveRequestedSlideIndex(
@@ -394,14 +417,6 @@ export function PreviewCopilotDrawer({
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  const handlePrimarySubmit = async () => {
-    if (composerMode === "redo") {
-      await handleRedoCurrentSlide();
-      return;
-    }
-    await handleChatSubmit();
   };
 
   const handleSaveScene = async () => {
@@ -587,27 +602,35 @@ export function PreviewCopilotDrawer({
               ) : (
                 outlineCards.map((node) => (
                   <button
-                    key={`${node.index}-${node.title}`}
+                    key={node.id}
                     type="button"
-                    onClick={() => onSelectSlide?.(node.index)}
-                    className="group flex w-full flex-col rounded-2xl border border-black/5 bg-white px-4 py-3.5 text-left shadow-sm transition hover:border-black/10 hover:shadow-md"
+                    onClick={() => onSelectSlide?.(node.slideIndex)}
+                    className="group flex w-full flex-col rounded-2xl border border-black/5 bg-white px-4 py-3.5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-indigo-200 hover:shadow-md"
                   >
                     <div className="flex items-start gap-3">
-                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-indigo-50 text-[11px] font-bold text-indigo-600">
-                        {node.index + 1}
+                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-[11px] font-bold text-indigo-600 ring-1 ring-indigo-100">
+                        {node.order}
                       </span>
-                      <span className="pt-0.5 text-[15px] font-medium leading-snug text-[#1d1d1f]">
-                        {node.title}
-                      </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="pt-0.5 text-[15px] font-semibold leading-snug text-[#1d1d1f]">
+                          {node.title}
+                        </div>
+                        {node.estimatedMinutes ? (
+                          <div className="mt-1 text-[11px] text-black/35">
+                            预计 {node.estimatedMinutes} 分钟
+                          </div>
+                        ) : null}
+                      </div>
                     </div>
-                    {node.bullets.length > 0 ? (
+                    {node.keyPoints.length > 0 ? (
                       <div className="mt-3 space-y-1.5 pl-9">
-                        {node.bullets.map((bullet, idx) => (
+                        {node.keyPoints.map((point, idx) => (
                           <div
                             key={idx}
-                            className="text-[13px] leading-snug text-zinc-500"
+                            className="flex gap-2 text-[13px] leading-snug text-zinc-500"
                           >
-                            {bullet}
+                            <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-indigo-300" />
+                            <span>{point}</span>
                           </div>
                         ))}
                       </div>
@@ -897,7 +920,7 @@ export function PreviewCopilotDrawer({
                 </div>
               ) : visibleMessages.length === 0 ? (
                 <div className="rounded-2xl border border-orange-100/50 bg-orange-50/50 p-4 text-[14px] leading-relaxed text-black/40">
-                  在下方输入本页重做提示词，或切换到聊天模式发送普通消息。
+                  下方输入框只提交当前页重做请求；普通上下文请先在主会话补充。
                 </div>
               ) : (
                 visibleMessages.map((message) => (
@@ -916,7 +939,7 @@ export function PreviewCopilotDrawer({
                           : "rounded-tl-sm border border-black/5 bg-white text-zinc-800 shadow-sm"
                       )}
                     >
-                      {message.content}
+                      {stripInlineCitationTags(message.content)}
                     </div>
                   </div>
                 ))
@@ -927,82 +950,62 @@ export function PreviewCopilotDrawer({
       </div>
 
       <div className="shrink-0 border-t border-black/5 bg-white p-5">
-        <div className="rounded-[28px] bg-[linear-gradient(135deg,#101828_0%,#18253c_55%,#24334c_100%)] p-4 text-white shadow-[0_18px_40px_rgba(15,23,42,0.24)]">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-white/55">
-                Copilot
+        <div className="relative overflow-hidden rounded-[30px] border border-[#1f2937]/10 bg-[#101828] p-4 text-white shadow-[0_18px_44px_rgba(15,23,42,0.24)]">
+          <div className="pointer-events-none absolute -right-16 -top-24 h-44 w-44 rounded-full bg-[#f8d57e]/25 blur-3xl" />
+          <div className="pointer-events-none absolute -bottom-20 left-8 h-36 w-36 rounded-full bg-blue-400/20 blur-3xl" />
+          <div className="relative">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className="inline-flex items-center rounded-full border border-white/10 bg-white/8 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/65">
+                  Current slide redo
+                </div>
+                <div className="mt-3 text-[18px] font-semibold leading-tight">
+                  {activeSlide
+                    ? `重做第 ${activeSlide.index + 1} 页`
+                    : "重做当前页"}
+                </div>
+                <div className="mt-1.5 text-sm leading-relaxed text-white/62">
+                  这不是普通聊天，会直接调用 Diego
+                  单页重做链路并刷新当前页预览。
+                </div>
               </div>
-              <div className="mt-1 text-sm text-white/80">
-                {composerMode === "redo"
-                  ? `单页重做将直接作用于第 ${activeSlide ? activeSlide.index + 1 : 0} 页`
-                  : "聊天消息只进入 copilot 对话记录，不触发重做"}
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#f8d57e] text-[#101828] shadow-[0_12px_24px_rgba(248,213,126,0.25)]">
+                <Wand2 className="h-5 w-5" />
               </div>
             </div>
-            <div className="flex items-center rounded-full bg-white/10 p-1">
-              {[
-                { value: "redo" as const, label: "单页重做" },
-                { value: "chat" as const, label: "聊天消息" },
-              ].map((mode) => (
-                <button
-                  key={mode.value}
-                  type="button"
-                  onClick={() => setComposerMode(mode.value)}
-                  className={cn(
-                    "rounded-full px-4 py-2 text-sm font-medium transition",
-                    composerMode === mode.value
-                      ? "bg-white text-[#101828] shadow-sm"
-                      : "text-white/70 hover:text-white"
-                  )}
-                >
-                  {mode.label}
-                </button>
-              ))}
-            </div>
-          </div>
 
-          <Textarea
-            value={input}
-            onChange={(event) => setInput(event.target.value)}
-            placeholder={
-              composerMode === "redo"
-                ? "例如：重做当前页，减少文字密度，强调核心对比关系。"
-                : "输入普通聊天消息，记录你的判断或补充上下文。"
-            }
-            className="mt-4 min-h-[118px] resize-none rounded-[22px] border-white/10 bg-white/8 text-[14px] leading-relaxed text-white placeholder:text-white/35 focus-visible:ring-1 focus-visible:ring-white/30"
-            onKeyDown={(event) => {
-              if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
-                event.preventDefault();
-                void handlePrimarySubmit();
-              }
-            }}
-          />
+            <Textarea
+              value={input}
+              onChange={(event) => setInput(event.target.value)}
+              placeholder="例如：重做当前页，减少文字密度，突出课程目标和结果对比。"
+              className="mt-4 min-h-[124px] resize-none rounded-[24px] border-white/10 bg-white/10 px-4 py-4 text-[15px] leading-relaxed text-white shadow-inner placeholder:text-white/35 focus-visible:ring-1 focus-visible:ring-[#f8d57e]/70"
+              onKeyDown={(event) => {
+                if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+                  event.preventDefault();
+                  void handleRedoCurrentSlide();
+                }
+              }}
+            />
 
-          <div className="mt-4 flex items-center justify-between gap-3">
-            <div className="text-xs text-white/50">
-              {composerMode === "redo"
-                ? "Ctrl/Command + Enter 提交重做"
-                : "Ctrl/Command + Enter 发送"}
+            <div className="mt-4 flex items-center justify-between gap-3">
+              <div className="text-xs text-white/50">
+                Ctrl/Command + Enter 提交单页重做
+              </div>
+              <Button
+                size="sm"
+                onClick={() => void handleRedoCurrentSlide()}
+                disabled={
+                  !sessionId || !input.trim() || isSubmitting || !activeSlide
+                }
+                className="h-11 rounded-full bg-[#f8d57e] px-5 text-sm font-semibold text-[#101828] shadow-sm transition hover:bg-[#f2c85a] disabled:bg-white/20 disabled:text-white/45"
+              >
+                {isSubmitting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  "提交重做"
+                )}
+              </Button>
             </div>
-            <Button
-              size="sm"
-              onClick={() => void handlePrimarySubmit()}
-              disabled={
-                !sessionId ||
-                !input.trim() ||
-                isSubmitting ||
-                (composerMode === "redo" && !activeSlide)
-              }
-              className="h-11 rounded-full bg-[#f8d57e] px-5 text-sm font-semibold text-[#101828] shadow-sm transition hover:bg-[#f2c85a] disabled:bg-white/20 disabled:text-white/45"
-            >
-              {isSubmitting ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : composerMode === "redo" ? (
-                "提交单页重做"
-              ) : (
-                "发送聊天消息"
-              )}
-            </Button>
           </div>
         </div>
       </div>
