@@ -192,6 +192,8 @@ async def ensure_svg_authority_preview(
     if not expected:
         expected = _extract_expected_slide_numbers_from_preview(payload)
     missing = expected - existing_svg if expected else set()
+    if existing_svg:
+        return _attach_svg_pages_to_slides(slides, payload), payload
     if expected and not missing:
         return _attach_svg_pages_to_slides(slides, payload), payload
 

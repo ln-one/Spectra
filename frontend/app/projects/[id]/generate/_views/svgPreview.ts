@@ -129,29 +129,3 @@ export function normalizeSvgPreviewFrame(
     height: preview.height,
   };
 }
-
-export function decodeSvgDataUrlToBlob(svgDataUrl: string): Blob | null {
-  if (!isRenderableSvgDataUrl(svgDataUrl)) {
-    return null;
-  }
-  const commaIndex = svgDataUrl.indexOf(",");
-  if (commaIndex < 0) {
-    return null;
-  }
-  const metadata = svgDataUrl.slice(0, commaIndex);
-  const body = svgDataUrl.slice(commaIndex + 1);
-  const isBase64Encoded = /;base64/i.test(metadata);
-  const mimeTypeMatch = /^data:([^;,]+)/i.exec(metadata);
-  const mimeType = mimeTypeMatch?.[1] || "image/svg+xml";
-
-  try {
-    if (isBase64Encoded) {
-      const binary = atob(body);
-      const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
-      return new Blob([bytes], { type: mimeType });
-    }
-    return new Blob([decodeURIComponent(body)], { type: mimeType });
-  } catch {
-    return null;
-  }
-}

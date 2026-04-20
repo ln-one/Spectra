@@ -8,35 +8,6 @@ import {
 const SVG_DATA_URL = "data:image/svg+xml;base64,PHN2Zy8+";
 
 describe("svg preview helpers", () => {
-  const originalCreateObjectURL = URL.createObjectURL;
-  const originalRevokeObjectURL = URL.revokeObjectURL;
-
-  beforeEach(() => {
-    Object.defineProperty(URL, "createObjectURL", {
-      writable: true,
-      configurable: true,
-      value: jest.fn(() => "blob:svg-preview"),
-    });
-    Object.defineProperty(URL, "revokeObjectURL", {
-      writable: true,
-      configurable: true,
-      value: jest.fn(),
-    });
-  });
-
-  afterEach(() => {
-    Object.defineProperty(URL, "createObjectURL", {
-      writable: true,
-      configurable: true,
-      value: originalCreateObjectURL,
-    });
-    Object.defineProperty(URL, "revokeObjectURL", {
-      writable: true,
-      configurable: true,
-      value: originalRevokeObjectURL,
-    });
-  });
-
   it("normalizes a manifest from svg_data_url", () => {
     expect(
       normalizeSvgPreviewManifest({
@@ -95,10 +66,9 @@ describe("svg preview helpers", () => {
       <SvgPreviewSurface svgDataUrl={SVG_DATA_URL} alt="slide preview" />
     );
 
-    expect(URL.createObjectURL).toHaveBeenCalledTimes(1);
     const svgObject = container.querySelector('object[type="image/svg+xml"]');
     expect(svgObject).not.toBeNull();
-    expect(svgObject).toHaveAttribute("data", "blob:svg-preview");
+    expect(svgObject).toHaveAttribute("data", SVG_DATA_URL);
     expect(container.querySelector("img")).toBeNull();
   });
 });

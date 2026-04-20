@@ -21,7 +21,7 @@ function makeHistoryItem(
 }
 
 describe("session artifacts ppt status rendering", () => {
-  it("shows recent work navigation and productized completed labels", () => {
+  it("shows history navigation and productized completed labels", () => {
     const pptCompleted = makeHistoryItem({
       status: "completed",
       step: "preview",
@@ -49,11 +49,10 @@ describe("session artifacts ppt status rendering", () => {
       />
     );
 
-    expect(screen.getByText("成果导航")).toBeInTheDocument();
-    expect(screen.getByText("最近成果")).toBeInTheDocument();
+    expect(screen.getByText("历史记录")).toBeInTheDocument();
     expect(screen.getByText("已完成")).toBeInTheDocument();
-    expect(screen.getAllByText("可继续工作").length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText("回到这个成果继续工作")).toBeInTheDocument();
+    expect(screen.getByText("可预览")).toBeInTheDocument();
+    expect(screen.getAllByLabelText("查看预览").length).toBeGreaterThanOrEqual(1);
   });
 
   it("renders PPT granular in-progress labels", () => {

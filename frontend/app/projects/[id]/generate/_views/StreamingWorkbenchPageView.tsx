@@ -1,6 +1,6 @@
 "use client";
 
-import { type CSSProperties, useEffect, useMemo, useReducer, useState } from "react";
+import { type CSSProperties, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -220,6 +220,24 @@ export default function StreamingWorkbenchPageView() {
   const [zoom, setZoom] = useState<number | "fit">("fit");
   const [sceneBySlideId] = useState<Record<string, AuthorityEditableScene>>({});
   const [selectedNodeBySlideId, setSelectedNodeBySlideId] = useState<Record<string, string | null>>({});
+  const canvasRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      setZoom((z) => {
+        const currentZoom = z === "fit" ? 1 : z;
+        const zoomDelta = e.deltaY < 0 ? 0.05 : -0.05;
+        return Math.max(0.25, Math.min(3, currentZoom + zoomDelta));
+      });
+    };
+    canvas.addEventListener("wheel", handleWheel, { passive: false });
+    return () => {
+      canvas.removeEventListener("wheel", handleWheel);
+    };
+  }, [canvasRef]);
 
   const {
     slides,
@@ -469,6 +487,31 @@ export default function StreamingWorkbenchPageView() {
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Zoom Controls */}
+          <div className="flex items-center gap-1 rounded-lg border border-black/10 bg-white px-1 h-9 text-sm text-[#1d1d1f]">
+            <button
+              type="button"
+              onClick={() => setZoom(z => z === "fit" ? 0.75 : Math.max(0.25, z - 0.25))}
+              className="inline-flex h-7 w-7 items-center justify-center rounded hover:bg-black/5"
+            >
+              -
+            </button>
+            <button
+              type="button"
+              onClick={() => setZoom(z => z === "fit" ? 1 : "fit")}
+              className="w-12 text-center text-xs font-medium hover:text-black/70"
+            >
+              {zoom === "fit" ? "Fit" : `${Math.round(zoom * 100)}%`}
+            </button>
+            <button
+              type="button"
+              onClick={() => setZoom(z => z === "fit" ? 1.25 : Math.min(3, z + 0.25))}
+              className="inline-flex h-7 w-7 items-center justify-center rounded hover:bg-black/5"
+            >
+              +
+            </button>
+          </div>
+
           <button
             type="button"
             className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-black/10 bg-white px-3 text-sm font-medium text-[#1d1d1f] transition hover:bg-black/5"
@@ -547,6 +590,9 @@ export default function StreamingWorkbenchPageView() {
               )}
               {slideSlots.map((slide) => {
                 if (slide.isPlaceholder) {
+                  if (hasAnyRenderableSlide) {
+                    return null;
+                  }
                   return (
                     <div
                       key={`thumb-placeholder-${slide.index}`}
@@ -679,6 +725,7 @@ export default function StreamingWorkbenchPageView() {
             ) : canRenderStage ? (
               <>
                 <div
+                  ref={canvasRef}
                   className={cn(
                     "relative bg-white shadow-[0_24px_70px_-12px_rgba(0,0,0,0.35)] transition-all duration-200 m-auto",
                     zoom === "fit" ? "w-full max-w-[1100px] rounded-lg overflow-hidden" : "rounded-lg overflow-hidden"
@@ -732,123 +779,6 @@ export default function StreamingWorkbenchPageView() {
             ) : null}
           </section>
 
-          {/* Floating bottom toolbar */}
-          <div className="pointer-events-none absolute bottom-5 left-0 right-0 z-10 flex items-end justify-center px-4">
-            <div className="pointer-events-auto flex items-center gap-2 rounded-2xl border border-white/10 bg-[#111]/80 px-3 py-2 shadow-2xl backdrop-blur-md">
-              <button
-                type="button"
-                onClick={() => setIsFullscreen(true)}
-                disabled={!canRenderStage}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-white/80 transition hover:bg-white/10 hover:text-white disabled:opacity-30"
-                title="放映"
-              >
-                <Play className="h-4 w-4" />
-              </button>
-              <div className="mx-1 h-4 w-px bg-white/10" />
-              <button
-                type="button"
-                onClick={() => setRegenerateDialogOpen(true)}
-                disabled={!canModifyCurrentSlide}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-white/80 transition hover:bg-white/10 hover:text-white disabled:opacity-30"
-                title="重做此页"
-              >
-                <Wand2 className="h-4 w-4" />
-              </button>
-              <button
-                type="button"
-                className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-white/80 transition hover:bg-white/10 hover:text-white"
-                title="文本"
-              >
-                <Type className="h-4 w-4" />
-              </button>
-              <button
-                type="button"
-                className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-white/80 transition hover:bg-white/10 hover:text-white"
-                title="形状"
-              >
-                <Square className="h-4 w-4" />
-              </button>
-              <button
-                type="button"
-                className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-white/80 transition hover:bg-white/10 hover:text-white"
-                title="图片"
-              >
-                <ImageIcon className="h-4 w-4" />
-              </button>
-              <button
-                type="button"
-                className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-white/80 transition hover:bg-white/10 hover:text-white"
-                title="表格"
-              >
-                <Table className="h-4 w-4" />
-              </button>
-              <button
-                type="button"
-                className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-white/80 transition hover:bg-white/10 hover:text-white"
-                title="公式"
-              >
-                <FunctionSquare className="h-4 w-4" />
-              </button>
-
-              <div className="mx-1 h-4 w-px bg-white/10" />
-
-              {/* Split frame chips */}
-              {stageFrames.length > 1 ? (
-                <div className="hidden items-center gap-1 sm:flex">
-                  {stageFrames.map((frame, idx) => (
-                    <button
-                      key={`${frame.slide_id}-${frame.split_index ?? idx}`}
-                      type="button"
-                      onClick={() =>
-                        dispatchStageSelection({
-                          type: "selectFrame",
-                          frameIndex: idx,
-                        })
-                      }
-                      className={cn(
-                        "rounded-full border px-2 py-0.5 text-[11px] transition",
-                        idx === resolvedActiveFrameIndex
-                          ? "border-[var(--deck-accent)] bg-[color:var(--deck-accent)]/20 text-white"
-                          : "border-white/20 bg-black/30 text-white/70 hover:bg-black/40"
-                      )}
-                    >
-                      {idx + 1}
-                    </button>
-                  ))}
-                </div>
-              ) : null}
-
-              <div className="flex items-center gap-1 pl-1 text-xs text-white/70">
-                <button
-                  type="button"
-                  onClick={() => setZoom(z => z === "fit" ? 0.75 : Math.max(0.25, z - 0.25))}
-                  className="inline-flex h-6 w-6 items-center justify-center rounded text-white/70 hover:bg-white/20 hover:text-white"
-                >
-                  <span className="text-sm">-</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setZoom(z => z === "fit" ? 1 : "fit")}
-                  className="w-10 text-center text-xs font-medium text-white/90 hover:text-white"
-                >
-                  {zoom === "fit" ? "Fit" : `${Math.round(zoom * 100)}%`}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setZoom(z => z === "fit" ? 1.25 : Math.min(3, z + 0.25))}
-                  className="inline-flex h-6 w-6 items-center justify-center rounded text-white/70 hover:bg-white/20 hover:text-white"
-                >
-                  <span className="text-sm">+</span>
-                </button>
-                <button
-                  type="button"
-                  className="inline-flex h-7 w-7 items-center justify-center rounded-xl transition hover:bg-white/10 hover:text-white"
-                >
-                  <Menu className="h-4 w-4" />
-                </button>
-              </div>
-            </div>
-          </div>
         </main>
         <PreviewCopilotDrawer
           projectId={projectId}

@@ -953,22 +953,10 @@ export function useGeneratePreviewState({
       setIsLoading(true);
       setPreviewBlockedReason(null);
 
-      const [response, sessionSnapshotResponse, eventListResponse] =
-        await Promise.all([
-          previewApi.getSessionPreview(activeSessionId, {
-            run_id: activeRunId,
-            artifact_id: currentArtifactId ?? undefined,
-          }),
-          generateApi
-            .getSessionSnapshot(activeSessionId, { run_id: activeRunId })
-            .catch(() => null),
-          generateApi
-            .listEvents(activeSessionId, {
-              run_id: activeRunId,
-              limit: 200,
-            })
-            .catch(() => null),
-        ]);
+      const response = await previewApi.getSessionPreview(activeSessionId, {
+        run_id: activeRunId,
+        artifact_id: currentArtifactId ?? undefined,
+      });
       const previewData = (response.data ?? null) as PreviewResponseData | null;
 
       if (!response.success || !previewData?.slides) {
@@ -1058,23 +1046,37 @@ export function useGeneratePreviewState({
           incomingContext
         )
       );
-      const snapshotData = (sessionSnapshotResponse?.data ?? null) as
-        | { outline?: Record<string, unknown> | null }
-        | null;
-      setCurrentPptUrl(resolvePptUrlFromSnapshot(sessionSnapshotResponse?.data ?? null));
-      setPreviewOutline(
-        snapshotData?.outline && typeof snapshotData.outline === "object"
-          ? snapshotData.outline
-          : null
-      );
-      setPreviewPreambleLogs(
-        extractPreviewPreambleLogs(
-          ((eventListResponse?.data?.events ?? []) as GenerationEvent[]) || []
-        )
-      );
       setPreviewBlockedReason(
         nextSlides.length === 0 ? "当前 run 暂无可展示预览。" : null
       );
+      void Promise.all([
+        generateApi
+          .getSessionSnapshot(activeSessionId, { run_id: activeRunId })
+          .catch(() => null),
+        generateApi
+          .listEvents(activeSessionId, {
+            run_id: activeRunId,
+            limit: 200,
+          })
+          .catch(() => null),
+      ]).then(([sessionSnapshotResponse, eventListResponse]) => {
+        const snapshotData = (sessionSnapshotResponse?.data ?? null) as
+          | { outline?: Record<string, unknown> | null }
+          | null;
+        setCurrentPptUrl(
+          resolvePptUrlFromSnapshot(sessionSnapshotResponse?.data ?? null)
+        );
+        setPreviewOutline(
+          snapshotData?.outline && typeof snapshotData.outline === "object"
+            ? snapshotData.outline
+            : null
+        );
+        setPreviewPreambleLogs(
+          extractPreviewPreambleLogs(
+            ((eventListResponse?.data?.events ?? []) as GenerationEvent[]) || []
+          )
+        );
+      });
     } catch (error) {
       const shouldPreserveExistingPreview =
         error instanceof ApiError && error.status === 409;
@@ -1278,11 +1280,13 @@ export function useGeneratePreviewState({
 
       if (
         eventType === "ppt.slide.generated" ||
-        eventType === "ppt.completed" ||
-        diegoEventType === "slide.generated" ||
-        diegoEventType === "compile.completed"
+        diegoEventType === "slide.generated"
       ) {
         void loadSlides();
+        continue;
+      }
+      if (eventType === "ppt.completed" || diegoEventType === "compile.completed") {
+        void Promise.all([loadSessionRuns(), loadSlides()]);
         continue;
       }
       if (diegoEventType === "run.failed" || diegoEventType === "slide.failed") {
@@ -1299,10 +1303,10 @@ export function useGeneratePreviewState({
         setPreviewSessionState(event.state);
       }
       if (eventType === "task.completed" || event.state === "SUCCESS") {
-        void loadSlides();
+        void Promise.all([loadSessionRuns(), loadSlides()]);
       }
     }
-  }, [activeRunId, events, loadSlides]);
+  }, [activeRunId, events, loadSessionRuns, loadSlides]);
 
   useEffect(() => {
     if (!activeRunId || !isSessionGenerating) return;
@@ -1354,10 +1358,14 @@ export function useGeneratePreviewState({
     try {
       setIsExporting(true);
 
-      const exportArtifactId =
+      let exportArtifactId =
         sessionRuns.find((run) => run.run_id === activeRunId)?.artifact_id ||
         currentArtifactId ||
         null;
+      if (!exportArtifactId) {
+        const runResponse = await generateApi.getRun(activeSessionId, activeRunId);
+        exportArtifactId = runResponse?.data?.run?.artifact_id || null;
+      }
       if (exportArtifactId) {
         await exportArtifact(exportArtifactId);
         return;
