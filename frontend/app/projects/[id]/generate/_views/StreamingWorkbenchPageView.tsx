@@ -1,6 +1,13 @@
 "use client";
 
-import { type CSSProperties, useEffect, useMemo, useReducer, useRef, useState } from "react";
+import {
+  type CSSProperties,
+  useEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+} from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -14,9 +21,9 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { previewApi, type EditableSlideScene } from "@/lib/sdk/preview";
+import { derivePptStatus } from "@/components/project/features/studio/panel/usePptHistoryStatusSync";
 import { PreviewCopilotDrawer } from "./components/PreviewCopilotDrawer";
 import { useGeneratePreviewState } from "./useGeneratePreviewState";
-import { RunSelectorPopover } from "./components/RunSelectorPopover";
 import { RegenerateSlideDialog } from "./components/RegenerateSlideDialog";
 import { SvgPreviewSurface } from "./components/SvgPreviewSurface";
 import {
@@ -88,7 +95,10 @@ function stageSelectionReducer(
   }
 }
 
-function normalizeHexColor(value: string | undefined, fallback: string): string {
+function normalizeHexColor(
+  value: string | undefined,
+  fallback: string
+): string {
   const raw = (value || "").trim().replace(/^#/, "");
   if (/^[0-9A-Fa-f]{3}$/.test(raw)) {
     return `#${raw
@@ -104,7 +114,10 @@ function normalizeHexColor(value: string | undefined, fallback: string): string 
 }
 
 function buildSlideFrames(slide: SlideItem): SlideFrame[] {
-  if (Array.isArray(slide.rendered_previews) && slide.rendered_previews.length > 0) {
+  if (
+    Array.isArray(slide.rendered_previews) &&
+    slide.rendered_previews.length > 0
+  ) {
     return [...slide.rendered_previews].sort(
       (a, b) => (a.split_index ?? 0) - (b.split_index ?? 0)
     );
@@ -124,7 +137,9 @@ function buildSlideFrames(slide: SlideItem): SlideFrame[] {
   return [];
 }
 
-function buildAuthorityFrames(slide: AuthoritySlide | null | undefined): SlideFrame[] {
+function buildAuthorityFrames(
+  slide: AuthoritySlide | null | undefined
+): SlideFrame[] {
   if (!slide) return [];
   if (Array.isArray(slide.frames) && slide.frames.length > 0) {
     return slide.frames.map((frame) => ({
@@ -155,30 +170,28 @@ function buildAuthorityFrames(slide: AuthoritySlide | null | undefined): SlideFr
   return [];
 }
 
-function hasAuthorityPreviewContent(slide: AuthoritySlide | null | undefined): boolean {
+function hasAuthorityPreviewContent(
+  slide: AuthoritySlide | null | undefined
+): boolean {
   return Boolean(
     slide &&
-      (isRenderableSvgDataUrl(slide.svg_data_url) ||
-        (Array.isArray(slide.frames) &&
-          slide.frames.some((frame) => isRenderableSvgDataUrl(frame.svg_data_url))))
+    (isRenderableSvgDataUrl(slide.svg_data_url) ||
+      (Array.isArray(slide.frames) &&
+        slide.frames.some((frame) =>
+          isRenderableSvgDataUrl(frame.svg_data_url)
+        )))
   );
 }
 
-function summarizeAuthoritySlide(slide: AuthoritySlide | null | undefined): string {
+function summarizeAuthoritySlide(
+  slide: AuthoritySlide | null | undefined
+): string {
   if (!slide) return "";
   if (slide.frames && slide.frames.length > 1) {
     return `包含 ${slide.frames.length} 个分片预览`;
   }
   if (slide.svg_data_url) return "Pagevra SVG preview";
   return "";
-}
-
-function isCompletedRun(
-  run: { run_status?: string | null; run_step?: string | null } | null | undefined
-): boolean {
-  const status = String(run?.run_status || "").toLowerCase();
-  const step = String(run?.run_step || "").toLowerCase();
-  return status === "completed" || step === "completed";
 }
 
 function isBadRunTitle(value: string | null | undefined): boolean {
@@ -191,6 +204,27 @@ function isBadRunTitle(value: string | null | undefined): boolean {
     lowered.includes("style_preset") ||
     lowered.includes("visual_policy")
   );
+}
+
+function resolveCopilotOutline(
+  previewOutline: Record<string, unknown> | null,
+  generationSession: Record<string, unknown> | null | undefined
+): Record<string, unknown> | null {
+  if (previewOutline && typeof previewOutline === "object") {
+    return previewOutline;
+  }
+  const candidates = [
+    generationSession?.outline,
+    generationSession?.session && typeof generationSession.session === "object"
+      ? (generationSession.session as { outline?: unknown }).outline
+      : null,
+  ];
+  for (const candidate of candidates) {
+    if (candidate && typeof candidate === "object") {
+      return candidate as Record<string, unknown>;
+    }
+  }
+  return null;
 }
 
 export default function StreamingWorkbenchPageView() {
@@ -208,18 +242,23 @@ export default function StreamingWorkbenchPageView() {
   const sessionIdFromQuery = searchParams?.get("session") || null;
   const runIdFromQuery = searchParams?.get("run") || null;
   const artifactIdFromQuery = searchParams?.get("artifact_id") || null;
-  const searchQueryString = searchParams?.toString() || "";
 
-  const [{ slideIndex: activeSlideIndex, frameIndex: activeFrameIndex }, dispatchStageSelection] =
-    useReducer(stageSelectionReducer, {
-      slideIndex: 0,
-      frameIndex: 0,
-    });
+  const [
+    { slideIndex: activeSlideIndex, frameIndex: activeFrameIndex },
+    dispatchStageSelection,
+  ] = useReducer(stageSelectionReducer, {
+    slideIndex: 0,
+    frameIndex: 0,
+  });
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [regenerateDialogOpen, setRegenerateDialogOpen] = useState(false);
   const [zoom, setZoom] = useState<number | "fit">("fit");
-  const [sceneBySlideId, setSceneBySlideId] = useState<Record<string, EditableSlideScene>>({});
-  const [selectedNodeBySlideId, setSelectedNodeBySlideId] = useState<Record<string, string | null>>({});
+  const [sceneBySlideId, setSceneBySlideId] = useState<
+    Record<string, EditableSlideScene>
+  >({});
+  const [selectedNodeBySlideId, setSelectedNodeBySlideId] = useState<
+    Record<string, string | null>
+  >({});
   const canvasRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -247,6 +286,7 @@ export default function StreamingWorkbenchPageView() {
     previewBlockedReason,
     isSessionGenerating,
     sessionFailureMessage,
+    sessionState,
     activeSessionId,
     activeRunId,
     authorityPreview,
@@ -278,25 +318,9 @@ export default function StreamingWorkbenchPageView() {
     [slides]
   );
   const authoritySlides = useMemo(
-    () => [...(authorityPreview?.slides ?? [])].sort((a, b) => a.index - b.index),
-    [authorityPreview]
-  );
-
-  const currentRunOptions = useMemo(
     () =>
-      sessionRuns
-        .slice()
-        .sort((a, b) => (b.run_no ?? 0) - (a.run_no ?? 0))
-        .map((run) => ({
-          value: run.run_id,
-          label:
-            (run.run_title?.trim() && !isBadRunTitle(run.run_title)
-              ? run.run_title.trim()
-              : "") ||
-            `Run #${run.run_no ?? "?"} (${run.run_id.slice(0, 8)})`,
-          status: run.run_status || "unknown",
-        })),
-    [sessionRuns]
+      [...(authorityPreview?.slides ?? [])].sort((a, b) => a.index - b.index),
+    [authorityPreview]
   );
 
   const themedColors = useMemo(() => {
@@ -322,18 +346,6 @@ export default function StreamingWorkbenchPageView() {
     [themedColors]
   );
 
-  const updateRunInQuery = (runId: string) => {
-    if (!projectId || !activeSessionId) return;
-    const query = new URLSearchParams(searchQueryString);
-    query.set("session", activeSessionId);
-    if (runId.trim()) {
-      query.set("run", runId.trim());
-    } else {
-      query.delete("run");
-    }
-    router.replace(`/projects/${projectId}/generate?${query.toString()}`);
-  };
-
   const moveSlide = (delta: -1 | 1) => {
     if (!activeSlideSlot) return;
     const nextIndex = activeSlideSlot.index + delta;
@@ -344,19 +356,30 @@ export default function StreamingWorkbenchPageView() {
   const runSelectionBlocked = Boolean(activeSessionId) && !activeRunId;
 
   const expectedSlideCount = useMemo(() => {
-    const runTarget = (currentRunDetail as { target_slide_count?: unknown } | null)?.target_slide_count;
+    const runTarget = (
+      currentRunDetail as { target_slide_count?: unknown } | null
+    )?.target_slide_count;
     const outlineNodes = (
-      generationSession?.session as { outline?: { nodes?: unknown } } | undefined
+      generationSession?.session as
+        | { outline?: { nodes?: unknown } }
+        | undefined
     )?.outline?.nodes;
     const outlineCount =
-      Array.isArray(outlineNodes) && outlineNodes.length > 0 ? outlineNodes.length : 0;
+      Array.isArray(outlineNodes) && outlineNodes.length > 0
+        ? outlineNodes.length
+        : 0;
     const highestLegacyIndex =
-      orderedSlides.length > 0 ? Math.max(...orderedSlides.map((slide) => slide.index)) : -1;
+      orderedSlides.length > 0
+        ? Math.max(...orderedSlides.map((slide) => slide.index))
+        : -1;
     const highestAuthorityIndex =
       authoritySlides.length > 0
         ? Math.max(...authoritySlides.map((slide) => slide.index))
         : -1;
-    const highestKnownIndex = Math.max(highestLegacyIndex, highestAuthorityIndex);
+    const highestKnownIndex = Math.max(
+      highestLegacyIndex,
+      highestAuthorityIndex
+    );
     if (typeof runTarget === "number" && runTarget > 0) {
       return Math.max(runTarget, outlineCount, highestKnownIndex + 1);
     }
@@ -381,7 +404,8 @@ export default function StreamingWorkbenchPageView() {
             const authoritySlide = authorityByIndex.get(i) ?? null;
             return {
               index: i,
-              title: authoritySlide?.title || legacySlide?.title || `Slide ${i + 1}`,
+              title:
+                authoritySlide?.title || legacySlide?.title || `Slide ${i + 1}`,
               legacySlide,
               authoritySlide,
               isPlaceholder: !legacySlide && !authoritySlide,
@@ -406,8 +430,13 @@ export default function StreamingWorkbenchPageView() {
   const activeLegacySlide = activeSlideSlot?.legacySlide ?? null;
   const activeAuthoritySlide = activeSlideSlot?.authoritySlide ?? null;
   const activeAuthorityFrames = buildAuthorityFrames(activeAuthoritySlide);
-  const activeSlideFrames = activeLegacySlide ? buildSlideFrames(activeLegacySlide) : [];
-  const stageFrames = activeAuthorityFrames.length > 0 ? activeAuthorityFrames : activeSlideFrames;
+  const activeSlideFrames = activeLegacySlide
+    ? buildSlideFrames(activeLegacySlide)
+    : [];
+  const stageFrames =
+    activeAuthorityFrames.length > 0
+      ? activeAuthorityFrames
+      : activeSlideFrames;
   const resolvedActiveFrameIndex =
     stageFrames.length > 0
       ? Math.min(activeFrameIndex, stageFrames.length - 1)
@@ -420,10 +449,10 @@ export default function StreamingWorkbenchPageView() {
     `Slide ${((activeSlideSlot?.index ?? 0) || 0) + 1}`;
   const activeAuthoritySlideId = activeAuthoritySlide?.slide_id ?? null;
   const activeScene = activeAuthoritySlideId
-    ? sceneBySlideId[activeAuthoritySlideId] ?? null
+    ? (sceneBySlideId[activeAuthoritySlideId] ?? null)
     : null;
   const selectedNodeId = activeAuthoritySlideId
-    ? selectedNodeBySlideId[activeAuthoritySlideId] ?? null
+    ? (selectedNodeBySlideId[activeAuthoritySlideId] ?? null)
     : null;
 
   const handleActiveAuthorityNodeSelect = (nodeId: string | null) => {
@@ -494,23 +523,63 @@ export default function StreamingWorkbenchPageView() {
   const hasAnyRenderableSlide = slideSlots.some((slot) =>
     slotHasRenderablePreview(slot)
   );
-  const isRunCompleted = isCompletedRun(currentRunDetail);
+  const copilotOutline = useMemo(
+    () =>
+      resolveCopilotOutline(
+        previewOutline,
+        (generationSession as Record<string, unknown> | null | undefined) ??
+          null
+      ),
+    [generationSession, previewOutline]
+  );
+  const derivedRunStatus = useMemo(
+    () =>
+      derivePptStatus({
+        sessionState: sessionState ?? null,
+        runStatus: currentRunDetail?.run_status ?? null,
+        runStep: currentRunDetail?.run_step ?? null,
+        hasSlideReadyEvent: hasAnyRenderableSlide,
+        hasOutlineCompletedEvent: false,
+      }),
+    [
+      currentRunDetail?.run_status,
+      currentRunDetail?.run_step,
+      hasAnyRenderableSlide,
+      sessionState,
+    ]
+  );
   const showPreviewLoadingNotice = isLoading && !hasAnyRenderableSlide;
-  const showGeneratingNotice = isSessionGenerating && !hasAnyRenderableSlide && !isLoading;
-  const syncStatusLabel = isRunCompleted
-    ? "已完成"
-    : hasAnyRenderableSlide
-      ? "单页可预览"
-      : isLoading
-        ? "读取单页预览图"
-        : isSessionGenerating
-          ? "同步预览中"
-          : "已同步";
-  const syncStatusDotClass = isRunCompleted || hasAnyRenderableSlide
-    ? "bg-emerald-500"
-    : isLoading || isSessionGenerating
-      ? "animate-pulse bg-amber-500"
-      : "bg-emerald-500";
+  const isRunCompleted = derivedRunStatus?.status === "completed";
+  const showGeneratingNotice =
+    derivedRunStatus?.ppt_status === "slides_generating" &&
+    !hasAnyRenderableSlide &&
+    !isLoading;
+  const syncStatusLabel =
+    derivedRunStatus?.status === "completed"
+      ? "已完成"
+      : derivedRunStatus?.status === "failed"
+        ? "失败"
+        : derivedRunStatus?.ppt_status === "outline_generating"
+          ? "大纲生成中"
+          : derivedRunStatus?.ppt_status === "outline_pending_confirm"
+            ? "大纲待确认"
+            : derivedRunStatus?.ppt_status === "slides_generating"
+              ? "课件生成中"
+              : derivedRunStatus?.ppt_status === "slide_preview_ready"
+                ? "单页可预览"
+                : isLoading
+                  ? "读取单页预览图"
+                  : "已同步";
+  const syncStatusDotClass =
+    derivedRunStatus?.status === "failed"
+      ? "bg-rose-500"
+      : isRunCompleted || derivedRunStatus?.ppt_status === "slide_preview_ready"
+        ? "bg-emerald-500"
+        : isLoading ||
+            derivedRunStatus?.status === "processing" ||
+            derivedRunStatus?.status === "draft"
+          ? "animate-pulse bg-amber-500"
+          : "bg-emerald-500";
   const showWaitingState =
     !runSelectionBlocked &&
     !previewBlockedReason &&
@@ -555,21 +624,25 @@ export default function StreamingWorkbenchPageView() {
           <div className="flex items-center gap-1 rounded-lg border border-black/10 bg-white px-1 h-9 text-sm text-[#1d1d1f]">
             <button
               type="button"
-              onClick={() => setZoom(z => z === "fit" ? 0.75 : Math.max(0.25, z - 0.25))}
+              onClick={() =>
+                setZoom((z) => (z === "fit" ? 0.75 : Math.max(0.25, z - 0.25)))
+              }
               className="inline-flex h-7 w-7 items-center justify-center rounded hover:bg-black/5"
             >
               -
             </button>
             <button
               type="button"
-              onClick={() => setZoom(z => z === "fit" ? 1 : "fit")}
+              onClick={() => setZoom((z) => (z === "fit" ? 1 : "fit"))}
               className="w-12 text-center text-xs font-medium hover:text-black/70"
             >
               {zoom === "fit" ? "Fit" : `${Math.round(zoom * 100)}%`}
             </button>
             <button
               type="button"
-              onClick={() => setZoom(z => z === "fit" ? 1.25 : Math.min(3, z + 0.25))}
+              onClick={() =>
+                setZoom((z) => (z === "fit" ? 1.25 : Math.min(3, z + 0.25)))
+              }
               className="inline-flex h-7 w-7 items-center justify-center rounded hover:bg-black/5"
             >
               +
@@ -598,9 +671,13 @@ export default function StreamingWorkbenchPageView() {
             disabled={!activeRunId || isExporting || !canExport}
             className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-[#1d1d1f] px-3 text-sm font-medium text-white transition hover:bg-black/80 disabled:opacity-50"
           >
-            {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+            {isExporting ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="h-4 w-4" />
+            )}
             <span className="hidden sm:inline">
-              {isExporting ? "导出中" : (!canExport ? "PPTX 生成中" : "导出")}
+              {isExporting ? "导出中" : !canExport ? "PPTX 生成中" : "导出"}
             </span>
           </button>
         </div>
@@ -628,28 +705,25 @@ export default function StreamingWorkbenchPageView() {
             </div>
           </div>
 
-          {/* Run selector */}
-          <div className="px-4 pb-3">
-            <RunSelectorPopover
-              options={currentRunOptions}
-              value={activeRunId ?? ""}
-              onChange={updateRunInQuery}
-              disabled={!activeSessionId || currentRunOptions.length === 0}
-            />
-          </div>
-
           {/* Thumbnails */}
-          <div className="flex-1 overflow-y-auto px-3 pb-3">
+          <div className="flex-1 overflow-y-auto px-3 pb-3 pt-1">
             <div className="flex flex-col gap-2">
               {showPreviewLoadingNotice || showGeneratingNotice ? (
                 <div className="flex items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 mb-1 shadow-sm">
                   <Loader2 className="h-4 w-4 animate-spin text-amber-500 shrink-0" />
                   <div className="min-w-0 flex-1">
                     <p className="text-xs font-medium text-amber-700">
-                      {showPreviewLoadingNotice ? "正在读取单页预览图..." : "正在同步可预览页..."}
+                      {showPreviewLoadingNotice
+                        ? "正在读取单页预览图..."
+                        : "正在同步可预览页..."}
                     </p>
                     <div className="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-amber-200/50">
-                      <div className="h-full bg-amber-400" style={{ width: `${Math.max(5, (orderedSlides.length / Math.max(1, 10)) * 100)}%` }} />
+                      <div
+                        className="h-full bg-amber-400"
+                        style={{
+                          width: `${Math.max(5, (orderedSlides.length / Math.max(1, 10)) * 100)}%`,
+                        }}
+                      />
                     </div>
                   </div>
                 </div>
@@ -668,7 +742,7 @@ export default function StreamingWorkbenchPageView() {
                       className="group relative w-full overflow-hidden rounded-xl border border-black/5 bg-white text-left shadow-sm"
                     >
                       <div className="aspect-video w-full bg-[#f5f5f7] flex items-center justify-center">
-                         <Loader2 className="h-4 w-4 animate-spin text-black/20" />
+                        <Loader2 className="h-4 w-4 animate-spin text-black/20" />
                       </div>
                       <span className="absolute left-2 top-2 rounded bg-black/10 px-1.5 py-0.5 text-[10px] font-semibold text-black/40">
                         {String(slide.index + 1).padStart(2, "0")}
@@ -679,9 +753,15 @@ export default function StreamingWorkbenchPageView() {
                     </div>
                   );
                 }
-                const slideFrames = slide.legacySlide ? buildSlideFrames(slide.legacySlide) : [];
-                const authorityFrames = buildAuthorityFrames(slide.authoritySlide);
-                const authoritySummary = summarizeAuthoritySlide(slide.authoritySlide);
+                const slideFrames = slide.legacySlide
+                  ? buildSlideFrames(slide.legacySlide)
+                  : [];
+                const authorityFrames = buildAuthorityFrames(
+                  slide.authoritySlide
+                );
+                const authoritySummary = summarizeAuthoritySlide(
+                  slide.authoritySlide
+                );
                 const isActive = activeSlideSlot?.index === slide.index;
                 const firstAuthorityFrame = authorityFrames[0] || null;
                 const firstFrame = slideFrames[0] || null;
@@ -712,7 +792,7 @@ export default function StreamingWorkbenchPageView() {
                         ? "border-[#3b82f6] shadow-[0_0_0_1px_rgba(59,130,246,0.15)]"
                         : "border-black/10 hover:border-black/25"
                     )}
-                    >
+                  >
                     <div className="aspect-video w-full bg-[#f5f5f7]">
                       {thumbnailSvgDataUrl ? (
                         <SvgPreviewSurface
@@ -739,9 +819,12 @@ export default function StreamingWorkbenchPageView() {
                     <span className="absolute left-2 top-2 rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-semibold text-white">
                       {String(slide.index + 1).padStart(2, "0")}
                     </span>
-                    {Math.max(authorityFrames.length, slideFrames.length) > 1 ? (
+                    {Math.max(authorityFrames.length, slideFrames.length) >
+                    1 ? (
                       <span className="absolute right-2 top-2 rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-semibold text-white">
-                        +{Math.max(authorityFrames.length, slideFrames.length) - 1}
+                        +
+                        {Math.max(authorityFrames.length, slideFrames.length) -
+                          1}
                       </span>
                     ) : null}
                     <span className="absolute bottom-2 left-2 right-2 line-clamp-1 text-[11px] font-medium text-white/90">
@@ -752,8 +835,6 @@ export default function StreamingWorkbenchPageView() {
               })}
             </div>
           </div>
-
-
 
           {/* Compact status footer */}
           <div className="border-t border-black/5 px-4 py-2">
@@ -788,7 +869,8 @@ export default function StreamingWorkbenchPageView() {
               <div className="flex flex-col items-center justify-center m-auto gap-3 px-6 text-center text-white/70">
                 <p className="text-lg font-semibold text-white">请选择 run</p>
                 <p className="max-w-[460px] text-sm text-white/60">
-                  当前页面已切换为严格 Diego 预览链路，不再自动回退到 session 最新产物。
+                  当前页面已切换为严格 Diego 预览链路，不再自动回退到 session
+                  最新产物。
                 </p>
               </div>
             ) : canRenderStage ? (
@@ -797,9 +879,18 @@ export default function StreamingWorkbenchPageView() {
                   ref={canvasRef}
                   className={cn(
                     "relative bg-white shadow-[0_24px_70px_-12px_rgba(0,0,0,0.35)] transition-all duration-200 m-auto",
-                    zoom === "fit" ? "w-full max-w-[1100px] rounded-lg overflow-hidden" : "rounded-lg overflow-hidden"
+                    zoom === "fit"
+                      ? "w-full max-w-[1100px] rounded-lg overflow-hidden"
+                      : "rounded-lg overflow-hidden"
                   )}
-                  style={zoom !== "fit" ? { width: `${1100 * zoom}px`, minWidth: `${1100 * zoom}px` } : {}}
+                  style={
+                    zoom !== "fit"
+                      ? {
+                          width: `${1100 * zoom}px`,
+                          minWidth: `${1100 * zoom}px`,
+                        }
+                      : {}
+                  }
                 >
                   <div className="aspect-video w-full bg-white relative">
                     {activeStageFrame?.svg_data_url ? (
@@ -809,9 +900,12 @@ export default function StreamingWorkbenchPageView() {
                       />
                     ) : (
                       <div className="flex h-full flex-col items-center justify-center gap-2 text-center text-sm text-black/55">
-                        <p className="font-medium text-black/70">Pagevra 单页 SVG 预览未就绪</p>
+                        <p className="font-medium text-black/70">
+                          Pagevra 单页 SVG 预览未就绪
+                        </p>
                         <p className="max-w-[360px] text-xs text-black/45">
-                          当前 PPT 预览只接受 Pagevra single-slide compile 返回的 SVG manifest，不再显示 HTML/PNG 旧链路结果。
+                          当前 PPT 预览只接受 Pagevra single-slide compile
+                          返回的 SVG manifest，不再显示 HTML/PNG 旧链路结果。
                         </p>
                       </div>
                     )}
@@ -847,7 +941,6 @@ export default function StreamingWorkbenchPageView() {
               </div>
             ) : null}
           </section>
-
         </main>
         <PreviewCopilotDrawer
           projectId={projectId}
@@ -858,7 +951,7 @@ export default function StreamingWorkbenchPageView() {
           activeScene={activeScene}
           selectedNodeId={selectedNodeId}
           preambleLogs={previewPreambleLogs}
-          outline={previewOutline}
+          outline={copilotOutline}
           onSelectSlide={(slideIndex) => {
             dispatchStageSelection({
               type: "selectSlide",
@@ -916,7 +1009,10 @@ export default function StreamingWorkbenchPageView() {
               <button
                 type="button"
                 onClick={() => moveSlide(1)}
-                disabled={!activeSlideSlot || activeSlideSlot.index >= slideSlots.length - 1}
+                disabled={
+                  !activeSlideSlot ||
+                  activeSlideSlot.index >= slideSlots.length - 1
+                }
                 className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/20 bg-black/45 text-white transition hover:bg-black/60 disabled:opacity-30"
               >
                 <ChevronRight className="h-5 w-5" />
@@ -933,7 +1029,8 @@ export default function StreamingWorkbenchPageView() {
 
             {/* Fullscreen bottom info */}
             <div className="absolute bottom-5 left-1/2 z-10 -translate-x-1/2 rounded-full border border-white/10 bg-black/50 px-4 py-1.5 text-xs text-white/80 backdrop-blur">
-              {activeSlideSlot?.title || `Slide ${currentSlideNumber || 1}`} · {currentSlideNumber} / {totalSlides}
+              {activeSlideSlot?.title || `Slide ${currentSlideNumber || 1}`} ·{" "}
+              {currentSlideNumber} / {totalSlides}
             </div>
           </motion.div>
         ) : null}

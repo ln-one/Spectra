@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ChevronRight, Loader2, Wand2 } from "lucide-react";
+import { ChevronRight, Loader2, Search, Wand2 } from "lucide-react";
 import { ThinkingMark } from "@/components/icons/status/ThinkingMark";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,6 +25,21 @@ type PreviewChatMessage = {
   content: string;
   timestamp?: string;
   metadata?: Record<string, unknown> | null;
+};
+
+type PexelsResult = {
+  id: string;
+  thumbnail_url: string;
+  full_url: string;
+  photographer: string;
+  width: number;
+  height: number;
+};
+
+type OutlineCard = {
+  index: number;
+  title: string;
+  bullets: string[];
 };
 
 interface PreviewCopilotDrawerProps {
@@ -75,9 +90,52 @@ function resolveRequestedSlideIndex(
 
 function summarizeNode(node: EditableSlideNode): string {
   if (node.kind === "text") {
-    return (node.text || "文本节点").slice(0, 36);
+    return (node.text || node.label || "文本节点").slice(0, 36);
   }
-  return node.alt || node.src || "图片节点";
+  return node.alt || node.label || node.src || "图片节点";
+}
+
+function normalizeOutlineCards(
+  outline: Record<string, unknown> | null
+): OutlineCard[] {
+  if (!outline || typeof outline !== "object") return [];
+  const nestedOutline =
+    outline.outline && typeof outline.outline === "object"
+      ? (outline.outline as Record<string, unknown>)
+      : null;
+  const candidates = [
+    outline.nodes,
+    outline.sections,
+    nestedOutline?.nodes,
+    nestedOutline?.sections,
+  ];
+  const rawItems = candidates.find((candidate) => Array.isArray(candidate));
+  if (!Array.isArray(rawItems)) return [];
+  return rawItems
+    .filter(
+      (item): item is Record<string, unknown> =>
+        !!item && typeof item === "object"
+    )
+    .map((item, index) => {
+      const bulletCandidates = [
+        item.key_points,
+        item.bullets,
+        item.items,
+        item.points,
+      ];
+      const bullets =
+        bulletCandidates
+          .find((candidate) => Array.isArray(candidate))
+          ?.map((bullet) => String(bullet || "").trim())
+          .filter(Boolean) ?? [];
+      return {
+        index,
+        title: String(
+          item.title || item.heading || `Slide ${index + 1}`
+        ).trim(),
+        bullets,
+      };
+    });
 }
 
 export function PreviewCopilotDrawer({
@@ -98,27 +156,48 @@ export function PreviewCopilotDrawer({
   const [expanded, setExpanded] = useState(false);
   const [messages, setMessages] = useState<PreviewChatMessage[]>([]);
   const [input, setInput] = useState("");
+  const [composerMode, setComposerMode] = useState<"redo" | "chat">("redo");
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSavingScene, setIsSavingScene] = useState(false);
   const [draftValues, setDraftValues] = useState<Record<string, string>>({});
+  const [imageTargetNodeId, setImageTargetNodeId] = useState<string | null>(
+    null
+  );
   const [pexelsQuery, setPexelsQuery] = useState("");
-  const [pexelsResults, setPexelsResults] = useState<
-    Array<{
-      id: string;
-      thumbnail_url: string;
-      full_url: string;
-      photographer: string;
-      width: number;
-      height: number;
-    }>
-  >([]);
+  const [pexelsResults, setPexelsResults] = useState<PexelsResult[]>([]);
   const [isSearchingImages, setIsSearchingImages] = useState(false);
 
+  const outlineCards = useMemo(() => normalizeOutlineCards(outline), [outline]);
+  const textNodes = useMemo(
+    () => activeScene?.nodes.filter((node) => node.kind === "text") ?? [],
+    [activeScene?.nodes]
+  );
+  const imageNodes = useMemo(
+    () => activeScene?.nodes.filter((node) => node.kind === "image") ?? [],
+    [activeScene?.nodes]
+  );
   const selectedNode = useMemo(
-    () => activeScene?.nodes.find((node) => node.node_id === selectedNodeId) ?? null,
+    () =>
+      activeScene?.nodes.find((node) => node.node_id === selectedNodeId) ??
+      null,
     [activeScene?.nodes, selectedNodeId]
   );
+  const activeImageNode = useMemo(() => {
+    if (!imageNodes.length) return null;
+    const selectedImage =
+      selectedNode?.kind === "image"
+        ? (imageNodes.find((node) => node.node_id === selectedNode.node_id) ??
+          null)
+        : null;
+    if (selectedImage) return selectedImage;
+    if (imageTargetNodeId) {
+      return (
+        imageNodes.find((node) => node.node_id === imageTargetNodeId) ?? null
+      );
+    }
+    return imageNodes[0] ?? null;
+  }, [imageNodes, imageTargetNodeId, selectedNode]);
 
   useEffect(() => {
     if (!activeScene) {
@@ -137,9 +216,25 @@ export function PreviewCopilotDrawer({
   }, [activeScene]);
 
   useEffect(() => {
+    if (!imageNodes.length) {
+      setImageTargetNodeId(null);
+      return;
+    }
+    if (selectedNode?.kind === "image") {
+      setImageTargetNodeId(selectedNode.node_id);
+      return;
+    }
+    setImageTargetNodeId((previous) =>
+      previous && imageNodes.some((node) => node.node_id === previous)
+        ? previous
+        : (imageNodes[0]?.node_id ?? null)
+    );
+  }, [imageNodes, selectedNode]);
+
+  useEffect(() => {
     setPexelsResults([]);
     setPexelsQuery("");
-  }, [selectedNodeId]);
+  }, [activeSlide?.slide_id, imageTargetNodeId]);
 
   useEffect(() => {
     if (!sessionId) {
@@ -172,37 +267,12 @@ export function PreviewCopilotDrawer({
     };
   }, [projectId, runId, sessionId]);
 
-  const outlineNodes = useMemo(() => {
-    if (!outline || typeof outline !== "object" || !Array.isArray(outline.nodes)) {
-      return [];
-    }
-    return outline.nodes
-      .filter((item): item is Record<string, unknown> => !!item && typeof item === "object")
-      .map((item, index) => ({
-        index,
-        title: String(item.title || `Slide ${index + 1}`).trim(),
-        bullets: (
-          Array.isArray(item.key_points)
-            ? item.key_points
-            : Array.isArray(item.bullets)
-              ? item.bullets
-              : []
-        )
-          .map((bullet) => String(bullet).trim())
-          .filter(Boolean),
-      }));
-  }, [outline]);
-
-  const selectedNodeDraft = selectedNode
-    ? draftValues[selectedNode.node_id] ??
-      (selectedNode.kind === "text" ? selectedNode.text || "" : selectedNode.src || "")
-    : "";
-
   const dirtyOperations = useMemo(() => {
     if (!activeScene) return [];
     return activeScene.nodes
       .map((node) => {
-        const original = node.kind === "text" ? node.text || "" : node.src || "";
+        const original =
+          node.kind === "text" ? node.text || "" : node.src || "";
         const draft = draftValues[node.node_id] ?? original;
         if (draft === original) return null;
         return {
@@ -217,6 +287,12 @@ export function PreviewCopilotDrawer({
       value: string;
     }>;
   }, [activeScene, draftValues]);
+
+  const dirtyNodeIds = useMemo(
+    () => new Set(dirtyOperations.map((item) => item.node_id)),
+    [dirtyOperations]
+  );
+  const visibleMessages = useMemo(() => messages.slice(-12), [messages]);
 
   const submitChatMessage = async (content: string) => {
     if (!sessionId) return;
@@ -262,7 +338,9 @@ export function PreviewCopilotDrawer({
       artifact_id: artifactId ?? undefined,
       slide_index: requestedSlideIndex + 1,
       slide_id:
-        requestedSlideIndex === activeSlide?.index ? activeSlide?.slide_id : undefined,
+        requestedSlideIndex === activeSlide?.index
+          ? activeSlide?.slide_id
+          : undefined,
       instruction: content,
       scope: "current_slide_only",
       preserve_style: true,
@@ -287,7 +365,7 @@ export function PreviewCopilotDrawer({
     ]);
   };
 
-  const handleSend = async () => {
+  const handleChatSubmit = async () => {
     const trimmed = input.trim();
     if (!trimmed || !sessionId || isSubmitting) return;
     try {
@@ -301,7 +379,10 @@ export function PreviewCopilotDrawer({
 
   const handleRedoCurrentSlide = async () => {
     const trimmed = input.trim();
-    const requestedSlideIndex = resolveRequestedSlideIndex(trimmed, activeSlide);
+    const requestedSlideIndex = resolveRequestedSlideIndex(
+      trimmed,
+      activeSlide
+    );
     if (!trimmed || requestedSlideIndex === null || isSubmitting) return;
     try {
       setIsSubmitting(true);
@@ -313,6 +394,14 @@ export function PreviewCopilotDrawer({
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handlePrimarySubmit = async () => {
+    if (composerMode === "redo") {
+      await handleRedoCurrentSlide();
+      return;
+    }
+    await handleChatSubmit();
   };
 
   const handleSaveScene = async () => {
@@ -355,10 +444,19 @@ export function PreviewCopilotDrawer({
     try {
       setIsSearchingImages(true);
       const response = await previewApi.searchPexelsImages(query);
-      setPexelsResults(response.data.results);
+      setPexelsResults(response.data.results.slice(0, 4));
     } finally {
       setIsSearchingImages(false);
     }
+  };
+
+  const handleApplyImage = (nodeId: string, value: string) => {
+    setDraftValues((previous) => ({
+      ...previous,
+      [nodeId]: value,
+    }));
+    setImageTargetNodeId(nodeId);
+    onSelectNode?.(nodeId);
   };
 
   if (!expanded) {
@@ -366,77 +464,94 @@ export function PreviewCopilotDrawer({
       <button
         type="button"
         onClick={() => setExpanded(true)}
-        className="absolute right-0 top-1/2 z-40 flex h-14 w-10 -translate-y-1/2 items-center justify-center rounded-l-xl border border-r-0 border-black/10 bg-white/90 shadow-lg backdrop-blur-md transition-all hover:shadow-xl group"
+        className="group absolute right-0 top-1/2 z-40 flex h-16 w-11 -translate-y-1/2 items-center justify-center rounded-l-2xl border border-r-0 border-black/10 bg-white/92 shadow-lg backdrop-blur-md transition-all hover:shadow-xl"
         title="展开 Preview Copilot"
       >
-        <ThinkingMark className="h-5 w-5 text-blue-600 transition-transform group-hover:scale-110" />
+        <ThinkingMark className="h-6 w-6 text-blue-600 transition-transform group-hover:scale-110" />
       </button>
     );
   }
 
   return (
-    <aside className="absolute right-4 top-4 bottom-4 z-40 flex w-[420px] flex-col overflow-hidden rounded-2xl border border-black/5 bg-white/95 shadow-2xl backdrop-blur-xl">
-      <div className="flex h-14 shrink-0 items-center justify-between border-b border-black/5 bg-white/50 px-4">
-        <div className="min-w-0 flex items-center gap-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-50">
-            <ThinkingMark className="h-4 w-4 text-blue-600" />
+    <aside className="absolute right-4 top-4 bottom-4 z-40 flex w-[525px] flex-col overflow-hidden rounded-[28px] border border-black/5 bg-white/95 shadow-2xl backdrop-blur-xl">
+      <div className="flex h-16 shrink-0 items-center justify-between border-b border-black/5 bg-white/60 px-5">
+        <div className="min-w-0 flex items-center gap-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50">
+            <ThinkingMark className="h-5 w-5 text-blue-600" />
           </div>
           <div>
-            <div className="truncate text-sm font-semibold text-[#1d1d1f]">
+            <div className="truncate text-base font-semibold text-[#1d1d1f]">
               智能助手
             </div>
-            <div className="mt-0.5 text-[10px] leading-none text-black/45">
-              预览上下文、节点编辑与单页重做
+            <div className="mt-1 text-xs leading-none text-black/45">
+              前置信息、大纲、当前页节点与单页重做
             </div>
           </div>
         </div>
         <Button
           variant="ghost"
           size="icon"
-          className="h-8 w-8 rounded-full text-black/40 hover:bg-black/5 hover:text-black/80"
+          className="h-9 w-9 rounded-full text-black/40 hover:bg-black/5 hover:text-black/80"
           onClick={() => setExpanded(false)}
         >
-          <ChevronRight className="h-4 w-4" />
+          <ChevronRight className="h-5 w-5" />
         </Button>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto bg-[#fafafa]">
-        <div className="space-y-8 px-5 py-6">
+      <div className="min-h-0 flex-1 overflow-y-auto bg-[linear-gradient(180deg,#fafbff_0%,#f7f7f8_38%,#f5f5f6_100%)]">
+        <div className="space-y-10 px-6 py-7">
           <section className="space-y-4">
-            <div className="flex items-center gap-2">
-              <div className="h-4 w-1 rounded-full bg-blue-500" />
-              <h3 className="text-sm font-semibold text-[#1d1d1f]">前置过程记录</h3>
+            <div className="flex items-center gap-3">
+              <div className="h-5 w-1.5 rounded-full bg-blue-500" />
+              <h3 className="text-base font-semibold text-[#1d1d1f]">
+                前置过程记录
+              </h3>
             </div>
             <div className="space-y-4">
               {preambleLogs.length === 0 ? (
-                <div className="text-sm italic text-black/40">暂无可展示记录</div>
+                <div className="text-base italic text-black/40">
+                  暂无可展示记录
+                </div>
               ) : (
                 preambleLogs.map((log) => {
-                  const detailSections = log.detail ? parseDetailSections(log.detail) : [];
+                  const detailSections = log.detail
+                    ? parseDetailSections(log.detail)
+                    : [];
                   const isRequirementsCard = detailSections.length > 0;
                   const tone = log.tone as never;
                   return (
-                    <div key={log.id} className="relative border-l border-black/10 pl-4">
-                      <div className="absolute left-[-4.5px] top-1.5 h-2 w-2 rounded-full border-2 border-blue-500 bg-white" />
+                    <div
+                      key={log.id}
+                      className="relative border-l border-black/10 pl-5"
+                    >
+                      <div className="absolute left-[-5px] top-2 h-2.5 w-2.5 rounded-full border-2 border-blue-500 bg-white" />
                       {!isRequirementsCard ? (
                         <div className="flex items-center gap-2">
-                          <span className={cn("text-[13px] font-medium text-zinc-800", toneClassName(tone))}>
+                          <span
+                            className={cn(
+                              "text-[15px] font-medium text-zinc-800",
+                              toneClassName(tone)
+                            )}
+                          >
                             {log.title}
                           </span>
                         </div>
                       ) : null}
                       {isRequirementsCard ? (
-                        <div className="mt-2 space-y-4 rounded-xl border border-black/5 bg-white p-3 shadow-sm">
+                        <div className="mt-2.5 space-y-4 rounded-2xl border border-black/5 bg-white p-4 shadow-sm">
                           {detailSections.map((section, sectionIndex) => (
-                            <div key={`${log.id}:${section.title}:${sectionIndex}`} className="space-y-2">
-                              <h4 className="text-[13px] font-semibold text-zinc-900">
+                            <div
+                              key={`${log.id}:${section.title}:${sectionIndex}`}
+                              className="space-y-2.5"
+                            >
+                              <h4 className="text-[15px] font-semibold text-zinc-900">
                                 {section.title}
                               </h4>
-                              <div className="space-y-1.5 pl-1">
+                              <div className="space-y-2 pl-1">
                                 {section.lines.map((line, lineIndex) => (
                                   <p
                                     key={`${log.id}:${section.title}:${lineIndex}`}
-                                    className="text-[12px] leading-relaxed text-zinc-600"
+                                    className="text-[14px] leading-relaxed text-zinc-600"
                                   >
                                     {line.replace(/^[-•]\s*/, "")}
                                   </p>
@@ -446,7 +561,7 @@ export function PreviewCopilotDrawer({
                           ))}
                         </div>
                       ) : log.detail ? (
-                        <div className="mt-1 whitespace-pre-wrap text-[12px] leading-relaxed text-zinc-600">
+                        <div className="mt-1.5 whitespace-pre-wrap text-[14px] leading-relaxed text-zinc-600">
                           {log.detail}
                         </div>
                       ) : null}
@@ -458,33 +573,40 @@ export function PreviewCopilotDrawer({
           </section>
 
           <section className="space-y-4">
-            <div className="flex items-center gap-2">
-              <div className="h-4 w-1 rounded-full bg-indigo-500" />
-              <h3 className="text-sm font-semibold text-[#1d1d1f]">已确认大纲</h3>
+            <div className="flex items-center gap-3">
+              <div className="h-5 w-1.5 rounded-full bg-indigo-500" />
+              <h3 className="text-base font-semibold text-[#1d1d1f]">
+                已确认大纲
+              </h3>
             </div>
             <div className="space-y-3">
-              {outlineNodes.length === 0 ? (
-                <div className="text-sm italic text-black/40">暂无大纲内容</div>
+              {outlineCards.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-black/10 bg-white/70 px-4 py-5 text-base italic text-black/40">
+                  暂无大纲内容
+                </div>
               ) : (
-                outlineNodes.map((node) => (
+                outlineCards.map((node) => (
                   <button
                     key={`${node.index}-${node.title}`}
                     type="button"
                     onClick={() => onSelectSlide?.(node.index)}
-                    className="group flex w-full flex-col rounded-xl border border-black/5 bg-white p-3 text-left shadow-sm transition hover:border-black/10 hover:shadow-md"
+                    className="group flex w-full flex-col rounded-2xl border border-black/5 bg-white px-4 py-3.5 text-left shadow-sm transition hover:border-black/10 hover:shadow-md"
                   >
                     <div className="flex items-start gap-3">
-                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-indigo-50 text-[10px] font-bold text-indigo-600">
+                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-indigo-50 text-[11px] font-bold text-indigo-600">
                         {node.index + 1}
                       </span>
-                      <span className="pt-0.5 text-[13px] font-medium leading-snug text-[#1d1d1f]">
+                      <span className="pt-0.5 text-[15px] font-medium leading-snug text-[#1d1d1f]">
                         {node.title}
                       </span>
                     </div>
                     {node.bullets.length > 0 ? (
-                      <div className="mt-2.5 space-y-1 pl-8">
+                      <div className="mt-3 space-y-1.5 pl-9">
                         {node.bullets.map((bullet, idx) => (
-                          <div key={idx} className="text-[12px] leading-snug text-zinc-500">
+                          <div
+                            key={idx}
+                            className="text-[13px] leading-snug text-zinc-500"
+                          >
                             {bullet}
                           </div>
                         ))}
@@ -496,147 +618,299 @@ export function PreviewCopilotDrawer({
             </div>
           </section>
 
-          <section className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="h-4 w-1 rounded-full bg-emerald-500" />
-                <h3 className="text-sm font-semibold text-[#1d1d1f]">
-                  当前页节点编辑{activeSlide ? ` (第${activeSlide.index + 1}页)` : ""}
-                </h3>
+          <section className="space-y-5">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="h-5 w-1.5 rounded-full bg-emerald-500" />
+                <div>
+                  <h3 className="text-base font-semibold text-[#1d1d1f]">
+                    当前页节点编辑
+                    {activeSlide ? ` (第${activeSlide.index + 1}页)` : ""}
+                  </h3>
+                  <div className="mt-1 text-xs text-black/45">
+                    直接改文本，或为当前页图片搜索替换源图
+                  </div>
+                </div>
               </div>
               <Button
                 size="sm"
                 variant="outline"
-                className="h-7 gap-1.5 border-black/10 px-2 text-xs hover:bg-black/5"
+                className="h-9 shrink-0 gap-2 rounded-full border-black/10 px-4 text-sm hover:bg-black/5"
                 onClick={() => void handleSaveScene()}
                 disabled={isSavingScene || dirtyOperations.length === 0}
               >
-                {isSavingScene ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wand2 className="h-3 w-3" />}
-                保存
+                {isSavingScene ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Wand2 className="h-4 w-4" />
+                )}
+                {dirtyOperations.length > 0
+                  ? `保存 ${dirtyOperations.length} 项`
+                  : "保存修改"}
               </Button>
             </div>
-            {!activeScene || activeScene.nodes.length === 0 ? (
-              <div className="text-sm italic text-black/40">
-                {activeScene?.readonly_reason || "当前页节点仍在解析中"}
+
+            {!activeScene ? (
+              <div className="rounded-2xl border border-dashed border-black/10 bg-white/70 px-4 py-5 text-base italic text-black/40">
+                当前页节点仍在解析中
+              </div>
+            ) : activeScene.nodes.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-black/10 bg-white/70 px-4 py-5 text-base italic text-black/40">
+                {activeScene.readonly_reason || "当前页暂不支持结构化编辑"}
               </div>
             ) : (
-              <div className="space-y-3">
-                <div className="flex flex-wrap gap-2">
-                  {activeScene.nodes.slice(0, 16).map((node) => (
-                    <button
-                      key={node.node_id}
-                      type="button"
-                      onClick={() => onSelectNode?.(node.node_id)}
-                      className={cn(
-                        "rounded-full border px-2.5 py-1 text-[11px] transition",
-                        node.node_id === selectedNodeId
-                          ? "border-emerald-500 bg-emerald-50 text-emerald-700"
-                          : "border-black/10 bg-white text-black/60 hover:border-black/20"
-                      )}
-                    >
-                      {node.kind === "text" ? "Text" : "Image"} · {summarizeNode(node)}
-                    </button>
-                  ))}
+              <div className="space-y-5">
+                <div className="grid gap-3">
+                  {textNodes.map((node) => {
+                    const value = draftValues[node.node_id] ?? node.text ?? "";
+                    const isDirty = dirtyNodeIds.has(node.node_id);
+                    return (
+                      <div
+                        key={node.node_id}
+                        className={cn(
+                          "rounded-2xl border bg-white p-4 shadow-sm transition",
+                          isDirty
+                            ? "border-emerald-300 shadow-emerald-100/60"
+                            : "border-black/5"
+                        )}
+                      >
+                        <div className="mb-3 flex items-center justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-black/35">
+                              文本节点
+                            </div>
+                            <div className="mt-1 truncate text-sm font-medium text-[#1d1d1f]">
+                              {node.label}
+                            </div>
+                          </div>
+                          <div className="rounded-full bg-black/5 px-2.5 py-1 text-[11px] text-black/45">
+                            {summarizeNode(node)}
+                          </div>
+                        </div>
+                        <Textarea
+                          value={value}
+                          onFocus={() => onSelectNode?.(node.node_id)}
+                          onChange={(event) =>
+                            setDraftValues((previous) => ({
+                              ...previous,
+                              [node.node_id]: event.target.value,
+                            }))
+                          }
+                          className="min-h-[118px] resize-y rounded-xl border-black/10 bg-white text-[14px] leading-relaxed text-zinc-700 shadow-sm focus-visible:ring-1 focus-visible:ring-emerald-500"
+                        />
+                      </div>
+                    );
+                  })}
                 </div>
-                {selectedNode ? (
-                  <div className="space-y-2 rounded-xl border border-black/5 bg-white p-3 shadow-sm">
-                    <div className="text-[11px] font-semibold uppercase tracking-wide text-black/35">
-                      {selectedNode.kind === "text" ? "文本节点" : "图片节点"}
-                    </div>
-                    <div className="text-xs text-black/45">{selectedNode.label}</div>
-                    <Textarea
-                      value={selectedNodeDraft}
-                      onChange={(event) =>
-                        setDraftValues((previous) => ({
-                          ...previous,
-                          [selectedNode.node_id]: event.target.value,
-                        }))
-                      }
-                      className="min-h-[88px] resize-y border-black/10 bg-white text-[13px] text-zinc-700 shadow-sm focus-visible:ring-1 focus-visible:ring-emerald-500"
-                    />
-                    {selectedNode.kind === "image" ? (
-                      <div className="space-y-3 rounded-lg border border-black/5 bg-zinc-50 p-3">
-                        <div className="text-[11px] font-semibold uppercase tracking-wide text-black/35">
-                          搜索替换图片
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Input
-                            value={pexelsQuery}
-                            onChange={(event) => setPexelsQuery(event.target.value)}
-                            placeholder="搜索 Pexels 图片"
-                            className="h-9 border-black/10 bg-white text-[13px]"
-                          />
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-9 border-black/10 px-3 text-xs"
-                            onClick={() => void handleSearchImages()}
-                            disabled={isSearchingImages || !pexelsQuery.trim()}
+                {imageNodes.length > 0 ? (
+                  <div className="space-y-4">
+                    <div className="grid gap-3">
+                      {imageNodes.map((node) => {
+                        const draftSrc =
+                          draftValues[node.node_id] ?? node.src ?? "";
+                        const isActive =
+                          activeImageNode?.node_id === node.node_id;
+                        const isDirty = dirtyNodeIds.has(node.node_id);
+                        return (
+                          <button
+                            key={node.node_id}
+                            type="button"
+                            onClick={() => {
+                              setImageTargetNodeId(node.node_id);
+                              onSelectNode?.(node.node_id);
+                            }}
+                            className={cn(
+                              "grid w-full grid-cols-[120px,1fr] gap-4 rounded-2xl border bg-white p-4 text-left shadow-sm transition",
+                              isActive
+                                ? "border-emerald-400 shadow-emerald-100/70"
+                                : "border-black/5 hover:border-black/10",
+                              isDirty ? "ring-1 ring-emerald-200" : ""
+                            )}
                           >
-                            {isSearchingImages ? <Loader2 className="h-3 w-3 animate-spin" /> : "搜索"}
-                          </Button>
-                        </div>
-                        {pexelsResults.length > 0 ? (
-                          <div className="grid grid-cols-2 gap-2">
-                            {pexelsResults.slice(0, 4).map((item) => (
-                              <button
-                                key={item.id}
-                                type="button"
-                                onClick={() =>
-                                  setDraftValues((previous) => ({
-                                    ...previous,
-                                    [selectedNode.node_id]: item.full_url,
-                                  }))
-                                }
-                                className="overflow-hidden rounded-lg border border-black/10 bg-white text-left transition hover:border-emerald-400"
-                              >
+                            <div className="overflow-hidden rounded-xl bg-zinc-100">
+                              {draftSrc ? (
                                 <img
-                                  src={item.thumbnail_url}
-                                  alt={item.photographer || "Pexels image"}
-                                  className="h-20 w-full object-cover"
+                                  src={draftSrc}
+                                  alt={node.alt || node.label || "slide image"}
+                                  className="h-[88px] w-full object-cover"
                                 />
-                                <div className="px-2 py-1.5 text-[11px] text-black/60">
-                                  {item.photographer || "Pexels"}
+                              ) : (
+                                <div className="flex h-[88px] items-center justify-center text-xs text-black/35">
+                                  暂无图片
                                 </div>
-                              </button>
-                            ))}
+                              )}
+                            </div>
+                            <div className="min-w-0 space-y-2">
+                              <div className="flex items-center justify-between gap-3">
+                                <div className="min-w-0">
+                                  <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-black/35">
+                                    图片节点
+                                  </div>
+                                  <div className="mt-1 truncate text-sm font-medium text-[#1d1d1f]">
+                                    {node.label}
+                                  </div>
+                                </div>
+                                <span
+                                  className={cn(
+                                    "rounded-full px-2.5 py-1 text-[11px]",
+                                    isActive
+                                      ? "bg-emerald-50 text-emerald-700"
+                                      : "bg-black/5 text-black/45"
+                                  )}
+                                >
+                                  {isActive ? "当前替换目标" : "点击设为目标"}
+                                </span>
+                              </div>
+                              <Input
+                                value={draftSrc}
+                                onClick={(event) => event.stopPropagation()}
+                                onFocus={() => onSelectNode?.(node.node_id)}
+                                onChange={(event) =>
+                                  handleApplyImage(
+                                    node.node_id,
+                                    event.target.value
+                                  )
+                                }
+                                className="h-10 rounded-xl border-black/10 bg-white text-[13px]"
+                              />
+                              <div className="text-xs text-black/45">
+                                {node.alt || "使用下方搜索结果可直接替换该图片"}
+                              </div>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    <div className="rounded-[24px] border border-black/5 bg-white p-4 shadow-sm">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                          <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-black/35">
+                            搜索替换图片
+                          </div>
+                          <div className="mt-1 text-sm text-black/60">
+                            当前目标：
+                            {activeImageNode?.label || "未选择图片节点"}
+                          </div>
+                        </div>
+                        {activeImageNode ? (
+                          <div className="rounded-full bg-emerald-50 px-3 py-1 text-xs text-emerald-700">
+                            第 {activeSlide ? activeSlide.index + 1 : 0}{" "}
+                            页图片替换
                           </div>
                         ) : null}
                       </div>
-                    ) : null}
+
+                      <div className="mt-4 flex items-center gap-2">
+                        <Input
+                          value={pexelsQuery}
+                          onChange={(event) =>
+                            setPexelsQuery(event.target.value)
+                          }
+                          placeholder="搜索 Pexels 图片，例如：modern classroom"
+                          className="h-11 rounded-xl border-black/10 bg-white text-[14px]"
+                        />
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-11 gap-2 rounded-xl border-black/10 px-4 text-sm"
+                          onClick={() => void handleSearchImages()}
+                          disabled={
+                            isSearchingImages ||
+                            !pexelsQuery.trim() ||
+                            !activeImageNode
+                          }
+                        >
+                          {isSearchingImages ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Search className="h-4 w-4" />
+                          )}
+                          搜索
+                        </Button>
+                      </div>
+
+                      {pexelsResults.length > 0 ? (
+                        <div className="mt-4 grid grid-cols-2 gap-3">
+                          {pexelsResults.map((item) => (
+                            <button
+                              key={item.id}
+                              type="button"
+                              onClick={() => {
+                                if (!activeImageNode) return;
+                                handleApplyImage(
+                                  activeImageNode.node_id,
+                                  item.full_url
+                                );
+                              }}
+                              className="overflow-hidden rounded-2xl border border-black/10 bg-white text-left transition hover:border-emerald-400 hover:shadow-md"
+                            >
+                              <img
+                                src={item.thumbnail_url}
+                                alt={item.photographer || "Pexels image"}
+                                className="h-28 w-full object-cover"
+                              />
+                              <div className="space-y-1 px-3 py-2.5">
+                                <div className="truncate text-xs font-medium text-[#1d1d1f]">
+                                  {item.photographer || "Pexels"}
+                                </div>
+                                <div className="text-[11px] text-black/45">
+                                  {item.width} × {item.height}
+                                </div>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      ) : activeImageNode ? (
+                        <div className="mt-4 rounded-2xl border border-dashed border-black/10 bg-zinc-50 px-4 py-4 text-sm text-black/40">
+                          输入关键词后搜索，最多显示 4 张待选图片。
+                        </div>
+                      ) : (
+                        <div className="mt-4 rounded-2xl border border-dashed border-black/10 bg-zinc-50 px-4 py-4 text-sm text-black/40">
+                          先选择一个图片节点作为替换目标。
+                        </div>
+                      )}
+                    </div>
                   </div>
-                ) : (
-                  <div className="text-sm italic text-black/40">先在列表中选择一个节点</div>
-                )}
+                ) : null}
+                {textNodes.length === 0 && imageNodes.length === 0 ? (
+                  <div className="rounded-2xl border border-dashed border-black/10 bg-white/70 px-4 py-5 text-base italic text-black/40">
+                    当前页未解析出可编辑节点
+                  </div>
+                ) : null}
               </div>
             )}
           </section>
 
           <section className="space-y-4">
-            <div className="flex items-center gap-2">
-              <div className="h-4 w-1 rounded-full bg-orange-500" />
-              <h3 className="text-sm font-semibold text-[#1d1d1f]">Spectra 助手</h3>
+            <div className="flex items-center gap-3">
+              <div className="h-5 w-1.5 rounded-full bg-orange-500" />
+              <h3 className="text-base font-semibold text-[#1d1d1f]">
+                助手记录
+              </h3>
             </div>
             <div className="space-y-3">
               {isLoading ? (
-                <div className="flex items-center gap-2 text-[13px] text-black/40">
+                <div className="flex items-center gap-2 text-[14px] text-black/40">
                   <Loader2 className="h-4 w-4 animate-spin" />
                   加载中...
                 </div>
-              ) : messages.length === 0 ? (
-                <div className="rounded-xl border border-orange-100/50 bg-orange-50/50 p-3 text-[13px] text-black/40">
-                  可在此处输入指令，例如：<br />
-                  <span className="font-medium text-orange-600">“重做第 3 页，强调对比表”</span>
+              ) : visibleMessages.length === 0 ? (
+                <div className="rounded-2xl border border-orange-100/50 bg-orange-50/50 p-4 text-[14px] leading-relaxed text-black/40">
+                  在下方输入本页重做提示词，或切换到聊天模式发送普通消息。
                 </div>
               ) : (
-                messages.map((message) => (
+                visibleMessages.map((message) => (
                   <div
                     key={message.id}
-                    className={cn("flex w-full", message.role === "user" ? "justify-end" : "justify-start")}
+                    className={cn(
+                      "flex w-full",
+                      message.role === "user" ? "justify-end" : "justify-start"
+                    )}
                   >
                     <div
                       className={cn(
-                        "max-w-[85%] rounded-2xl px-3.5 py-2 text-[13px] leading-relaxed",
+                        "max-w-[88%] rounded-[20px] px-4 py-3 text-[14px] leading-relaxed",
                         message.role === "user"
                           ? "rounded-tr-sm bg-black text-white"
                           : "rounded-tl-sm border border-black/5 bg-white text-zinc-800 shadow-sm"
@@ -652,41 +926,83 @@ export function PreviewCopilotDrawer({
         </div>
       </div>
 
-      <div className="shrink-0 border-t border-black/5 bg-white p-4">
-        <div className="relative">
+      <div className="shrink-0 border-t border-black/5 bg-white p-5">
+        <div className="rounded-[28px] bg-[linear-gradient(135deg,#101828_0%,#18253c_55%,#24334c_100%)] p-4 text-white shadow-[0_18px_40px_rgba(15,23,42,0.24)]">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-white/55">
+                Copilot
+              </div>
+              <div className="mt-1 text-sm text-white/80">
+                {composerMode === "redo"
+                  ? `单页重做将直接作用于第 ${activeSlide ? activeSlide.index + 1 : 0} 页`
+                  : "聊天消息只进入 copilot 对话记录，不触发重做"}
+              </div>
+            </div>
+            <div className="flex items-center rounded-full bg-white/10 p-1">
+              {[
+                { value: "redo" as const, label: "单页重做" },
+                { value: "chat" as const, label: "聊天消息" },
+              ].map((mode) => (
+                <button
+                  key={mode.value}
+                  type="button"
+                  onClick={() => setComposerMode(mode.value)}
+                  className={cn(
+                    "rounded-full px-4 py-2 text-sm font-medium transition",
+                    composerMode === mode.value
+                      ? "bg-white text-[#101828] shadow-sm"
+                      : "text-white/70 hover:text-white"
+                  )}
+                >
+                  {mode.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <Textarea
             value={input}
             onChange={(event) => setInput(event.target.value)}
-            placeholder="输入聊天消息，或点击右侧按钮重做当前页..."
-            className="min-h-[80px] resize-none border-black/10 bg-zinc-50 pb-10 text-[13px] shadow-inner-sm focus-visible:ring-1 focus-visible:ring-black/20"
+            placeholder={
+              composerMode === "redo"
+                ? "例如：重做当前页，减少文字密度，强调核心对比关系。"
+                : "输入普通聊天消息，记录你的判断或补充上下文。"
+            }
+            className="mt-4 min-h-[118px] resize-none rounded-[22px] border-white/10 bg-white/8 text-[14px] leading-relaxed text-white placeholder:text-white/35 focus-visible:ring-1 focus-visible:ring-white/30"
             onKeyDown={(event) => {
-              if (event.key === "Enter" && !event.shiftKey) {
+              if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
                 event.preventDefault();
-                void handleSend();
+                void handlePrimarySubmit();
               }
             }}
           />
-          <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between">
-            <span className="px-1 text-[10px] font-medium text-black/30">Enter 发送聊天</span>
-            <div className="flex items-center gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => void handleRedoCurrentSlide()}
-                disabled={!sessionId || !input.trim() || isSubmitting || !activeSlide}
-                className="h-7 rounded-md border-black/10 px-3 text-xs font-medium"
-              >
-                {isSubmitting ? <Loader2 className="h-3 w-3 animate-spin" /> : "重做单页"}
-              </Button>
-              <Button
-                size="sm"
-                onClick={() => void handleSend()}
-                disabled={!sessionId || !input.trim() || isSubmitting}
-                className="h-7 rounded-md bg-black px-3 text-xs font-medium text-white shadow-sm transition-transform active:scale-95 disabled:bg-black/20"
-              >
-                {isSubmitting ? <Loader2 className="h-3 w-3 animate-spin" /> : "发送聊天"}
-              </Button>
+
+          <div className="mt-4 flex items-center justify-between gap-3">
+            <div className="text-xs text-white/50">
+              {composerMode === "redo"
+                ? "Ctrl/Command + Enter 提交重做"
+                : "Ctrl/Command + Enter 发送"}
             </div>
+            <Button
+              size="sm"
+              onClick={() => void handlePrimarySubmit()}
+              disabled={
+                !sessionId ||
+                !input.trim() ||
+                isSubmitting ||
+                (composerMode === "redo" && !activeSlide)
+              }
+              className="h-11 rounded-full bg-[#f8d57e] px-5 text-sm font-semibold text-[#101828] shadow-sm transition hover:bg-[#f2c85a] disabled:bg-white/20 disabled:text-white/45"
+            >
+              {isSubmitting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : composerMode === "redo" ? (
+                "提交单页重做"
+              ) : (
+                "发送聊天消息"
+              )}
+            </Button>
           </div>
         </div>
       </div>
