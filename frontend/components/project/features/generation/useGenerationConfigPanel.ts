@@ -66,14 +66,8 @@ export function useGenerationConfigPanel({
   const projectId = params.id as string;
   const { error: notifyError, info: notifyInfo } = useNotification();
 
-  const {
-    project,
-    generationSession,
-    activeSessionId,
-    activeRunId,
-  } = useProjectStore(
+  const { generationSession, activeSessionId, activeRunId } = useProjectStore(
     useShallow((state) => ({
-      project: state.project,
       generationSession: state.generationSession,
       activeSessionId: state.activeSessionId,
       activeRunId: state.activeRunId,
@@ -97,12 +91,12 @@ export function useGenerationConfigPanel({
   const [showRegenerateHint, setShowRegenerateHint] = useState(false);
   const {
     suggestions,
+    status: suggestionStatus,
     isLoading: loadingSuggestions,
     errorMessage: suggestionErrorMessage,
     reload: generateSuggestionBatch,
   } = useRagPromptSuggestions({
     surface: "ppt_generation_config",
-    seedText: prompt || project?.name || "",
     limit: 4,
   });
 
@@ -454,6 +448,7 @@ export function useGenerationConfigPanel({
     selectedTemplateId,
     setSelectedTemplateId,
     suggestions,
+    suggestionStatus,
     loadingSuggestions,
     suggestionErrorMessage,
     isCreatingSession,

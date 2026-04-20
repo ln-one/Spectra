@@ -87,6 +87,7 @@ export function GenerationConfigPanel({
     selectedTemplateId,
     setSelectedTemplateId,
     suggestions,
+    suggestionStatus,
     loadingSuggestions,
     suggestionErrorMessage,
     isCreatingSession,
@@ -381,9 +382,22 @@ export function GenerationConfigPanel({
                       />
                       换一批
                     </motion.button>
-                    {loadingSuggestions && suggestions.length === 0 ? (
+                    {suggestionStatus === "generating" &&
+                    suggestions.length === 0 ? (
                       <span className="text-xs text-zinc-400">
-                        正在读取项目资料...
+                        正在生成提示池...
+                      </span>
+                    ) : null}
+                    {suggestionStatus === "empty" &&
+                    suggestions.length === 0 &&
+                    !loadingSuggestions ? (
+                      <span className="text-xs text-zinc-400">
+                        项目资料不足，暂无提示建议
+                      </span>
+                    ) : null}
+                    {suggestionStatus === "stale" && suggestions.length > 0 ? (
+                      <span className="text-xs text-zinc-400">
+                        正在刷新提示池
                       </span>
                     ) : null}
                     {!loadingSuggestions &&

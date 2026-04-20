@@ -2669,6 +2669,9 @@ export interface components {
             seed_text?: string | null;
             /** @default 4 */
             limit: number;
+            cursor?: number | null;
+            /** @default false */
+            refresh: boolean;
             filters?: {
                 file_types?: ("pdf" | "word" | "video" | "image" | "ppt")[];
                 file_ids?: string[];
@@ -2680,6 +2683,11 @@ export interface components {
                 suggestions: string[];
                 summary?: string | null;
                 rag_hit: boolean;
+                /** @enum {string} */
+                status: "ready" | "generating" | "stale" | "failed" | "empty";
+                pool_size: number;
+                generated_at?: string | null;
+                next_cursor?: number | null;
             };
             message: string;
         };

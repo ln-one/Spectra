@@ -41,7 +41,19 @@ class PromptSuggestionRequest(BaseModel):
     surface: PromptSuggestionSurface = Field(..., description="调用场景")
     seed_text: Optional[str] = Field(None, max_length=1000, description="用户当前输入")
     limit: int = Field(default=4, ge=1, le=8, description="返回建议数量")
+    cursor: Optional[int] = Field(None, ge=0, description="提示池分页游标")
+    refresh: bool = Field(False, description="是否请求刷新该工具提示池")
     filters: Optional[RAGFilters] = Field(None, description="RAG 检索过滤条件")
+
+
+class PromptSuggestionStatus(str, Enum):
+    """Tool prompt pool state."""
+
+    READY = "ready"
+    GENERATING = "generating"
+    STALE = "stale"
+    FAILED = "failed"
+    EMPTY = "empty"
 
 
 class PromptSuggestionData(BaseModel):
@@ -50,6 +62,12 @@ class PromptSuggestionData(BaseModel):
     suggestions: list[str] = Field(default_factory=list, description="生成提示建议")
     summary: Optional[str] = Field(None, description="建议方向摘要")
     rag_hit: bool = Field(False, description="是否命中 RAG")
+    status: PromptSuggestionStatus = Field(
+        PromptSuggestionStatus.EMPTY, description="提示池状态"
+    )
+    pool_size: int = Field(0, description="该工具提示池总量")
+    generated_at: Optional[str] = Field(None, description="提示池生成时间")
+    next_cursor: Optional[int] = Field(None, description="下一批提示游标")
 
 
 class RAGSearchRequest(BaseModel):

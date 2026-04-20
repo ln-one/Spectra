@@ -87,6 +87,7 @@ model Project {
   candidateChanges   CandidateChange[]
   members            ProjectMember[]
   runs               SessionRun[]
+  promptSuggestionCaches PromptSuggestionCache[]
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -394,6 +395,28 @@ model PreviewCache {
   content   String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+/// Tool-scoped prompt suggestion pool generated from project RAG material.
+model PromptSuggestionCache {
+  id                 String   @id @default(uuid())
+  projectId          String
+  project            Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  surface            String
+  status             String   @default("generating")
+  suggestionsJson    String?
+  summary            String?
+  sourceFingerprint  String?
+  errorCode          String?
+  errorMessage       String?
+  generatedAt        DateTime?
+  refreshRequestedAt DateTime?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@unique([projectId, surface])
+  @@index([projectId, status])
+  @@index([projectId, updatedAt])
 }
 
 /// 大纲版本 - 每次用户或 AI 修改大纲时追加一条

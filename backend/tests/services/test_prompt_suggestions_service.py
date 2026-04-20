@@ -1,16 +1,37 @@
+from datetime import datetime, timezone
+from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
 
 from schemas.rag import (
     PromptSuggestionRequest,
+    PromptSuggestionStatus,
     PromptSuggestionSurface,
     RAGResult,
     SourceReference,
 )
-from services.rag_api_service import prompt_suggestions as prompt_suggestion_module
 from services.ai import ai_service
-from utils.exceptions import APIException, ErrorCode, ExternalServiceException
+from services.prompt_suggestion_pool import generation as generation_module
+from services.prompt_suggestion_pool import service as pool_service
+from services.rag_api_service import access as rag_access
+from utils.exceptions import APIException
+
+
+def _cache(**overrides):
+    payload = {
+        "status": PromptSuggestionStatus.READY.value,
+        "suggestionsJson": (
+            '["制作一份 12 页均衡型 PPT，围绕函数图像平移与伸缩展开，'
+            '采用清爽学术图解风格，突出变换规律。","制作一份 8 页简洁型 PPT，'
+            '讲解函数图像对称变化，采用现代信息图风格，突出对比案例。"]'
+        ),
+        "summary": "聚焦函数图像变化的 PPT 生成方向。",
+        "sourceFingerprint": "fp-1",
+        "generatedAt": datetime.now(timezone.utc),
+    }
+    payload.update(overrides)
+    return SimpleNamespace(**payload)
 
 
 def _rag_result() -> RAGResult:
@@ -27,108 +48,140 @@ def _rag_result() -> RAGResult:
 
 
 @pytest.mark.asyncio
-async def test_prompt_suggestions_use_rag_and_llm(monkeypatch):
+async def test_prompt_suggestion_pool_reads_tool_scoped_cache(monkeypatch):
+    monkeypatch.setattr(rag_access, "ensure_project_access", AsyncMock())
+    get_cache = AsyncMock(return_value=_cache())
+    enqueue = AsyncMock()
     monkeypatch.setattr(
-        prompt_suggestion_module,
-        "ensure_project_access",
-        AsyncMock(return_value=None),
+        pool_service,
+        "build_project_source_fingerprint",
+        AsyncMock(return_value=("fp-1", 2)),
     )
-    search_mock = AsyncMock(return_value=[_rag_result()])
-    generate_mock = AsyncMock(
-        return_value={
-            "content": '{"suggestions":["围绕函数图像平移设计一组对比讲解"],"summary":"聚焦函数图像变化规律。"}'
-        }
+    monkeypatch.setattr(pool_service, "get_cache", get_cache)
+    monkeypatch.setattr(
+        pool_service,
+        "enqueue_project_prompt_suggestion_refresh",
+        enqueue,
     )
-    monkeypatch.setattr(prompt_suggestion_module.rag_service, "search", search_mock)
-    monkeypatch.setattr(ai_service, "generate", generate_mock)
 
-    response = await prompt_suggestion_module.prompt_suggestions_response(
+    response = await pool_service.prompt_suggestions_pool_response(
         PromptSuggestionRequest(
             project_id="p-1",
             surface=PromptSuggestionSurface.PPT_GENERATION_CONFIG,
-            seed_text="函数图像",
-            limit=3,
+            limit=1,
         ),
         user_id="u-1",
     )
 
-    assert response["data"]["rag_hit"] is True
-    assert response["data"]["suggestions"] == [
-        "围绕函数图像平移设计一组对比讲解"
-    ]
-    assert response["data"]["summary"] == "聚焦函数图像变化规律。"
-    assert "函数图像" in search_mock.await_args.kwargs["query"]
-    assert generate_mock.await_args.kwargs["has_rag_context"] is True
+    assert response["data"]["status"] == "ready"
+    assert response["data"]["pool_size"] == 2
+    assert response["data"]["suggestions"][0].startswith("制作一份 12 页")
+    assert get_cache.await_args.args[2] == PromptSuggestionSurface.PPT_GENERATION_CONFIG
+    assert enqueue.call_count == 0
 
 
 @pytest.mark.asyncio
-async def test_prompt_suggestions_fail_explicitly_without_rag(monkeypatch):
+async def test_prompt_suggestion_pool_miss_returns_generating_and_enqueues(
+    monkeypatch,
+):
+    monkeypatch.setattr(rag_access, "ensure_project_access", AsyncMock())
+    mark_generating = AsyncMock()
+    enqueued = []
     monkeypatch.setattr(
-        prompt_suggestion_module,
-        "ensure_project_access",
-        AsyncMock(return_value=None),
+        pool_service,
+        "build_project_source_fingerprint",
+        AsyncMock(return_value=("fp-new", 2)),
     )
+    monkeypatch.setattr(pool_service, "get_cache", AsyncMock(return_value=None))
+    monkeypatch.setattr(pool_service, "mark_generating", mark_generating)
     monkeypatch.setattr(
-        prompt_suggestion_module.rag_service,
-        "search",
-        AsyncMock(return_value=[]),
+        pool_service,
+        "enqueue_project_prompt_suggestion_refresh",
+        lambda **kwargs: enqueued.append(kwargs) or True,
     )
 
+    response = await pool_service.prompt_suggestions_pool_response(
+        PromptSuggestionRequest(
+            project_id="p-1",
+            surface=PromptSuggestionSurface.STUDIO_GAME,
+        ),
+        user_id="u-1",
+        task_queue_service=object(),
+    )
+
+    assert response["data"]["status"] == "generating"
+    assert response["data"]["suggestions"] == []
+    assert mark_generating.await_count == 1
+    assert enqueued[0]["surfaces"] == [PromptSuggestionSurface.STUDIO_GAME]
+
+
+@pytest.mark.asyncio
+async def test_prompt_suggestion_pool_stale_cache_returns_old_pool_and_refreshes(
+    monkeypatch,
+):
+    monkeypatch.setattr(rag_access, "ensure_project_access", AsyncMock())
+    mark_generating = AsyncMock()
+    enqueued = []
+    monkeypatch.setattr(
+        pool_service,
+        "build_project_source_fingerprint",
+        AsyncMock(return_value=("fp-new", 2)),
+    )
+    monkeypatch.setattr(
+        pool_service,
+        "get_cache",
+        AsyncMock(return_value=_cache(sourceFingerprint="fp-old")),
+    )
+    monkeypatch.setattr(pool_service, "mark_generating", mark_generating)
+    monkeypatch.setattr(
+        pool_service,
+        "enqueue_project_prompt_suggestion_refresh",
+        lambda **kwargs: enqueued.append(kwargs) or True,
+    )
+
+    response = await pool_service.prompt_suggestions_pool_response(
+        PromptSuggestionRequest(
+            project_id="p-1",
+            surface=PromptSuggestionSurface.PPT_GENERATION_CONFIG,
+        ),
+        user_id="u-1",
+        task_queue_service=object(),
+    )
+
+    assert response["data"]["status"] == "stale"
+    assert response["data"]["suggestions"]
+    assert mark_generating.await_count == 1
+    assert enqueued
+
+
+@pytest.mark.asyncio
+async def test_prompt_suggestion_pool_rejects_file_filters(monkeypatch):
+    monkeypatch.setattr(rag_access, "ensure_project_access", AsyncMock())
+
     with pytest.raises(APIException) as exc_info:
-        await prompt_suggestion_module.prompt_suggestions_response(
+        await pool_service.prompt_suggestions_pool_response(
             PromptSuggestionRequest(
                 project_id="p-1",
                 surface=PromptSuggestionSurface.STUDIO_QUIZ,
+                filters={"file_ids": ["f-1"]},
             ),
             user_id="u-1",
         )
 
-    assert exc_info.value.status_code == 409
-    assert exc_info.value.details["reason"] == "insufficient_rag_context"
+    assert exc_info.value.status_code == 400
+    assert exc_info.value.details["reason"] == "prompt_suggestion_pool_is_project_scoped"
 
 
 @pytest.mark.asyncio
-async def test_prompt_suggestions_fail_explicitly_on_invalid_model_json(monkeypatch):
+async def test_generate_ppt_pool_keeps_only_complete_ppt_prompts(monkeypatch):
+    saved = []
     monkeypatch.setattr(
-        prompt_suggestion_module,
-        "ensure_project_access",
-        AsyncMock(return_value=None),
+        generation_module,
+        "build_project_source_fingerprint",
+        AsyncMock(return_value=("fp-1", 1)),
     )
     monkeypatch.setattr(
-        prompt_suggestion_module.rag_service,
-        "search",
-        AsyncMock(return_value=[_rag_result()]),
-    )
-    monkeypatch.setattr(
-        ai_service,
-        "generate",
-        AsyncMock(return_value={"content": "not json"}),
-    )
-
-    with pytest.raises(ExternalServiceException) as exc_info:
-        await prompt_suggestion_module.prompt_suggestions_response(
-            PromptSuggestionRequest(
-                project_id="p-1",
-                surface=PromptSuggestionSurface.STUDIO_GAME,
-            ),
-            user_id="u-1",
-        )
-
-    assert exc_info.value.status_code == 502
-    assert exc_info.value.details["reason"] == "prompt_suggestion_generation_failed"
-
-
-@pytest.mark.asyncio
-async def test_prompt_suggestions_preserve_upstream_failure_with_tool_reason(
-    monkeypatch,
-):
-    monkeypatch.setattr(
-        prompt_suggestion_module,
-        "ensure_project_access",
-        AsyncMock(return_value=None),
-    )
-    monkeypatch.setattr(
-        prompt_suggestion_module.rag_service,
+        generation_module.rag_service,
         "search",
         AsyncMock(return_value=[_rag_result()]),
     )
@@ -136,26 +189,29 @@ async def test_prompt_suggestions_preserve_upstream_failure_with_tool_reason(
         ai_service,
         "generate",
         AsyncMock(
-            side_effect=ExternalServiceException(
-                message="timeout",
-                status_code=504,
-                error_code=ErrorCode.UPSTREAM_TIMEOUT,
-                details={"failure_type": "timeout"},
-                retryable=True,
-            )
+            return_value={
+                "content": (
+                    '{"suggestions":["制作一份 12 页均衡型 PPT，围绕函数图像平移'
+                    '与伸缩展开，采用清爽学术图解风格，突出变换规律。",'
+                    '"函数图像平移与伸缩"],"summary":"PPT 生成方向"}'
+                )
+            }
         ),
     )
+    monkeypatch.setattr(
+        generation_module,
+        "upsert_cache",
+        AsyncMock(side_effect=lambda *args: saved.append(args[3])),
+    )
 
-    with pytest.raises(ExternalServiceException) as exc_info:
-        await prompt_suggestion_module.prompt_suggestions_response(
-            PromptSuggestionRequest(
-                project_id="p-1",
-                surface=PromptSuggestionSurface.STUDIO_WORD,
-            ),
-            user_id="u-1",
-        )
+    suggestions = await generation_module.generate_prompt_suggestion_pool(
+        project_id="p-1",
+        surface=PromptSuggestionSurface.PPT_GENERATION_CONFIG,
+        source_fingerprint="fp-1",
+        db=object(),
+    )
 
-    assert exc_info.value.status_code == 504
-    assert exc_info.value.error_code == ErrorCode.UPSTREAM_TIMEOUT
-    assert exc_info.value.details["reason"] == "prompt_suggestion_generation_failed"
-    assert exc_info.value.details["upstream"]["failure_type"] == "timeout"
+    assert suggestions == [
+        "制作一份 12 页均衡型 PPT，围绕函数图像平移与伸缩展开，采用清爽学术图解风格，突出变换规律。"
+    ]
+    assert saved[-1]["status"] == "ready"

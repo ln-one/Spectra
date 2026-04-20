@@ -73,6 +73,13 @@ PromptSuggestionRequest:
       default: 4
       minimum: 1
       maximum: 8
+    cursor:
+      type: integer
+      minimum: 0
+      nullable: true
+    refresh:
+      type: boolean
+      default: false
     filters:
       type: object
       properties:
@@ -94,7 +101,7 @@ PromptSuggestionResponse:
       type: boolean
     data:
       type: object
-      required: [suggestions, rag_hit]
+      required: [suggestions, rag_hit, status, pool_size]
       properties:
         suggestions:
           type: array
@@ -105,6 +112,17 @@ PromptSuggestionResponse:
           nullable: true
         rag_hit:
           type: boolean
+        status:
+          type: string
+          enum: [ready, generating, stale, failed, empty]
+        pool_size:
+          type: integer
+        generated_at:
+          type: string
+          nullable: true
+        next_cursor:
+          type: integer
+          nullable: true
     message:
       type: string
 

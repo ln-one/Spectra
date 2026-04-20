@@ -165,6 +165,9 @@ class TestPromptService:
         assert "细胞分裂" in prompt
         assert "严格只返回 JSON" in prompt
         assert "不要只改写关键词" in prompt
+        assert "视觉风格倾向" in prompt
+        assert "内容量或页数" in prompt
+        assert "不要追加 [来源]" in prompt
         assert "bio.pdf" in prompt
 
     def test_chat_response_with_history(self):

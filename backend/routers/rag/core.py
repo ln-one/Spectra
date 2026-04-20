@@ -1,6 +1,6 @@
 from typing import Optional
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
 
 from schemas.rag import (
@@ -41,12 +41,21 @@ async def search_knowledge_base(
 
 @router.post("/prompt-suggestions")
 async def generate_prompt_suggestions(
+    http_request: Request,
     request: PromptSuggestionRequest,
     user_id: str = Depends(get_current_user),
 ):
     """基于 RAG 资料生成可复用的生成提示建议。"""
     try:
-        return await prompt_suggestions_response(request, user_id)
+        return await prompt_suggestions_response(
+            request,
+            user_id,
+            task_queue_service=getattr(
+                http_request.app.state,
+                "task_queue_service",
+                None,
+            ),
+        )
     except APIException:
         raise
     except Exception as exc:

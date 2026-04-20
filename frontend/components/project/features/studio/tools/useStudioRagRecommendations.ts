@@ -18,13 +18,11 @@ interface StudioRagRecommendations {
 
 export function useStudioRagRecommendations({
   surface,
-  seedText = "",
   maxSuggestions = 6,
 }: RecommendationOptions): StudioRagRecommendations {
   const { suggestions, summary, isLoading, errorMessage } =
     useRagPromptSuggestions({
       surface,
-      seedText,
       limit: maxSuggestions,
       debounceMs: 450,
     });
