@@ -26,18 +26,25 @@ export function useProjectsPageState() {
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
 
-  const fetchProjects = useCallback(async () => {
-    setIsLoading(true);
-    setErrorMessage(null);
+  const fetchProjects = useCallback(async (options?: { silent?: boolean }) => {
+    const silent = Boolean(options?.silent);
+    if (!silent) {
+      setIsLoading(true);
+      setErrorMessage(null);
+    }
     try {
       const response = await projectsApi.getProjects();
       setProjects(response?.data?.projects ?? []);
     } catch (error) {
       console.error("Failed to fetch projects:", error);
       const message = error instanceof Error ? error.message : "加载项目失败";
-      setErrorMessage(message);
+      if (!silent) {
+        setErrorMessage(message);
+      }
     } finally {
-      setIsLoading(false);
+      if (!silent) {
+        setIsLoading(false);
+      }
     }
   }, []);
 
@@ -78,7 +85,7 @@ export function useProjectsPageState() {
     if (!hasPendingTitles) return;
 
     const timer = window.setInterval(() => {
-      void fetchProjects();
+      void fetchProjects({ silent: true });
     }, PROJECT_TITLE_POLL_MS);
     return () => {
       window.clearInterval(timer);
