@@ -25,6 +25,38 @@
       '403':
         $ref: '../components/responses.yaml#/Forbidden'
 
+/api/v1/rag/prompt-suggestions:
+  post:
+    summary: 基于 RAG 生成提示建议
+    operationId: postRagPromptSuggestions
+    description: 读取项目 RAG 资料，并由大模型生成可直接用于 PPT 或 Studio 工具的生成提示。
+    tags: [RAG]
+    security:
+      - SessionAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/rag.yaml#/PromptSuggestionRequest'
+    responses:
+      '200':
+        description: 提示建议生成成功
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/rag.yaml#/PromptSuggestionResponse'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+      '502':
+        $ref: '../components/responses.yaml#/BadGateway'
+
 /api/v1/rag/sources/{chunk_id}:
   get:
     summary: 查看来源详情

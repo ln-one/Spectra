@@ -15,6 +15,7 @@ from .enrichment import (
     transcribe_audio_response,
     web_search_response,
 )
+from .prompt_suggestions import prompt_suggestions_response
 
 __all__ = [
     "analyze_video_response",
@@ -24,6 +25,7 @@ __all__ = [
     "get_source_detail_response",
     "index_file_response",
     "load_chunk_upload_info",
+    "prompt_suggestions_response",
     "resolve_chunk_project_and_upload",
     "search_knowledge_base_response",
     "transcribe_audio_response",

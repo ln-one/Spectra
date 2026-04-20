@@ -14,6 +14,7 @@ from services.prompt_service import (
     contains_mechanical_option_pattern,
     output_block_marker,
 )
+from schemas.rag import PromptSuggestionSurface
 
 
 class TestFormatRagContext:
@@ -151,6 +152,20 @@ class TestPromptService:
         assert "<task_context>" in prompt
         assert "<response_contract>" in prompt
         assert "Markdown 自然分段" in prompt
+
+    def test_prompt_suggestion_prompt_requires_json_and_rag_grounding(self):
+        rag = [{"content": "细胞分裂包含间期和分裂期", "source": {"filename": "bio.pdf"}}]
+        prompt = self.svc.build_prompt_suggestion_prompt(
+            surface=PromptSuggestionSurface.PPT_GENERATION_CONFIG,
+            seed_text="细胞分裂",
+            rag_context=rag,
+            limit=4,
+        )
+        assert "ppt_generation_config" in prompt
+        assert "细胞分裂" in prompt
+        assert "严格只返回 JSON" in prompt
+        assert "不要只改写关键词" in prompt
+        assert "bio.pdf" in prompt
 
     def test_chat_response_with_history(self):
         history = [

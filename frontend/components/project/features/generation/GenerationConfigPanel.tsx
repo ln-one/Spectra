@@ -88,6 +88,7 @@ export function GenerationConfigPanel({
     setSelectedTemplateId,
     suggestions,
     loadingSuggestions,
+    suggestionErrorMessage,
     isCreatingSession,
     showRegenerateHint,
     showOutlineEditor,
@@ -382,7 +383,14 @@ export function GenerationConfigPanel({
                     </motion.button>
                     {loadingSuggestions && suggestions.length === 0 ? (
                       <span className="text-xs text-zinc-400">
-                        正在准备示例...
+                        正在读取项目资料...
+                      </span>
+                    ) : null}
+                    {!loadingSuggestions &&
+                    suggestions.length === 0 &&
+                    suggestionErrorMessage ? (
+                      <span className="text-xs text-amber-600">
+                        {suggestionErrorMessage}
                       </span>
                     ) : null}
                   </div>

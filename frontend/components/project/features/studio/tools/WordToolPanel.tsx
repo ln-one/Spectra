@@ -60,9 +60,8 @@ export function WordToolPanel({
   );
 
   const { suggestions, summary, isLoading } = useStudioRagRecommendations({
-    query:
-      "为当前项目推荐适合生成教学文档的课题主题、学习目标、教学场景和学生难点",
-    fallbackSuggestions: ["当前项目核心主题", "知识重点梳理", "课堂巩固任务"],
+    surface: "studio_word",
+    seedText: [topic, goal].filter(Boolean).join(" "),
   });
 
   useEffect(() => {

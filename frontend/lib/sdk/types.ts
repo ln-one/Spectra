@@ -625,6 +625,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/rag/prompt-suggestions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 基于 RAG 生成提示建议
+         * @description 读取项目 RAG 资料，并由大模型生成可直接用于 PPT 或 Studio 工具的生成提示。
+         */
+        post: operations["postRagPromptSuggestions"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/rag/sources/{chunk_id}": {
         parameters: {
             query?: never;
@@ -2641,6 +2661,28 @@ export interface components {
             };
             message: string;
         };
+        /** @enum {string} */
+        PromptSuggestionSurface: "ppt_generation_config" | "studio_mindmap" | "studio_game" | "studio_quiz" | "studio_animation" | "studio_simulation" | "studio_speaker_notes" | "studio_word";
+        PromptSuggestionRequest: {
+            project_id: string;
+            surface: components["schemas"]["PromptSuggestionSurface"];
+            seed_text?: string | null;
+            /** @default 4 */
+            limit: number;
+            filters?: {
+                file_types?: ("pdf" | "word" | "video" | "image" | "ppt")[];
+                file_ids?: string[];
+            };
+        };
+        PromptSuggestionResponse: {
+            success: boolean;
+            data: {
+                suggestions: string[];
+                summary?: string | null;
+                rag_hit: boolean;
+            };
+            message: string;
+        };
         SourceDetailResponse: {
             success: boolean;
             data: {
@@ -4312,6 +4354,35 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+        };
+    };
+    postRagPromptSuggestions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PromptSuggestionRequest"];
+            };
+        };
+        responses: {
+            /** @description 提示建议生成成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PromptSuggestionResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            502: components["responses"]["BadGateway"];
         };
     };
     getRagSourcesByChunkId: {

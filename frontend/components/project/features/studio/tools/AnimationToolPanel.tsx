@@ -69,8 +69,8 @@ export function AnimationToolPanel({
     flowContext?.latestArtifacts?.[0]?.artifactId ?? null;
 
   const { suggestions, isLoading } = useStudioRagRecommendations({
-    query: "为当前项目推荐适合做成教学动画的知识点、动态过程和重点变化。",
-    fallbackSuggestions: ["概念形成过程", "变量变化关系", "关键步骤演示"],
+    surface: "studio_animation",
+    seedText: [topic, focus].filter(Boolean).join(" "),
   });
 
   useEffect(() => {

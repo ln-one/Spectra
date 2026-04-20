@@ -46,13 +46,8 @@ export function SimulationToolPanel({
   const [lastGeneratedAt, setLastGeneratedAt] = useState<string | null>(null);
 
   const { suggestions, summary, isLoading } = useStudioRagRecommendations({
-    query:
-      "Recommend classroom QA simulation topic, likely student confusion points, and teacher response strategy.",
-    fallbackSuggestions: [
-      "Core concept questioning",
-      "Common misconception correction",
-      "On-the-fly classroom diagnosis",
-    ],
+    surface: "studio_simulation",
+    seedText: [topic, teacherStrategy].filter(Boolean).join(" "),
   });
 
   useEffect(() => {

@@ -44,6 +44,70 @@ RAGSearchResponse:
     message:
       type: string
 
+PromptSuggestionSurface:
+  type: string
+  enum:
+    - ppt_generation_config
+    - studio_mindmap
+    - studio_game
+    - studio_quiz
+    - studio_animation
+    - studio_simulation
+    - studio_speaker_notes
+    - studio_word
+
+PromptSuggestionRequest:
+  type: object
+  required: [project_id, surface]
+  properties:
+    project_id:
+      type: string
+    surface:
+      $ref: '#/PromptSuggestionSurface'
+    seed_text:
+      type: string
+      maxLength: 1000
+      nullable: true
+    limit:
+      type: integer
+      default: 4
+      minimum: 1
+      maximum: 8
+    filters:
+      type: object
+      properties:
+        file_types:
+          type: array
+          items:
+            type: string
+            enum: [pdf, word, video, image, ppt]
+        file_ids:
+          type: array
+          items:
+            type: string
+
+PromptSuggestionResponse:
+  type: object
+  required: [success, data, message]
+  properties:
+    success:
+      type: boolean
+    data:
+      type: object
+      required: [suggestions, rag_hit]
+      properties:
+        suggestions:
+          type: array
+          items:
+            type: string
+        summary:
+          type: string
+          nullable: true
+        rag_hit:
+          type: boolean
+    message:
+      type: string
+
 RAGResult:
   type: object
   required: [chunk_id, content, score, source]

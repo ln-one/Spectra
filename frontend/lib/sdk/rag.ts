@@ -11,12 +11,44 @@ export type AudioTranscribeResponse =
 export type RAGIndexResponse =
   paths["/api/v1/rag/index"]["post"]["responses"][200]["content"]["application/json"];
 
+export type PromptSuggestionSurface =
+  components["schemas"]["PromptSuggestionSurface"];
+export type PromptSuggestionRequest =
+  components["schemas"]["PromptSuggestionRequest"];
+export type PromptSuggestionResponse =
+  components["schemas"]["PromptSuggestionResponse"];
+
 export const ragApi = {
   async search(data: RAGSearchRequest): Promise<RAGSearchResponse> {
     const result = await sdkClient.POST("/api/v1/rag/search", {
       body: data,
     });
     return unwrap<RAGSearchResponse>(result);
+  },
+
+  async getPromptSuggestions(
+    data: PromptSuggestionRequest
+  ): Promise<PromptSuggestionResponse> {
+    const response = await apiFetch("/api/v1/rag/prompt-suggestions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    const payload = await response.json();
+    if (!response.ok) {
+      const message =
+        payload?.error?.message ||
+        payload?.message ||
+        `提示建议生成失败 (${response.status})`;
+      const error = new Error(message) as Error & {
+        code?: string;
+        details?: unknown;
+      };
+      error.code = payload?.error?.code;
+      error.details = payload?.error?.details;
+      throw error;
+    }
+    return payload as PromptSuggestionResponse;
   },
 
   async getSourceDetail(

@@ -3,10 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useMachine } from "@xstate/react";
 import { createMachine } from "xstate";
-import { useShallow } from "zustand/react/shallow";
 import { Network } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { ragApi } from "@/lib/sdk";
 import { useProjectStore } from "@/stores/projectStore";
 import { WorkflowStepper } from "@/components/project/shared";
 import { TOOL_COLORS } from "../constants";
@@ -21,6 +19,7 @@ import { GenerateStep } from "./mindmap/GenerateStep";
 import { PreviewStep } from "./mindmap/PreviewStep";
 import { createBaseTree } from "./mindmap/tree-utils";
 import type { MindmapFocus, MindmapStep } from "./mindmap/types";
+import { useStudioRagRecommendations } from "./useStudioRagRecommendations";
 import { useWorkflowStepSync } from "./useWorkflowStepSync";
 
 const mindmapWorkflowMachine = createMachine({
@@ -42,32 +41,12 @@ const mindmapWorkflowMachine = createMachine({
   },
 });
 
-function extractKeywords(input: string): string[] {
-  return input
-    .replace(/[^\u4e00-\u9fa5a-zA-Z0-9]/g, " ")
-    .split(/\s+/)
-    .filter((item) => item.length >= 2 && item.length <= 12);
-}
-
-function normalizeTopicLabel(label: string): string {
-  return label
-    .replace(/\.[a-zA-Z0-9]+$/g, "")
-    .replace(/[《》"'`]/g, "")
-    .trim();
-}
-
 export function MindmapToolPanel({
   toolName,
   onDraftChange,
   flowContext,
 }: ToolPanelProps) {
-  const { project, files, selectedFileIds } = useProjectStore(
-    useShallow((state) => ({
-      project: state.project,
-      files: state.files,
-      selectedFileIds: state.selectedFileIds,
-    }))
-  );
+  const project = useProjectStore((state) => state.project);
 
   const [activeStep, setActiveStep] = useState<MindmapStep>("config");
   useWorkflowStepSync(activeStep, setActiveStep, flowContext);
@@ -77,9 +56,6 @@ export function MindmapToolPanel({
   const [focus, setFocus] = useState<MindmapFocus>("concept");
   const [targetAudience, setTargetAudience] = useState("高一");
   const [selectedId, setSelectedId] = useState("root");
-  const [topicSuggestions, setTopicSuggestions] = useState<string[]>([]);
-  const [isTopicSuggestionsLoading, setIsTopicSuggestionsLoading] =
-    useState(false);
   const [isTopicDirty, setIsTopicDirty] = useState(false);
   const [tree, setTree] = useState<any>(null);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -97,84 +73,19 @@ export function MindmapToolPanel({
     topicDirtyRef.current = isTopicDirty;
   }, [isTopicDirty]);
 
+  const {
+    suggestions: topicSuggestions,
+    isLoading: isTopicSuggestionsLoading,
+  } = useStudioRagRecommendations({
+    surface: "studio_mindmap",
+    seedText: topic || project?.name || "",
+  });
+
   useEffect(() => {
-    if (!project?.id) return;
-    let cancelled = false;
-
-    const loadTopicSuggestions = async () => {
-      const readyFiles = files.filter((file) => file.status === "ready");
-      const fallbackSuggestions = [
-        normalizeTopicLabel(project.name || ""),
-        ...readyFiles.map((file) => normalizeTopicLabel(file.filename || "")),
-      ]
-        .filter(Boolean)
-        .slice(0, 4);
-
-      setIsTopicSuggestionsLoading(true);
-      try {
-        const fileIds =
-          selectedFileIds.length > 0
-            ? selectedFileIds
-            : readyFiles.map((file) => file.id);
-
-        const response = await ragApi.search({
-          project_id: project.id,
-          query: `${project.name || "当前项目"} 核心主题 知识结构 关键词`,
-          top_k: 5,
-          filters: fileIds.length > 0 ? { file_ids: fileIds } : undefined,
-        });
-
-        if (cancelled) return;
-        const chunks = response?.data?.results ?? [];
-        const mergedText = chunks.map((item) => item.content).join(" ");
-        const keywordCandidates = extractKeywords(mergedText).slice(0, 8);
-        const sourceCandidates = chunks
-          .map((item) => normalizeTopicLabel(item.source?.filename || ""))
-          .filter(Boolean);
-
-        const recommendations = Array.from(
-          new Set([
-            ...keywordCandidates,
-            ...sourceCandidates,
-            ...fallbackSuggestions,
-          ])
-        )
-          .filter((item) => item.length >= 2 && item.length <= 24)
-          .slice(0, 6);
-
-        const nextSuggestions =
-          recommendations.length > 0
-            ? recommendations
-            : fallbackSuggestions.length > 0
-              ? fallbackSuggestions
-              : ["当前项目核心概念"];
-
-        setTopicSuggestions(nextSuggestions);
-        if (!topicDirtyRef.current && !topicRef.current.trim()) {
-          setTopic(nextSuggestions[0] || "");
-        }
-      } catch {
-        if (cancelled) return;
-        const nextSuggestions =
-          fallbackSuggestions.length > 0
-            ? fallbackSuggestions
-            : ["当前项目核心概念"];
-        setTopicSuggestions(nextSuggestions);
-        if (!topicDirtyRef.current && !topicRef.current.trim()) {
-          setTopic(nextSuggestions[0] || "");
-        }
-      } finally {
-        if (!cancelled) {
-          setIsTopicSuggestionsLoading(false);
-        }
-      }
-    };
-
-    void loadTopicSuggestions();
-    return () => {
-      cancelled = true;
-    };
-  }, [files, project?.id, project?.name, selectedFileIds]);
+    if (!topicDirtyRef.current && !topicRef.current.trim() && topicSuggestions[0]) {
+      setTopic(topicSuggestions[0]);
+    }
+  }, [topicSuggestions]);
 
   useEffect(() => {
     onDraftChange?.({
@@ -219,10 +130,8 @@ export function MindmapToolPanel({
 
   const handleGenerate = async () => {
     const normalizedTopic =
-      topic.trim() ||
-      topicSuggestions[0] ||
-      project?.name?.trim() ||
-      "当前项目核心概念";
+      topic.trim() || topicSuggestions[0] || project?.name?.trim() || "";
+    if (!normalizedTopic) return;
 
     const generatedTree = createBaseTree(normalizedTopic, focus, Number(depth));
     if (!topic.trim()) {

@@ -4,6 +4,7 @@ RAG Schemas - RAG 检索相关 Pydantic 模型
 对齐 docs/openapi.yaml 中的 RAG 相关 Schema 定义。
 """
 
+from enum import Enum
 from typing import Optional
 
 from pydantic import BaseModel, Field, field_validator
@@ -18,6 +19,37 @@ class RAGFilters(BaseModel):
         None, description="文件类型过滤 (pdf/word/video/image/ppt)"
     )
     file_ids: Optional[list[str]] = Field(None, description="文件 ID 过滤")
+
+
+class PromptSuggestionSurface(str, Enum):
+    """Frontend surfaces that can request RAG-conditioned generation prompts."""
+
+    PPT_GENERATION_CONFIG = "ppt_generation_config"
+    STUDIO_MINDMAP = "studio_mindmap"
+    STUDIO_GAME = "studio_game"
+    STUDIO_QUIZ = "studio_quiz"
+    STUDIO_ANIMATION = "studio_animation"
+    STUDIO_SIMULATION = "studio_simulation"
+    STUDIO_SPEAKER_NOTES = "studio_speaker_notes"
+    STUDIO_WORD = "studio_word"
+
+
+class PromptSuggestionRequest(BaseModel):
+    """Request for model-generated prompts grounded in project RAG."""
+
+    project_id: str = Field(..., description="项目 ID")
+    surface: PromptSuggestionSurface = Field(..., description="调用场景")
+    seed_text: Optional[str] = Field(None, max_length=1000, description="用户当前输入")
+    limit: int = Field(default=4, ge=1, le=8, description="返回建议数量")
+    filters: Optional[RAGFilters] = Field(None, description="RAG 检索过滤条件")
+
+
+class PromptSuggestionData(BaseModel):
+    """Prompt suggestion response payload."""
+
+    suggestions: list[str] = Field(default_factory=list, description="生成提示建议")
+    summary: Optional[str] = Field(None, description="建议方向摘要")
+    rag_hit: bool = Field(False, description="是否命中 RAG")
 
 
 class RAGSearchRequest(BaseModel):

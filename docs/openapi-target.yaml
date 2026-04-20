@@ -1312,6 +1312,38 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+  /api/v1/rag/prompt-suggestions:
+    post:
+      summary: 基于 RAG 生成提示建议
+      operationId: postRagPromptSuggestions
+      description: 读取项目 RAG 资料，并由大模型生成可直接用于 PPT 或 Studio 工具的生成提示。
+      tags:
+        - RAG
+      security:
+        - SessionAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PromptSuggestionRequest'
+      responses:
+        '200':
+          description: 提示建议生成成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PromptSuggestionResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '502':
+          $ref: '#/components/responses/BadGateway'
   /api/v1/rag/sources/{chunk_id}:
     get:
       summary: 查看来源详情
@@ -5794,6 +5826,79 @@ components:
                 $ref: '#/components/schemas/RAGResult'
             total:
               type: integer
+        message:
+          type: string
+    PromptSuggestionSurface:
+      type: string
+      enum:
+        - ppt_generation_config
+        - studio_mindmap
+        - studio_game
+        - studio_quiz
+        - studio_animation
+        - studio_simulation
+        - studio_speaker_notes
+        - studio_word
+    PromptSuggestionRequest:
+      type: object
+      required:
+        - project_id
+        - surface
+      properties:
+        project_id:
+          type: string
+        surface:
+          $ref: '#/components/schemas/PromptSuggestionSurface'
+        seed_text:
+          type: string
+          maxLength: 1000
+          nullable: true
+        limit:
+          type: integer
+          default: 4
+          minimum: 1
+          maximum: 8
+        filters:
+          type: object
+          properties:
+            file_types:
+              type: array
+              items:
+                type: string
+                enum:
+                  - pdf
+                  - word
+                  - video
+                  - image
+                  - ppt
+            file_ids:
+              type: array
+              items:
+                type: string
+    PromptSuggestionResponse:
+      type: object
+      required:
+        - success
+        - data
+        - message
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          required:
+            - suggestions
+            - rag_hit
+          properties:
+            suggestions:
+              type: array
+              items:
+                type: string
+            summary:
+              type: string
+              nullable: true
+            rag_hit:
+              type: boolean
         message:
           type: string
     SourceDetailResponse:

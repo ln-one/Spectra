@@ -20,6 +20,11 @@ from .courseware import (
 )
 from .escaping import escape_prompt_text
 from .intent import build_intent_prompt
+from .prompt_suggestions import (
+    PROMPT_SUGGESTION_SURFACE_POLICIES,
+    build_prompt_suggestion_prompt,
+    get_prompt_suggestion_retrieval_query,
+)
 from .rag import format_rag_context as _format_rag_context
 from .render_rewrite import build_courseware_render_rewrite_prompt
 from .semantics import (
@@ -127,6 +132,21 @@ class PromptService:
             outline_summary=outline_summary,
         )
 
+    def build_prompt_suggestion_prompt(
+        self,
+        *,
+        surface,
+        seed_text: str,
+        rag_context: list[dict],
+        limit: int,
+    ) -> str:
+        return build_prompt_suggestion_prompt(
+            surface=surface,
+            seed_text=seed_text,
+            rag_context=rag_context,
+            limit=limit,
+        )
+
 
 prompt_service = PromptService()
 
@@ -141,6 +161,9 @@ __all__ = [
     "build_courseware_style_prompt",
     "build_intent_prompt",
     "build_modify_prompt",
+    "build_prompt_suggestion_prompt",
+    "get_prompt_suggestion_retrieval_query",
+    "PROMPT_SUGGESTION_SURFACE_POLICIES",
     "contains_mechanical_option_pattern",
     "PromptCitationStyle",
     "PromptOutputBlock",
