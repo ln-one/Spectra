@@ -12,6 +12,7 @@ import { toast } from "@/hooks/use-toast";
 import type { components } from "@/lib/sdk/types";
 import {
   parseEventPayloadObject,
+  readOutlineRunCache,
   resolveEventLog,
 } from "@/components/project/features/outline-editor/utils";
 import { useShallow } from "zustand/react/shallow";
@@ -909,6 +910,39 @@ function extractPreviewPreambleLogs(
   return collected;
 }
 
+function resolveCachedPreviewPreambleLogs(
+  sessionId: string | null,
+  runId: string | null
+): PreviewPreambleLog[] {
+  const cached = readOutlineRunCache(sessionId, runId);
+  if (!cached?.streamLogs.length) return [];
+  return cached.streamLogs.map((log) => ({
+    id: log.id,
+    title: log.title,
+    detail: log.detail,
+    tone: log.tone,
+    ts: log.ts,
+  }));
+}
+
+function mergePreviewPreambleLogs(
+  current: PreviewPreambleLog[],
+  incoming: PreviewPreambleLog[]
+): PreviewPreambleLog[] {
+  if (incoming.length === 0) return current;
+  const merged: PreviewPreambleLog[] = [];
+  const seen = new Set<string>();
+  for (const item of [...current, ...incoming]) {
+    const key =
+      item.id.trim() ||
+      `${item.title.trim()}::${String(item.detail || "").trim()}`;
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    merged.push(item);
+  }
+  return merged;
+}
+
 function hasRenderablePreviewFrame(
   page: RenderedPreviewFrame | null | undefined
 ): boolean {
@@ -1208,36 +1242,6 @@ export function useGeneratePreviewState({
       setPreviewBlockedReason(
         nextSlides.length === 0 ? "当前 run 暂无可展示预览。" : null
       );
-      void Promise.all([
-        generateApi
-          .getSessionSnapshot(activeSessionId, { run_id: activeRunId })
-          .catch(() => null),
-        generateApi.getSessionSnapshot(activeSessionId).catch(() => null),
-        generateApi
-          .listEvents(activeSessionId, {
-            run_id: activeRunId,
-            limit: 200,
-          })
-          .catch(() => null),
-      ]).then(
-        ([runSnapshotResponse, sessionSnapshotResponse, eventListResponse]) => {
-          const eventList =
-            ((eventListResponse?.data?.events ?? []) as GenerationEvent[]) ||
-            [];
-          setCurrentPptUrl(
-            resolvePptUrlFromSnapshot(runSnapshotResponse?.data ?? null) ||
-              resolvePptUrlFromSnapshot(sessionSnapshotResponse?.data ?? null)
-          );
-          setPreviewOutline(
-            resolveOutlineFromSnapshot(runSnapshotResponse?.data ?? null) ||
-              resolveOutlineFromSnapshot(
-                sessionSnapshotResponse?.data ?? null
-              ) ||
-              extractPreviewOutline(eventList)
-          );
-          setPreviewPreambleLogs(extractPreviewPreambleLogs(eventList));
-        }
-      );
     } catch (error) {
       const shouldPreserveExistingPreview =
         error instanceof ApiError && error.status === 409;
@@ -1271,6 +1275,70 @@ export function useGeneratePreviewState({
     }
   }, [activeRunId, activeSessionId, currentArtifactId, artifactIdFromQuery]);
 
+  const loadPreviewCopilotContext = useCallback(async () => {
+    if (!activeSessionId) {
+      setPreviewOutline(null);
+      setPreviewPreambleLogs([]);
+      setCurrentPptUrl(null);
+      return;
+    }
+    if (!activeRunId) {
+      setPreviewOutline(null);
+      setPreviewPreambleLogs([]);
+      setCurrentPptUrl(null);
+      return;
+    }
+
+    const cachedPreambleLogs = resolveCachedPreviewPreambleLogs(
+      activeSessionId,
+      activeRunId
+    );
+    if (cachedPreambleLogs.length > 0) {
+      setPreviewPreambleLogs((current) =>
+        current.length > 0
+          ? mergePreviewPreambleLogs(current, cachedPreambleLogs)
+          : cachedPreambleLogs
+      );
+    }
+
+    try {
+      const [runSnapshotResponse, sessionSnapshotResponse, eventListResponse] =
+        await Promise.all([
+          generateApi
+            .getSessionSnapshot(activeSessionId, { run_id: activeRunId })
+            .catch(() => null),
+          generateApi.getSessionSnapshot(activeSessionId).catch(() => null),
+          generateApi
+            .listEvents(activeSessionId, {
+              run_id: activeRunId,
+              limit: 200,
+            })
+            .catch(() => null),
+        ]);
+
+      const eventList =
+        ((eventListResponse?.data?.events ?? []) as GenerationEvent[]) || [];
+      const nextPreambleLogs = extractPreviewPreambleLogs(eventList);
+
+      setCurrentPptUrl(
+        resolvePptUrlFromSnapshot(runSnapshotResponse?.data ?? null) ||
+          resolvePptUrlFromSnapshot(sessionSnapshotResponse?.data ?? null)
+      );
+      setPreviewOutline(
+        resolveOutlineFromSnapshot(runSnapshotResponse?.data ?? null) ||
+          resolveOutlineFromSnapshot(sessionSnapshotResponse?.data ?? null) ||
+          extractPreviewOutline(eventList)
+      );
+      setPreviewPreambleLogs(
+        nextPreambleLogs.length > 0 ? nextPreambleLogs : cachedPreambleLogs
+      );
+    } catch {
+      if (cachedPreambleLogs.length > 0) {
+        setPreviewPreambleLogs(cachedPreambleLogs);
+      }
+    }
+  }, [activeRunId, activeSessionId]);
+
   const { events } = useGenerationEvents({
     sessionId: activeSessionId && activeRunId ? activeSessionId : null,
     runId: activeRunId,
@@ -1286,14 +1354,39 @@ export function useGeneratePreviewState({
   );
 
   useEffect(() => {
+    setPreviewPreambleLogs(
+      resolveCachedPreviewPreambleLogs(activeSessionId, activeRunId)
+    );
+  }, [activeRunId, activeSessionId]);
+
+  useEffect(() => {
     processedEventKeysRef.current.clear();
     setSessionFailureMessage(null);
     setPreviewSessionState(null);
     setDiegoPreviewContext((current) =>
       mergeDiegoPreviewContext(current, null, activeRunId)
     );
-    void Promise.all([loadSessionRuns(), loadSlides()]);
-  }, [activeRunId, activeSessionId, loadSessionRuns, loadSlides]);
+    void Promise.all([
+      loadSessionRuns(),
+      loadSlides(),
+      loadPreviewCopilotContext(),
+    ]);
+  }, [
+    activeRunId,
+    activeSessionId,
+    loadPreviewCopilotContext,
+    loadSessionRuns,
+    loadSlides,
+  ]);
+
+  useEffect(() => {
+    if (!activeRunId || events.length === 0) return;
+    const livePreambleLogs = extractPreviewPreambleLogs(events);
+    if (livePreambleLogs.length === 0) return;
+    setPreviewPreambleLogs((current) =>
+      mergePreviewPreambleLogs(current, livePreambleLogs)
+    );
+  }, [activeRunId, events]);
 
   useEffect(() => {
     const currentRun =
@@ -1461,7 +1554,11 @@ export function useGeneratePreviewState({
         eventType === "ppt.completed" ||
         diegoEventType === "compile.completed"
       ) {
-        void Promise.all([loadSessionRuns(), loadSlides()]);
+        void Promise.all([
+          loadSessionRuns(),
+          loadSlides(),
+          loadPreviewCopilotContext(),
+        ]);
         continue;
       }
       if (
@@ -1481,10 +1578,20 @@ export function useGeneratePreviewState({
         setPreviewSessionState(event.state);
       }
       if (eventType === "task.completed" || event.state === "SUCCESS") {
-        void Promise.all([loadSessionRuns(), loadSlides()]);
+        void Promise.all([
+          loadSessionRuns(),
+          loadSlides(),
+          loadPreviewCopilotContext(),
+        ]);
       }
     }
-  }, [activeRunId, events, loadSessionRuns, loadSlides]);
+  }, [
+    activeRunId,
+    events,
+    loadPreviewCopilotContext,
+    loadSessionRuns,
+    loadSlides,
+  ]);
 
   useEffect(() => {
     if (!activeRunId || !isSessionGenerating) return;
@@ -1506,7 +1613,11 @@ export function useGeneratePreviewState({
         },
       });
       await fetchGenerationHistory(projectId);
-      await Promise.all([loadSessionRuns(), loadSlides()]);
+      await Promise.all([
+        loadSessionRuns(),
+        loadSlides(),
+        loadPreviewCopilotContext(),
+      ]);
       toast({
         title: "会话恢复成功",
         description: "已触发恢复并刷新 Diego 预览。",
@@ -1526,6 +1637,7 @@ export function useGeneratePreviewState({
     activeSessionId,
     fetchGenerationHistory,
     isResuming,
+    loadPreviewCopilotContext,
     loadSessionRuns,
     loadSlides,
     projectId,
