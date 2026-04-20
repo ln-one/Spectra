@@ -28,6 +28,18 @@ _IMAGE_EXTENSIONS = {
 }
 
 
+def _resolve_chat_response_max_tokens() -> int:
+    raw = os.getenv("CHAT_RESPONSE_MAX_TOKENS", "").strip()
+    if not raw:
+        return 2000
+    try:
+        value = int(raw)
+    except ValueError:
+        logger.warning("Invalid CHAT_RESPONSE_MAX_TOKENS=%r; using 2000", raw)
+        return 2000
+    return max(256, min(value, 8000))
+
+
 def _project_upload_fields(upload, *, select: dict | None = None) -> dict | object:
     if not select:
         return upload
@@ -264,7 +276,7 @@ async def generate_assistant_reply(
             prompt=prompt,
             route_task=ModelRouteTask.CHAT_RESPONSE,
             has_rag_context=rag_hit,
-            max_tokens=500,
+            max_tokens=_resolve_chat_response_max_tokens(),
         )
         stage_timings_ms["ai_generate_ms"] = round(
             (time.perf_counter() - stage_started) * 1000, 2

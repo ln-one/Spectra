@@ -1,4 +1,5 @@
 import {
+  stripInlineCitationTags,
   toCitationViewModel,
   toCitationViewModels,
 } from "@/lib/chat/citation-view-model";
@@ -71,5 +72,13 @@ describe("citation view model adapter", () => {
       sourceType: "audio",
       filename: "audio.mp3",
     });
+  });
+
+  it("strips inline cite protocol tags from visible content", () => {
+    expect(
+      stripInlineCitationTags(
+        '结论见资料。<cite chunk_id="chunk-1"></cite>\n继续说明。'
+      )
+    ).toBe("结论见资料。\n继续说明。");
   });
 });

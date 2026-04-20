@@ -6,7 +6,10 @@ import { CheckCircle2, CircleX, Loader2 } from "lucide-react";
 import { useProjectStore } from "@/stores/projectStore";
 import { useShallow } from "zustand/react/shallow";
 import { cn } from "@/lib/utils";
-import { toCitationViewModels } from "@/lib/chat/citation-view-model";
+import {
+  stripInlineCitationTags,
+  toCitationViewModels,
+} from "@/lib/chat/citation-view-model";
 import { TOOL_COLORS } from "@/components/project/features/studio/constants";
 import type { ChatMessage } from "../types";
 import { CitationBadge } from "./CitationBadge";
@@ -77,7 +80,8 @@ export function MessageBubble({
       focusSourceByChunk: state.focusSourceByChunk,
     }))
   );
-  const { body } = splitContentAndSources(message.content);
+  const visibleContent = stripInlineCitationTags(message.content);
+  const { body } = splitContentAndSources(visibleContent);
   const citations = useMemo(
     () => toCitationViewModels(message.citations),
     [message.citations]
@@ -127,7 +131,7 @@ export function MessageBubble({
           ) : (
             <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
           )}
-          <span className="whitespace-pre-wrap">{message.content}</span>
+          <span className="whitespace-pre-wrap">{visibleContent}</span>
         </button>
       </motion.div>
     );
@@ -171,7 +175,7 @@ export function MessageBubble({
           }
         >
           {isUser ? (
-            <span className="whitespace-pre-wrap">{message.content}</span>
+            <span className="whitespace-pre-wrap">{visibleContent}</span>
           ) : (
             <div className="relative">
               <MarkdownContent content={body} isUser={isUser} />

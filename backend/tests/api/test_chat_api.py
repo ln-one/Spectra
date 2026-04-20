@@ -10,6 +10,7 @@ from main import app
 from services.ai import ai_service
 from services.database import db_service
 from services.rag_service import rag_service
+from routers.chat.runtime_helpers import _resolve_chat_response_max_tokens
 from utils.dependencies import get_current_user
 
 _NOW = datetime.now(timezone.utc)
@@ -130,6 +131,19 @@ def test_send_message_success(client, monkeypatch, _as_user):
     assert body["data"]["session_title_source"] == "default"
     assert body["data"]["session_title_updated"] is False
     assert len(body["data"]["suggestions"]) == 3
+    assert ai_service.generate.await_args.kwargs["max_tokens"] == 2000
+
+
+def test_chat_response_max_tokens_is_env_configurable(monkeypatch):
+    monkeypatch.setenv("CHAT_RESPONSE_MAX_TOKENS", "2200")
+    assert _resolve_chat_response_max_tokens() == 2200
+
+
+def test_chat_response_max_tokens_is_bounded(monkeypatch):
+    monkeypatch.setenv("CHAT_RESPONSE_MAX_TOKENS", "12000")
+    assert _resolve_chat_response_max_tokens() == 8000
+    monkeypatch.setenv("CHAT_RESPONSE_MAX_TOKENS", "120")
+    assert _resolve_chat_response_max_tokens() == 256
 
 
 def test_send_message_requests_background_session_title_generation_once(

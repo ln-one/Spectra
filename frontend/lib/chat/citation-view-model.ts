@@ -92,3 +92,8 @@ export function toCitationViewModels(citations: unknown): CitationViewModel[] {
     .map((item, index) => toCitationViewModel(item, index))
     .filter((item): item is CitationViewModel => item !== null);
 }
+
+export function stripInlineCitationTags(content: string): string {
+  if (!content) return content;
+  return content.replace(/<cite\b[^>]*>(?:\s*<\/cite>)?/gi, "");
+}
