@@ -17,6 +17,7 @@ from services.title_service.prompting import (
 from services.title_service.structured_prompting import build_session_title_payload
 from services.title_service.structured_runtime import StructuredTitleResult
 from services.title_service.structured_runtime import (
+    TITLE_RESPONSE_MAX_TOKENS,
     generate_structured_title,
 )
 
@@ -130,7 +131,7 @@ def test_build_session_title_payload_includes_project_context():
 
 
 @pytest.mark.anyio
-async def test_generate_structured_title_uses_forced_tool_call_and_reasoning_split(
+async def test_generate_structured_title_uses_forced_tool_call_with_title_budget(
     monkeypatch,
 ):
     captured: dict[str, object] = {}
@@ -177,8 +178,9 @@ async def test_generate_structured_title_uses_forced_tool_call_and_reasoning_spl
         "function": {"name": "set_title"},
     }
     assert captured["tools"][0]["function"]["name"] == "set_title"
+    assert captured["max_tokens"] == TITLE_RESPONSE_MAX_TOKENS
     assert captured["max_retries"] == 0
-    assert captured["extra_body"] == {"reasoning_split": True}
+    assert "extra_body" not in captured
     assert result.title == "牛顿第二定律课件"
 
 

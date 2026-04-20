@@ -20,6 +20,7 @@ from .structured_prompting import build_structured_title_system_prompt
 logger = logging.getLogger(__name__)
 
 TitleScene = Literal["project", "session", "run"]
+TITLE_RESPONSE_MAX_TOKENS = 512
 
 
 class StructuredTitleArguments(BaseModel):
@@ -56,7 +57,7 @@ def _build_request_kwargs(
             {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
         ],
         "temperature": 0,
-        "max_tokens": 256,
+        "max_tokens": TITLE_RESPONSE_MAX_TOKENS,
         "max_retries": 0,
         "tools": [
             {
@@ -70,8 +71,6 @@ def _build_request_kwargs(
         ],
         "tool_choice": {"type": "function", "function": {"name": "set_title"}},
     }
-    if model.startswith("minimax/"):
-        request_kwargs["extra_body"] = {"reasoning_split": True}
     return request_kwargs
 
 
