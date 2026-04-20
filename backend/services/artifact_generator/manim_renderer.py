@@ -357,6 +357,20 @@ def _safe_text(value: Any, default: str = "") -> str:
     return text
 
 
+def _is_light_hex(hex_color: Any) -> bool:
+    raw = str(hex_color or "").strip().lstrip("#")
+    if len(raw) != 6:
+        return False
+    try:
+        r = int(raw[0:2], 16)
+        g = int(raw[2:4], 16)
+        b = int(raw[4:6], 16)
+    except ValueError:
+        return False
+    luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b
+    return luminance >= 150
+
+
 def _build_safe_fallback_code(spec: dict[str, Any]) -> str:
     """Build a deterministic Manim scene that is guaranteed to use stable APIs."""
     topic = _safe_text(spec.get("topic") or spec.get("title"), "教学动画")
@@ -600,15 +614,47 @@ def _extract_json(raw: str) -> dict:
 
 def _scene_step_description(scene: dict[str, Any], index: int) -> str:
     """Build timeline description from scene card."""
-    title = str(scene.get("title") or "").strip()
-    desc = str(scene.get("description") or "").strip()
+    title = _sanitize_caption_text(scene.get("title") or "")
+    desc = _sanitize_caption_text(scene.get("description") or "")
     if title and desc:
-        return f"{title} - {desc}"[:120]
+        if len(title) <= 8:
+            return _truncate_caption(f"{title} - {desc}", 26)
+        return _truncate_caption(desc, 26)
     if title:
-        return title[:120]
+        return _truncate_caption(title, 18)
     if desc:
-        return desc[:120]
+        return _truncate_caption(desc, 26)
     return f"场景{index + 1}演示"
+
+
+def _sanitize_caption_text(text: Any) -> str:
+    value = str(text or "").strip()
+    if not value:
+        return ""
+    value = re.sub(r"\b(left|right|up|down|top|bottom)\b", "", value, flags=re.IGNORECASE)
+    value = re.sub(r"\s{2,}", " ", value)
+    value = value.strip(" ,，。；;：:-")
+    # Prefer the first clause so captions stay short and knowledge-focused.
+    parts = re.split(r"[，。；;：:\n]", value)
+    for part in parts:
+        candidate = part.strip()
+        if candidate:
+            return candidate
+    return value.strip()
+
+
+def _truncate_caption(text: str, limit: int) -> str:
+    value = str(text or "").strip()
+    if len(value) <= limit:
+        return value
+    return value[: max(limit - 1, 1)].rstrip(" -，。；;：:") + "…"
+
+
+def _normalize_copy_text(text: Any) -> str:
+    value = str(text or "").strip()
+    for token in ["：", ":", "；", ";", "，", ",", "。", ".", "！", "!", "？", "?", "、", " "]:
+        value = value.replace(token, "")
+    return value
 
 
 def _align_timeline_with_scenes(
@@ -620,14 +666,39 @@ def _align_timeline_with_scenes(
     panel = str(theme.get("panel") or "#ffffff")
     duration_seconds = int(spec.get("duration_seconds") or 8)
 
+    scenes = spec.get("scenes") or []
+
     scene_meta = plan_json.get("scene_meta")
     if not isinstance(scene_meta, dict):
         scene_meta = {}
     scene_meta["duration_seconds"] = duration_seconds
     scene_meta["background_gradient"] = [bg, panel]
+    title_text = str(
+        scene_meta.get("title") or spec.get("topic") or spec.get("title") or ""
+    ).strip()
+    subtitle_candidates = [
+        spec.get("focus"),
+        (scenes[0].get("title") if scenes else ""),
+    ]
+    subtitle_text = str(scene_meta.get("subtitle") or "").strip()
+    if not subtitle_text:
+        for candidate in subtitle_candidates:
+            candidate_text = str(candidate or "").strip()
+            if (
+                candidate_text
+                and _normalize_copy_text(candidate_text)
+                != _normalize_copy_text(title_text)
+                and len(candidate_text) <= 18
+            ):
+                subtitle_text = candidate_text
+                break
+    if (
+        subtitle_text
+        and _normalize_copy_text(subtitle_text) == _normalize_copy_text(title_text)
+    ):
+        subtitle_text = ""
+    scene_meta["subtitle"] = subtitle_text
     plan_json["scene_meta"] = scene_meta
-
-    scenes = spec.get("scenes") or []
 
     timeline = plan_json.get("timeline")
     if not isinstance(timeline, list):
@@ -742,7 +813,49 @@ def _align_timeline_with_scenes(
             adjusted = float(step.get("wait_after") or 0.4) * scale
             step["wait_after"] = round(max(0.3, min(1.8, adjusted)), 2)
 
+    summary_points: list[str] = []
+    for scene in scenes[:4]:
+        point = _scene_step_description(scene, len(summary_points))
+        point = str(point or "").strip()
+        if point and _normalize_copy_text(point) != _normalize_copy_text(subtitle_text):
+            summary_points.append(_truncate_caption(point, 30))
+    if not summary_points:
+        summary_candidates = [
+            (scenes[-1].get("description") if scenes else ""),
+            (scenes[-1].get("title") if scenes else ""),
+            spec.get("summary"),
+            spec.get("teaching_goal"),
+        ]
+        for candidate in summary_candidates:
+            candidate_text = str(candidate or "").strip()
+            if (
+                candidate_text
+                and _normalize_copy_text(candidate_text)
+                != _normalize_copy_text(subtitle_text)
+            ):
+                summary_points.append(_truncate_caption(_sanitize_caption_text(candidate_text), 30))
+                break
+    text_blocks = plan_json.get("text_blocks")
+    if not isinstance(text_blocks, list):
+        text_blocks = []
+    has_summary_block = any(
+        isinstance(tb, dict) and str(tb.get("id") or "").strip().lower() == "final_summary"
+        for tb in text_blocks
+    )
+    if summary_points and not has_summary_block:
+        text_blocks.append(
+            {
+                "id": "final_summary",
+                "content": "\n".join(summary_points[:4]),
+                "position": "center",
+                "color": "GRAY_E" if _is_light_hex(bg) else "GRAY_A",
+                "font_size": 24,
+                "offset": [0, -0.55],
+            }
+        )
+
     plan_json["timeline"] = timeline
+    plan_json["text_blocks"] = text_blocks
     return plan_json
 
 
@@ -822,14 +935,17 @@ AnimationPlan 结构：
 
 设计要求：
 1. background_gradient 必须使用指定配色 {bg_suggestion}
-2. 文本字号偏大：title >= 50，节点标签 >= 30，说明文字 >= 28
+2. 文本字号偏大：title >= 54，节点标签 >= 30，说明文字 >= 30
 3. box 类型优先使用圆角卡片风格
-4. 尽量使用镜头切换和 indicate 强调重点
+4. 至少安排 1 个明确的视觉焦点对象，使用 indicate 或 create 渐进强化
 5. 所有标签必须使用中文
 6. 对象标签必须具体，禁止 A/B/C 这类占位符
 7. position 必须合理分布，避免对象重叠
-8. 对象颜色优先使用深色或高饱和颜色
-9. timeline 应分场景渐进展开
+8. 对象颜色优先使用深色或高饱和颜色，重点对象用更亮的强调色
+9. timeline 应分场景渐进展开，避免所有元素从一开始全部堆在画面上
+10. scene_meta.subtitle 不能与 title 重复或只做同义改写；若没有明显补充信息，就留空
+11. 中间主体区域必须形成主次层次：主对象更大，辅助对象更小，至少包含一处箭头/连接/流向关系
+12. 底部说明文字要短而清晰，适合做字幕条，不要写成整段长句
 
 只输出 JSON。
 """

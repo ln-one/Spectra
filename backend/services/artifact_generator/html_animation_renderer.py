@@ -167,6 +167,12 @@ _HTML_TEMPLATE = """<!doctype html>
       return !hasGenericNoise && value.length >= 6;
     }
 
+    function normalizeHeaderCopy(text) {
+      return String(text || "")
+        .trim()
+        .replace(/[：:;；，,。.!！?？、\\s]+/g, "");
+    }
+
     function pickRelevantPoints(points, spec, scene, limit = 3) {
       const anchors = collectSemanticAnchors(spec, scene);
       const resolved = Array.isArray(points) ? points : [];
@@ -440,9 +446,14 @@ _HTML_TEMPLATE = """<!doctype html>
     function renderHeader(spec, scene, progress) {
       const theme = spec.theme || {};
       const showProgressBar = spec.visual_type !== "process_flow";
-      const subtitleText = spec.visual_type === "process_flow"
+      const rawSubtitleText = spec.visual_type === "process_flow"
         ? ""
         : (spec.teaching_goal || spec.summary || "");
+      const subtitleText = String(rawSubtitleText || "").trim();
+      const showSubtitle = Boolean(
+        subtitleText &&
+        normalizeHeaderCopy(subtitleText) !== normalizeHeaderCopy(spec.title)
+      );
       const titleHeight = getTextBlockHeight(spec.title, {
         fontSize: 30,
         lineHeight: 38,
@@ -460,14 +471,14 @@ _HTML_TEMPLATE = """<!doctype html>
             maxLines: 2,
             fontWeight: 800,
           })}
-          ${renderTextBlock(88, subtitleY, subtitleText, {
+          ${showSubtitle ? renderTextBlock(88, subtitleY, subtitleText, {
             fontSize: 17,
             fill: theme.muted,
             lineHeight: 24,
             maxChars: 34,
             maxLines: 1,
             fontWeight: 500,
-          })}
+          }) : ""}
           ${renderChip(88, 24, scene.title || "镜头", withAlpha(theme.accent, 0.10), withAlpha(theme.accent, 0.25), theme.accent_deep)}
           ${showProgressBar ? `
             <g transform="translate(88, 470)">
@@ -754,9 +765,10 @@ _HTML_TEMPLATE = """<!doctype html>
       ).join("");
       return `
         <g>
-          <rect x="40" y="150" width="880" height="352" rx="34" fill="${withAlpha(theme.panel, 0.96)}" stroke="${withAlpha(theme.accent, 0.18)}" />
-          <rect x="74" y="188" width="454" height="272" rx="26" fill="${withAlpha(theme.panel_alt, 0.78)}" stroke="${withAlpha(theme.accent, 0.18)}" />
-          <rect x="550" y="188" width="326" height="272" rx="28" fill="${withAlpha(theme.highlight, shot === "focus" ? 0.12 : 0.08)}" stroke="${withAlpha(theme.highlight, 0.24)}" />
+          <rect x="40" y="150" width="880" height="352" rx="34" fill="url(#flow-stage-gradient)" stroke="${withAlpha(theme.accent, 0.18)}" filter="url(#panel-shadow)" />
+          <rect x="74" y="188" width="454" height="272" rx="26" fill="${withAlpha(theme.panel_alt, 0.78)}" stroke="${withAlpha(theme.accent, 0.18)}" filter="url(#panel-shadow)" />
+          <rect x="550" y="188" width="326" height="272" rx="28" fill="${withAlpha(theme.highlight, shot === "focus" ? 0.12 : 0.08)}" stroke="${withAlpha(theme.highlight, 0.24)}" filter="url(#panel-shadow)" />
+          <ellipse cx="${visitTrail[visitTrail.length - 1]?.x || rootX}" cy="${visitTrail[visitTrail.length - 1]?.y || points[0].y}" rx="92" ry="58" fill="${withAlpha(theme.highlight, 0.08)}" filter="url(#soft-glow)" />
           <text x="96" y="220" font-family="__FONT_FAMILY_STACK__" font-size="24" font-weight="800" fill="${theme.accent_deep}">
             ${shot === "summary" ? "遍历结果回收" : "路径展开与节点访问"}
           </text>
@@ -764,7 +776,8 @@ _HTML_TEMPLATE = """<!doctype html>
           <path d="M ${rootX} ${points[0].y} L ${midX + 86} ${points[2].y}" stroke="${withAlpha(theme.accent, 0.28)}" stroke-width="4" fill="none" />
           <path d="M ${midX + 86} ${points[2].y} L ${leafX} ${points[3].y}" stroke="${withAlpha(theme.accent, 0.28)}" stroke-width="4" fill="none" />
           <path d="M ${midX - 86} ${points[1].y} L ${leafX} ${points[4].y}" stroke="${withAlpha(theme.accent, 0.22)}" stroke-width="4" fill="none" />
-          <path d="${tracePath}" stroke="${theme.highlight}" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round" />
+          <path d="${tracePath}" stroke="${theme.highlight}" stroke-width="12" opacity="0.28" fill="none" stroke-linecap="round" stroke-linejoin="round" filter="url(#soft-glow)" />
+          <path d="${tracePath}" stroke="url(#flow-progress-gradient)" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round" />
           ${nodes}
           <circle cx="${visitTrail[visitTrail.length - 1]?.x || rootX}" cy="${visitTrail[visitTrail.length - 1]?.y || points[0].y}" r="${16 + Math.sin(progress * Math.PI * 2) * 3}" fill="none" stroke="${withAlpha(theme.highlight, 0.28)}" stroke-width="3" />
           <text x="574" y="226" font-family="__FONT_FAMILY_STACK__" font-size="22" font-weight="800" fill="${theme.text}">
@@ -811,14 +824,22 @@ _HTML_TEMPLATE = """<!doctype html>
         : Math.min(stageCount - 1, Math.floor(progress * stageCount));
       const flowX = 144 + clamp(progress, 0, 1) * 612;
       const waveOffset = Math.sin(progress * Math.PI * 2) * 10;
+      const glowDrift = Math.sin(progress * Math.PI * 2) * 14;
+      const pulseRadius = 42 + Math.sin(progress * Math.PI * 2) * 5;
       const bullets = resolveBullets(scene, spec, 2);
       return `
         <g>
-          <rect x="42" y="154" width="876" height="344" rx="34" fill="${withAlpha(theme.panel, 0.96)}" stroke="${withAlpha(theme.accent, 0.18)}" />
-          <rect x="78" y="194" width="804" height="180" rx="28" fill="${withAlpha(theme.panel_alt, 0.78)}" stroke="${withAlpha(theme.accent, 0.20)}" />
-          <line x1="144" y1="286" x2="756" y2="286" stroke="${withAlpha(theme.accent, 0.34)}" stroke-width="12" stroke-linecap="round" />
-          <line x1="144" y1="286" x2="${flowX}" y2="286" stroke="${withAlpha(theme.highlight, 0.82)}" stroke-width="16" stroke-linecap="round" />
+          <rect x="42" y="154" width="876" height="344" rx="34" fill="url(#flow-stage-gradient)" stroke="${withAlpha(theme.accent, 0.22)}" filter="url(#panel-shadow)" />
+          <rect x="78" y="194" width="804" height="180" rx="28" fill="${withAlpha(theme.panel_alt, 0.74)}" stroke="${withAlpha(theme.accent, 0.20)}" />
+          <rect x="92" y="208" width="776" height="152" rx="24" fill="url(#flow-lane-gradient)" opacity="0.95" />
+          <ellipse cx="${flowX}" cy="${286 + glowDrift * 0.2}" rx="${pulseRadius + 26}" ry="42" fill="${withAlpha(theme.highlight, 0.12)}" filter="url(#soft-glow)" />
+          <ellipse cx="${flowX - 32}" cy="${286 - glowDrift * 0.15}" rx="96" ry="28" fill="${withAlpha(theme.accent, 0.08)}" />
+          <line x1="144" y1="286" x2="756" y2="286" stroke="${withAlpha(theme.accent, 0.22)}" stroke-width="20" stroke-linecap="round" />
+          <line x1="144" y1="286" x2="756" y2="286" stroke="url(#flow-track-gradient)" stroke-width="12" stroke-linecap="round" opacity="0.72" />
+          <line x1="144" y1="286" x2="${flowX}" y2="286" stroke="url(#flow-progress-gradient)" stroke-width="18" stroke-linecap="round" filter="url(#soft-glow)" />
           ${renderMotionTrail(144, 756, 286, progress, theme.highlight, 5)}
+          <circle cx="${flowX}" cy="${286 + waveOffset * 0.15}" r="${pulseRadius}" fill="none" stroke="${withAlpha(theme.highlight, 0.22)}" stroke-width="6" />
+          <circle cx="${flowX}" cy="${286 + waveOffset * 0.15}" r="24" fill="${withAlpha(theme.highlight, 0.18)}" filter="url(#soft-glow)" />
           <circle cx="${flowX}" cy="${286 + waveOffset * 0.15}" r="18" fill="${theme.highlight}" stroke="${withAlpha(theme.accent_deep, 0.72)}" stroke-width="3" />
           ${labels.map((label, index) => {
             const x = 144 + index * (612 / Math.max(stageCount - 1, 1));
@@ -826,6 +847,7 @@ _HTML_TEMPLATE = """<!doctype html>
             const current = index === activeIndex;
             return `
               <g>
+                ${current ? `<circle cx="${x}" cy="286" r="40" fill="${withAlpha(theme.highlight, 0.10)}" filter="url(#soft-glow)" />` : ""}
                 <circle cx="${x}" cy="286" r="${current ? 28 : 22}" fill="${active ? theme.accent : theme.panel}" stroke="${current ? withAlpha(theme.highlight, 0.88) : withAlpha(theme.accent, 0.28)}" stroke-width="${current ? 4 : 2.5}" />
                 <text x="${x}" y="293" text-anchor="middle" font-family="__FONT_FAMILY_STACK__" font-size="13" font-weight="800" fill="${active ? withAlpha(theme.panel, 0.96) : theme.accent_deep}">
                   ${index + 1}
@@ -841,27 +863,29 @@ _HTML_TEMPLATE = """<!doctype html>
               </g>
             `;
           }).join("")}
-          <rect x="94" y="394" width="338" height="72" rx="22" fill="${withAlpha(theme.highlight, 0.10)}" stroke="${withAlpha(theme.highlight, 0.26)}" />
-          <text x="122" y="422" font-family="__FONT_FAMILY_STACK__" font-size="20" font-weight="800" fill="${theme.accent_deep}">
+          <rect x="94" y="388" width="338" height="88" rx="22" fill="url(#focus-card-gradient)" stroke="${withAlpha(theme.highlight, 0.26)}" filter="url(#panel-shadow)" />
+          <rect x="106" y="400" width="314" height="10" rx="5" fill="${withAlpha(theme.highlight, 0.20)}" />
+          <text x="122" y="418" font-family="__FONT_FAMILY_STACK__" font-size="20" font-weight="800" fill="${theme.accent_deep}">
             当前能量段：${escapeHtml(labels[activeIndex] || "输出结果")}
           </text>
-          ${renderTextBlock(122, 448, scene.description || spec.summary || "", {
-            fontSize: 14,
+          ${renderTextBlock(122, 446, scene.description || spec.summary || "", {
+            fontSize: 18,
             fill: theme.text,
-            lineHeight: 18,
-            maxChars: 24,
-            maxLines: 1,
+            lineHeight: 24,
+            maxChars: 28,
+            maxLines: 2,
             fontWeight: 600,
           })}
-          <rect x="464" y="394" width="390" height="72" rx="22" fill="${withAlpha(theme.panel, 0.94)}" stroke="${withAlpha(theme.accent, 0.18)}" />
+          <rect x="464" y="388" width="390" height="88" rx="22" fill="${withAlpha(theme.panel, 0.94)}" stroke="${withAlpha(theme.accent, 0.18)}" filter="url(#panel-shadow)" />
+          <rect x="478" y="400" width="92" height="10" rx="5" fill="${withAlpha(theme.accent, 0.18)}" />
           ${bullets.map((point, index) => `
-            <g transform="translate(490, ${422 + index * 20})">
+            <g transform="translate(490, ${418 + index * 24})">
               <circle cx="0" cy="0" r="4" fill="${theme.highlight}" />
               ${renderTextBlock(12, 5, point, {
-                fontSize: 13,
+                fontSize: 15,
                 fill: theme.text,
-                lineHeight: 16,
-                maxChars: 26,
+                lineHeight: 20,
+                maxChars: 24,
                 maxLines: 1,
                 fontWeight: 600,
               })}
@@ -898,14 +922,17 @@ _HTML_TEMPLATE = """<!doctype html>
       const bullets = resolveBullets(scene, spec, 2);
       return `
         <g>
-          <rect x="40" y="154" width="880" height="344" rx="34" fill="${withAlpha(theme.panel, 0.96)}" stroke="${withAlpha(theme.accent, 0.18)}" />
-          <rect x="74" y="190" width="520" height="274" rx="30" fill="${withAlpha(theme.panel_alt, 0.78)}" stroke="${withAlpha(theme.accent, 0.18)}" />
-          <circle cx="${centerX}" cy="${centerY}" r="${radius}" fill="none" stroke="${withAlpha(theme.accent, 0.28)}" stroke-width="8" />
+          <rect x="40" y="154" width="880" height="344" rx="34" fill="url(#flow-stage-gradient)" stroke="${withAlpha(theme.accent, 0.18)}" filter="url(#panel-shadow)" />
+          <rect x="74" y="190" width="520" height="274" rx="30" fill="${withAlpha(theme.panel_alt, 0.78)}" stroke="${withAlpha(theme.accent, 0.18)}" filter="url(#panel-shadow)" />
+          <circle cx="${centerX}" cy="${centerY}" r="${radius + 30}" fill="${withAlpha(theme.highlight, 0.05)}" filter="url(#soft-glow)" />
+          <circle cx="${centerX}" cy="${centerY}" r="${radius}" fill="none" stroke="${withAlpha(theme.accent, 0.22)}" stroke-width="12" />
+          <circle cx="${centerX}" cy="${centerY}" r="${radius}" fill="none" stroke="url(#flow-track-gradient)" stroke-width="8" />
           <circle cx="${centerX}" cy="${centerY}" r="${radius}" fill="none" stroke="${withAlpha(theme.highlight, 0.18)}" stroke-width="16" stroke-dasharray="${Math.round(radius * 2.1)} ${Math.round(radius * 4.1)}" stroke-dashoffset="${Math.round((1 - progress) * radius * 6)}" />
           ${orbit.map((item, index) => {
             const active = index === activeIndex;
             return `
               <g>
+                ${active ? `<circle cx="${item.x}" cy="${item.y}" r="38" fill="${withAlpha(theme.highlight, 0.10)}" filter="url(#soft-glow)" />` : ""}
                 <circle cx="${item.x}" cy="${item.y}" r="${active ? 24 : 18}" fill="${active ? theme.highlight : theme.panel}" stroke="${active ? withAlpha(theme.accent_deep, 0.75) : withAlpha(theme.accent, 0.24)}" stroke-width="${active ? 3.5 : 2.2}" />
                 <text x="${item.x}" y="${item.y + 5}" text-anchor="middle" font-family="__FONT_FAMILY_STACK__" font-size="12" font-weight="800" fill="${active ? theme.text : theme.accent_deep}">
                   ${index + 1}
@@ -922,7 +949,7 @@ _HTML_TEMPLATE = """<!doctype html>
             `;
           }).join("")}
           <circle cx="${activeNode.x}" cy="${activeNode.y}" r="${32 + Math.sin(progress * Math.PI * 2) * 4}" fill="none" stroke="${withAlpha(theme.highlight, 0.24)}" stroke-width="3" />
-          <rect x="624" y="190" width="240" height="274" rx="26" fill="${withAlpha(theme.highlight, shot === "summary" ? 0.12 : 0.08)}" stroke="${withAlpha(theme.highlight, 0.24)}" />
+          <rect x="624" y="190" width="240" height="274" rx="26" fill="${withAlpha(theme.highlight, shot === "summary" ? 0.12 : 0.08)}" stroke="${withAlpha(theme.highlight, 0.24)}" filter="url(#panel-shadow)" />
           <text x="652" y="226" font-family="__FONT_FAMILY_STACK__" font-size="22" font-weight="800" fill="${theme.text}">
             ${shot === "summary" ? "阶段总览" : "当前阶段"}
           </text>
@@ -992,9 +1019,10 @@ _HTML_TEMPLATE = """<!doctype html>
         }).join("");
         return `
           <g>
-            <rect x="32" y="146" width="896" height="364" rx="36" fill="${withAlpha(theme.accent_deep, 0.9)}" stroke="${withAlpha(theme.panel, 0.25)}" />
-            <rect x="96" y="206" width="248" height="228" rx="24" fill="${withAlpha(theme.panel, 0.12)}" stroke="${withAlpha(theme.panel, 0.45)}" />
-            <rect x="616" y="206" width="248" height="228" rx="24" fill="${withAlpha(theme.panel, 0.12)}" stroke="${withAlpha(theme.panel, 0.45)}" />
+            <rect x="32" y="146" width="896" height="364" rx="36" fill="${withAlpha(theme.accent_deep, 0.9)}" stroke="${withAlpha(theme.panel, 0.25)}" filter="url(#panel-shadow)" />
+            <rect x="96" y="206" width="248" height="228" rx="24" fill="${withAlpha(theme.panel, 0.12)}" stroke="${withAlpha(theme.panel, 0.45)}" filter="url(#panel-shadow)" />
+            <rect x="616" y="206" width="248" height="228" rx="24" fill="${withAlpha(theme.panel, 0.12)}" stroke="${withAlpha(theme.panel, 0.45)}" filter="url(#panel-shadow)" />
+            <ellipse cx="${packetX}" cy="${laneBaseY + laneGap}" rx="94" ry="38" fill="${withAlpha(theme.highlight, 0.10)}" filter="url(#soft-glow)" />
             <text x="220" y="286" text-anchor="middle" font-family="__FONT_FAMILY_STACK__" font-size="32" font-weight="800" fill="${withAlpha(theme.panel, 0.96)}">
               客户端
             </text>
@@ -1029,9 +1057,10 @@ _HTML_TEMPLATE = """<!doctype html>
       const revealTrack = 124 + progress * 560;
       return `
         <g>
-          <rect x="32" y="146" width="896" height="364" rx="36" fill="${withAlpha(theme.accent_deep, 0.88)}" stroke="${withAlpha(theme.panel, 0.22)}" />
+          <rect x="32" y="146" width="896" height="364" rx="36" fill="${withAlpha(theme.accent_deep, 0.88)}" stroke="${withAlpha(theme.panel, 0.22)}" filter="url(#panel-shadow)" />
           <circle cx="${198 + progress * 28}" cy="${262 + progress * 10}" r="84" fill="${withAlpha(theme.highlight, 0.24)}" />
           <circle cx="${786 - progress * 24}" cy="${352 - progress * 8}" r="76" fill="${withAlpha(theme.accent, 0.28)}" />
+          <rect x="110" y="334" width="716" height="100" rx="26" fill="${withAlpha(theme.panel, 0.10)}" />
           <text x="92" y="224" font-family="__FONT_FAMILY_STACK__" font-size="30" font-weight="800" fill="${withAlpha(theme.panel, 0.98)}">
             镜头开场：先看整体流程
           </text>
@@ -1044,7 +1073,8 @@ _HTML_TEMPLATE = """<!doctype html>
             fontWeight: 600,
           })}
           <line x1="124" y1="384" x2="808" y2="384" stroke="${withAlpha(theme.panel, 0.28)}" stroke-width="4" stroke-linecap="round" />
-          <line x1="124" y1="384" x2="${revealTrack}" y2="384" stroke="${withAlpha(theme.highlight, 0.72)}" stroke-width="6" stroke-linecap="round" />
+          <line x1="124" y1="384" x2="${revealTrack}" y2="384" stroke="${withAlpha(theme.highlight, 0.72)}" stroke-width="10" opacity="0.24" stroke-linecap="round" filter="url(#soft-glow)" />
+          <line x1="124" y1="384" x2="${revealTrack}" y2="384" stroke="url(#flow-progress-gradient)" stroke-width="6" stroke-linecap="round" />
           <circle cx="${revealTrack}" cy="384" r="10" fill="${theme.highlight}" stroke="${withAlpha(theme.panel, 0.85)}" stroke-width="2.5" />
           ${nodeChips}
         </g>
@@ -1681,8 +1711,9 @@ _HTML_TEMPLATE = """<!doctype html>
         });
         return `
           <g>
-            <rect x="64" y="176" width="832" height="284" rx="32" fill="${withAlpha(theme.panel, 0.94)}" stroke="${withAlpha(theme.accent, 0.18)}" />
-            <rect x="458" y="206" width="402" height="174" rx="28" fill="${withAlpha(theme.highlight, 0.10)}" stroke="${withAlpha(theme.highlight, 0.28)}" />
+            <rect x="64" y="176" width="832" height="284" rx="32" fill="${withAlpha(theme.panel, 0.94)}" stroke="${withAlpha(theme.accent, 0.18)}" filter="url(#panel-shadow)" />
+            <rect x="458" y="206" width="402" height="174" rx="28" fill="${withAlpha(theme.highlight, 0.10)}" stroke="${withAlpha(theme.highlight, 0.28)}" filter="url(#panel-shadow)" />
+            <ellipse cx="604" cy="290" rx="122" ry="64" fill="${withAlpha(theme.highlight, 0.08)}" filter="url(#soft-glow)" />
             <text x="486" y="228" font-family="__FONT_FAMILY_STACK__" font-size="22" font-weight="800" fill="${theme.accent_deep}">
               镜头一：整体全景
             </text>
@@ -1743,12 +1774,14 @@ _HTML_TEMPLATE = """<!doctype html>
         }).join("");
         return `
           <g transform="translate(${cameraShift}, 0)">
-            <rect x="64" y="176" width="832" height="284" rx="32" fill="${withAlpha(theme.panel, 0.94)}" stroke="${withAlpha(theme.accent, 0.22)}" />
+            <rect x="64" y="176" width="832" height="284" rx="32" fill="${withAlpha(theme.panel, 0.94)}" stroke="${withAlpha(theme.accent, 0.22)}" filter="url(#panel-shadow)" />
+            <rect x="92" y="202" width="376" height="212" rx="24" fill="${withAlpha(theme.panel_alt, 0.36)}" />
             <line x1="468" y1="246" x2="468" y2="414" stroke="${withAlpha(theme.accent, 0.25)}" stroke-width="4" stroke-linecap="round" />
             ${cards}
+            <circle cx="468" cy="${easedPacketY}" r="22" fill="${withAlpha(theme.highlight, 0.14)}" filter="url(#soft-glow)" />
             <circle cx="468" cy="${easedPacketY}" r="8" fill="${theme.highlight}" stroke="${withAlpha(theme.accent_deep, 0.7)}" stroke-width="2" />
             <path d="M 476 ${easedPacketY} C 512 ${easedPacketY}, 536 ${easedPacketY - 8}, 564 ${easedPacketY - 8}" stroke="${withAlpha(theme.accent, 0.35)}" stroke-width="3" fill="none" stroke-linecap="round" />
-            <rect x="564" y="204" width="296" height="220" rx="24" fill="${withAlpha(theme.highlight, 0.08)}" stroke="${withAlpha(theme.highlight, 0.24)}" />
+            <rect x="564" y="204" width="296" height="220" rx="24" fill="${withAlpha(theme.highlight, 0.08)}" stroke="${withAlpha(theme.highlight, 0.24)}" filter="url(#panel-shadow)" />
             <text x="606" y="236" font-family="__FONT_FAMILY_STACK__" font-size="20" font-weight="800" fill="${theme.text}">
               当前高亮
             </text>
@@ -1778,9 +1811,10 @@ _HTML_TEMPLATE = """<!doctype html>
       const summaryY = 284 + Math.sin(progress * Math.PI * 2) * 2.2;
       return `
         <g>
-          <rect x="64" y="176" width="832" height="284" rx="32" fill="${withAlpha(theme.panel, 0.94)}" stroke="${withAlpha(theme.accent, 0.2)}" />
+          <rect x="64" y="176" width="832" height="284" rx="32" fill="${withAlpha(theme.panel, 0.94)}" stroke="${withAlpha(theme.accent, 0.2)}" filter="url(#panel-shadow)" />
           <rect x="110" y="210" width="520" height="192" rx="16" fill="${withAlpha(theme.accent, 0.82)}" />
           <rect x="126" y="226" width="488" height="160" rx="12" fill="${withAlpha(theme.accent, 0.26)}" />
+          <ellipse cx="362" cy="302" rx="170" ry="70" fill="${withAlpha(theme.highlight, 0.10)}" filter="url(#soft-glow)" />
           <text x="142" y="258" font-family="__FONT_FAMILY_STACK__" font-size="22" font-weight="800" fill="${withAlpha(theme.panel, 0.96)}">
             镜头三：课堂总结
           </text>
@@ -1957,6 +1991,39 @@ _HTML_TEMPLATE = """<!doctype html>
               <stop offset="0%" stop-color="${theme.background}" />
               <stop offset="100%" stop-color="${theme.panel_alt}" />
             </linearGradient>
+            <linearGradient id="flow-stage-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="${withAlpha(theme.panel, 0.98)}" />
+              <stop offset="100%" stop-color="${withAlpha(theme.panel_alt, 0.92)}" />
+            </linearGradient>
+            <linearGradient id="flow-lane-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stop-color="${withAlpha(theme.panel, 0.14)}" />
+              <stop offset="50%" stop-color="${withAlpha(theme.highlight, 0.12)}" />
+              <stop offset="100%" stop-color="${withAlpha(theme.accent, 0.12)}" />
+            </linearGradient>
+            <linearGradient id="flow-track-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stop-color="${withAlpha(theme.accent, 0.32)}" />
+              <stop offset="50%" stop-color="${withAlpha(theme.highlight, 0.52)}" />
+              <stop offset="100%" stop-color="${withAlpha(theme.accent_deep, 0.30)}" />
+            </linearGradient>
+            <linearGradient id="flow-progress-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stop-color="${withAlpha(theme.highlight, 0.76)}" />
+              <stop offset="55%" stop-color="${theme.highlight}" />
+              <stop offset="100%" stop-color="${withAlpha(theme.accent, 0.92)}" />
+            </linearGradient>
+            <linearGradient id="focus-card-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="${withAlpha(theme.highlight, 0.18)}" />
+              <stop offset="100%" stop-color="${withAlpha(theme.panel, 0.98)}" />
+            </linearGradient>
+            <filter id="soft-glow" x="-40%" y="-40%" width="180%" height="180%">
+              <feGaussianBlur stdDeviation="10" result="blur" />
+              <feMerge>
+                <feMergeNode in="blur" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+            <filter id="panel-shadow" x="-20%" y="-20%" width="160%" height="160%">
+              <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="${withAlpha(theme.accent_deep, 0.16)}" />
+            </filter>
           </defs>
           <rect width="${WIDTH}" height="${HEIGHT}" fill="url(#bg)" />
           <circle cx="${816 - sceneProgress * 18}" cy="${104 + sceneProgress * 8}" r="${32 + sceneProgress * 18}" fill="${withAlpha(theme.highlight, 0.16)}" />

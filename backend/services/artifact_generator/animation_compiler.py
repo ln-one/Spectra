@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from typing import Any
 
 from services.artifact_generator.animation_ir import AnimationPlan
@@ -60,6 +61,44 @@ def _safe_str(text: str) -> str:
     return text.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
 
 
+def _normalize_copy(text: str) -> str:
+    normalized = str(text or "").strip()
+    for token in ["：", ":", "；", ";", "，", ",", "。", ".", "！", "!", "？", "?", "、", " "]:
+        normalized = normalized.replace(token, "")
+    return normalized
+
+
+def _clean_caption_text(text: str) -> str:
+    value = str(text or "").strip()
+    if not value:
+        return ""
+    value = re.sub(r"\b(left|right|up|down|top|bottom)\b", "", value, flags=re.IGNORECASE)
+    noisy_phrases = [
+        "转场到下一步",
+        "转场到下一阶段",
+        "转场到下一镜头",
+        "进入下一步",
+        "进入下一阶段",
+    ]
+    for phrase in noisy_phrases:
+        value = value.replace(phrase, "")
+    value = re.sub(r"\s{2,}", " ", value).strip(" ,，。；;：:-")
+    if not value:
+        return ""
+    parts = re.split(r"[，。；;：:\n]", value)
+    for part in parts:
+        candidate = part.strip()
+        if not candidate:
+            continue
+        lowered = candidate.lower()
+        if lowered in {"left", "right", "up", "down", "top", "bottom"}:
+            continue
+        if len(candidate) > 28:
+            candidate = candidate[:27].rstrip(" -，。；;：:") + "…"
+        return candidate
+    return ""
+
+
 def _hex_to_rgb(hex_color: str) -> tuple[int, int, int] | None:
     raw = str(hex_color or "").strip().lstrip("#")
     if len(raw) != 6:
@@ -84,7 +123,7 @@ def _is_light_hex(hex_color: str) -> bool:
 # Object builders — each type maps to exactly one Manim constructor
 # ============================================================================
 
-def _build_object(obj: dict) -> list[str]:
+def _build_object(obj: dict, label_color: str = "#1a1a1a") -> list[str]:
     """Return lines of Manim code that create one visual object."""
     oid = _safe_id(obj["id"])
     otype = obj["type"]
@@ -104,33 +143,71 @@ def _build_object(obj: dict) -> list[str]:
         w = size.get("width", 2.5)
         h = size.get("height", 1.5)
         lines.append(
+            f'        {oid}_shadow = RoundedRectangle('
+            f'width={w}, height={h}, corner_radius={corner_radius}, '
+            f'color=BLACK, fill_color=BLACK, fill_opacity=0.08, stroke_width=0)'
+        )
+        lines.append(f'        {oid}_shadow.shift(RIGHT * 0.08 + DOWN * 0.08)')
+        lines.append(
             f'        {oid}_rect = RoundedRectangle('
             f'width={w}, height={h}, corner_radius={corner_radius}, '
-            f'color={color}, fill_opacity={fill_opacity}, stroke_width={stroke_width})'
+            f'color={color}, fill_color={color}, fill_opacity={fill_opacity}, stroke_width={stroke_width})'
+        )
+        lines.append(
+            f'        {oid}_glow = RoundedRectangle('
+            f'width={round(w * 1.04, 3)}, height={round(h * 1.08, 3)}, corner_radius={round(corner_radius + 0.04, 3)}, '
+            f'color={color}, fill_opacity=0.0, stroke_width=5)'
+        )
+        lines.append(f'        {oid}_glow.set_stroke(opacity=0.14)')
+        lines.append(
+            f'        {oid}_shine = RoundedRectangle('
+            f'width={round(max(w - 0.34, 0.4), 3)}, height=0.16, corner_radius=0.08, '
+            f'color=WHITE, fill_color=WHITE, fill_opacity=0.16, stroke_width=0)'
+        )
+        lines.append(
+            f'        {oid}_shine.move_to({oid}_rect.get_top() + DOWN * 0.2)'
         )
         if label:
             lines.append(
-                f'        {oid}_label = Text("{_safe_str(label)}", font_size=32, color="#1a1a1a", font=base_font)'
+                f'        {oid}_label = Text("{_safe_str(label)}", font_size=30, color="{label_color}", font=base_font)'
             )
+            lines.append(f'        if {oid}_label.width > max({w} - 0.48, 0.7):')
+            lines.append(f'            {oid}_label.scale_to_fit_width(max({w} - 0.48, 0.7))')
             lines.append(f'        {oid}_label.move_to({oid}_rect)')
-            lines.append(f'        {oid} = VGroup({oid}_rect, {oid}_label)')
+            lines.append(
+                f'        {oid} = VGroup({oid}_shadow, {oid}_glow, {oid}_rect, {oid}_shine, {oid}_label)'
+            )
         else:
-            lines.append(f'        {oid} = {oid}_rect')
-        lines.append(f'        {oid}.move_to(RIGHT * {pos[0]} + UP * {pos[1]})')
+            lines.append(
+                f'        {oid} = VGroup({oid}_shadow, {oid}_glow, {oid}_rect, {oid}_shine)'
+            )
+        lines.append(f'        {oid}.move_to(RIGHT * {pos[0]} + UP * {pos[1]} + DOWN * 0.72)')
 
     elif otype == "circle":
         r = size.get("radius", 0.5)
         lines.append(
-            f'        {oid} = Circle(radius={r}, color={color}, '
-            f'fill_opacity={fill_opacity}, stroke_width={stroke_width})'
+            f'        {oid}_halo = Circle(radius={round(r * 1.55, 3)}, color={color}, '
+            f'fill_opacity=0.08, stroke_width=0)'
+        )
+        lines.append(
+            f'        {oid}_core = Circle(radius={r}, color={color}, '
+            f'fill_color={color}, fill_opacity={fill_opacity}, stroke_width={stroke_width})'
+        )
+        lines.append(
+            f'        {oid}_inner = Circle(radius={round(r * 0.55, 3)}, color=WHITE, '
+            f'fill_opacity=0.12, stroke_width=0)'
         )
         if label:
             lines.append(
-                f'        {oid}_label = Text("{_safe_str(label)}", font_size=24, color="#1a1a1a", font=base_font)'
+                f'        {oid}_label = Text("{_safe_str(label)}", font_size=26, color="{label_color}", font=base_font)'
             )
-            lines.append(f'        {oid}_label.move_to({oid})')
-            lines.append(f'        {oid} = VGroup({oid}, {oid}_label)')
-        lines.append(f'        {oid}.move_to(RIGHT * {pos[0]} + UP * {pos[1]})')
+            lines.append(f'        if {oid}_label.width > max({round(r * 1.9, 3)}, 0.7):')
+            lines.append(f'            {oid}_label.scale_to_fit_width(max({round(r * 1.9, 3)}, 0.7))')
+            lines.append(f'        {oid}_label.move_to({oid}_core)')
+            lines.append(f'        {oid} = VGroup({oid}_halo, {oid}_core, {oid}_inner, {oid}_label)')
+        else:
+            lines.append(f'        {oid} = VGroup({oid}_halo, {oid}_core, {oid}_inner)')
+        lines.append(f'        {oid}.move_to(RIGHT * {pos[0]} + UP * {pos[1]} + DOWN * 0.72)')
 
     elif otype == "dot":
         r = size.get("radius", 0.12)
@@ -142,7 +219,7 @@ def _build_object(obj: dict) -> list[str]:
         lines.append(
             f'        {oid} = Text("{_safe_str(label or "")}", font_size={fs}, color={color}, font=base_font)'
         )
-        lines.append(f'        {oid}.move_to(RIGHT * {pos[0]} + UP * {pos[1]})')
+        lines.append(f'        {oid}.move_to(RIGHT * {pos[0]} + UP * {pos[1]} + DOWN * 0.72)')
 
     elif otype == "icon":
         icon_name = obj.get("name") or obj.get("icon_id") or label or "star"
@@ -158,15 +235,20 @@ def _build_object(obj: dict) -> list[str]:
         )
         lines.append(f'        {oid}_icon.set_color({color})')
         lines.append(f'        {oid}_icon.scale({scale})')
+        lines.append(
+            f'        {oid}_halo = Circle(radius={round(max(0.42, scale * 0.62), 3)}, color={color}, fill_opacity=0.09, stroke_width=0)'
+        )
         if label:
             lines.append(
-                f'        {oid}_label = Text("{_safe_str(label)}", font_size=22, color="#1a1a1a", font=base_font)'
+                f'        {oid}_label = Text("{_safe_str(label)}", font_size=24, color="{label_color}", font=base_font)'
             )
+            lines.append(f'        if {oid}_label.width > max({round(max(0.7, scale * 1.35), 3)}, 0.7):')
+            lines.append(f'            {oid}_label.scale_to_fit_width(max({round(max(0.7, scale * 1.35), 3)}, 0.7))')
             lines.append(f'        {oid}_label.next_to({oid}_icon, DOWN, buff=0.16)')
-            lines.append(f'        {oid} = VGroup({oid}_icon, {oid}_label)')
+            lines.append(f'        {oid} = VGroup({oid}_halo, {oid}_icon, {oid}_label)')
         else:
-            lines.append(f'        {oid} = {oid}_icon')
-        lines.append(f'        {oid}.move_to(RIGHT * {pos[0]} + UP * {pos[1]})')
+            lines.append(f'        {oid} = VGroup({oid}_halo, {oid}_icon)')
+        lines.append(f'        {oid}.move_to(RIGHT * {pos[0]} + UP * {pos[1]} + DOWN * 0.72)')
 
     elif otype == "arrow":
         start = style.get("start", [pos[0] - 1, pos[1]])
@@ -176,8 +258,8 @@ def _build_object(obj: dict) -> list[str]:
             end = [start[0] + 1.5, start[1]]
         lines.append(
             f'        {oid} = Arrow('
-            f'start=RIGHT * {start[0]} + UP * {start[1]}, '
-            f'end=RIGHT * {end[0]} + UP * {end[1]}, '
+            f'start=RIGHT * {start[0]} + UP * {start[1]} + DOWN * 0.72, '
+            f'end=RIGHT * {end[0]} + UP * {end[1]} + DOWN * 0.72, '
             f'color={color}, buff=0.15, stroke_width={stroke_width})'
         )
 
@@ -246,7 +328,7 @@ def _build_action(action: dict, all_objects: dict[str, bool]) -> list[str]:
         dest = params.get("destination", [0, 0])
         for t in targets:
             lines.append(
-                f'        self.play({t}.animate.move_to(RIGHT * {dest[0]} + UP * {dest[1]}), '
+                f'        self.play({t}.animate.move_to(RIGHT * {dest[0]} + UP * {dest[1]} + DOWN * 0.72), '
                 f'run_time={run_time})'
             )
 
@@ -322,6 +404,7 @@ def compile_animation_plan(plan: AnimationPlan) -> str:
     """Compile AnimationPlan (IR) into executable Manim v0.18.1 Python code."""
     meta = plan.scene_meta
     objects = {obj.id: obj for obj in plan.objects}
+    object_var_names = [_safe_id(obj.id) for obj in plan.objects]
 
     # Auto-fix overlapping positions
     _fix_overlapping_positions(plan.objects)
@@ -414,28 +497,76 @@ def compile_animation_plan(plan: AnimationPlan) -> str:
 
     # Title
     lines.append(
-        f'        title = Text("{_safe_str(meta.title)}", font_size=54, weight=BOLD, color="{title_color}", font=base_font)'
+        f'        title = Text("{_safe_str(meta.title)}", font_size=58, weight=BOLD, color="{title_color}", font=base_font)'
     )
     lines.append(f'        title.to_edge(UP, buff=0.52)')
     lines.append(f'        self.play(Write(title), run_time=0.6)')
-    if meta.subtitle:
+    lines.append(
+        f'        title_bar = RoundedRectangle(width=3.1, height=0.12, corner_radius=0.06, color="{accent_b}", fill_color="{accent_b}", fill_opacity=0.88, stroke_width=0)'
+    )
+    lines.append('        title_bar.next_to(title, DOWN, buff=0.16)')
+    lines.append('        self.play(FadeIn(title_bar, shift=UP * 0.08), run_time=0.28)')
+    if meta.subtitle and _normalize_copy(meta.subtitle) != _normalize_copy(meta.title):
         lines.append(
-            f'        subtitle = Text("{_safe_str(meta.subtitle)}", font_size=30, color="{subtitle_color}", font=base_font)'
+            f'        subtitle = Text("{_safe_str(meta.subtitle)}", font_size=24, color="{subtitle_color}", font=base_font)'
         )
-        lines.append(f'        subtitle.next_to(title, DOWN, buff=0.2)')
+        lines.append(f'        subtitle.next_to(title_bar, DOWN, buff=0.12)')
         lines.append(f'        self.play(FadeIn(subtitle, shift=UP * 0.2), run_time=0.4)')
     lines.append(f'        self.wait(0.3)')
     lines.append("")
 
     # Create all objects
     for obj in plan.objects:
-        obj_lines = _build_object(obj.model_dump())
+        obj_lines = _build_object(obj.model_dump(), label_color=label_color)
         lines.extend(obj_lines)
     lines.append("")
 
+    lines.append('        caption_text = None')
+    lines.append('        caption_panel_shadow = None')
+    lines.append('        caption_panel = None')
+    lines.append('        caption_panel_glow = None')
+    lines.append("")
+
     # Execute timeline
+    caption_initialized = False
     for step in plan.timeline:
         lines.append(f'        # {step.description}')
+        cleaned_caption = _clean_caption_text(step.description)
+        if cleaned_caption:
+            caption_copy = _safe_str(cleaned_caption)
+            lines.append(
+                f'        _caption_next = Text("{caption_copy}", font_size=26, color="{subtitle_color}", font=base_font)'
+            )
+            lines.append('        if _caption_next.width > config.frame_width - 1.8:')
+            lines.append('            _caption_next.scale_to_fit_width(config.frame_width - 1.8)')
+            lines.append('        _caption_next.to_edge(DOWN, buff=0.42)')
+            lines.append(
+                '        _caption_panel_shadow_next = RoundedRectangle(width=min(config.frame_width - 0.9, max(8.9, _caption_next.width + 1.18)), height=max(0.92, _caption_next.height + 0.42), corner_radius=0.22, color=BLACK, fill_color=BLACK, fill_opacity=0.08, stroke_width=0)'
+            )
+            lines.append('        _caption_panel_shadow_next.move_to(_caption_next)')
+            lines.append('        _caption_panel_shadow_next.shift(RIGHT * 0.06 + DOWN * 0.05)')
+            lines.append(
+                f'        _caption_panel_next = RoundedRectangle(width=min(config.frame_width - 0.9, max(8.9, _caption_next.width + 1.18)), height=max(0.92, _caption_next.height + 0.42), corner_radius=0.22, color="{accent_a}", fill_color=WHITE, fill_opacity=0.9, stroke_width=2)'
+            )
+            lines.append('        _caption_panel_next.move_to(_caption_next)')
+            lines.append(
+                f'        _caption_panel_glow_next = RoundedRectangle(width=min(config.frame_width - 0.82, max(9.08, _caption_next.width + 1.34)), height=max(1.0, _caption_next.height + 0.56), corner_radius=0.26, color="{accent_b}", fill_opacity=0.0, stroke_width=4)'
+            )
+            lines.append('        _caption_panel_glow_next.move_to(_caption_next)')
+            lines.append('        _caption_panel_glow_next.set_stroke(opacity=0.12)')
+            if not caption_initialized:
+                lines.append(
+                    '        self.play(FadeIn(_caption_panel_shadow_next), FadeIn(_caption_panel_glow_next), FadeIn(_caption_panel_next), FadeIn(_caption_next, shift=UP * 0.12), run_time=0.36)'
+                )
+                caption_initialized = True
+            else:
+                lines.append(
+                    '        self.play(FadeOut(caption_panel_shadow), FadeOut(caption_panel_glow), FadeOut(caption_panel), FadeOut(caption_text, shift=DOWN * 0.08), FadeIn(_caption_panel_shadow_next), FadeIn(_caption_panel_glow_next), FadeIn(_caption_panel_next), FadeIn(_caption_next, shift=UP * 0.1), run_time=0.3)'
+                )
+            lines.append('        caption_text = _caption_next')
+            lines.append('        caption_panel_shadow = _caption_panel_shadow_next')
+            lines.append('        caption_panel = _caption_panel_next')
+            lines.append('        caption_panel_glow = _caption_panel_glow_next')
         for action in step.actions:
             action_lines = _build_action(action.model_dump(), objects)
             lines.extend(action_lines)
@@ -443,11 +574,54 @@ def compile_animation_plan(plan: AnimationPlan) -> str:
             lines.append(f'        self.wait({step.wait_after})')
         lines.append("")
 
+    lines.append('        if caption_text is not None:')
+    lines.append(
+        '            self.play(FadeOut(caption_panel_shadow), FadeOut(caption_panel_glow), FadeOut(caption_panel), FadeOut(caption_text, shift=DOWN * 0.08), run_time=0.28)'
+    )
+    lines.append("")
+
     # Text blocks
     for tb in plan.text_blocks:
         color = _safe_color(tb.color)
+        font_size = max(tb.font_size, 30 if tb.position in ("bottom", "center") else tb.font_size)
+        if tb.id == "final_summary":
+            summary_lines = [line.strip() for line in tb.content.split("\n") if line.strip()]
+            if object_var_names:
+                fade_targets = ", ".join(f'FadeOut({name})' for name in object_var_names)
+                lines.append(f'        self.play({fade_targets}, run_time=0.38)')
+            lines.append(
+                '        final_summary_overlay = Rectangle(width=config.frame_width + 1, height=config.frame_height + 1, color=BLACK, fill_color=BLACK, fill_opacity=0.38, stroke_width=0)'
+            )
+            lines.append('        self.play(FadeIn(final_summary_overlay), run_time=0.28)')
+            lines.append(
+                '        final_summary_card_shadow = RoundedRectangle(width=8.3, height=4.35, corner_radius=0.28, color=BLACK, fill_color=BLACK, fill_opacity=0.12, stroke_width=0)'
+            )
+            lines.append('        final_summary_card_shadow.shift(RIGHT * 0.08 + DOWN * 0.08 + UP * 0.1)')
+            lines.append(
+                f'        final_summary_card = RoundedRectangle(width=8.3, height=4.35, corner_radius=0.28, color="{accent_a}", fill_color=WHITE, fill_opacity=0.96, stroke_width=2)'
+            )
+            lines.append('        final_summary_card.shift(UP * 0.1)')
+            lines.append(
+                '        final_summary_title = Text("核心知识点", font_size=28, weight=BOLD, color="#0b3a5e", font=base_font)'
+            )
+            lines.append('        final_summary_title.move_to(final_summary_card.get_top() + DOWN * 0.45)')
+            lines.append('        final_summary_items = VGroup()')
+            for idx, line in enumerate(summary_lines[:4]):
+                lines.append(
+                    f'        final_summary_item_{idx} = Text("• {_safe_str(line)}", font_size=22, color="#2c3e50", font=base_font)'
+                )
+                lines.append(f'        final_summary_item_{idx}.scale_to_fit_width(6.75)')
+                lines.append(f'        final_summary_items.add(final_summary_item_{idx})')
+            lines.append('        final_summary_items.arrange(DOWN, aligned_edge=LEFT, buff=0.28)')
+            lines.append('        final_summary_items.next_to(final_summary_title, DOWN, buff=0.46)')
+            lines.append('        final_summary_items.align_to(final_summary_card.get_left() + RIGHT * 0.7, LEFT)')
+            lines.append(
+                '        self.play(FadeIn(final_summary_card_shadow), FadeIn(final_summary_card), FadeIn(final_summary_title, shift=UP * 0.08), LaggedStart(*[FadeIn(item, shift=UP * 0.06) for item in final_summary_items], lag_ratio=0.1), run_time=0.6)'
+            )
+            lines.append('        self.wait(1.4)')
+            continue
         lines.append(
-            f'        {tb.id} = Text("{_safe_str(tb.content)}", font_size={tb.font_size}, color={color}, font=base_font)'
+            f'        {tb.id} = Text("{_safe_str(tb.content)}", font_size={font_size}, color={color}, font=base_font)'
         )
         pos_map = {"top": "UP", "bottom": "DOWN", "left": "LEFT", "right": "RIGHT"}
         edge = pos_map.get(tb.position)
@@ -457,7 +631,26 @@ def compile_animation_plan(plan: AnimationPlan) -> str:
             lines.append(f'        {tb.id}.move_to(ORIGIN)')
         if tb.offset != [0, 0]:
             lines.append(f'        {tb.id}.shift(RIGHT * {tb.offset[0]} + UP * {tb.offset[1]})')
-        lines.append(f'        self.play(FadeIn({tb.id}, shift=UP * 0.2), run_time=0.5)')
+        if tb.position in ("bottom", "center"):
+            lines.append(
+                f'        {tb.id}_panel_shadow = RoundedRectangle(width=min(config.frame_width - 0.9, max(8.8, {tb.id}.width + 1.1)), height=max(0.92, {tb.id}.height + 0.44), corner_radius=0.22, color=BLACK, fill_color=BLACK, fill_opacity=0.08, stroke_width=0)'
+            )
+            lines.append(f'        {tb.id}_panel_shadow.move_to({tb.id})')
+            lines.append(f'        {tb.id}_panel_shadow.shift(RIGHT * 0.06 + DOWN * 0.05)')
+            lines.append(
+                f'        {tb.id}_panel = RoundedRectangle(width=min(config.frame_width - 0.9, max(8.8, {tb.id}.width + 1.1)), height=max(0.92, {tb.id}.height + 0.44), corner_radius=0.22, color="{accent_a}", fill_color=WHITE, fill_opacity=0.86, stroke_width=2)'
+            )
+            lines.append(f'        {tb.id}_panel.move_to({tb.id})')
+            lines.append(
+                f'        {tb.id}_panel_glow = RoundedRectangle(width=min(config.frame_width - 0.82, max(9.0, {tb.id}.width + 1.28)), height=max(1.02, {tb.id}.height + 0.58), corner_radius=0.26, color="{accent_b}", fill_opacity=0.0, stroke_width=4)'
+            )
+            lines.append(f'        {tb.id}_panel_glow.move_to({tb.id})')
+            lines.append(f'        {tb.id}_panel_glow.set_stroke(opacity=0.12)')
+            lines.append(
+                f'        self.play(FadeIn({tb.id}_panel_shadow), FadeIn({tb.id}_panel_glow), FadeIn({tb.id}_panel), FadeIn({tb.id}, shift=UP * 0.12), run_time=0.5)'
+            )
+        else:
+            lines.append(f'        self.play(FadeIn({tb.id}, shift=UP * 0.2), run_time=0.5)')
         lines.append(f'        self.wait(1)')
 
     return "\n".join(lines)
