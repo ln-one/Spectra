@@ -1,3 +1,5 @@
+import { isRenderableSvgDataUrl } from "./svgPreview";
+
 type SvgFrameLike = {
   svg_data_url?: string | null;
 };
@@ -18,23 +20,17 @@ export type SlideSlotPreviewLike = {
   authoritySlide?: AuthoritySlideLike | null;
 };
 
-function hasRenderableSvgDataUrl(value: string | null | undefined): boolean {
-  return (
-    typeof value === "string" && value.startsWith("data:image/svg+xml")
-  );
-}
-
 export function slotHasRenderablePreview(
   slot: SlideSlotPreviewLike | null | undefined
 ): boolean {
   if (!slot) return false;
-  if (hasRenderableSvgDataUrl(slot.authoritySlide?.svg_data_url)) {
+  if (isRenderableSvgDataUrl(slot.authoritySlide?.svg_data_url)) {
     return true;
   }
   if (
     Array.isArray(slot.authoritySlide?.frames) &&
     slot.authoritySlide.frames.some((frame) =>
-      hasRenderableSvgDataUrl(frame?.svg_data_url)
+      isRenderableSvgDataUrl(frame?.svg_data_url)
     )
   ) {
     return true;
@@ -42,12 +38,12 @@ export function slotHasRenderablePreview(
   if (
     Array.isArray(slot.legacySlide?.rendered_previews) &&
     slot.legacySlide.rendered_previews.some((frame) =>
-      hasRenderableSvgDataUrl(frame?.svg_data_url)
+      isRenderableSvgDataUrl(frame?.svg_data_url)
     )
   ) {
     return true;
   }
-  return hasRenderableSvgDataUrl(slot.legacySlide?.thumbnail_url);
+  return isRenderableSvgDataUrl(slot.legacySlide?.thumbnail_url);
 }
 
 export function resolveRenderableSlideIndex(

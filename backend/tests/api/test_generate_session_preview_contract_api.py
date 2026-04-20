@@ -90,13 +90,20 @@ def test_get_preview_includes_artifact_binding(client, monkeypatch, _as_user):
                 None,
                 {
                     "rendered_preview": {
-                        "format": "png",
+                        "format": "svg",
                         "page_count": 1,
                         "pages": [
                             {
                                 "index": 0,
                                 "slide_id": "slide-1",
-                                "image_url": "data:image/png;base64,abc",
+                                "format": "svg",
+                                "svg_data_url": "data:image/svg+xml;base64,abc",
+                                "preview": {
+                                    "index": 0,
+                                    "slide_id": "slide-1",
+                                    "format": "svg",
+                                    "svg_data_url": "data:image/svg+xml;base64,abc",
+                                },
                             }
                         ],
                     }
@@ -116,11 +123,12 @@ def test_get_preview_includes_artifact_binding(client, monkeypatch, _as_user):
     assert body["data"]["current_version_id"] == "v-current"
     assert body["data"]["upstream_updated"] is True
     assert body["data"]["rendered_preview"]["pages"][0]["slide_id"] == "slide-1"
-    assert body["data"]["authority_preview"]["provider"] == "diego"
+    assert body["data"]["authority_preview"]["provider"] == "pagevra"
     authority_slide = body["data"]["authority_preview"]["slides"][0]
     assert authority_slide["slide_id"] == "slide-1"
-    assert authority_slide["image_url"] == "data:image/png;base64,abc"
+    assert authority_slide["svg_data_url"] == "data:image/svg+xml;base64,abc"
     assert authority_slide["frames"][0]["slide_id"] == "slide-1"
+    assert authority_slide["frames"][0]["svg_data_url"] == "data:image/svg+xml;base64,abc"
 
 
 def test_get_preview_includes_slide_image_metadata(client, monkeypatch, _as_user):
@@ -612,7 +620,8 @@ def test_get_slide_preview_returns_slide_shape(client, monkeypatch, _as_user):
                         {
                             "index": 1,
                             "slide_id": "slide-2",
-                            "image_url": "data:image/png;base64,slide2",
+                            "format": "svg",
+                            "svg_data_url": "data:image/svg+xml;base64,slide2",
                         }
                     ]
                 }

@@ -59,14 +59,28 @@ class Slide(BaseModel):
     content: str
     sources: list[SourceReference] = Field(default_factory=list)
     thumbnail_url: Optional[str] = None
+    rendered_html_preview: Optional[str] = None
+    rendered_previews: list["RenderedPreviewPage"] = Field(default_factory=list)
     image_metadata: Optional[ImageInsertionMetadata] = Field(
         None, description="插图决策元数据"
     )
 
 
+class SvgPreviewManifest(BaseModel):
+    index: int = Field(..., ge=0)
+    slide_id: str
+    format: str = "svg"
+    svg_data_url: str
+    width: Optional[int] = Field(None, ge=1)
+    height: Optional[int] = Field(None, ge=1)
+
+
 class RenderedPreviewPage(BaseModel):
     index: int = Field(..., ge=0)
     slide_id: str
+    format: Optional[str] = None
+    svg_data_url: Optional[str] = None
+    preview: Optional[SvgPreviewManifest] = None
     image_url: Optional[str] = None
     html_preview: Optional[str] = Field(
         None,
@@ -108,6 +122,62 @@ class DiegoPreviewContext(BaseModel):
     source_event_seq: Optional[int] = Field(None, ge=1)
     theme: Optional[DiegoPreviewTheme] = None
     fonts: Optional[DiegoPreviewFonts] = None
+
+
+class AuthorityPreviewBlock(BaseModel):
+    block_id: str
+    kind: str = Field(..., pattern="^(heading|paragraph|bullet_list|image)$")
+    text: Optional[str] = None
+    items: list[str] = Field(default_factory=list)
+    src: Optional[str] = None
+    alt: Optional[str] = None
+
+
+class AuthorityPreviewFrame(BaseModel):
+    slide_id: str
+    index: int = Field(..., ge=0)
+    split_index: int = Field(default=0, ge=0)
+    split_count: int = Field(default=1, ge=1)
+    status: Optional[str] = None
+    format: Optional[str] = None
+    svg_data_url: Optional[str] = None
+    preview: Optional[SvgPreviewManifest] = None
+    width: Optional[int] = Field(None, ge=1)
+    height: Optional[int] = Field(None, ge=1)
+
+
+class AuthorityPreviewViewport(BaseModel):
+    width: Optional[int] = Field(None, ge=1)
+    height: Optional[int] = Field(None, ge=1)
+
+
+class AuthorityPreviewSlide(BaseModel):
+    slide_id: str
+    index: int = Field(..., ge=0)
+    title: Optional[str] = None
+    status: Optional[str] = None
+    layout_kind: Optional[str] = None
+    render_version: Optional[int] = Field(None, ge=1)
+    format: Optional[str] = None
+    svg_data_url: Optional[str] = None
+    preview: Optional[SvgPreviewManifest] = None
+    width: Optional[int] = Field(None, ge=1)
+    height: Optional[int] = Field(None, ge=1)
+    frames: list[AuthorityPreviewFrame] = Field(default_factory=list)
+    editable_block_ids: list[str] = Field(default_factory=list)
+    blocks: list[AuthorityPreviewBlock] = Field(default_factory=list)
+
+
+class AuthorityPreview(BaseModel):
+    provider: str = "pagevra"
+    run_id: Optional[str] = None
+    render_version: Optional[int] = Field(None, ge=1)
+    viewport: Optional[AuthorityPreviewViewport] = None
+    compile_context_version: Optional[int] = Field(None, ge=1)
+    compile_context: Optional[DiegoPreviewContext] = None
+    theme: Optional[DiegoPreviewTheme] = None
+    fonts: Optional[DiegoPreviewFonts] = None
+    slides: list[AuthorityPreviewSlide] = Field(default_factory=list)
 
 
 class SlidePlan(BaseModel):

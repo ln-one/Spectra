@@ -4057,6 +4057,34 @@ components:
         run_id:
           type: string
           nullable: true
+    SvgPreviewManifest:
+      type: object
+      required:
+        - index
+        - slide_id
+        - format
+        - svg_data_url
+      properties:
+        index:
+          type: integer
+          minimum: 0
+        slide_id:
+          type: string
+        format:
+          type: string
+          enum:
+            - svg
+          default: svg
+        svg_data_url:
+          type: string
+        width:
+          type: integer
+          minimum: 1
+          nullable: true
+        height:
+          type: integer
+          minimum: 1
+          nullable: true
     RenderedPreviewPage:
       type: object
       required:
@@ -4071,6 +4099,14 @@ components:
         image_url:
           type: string
           nullable: true
+        format:
+          type: string
+          nullable: true
+        svg_data_url:
+          type: string
+          nullable: true
+        preview:
+          $ref: '#/components/schemas/SvgPreviewManifest'
         html_preview:
           type: string
           nullable: true
@@ -4107,6 +4143,222 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/RenderedPreviewPage'
+    DiegoPreviewContext:
+      type: object
+      properties:
+        provider:
+          type: string
+          enum:
+            - diego
+          default: diego
+        run_id:
+          type: string
+        palette:
+          type: string
+        style:
+          type: string
+        style_dna_id:
+          type: string
+        effective_template_style:
+          type: string
+        source_event_seq:
+          type: integer
+          minimum: 1
+        theme:
+          type: object
+          properties:
+            primary:
+              type: string
+            secondary:
+              type: string
+            accent:
+              type: string
+            light:
+              type: string
+            bg:
+              type: string
+        fonts:
+          type: object
+          properties:
+            title:
+              type: string
+            body:
+              type: string
+    AuthorityPreviewFrame:
+      type: object
+      required:
+        - slide_id
+        - index
+        - split_index
+        - split_count
+      properties:
+        slide_id:
+          type: string
+        index:
+          type: integer
+          minimum: 0
+        split_index:
+          type: integer
+          minimum: 0
+          default: 0
+        split_count:
+          type: integer
+          minimum: 1
+          default: 1
+        status:
+          type: string
+          nullable: true
+        format:
+          type: string
+          nullable: true
+        svg_data_url:
+          type: string
+          nullable: true
+        preview:
+          $ref: '#/components/schemas/SvgPreviewManifest'
+        width:
+          type: integer
+          minimum: 1
+          nullable: true
+        height:
+          type: integer
+          minimum: 1
+          nullable: true
+    AuthorityPreviewBlock:
+      type: object
+      required:
+        - block_id
+        - kind
+      properties:
+        block_id:
+          type: string
+        kind:
+          type: string
+          enum:
+            - heading
+            - paragraph
+            - bullet_list
+            - image
+        text:
+          type: string
+        items:
+          type: array
+          items:
+            type: string
+        src:
+          type: string
+        alt:
+          type: string
+    AuthorityPreviewSlide:
+      type: object
+      required:
+        - slide_id
+        - index
+        - frames
+      properties:
+        slide_id:
+          type: string
+        index:
+          type: integer
+          minimum: 0
+        title:
+          type: string
+        status:
+          type: string
+        layout_kind:
+          type: string
+        render_version:
+          type: integer
+          minimum: 1
+          nullable: true
+        format:
+          type: string
+          nullable: true
+        svg_data_url:
+          type: string
+          nullable: true
+        preview:
+          $ref: '#/components/schemas/SvgPreviewManifest'
+        width:
+          type: integer
+          minimum: 1
+          nullable: true
+        height:
+          type: integer
+          minimum: 1
+          nullable: true
+        frames:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuthorityPreviewFrame'
+        editable_block_ids:
+          type: array
+          items:
+            type: string
+        blocks:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuthorityPreviewBlock'
+    AuthorityPreview:
+      type: object
+      required:
+        - provider
+        - slides
+      properties:
+        provider:
+          type: string
+          enum:
+            - pagevra
+            - diego
+          default: pagevra
+        run_id:
+          type: string
+          nullable: true
+        render_version:
+          type: integer
+          minimum: 1
+          nullable: true
+        viewport:
+          type: object
+          properties:
+            width:
+              type: integer
+              minimum: 1
+              nullable: true
+            height:
+              type: integer
+              minimum: 1
+              nullable: true
+        compile_context_version:
+          type: integer
+          minimum: 1
+          nullable: true
+        compile_context:
+          $ref: '#/components/schemas/DiegoPreviewContext'
+        theme:
+          type: object
+          properties:
+            primary:
+              type: string
+            secondary:
+              type: string
+            accent:
+              type: string
+            light:
+              type: string
+            bg:
+              type: string
+        fonts:
+          type: object
+          properties:
+            title:
+              type: string
+            body:
+              type: string
+        slides:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuthorityPreviewSlide'
     preview_SourceReference:
       type: object
       required:
@@ -4281,6 +4533,10 @@ components:
               $ref: '#/components/schemas/ArtifactAnchor'
             rendered_preview:
               $ref: '#/components/schemas/RenderedPreview'
+            diego_preview_context:
+              $ref: '#/components/schemas/DiegoPreviewContext'
+            authority_preview:
+              $ref: '#/components/schemas/AuthorityPreview'
             slides:
               type: array
               items:

@@ -1,6 +1,6 @@
 "use client";
 
-import { type CSSProperties, useEffect, useMemo, useState } from "react";
+import { type CSSProperties, useEffect, useMemo, useReducer, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -26,10 +26,12 @@ import { PreviewCopilotDrawer } from "./components/PreviewCopilotDrawer";
 import { useGeneratePreviewState } from "./useGeneratePreviewState";
 import { RunSelectorPopover } from "./components/RunSelectorPopover";
 import { RegenerateSlideDialog } from "./components/RegenerateSlideDialog";
+import { SvgPreviewSurface } from "./components/SvgPreviewSurface";
 import {
   resolveRenderableSlideIndex,
   slotHasRenderablePreview,
 } from "./streamingWorkbenchPreview";
+import { isRenderableSvgDataUrl } from "./svgPreview";
 
 type SlideFrame = {
   index: number;
@@ -62,6 +64,38 @@ type SlideSlot = {
   isPlaceholder: boolean;
 };
 
+type StageSelectionState = {
+  slideIndex: number;
+  frameIndex: number;
+};
+
+type StageSelectionAction =
+  | { type: "selectSlide"; slideIndex: number }
+  | { type: "selectFrame"; frameIndex: number }
+  | { type: "reset" };
+
+function stageSelectionReducer(
+  state: StageSelectionState,
+  action: StageSelectionAction
+): StageSelectionState {
+  switch (action.type) {
+    case "selectSlide":
+      return {
+        slideIndex: action.slideIndex,
+        frameIndex: 0,
+      };
+    case "selectFrame":
+      return {
+        ...state,
+        frameIndex: action.frameIndex,
+      };
+    case "reset":
+      return { slideIndex: 0, frameIndex: 0 };
+    default:
+      return state;
+  }
+}
+
 function normalizeHexColor(value: string | undefined, fallback: string): string {
   const raw = (value || "").trim().replace(/^#/, "");
   if (/^[0-9A-Fa-f]{3}$/.test(raw)) {
@@ -83,7 +117,7 @@ function buildSlideFrames(slide: SlideItem): SlideFrame[] {
       (a, b) => (a.split_index ?? 0) - (b.split_index ?? 0)
     );
   }
-  if (slide.thumbnail_url?.startsWith("data:image/svg+xml")) {
+  if (isRenderableSvgDataUrl(slide.thumbnail_url)) {
     return [
       {
         index: slide.index,
@@ -112,7 +146,7 @@ function buildAuthorityFrames(slide: AuthoritySlide | null | undefined): SlideFr
       height: frame.height,
     }));
   }
-  if (slide.svg_data_url?.startsWith("data:image/svg+xml")) {
+  if (isRenderableSvgDataUrl(slide.svg_data_url)) {
     return [
       {
         index: slide.index,
@@ -132,9 +166,9 @@ function buildAuthorityFrames(slide: AuthoritySlide | null | undefined): SlideFr
 function hasAuthorityPreviewContent(slide: AuthoritySlide | null | undefined): boolean {
   return Boolean(
     slide &&
-      ((typeof slide.svg_data_url === "string" && slide.svg_data_url.startsWith("data:image/svg+xml")) ||
+      (isRenderableSvgDataUrl(slide.svg_data_url) ||
         (Array.isArray(slide.frames) &&
-          slide.frames.some((frame) => Boolean(frame.svg_data_url?.startsWith("data:image/svg+xml")))))
+          slide.frames.some((frame) => isRenderableSvgDataUrl(frame.svg_data_url))))
   );
 }
 
@@ -145,26 +179,6 @@ function summarizeAuthoritySlide(slide: AuthoritySlide | null | undefined): stri
   }
   if (slide.svg_data_url) return "Pagevra SVG preview";
   return "";
-}
-
-function SvgPreviewImage({
-  src,
-  alt,
-  className,
-}: {
-  src: string;
-  alt: string;
-  className?: string;
-}) {
-  return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src={src}
-      alt={alt}
-      className={cn("h-full w-full bg-white object-contain", className)}
-      draggable={false}
-    />
-  );
 }
 
 function isBadRunTitle(value: string | null | undefined): boolean {
@@ -196,8 +210,11 @@ export default function StreamingWorkbenchPageView() {
   const artifactIdFromQuery = searchParams?.get("artifact_id") || null;
   const searchQueryString = searchParams?.toString() || "";
 
-  const [activeSlideIndex, setActiveSlideIndex] = useState<number>(0);
-  const [activeFrameIndex, setActiveFrameIndex] = useState<number>(0);
+  const [{ slideIndex: activeSlideIndex, frameIndex: activeFrameIndex }, dispatchStageSelection] =
+    useReducer(stageSelectionReducer, {
+      slideIndex: 0,
+      frameIndex: 0,
+    });
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [regenerateDialogOpen, setRegenerateDialogOpen] = useState(false);
   const [zoom, setZoom] = useState<number | "fit">("fit");
@@ -303,8 +320,7 @@ export default function StreamingWorkbenchPageView() {
     if (!activeSlideSlot) return;
     const nextIndex = activeSlideSlot.index + delta;
     if (nextIndex < 0 || nextIndex >= slideSlots.length) return;
-    setActiveSlideIndex(nextIndex);
-    setActiveFrameIndex(0);
+    dispatchStageSelection({ type: "selectSlide", slideIndex: nextIndex });
   };
 
   const runSelectionBlocked = Boolean(activeSessionId) && !activeRunId;
@@ -355,14 +371,13 @@ export default function StreamingWorkbenchPageView() {
           });
         })();
 
-  const resolvedStageSlideIndex = useMemo(
-    () => resolveRenderableSlideIndex(slideSlots, activeSlideIndex),
-    [activeSlideIndex, slideSlots]
+  const resolvedStageSlideIndex = resolveRenderableSlideIndex(
+    slideSlots,
+    activeSlideIndex
   );
 
   useEffect(() => {
-    setActiveSlideIndex(0);
-    setActiveFrameIndex(0);
+    dispatchStageSelection({ type: "reset" });
   }, [activeRunId]);
 
   const activeSlideSlot =
@@ -379,10 +394,12 @@ export default function StreamingWorkbenchPageView() {
     stageFrames.length > 0
       ? Math.min(activeFrameIndex, stageFrames.length - 1)
       : 0;
-  const activeAuthorityFrame =
-    activeAuthorityFrames[resolvedActiveFrameIndex] || activeAuthorityFrames[0] || null;
-  const activeFrame =
-    activeSlideFrames[resolvedActiveFrameIndex] || activeSlideFrames[0] || null;
+  const activeStageFrame =
+    stageFrames[resolvedActiveFrameIndex] || stageFrames[0] || null;
+  const activeStageTitle =
+    activeAuthoritySlide?.title ||
+    activeLegacySlide?.title ||
+    `Slide ${((activeSlideSlot?.index ?? 0) || 0) + 1}`;
   const activeAuthoritySlideId = activeAuthoritySlide?.slide_id ?? null;
   const activeScene = activeAuthoritySlideId
     ? sceneBySlideId[activeAuthoritySlideId] ?? null
@@ -405,9 +422,7 @@ export default function StreamingWorkbenchPageView() {
 
   const totalSlides = expectedSlideCount;
   const currentSlideNumber = activeSlideSlot ? activeSlideSlot.index + 1 : 0;
-  const canRenderStage = Boolean(
-    hasAuthorityPreviewContent(activeAuthoritySlide) || (activeLegacySlide && activeFrame)
-  );
+  const canRenderStage = isRenderableSvgDataUrl(activeStageFrame?.svg_data_url);
   const hasAnyRenderableSlide = slideSlots.some((slot) =>
     slotHasRenderablePreview(slot)
   );
@@ -555,6 +570,12 @@ export default function StreamingWorkbenchPageView() {
                 const isActive = activeSlideSlot?.index === slide.index;
                 const firstAuthorityFrame = authorityFrames[0] || null;
                 const firstFrame = slideFrames[0] || null;
+                const thumbnailSvgDataUrl =
+                  firstAuthorityFrame?.svg_data_url ||
+                  firstFrame?.svg_data_url ||
+                  (isRenderableSvgDataUrl(slide.legacySlide?.thumbnail_url)
+                    ? slide.legacySlide.thumbnail_url
+                    : null);
                 return (
                   <motion.button
                     key={
@@ -564,8 +585,10 @@ export default function StreamingWorkbenchPageView() {
                     }
                     type="button"
                     onClick={() => {
-                      setActiveSlideIndex(slide.index);
-                      setActiveFrameIndex(0);
+                      dispatchStageSelection({
+                        type: "selectSlide",
+                        slideIndex: slide.index,
+                      });
                     }}
                     whileTap={{ scale: 0.98 }}
                     className={cn(
@@ -576,29 +599,21 @@ export default function StreamingWorkbenchPageView() {
                     )}
                     >
                     <div className="aspect-video w-full bg-[#f5f5f7]">
-                      {(firstAuthorityFrame?.svg_data_url || firstFrame?.svg_data_url || slide.legacySlide?.thumbnail_url?.startsWith("data:image/svg+xml")) ? (
-                        <SvgPreviewImage
-                          src={
-                            firstAuthorityFrame?.svg_data_url ||
-                            firstFrame?.svg_data_url ||
-                            slide.legacySlide?.thumbnail_url ||
-                            ""
-                          }
+                      {thumbnailSvgDataUrl ? (
+                        <SvgPreviewSurface
+                          svgDataUrl={thumbnailSvgDataUrl}
                           alt={slide.title || `Slide ${slide.index + 1}`}
-                          className="object-cover"
+                          objectClassName="pointer-events-none h-full w-full"
+                          className="h-full w-full"
+                          errorClassName="text-[10px]"
                         />
                       ) : hasAuthorityPreviewContent(slide.authoritySlide) ? (
-                        <div className="flex h-full flex-col justify-between bg-[radial-gradient(circle_at_top_left,_rgba(255,255,255,0.96),_rgba(225,232,245,0.92),_rgba(240,244,250,0.98))] px-3 py-2">
-                          <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-black/35">
-                            Authority
+                        <div className="flex h-full flex-col justify-center gap-1 bg-[radial-gradient(circle_at_top_left,_rgba(255,255,255,0.96),_rgba(225,232,245,0.92),_rgba(240,244,250,0.98))] px-3 py-2">
+                          <div className="line-clamp-2 text-[12px] font-semibold leading-5 text-[#1d1d1f]">
+                            {slide.title || `Slide ${slide.index + 1}`}
                           </div>
-                          <div className="space-y-1.5">
-                            <div className="line-clamp-2 text-[12px] font-semibold leading-5 text-[#1d1d1f]">
-                              {slide.title || `Slide ${slide.index + 1}`}
-                            </div>
-                            <div className="line-clamp-2 text-[10px] leading-4 text-black/45">
-                              {authoritySummary || "Diego scene manifest 已到达。"}
-                            </div>
+                          <div className="line-clamp-2 text-[10px] leading-4 text-black/45">
+                            {authoritySummary || "等待 Pagevra SVG 到达"}
                           </div>
                         </div>
                       ) : (
@@ -654,27 +669,12 @@ export default function StreamingWorkbenchPageView() {
 
           {/* Canvas */}
           <section className="relative flex flex-1 overflow-auto p-6">
-            {isLoading ? (
-              <div className="flex flex-col items-center justify-center m-auto gap-3 text-white/70">
-                <Loader2 className="h-10 w-10 animate-spin text-[var(--deck-accent)]" />
-                <p className="text-sm">正在同步 Diego 预览...</p>
-              </div>
-            ) : runSelectionBlocked ? (
+            {runSelectionBlocked ? (
               <div className="flex flex-col items-center justify-center m-auto gap-3 px-6 text-center text-white/70">
                 <p className="text-lg font-semibold text-white">请选择 run</p>
                 <p className="max-w-[460px] text-sm text-white/60">
                   当前页面已切换为严格 Diego 预览链路，不再自动回退到 session 最新产物。
                 </p>
-              </div>
-            ) : previewBlockedReason && !hasAnyRenderableSlide ? (
-                <div className="flex flex-col items-center justify-center m-auto gap-3 text-white/70">
-                  <Loader2 className="h-10 w-10 animate-spin text-[var(--deck-accent)]" />
-                  <p className="text-sm">课程内容加载中，请稍候...</p>
-              </div>
-            ) : showWaitingState ? (
-              <div className="flex flex-col items-center justify-center m-auto gap-3 text-white/70">
-                <Loader2 className="h-10 w-10 animate-spin text-[var(--deck-accent)]" />
-                <p className="text-sm">run 已绑定，等待第一页渲染...</p>
               </div>
             ) : canRenderStage ? (
               <>
@@ -686,18 +686,10 @@ export default function StreamingWorkbenchPageView() {
                   style={zoom !== "fit" ? { width: `${1100 * zoom}px`, minWidth: `${1100 * zoom}px` } : {}}
                 >
                   <div className="aspect-video w-full bg-white relative">
-                    {activeAuthorityFrame?.svg_data_url ? (
-                      <SvgPreviewImage
-                        src={activeAuthorityFrame.svg_data_url}
-                        alt={activeAuthoritySlide?.title || `Slide ${(activeAuthoritySlide?.index ?? 0) + 1}`}
-                      />
-                    ) : activeFrame?.svg_data_url ? (
-                      <SvgPreviewImage
-                        src={activeFrame.svg_data_url}
-                        alt={
-                          activeLegacySlide?.title ||
-                          `Slide ${(activeLegacySlide?.index ?? 0) + 1}`
-                        }
+                    {activeStageFrame?.svg_data_url ? (
+                      <SvgPreviewSurface
+                        svgDataUrl={activeStageFrame.svg_data_url}
+                        alt={activeStageTitle}
                       />
                     ) : (
                       <div className="flex h-full flex-col items-center justify-center gap-2 text-center text-sm text-black/55">
@@ -710,11 +702,33 @@ export default function StreamingWorkbenchPageView() {
                   </div>
                 </div>
 
+                {isLoading ? (
+                  <div className="absolute right-6 top-6 z-10 inline-flex items-center gap-2 rounded-full border border-white/20 bg-black/55 px-3 py-1.5 text-xs text-white/85 backdrop-blur">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    正在同步最新页
+                  </div>
+                ) : null}
+
                 {/* Date watermark */}
                 <div className="pointer-events-none absolute bottom-6 right-6 rounded bg-black/40 px-3 py-1.5 text-xs font-medium text-white/90 backdrop-blur">
                   {diegoPreviewContext?.palette || "compile-context"}
                 </div>
               </>
+            ) : isLoading ? (
+              <div className="flex flex-col items-center justify-center m-auto gap-3 text-white/70">
+                <Loader2 className="h-10 w-10 animate-spin text-[var(--deck-accent)]" />
+                <p className="text-sm">正在同步 Diego 预览...</p>
+              </div>
+            ) : previewBlockedReason && !hasAnyRenderableSlide ? (
+              <div className="flex flex-col items-center justify-center m-auto gap-3 text-white/70">
+                <Loader2 className="h-10 w-10 animate-spin text-[var(--deck-accent)]" />
+                <p className="text-sm">课程内容加载中，请稍候...</p>
+              </div>
+            ) : showWaitingState ? (
+              <div className="flex flex-col items-center justify-center m-auto gap-3 text-white/70">
+                <Loader2 className="h-10 w-10 animate-spin text-[var(--deck-accent)]" />
+                <p className="text-sm">run 已绑定，等待第一页渲染...</p>
+              </div>
             ) : null}
           </section>
 
@@ -785,7 +799,12 @@ export default function StreamingWorkbenchPageView() {
                     <button
                       key={`${frame.slide_id}-${frame.split_index ?? idx}`}
                       type="button"
-                      onClick={() => setActiveFrameIndex(idx)}
+                      onClick={() =>
+                        dispatchStageSelection({
+                          type: "selectFrame",
+                          frameIndex: idx,
+                        })
+                      }
                       className={cn(
                         "rounded-full border px-2 py-0.5 text-[11px] transition",
                         idx === resolvedActiveFrameIndex
@@ -842,8 +861,10 @@ export default function StreamingWorkbenchPageView() {
           preambleLogs={previewPreambleLogs}
           outline={previewOutline}
           onSelectSlide={(slideIndex) => {
-            setActiveSlideIndex(slideIndex);
-            setActiveFrameIndex(0);
+            dispatchStageSelection({
+              type: "selectSlide",
+              slideIndex,
+            });
           }}
           onSelectNode={handleActiveAuthorityNodeSelect}
         />
@@ -870,21 +891,10 @@ export default function StreamingWorkbenchPageView() {
 
               <div className="relative flex-1 overflow-hidden rounded-xl border border-white/15 bg-black/40">
                 <div className="aspect-video w-full">
-                  {activeAuthorityFrame?.svg_data_url ? (
-                    <SvgPreviewImage
-                      src={activeAuthorityFrame.svg_data_url}
-                      alt={
-                        activeAuthoritySlide?.title ||
-                        `Slide ${(activeAuthoritySlide?.index ?? 0) + 1}`
-                      }
-                    />
-                  ) : activeFrame?.svg_data_url ? (
-                    <SvgPreviewImage
-                      src={activeFrame.svg_data_url}
-                      alt={
-                        activeLegacySlide?.title ||
-                        `Slide ${(activeLegacySlide?.index ?? 0) + 1}`
-                      }
+                  {activeStageFrame?.svg_data_url ? (
+                    <SvgPreviewSurface
+                      svgDataUrl={activeStageFrame.svg_data_url}
+                      alt={activeStageTitle}
                     />
                   ) : (
                     <div className="flex h-full flex-col items-center justify-center gap-2 text-center text-white/65">

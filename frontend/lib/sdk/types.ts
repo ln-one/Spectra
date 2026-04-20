@@ -38,23 +38,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/auth/refresh": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** 刷新 Access Token */
-        post: operations["postAuthRefresh"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/auth/logout": {
         parameters: {
             query?: never;
@@ -1287,10 +1270,7 @@ export interface components {
         AuthResponse: {
             success: boolean;
             data: {
-                access_token?: string;
-                refresh_token?: string;
-                expires_in?: number;
-                user?: components["schemas"]["UserInfo"];
+                user: components["schemas"]["UserInfo"];
             };
             message: string;
         };
@@ -2302,10 +2282,25 @@ export interface components {
             based_on_version_id?: string | null;
             run_id?: string | null;
         };
+        SvgPreviewManifest: {
+            index: number;
+            slide_id: string;
+            /**
+             * @default svg
+             * @enum {string}
+             */
+            format: "svg";
+            svg_data_url: string;
+            width?: number | null;
+            height?: number | null;
+        };
         RenderedPreviewPage: {
             index: number;
             slide_id: string;
             image_url?: string | null;
+            format?: string | null;
+            svg_data_url?: string | null;
+            preview?: components["schemas"]["SvgPreviewManifest"];
             html_preview?: string | null;
             status?: string | null;
             /** @default 0 */
@@ -2321,6 +2316,96 @@ export interface components {
             /** @default 0 */
             page_count: number;
             pages?: components["schemas"]["RenderedPreviewPage"][];
+        };
+        DiegoPreviewContext: {
+            /**
+             * @default diego
+             * @enum {string}
+             */
+            provider: "diego";
+            run_id?: string;
+            palette?: string;
+            style?: string;
+            style_dna_id?: string;
+            effective_template_style?: string;
+            source_event_seq?: number;
+            theme?: {
+                primary?: string;
+                secondary?: string;
+                accent?: string;
+                light?: string;
+                bg?: string;
+            };
+            fonts?: {
+                title?: string;
+                body?: string;
+            };
+        };
+        AuthorityPreviewFrame: {
+            slide_id: string;
+            index: number;
+            /** @default 0 */
+            split_index: number;
+            /** @default 1 */
+            split_count: number;
+            status?: string | null;
+            format?: string | null;
+            svg_data_url?: string | null;
+            preview?: components["schemas"]["SvgPreviewManifest"];
+            width?: number | null;
+            height?: number | null;
+        };
+        AuthorityPreviewBlock: {
+            block_id: string;
+            /** @enum {string} */
+            kind: "heading" | "paragraph" | "bullet_list" | "image";
+            text?: string;
+            items?: string[];
+            src?: string;
+            alt?: string;
+        };
+        AuthorityPreviewSlide: {
+            slide_id: string;
+            index: number;
+            title?: string;
+            status?: string;
+            layout_kind?: string;
+            render_version?: number | null;
+            format?: string | null;
+            svg_data_url?: string | null;
+            preview?: components["schemas"]["SvgPreviewManifest"];
+            width?: number | null;
+            height?: number | null;
+            frames: components["schemas"]["AuthorityPreviewFrame"][];
+            editable_block_ids?: string[];
+            blocks?: components["schemas"]["AuthorityPreviewBlock"][];
+        };
+        AuthorityPreview: {
+            /**
+             * @default pagevra
+             * @enum {string}
+             */
+            provider: "pagevra" | "diego";
+            run_id?: string | null;
+            render_version?: number | null;
+            viewport?: {
+                width?: number | null;
+                height?: number | null;
+            };
+            compile_context_version?: number | null;
+            compile_context?: components["schemas"]["DiegoPreviewContext"];
+            theme?: {
+                primary?: string;
+                secondary?: string;
+                accent?: string;
+                light?: string;
+                bg?: string;
+            };
+            fonts?: {
+                title?: string;
+                body?: string;
+            };
+            slides: components["schemas"]["AuthorityPreviewSlide"][];
         };
         preview_SourceReference: {
             /** @description 来源片段唯一标识，可用于查询来源详情 */
@@ -2403,6 +2488,8 @@ export interface components {
                 render_version?: number;
                 artifact_anchor?: components["schemas"]["ArtifactAnchor"];
                 rendered_preview?: components["schemas"]["RenderedPreview"];
+                diego_preview_context?: components["schemas"]["DiegoPreviewContext"];
+                authority_preview?: components["schemas"]["AuthorityPreview"];
                 slides?: components["schemas"]["Slide"][];
                 lesson_plan?: components["schemas"]["LessonPlan"];
             };
@@ -2624,26 +2711,29 @@ export interface components {
             redis: "connected" | "disconnected";
             db_required: boolean;
             redis_required: boolean;
-            generation_tools: {
-                /** @enum {string} */
-                marp: "available" | "unavailable" | "unknown";
-                /** @enum {string} */
-                pandoc: "available" | "unavailable" | "unknown";
+            service_authorities: {
                 required: boolean;
                 healthy: boolean;
+                services: {
+                    [key: string]: {
+                        configured: boolean;
+                        env: string;
+                        base_url?: string | null;
+                    };
+                };
                 timed_out: boolean;
             };
             /** Format: float */
             dependency_timeout_seconds: number;
             /** Format: float */
-            tool_timeout_seconds: number;
+            service_authority_timeout_seconds: number;
             latency_ms: {
                 /** Format: float */
                 database: number;
                 /** Format: float */
                 redis: number;
                 /** Format: float */
-                generation_tools: number;
+                service_authorities: number;
             };
         };
         HealthLivenessResponse: {
@@ -3112,35 +3202,6 @@ export interface operations {
         };
         responses: {
             /** @description 登录成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AuthResponse"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-        };
-    };
-    postAuthRefresh: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    /** @description 长期有效的刷新令牌 */
-                    refresh_token: string;
-                };
-            };
-        };
-        responses: {
-            /** @description 刷新成功 */
             200: {
                 headers: {
                     [name: string]: unknown;

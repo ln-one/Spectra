@@ -11,10 +11,17 @@ import {
   resolveEventLog,
 } from "@/components/project/features/outline-editor/utils";
 import { useShallow } from "zustand/react/shallow";
+import {
+  isRenderableSvgDataUrl,
+  normalizeSvgPreviewFrame,
+  normalizeSvgPreviewManifest,
+} from "./svgPreview";
 
 type Slide = components["schemas"]["Slide"] & {
   rendered_previews?: RenderedPreviewFrame[];
 };
+
+type PreviewResponseData = components["schemas"]["PreviewResponse"]["data"];
 
 type RenderedPreviewFrame = {
   index: number;
@@ -439,53 +446,12 @@ function normalizeAuthorityFrames(value: unknown): AuthorityPreviewFrame[] {
   if (!Array.isArray(value)) return [];
   return value
     .filter((item): item is Record<string, unknown> => !!item && typeof item === "object")
-    .map((item) => {
-      const rawPreview = item.preview;
-      const preview =
-        rawPreview && typeof rawPreview === "object"
-          ? (rawPreview as Record<string, unknown>)
-          : {};
-      const index = readNumberField(item, "index") ?? readNumberField(preview, "index") ?? 0;
-      const slideId =
-        readStringField(item, "slide_id") ||
-        readStringField(preview, "slide_id") ||
-        `slide-${index}`;
-      const svgDataUrl =
-        readStringField(item, "svg_data_url") ||
-        readStringField(preview, "svg_data_url");
-      return {
-        slide_id: slideId,
-        index,
-        split_index: readNumberField(item, "split_index") ?? 0,
-        split_count: readNumberField(item, "split_count") ?? 1,
-        format: "svg",
-        svg_data_url: svgDataUrl,
-        preview: svgDataUrl
-          ? {
-              index,
-              slide_id: slideId,
-              format: "svg",
-              svg_data_url: svgDataUrl,
-              width: readNumberField(item, "width") ?? readNumberField(preview, "width"),
-              height: readNumberField(item, "height") ?? readNumberField(preview, "height"),
-            }
-          : null,
-        ...(readStringField(item, "status")
-          ? { status: readStringField(item, "status") || undefined }
-          : {}),
-        ...(typeof readNumberField(item, "width") === "number"
-          ? { width: readNumberField(item, "width") }
-          : typeof readNumberField(preview, "width") === "number"
-            ? { width: readNumberField(preview, "width") }
-            : {}),
-        ...(typeof readNumberField(item, "height") === "number"
-          ? { height: readNumberField(item, "height") }
-          : typeof readNumberField(preview, "height") === "number"
-            ? { height: readNumberField(preview, "height") }
-            : {}),
-      };
-    })
-    .filter((frame) => typeof frame.svg_data_url === "string" && frame.svg_data_url.startsWith("data:image/svg+xml"))
+    .map((item) =>
+      normalizeSvgPreviewFrame(item, {
+        status: readStringField(item, "status") || undefined,
+      })
+    )
+    .filter((frame): frame is AuthorityPreviewFrame => Boolean(frame))
     .sort((left, right) => {
       const slideDiff = left.index - right.index;
       if (slideDiff !== 0) return slideDiff;
@@ -588,31 +554,45 @@ function normalizeAuthorityPreview(
         .filter((item): item is Record<string, unknown> => !!item && typeof item === "object")
         .map((item) => {
           const frames = normalizeAuthorityFrames(item.frames);
-          const rawPreview = item.preview;
-          const preview =
-            rawPreview && typeof rawPreview === "object"
-              ? (rawPreview as Record<string, unknown>)
+          const previewSource =
+            item.preview && typeof item.preview === "object"
+              ? (item.preview as Record<string, unknown>)
               : {};
-          const index = readNumberField(item, "index") ?? readNumberField(preview, "index") ?? 0;
+          const index =
+            readNumberField(item, "index") ??
+            readNumberField(previewSource, "index") ??
+            0;
           const slideId =
             readStringField(item, "slide_id") ||
-            readStringField(preview, "slide_id") ||
+            readStringField(previewSource, "slide_id") ||
             `slide-${index}`;
-          const svgDataUrl =
-            readStringField(item, "svg_data_url") ||
-            readStringField(preview, "svg_data_url") ||
-            frames[0]?.svg_data_url ||
+          const normalizedPreview =
+            normalizeSvgPreviewManifest(item, {
+              index,
+              slideId,
+            }) ??
+            normalizeSvgPreviewManifest(previewSource, {
+              index,
+              slideId,
+            }) ??
+            frames[0]?.preview ??
             null;
-          const normalizedPreview: SvgPreviewManifest | null = svgDataUrl
-            ? {
-                index,
-                slide_id: slideId,
-                format: "svg",
-                svg_data_url: svgDataUrl,
-                width: readNumberField(item, "width") ?? readNumberField(preview, "width") ?? frames[0]?.width,
-                height: readNumberField(item, "height") ?? readNumberField(preview, "height") ?? frames[0]?.height,
-              }
-            : null;
+          const primaryFrame =
+            frames[0] ??
+            (normalizedPreview
+              ? {
+                  slide_id: slideId,
+                  index,
+                  split_index: 0,
+                  split_count: 1,
+                  status: readStringField(item, "status") || "ready",
+                  format: "svg",
+                  svg_data_url: normalizedPreview.svg_data_url,
+                  preview: normalizedPreview,
+                  width: normalizedPreview.width,
+                  height: normalizedPreview.height,
+                }
+              : null);
           return {
             slide_id: slideId,
             index,
@@ -627,35 +607,24 @@ function normalizeAuthorityPreview(
               : {}),
             render_version:
               readNumberField(item, "render_version") ?? renderVersion ?? undefined,
-            format: svgDataUrl ? "svg" : null,
-            svg_data_url: svgDataUrl,
+            format: primaryFrame ? "svg" : null,
+            svg_data_url: primaryFrame?.svg_data_url ?? null,
             preview: normalizedPreview,
             ...(typeof readNumberField(item, "width") === "number"
               ? { width: readNumberField(item, "width") }
-              : typeof readNumberField(preview, "width") === "number"
-                ? { width: readNumberField(preview, "width") }
-                : typeof frames[0]?.width === "number"
-                  ? { width: frames[0]?.width }
+              : typeof readNumberField(previewSource, "width") === "number"
+                ? { width: readNumberField(previewSource, "width") }
+                : typeof primaryFrame?.width === "number"
+                  ? { width: primaryFrame.width }
                   : {}),
             ...(typeof readNumberField(item, "height") === "number"
               ? { height: readNumberField(item, "height") }
-              : typeof readNumberField(preview, "height") === "number"
-                ? { height: readNumberField(preview, "height") }
-                : typeof frames[0]?.height === "number"
-                  ? { height: frames[0]?.height }
+              : typeof readNumberField(previewSource, "height") === "number"
+                ? { height: readNumberField(previewSource, "height") }
+                : typeof primaryFrame?.height === "number"
+                  ? { height: primaryFrame.height }
                   : {}),
-            frames: frames.length > 0 ? frames : normalizedPreview ? [{
-              slide_id: slideId,
-              index,
-              split_index: 0,
-              split_count: 1,
-              status: readStringField(item, "status") || "ready",
-              format: "svg",
-              svg_data_url: svgDataUrl,
-              preview: normalizedPreview,
-              width: normalizedPreview.width,
-              height: normalizedPreview.height,
-            }] : [],
+            frames: frames.length > 0 ? frames : primaryFrame ? [primaryFrame] : [],
             editable_block_ids: Array.isArray(item.editable_block_ids)
               ? item.editable_block_ids
                   .map((entry) => String(entry || "").trim())
@@ -664,7 +633,11 @@ function normalizeAuthorityPreview(
             blocks: normalizeAuthorityBlocks(item.blocks),
           };
         })
-        .filter((slide) => typeof slide.svg_data_url === "string" && slide.svg_data_url.startsWith("data:image/svg+xml"))
+        .filter(
+          (slide) =>
+            isRenderableSvgDataUrl(slide.svg_data_url) ||
+            slide.frames.some((frame) => isRenderableSvgDataUrl(frame.svg_data_url))
+        )
         .sort((left, right) => left.index - right.index)
     : [];
   if (normalizedSlides.length === 0) {
@@ -785,10 +758,7 @@ function hasRenderablePreviewFrame(
   page: RenderedPreviewFrame | null | undefined
 ): boolean {
   if (!page) return false;
-  return Boolean(
-    typeof page.svg_data_url === "string" &&
-      page.svg_data_url.startsWith("data:image/svg+xml")
-  );
+  return isRenderableSvgDataUrl(page.svg_data_url);
 }
 
 function isGeneratingState(state: string | null | undefined): boolean {
@@ -999,12 +969,7 @@ export function useGeneratePreviewState({
             })
             .catch(() => null),
         ]);
-      const previewData = (response.data ?? null) as {
-        slides?: Slide[];
-        rendered_preview?: RenderedPreview | null;
-        diego_preview_context?: unknown;
-        authority_preview?: unknown;
-      } | null;
+      const previewData = (response.data ?? null) as PreviewResponseData | null;
 
       if (!response.success || !previewData?.slides) {
         setSlides([]);
@@ -1241,32 +1206,50 @@ export function useGeneratePreviewState({
           readStringField(preview, "svg_data_url");
         const isFinal = (rawPayload || payload).is_final === true;
 
-        if (slideNo !== null && svgDataUrl?.startsWith("data:image/svg+xml") && isFinal) {
-          const frame: RenderedPreviewFrame = {
-            index: slideNo - 1,
-            slide_id:
-              readStringField(source, "slide_id") ||
+        const slideIndex = slideNo !== null ? slideNo - 1 : null;
+        const slideId =
+          slideNo !== null
+            ? readStringField(source, "slide_id") ||
               readStringField(preview, "slide_id") ||
-              `slide-${slideNo}`,
-            format: "svg",
-            svg_data_url: svgDataUrl,
-            preview: {
-              index: slideNo - 1,
-              slide_id:
-                readStringField(source, "slide_id") ||
-                readStringField(preview, "slide_id") ||
-                `slide-${slideNo}`,
-              format: "svg",
-              svg_data_url: svgDataUrl,
-              width: readNumberField(source, "preview_width") ?? readNumberField(preview, "width"),
-              height: readNumberField(source, "preview_height") ?? readNumberField(preview, "height"),
-            },
-            status: readStringField(source, "status") || "ready",
-            split_index: 0,
-            split_count: 1,
-            width: readNumberField(source, "preview_width") ?? readNumberField(preview, "width"),
-            height: readNumberField(source, "preview_height") ?? readNumberField(preview, "height"),
-          };
+              `slide-${slideNo}`
+            : null;
+        const previewWidth =
+          readNumberField(source, "preview_width") ?? readNumberField(preview, "width");
+        const previewHeight =
+          readNumberField(source, "preview_height") ?? readNumberField(preview, "height");
+        const frame =
+          slideIndex !== null && slideId
+            ? normalizeSvgPreviewFrame(
+                {
+                  ...source,
+                  index: slideIndex,
+                  slide_id: slideId,
+                  split_index: 0,
+                  split_count: 1,
+                  status: readStringField(source, "status") || "ready",
+                  width: previewWidth,
+                  height: previewHeight,
+                  preview: {
+                    ...preview,
+                    index: slideIndex,
+                    slide_id: slideId,
+                    format: "svg",
+                    svg_data_url: svgDataUrl,
+                    width: previewWidth,
+                    height: previewHeight,
+                  },
+                },
+                {
+                  index: slideIndex,
+                  slideId,
+                  splitIndex: 0,
+                  splitCount: 1,
+                  status: readStringField(source, "status") || "ready",
+                }
+              )
+            : null;
+
+        if (slideNo !== null && frame && isFinal) {
           setSlides(prev => {
             const updated = [...prev];
             const existingIndex = updated.findIndex(s => s.index === slideNo - 1);
