@@ -442,6 +442,54 @@ async def test_generate_session_title_accepts_structured_title(monkeypatch):
 
 
 @pytest.mark.anyio
+async def test_generate_session_title_retries_background_failures(monkeypatch):
+    session = SimpleNamespace(
+        id="session-001",
+        displayTitle=None,
+        displayTitleSource="default",
+    )
+    updated_session = SimpleNamespace(
+        id="session-001",
+        displayTitle="计算机图形学教学大纲",
+        displayTitleSource="first_message",
+        displayTitleUpdatedAt=None,
+    )
+    db = SimpleNamespace(
+        generationsession=SimpleNamespace(
+            find_unique=AsyncMock(return_value=session),
+            update=AsyncMock(return_value=updated_session),
+        )
+    )
+    structured_title = AsyncMock(
+        side_effect=[
+            ValueError("temporary_format_error"),
+            StructuredTitleResult(
+                title="计算机图形学教学大纲",
+                basis_key="project_name_seed",
+                scene="session",
+                model="minimax/MiniMax-M2.7",
+                latency_ms=8.1,
+            ),
+        ]
+    )
+    monkeypatch.setattr(
+        "services.title_service.service.generate_structured_title",
+        structured_title,
+    )
+
+    result = await title_service.generate_session_title(
+        db=db,
+        session_id="session-001",
+        first_message="生成一份教学大纲",
+        project_name="计算机图形学教学",
+    )
+
+    assert structured_title.await_count == 2
+    assert result["display_title"] == "计算机图形学教学大纲"
+    assert result["display_title_source"] == "first_message"
+
+
+@pytest.mark.anyio
 async def test_generate_project_title_keeps_default_name_on_invalid_structured_title(
     monkeypatch,
 ):
@@ -463,17 +511,18 @@ async def test_generate_project_title_keeps_default_name_on_invalid_structured_t
         )
     )
 
+    structured_title = AsyncMock(
+        return_value=StructuredTitleResult(
+            title="知识库",
+            basis_key="unknown_key",
+            scene="project",
+            model="minimax/MiniMax-M2.7",
+            latency_ms=9.8,
+        )
+    )
     monkeypatch.setattr(
         "services.title_service.service.generate_structured_title",
-        AsyncMock(
-            return_value=StructuredTitleResult(
-                title="知识库",
-                basis_key="unknown_key",
-                scene="project",
-                model="minimax/MiniMax-M2.7",
-                latency_ms=9.8,
-            )
-        ),
+        structured_title,
     )
 
     result = await title_service.generate_project_title(
@@ -484,6 +533,10 @@ async def test_generate_project_title_keeps_default_name_on_invalid_structured_t
 
     assert result["name"] == build_default_project_title("project-001")
     assert result["name_source"] == "fallback"
+    assert (
+        structured_title.await_count
+        == title_service_module.TITLE_GENERATION_MAX_ATTEMPTS
+    )
 
 
 def test_build_default_session_title_is_used_for_session_failure():

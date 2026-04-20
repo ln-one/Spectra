@@ -42,10 +42,14 @@ from .structured_prompting import (
 )
 from .structured_runtime import (
     StructuredTitleResult,
+    TitleScene,
     generate_structured_title,
 )
 
 logger = logging.getLogger(__name__)
+
+TITLE_GENERATION_RETRY_COUNT = 3
+TITLE_GENERATION_MAX_ATTEMPTS = TITLE_GENERATION_RETRY_COUNT + 1
 
 
 def utc_now() -> datetime:
@@ -91,6 +95,43 @@ def _validate_structured_title(
     if not normalized:
         raise ValueError("structured_title_invalid_title")
     return normalized
+
+
+async def _generate_validated_title_with_retries(
+    *,
+    scene: TitleScene,
+    payload: dict[str, Any],
+    entity_id: str,
+    max_length: int,
+    tool_type: str | None = None,
+) -> str:
+    last_exc: Exception | None = None
+    for attempt in range(1, TITLE_GENERATION_MAX_ATTEMPTS + 1):
+        try:
+            result = await generate_structured_title(
+                scene=scene,
+                payload=payload,
+                entity_id=entity_id,
+            )
+            return _validate_structured_title(
+                result=result,
+                payload=payload,
+                max_length=max_length,
+                tool_type=tool_type,
+            )
+        except Exception as exc:
+            last_exc = exc
+            logger.warning(
+                "Auto %s title generation attempt failed: entity_id=%s attempt=%s/%s error=%s",
+                scene,
+                entity_id,
+                attempt,
+                TITLE_GENERATION_MAX_ATTEMPTS,
+                exc,
+            )
+    if last_exc is not None:
+        raise last_exc
+    raise RuntimeError("title_generation_retry_unreachable")
 
 
 async def claim_generation_request(
@@ -178,14 +219,10 @@ async def generate_project_title(*, db, project_id: str, description: str) -> di
     next_source = PROJECT_TITLE_SOURCE_AUTO
     payload = build_project_title_payload(description)
     try:
-        result = await generate_structured_title(
+        title = await _generate_validated_title_with_retries(
             scene="project",
             payload=payload,
             entity_id=project_id,
-        )
-        title = _validate_structured_title(
-            result=result,
-            payload=payload,
             max_length=PROJECT_TITLE_MAX_LENGTH,
         )
     except Exception as exc:
@@ -270,14 +307,10 @@ async def generate_session_title(
     next_source = SESSION_TITLE_SOURCE_FIRST_MESSAGE
     payload = build_session_title_payload(first_message, project_name=project_name)
     try:
-        result = await generate_structured_title(
+        title = await _generate_validated_title_with_retries(
             scene="session",
             payload=payload,
             entity_id=session_id,
-        )
-        title = _validate_structured_title(
-            result=result,
-            payload=payload,
             max_length=SESSION_TITLE_MAX_LENGTH,
         )
     except Exception as exc:
@@ -368,14 +401,10 @@ async def generate_run_title(
     next_source = RUN_TITLE_SOURCE_AUTO
     payload = build_run_title_payload(tool_type, snapshot)
     try:
-        result = await generate_structured_title(
+        title = await _generate_validated_title_with_retries(
             scene="run",
             payload=payload,
             entity_id=run_id,
-        )
-        title = _validate_structured_title(
-            result=result,
-            payload=payload,
             max_length=RUN_TITLE_MAX_LENGTH,
             tool_type=tool_type,
         )
