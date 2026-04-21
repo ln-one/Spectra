@@ -29,6 +29,8 @@ class _FakeGenerationSessionModel:
 
 
 class _FakeSessionService:
+    SCHEMA_VERSION = 1
+
     def __init__(self):
         self._db = SimpleNamespace(generationsession=_FakeGenerationSessionModel())
         self._append_event = AsyncMock()
@@ -83,6 +85,10 @@ async def test_courseware_session_execute_validates_source_with_current_user():
         patch(
             "services.generation_session_service.card_execution_runtime_sessions.create_session_run",
             AsyncMock(return_value=run),
+        ),
+        patch(
+            "services.generation_session_service.card_execution_runtime_sessions.persist_session_update_and_events",
+            AsyncMock(),
         ),
         patch(
             "services.generation_session_service.card_execution_runtime_sessions.start_diego_outline_workflow",
@@ -232,3 +238,39 @@ def test_diego_create_payload_keeps_template_fields():
     assert payload["target_slide_count"] == 14
     assert payload["generation_mode"] == "template"
     assert payload["template_id"] == "template-9"
+
+
+def test_diego_create_payload_enriches_topic_with_live_brief_fields():
+    payload = build_diego_create_payload(
+        options={
+            "topic": "围绕牛顿第二定律生成一份高中物理课件",
+            "pages": 12,
+            "generation_mode": "scratch",
+            "teaching_brief": {
+                "topic": "牛顿第二定律",
+                "audience": "高一学生",
+                "lesson_hours": 4,
+                "target_pages": 12,
+                "teaching_objectives": ["理解F=ma", "能进行受力分析"],
+                "knowledge_points": [
+                    {"title": "力、质量与加速度关系"},
+                    {"title": "受力分析"},
+                ],
+                "global_emphasis": ["概念建模"],
+                "global_difficulties": ["受力分析"],
+                "teaching_strategy": "结合生活情境和例题推导",
+                "style_profile": {
+                    "visual_tone": "academic",
+                    "notes": "少用装饰，图示清晰",
+                },
+            },
+        },
+        diego_project_id="project-3",
+    )
+
+    assert payload["topic"].startswith("围绕牛顿第二定律生成一份高中物理课件")
+    assert "面向高一学生" in payload["topic"]
+    assert "课时约4课时" in payload["topic"]
+    assert "教学目标突出理解F=ma、能进行受力分析" in payload["topic"]
+    assert "覆盖知识点：力、质量与加速度关系、受力分析" in payload["topic"]
+    assert "教学组织上采用结合生活情境和例题推导" in payload["topic"]

@@ -97,21 +97,116 @@ def normalize_layout_hint(value: Any, page_type: str) -> str | None:
     return None
 
 
+def _normalize_prompt_list(value: Any, *, limit: int) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    normalized: list[str] = []
+    seen: set[str] = set()
+    for item in value:
+        text = str(item or "").strip()
+        if not text or text in seen:
+            continue
+        seen.add(text)
+        normalized.append(text)
+        if len(normalized) >= limit:
+            break
+    return normalized
+
+
+def _normalize_prompt_text(value: Any) -> str:
+    return str(value or "").strip()
+
+
+def _normalize_prompt_count(value: Any) -> int | None:
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return None
+    return parsed if parsed > 0 else None
+
+
+def _build_teaching_brief_prompt_suffix(options: dict[str, Any]) -> str:
+    brief = load_teaching_brief(options)
+    clauses: list[str] = []
+
+    audience = _normalize_prompt_text(brief.get("audience"))
+    if audience:
+        clauses.append(f"面向{audience}")
+
+    lesson_hours = _normalize_prompt_count(brief.get("lesson_hours"))
+    duration_minutes = _normalize_prompt_count(brief.get("duration_minutes"))
+    target_pages = _normalize_prompt_count(brief.get("target_pages"))
+    if lesson_hours is not None:
+        clauses.append(f"课时约{lesson_hours}课时")
+    elif duration_minutes is not None:
+        clauses.append(f"时长约{duration_minutes}分钟")
+    if target_pages is not None:
+        clauses.append(f"建议输出{target_pages}页左右")
+
+    objectives = _normalize_prompt_list(
+        brief.get("teaching_objectives"),
+        limit=3,
+    )
+    if objectives:
+        clauses.append(f"教学目标突出{'、'.join(objectives)}")
+
+    knowledge_points = [
+        str(item.get("title") or "").strip()
+        for item in (brief.get("knowledge_points") or [])[:6]
+        if isinstance(item, dict) and str(item.get("title") or "").strip()
+    ]
+    if knowledge_points:
+        clauses.append(f"覆盖知识点：{'、'.join(knowledge_points)}")
+
+    emphasis = _normalize_prompt_list(brief.get("global_emphasis"), limit=3)
+    if emphasis:
+        clauses.append(f"重点强调{'、'.join(emphasis)}")
+
+    difficulties = _normalize_prompt_list(brief.get("global_difficulties"), limit=3)
+    if difficulties:
+        clauses.append(f"难点关注{'、'.join(difficulties)}")
+
+    teaching_strategy = _normalize_prompt_text(brief.get("teaching_strategy"))
+    if teaching_strategy:
+        clauses.append(f"教学组织上采用{teaching_strategy}")
+
+    style_profile = brief.get("style_profile") or {}
+    visual_tone = _normalize_prompt_text(style_profile.get("visual_tone"))
+    style_notes = _normalize_prompt_text(style_profile.get("notes"))
+    if visual_tone:
+        clauses.append(f"视觉风格偏向{visual_tone}")
+    if style_notes:
+        clauses.append(style_notes)
+
+    suffix = "；".join(clauses).strip("； ")
+    if not suffix:
+        return ""
+    if len(suffix) > 320:
+        suffix = suffix[:317].rstrip("；，, ") + "..."
+    return suffix
+
+
 def resolve_topic_from_options(options: dict[str, Any]) -> str:
     explicit = str(options.get("topic") or "").strip()
-    if explicit:
-        return explicit
+    if not explicit:
+        brief_topic = str(load_teaching_brief(options).get("topic") or "").strip()
+        if brief_topic:
+            explicit = brief_topic
 
-    brief_topic = str(load_teaching_brief(options).get("topic") or "").strip()
-    if brief_topic:
-        return brief_topic
+    if not explicit:
+        # Backward compatibility for older sessions that persisted `prompt`.
+        explicit = str(options.get("prompt") or "").strip()
 
-    # Backward compatibility for older sessions that persisted `prompt`.
-    explicit = str(options.get("prompt") or "").strip()
-    if explicit:
-        return explicit
-
-    return "课程主题"
+    base_prompt = explicit or "课程主题"
+    brief_suffix = _build_teaching_brief_prompt_suffix(options)
+    if not brief_suffix:
+        return base_prompt
+    if brief_suffix in base_prompt:
+        return base_prompt
+    combined = f"{base_prompt}；{brief_suffix}".strip("； ")
+    if len(combined) > 500:
+        return combined[:497].rstrip("；，, ") + "..."
+    return combined
 
 
 def resolve_target_slide_count(options: dict[str, Any]) -> int:
