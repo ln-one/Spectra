@@ -196,6 +196,18 @@ export const previewApi = {
     });
   },
 
+  buildSessionSlideAssetUrl(
+    sessionId: string,
+    slideId: string,
+    assetPath: string,
+    options?: SlideDetailQuery
+  ): string {
+    const query = new URLSearchParams({ path: assetPath });
+    if (options?.artifact_id) query.set("artifact_id", options.artifact_id);
+    if (options?.run_id) query.set("run_id", options.run_id);
+    return `/api/v1/generate/sessions/${sessionId}/preview/slides/${slideId}/asset?${query.toString()}`;
+  },
+
   async searchPexelsImages(
     query: string
   ): Promise<{ success: boolean; data: PexelsSearchData; message?: string }> {

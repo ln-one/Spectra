@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { ChevronRight, Loader2, Search, Wand2 } from "lucide-react";
-import { ThinkingMark } from "@/components/icons/status/ThinkingMark";
+import { BrandMark } from "@/components/icons/brand/BrandMark";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -60,7 +60,10 @@ interface PreviewCopilotDrawerProps {
   onSelectNode?: (nodeId: string | null) => void;
   onSceneUpdated?: (scene: EditableSlideScene) => void;
   onRefreshPreview?: () => void;
+  currentRenderVersion: number | null;
 }
+
+const COPILOT_UI_SCALE = 1.25;
 
 function filterPreviewMessages(
   messages: PreviewChatMessage[],
@@ -174,6 +177,96 @@ function normalizeOutlineCards(
     .sort((left, right) => left.order - right.order);
 }
 
+function computeNodeTextareaHeight(value: string): number {
+  const lineCount = value.split(/\r?\n/).length;
+  const estimated = 44 + lineCount * 26;
+  return Math.min(Math.max(estimated, 88), 244);
+}
+
+function isRenderableImageSrc(value: string): boolean {
+  const src = value.trim().toLowerCase();
+  return (
+    src.startsWith("http://") ||
+    src.startsWith("https://") ||
+    src.startsWith("data:image/") ||
+    src.startsWith("blob:")
+  );
+}
+
+function summarizeImageSource(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) return "未设置图片源";
+  const segments = trimmed.split(/[\\/]/);
+  return segments[segments.length - 1] || trimmed;
+}
+
+function resolveNodePreviewSrc({
+  src,
+  sessionId,
+  slideId,
+  artifactId,
+  runId,
+}: {
+  src: string;
+  sessionId: string | null;
+  slideId: string | null;
+  artifactId: string | null;
+  runId: string | null;
+}): string {
+  const normalized = src.trim();
+  if (!normalized) return "";
+  if (isRenderableImageSrc(normalized)) return normalized;
+  if (!sessionId || !slideId) return "";
+  return previewApi.buildSessionSlideAssetUrl(sessionId, slideId, normalized, {
+    artifact_id: artifactId ?? undefined,
+    run_id: runId ?? undefined,
+  });
+}
+
+function NodeImagePreview({
+  src,
+  previewSrc,
+  alt,
+}: {
+  src: string;
+  previewSrc: string;
+  alt: string;
+}) {
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    setFailed(false);
+  }, [previewSrc, src]);
+
+  if (!src.trim()) {
+    return (
+      <div className="flex h-[88px] items-center justify-center text-xs text-black/35">
+        暂无图片
+      </div>
+    );
+  }
+
+  if (!previewSrc || failed) {
+    return (
+      <div className="flex h-[88px] flex-col items-center justify-center gap-1 px-3 text-center">
+        <div className="text-xs font-medium text-zinc-700">
+          {summarizeImageSource(src)}
+        </div>
+        <div className="text-[11px] text-black/35">图片预览不可用</div>
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={previewSrc}
+      alt={alt}
+      className="h-[88px] w-full object-cover"
+      onError={() => setFailed(true)}
+    />
+  );
+}
+
 export function PreviewCopilotDrawer({
   projectId,
   sessionId,
@@ -188,7 +281,13 @@ export function PreviewCopilotDrawer({
   onSelectNode,
   onSceneUpdated,
   onRefreshPreview,
+  currentRenderVersion,
 }: PreviewCopilotDrawerProps) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const [expanded, setExpanded] = useState(true);
   const [messages, setMessages] = useState<PreviewChatMessage[]>([]);
   const [input, setInput] = useState("");
@@ -199,7 +298,11 @@ export function PreviewCopilotDrawer({
   const [imageTargetNodeId, setImageTargetNodeId] = useState<string | null>(
     null
   );
-  const [pexelsQuery, setPexelsQuery] = useState("");
+  const [redoingSlideIndex, setRedoingSlideIndex] = useState<number | null>(null);
+
+  const selectedNode = activeScene?.nodes.find(
+    (node) => node.node_id === selectedNodeId
+  );
   const [pexelsResults, setPexelsResults] = useState<PexelsResult[]>([]);
   const [isSearchingImages, setIsSearchingImages] = useState(false);
 
@@ -211,12 +314,6 @@ export function PreviewCopilotDrawer({
   const imageNodes = useMemo(
     () => activeScene?.nodes.filter((node) => node.kind === "image") ?? [],
     [activeScene?.nodes]
-  );
-  const selectedNode = useMemo(
-    () =>
-      activeScene?.nodes.find((node) => node.node_id === selectedNodeId) ??
-      null,
-    [activeScene?.nodes, selectedNodeId]
   );
   const activeImageNode = useMemo(() => {
     if (!imageNodes.length) return null;
@@ -377,6 +474,7 @@ export function PreviewCopilotDrawer({
           ? activeSlide?.slide_id
           : undefined,
       instruction: content,
+      base_render_version: activeSlide?.render_version ?? currentRenderVersion ?? undefined,
       scope: "current_slide_only",
       preserve_style: true,
       preserve_layout: true,
@@ -398,6 +496,7 @@ export function PreviewCopilotDrawer({
         metadata: { channel: "preview_copilot", run_id: runId },
       },
     ]);
+    setRedoingSlideIndex(requestedSlideIndex);
   };
 
   const handleRedoCurrentSlide = async () => {
@@ -437,6 +536,7 @@ export function PreviewCopilotDrawer({
           run_id: runId ?? undefined,
         }
       );
+      setDraftValues({});
       onSceneUpdated?.(response.data.scene);
       onRefreshPreview?.();
       setMessages((prev) => [
@@ -453,8 +553,24 @@ export function PreviewCopilotDrawer({
     }
   };
 
+  // Automatically clear redoingSlideIndex if render_version advances or active slide changes
+  useEffect(() => {
+    if (
+      redoingSlideIndex === activeSlide?.index &&
+      activeSlide?.render_version &&
+      currentRenderVersion &&
+      activeSlide.render_version > currentRenderVersion
+    ) {
+      setRedoingSlideIndex(null);
+    }
+    if (redoingSlideIndex !== activeSlide?.index) {
+      setRedoingSlideIndex(null);
+    }
+  }, [activeSlide, currentRenderVersion, redoingSlideIndex]);
+
+  const [pexelsQuery, setPexelsQuery] = useState("");
   const handleSearchImages = async () => {
-    const query = pexelsQuery.trim();
+    const query = (pexelsQuery.trim() || activeImageNode?.alt || "").trim();
     if (!query || isSearchingImages) return;
     try {
       setIsSearchingImages(true);
@@ -479,20 +595,25 @@ export function PreviewCopilotDrawer({
       <button
         type="button"
         onClick={() => setExpanded(true)}
-        className="group absolute right-0 top-1/2 z-40 flex h-16 w-11 -translate-y-1/2 items-center justify-center rounded-l-2xl border border-r-0 border-black/10 bg-white/92 shadow-lg backdrop-blur-md transition-all hover:shadow-xl"
+        className="group absolute right-0 top-1/2 z-40 flex h-24 w-16 -translate-y-1/2 items-center justify-center rounded-l-[24px] border border-r-0 border-black/10 bg-white/92 shadow-lg backdrop-blur-md transition-all hover:shadow-xl"
         title="展开 Preview Copilot"
       >
-        <ThinkingMark className="h-6 w-6 text-blue-600 transition-transform group-hover:scale-110" />
+        <BrandMark className="h-12 w-12 transition-transform group-hover:scale-110" />
       </button>
     );
   }
 
+  if (!mounted) return null;
+
   return (
-    <aside className="absolute right-4 top-4 bottom-4 z-40 flex w-[525px] flex-col overflow-hidden rounded-[28px] border border-black/5 bg-white/95 shadow-2xl backdrop-blur-xl">
+    <aside
+      className="absolute right-4 top-4 bottom-4 z-40 flex w-[525px] flex-col overflow-hidden rounded-[28px] border border-black/5 bg-white/95 shadow-2xl backdrop-blur-xl"
+      style={{ zoom: COPILOT_UI_SCALE }}
+    >
       <div className="flex h-16 shrink-0 items-center justify-between border-b border-black/5 bg-white/60 px-5">
         <div className="min-w-0 flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50">
-            <ThinkingMark className="h-5 w-5 text-blue-600" />
+          <div className="flex h-13 w-13 items-center justify-center rounded-2xl bg-zinc-50">
+            <BrandMark className="h-9 w-9" />
           </div>
           <div>
             <div className="truncate text-base font-semibold text-[#1d1d1f]">
@@ -645,37 +766,30 @@ export function PreviewCopilotDrawer({
             <div className="flex items-center justify-between gap-3">
               <div className="flex min-w-0 items-center gap-3">
                 <div className="h-5 w-1.5 rounded-full bg-emerald-500" />
-                <div>
-                  <h3 className="text-base font-semibold text-[#1d1d1f]">
-                    当前页节点编辑
-                    {activeSlide ? ` (第${activeSlide.index + 1}页)` : ""}
-                  </h3>
-                  <div className="mt-1 text-xs text-black/45">
-                    直接改文本，或为当前页图片搜索替换源图
-                  </div>
-                </div>
+                <h3 className="text-base font-semibold text-[#1d1d1f]">
+                  当前页节点
+                </h3>
               </div>
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-9 shrink-0 gap-2 rounded-full border-black/10 px-4 text-sm hover:bg-black/5"
-                onClick={() => void handleSaveScene()}
-                disabled={isSavingScene || dirtyOperations.length === 0}
-              >
-                {isSavingScene ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Wand2 className="h-4 w-4" />
-                )}
-                {dirtyOperations.length > 0
-                  ? `保存 ${dirtyOperations.length} 项`
-                  : "保存修改"}
-              </Button>
+              {dirtyOperations.length > 0 ? (
+                <div className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">
+                  {dirtyOperations.length} 处待保存
+                </div>
+              ) : null}
             </div>
 
-            {!activeScene ? (
+            {redoingSlideIndex === activeSlide?.index ? (
+              <div className="rounded-2xl border border-blue-100 bg-blue-50/50 px-4 py-8 text-center text-sm text-blue-800">
+                <Loader2 className="mx-auto mb-3 h-6 w-6 animate-spin text-blue-500" />
+                当前页正在重做，完成后可继续编辑...
+              </div>
+            ) : !activeScene ? (
+              <div className="rounded-2xl border border-dashed border-black/10 bg-white/70 px-4 py-8 text-center text-sm text-black/40">
+                <Loader2 className="mx-auto mb-3 h-5 w-5 animate-spin text-black/20" />
+                正在加载可编辑节点...
+              </div>
+            ) : activeScene.readonly ? (
               <div className="rounded-2xl border border-dashed border-black/10 bg-white/70 px-4 py-5 text-base italic text-black/40">
-                当前页节点仍在解析中
+                {activeScene.readonly_reason || "当前页暂不支持结构化编辑"}
               </div>
             ) : activeScene.nodes.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-black/10 bg-white/70 px-4 py-5 text-base italic text-black/40">
@@ -691,13 +805,13 @@ export function PreviewCopilotDrawer({
                       <div
                         key={node.node_id}
                         className={cn(
-                          "rounded-2xl border bg-white p-4 shadow-sm transition",
+                          "rounded-2xl border bg-white p-3.5 shadow-sm transition",
                           isDirty
                             ? "border-emerald-300 shadow-emerald-100/60"
                             : "border-black/5"
                         )}
                       >
-                        <div className="mb-3 flex items-center justify-between gap-3">
+                        <div className="mb-2.5 flex items-center justify-between gap-3">
                           <div className="min-w-0">
                             <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-black/35">
                               文本节点
@@ -719,7 +833,10 @@ export function PreviewCopilotDrawer({
                               [node.node_id]: event.target.value,
                             }))
                           }
-                          className="min-h-[118px] resize-y rounded-xl border-black/10 bg-white text-[14px] leading-relaxed text-zinc-700 shadow-sm focus-visible:ring-1 focus-visible:ring-emerald-500"
+                          style={{
+                            height: `${computeNodeTextareaHeight(value)}px`,
+                          }}
+                          className="min-h-[88px] resize-none overflow-hidden rounded-xl border-black/10 bg-white px-3 py-2.5 text-[14px] leading-6 text-zinc-700 shadow-sm focus-visible:ring-1 focus-visible:ring-emerald-500"
                         />
                       </div>
                     );
@@ -731,6 +848,13 @@ export function PreviewCopilotDrawer({
                       {imageNodes.map((node) => {
                         const draftSrc =
                           draftValues[node.node_id] ?? node.src ?? "";
+                        const previewSrc = resolveNodePreviewSrc({
+                          src: draftSrc,
+                          sessionId,
+                          slideId: activeScene?.slide_id ?? activeSlide?.slide_id ?? null,
+                          artifactId,
+                          runId,
+                        });
                         const isActive =
                           activeImageNode?.node_id === node.node_id;
                         const isDirty = dirtyNodeIds.has(node.node_id);
@@ -751,17 +875,11 @@ export function PreviewCopilotDrawer({
                             )}
                           >
                             <div className="overflow-hidden rounded-xl bg-zinc-100">
-                              {draftSrc ? (
-                                <img
-                                  src={draftSrc}
-                                  alt={node.alt || node.label || "slide image"}
-                                  className="h-[88px] w-full object-cover"
-                                />
-                              ) : (
-                                <div className="flex h-[88px] items-center justify-center text-xs text-black/35">
-                                  暂无图片
-                                </div>
-                              )}
+                              <NodeImagePreview
+                                src={draftSrc}
+                                previewSrc={previewSrc}
+                                alt={node.alt || node.label || "slide image"}
+                              />
                             </div>
                             <div className="min-w-0 space-y-2">
                               <div className="flex items-center justify-between gap-3">
@@ -830,7 +948,7 @@ export function PreviewCopilotDrawer({
                           onChange={(event) =>
                             setPexelsQuery(event.target.value)
                           }
-                          placeholder="搜索 Pexels 图片，例如：modern classroom"
+                          placeholder={activeImageNode?.alt || "搜索 Pexels 图片，例如：modern classroom"}
                           className="h-11 rounded-xl border-black/10 bg-white text-[14px]"
                         />
                         <Button
@@ -840,7 +958,7 @@ export function PreviewCopilotDrawer({
                           onClick={() => void handleSearchImages()}
                           disabled={
                             isSearchingImages ||
-                            !pexelsQuery.trim() ||
+                            (!pexelsQuery.trim() && !activeImageNode?.alt) ||
                             !activeImageNode
                           }
                         >
@@ -949,17 +1067,48 @@ export function PreviewCopilotDrawer({
         </div>
       </div>
 
+      {activeScene &&
+      !activeScene.readonly &&
+      dirtyOperations.length > 0 &&
+      (textNodes.length > 0 || imageNodes.length > 0) ? (
+        <div className="pointer-events-none absolute bottom-28 right-6 z-50">
+          <Button
+            onClick={() => void handleSaveScene()}
+            disabled={
+              dirtyOperations.length === 0 ||
+              isSavingScene ||
+              redoingSlideIndex === activeSlide?.index
+            }
+            className="pointer-events-auto h-12 rounded-full bg-emerald-500 px-5 text-sm font-semibold text-white shadow-[0_18px_40px_rgba(16,185,129,0.32)] transition hover:bg-emerald-600"
+          >
+            {isSavingScene ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                保存中...
+              </>
+            ) : (
+              `保存修改 (${dirtyOperations.length})`
+            )}
+          </Button>
+        </div>
+      ) : null}
+
       <div className="shrink-0 border-t border-black/5 bg-white px-5 py-4">
         <div className="rounded-2xl border border-black/10 bg-white px-4 py-3 shadow-sm">
           <Textarea
             value={input}
             onChange={(event) => setInput(event.target.value)}
+            disabled={redoingSlideIndex === activeSlide?.index || dirtyOperations.length > 0}
             placeholder={
-              activeSlide
+              redoingSlideIndex === activeSlide?.index
+                ? "当前页正在重做，请稍候..."
+                : dirtyOperations.length > 0
+                ? "请先保存修改再重做当前页"
+                : activeSlide
                 ? `输入提示词，重做第 ${activeSlide.index + 1} 页`
                 : "输入提示词，重做当前页"
             }
-            className="min-h-[82px] resize-none border-0 bg-transparent p-0 text-[15px] leading-relaxed text-zinc-800 shadow-none placeholder:text-black/35 focus-visible:ring-0"
+            className="min-h-[82px] resize-none border-0 bg-transparent p-0 text-[15px] leading-relaxed text-zinc-800 shadow-none placeholder:text-black/35 focus-visible:ring-0 disabled:opacity-50"
             onKeyDown={(event) => {
               if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
                 event.preventDefault();
@@ -975,7 +1124,7 @@ export function PreviewCopilotDrawer({
               size="sm"
               onClick={() => void handleRedoCurrentSlide()}
               disabled={
-                !sessionId || !input.trim() || isSubmitting || !activeSlide
+                !sessionId || !input.trim() || isSubmitting || !activeSlide || redoingSlideIndex === activeSlide?.index || dirtyOperations.length > 0
               }
               className="h-9 rounded-full bg-[#1d1d1f] px-4 text-sm font-medium text-white transition hover:bg-black/80 disabled:bg-black/10 disabled:text-black/35"
             >

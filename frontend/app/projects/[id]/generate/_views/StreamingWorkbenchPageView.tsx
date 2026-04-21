@@ -27,6 +27,7 @@ import { PreviewCopilotDrawer } from "./components/PreviewCopilotDrawer";
 import { useGeneratePreviewState } from "./useGeneratePreviewState";
 import { RegenerateSlideDialog } from "./components/RegenerateSlideDialog";
 import { SvgPreviewSurface } from "./components/SvgPreviewSurface";
+import { SlideEditorOverlay } from "./components/SlideEditorOverlay";
 import {
   resolveRenderableSlideIndex,
   slotHasRenderablePreview,
@@ -73,6 +74,10 @@ type StageSelectionAction =
   | { type: "selectSlide"; slideIndex: number }
   | { type: "selectFrame"; frameIndex: number }
   | { type: "reset" };
+
+const DEFAULT_PREVIEW_ZOOM = 1;
+const PREVIEW_UI_SCALE = 1.25;
+const PREVIEW_STAGE_BASE_WIDTH = 1100 * PREVIEW_UI_SCALE;
 
 function stageSelectionReducer(
   state: StageSelectionState,
@@ -280,7 +285,7 @@ export default function StreamingWorkbenchPageView() {
   });
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [regenerateDialogOpen, setRegenerateDialogOpen] = useState(false);
-  const [zoom, setZoom] = useState<number | "fit">("fit");
+  const [zoom, setZoom] = useState<number | "fit">(DEFAULT_PREVIEW_ZOOM);
   const [sceneBySlideId, setSceneBySlideId] = useState<
     Record<string, EditableSlideScene>
   >({});
@@ -288,6 +293,9 @@ export default function StreamingWorkbenchPageView() {
     Record<string, string | null>
   >({});
   const canvasRef = useRef<HTMLDivElement>(null);
+
+  // Invalidate scene cache when render version advances
+  const previousRenderVersionRef = useRef<number | null>(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -335,6 +343,13 @@ export default function StreamingWorkbenchPageView() {
     runIdFromQuery,
     artifactIdFromQuery,
   });
+
+  useEffect(() => {
+    if (currentRenderVersion !== null && previousRenderVersionRef.current !== null && currentRenderVersion > previousRenderVersionRef.current) {
+      setSceneBySlideId({});
+    }
+    previousRenderVersionRef.current = currentRenderVersion;
+  }, [currentRenderVersion]);
 
   const projectBackHref = (sessionId: string | null) =>
     sessionId
@@ -624,45 +639,45 @@ export default function StreamingWorkbenchPageView() {
       className="flex h-screen w-full flex-col overflow-hidden bg-[#f5f5f7] text-[#1d1d1f]"
     >
       {/* Top header */}
-      <header className="flex h-14 shrink-0 items-center justify-between border-b border-black/5 bg-white px-4">
-        <div className="flex items-center gap-3 min-w-0">
+      <header className="flex h-[70px] shrink-0 items-center justify-between border-b border-black/5 bg-white px-5">
+        <div className="flex min-w-0 items-center gap-4">
           <button
             type="button"
             onClick={() => router.push(projectBackHref(activeSessionId))}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-[#1d1d1f] transition hover:bg-black/5"
+            className="inline-flex h-[45px] w-[45px] items-center justify-center rounded-xl text-[#1d1d1f] transition hover:bg-black/5"
             title="返回会话"
           >
-            <ArrowLeft className="h-5 w-5" />
+            <ArrowLeft className="h-6 w-6" />
           </button>
 
-          <div className="hidden h-5 w-px bg-black/10 sm:block" />
+          <div className="hidden h-6 w-px bg-black/10 sm:block" />
 
-          <div className="flex items-center gap-2 min-w-0">
-            <span className="shrink-0 rounded bg-[#3b82f6]/10 px-1.5 py-0.5 text-[11px] font-medium text-[#3b82f6]">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="shrink-0 rounded-md bg-[#3b82f6]/10 px-2 py-1 text-[13px] font-medium text-[#3b82f6]">
               {generationModeLabel}
             </span>
-            <h1 className="truncate text-sm font-medium text-[#1d1d1f] sm:text-base">
+            <h1 className="truncate text-base font-medium text-[#1d1d1f] sm:text-lg">
               {runTitle}
             </h1>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           {/* Zoom Controls */}
-          <div className="flex items-center gap-1 rounded-lg border border-black/10 bg-white px-1 h-9 text-sm text-[#1d1d1f]">
+          <div className="flex h-[45px] items-center gap-1 rounded-xl border border-black/10 bg-white px-1.5 text-base text-[#1d1d1f]">
             <button
               type="button"
               onClick={() =>
                 setZoom((z) => (z === "fit" ? 0.75 : Math.max(0.25, z - 0.25)))
               }
-              className="inline-flex h-7 w-7 items-center justify-center rounded hover:bg-black/5"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-lg hover:bg-black/5"
             >
               -
             </button>
             <button
               type="button"
               onClick={() => setZoom((z) => (z === "fit" ? 1 : "fit"))}
-              className="w-12 text-center text-xs font-medium hover:text-black/70"
+              className="w-16 text-center text-sm font-medium hover:text-black/70"
             >
               {zoom === "fit" ? "Fit" : `${Math.round(zoom * 100)}%`}
             </button>
@@ -671,7 +686,7 @@ export default function StreamingWorkbenchPageView() {
               onClick={() =>
                 setZoom((z) => (z === "fit" ? 1.25 : Math.min(3, z + 0.25)))
               }
-              className="inline-flex h-7 w-7 items-center justify-center rounded hover:bg-black/5"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-lg hover:bg-black/5"
             >
               +
             </button>
@@ -679,30 +694,30 @@ export default function StreamingWorkbenchPageView() {
 
           <button
             type="button"
-            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-black/10 bg-white px-3 text-sm font-medium text-[#1d1d1f] transition hover:bg-black/5"
+            className="inline-flex h-[45px] items-center gap-2 rounded-xl border border-black/10 bg-white px-4 text-base font-medium text-[#1d1d1f] transition hover:bg-black/5"
           >
-            <Save className="h-4 w-4" />
+            <Save className="h-5 w-5" />
             <span className="hidden sm:inline">保存</span>
           </button>
           <button
             type="button"
             onClick={() => setIsFullscreen(true)}
             disabled={!canRenderStage}
-            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-black/10 bg-white px-3 text-sm font-medium text-[#1d1d1f] transition hover:bg-black/5 disabled:opacity-40"
+            className="inline-flex h-[45px] items-center gap-2 rounded-xl border border-black/10 bg-white px-4 text-base font-medium text-[#1d1d1f] transition hover:bg-black/5 disabled:opacity-40"
           >
-            <MonitorPlay className="h-4 w-4" />
+            <MonitorPlay className="h-5 w-5" />
             <span className="hidden sm:inline">放映</span>
           </button>
           <button
             type="button"
             onClick={() => void handleExport()}
             disabled={!activeRunId || isExporting || !canExport}
-            className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-[#1d1d1f] px-3 text-sm font-medium text-white transition hover:bg-black/80 disabled:opacity-50"
+            className="inline-flex h-[45px] items-center gap-2 rounded-xl bg-[#1d1d1f] px-4 text-base font-medium text-white transition hover:bg-black/80 disabled:opacity-50"
           >
             {isExporting ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <Loader2 className="h-5 w-5 animate-spin" />
             ) : (
-              <Download className="h-4 w-4" />
+              <Download className="h-5 w-5" />
             )}
             <span className="hidden sm:inline">
               {isExporting ? "导出中" : !canExport ? "PPTX 生成中" : "导出"}
@@ -713,10 +728,10 @@ export default function StreamingWorkbenchPageView() {
 
       <div className="flex flex-1 overflow-hidden relative">
         {/* Left sidebar */}
-        <aside className="flex w-60 shrink-0 flex-col border-r border-black/5 bg-white">
+        <aside className="flex w-[300px] shrink-0 flex-col border-r border-black/5 bg-white">
           {/* Slide count + grid toggle */}
-          <div className="flex items-center justify-between px-4 py-3">
-            <div className="text-sm font-medium text-[#1d1d1f]">
+          <div className="flex items-center justify-between px-5 py-4">
+            <div className="text-base font-medium text-[#1d1d1f]">
               {totalSlides > 0 ? (
                 <>
                   <span className="text-[#3b82f6]">
@@ -734,13 +749,13 @@ export default function StreamingWorkbenchPageView() {
           </div>
 
           {/* Thumbnails */}
-          <div className="flex-1 overflow-y-auto px-3 pb-3 pt-1">
-            <div className="flex flex-col gap-2">
+          <div className="flex-1 overflow-y-auto px-4 pb-4 pt-2">
+            <div className="flex flex-col gap-3">
               {showPreviewLoadingNotice || showGeneratingNotice ? (
-                <div className="flex items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 mb-1 shadow-sm">
-                  <Loader2 className="h-4 w-4 animate-spin text-amber-500 shrink-0" />
+                <div className="mb-1 flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 shadow-sm">
+                  <Loader2 className="h-5 w-5 shrink-0 animate-spin text-amber-500" />
                   <div className="min-w-0 flex-1">
-                    <p className="text-xs font-medium text-amber-700">
+                    <p className="text-sm font-medium text-amber-700">
                       {showPreviewLoadingNotice
                         ? "正在读取单页预览图..."
                         : "正在同步可预览页..."}
@@ -767,15 +782,15 @@ export default function StreamingWorkbenchPageView() {
                   return (
                     <div
                       key={`thumb-placeholder-${slide.index}`}
-                      className="group relative w-full overflow-hidden rounded-xl border border-black/5 bg-white text-left shadow-sm"
+                      className="group relative w-full overflow-hidden rounded-2xl border border-black/5 bg-white text-left shadow-sm"
                     >
                       <div className="aspect-video w-full bg-[#f5f5f7] flex items-center justify-center">
-                        <Loader2 className="h-4 w-4 animate-spin text-black/20" />
+                        <Loader2 className="h-5 w-5 animate-spin text-black/20" />
                       </div>
-                      <span className="absolute left-2 top-2 rounded bg-black/10 px-1.5 py-0.5 text-[10px] font-semibold text-black/40">
+                      <span className="absolute left-3 top-3 rounded bg-black/10 px-2 py-0.5 text-[11px] font-semibold text-black/40">
                         {String(slide.index + 1).padStart(2, "0")}
                       </span>
-                      <span className="absolute bottom-2 left-2 right-2 line-clamp-1 text-[11px] font-medium text-black/40">
+                      <span className="absolute bottom-3 left-3 right-3 line-clamp-1 text-[13px] font-medium text-black/40">
                         {isLoading ? "正在加载预览..." : "等待 Pagevra SVG"}
                       </span>
                     </div>
@@ -815,7 +830,7 @@ export default function StreamingWorkbenchPageView() {
                     }}
                     whileTap={{ scale: 0.98 }}
                     className={cn(
-                      "group relative w-full overflow-hidden rounded-xl border text-left transition",
+                      "group relative w-full overflow-hidden rounded-2xl border text-left transition",
                       isActive
                         ? "border-[#3b82f6] shadow-[0_0_0_1px_rgba(59,130,246,0.15)]"
                         : "border-black/10 hover:border-black/25"
@@ -831,11 +846,11 @@ export default function StreamingWorkbenchPageView() {
                           errorClassName="text-[10px]"
                         />
                       ) : hasAuthorityPreviewContent(slide.authoritySlide) ? (
-                        <div className="flex h-full flex-col justify-center gap-1 bg-[radial-gradient(circle_at_top_left,_rgba(255,255,255,0.96),_rgba(225,232,245,0.92),_rgba(240,244,250,0.98))] px-3 py-2">
-                          <div className="line-clamp-2 text-[12px] font-semibold leading-5 text-[#1d1d1f]">
+                        <div className="flex h-full flex-col justify-center gap-1.5 bg-[radial-gradient(circle_at_top_left,_rgba(255,255,255,0.96),_rgba(225,232,245,0.92),_rgba(240,244,250,0.98))] px-4 py-3">
+                          <div className="line-clamp-2 text-[14px] font-semibold leading-5 text-[#1d1d1f]">
                             {slide.title || `Slide ${slide.index + 1}`}
                           </div>
-                          <div className="line-clamp-2 text-[10px] leading-4 text-black/45">
+                          <div className="line-clamp-2 text-[12px] leading-4 text-black/45">
                             {authoritySummary || "等待 Pagevra SVG 到达"}
                           </div>
                         </div>
@@ -844,18 +859,18 @@ export default function StreamingWorkbenchPageView() {
                       )}
                     </div>
                     <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
-                    <span className="absolute left-2 top-2 rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+                    <span className="absolute left-3 top-3 rounded bg-black/60 px-2 py-0.5 text-[11px] font-semibold text-white">
                       {String(slide.index + 1).padStart(2, "0")}
                     </span>
                     {Math.max(authorityFrames.length, slideFrames.length) >
                     1 ? (
-                      <span className="absolute right-2 top-2 rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+                      <span className="absolute right-3 top-3 rounded bg-black/60 px-2 py-0.5 text-[11px] font-semibold text-white">
                         +
                         {Math.max(authorityFrames.length, slideFrames.length) -
                           1}
                       </span>
                     ) : null}
-                    <span className="absolute bottom-2 left-2 right-2 line-clamp-1 text-[11px] font-medium text-white/90">
+                    <span className="absolute bottom-3 left-3 right-3 line-clamp-1 text-[13px] font-medium text-white/90">
                       {slide.title || `Slide ${slide.index + 1}`}
                     </span>
                   </motion.button>
@@ -865,8 +880,8 @@ export default function StreamingWorkbenchPageView() {
           </div>
 
           {/* Compact status footer */}
-          <div className="border-t border-black/5 px-4 py-2">
-            <div className="flex flex-wrap items-center gap-2 text-[10px] text-black/50">
+          <div className="border-t border-black/5 px-5 py-3">
+            <div className="flex flex-wrap items-center gap-2 text-xs text-black/50">
               <span
                 className={cn(
                   "inline-flex h-1.5 w-1.5 rounded-full",
@@ -892,7 +907,7 @@ export default function StreamingWorkbenchPageView() {
           ) : null}
 
           {/* Canvas */}
-          <section className="relative flex flex-1 overflow-auto p-6">
+          <section className="relative flex flex-1 overflow-auto p-8">
             {runSelectionBlocked ? (
               <div className="flex flex-col items-center justify-center m-auto gap-3 px-6 text-center text-white/70">
                 <p className="text-lg font-semibold text-white">请选择 run</p>
@@ -908,24 +923,43 @@ export default function StreamingWorkbenchPageView() {
                   className={cn(
                     "relative bg-white shadow-[0_24px_70px_-12px_rgba(0,0,0,0.35)] transition-all duration-200 m-auto",
                     zoom === "fit"
-                      ? "w-full max-w-[1100px] rounded-lg overflow-hidden"
+                      ? "w-full max-w-[1375px] rounded-xl overflow-hidden"
                       : "rounded-lg overflow-hidden"
                   )}
                   style={
                     zoom !== "fit"
                       ? {
-                          width: `${1100 * zoom}px`,
-                          minWidth: `${1100 * zoom}px`,
+                          width: `${PREVIEW_STAGE_BASE_WIDTH * zoom}px`,
+                          minWidth: `${PREVIEW_STAGE_BASE_WIDTH * zoom}px`,
                         }
                       : {}
                   }
                 >
                   <div className="aspect-video w-full bg-white relative">
                     {activeStageFrame?.svg_data_url ? (
-                      <SvgPreviewSurface
-                        svgDataUrl={activeStageFrame.svg_data_url}
-                        alt={activeStageTitle}
-                      />
+                      <div className="relative h-full w-full">
+                        <SvgPreviewSurface
+                          svgDataUrl={activeStageFrame.svg_data_url}
+                          alt={activeStageTitle}
+                        />
+                        {/* Redo overlay */}
+                        {activeAuthoritySlide?.status === "generating" || activeAuthoritySlide?.status === "pending" ? (
+                          <div className="absolute inset-0 z-20 flex items-center justify-center bg-white/70 backdrop-blur-[2px]">
+                            <div className="flex flex-col items-center gap-3">
+                              <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+                              <div className="text-sm font-medium text-blue-800">当前页正在重新生成...</div>
+                            </div>
+                          </div>
+                        ) : null}
+                        {!previewBlockedReason && activeAuthoritySlide?.status !== "generating" && activeAuthoritySlide?.status !== "pending" && (
+                          <SlideEditorOverlay
+                            slideNo={(activeSlideSlot?.index ?? 0) + 1}
+                            width={1280}
+                            height={720}
+                            interactive={false}
+                          />
+                        )}
+                      </div>
                     ) : (
                       <div className="flex h-full flex-col items-center justify-center gap-2 text-center text-sm text-black/55">
                         <p className="font-medium text-black/70">
@@ -994,6 +1028,7 @@ export default function StreamingWorkbenchPageView() {
             }));
           }}
           onRefreshPreview={() => void loadSlides()}
+          currentRenderVersion={currentRenderVersion}
         />
       </div>
 
