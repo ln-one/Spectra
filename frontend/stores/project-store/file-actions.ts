@@ -140,6 +140,11 @@ function isChunkMissingError(error: unknown): boolean {
   return message.includes("分块不存在");
 }
 
+function shouldSuppressFileListErrorToast(error: unknown): boolean {
+  const message = getErrorMessage(error).toLowerCase();
+  return message.includes("limora service unreachable");
+}
+
 type SearchResultCandidate = {
   chunk_id?: string;
   content?: string;
@@ -413,6 +418,9 @@ export function createFileActions({
           }
         }
       } catch (error) {
+        if (shouldSuppressFileListErrorToast(error)) {
+          return;
+        }
         const message = getErrorMessage(error);
         toast({
           title: "获取文件列表失败",

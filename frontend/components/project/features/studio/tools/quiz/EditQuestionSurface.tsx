@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { useFieldArray, useForm } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import {
@@ -73,13 +73,29 @@ export function EditQuestionSurface({
     resolver: zodResolver(editQuestionSchema),
     defaultValues: question,
   });
-  const { fields, append, remove } = useFieldArray<
-    EditQuestionFormValues,
-    "options"
-  >({
-    control: form.control,
-    name: "options",
-  });
+  const options = form.watch("options") ?? [];
+
+  const appendOption = () => {
+    const nextOptions = [...(form.getValues("options") ?? []), ""];
+    form.setValue("options", nextOptions, {
+      shouldDirty: true,
+      shouldTouch: true,
+      shouldValidate: true,
+    });
+  };
+
+  const removeOption = (index: number) => {
+    const currentOptions = form.getValues("options") ?? [];
+    if (currentOptions.length <= 2) {
+      return;
+    }
+    const nextOptions = currentOptions.filter((_, optionIndex) => optionIndex !== index);
+    form.setValue("options", nextOptions, {
+      shouldDirty: true,
+      shouldTouch: true,
+      shouldValidate: true,
+    });
+  };
 
   useEffect(() => {
     form.reset(question);
@@ -157,16 +173,16 @@ export function EditQuestionSurface({
                       variant="outline"
                       size="sm"
                       className="h-8 border-violet-200 px-3 text-[11px] text-violet-700 hover:bg-violet-50"
-                      onClick={() => append("")}
+                      onClick={appendOption}
                     >
                       添加选项
                     </Button>
                   </div>
-                  {fields.map((fieldItem, index) => (
+                  {options.map((_, index) => (
                     <FormField
-                      key={fieldItem.id}
+                      key={`option-${index}`}
                       control={form.control}
-                      name={`options.${index}`}
+                      name={`options.${index}` as const}
                       render={({ field }) => (
                         <FormItem>
                           <div className="flex items-start gap-3">
@@ -182,13 +198,13 @@ export function EditQuestionSurface({
                                 />
                               </FormControl>
                             </div>
-                            {fields.length > 2 ? (
+                            {options.length > 2 ? (
                               <Button
                                 type="button"
                                 variant="ghost"
                                 size="sm"
                                 className="h-9 px-2 text-[11px] text-zinc-500 hover:bg-zinc-100 hover:text-zinc-800"
-                                onClick={() => remove(index)}
+                                onClick={() => removeOption(index)}
                               >
                                 删除
                               </Button>

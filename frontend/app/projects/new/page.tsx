@@ -19,7 +19,6 @@ import {
   Library,
 } from "lucide-react";
 import { BrandMark } from "@/components/icons/brand/BrandMark";
-import { ThinkingMark } from "@/components/icons/status/ThinkingMark";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -249,10 +248,10 @@ export default function NewProjectPage() {
           <motion.div
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-zinc-900 text-white shadow-xl shadow-zinc-200"
+            className="inline-flex items-center gap-3 px-6 py-2.5 rounded-full bg-zinc-900 text-white shadow-xl shadow-zinc-200"
           >
-            <BrandMark className="w-4 h-4" />
-            <span className="text-[10px] font-black uppercase tracking-[0.2em]">
+            <BrandMark className="w-8 h-8" />
+            <span className="text-xs font-black uppercase tracking-[0.2em]">
               Spectra Agent
             </span>
           </motion.div>
@@ -284,11 +283,11 @@ export default function NewProjectPage() {
           <div className="absolute -inset-1 bg-gradient-to-r from-blue-500 to-purple-600 rounded-[2.5rem] blur opacity-15 group-focus-within:opacity-40 transition duration-500" />
           <div className="relative bg-white rounded-[2.5rem] shadow-2xl shadow-zinc-200/50 border border-zinc-100 p-8 space-y-8">
             <div className="space-y-4">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center">
-                  <ThinkingMark className="w-4 h-4 text-blue-600" />
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center">
+                  <BrandMark className="w-8 h-8" />
                 </div>
-                <h2 className="text-xl font-black text-zinc-900 tracking-tight">
+                <h2 className="text-2xl font-black text-zinc-900 tracking-tight">
                   教学构想{" "}
                   <span className="text-blue-600">(AI Agent 核心输入)</span>
                 </h2>

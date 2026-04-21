@@ -9,7 +9,7 @@ import {
   ScrollText,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { GENERATION_TOOLS } from "@/stores/projectStore";
+import { GENERATION_TOOLS, type GenerationTool } from "@/stores/projectStore";
 import type { StudioToolKey, ToolDisplayModel } from "./tools/types";
 import { STUDIO_CARD_BY_TOOL } from "./panel/constants";
 
