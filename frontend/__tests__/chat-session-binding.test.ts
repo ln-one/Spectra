@@ -473,6 +473,56 @@ describe("chat session binding", () => {
     ).toBe("思维导图微调已被自动拦截：节点数明显减少、层级过浅。");
   });
 
+  it("does not rewrite studio chat context when the payload is unchanged", () => {
+    const context: StudioChatContext = {
+      projectId: "p-001",
+      sessionId: "s-001",
+      toolType: "quiz",
+      toolLabel: "随堂小测",
+      cardId: "interactive_quick_quiz",
+      step: "config",
+      canRefine: false,
+      isRefineMode: false,
+      targetArtifactId: null,
+      targetRunId: null,
+      sourceArtifactId: null,
+      configSnapshot: {
+        scope: "牛顿定律",
+        question_count: 5,
+      },
+    };
+
+    type MutableState = Pick<ProjectState, "studioChatContext">;
+
+    let state: MutableState = {
+      studioChatContext: {
+        ...context,
+        configSnapshot: { ...context.configSnapshot },
+      },
+    };
+
+    const set = jest.fn(
+      (
+        partial:
+          | Partial<MutableState>
+          | ((current: MutableState) => Partial<MutableState>)
+      ) => {
+        const next =
+          typeof partial === "function" ? partial(state) : (partial ?? {});
+        state = { ...state, ...next };
+      }
+    );
+    const get = jest.fn(() => state as unknown as ProjectState);
+    const actions = createChatActions({ set, get });
+
+    actions.setStudioChatContext({
+      ...context,
+      configSnapshot: { ...context.configSnapshot },
+    });
+
+    expect(set).not.toHaveBeenCalled();
+  });
+
   it("treats timeout failure reason as timeout-specific local message", async () => {
     const context: StudioChatContext = {
       projectId: "p-001",

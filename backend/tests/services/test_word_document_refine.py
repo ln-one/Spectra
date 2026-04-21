@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pytest
 
+from services.generation_session_service.tool_refine_builder import word_document as word_refine
 from services.generation_session_service.tool_refine_builder.word_document import (
     _resolve_refine_max_tokens,
     refine_word_document_content,
@@ -131,3 +132,154 @@ def test_refine_word_max_tokens_never_below_initial_generation_budget(monkeypatc
 
     monkeypatch.setenv("STUDIO_WORD_REFINE_MAX_TOKENS", "6200")
     assert _resolve_refine_max_tokens() == 6200
+
+
+@pytest.mark.asyncio
+async def test_refine_word_document_direct_edit_with_document_content_skips_rag_and_ai(monkeypatch):
+    current_content = {
+        "title": "光合作用教案",
+        "summary": "旧摘要",
+        "lesson_plan_markdown": "# 光合作用教案\n\n旧内容",
+    }
+    document_content = markdown_to_document_content("# 光合作用教案\n\n## 教学重点\n\n- 理解反应过程")
+    rag_called = False
+    ai_called = False
+
+    async def fake_load_rag_snippets(**_: object) -> list[str]:
+        nonlocal rag_called
+        rag_called = True
+        return ["snippet"]
+
+    async def fake_generate(**_: object) -> dict[str, str]:
+        nonlocal ai_called
+        ai_called = True
+        return {"content": "# 不该出现"}
+
+    monkeypatch.setattr(word_refine, "_load_rag_snippets", fake_load_rag_snippets)
+    monkeypatch.setattr(word_refine.ai_service, "generate", fake_generate)
+
+    updated = await refine_word_document_content(
+        current_content=current_content,
+        message="更新文档内容",
+        config={"document_content": document_content},
+        project_id="p-001",
+        rag_source_ids=["rag-1"],
+    )
+
+    assert "教学重点" in updated["lesson_plan_markdown"]
+    assert rag_called is False
+    assert ai_called is False
+
+
+@pytest.mark.asyncio
+async def test_refine_word_document_direct_edit_with_lesson_plan_markdown_skips_rag_and_ai(
+    monkeypatch,
+):
+    current_content = {
+        "title": "分数加减法教案",
+        "summary": "旧摘要",
+        "lesson_plan_markdown": "# 分数加减法教案\n\n旧内容",
+    }
+    rag_called = False
+    ai_called = False
+
+    async def fake_load_rag_snippets(**_: object) -> list[str]:
+        nonlocal rag_called
+        rag_called = True
+        return ["snippet"]
+
+    async def fake_generate(**_: object) -> dict[str, str]:
+        nonlocal ai_called
+        ai_called = True
+        return {"content": "# 不该出现"}
+
+    monkeypatch.setattr(word_refine, "_load_rag_snippets", fake_load_rag_snippets)
+    monkeypatch.setattr(word_refine.ai_service, "generate", fake_generate)
+
+    updated = await refine_word_document_content(
+        current_content=current_content,
+        message="更新文档内容",
+        config={"lesson_plan_markdown": "# 分数加减法教案\n\n## 课堂练习\n\n- 完成例题"},
+        project_id="p-001",
+        rag_source_ids=["rag-1"],
+    )
+
+    assert "课堂练习" in updated["lesson_plan_markdown"]
+    assert "<html" in updated["preview_html"]
+    assert rag_called is False
+    assert ai_called is False
+
+
+@pytest.mark.asyncio
+async def test_refine_word_document_direct_edit_with_markdown_content_skips_rag_and_ai(
+    monkeypatch,
+):
+    current_content = {
+        "title": "化学实验安全教案",
+        "summary": "旧摘要",
+        "lesson_plan_markdown": "# 化学实验安全教案\n\n旧内容",
+    }
+    rag_called = False
+    ai_called = False
+
+    async def fake_load_rag_snippets(**_: object) -> list[str]:
+        nonlocal rag_called
+        rag_called = True
+        return ["snippet"]
+
+    async def fake_generate(**_: object) -> dict[str, str]:
+        nonlocal ai_called
+        ai_called = True
+        return {"content": "# 不该出现"}
+
+    monkeypatch.setattr(word_refine, "_load_rag_snippets", fake_load_rag_snippets)
+    monkeypatch.setattr(word_refine.ai_service, "generate", fake_generate)
+
+    updated = await refine_word_document_content(
+        current_content=current_content,
+        message="更新文档内容",
+        config={"markdown_content": "# 化学实验安全教案\n\n## 风险提示\n\n- 戴护目镜"},
+        project_id="p-001",
+        rag_source_ids=["rag-1"],
+    )
+
+    assert "风险提示" in updated["lesson_plan_markdown"]
+    assert rag_called is False
+    assert ai_called is False
+
+
+@pytest.mark.asyncio
+async def test_refine_word_document_message_only_keeps_chat_refine_with_rag(monkeypatch):
+    current_content = {
+        "title": "细胞结构教案",
+        "summary": "旧摘要",
+        "lesson_plan_markdown": "# 细胞结构教案\n\n## 教学目标\n\n- 认识细胞器",
+    }
+    seen: dict[str, object] = {}
+
+    async def fake_load_rag_snippets(**kwargs: object) -> list[str]:
+        seen["rag_kwargs"] = kwargs
+        return ["结构化参考片段"]
+
+    async def fake_generate(**kwargs: object) -> dict[str, str]:
+        seen["generate_kwargs"] = kwargs
+        return {"content": "# 细胞结构教案\n\n## 教学目标\n\n- 理解细胞器功能"}
+
+    monkeypatch.setattr(word_refine, "_load_rag_snippets", fake_load_rag_snippets)
+    monkeypatch.setattr(word_refine.ai_service, "generate", fake_generate)
+
+    updated = await refine_word_document_content(
+        current_content=current_content,
+        message="把目标写得更清楚",
+        config={},
+        project_id="p-001",
+        rag_source_ids=["rag-1"],
+    )
+
+    assert seen["rag_kwargs"] == {
+        "project_id": "p-001",
+        "query": "把目标写得更清楚",
+        "rag_source_ids": ["rag-1"],
+    }
+    assert isinstance(seen.get("generate_kwargs"), dict)
+    assert "理解细胞器功能" in updated["lesson_plan_markdown"]

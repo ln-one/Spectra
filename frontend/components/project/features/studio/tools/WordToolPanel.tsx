@@ -27,6 +27,28 @@ const PROMPT_QUALITY_CHECKLIST = [
   "作业与课后延伸",
 ];
 
+function readResolvedWordMarkdown(
+  flowContext?: ToolPanelProps["flowContext"]
+): string {
+  const content =
+    flowContext?.resolvedArtifact?.content &&
+    typeof flowContext.resolvedArtifact.content === "object"
+      ? (flowContext.resolvedArtifact.content as Record<string, unknown>)
+      : null;
+  if (!content) return "";
+  const markdown =
+    typeof content.markdown_content === "string"
+      ? content.markdown_content.trim()
+      : "";
+  if (markdown) return markdown;
+  const lessonPlanMarkdown =
+    typeof content.lesson_plan_markdown === "string"
+      ? content.lesson_plan_markdown.trim()
+      : "";
+  if (lessonPlanMarkdown) return lessonPlanMarkdown;
+  return "";
+}
+
 export function WordToolPanel({
   toolName: _toolName,
   onDraftChange,
@@ -49,6 +71,7 @@ export function WordToolPanel({
   const [backendPreviewError, setBackendPreviewError] = useState<string | null>(
     null
   );
+  const [previewRefreshNonce, setPreviewRefreshNonce] = useState(0);
 
   const primarySourceId = flowContext?.selectedSourceId ?? null;
   const selectedSourceIds = useMemo(
@@ -78,6 +101,10 @@ export function WordToolPanel({
     null;
   const resultTargetStatus = flowContext?.resolvedTarget?.status ?? null;
   const hasPreviewArtifact = Boolean(previewArtifactId);
+  const resolvedWordMarkdown = useMemo(
+    () => readResolvedWordMarkdown(flowContext),
+    [flowContext]
+  );
   const isGenerating = Boolean(
     isGeneratingLocal ||
       (resultTargetStatus === "processing" && !hasPreviewArtifact) ||
@@ -105,6 +132,29 @@ export function WordToolPanel({
   }, [flowContext?.managedWorkbenchMode, isGenerating]);
 
   useEffect(() => {
+    const handleSaved = (
+      event: Event
+    ) => {
+      const customEvent = event as CustomEvent<{
+        artifactId?: string;
+        markdown?: string;
+      }>;
+      const savedArtifactId = customEvent.detail?.artifactId ?? null;
+      if (!savedArtifactId) return;
+      if (previewArtifactId && savedArtifactId !== previewArtifactId) return;
+      if (typeof customEvent.detail?.markdown === "string") {
+        setBackendMarkdown(customEvent.detail.markdown);
+      }
+      setBackendPreviewError(null);
+      setPreviewRefreshNonce((value) => value + 1);
+    };
+    window.addEventListener("spectra:word:saved", handleSaved as EventListener);
+    return () => {
+      window.removeEventListener("spectra:word:saved", handleSaved as EventListener);
+    };
+  }, [previewArtifactId]);
+
+  useEffect(() => {
     onDraftChange?.({
       kind: "teaching_document",
       schema_id: "lesson_plan_v1",
@@ -126,6 +176,12 @@ export function WordToolPanel({
     if (!previewSessionId) return;
     if (flowContext?.capabilityStatus !== "backend_ready") return;
     if (!previewArtifactId) return;
+    if (resolvedWordMarkdown) {
+      setBackendMarkdown((prev) => (prev === resolvedWordMarkdown ? prev : resolvedWordMarkdown));
+      setBackendPreviewError(null);
+      setIsBackendPreviewLoading(false);
+      return;
+    }
 
     let cancelled = false;
     const loadBackendPreview = async () => {
@@ -163,6 +219,8 @@ export function WordToolPanel({
     previewArtifactId,
     previewRunId,
     previewSessionId,
+    previewRefreshNonce,
+    resolvedWordMarkdown,
     shouldShowPreview,
   ]);
 

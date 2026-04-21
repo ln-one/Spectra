@@ -318,3 +318,67 @@ async def test_update_artifact_with_file_syncs_metadata_title_from_docx_content(
     )
 
     assert update_metadata.await_args.args[1]["title"] == "计算机网络：物理层教案"
+
+
+@pytest.mark.asyncio
+async def test_update_artifact_with_file_reuses_existing_storage_path_for_download(monkeypatch, tmp_path):
+    monkeypatch.setenv("OUROGRAPH_BASE_URL", "http://ourograph.test")
+    service = ProjectSpaceService()
+    service.db = SimpleNamespace()
+    existing_path = tmp_path / "existing.docx"
+    existing_path.write_text("old", encoding="utf-8")
+    rendered_path = tmp_path / "rendered" / "fresh.docx"
+    rendered_path.parent.mkdir(parents=True, exist_ok=True)
+    rendered_path.write_text("new", encoding="utf-8")
+
+    artifact = SimpleNamespace(
+        id="a-docx",
+        projectId="p-1",
+        sessionId=None,
+        basedOnVersionId="v-1",
+        type="docx",
+        visibility="private",
+        storagePath=str(existing_path),
+        metadata='{"title":"原文档"}',
+    )
+    updated_artifact = SimpleNamespace(
+        id="a-docx",
+        projectId="p-1",
+        sessionId=None,
+        basedOnVersionId="v-1",
+        type="docx",
+        visibility="private",
+        storagePath=str(existing_path),
+        metadata="{}",
+    )
+    monkeypatch.setattr(
+        "services.project_space_service.artifacts.resolve_based_on_version_id",
+        AsyncMock(return_value="v-1"),
+    )
+    monkeypatch.setattr(
+        "services.project_space_service.artifacts._generate_artifact_file",
+        AsyncMock(return_value=str(rendered_path)),
+    )
+    monkeypatch.setattr(
+        "services.project_space_service.artifacts.silently_accrete_artifact",
+        AsyncMock(return_value=None),
+    )
+    monkeypatch.setattr(
+        service,
+        "update_artifact_metadata",
+        AsyncMock(return_value=updated_artifact),
+    )
+    monkeypatch.setattr(service, "bind_artifact_to_version", AsyncMock())
+
+    result = await service.update_artifact_with_file(
+        artifact=artifact,
+        project_id="p-1",
+        user_id="u-1",
+        content={
+            "title": "新文档",
+            "document_content": {"type": "doc", "content": []},
+        },
+    )
+
+    assert existing_path.read_text(encoding="utf-8") == "new"
+    assert result.storagePath == str(existing_path)

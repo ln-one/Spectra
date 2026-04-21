@@ -1,17 +1,15 @@
-import { Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import type { QuizAttemptState, QuizQuestionItem } from "./types";
+import type { QuizAttemptState, QuizQuestionItem, QuizSurfaceMode } from "./types";
 
 interface QuizSurfaceAdapterProps {
   questions: QuizQuestionItem[];
   currentIndex: number;
   attempts: Record<string, QuizAttemptState>;
+  surfaceMode?: QuizSurfaceMode;
   onSelectOption: (option: string) => void;
   onSubmitAnswer: () => void;
   onPreviousQuestion: () => void;
   onNextQuestion: () => void;
-  onRefineCurrentQuestion: () => Promise<void> | void;
-  canRefineCurrentQuestion: boolean;
 }
 
 export function normalizeOptionLabel(value: unknown): string {
@@ -113,12 +111,11 @@ export function QuizSurfaceAdapter({
   questions,
   currentIndex,
   attempts,
+  surfaceMode = "browse",
   onSelectOption,
   onSubmitAnswer,
   onPreviousQuestion,
   onNextQuestion,
-  onRefineCurrentQuestion,
-  canRefineCurrentQuestion,
 }: QuizSurfaceAdapterProps) {
   const currentQuestion = questions[currentIndex] ?? null;
   const currentAttempt = currentQuestion ? attempts[currentQuestion.id] : undefined;
@@ -131,7 +128,7 @@ export function QuizSurfaceAdapter({
       : currentAttempt.isCorrect === null
         ? {
             tone: "border-sky-200 bg-sky-50 text-sky-700",
-            text: "当前题目尚未返回标准答案，可先继续微调题干或解析。",
+            text: "当前题目尚未返回标准答案。",
           }
         : currentAttempt.isCorrect
           ? {
@@ -144,133 +141,115 @@ export function QuizSurfaceAdapter({
             };
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="space-y-1">
-          <div className="text-sm font-semibold text-zinc-900">单题工作面</div>
-          <p className="text-[11px] text-zinc-500">
-            当前焦点：{currentQuestion.id}
-          </p>
-        </div>
-        <div className="rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1 text-[11px] font-medium text-zinc-600">
-          第 {currentIndex + 1} 题 / 共 {questions.length} 题
-        </div>
-      </div>
-      <div className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="text-[11px] font-semibold tracking-[0.12em] text-zinc-500">
-              当前题目
-            </p>
-            <p className="mt-2 text-sm font-medium leading-6 text-zinc-900">
-              {currentQuestion.question}
-            </p>
-          </div>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-8 text-xs"
-            disabled={!canRefineCurrentQuestion}
-            onClick={() => void onRefineCurrentQuestion()}
-          >
-            <Sparkles className="mr-1.5 h-3.5 w-3.5" />
-            微调当前题
-          </Button>
-        </div>
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-violet-100 bg-white">
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5">
+          <div className="mx-auto max-w-3xl">
+            <div className="rounded-3xl border border-zinc-200 bg-zinc-50/40 px-5 py-5">
+              <p className="text-lg font-semibold leading-8 text-zinc-950">
+                {currentQuestion.question}
+              </p>
 
-        {currentQuestion.options.length > 0 ? (
-          <div className="mt-4 space-y-2">
-            {currentQuestion.options.map((option, optionIndex) => {
-              const isSelected = currentAttempt?.selectedOption === option;
-              return (
-                <button
-                  key={`${currentQuestion.id}-${optionIndex}`}
-                  type="button"
-                  className={[
-                    "flex w-full items-start rounded-xl border px-3 py-3 text-left text-sm transition-colors",
-                    isSelected
-                      ? "border-zinc-900 bg-zinc-900 text-white"
-                      : "border-zinc-200 bg-white text-zinc-700 hover:border-zinc-300 hover:bg-zinc-50",
-                  ].join(" ")}
-                  onClick={() => onSelectOption(option)}
+              {currentQuestion.options.length > 0 ? (
+                <div className="mt-5 space-y-3">
+                  {currentQuestion.options.map((option, optionIndex) => {
+                    const isSelected = currentAttempt?.selectedOption === option;
+                    return (
+                      <button
+                        key={`${currentQuestion.id}-${optionIndex}`}
+                        type="button"
+                        className={[
+                          "flex w-full items-start rounded-2xl border px-4 py-4 text-left text-sm transition-colors",
+                          isSelected
+                            ? "border-violet-600 bg-violet-600 text-white shadow-[0_10px_25px_rgba(139,92,246,0.18)]"
+                            : "border-zinc-200 bg-white text-zinc-800 hover:border-violet-200 hover:bg-violet-50/40",
+                        ].join(" ")}
+                        onClick={() => onSelectOption(option)}
+                      >
+                        <span
+                          className={[
+                            "mr-3 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold",
+                            isSelected
+                              ? "bg-white/20 text-white"
+                              : "bg-violet-50 text-violet-700",
+                          ].join(" ")}
+                        >
+                          {String.fromCharCode(65 + optionIndex)}
+                        </span>
+                        <span className="leading-6">{option}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="mt-5 rounded-2xl border border-dashed border-zinc-300 bg-white px-4 py-6 text-sm text-zinc-500">
+                  当前题目未返回选项。
+                </div>
+              )}
+
+              {!answerFeedback && currentAttempt?.selectedOption ? (
+                <div className="mt-5 rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm text-zinc-600">
+                  已选择：{currentAttempt.selectedOption}
+                </div>
+              ) : null}
+
+              {answerFeedback ? (
+                <div
+                  className={`mt-5 rounded-2xl border px-4 py-3 text-sm ${answerFeedback.tone}`}
                 >
-                  <span className="mr-3 text-xs font-semibold">
-                    {String.fromCharCode(65 + optionIndex)}
-                  </span>
-                  <span className="leading-6">{option}</span>
-                </button>
-              );
-            })}
+                  <p className="font-medium">{answerFeedback.text}</p>
+                  {currentAttempt?.selectedOption ? (
+                    <p className="mt-1 text-xs opacity-80">
+                      已选择：{currentAttempt.selectedOption}
+                    </p>
+                  ) : null}
+                  {currentQuestion.explanation ? (
+                    <p className="mt-3 text-sm leading-6">
+                      {currentQuestion.explanation}
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
           </div>
-        ) : (
-          <div className="mt-4 rounded-xl border border-dashed border-zinc-300 bg-white px-4 py-6 text-xs text-zinc-500">
-            当前题目未返回选项，先通过微调继续完善题面。
-          </div>
-        )}
+        </div>
 
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
-          <div className="flex gap-2">
+        <div className="border-t border-violet-100 bg-zinc-50/70 px-4 py-3">
+          <div className="mx-auto flex max-w-3xl flex-wrap items-center justify-between gap-3">
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-9 border-zinc-200 px-3 text-xs"
+                onClick={onPreviousQuestion}
+                disabled={currentIndex === 0}
+              >
+                上一题
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-9 border-zinc-200 px-3 text-xs"
+                onClick={onNextQuestion}
+                disabled={currentIndex >= questions.length - 1}
+              >
+                下一题
+              </Button>
+            </div>
             <Button
               type="button"
-              variant="outline"
               size="sm"
-              className="h-8 text-xs"
-              onClick={onPreviousQuestion}
-              disabled={currentIndex === 0}
+              className="h-9 bg-violet-600 px-4 text-xs text-white hover:bg-violet-700"
+              onClick={onSubmitAnswer}
+              disabled={!currentAttempt?.selectedOption}
             >
-              上一题
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-8 text-xs"
-              onClick={onNextQuestion}
-              disabled={currentIndex >= questions.length - 1}
-            >
-              下一题
+              提交答案
             </Button>
           </div>
-          <Button
-            type="button"
-            size="sm"
-            className="h-8 text-xs"
-            onClick={onSubmitAnswer}
-            disabled={!currentAttempt?.selectedOption}
-          >
-            提交答案
-          </Button>
         </div>
       </div>
-
-      {answerFeedback ? (
-        <div className={`rounded-xl border px-3 py-2 text-xs ${answerFeedback.tone}`}>
-          {answerFeedback.text}
-        </div>
-      ) : null}
-
-      <div className="rounded-2xl border border-zinc-200 bg-white p-4">
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">
-          当前作答状态
-        </p>
-        <p className="mt-2 text-sm leading-6 text-zinc-700">
-          {currentAttempt?.selectedOption
-            ? `已选择：${currentAttempt.selectedOption}`
-            : "尚未选择答案，可先阅读题干后再提交。"}
-        </p>
-      </div>
-
-      {currentAttempt?.submitted && currentQuestion.explanation ? (
-        <div className="rounded-2xl border border-zinc-200 bg-white p-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">
-            题目解析
-          </p>
-          <p className="mt-2 text-sm leading-6 text-zinc-700">
-            {currentQuestion.explanation}
-          </p>
-        </div>
-      ) : null}
     </div>
   );
 }

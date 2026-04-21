@@ -42,4 +42,18 @@ describe("studio chat preview step forcing", () => {
       })
     ).toBe(true);
   });
+
+  it("forces quiz chat context into preview once a quiz artifact is available", () => {
+    expect(
+      shouldForcePreviewChatStep({
+        toolType: "quiz",
+        isWordHistoryMode: false,
+        isManagedHistoryMode: false,
+        expandedTool: "quiz",
+        resolvedArtifactId: "quiz-artifact-1",
+        managedTargetArtifactId: "quiz-artifact-1",
+        managedTargetStatus: "completed",
+      })
+    ).toBe(true);
+  });
 });

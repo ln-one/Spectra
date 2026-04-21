@@ -8,7 +8,7 @@ import type { ToolFlowContext } from "@/components/project/features/studio/tools
 jest.mock("@/components/project/features/studio/constants", () => ({
   TOOL_COLORS: {
     summary: { primary: "#0ea5e9", glow: "#e0f2fe", soft: "#f0f9ff", gradient: "from-sky-400 to-cyan-500" },
-    quiz: { primary: "#10b981", glow: "#d1fae5", soft: "#ecfdf5", gradient: "from-emerald-400 to-teal-500" },
+    quiz: { primary: "#8b5cf6", glow: "#ede9fe", soft: "#f5f3ff", gradient: "from-violet-400 to-purple-500" },
     mindmap: { primary: "#8b5cf6", glow: "#ede9fe", soft: "#f5f3ff", gradient: "from-violet-400 to-purple-500" },
     handout: { primary: "#f59e0b", glow: "#fef3c7", soft: "#fffbeb", gradient: "from-amber-400 to-orange-500" },
   },
@@ -73,7 +73,7 @@ describe("studio panel workflow guards", () => {
       />
     );
 
-    expect(screen.getByText("随堂小测智能工作台")).toBeInTheDocument();
+    expect(screen.getByLabelText("考查范围 / 出题主题")).toBeInTheDocument();
     expect(screen.queryByText("idle")).not.toBeInTheDocument();
     expect(screen.queryByText("result_available")).not.toBeInTheDocument();
   });

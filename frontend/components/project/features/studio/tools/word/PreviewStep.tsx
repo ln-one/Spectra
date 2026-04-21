@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FileText, Loader2, Save } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import rehypeSanitize from "rehype-sanitize";
@@ -6,7 +6,8 @@ import remarkGfm from "remark-gfm";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import type { ToolFlowContext } from "../types";
-import { documentToMarkdown, markdownToDoc } from "./documentContent";
+import { WorkbenchCenteredState } from "../WorkbenchCenteredState";
+import { documentToMarkdown } from "./documentContent";
 
 interface PreviewStepProps {
   markdown: string;
@@ -128,6 +129,8 @@ export function PreviewStep({
         : "教案";
 
   const initialMarkdown = useMemo(() => {
+    const fromPreview = markdown.trim();
+    if (fromPreview) return fromPreview;
     const fromContent =
       artifactContent && typeof artifactContent.markdown_content === "string"
         ? artifactContent.markdown_content.trim()
@@ -145,8 +148,6 @@ export function PreviewStep({
       const converted = documentToMarkdown(artifactContent.document_content as never);
       if (converted.trim()) return converted.trim();
     }
-    const fromExport = markdown.trim();
-    if (fromExport) return fromExport;
     return "";
   }, [artifactContent, markdown]);
 
@@ -158,6 +159,8 @@ export function PreviewStep({
   );
   const [isSaving, setIsSaving] = useState(false);
   const [saveNotice, setSaveNotice] = useState<string | null>(null);
+  const lastHydratedArtifactIdRef = useRef<string>(exportArtifactId);
+  const preserveLocalDraftRef = useRef(false);
   const hasDraftContent = markdownDraft.trim().length > 0;
   const isPreviewLoading =
     isGenerating ||
@@ -171,14 +174,32 @@ export function PreviewStep({
   );
 
   useEffect(() => {
-    setMarkdownDraft(initialMarkdown);
-    setSavedBaselineMarkdown(initialMarkdown);
-  }, [initialMarkdown]);
+    const artifactChanged = exportArtifactId !== lastHydratedArtifactIdRef.current;
+    if (artifactChanged) {
+      lastHydratedArtifactIdRef.current = exportArtifactId;
+      preserveLocalDraftRef.current = false;
+      setMarkdownDraft(initialMarkdown);
+      setSavedBaselineMarkdown(initialMarkdown);
+      return;
+    }
+    if (!preserveLocalDraftRef.current) {
+      setMarkdownDraft(initialMarkdown);
+      setSavedBaselineMarkdown(initialMarkdown);
+    }
+  }, [exportArtifactId, initialMarkdown]);
 
   useEffect(() => {
     if (!exportArtifactId) return;
     setLatestSavedArtifactId(exportArtifactId);
   }, [exportArtifactId]);
+
+  useEffect(() => {
+    window.dispatchEvent(
+      new CustomEvent("spectra:word:save-state", {
+        detail: { status: isSaving ? "saving" : "idle" },
+      })
+    );
+  }, [isSaving]);
 
   const handleSaveReplacement = useCallback(async (): Promise<string | null> => {
     if (!canStructuredSave || !flowContext?.resolvedArtifact?.artifactId) return null;
@@ -190,9 +211,9 @@ export function PreviewStep({
         message: "更新文档内容",
         refineMode: "structured_refine",
         config: {
+          direct_edit: true,
+          operation: "direct_edit",
           markdown_content: markdownDraft,
-          lesson_plan_markdown: markdownDraft,
-          document_content: markdownToDoc(markdownDraft),
           document_title: (() => {
             const markdownTitle = extractHeadingTitle(markdownDraft);
             const existingTitle =
@@ -226,9 +247,19 @@ export function PreviewStep({
       });
       const nextArtifactId =
         response?.artifactId ?? flowContext.resolvedArtifact.artifactId;
+      preserveLocalDraftRef.current = true;
       setLatestSavedArtifactId(nextArtifactId);
       setSavedBaselineMarkdown(markdownDraft);
       setSaveNotice("已保存到当前文档。");
+      window.dispatchEvent(
+        new CustomEvent("spectra:word:saved", {
+          detail: {
+            artifactId: nextArtifactId,
+            markdown: markdownDraft,
+            savedAt: Date.now(),
+          },
+        })
+      );
       return nextArtifactId;
     } finally {
       setIsSaving(false);
@@ -304,13 +335,13 @@ export function PreviewStep({
   return (
     <div className="space-y-2">
       {isBackendPlaceholder && !hasDraftContent && !isPreviewLoading ? (
-        <div className="rounded-2xl border border-dashed border-zinc-300 bg-zinc-50 px-4 py-4 text-center">
-          <FileText className="mx-auto h-6 w-6 text-zinc-400" />
-          <p className="mt-2 text-xs font-medium text-zinc-700">后端内容同步中</p>
-          <p className="mt-1 text-[11px] text-zinc-500">
-            你可以继续编辑并保存，界面将优先显示本地最新内容。
-          </p>
-        </div>
+        <WorkbenchCenteredState
+          tone="sky"
+          variant="compact"
+          icon={FileText}
+          title="文档内容同步中"
+          description="你可以继续编辑并保存，界面将优先显示本地最新内容。"
+        />
       ) : null}
       {toolbarMode === "internal" ? (
         <>
@@ -343,7 +374,11 @@ export function PreviewStep({
                   disabled={isSaving || !hasDraftContent}
                   onClick={() => void handleSaveReplacement()}
                 >
-                  <Save className="mr-1.5 h-3.5 w-3.5" />
+                  {isSaving ? (
+                    <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Save className="mr-1.5 h-3.5 w-3.5" />
+                  )}
                   {isSaving ? "保存中..." : "保存修改"}
                 </Button>
               ) : null}
@@ -363,13 +398,6 @@ export function PreviewStep({
           </div>
           {saveNotice ? <p className="text-[11px] text-emerald-700">{saveNotice}</p> : null}
         </>
-      ) : null}
-
-      {isPreviewLoading ? (
-        <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-[11px] text-blue-700">
-          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          正在加载教案内容...
-        </div>
       ) : null}
 
       {backendPreviewError ? (
@@ -424,9 +452,14 @@ export function PreviewStep({
               </ReactMarkdown>
             </article>
           ) : isPreviewLoading ? (
-            <div className="rounded-xl border border-dashed border-blue-200 bg-blue-50 px-4 py-10 text-center text-sm text-blue-700">
-              正在生成教案，完成后自动展示内容。
-            </div>
+            <WorkbenchCenteredState
+              tone="sky"
+              loading
+              title="正在生成教案"
+              description="正在整理课堂目标、教学流程与练习设计，完成后会自动展示最新文档。"
+              pill="教学文档工作台正在准备中"
+              minHeightClassName="min-h-[520px]"
+            />
           ) : (
             <div className="rounded-xl border border-dashed border-zinc-300 bg-zinc-50 px-4 py-10 text-center text-sm text-zinc-500">
               暂无内容，请先在“编辑”中输入教案文本。

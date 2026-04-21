@@ -120,6 +120,19 @@ function toArtifactSourceFileType(
   return "pdf";
 }
 
+function dispatchArtifactSourcesSync(sources: ArtifactBackedSource[]) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent("spectra:artifact-sources-sync", {
+      detail: {
+        artifactIds: sources
+          .map((item) => String(item.artifact_id || "").trim())
+          .filter(Boolean),
+      },
+    })
+  );
+}
+
 interface SourcesPanelProps {
   projectId: string;
   referencedLibraries?: ProjectReference[];
@@ -336,12 +349,11 @@ export function SourcesPanel({
       const nextSources = Array.isArray(response?.data?.sources)
         ? response.data.sources
         : [];
-      setArtifactSources(
-        nextSources.map((item) => ({
-          ...item,
-          title: resolveArtifactSourceTitle(item.title),
-        }))
-      );
+      const normalizedSources = nextSources.map((item) => ({
+        ...item,
+        title: resolveArtifactSourceTitle(item.title),
+      }));
+      setArtifactSources(normalizedSources);
     } catch (error) {
       setArtifactSourcesError(
         error instanceof Error ? error.message : "获取沉淀来源失败"
@@ -352,6 +364,10 @@ export function SourcesPanel({
   useEffect(() => {
     void loadArtifactSources();
   }, [loadArtifactSources]);
+
+  useEffect(() => {
+    dispatchArtifactSourcesSync(artifactSources);
+  }, [artifactSources]);
 
   const normalizeLibrary = useCallback(
     (raw: unknown): SelectableLibrary | null => {
@@ -514,14 +530,20 @@ export function SourcesPanel({
 
   const handleDeleteArtifactSource = useCallback(
     async (sourceId: string) => {
+      const matchedSource = artifactSources.find((item) => item.id === sourceId) ?? null;
       try {
         setPendingArtifactSourceIds((prev) => ({ ...prev, [sourceId]: true }));
         setArtifactSourcesError(null);
         await projectsApi.deleteArtifactSource(projectId, sourceId);
-        setArtifactSources((prev) => prev.filter((item) => item.id !== sourceId));
+        setArtifactSources((prev) => {
+          return prev.filter((item) => item.id !== sourceId);
+        });
         window.dispatchEvent(
           new CustomEvent("spectra:artifact-source-removed", {
-            detail: { sourceId },
+            detail: {
+              sourceId,
+              artifactId: matchedSource?.artifact_id ?? null,
+            },
           })
         );
         setSelectedArtifactSourceIds(
@@ -539,7 +561,7 @@ export function SourcesPanel({
         });
       }
     },
-    [projectId, selectedArtifactSourceIds, setSelectedArtifactSourceIds]
+    [artifactSources, projectId, selectedArtifactSourceIds, setSelectedArtifactSourceIds]
   );
 
   const handleOpenArtifactSource = useCallback((card: ArtifactSourceCardData) => {
@@ -782,6 +804,7 @@ export function SourcesPanel({
                               }
                               displayName={sourceCard.title}
                               iconTypeOverride="artifact"
+                              studioArtifactToolType={sourceCard.toolType}
                               statusText={
                                 pendingArtifactSourceIds[sourceCard.id]
                                   ? "处理中"
@@ -931,6 +954,7 @@ export function SourcesPanel({
                               }
                               displayName={sourceCard.title}
                               iconTypeOverride="artifact"
+                              studioArtifactToolType={sourceCard.toolType}
                               statusText={
                                 pendingArtifactSourceIds[sourceCard.id]
                                   ? "处理中"
@@ -1040,6 +1064,7 @@ export function SourcesPanel({
                               }
                               displayName={sourceCard.title}
                               iconTypeOverride="artifact"
+                              studioArtifactToolType={sourceCard.toolType}
                               statusText={
                                 pendingArtifactSourceIds[sourceCard.id]
                                   ? "处理中"

@@ -325,18 +325,6 @@ export function useStudioCapabilityState({
       };
     }
 
-    const resolvedArtifactId =
-      resolvedArtifactIdsByCardRef.current[currentCardId] ?? null;
-    if (
-      latestArtifact.artifactId &&
-      resolvedArtifactId &&
-      latestArtifact.artifactId === resolvedArtifactId
-    ) {
-      return () => {
-        cancelled = true;
-      };
-    }
-
     applyResolution(
       {
         status: defaultResolution.status,
@@ -463,12 +451,13 @@ export function useStudioCapabilityState({
   ) => {
     setRuntimeArtifactsByTool((prev) => {
       const existing = prev[toolKey] ?? [];
-      if (existing.some((item) => item.artifactId === runtimeItem.artifactId)) {
-        return prev;
-      }
+      const nextItems = [
+        runtimeItem,
+        ...existing.filter((item) => item.artifactId !== runtimeItem.artifactId),
+      ];
       return {
         ...prev,
-        [toolKey]: [runtimeItem, ...existing],
+        [toolKey]: nextItems,
       };
     });
   };

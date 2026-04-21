@@ -5,7 +5,10 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import shutil
+import time
 import uuid
+from pathlib import Path
 from typing import Any, Optional
 
 from schemas.project_space import ArtifactType
@@ -30,6 +33,72 @@ from .artifact_semantics import (
 from .artifact_versions import resolve_based_on_version_id
 
 logger = logging.getLogger(__name__)
+
+
+def _read_silent_accretion_timeout_seconds() -> float:
+    try:
+        return float(
+            str(os.getenv("ARTIFACT_SILENT_ACCRETION_TIMEOUT_SECONDS", "8")).strip()
+            or "8"
+        )
+    except ValueError:
+        return 8.0
+
+
+def _schedule_silent_accretion(
+    *,
+    service,
+    artifact,
+    project_id: str,
+    artifact_type: str,
+    visibility: str,
+    session_id: Optional[str],
+    based_on_version_id: Optional[str],
+    normalized_content: dict[str, Any],
+) -> None:
+    timeout_seconds = _read_silent_accretion_timeout_seconds()
+
+    async def _run() -> None:
+        started_at = time.perf_counter()
+        try:
+            coroutine = silently_accrete_artifact(
+                db=service.db,
+                artifact=artifact,
+                project_id=project_id,
+                artifact_type=artifact_type,
+                visibility=visibility,
+                session_id=session_id,
+                based_on_version_id=based_on_version_id,
+                normalized_content=normalized_content,
+            )
+            if timeout_seconds > 0:
+                await asyncio.wait_for(coroutine, timeout=timeout_seconds)
+            else:
+                await coroutine
+            logger.info(
+                "artifact_silent_accretion_completed artifact=%s project=%s artifact_type=%s duration_ms=%.2f",
+                getattr(artifact, "id", None),
+                project_id,
+                artifact_type,
+                (time.perf_counter() - started_at) * 1000,
+            )
+        except asyncio.TimeoutError:
+            logger.warning(
+                "artifact_silent_accretion_timeout artifact=%s project=%s timeout=%s",
+                getattr(artifact, "id", None),
+                project_id,
+                timeout_seconds,
+            )
+        except Exception as exc:
+            logger.warning(
+                "artifact_silent_accretion_failed artifact=%s project=%s error=%s",
+                getattr(artifact, "id", None),
+                project_id,
+                exc,
+                exc_info=True,
+            )
+
+    asyncio.create_task(_run())
 
 
 async def _generate_artifact_file(
@@ -91,6 +160,7 @@ async def create_artifact_with_file(
     content: Optional[dict] = None,
     artifact_mode: Optional[str] = None,
 ):
+    started_at = time.perf_counter()
     artifact_type = normalize_artifact_type(artifact_type)
     visibility = normalize_artifact_visibility(visibility).value
     artifact_id = str(uuid.uuid4())
@@ -159,44 +229,24 @@ async def create_artifact_with_file(
             user_id=user_id,
         )
 
-    try:
-        timeout_seconds = float(
-            str(os.getenv("ARTIFACT_SILENT_ACCRETION_TIMEOUT_SECONDS", "8")).strip()
-            or "8"
-        )
-    except ValueError:
-        timeout_seconds = 8.0
-
-    try:
-        coroutine = silently_accrete_artifact(
-            db=service.db,
-            artifact=artifact,
-            project_id=project_id,
-            artifact_type=artifact_type,
-            visibility=visibility,
-            session_id=session_id,
-            based_on_version_id=based_on_version_id,
-            normalized_content=normalized_content,
-        )
-        if timeout_seconds > 0:
-            await asyncio.wait_for(coroutine, timeout=timeout_seconds)
-        else:
-            await coroutine
-    except asyncio.TimeoutError:
-        logger.warning(
-            "artifact_silent_accretion_timeout artifact=%s project=%s timeout=%s",
-            getattr(artifact, "id", None),
-            project_id,
-            timeout_seconds,
-        )
-    except Exception as exc:
-        logger.warning(
-            "artifact_silent_accretion_failed artifact=%s project=%s error=%s",
-            getattr(artifact, "id", None),
-            project_id,
-            exc,
-            exc_info=True,
-        )
+    _schedule_silent_accretion(
+        service=service,
+        artifact=artifact,
+        project_id=project_id,
+        artifact_type=artifact_type,
+        visibility=visibility,
+        session_id=session_id,
+        based_on_version_id=based_on_version_id,
+        normalized_content=normalized_content,
+    )
+    logger.info(
+        "artifact_create_completed artifact=%s project=%s artifact_type=%s duration_ms=%.2f mode=%s",
+        getattr(artifact, "id", None),
+        project_id,
+        artifact_type,
+        (time.perf_counter() - started_at) * 1000,
+        mode,
+    )
     return artifact
 
 
@@ -209,6 +259,7 @@ async def update_artifact_with_file(
     content: Optional[dict] = None,
     based_on_version_id: Optional[str] = None,
 ):
+    started_at = time.perf_counter()
     artifact_type = normalize_artifact_type(str(getattr(artifact, "type", "") or ""))
     visibility = normalize_artifact_visibility(
         str(getattr(artifact, "visibility", "") or "private")
@@ -237,6 +288,15 @@ async def update_artifact_with_file(
         user_id=user_id,
         normalized_content=normalized_content,
     )
+    existing_storage_path = str(getattr(artifact, "storagePath", "") or "").strip()
+    if (
+        storage_path
+        and existing_storage_path
+        and Path(storage_path).resolve() != Path(existing_storage_path).resolve()
+    ):
+        Path(existing_storage_path).parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(storage_path, existing_storage_path)
+        storage_path = existing_storage_path
     existing_metadata = parse_artifact_metadata(getattr(artifact, "metadata", None))
     for stale_key in (
         "replaces_artifact_id",
@@ -258,6 +318,7 @@ async def update_artifact_with_file(
         project_id=project_id,
         user_id=user_id,
     )
+    setattr(updated_artifact, "metadata", metadata)
 
     current_based_on_version_id = getattr(updated_artifact, "basedOnVersionId", None)
     if (
@@ -271,52 +332,32 @@ async def update_artifact_with_file(
             user_id=user_id,
         )
 
-    if storage_path and not str(getattr(updated_artifact, "storagePath", "") or "").strip():
+    if storage_path:
         setattr(updated_artifact, "storagePath", storage_path)
+    setattr(updated_artifact, "sessionId", getattr(artifact, "sessionId", None))
     if (
         resolved_based_on_version_id
         and not getattr(updated_artifact, "basedOnVersionId", None)
     ):
         setattr(updated_artifact, "basedOnVersionId", resolved_based_on_version_id)
 
-    try:
-        timeout_seconds = float(
-            str(os.getenv("ARTIFACT_SILENT_ACCRETION_TIMEOUT_SECONDS", "8")).strip()
-            or "8"
-        )
-    except ValueError:
-        timeout_seconds = 8.0
-
-    try:
-        coroutine = silently_accrete_artifact(
-            db=service.db,
-            artifact=updated_artifact,
-            project_id=project_id,
-            artifact_type=artifact_type,
-            visibility=visibility,
-            session_id=getattr(artifact, "sessionId", None),
-            based_on_version_id=resolved_based_on_version_id,
-            normalized_content=normalized_content,
-        )
-        if timeout_seconds > 0:
-            await asyncio.wait_for(coroutine, timeout=timeout_seconds)
-        else:
-            await coroutine
-    except asyncio.TimeoutError:
-        logger.warning(
-            "artifact_silent_accretion_timeout artifact=%s project=%s timeout=%s",
-            artifact_id,
-            project_id,
-            timeout_seconds,
-        )
-    except Exception as exc:
-        logger.warning(
-            "artifact_silent_accretion_failed artifact=%s project=%s error=%s",
-            artifact_id,
-            project_id,
-            exc,
-            exc_info=True,
-        )
+    _schedule_silent_accretion(
+        service=service,
+        artifact=updated_artifact,
+        project_id=project_id,
+        artifact_type=artifact_type,
+        visibility=visibility,
+        session_id=getattr(artifact, "sessionId", None),
+        based_on_version_id=resolved_based_on_version_id,
+        normalized_content=normalized_content,
+    )
+    logger.info(
+        "artifact_update_completed artifact=%s project=%s artifact_type=%s duration_ms=%.2f",
+        artifact_id,
+        project_id,
+        artifact_type,
+        (time.perf_counter() - started_at) * 1000,
+    )
 
     return updated_artifact
 

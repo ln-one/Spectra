@@ -4,16 +4,9 @@ from typing import Any
 
 from .interactive_games_legacy_adapter import normalize_interactive_game_payload
 from .mindmap_normalizer import normalize_knowledge_mindmap_payload
+from .quiz_normalizer import normalize_interactive_quick_quiz_payload
 from .tool_content_builder_payloads import normalize_speaker_notes_payload
 from .word_document_normalizer import normalize_word_document_payload
-
-
-def normalize_interactive_quick_quiz_payload(
-    payload: dict[str, Any],
-    config: dict[str, Any] | None = None,
-) -> dict[str, Any]:
-    del config
-    return dict(payload)
 
 
 def normalize_generated_card_payload(

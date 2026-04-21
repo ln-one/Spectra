@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ToolFlowContext } from "../types";
 import {
   isOptionCorrect,
@@ -18,12 +18,10 @@ interface UseQuizWorkbenchStateResult {
   currentIndex: number;
   attempts: Record<string, QuizAttemptState>;
   currentQuestion: QuizQuestionItem | null;
-  canRefineCurrentQuestion: boolean;
   selectOption: (option: string) => void;
   submitAnswer: () => void;
   goToPreviousQuestion: () => void;
   goToNextQuestion: () => void;
-  refineCurrentQuestion: () => Promise<void>;
 }
 
 export function useQuizWorkbenchState({
@@ -41,13 +39,15 @@ export function useQuizWorkbenchState({
   );
   const [currentIndex, setCurrentIndex] = useState(0);
   const [attempts, setAttempts] = useState<Record<string, QuizAttemptState>>({});
+  const preferredQuestionIdRef = useRef<string | null>(null);
   const currentQuestion = backendQuestions[currentIndex] ?? null;
   const currentArtifactId = flowContext?.resolvedArtifact?.artifactId ?? null;
-  const canRefineCurrentQuestion =
-    Boolean(currentQuestion && currentArtifactId && flowContext?.onStructuredRefineArtifact);
 
   useEffect(() => {
-    setCurrentIndex(0);
+    preferredQuestionIdRef.current = currentQuestion?.id ?? null;
+  }, [currentQuestion?.id]);
+
+  useEffect(() => {
     setAttempts({});
     onIdle?.();
   }, [currentArtifactId, onIdle]);
@@ -55,13 +55,21 @@ export function useQuizWorkbenchState({
   useEffect(() => {
     if (backendQuestions.length === 0) {
       setCurrentIndex(0);
+      preferredQuestionIdRef.current = null;
       onIdle?.();
       return;
     }
-    setCurrentIndex((previous) =>
-      Math.min(previous, Math.max(backendQuestions.length - 1, 0))
-    );
-  }, [backendQuestions.length, onIdle]);
+    const preferredQuestionId = preferredQuestionIdRef.current;
+    const preservedIndex = preferredQuestionId
+      ? backendQuestions.findIndex((item) => item.id === preferredQuestionId)
+      : -1;
+    setCurrentIndex((previous) => {
+      if (preservedIndex >= 0) {
+        return preservedIndex;
+      }
+      return Math.min(previous, Math.max(backendQuestions.length - 1, 0));
+    });
+  }, [backendQuestions, onIdle]);
 
   const selectOption = (option: string) => {
     if (!currentQuestion) return;
@@ -93,55 +101,28 @@ export function useQuizWorkbenchState({
     }));
   };
 
-  const refineCurrentQuestion = async () => {
-    if (!currentQuestion || !currentArtifactId || !flowContext?.onStructuredRefineArtifact) {
-      return;
-    }
-    onRefining?.();
-    try {
-      await flowContext.onStructuredRefineArtifact({
-        artifactId: currentArtifactId,
-        message: `请围绕当前题干优化这道题：${currentQuestion.question}`,
-        refineMode: "structured_refine",
-        selectionAnchor: {
-          scope: "question",
-          anchor_id: currentQuestion.id,
-          artifact_id: currentArtifactId,
-          label: `第 ${currentIndex + 1} 题`,
-        },
-        config: {
-          current_question_id: currentQuestion.id,
-          selection_anchor: {
-            scope: "question",
-            anchor_id: currentQuestion.id,
-            artifact_id: currentArtifactId,
-            label: `第 ${currentIndex + 1} 题`,
-          },
-        },
-      });
-    } finally {
-      onIdle?.();
-    }
-  };
-
   return {
     backendQuestions,
     currentIndex,
     attempts,
     currentQuestion,
-    canRefineCurrentQuestion,
     selectOption,
     submitAnswer,
     goToPreviousQuestion: () => {
-      setCurrentIndex((previous) => Math.max(previous - 1, 0));
+      setCurrentIndex((previous) => {
+        const nextIndex = Math.max(previous - 1, 0);
+        preferredQuestionIdRef.current = backendQuestions[nextIndex]?.id ?? null;
+        return nextIndex;
+      });
       onIdle?.();
     },
     goToNextQuestion: () => {
-      setCurrentIndex((previous) =>
-        Math.min(previous + 1, backendQuestions.length - 1)
-      );
+      setCurrentIndex((previous) => {
+        const nextIndex = Math.min(previous + 1, backendQuestions.length - 1);
+        preferredQuestionIdRef.current = backendQuestions[nextIndex]?.id ?? null;
+        return nextIndex;
+      });
       onIdle?.();
     },
-    refineCurrentQuestion,
   };
 }

@@ -126,6 +126,84 @@ describe("artifact history and download filename", () => {
     expect(item.title).toBe("牛顿第二定律 教案");
   });
 
+  it("uses content_snapshot title for mindmap history when metadata title is preview garbage", () => {
+    const item = toArtifactHistoryItem({
+      id: "a-005-mindmap",
+      project_id: "p-001",
+      session_id: "s-001",
+      based_on_version_id: null,
+      owner_user_id: "u-001",
+      type: "mindmap",
+      visibility: "project-visible",
+      storage_path: "uploads/a-005-mindmap.mindmap",
+      metadata: {
+        title: "思维导图 - Preview",
+        tool_type: "studio_card:knowledge_mindmap",
+        content_snapshot: {
+          kind: "mindmap",
+          title: "停止等待协议效率问题",
+        },
+      },
+      created_at: "2026-04-01T10:00:00.000Z",
+      updated_at: "2026-04-01T10:01:00.000Z",
+    } as any);
+
+    expect(item.title).toBe("停止等待协议效率问题");
+  });
+
+  it("derives mindmap history title from root node when metadata title is generic", () => {
+    const item = toArtifactHistoryItem({
+      id: "a-005-mindmap-root",
+      project_id: "p-001",
+      session_id: "s-001",
+      based_on_version_id: null,
+      owner_user_id: "u-001",
+      type: "mindmap",
+      visibility: "project-visible",
+      storage_path: "uploads/a-005-mindmap-root.mindmap",
+      metadata: {
+        title: "知识导图",
+        tool_type: "studio_card:knowledge_mindmap",
+        content_snapshot: {
+          kind: "mindmap",
+          nodes: [
+            { id: "root", title: "信道利用率", parent_id: null },
+            { id: "child-1", title: "停止等待协议", parent_id: "root" },
+          ],
+        },
+      },
+      created_at: "2026-04-01T10:00:00.000Z",
+      updated_at: "2026-04-01T10:01:00.000Z",
+    } as any);
+
+    expect(item.title).toBe("信道利用率");
+  });
+
+  it("uses content_snapshot scope for quiz history when metadata title is preview garbage", () => {
+    const item = toArtifactHistoryItem({
+      id: "a-quiz-001",
+      project_id: "p-001",
+      session_id: "s-001",
+      based_on_version_id: null,
+      owner_user_id: "u-001",
+      type: "exercise",
+      visibility: "project-visible",
+      storage_path: "uploads/a-quiz-001.json",
+      metadata: {
+        title: "Quiz - Preview",
+        tool_type: "studio_card:interactive_quick_quiz",
+        content_snapshot: {
+          kind: "quiz",
+          scope: "牛顿第二定律",
+        },
+      },
+      created_at: "2026-04-01T10:00:00.000Z",
+      updated_at: "2026-04-01T10:01:00.000Z",
+    } as any);
+
+    expect(item.title).toBe("牛顿第二定律 小测");
+  });
+
   it("cleans config garbage suffix from word history title", () => {
     const item = toArtifactHistoryItem({
       id: "a-006",

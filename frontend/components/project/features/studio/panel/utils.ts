@@ -77,10 +77,41 @@ export function mergeToolArtifacts(
     return fromStore;
   }
   const mergedById = new Map<string, ArtifactHistoryItem>();
-  for (const item of [...fromStore, ...fromRuntime]) {
-    if (!mergedById.has(item.artifactId)) {
+  for (const item of fromStore) {
+    mergedById.set(item.artifactId, item);
+  }
+  for (const item of fromRuntime) {
+    const existing = mergedById.get(item.artifactId);
+    if (!existing) {
       mergedById.set(item.artifactId, item);
+      continue;
     }
+    mergedById.set(item.artifactId, {
+      ...existing,
+      ...item,
+      metadata:
+        item.metadata && Object.keys(item.metadata).length > 0
+          ? item.metadata
+          : existing.metadata,
+      artifactKind: item.artifactKind || existing.artifactKind,
+      title: item.title || existing.title,
+      sourceArtifactId:
+        item.sourceArtifactId !== undefined
+          ? item.sourceArtifactId
+          : existing.sourceArtifactId,
+      storagePath: item.storagePath || existing.storagePath,
+      runId: item.runId ?? existing.runId,
+      runNo: item.runNo ?? existing.runNo,
+      replacesArtifactId:
+        item.replacesArtifactId !== undefined
+          ? item.replacesArtifactId
+          : existing.replacesArtifactId,
+      supersededByArtifactId:
+        item.supersededByArtifactId !== undefined
+          ? item.supersededByArtifactId
+          : existing.supersededByArtifactId,
+      isCurrent: item.isCurrent ?? existing.isCurrent,
+    });
   }
   return [...mergedById.values()].sort(
     (left, right) =>

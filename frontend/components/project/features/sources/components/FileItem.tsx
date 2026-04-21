@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { FILE_TYPE_CONFIG, STATUS_CONFIG } from "../constants";
 import type { SourceFocusDetail, UploadedFile } from "../types";
+import { TOOL_COLORS, TOOL_ICONS } from "../../studio/constants";
 import {
   getFileStatusText,
   getFileTypeFromExtension,
@@ -228,6 +229,7 @@ interface FileItemProps {
   hideDeleteAction?: boolean;
   displayName?: string;
   iconTypeOverride?: string;
+  studioArtifactToolType?: string | null;
 }
 
 export function FileItem({
@@ -245,6 +247,7 @@ export function FileItem({
   hideDeleteAction = false,
   displayName,
   iconTypeOverride,
+  studioArtifactToolType = null,
 }: FileItemProps) {
   const resolvedDisplayName = displayName?.trim() || file.filename;
   const fileType = iconTypeOverride || getFileTypeFromExtension(file.filename);
@@ -253,6 +256,14 @@ export function FileItem({
   const resolvedStatusText = statusText || getFileStatusText(file);
   const Icon = config.icon;
   const focusTimestampSeconds = toSeconds(focusDetail?.source?.timestamp);
+  const StudioIcon =
+    iconTypeOverride === "artifact" && studioArtifactToolType
+      ? TOOL_ICONS[studioArtifactToolType]
+      : null;
+  const studioColor =
+    iconTypeOverride === "artifact" && studioArtifactToolType
+      ? TOOL_COLORS[studioArtifactToolType] ?? TOOL_COLORS.ppt
+      : null;
 
   if (isCompact) {
     const compactHint = `${resolvedDisplayName}\n${resolvedStatusText}`;
@@ -279,10 +290,27 @@ export function FileItem({
         <div
           className={cn(
             "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-transform duration-200 group-hover:scale-105",
-            config.bgGradient
+            !StudioIcon && config.bgGradient,
+            StudioIcon &&
+              "project-tool-icon rounded-[var(--project-chip-radius)] border border-white/40 backdrop-blur-md"
           )}
+          style={
+            StudioIcon && studioColor
+              ? {
+                  background: `linear-gradient(135deg, ${studioColor.glow}, transparent)`,
+                  boxShadow: `0 8px 22px ${studioColor.glow}, inset 0 1px 0 rgba(255, 255, 255, 0.6)`,
+                }
+              : undefined
+          }
         >
-          <Icon className={cn("h-4 w-4 transition-colors", config.color)} />
+          {StudioIcon ? (
+            <StudioIcon
+              className="h-4 w-4 transition-colors"
+              style={{ color: studioColor?.primary }}
+            />
+          ) : (
+            <Icon className={cn("h-4 w-4 transition-colors", config.color)} />
+          )}
         </div>
 
         {onOpen ? (
@@ -374,20 +402,54 @@ export function FileItem({
           }}
           className={cn(
             "flex h-8 w-8 items-center justify-center rounded-lg transition-transform duration-200 group-hover:scale-105 hover:brightness-95",
-            config.bgGradient
+            !StudioIcon && config.bgGradient,
+            StudioIcon &&
+              "project-tool-icon rounded-[var(--project-chip-radius)] border border-white/40 backdrop-blur-md"
           )}
+          style={
+            StudioIcon && studioColor
+              ? {
+                  background: `linear-gradient(135deg, ${studioColor.glow}, transparent)`,
+                  boxShadow: `0 8px 22px ${studioColor.glow}, inset 0 1px 0 rgba(255, 255, 255, 0.6)`,
+                }
+              : undefined
+          }
           aria-label="打开成果"
         >
-          <Icon className={cn("h-4 w-4 transition-colors", config.color)} />
+          {StudioIcon ? (
+            <StudioIcon
+              className="h-4 w-4 transition-colors"
+              style={{ color: studioColor?.primary }}
+            />
+          ) : (
+            <Icon className={cn("h-4 w-4 transition-colors", config.color)} />
+          )}
         </button>
       ) : (
         <div
           className={cn(
             "flex h-8 w-8 items-center justify-center rounded-lg transition-transform duration-200 group-hover:scale-105",
-            config.bgGradient
+            !StudioIcon && config.bgGradient,
+            StudioIcon &&
+              "project-tool-icon rounded-[var(--project-chip-radius)] border border-white/40 backdrop-blur-md"
           )}
+          style={
+            StudioIcon && studioColor
+              ? {
+                  background: `linear-gradient(135deg, ${studioColor.glow}, transparent)`,
+                  boxShadow: `0 8px 22px ${studioColor.glow}, inset 0 1px 0 rgba(255, 255, 255, 0.6)`,
+                }
+              : undefined
+          }
         >
-          <Icon className={cn("h-4 w-4 transition-colors", config.color)} />
+          {StudioIcon ? (
+            <StudioIcon
+              className="h-4 w-4 transition-colors"
+              style={{ color: studioColor?.primary }}
+            />
+          ) : (
+            <Icon className={cn("h-4 w-4 transition-colors", config.color)} />
+          )}
         </div>
       )}
 

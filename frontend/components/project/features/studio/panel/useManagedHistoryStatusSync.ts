@@ -224,6 +224,9 @@ export function useManagedHistoryStatusSync({
         if (!derived) return;
 
         syncedKeyRef.current = syncKey;
+        if (derived.artifactId) {
+          return;
+        }
         recordWorkflowEntry({
           toolType: targetToolType,
           title:

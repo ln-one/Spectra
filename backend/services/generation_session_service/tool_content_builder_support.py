@@ -9,6 +9,9 @@ from services.generation_session_service.interactive_games_legacy_adapter import
 from services.generation_session_service.mindmap_normalizer import (
     build_mindmap_schema_hint,
 )
+from services.generation_session_service.quiz_normalizer import (
+    build_quiz_schema_hint,
+)
 from services.generation_session_service.word_document_normalizer import (
     resolve_word_document_schema_hint,
 )
@@ -269,11 +272,7 @@ def build_schema_hint(card_id: str, config: dict[str, Any] | None = None) -> str
         ),
         "word_document": resolve_word_document_schema_hint(config),
         "knowledge_mindmap": build_mindmap_schema_hint(config),
-        "interactive_quick_quiz": (
-            '{"title":"",'
-            ' "questions":[{"id":"","question":"","options":[""],'
-            '"answer":"","explanation":""}]}'
-        ),
+        "interactive_quick_quiz": build_quiz_schema_hint(config),
         "classroom_qa_simulator": (
             '{"title":"", "summary":"", "key_points":[""], '
             '"turns":[{"student":"","question":"","teacher_hint":"",'

@@ -223,6 +223,13 @@ export function StudioPanelContainer({
   const [mindmapViewMode, setMindmapViewMode] = useState<"edit" | "preview">(
     "preview"
   );
+  const [quizViewMode, setQuizViewMode] = useState<"browse" | "edit">(
+    "browse"
+  );
+  const [quizFocusedQuestion, setQuizFocusedQuestion] = useState<{
+    index: number;
+    total: number;
+  } | null>(null);
   const [managedToolRunSeedByType, setManagedToolRunSeedByType] = useState<
     Partial<
       Record<StudioToolKey, { runId: string | null; sessionId: string | null }>
@@ -239,6 +246,7 @@ export function StudioPanelContainer({
       target: null,
       draftAnchors: {},
     });
+  const [wordSaveState, setWordSaveState] = useState<"idle" | "saving">("idle");
 
   const isExpanded = layoutMode === "expanded";
   const {
@@ -409,6 +417,23 @@ export function StudioPanelContainer({
   useEffect(() => {
     trackStep("ppt", "config");
   }, [trackStep]);
+
+  useEffect(() => {
+    const handleWordSaveState = (event: Event) => {
+      const customEvent = event as CustomEvent<{ status?: "idle" | "saving" }>;
+      setWordSaveState(customEvent.detail?.status === "saving" ? "saving" : "idle");
+    };
+    window.addEventListener(
+      "spectra:word:save-state",
+      handleWordSaveState as EventListener
+    );
+    return () => {
+      window.removeEventListener(
+        "spectra:word:save-state",
+        handleWordSaveState as EventListener
+      );
+    };
+  }, []);
 
   useEffect(() => {
     if (!onPptStep2LayoutChange) return;
@@ -1081,18 +1106,20 @@ export function StudioPanelContainer({
           }));
         }
         if (resolvedSessionId) {
-          recordWorkflowEntry({
-            toolType,
-            title: TOOL_LABELS[toolType] + " - Preview",
-            status: resolvedStatus,
-            step: "preview",
-            sessionId: resolvedSessionId,
-            artifactId: result.artifactId ?? undefined,
-            runId: result.runId ?? seededRunId ?? undefined,
-            runNo: result.runNo ?? undefined,
-            titleSource: buildWorkflowTitleSource(toolType, currentToolDraft),
-            toolLabel: TOOL_LABELS[toolType],
-          });
+          if (!isLifecycleTool || !result.artifactId) {
+            recordWorkflowEntry({
+              toolType,
+              title: TOOL_LABELS[toolType] + " - Preview",
+              status: resolvedStatus,
+              step: "preview",
+              sessionId: resolvedSessionId,
+              artifactId: result.artifactId ?? undefined,
+              runId: result.runId ?? seededRunId ?? undefined,
+              runNo: result.runNo ?? undefined,
+              titleSource: buildWorkflowTitleSource(toolType, currentToolDraft),
+              toolLabel: TOOL_LABELS[toolType],
+            });
+          }
           setManagedToolRunSeedByType((prev) => ({
             ...prev,
             [toolType as StudioToolKey]: {
@@ -1280,7 +1307,28 @@ export function StudioPanelContainer({
   const hasMindmapResultAnchor = Boolean(
     expandedTool === "mindmap" && resolvedManagedTarget?.artifactId
   );
+  const isQuizExpanded = expandedTool === "quiz";
+  const isQuizHistoryMode = isQuizExpanded && isManagedHistoryMode;
+  const isQuizProcessingTarget = Boolean(
+    expandedTool === "quiz" &&
+      resolvedManagedTarget?.status === "processing" &&
+      !resolvedManagedTarget?.artifactId
+  );
+  const hasQuizResultAnchor = Boolean(
+    expandedTool === "quiz" && resolvedManagedTarget?.artifactId
+  );
   const hasMindmapRenderableResult = hasRenderableMindmapResult(toolFlowContext);
+  const hasQuizRenderableResult = Boolean(
+    expandedTool === "quiz" &&
+      toolFlowContext.resolvedArtifact?.contentKind === "json" &&
+      Array.isArray(
+        (toolFlowContext.resolvedArtifact.content as Record<string, unknown> | undefined)
+          ?.questions
+      ) &&
+      (
+        (toolFlowContext.resolvedArtifact.content as Record<string, unknown>).questions as unknown[]
+      ).length > 0
+  );
   const isWordHeaderActionsVisible =
     isExpanded &&
     expandedTool === "word" &&
@@ -1319,6 +1367,55 @@ export function StudioPanelContainer({
       })
     );
   }, [isMindmapHeaderGenerateVisible, isMindmapHeaderModeVisible]);
+  const isQuizHeaderModeVisible = Boolean(
+    isExpanded &&
+      expandedTool === "quiz" &&
+      !isQuizProcessingTarget &&
+      (isQuizHistoryMode || hasQuizResultAnchor || hasQuizRenderableResult)
+  );
+  const isQuizHeaderGenerateVisible = Boolean(
+    isExpanded &&
+      expandedTool === "quiz" &&
+      !isQuizHeaderModeVisible
+  );
+  useEffect(() => {
+    if (!isQuizHeaderModeVisible && !isQuizHeaderGenerateVisible) return;
+    setQuizViewMode("browse");
+    window.dispatchEvent(
+      new CustomEvent("spectra:quiz:set-mode", {
+        detail: { mode: "browse" },
+      })
+    );
+  }, [isQuizHeaderGenerateVisible, isQuizHeaderModeVisible]);
+  useEffect(() => {
+    const handleQuizQuestionFocus = (
+      event: Event
+    ) => {
+      const customEvent = event as CustomEvent<{ index?: number; total?: number }>;
+      const index =
+        typeof customEvent.detail?.index === "number" ? customEvent.detail.index : 0;
+      const total =
+        typeof customEvent.detail?.total === "number" ? customEvent.detail.total : 0;
+      setQuizFocusedQuestion(
+        index > 0 && total > 0
+          ? {
+              index,
+              total,
+            }
+          : null
+      );
+    };
+    window.addEventListener(
+      "spectra:quiz:question-focus",
+      handleQuizQuestionFocus as EventListener
+    );
+    return () => {
+      window.removeEventListener(
+        "spectra:quiz:question-focus",
+        handleQuizQuestionFocus as EventListener
+      );
+    };
+  }, []);
 
   const resolvedWordTitleFromContent = (() => {
     if (expandedTool !== "word") return null;
@@ -1377,11 +1474,47 @@ export function StudioPanelContainer({
           ? toolFlowContext.latestArtifacts?.[0]?.title || "思维导图"
           : "思维导图"
       : null;
+  const resolvedQuizTitleFromContent = (() => {
+    if (expandedTool !== "quiz") return null;
+    const content = toolFlowContext.resolvedArtifact?.content;
+    if (!content || typeof content !== "object") return null;
+    const value = (content as Record<string, unknown>).title;
+    return typeof value === "string" && value.trim() ? value.trim() : null;
+  })();
+  const resolvedQuizTitle =
+    expandedTool === "quiz"
+      ? isQuizProcessingTarget
+        ? "随堂小测（生成中）"
+        : isQuizHistoryMode || hasQuizResultAnchor || hasQuizRenderableResult
+          ? toolFlowContext.latestArtifacts?.[0]?.title ||
+            resolvedQuizTitleFromContent ||
+            "随堂小测"
+          : "随堂小测"
+      : null;
+  const resolvedQuizHeaderTitle =
+    expandedTool === "quiz" && quizFocusedQuestion
+      ? `${resolvedQuizTitle ?? "随堂小测"} · 第 ${quizFocusedQuestion.index} / ${quizFocusedQuestion.total} 题`
+      : resolvedQuizTitle;
+  const canQuizHeaderGenerate = Boolean(
+    expandedTool === "quiz" &&
+      (effectiveSelectedSourceId ||
+        (typeof currentToolDraft.scope === "string" &&
+          currentToolDraft.scope.trim())) &&
+      !isQuizProcessingTarget &&
+      !execution.isStudioActionRunning
+  );
+  const isQuizHeaderGenerating = Boolean(
+    expandedTool === "quiz" &&
+      isQuizHeaderGenerateVisible &&
+      execution.isStudioActionRunning
+  );
   const resolvedHeaderTitle =
     expandedTool === "word"
       ? resolvedWordHeaderTitle
       : expandedTool === "mindmap"
         ? resolvedMindmapTitle
+        : expandedTool === "quiz"
+          ? resolvedQuizHeaderTitle
         : null;
 
   return (
@@ -1400,10 +1533,14 @@ export function StudioPanelContainer({
             currentColor={currentColor}
             customTitle={resolvedHeaderTitle}
             showHeaderActions={
-              isWordHeaderActionsVisible || isMindmapHeaderModeVisible
+              isWordHeaderActionsVisible ||
+              isMindmapHeaderModeVisible ||
+              isQuizHeaderModeVisible
             }
             showHeaderPrimaryAction={
-              isWordHeaderGenerateVisible || isMindmapHeaderGenerateVisible
+              isWordHeaderGenerateVisible ||
+              isMindmapHeaderGenerateVisible ||
+              isQuizHeaderGenerateVisible
             }
             showHeaderPersistenceActions={isWordHeaderActionsVisible}
             headerModeActionLabel={
@@ -1411,6 +1548,10 @@ export function StudioPanelContainer({
                 ? wordViewMode === "preview"
                   ? "编辑"
                   : "预览"
+                : expandedTool === "quiz"
+                  ? quizViewMode === "browse"
+                    ? "编辑"
+                    : "浏览"
                 : mindmapViewMode === "preview"
                   ? "编辑"
                   : "完成"
@@ -1420,18 +1561,26 @@ export function StudioPanelContainer({
                 ? isMindmapHeaderGenerating
                   ? "生成中"
                   : "一键生成导图"
+                : expandedTool === "quiz"
+                  ? isQuizHeaderGenerating
+                    ? "生成中"
+                    : "一键生成小测"
                 : isWordHeaderGenerating
                   ? "生成中"
                   : "生成"
             }
             primaryActionState={
-              isWordHeaderGenerating || isMindmapHeaderGenerating
+              isWordHeaderGenerating ||
+              isMindmapHeaderGenerating ||
+              isQuizHeaderGenerating
                 ? "loading"
                 : "idle"
             }
             primaryActionDisabled={
               expandedTool === "mindmap"
                 ? !canMindmapHeaderGenerate
+                : expandedTool === "quiz"
+                  ? !canQuizHeaderGenerate
                 : expandedTool === "word"
                   ? !canWordHeaderGenerate
                   : true
@@ -1457,6 +1606,16 @@ export function StudioPanelContainer({
                     detail: { mode: nextMode },
                   })
                 );
+                return;
+              }
+              if (expandedTool === "quiz") {
+                const nextMode = quizViewMode === "browse" ? "edit" : "browse";
+                setQuizViewMode(nextMode);
+                window.dispatchEvent(
+                  new CustomEvent("spectra:quiz:set-mode", {
+                    detail: { mode: nextMode },
+                  })
+                );
               }
             }}
             onHeaderPrimaryAction={() => {
@@ -1468,10 +1627,15 @@ export function StudioPanelContainer({
                 window.dispatchEvent(
                   new CustomEvent("spectra:mindmap:generate")
                 );
+                return;
+              }
+              if (expandedTool === "quiz") {
+                window.dispatchEvent(new CustomEvent("spectra:quiz:generate"));
               }
             }}
             canWordSave={canWordHeaderSave}
             canWordExport={canWordHeaderExport}
+            wordSaveState={wordSaveState}
             onWordSave={() => {
               window.dispatchEvent(new CustomEvent("spectra:word:save"));
             }}

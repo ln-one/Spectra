@@ -144,6 +144,42 @@ function resolveManagedArtifactForRun(
   return null;
 }
 
+function buildWordDirectEditRuntimeMetadata(
+  config: Record<string, unknown> | undefined,
+  fallbackTitle: string
+): Record<string, unknown> | undefined {
+  if (!config || config.direct_edit !== true) return undefined;
+  const markdown =
+    typeof config.markdown_content === "string"
+      ? config.markdown_content.trim()
+      : typeof config.lesson_plan_markdown === "string"
+        ? config.lesson_plan_markdown.trim()
+        : "";
+  if (!markdown) return undefined;
+
+  const title =
+    typeof config.document_title === "string" && config.document_title.trim()
+      ? config.document_title.trim()
+      : fallbackTitle;
+  const summary =
+    typeof config.document_summary === "string" && config.document_summary.trim()
+      ? config.document_summary.trim()
+      : "已更新教案内容。";
+
+  return {
+    kind: "teaching_document",
+    title,
+    summary,
+    content_snapshot: {
+      kind: "teaching_document",
+      title,
+      summary,
+      markdown_content: markdown,
+      lesson_plan_markdown: markdown,
+    },
+  };
+}
+
 export function useStudioExecutionHandlers({
   project,
   expandedTool,
@@ -1138,8 +1174,79 @@ export function useStudioExecutionHandlers({
         }
         const effectiveSessionId = activeSessionId;
 
+        if (
+          expandedTool &&
+          expandedTool !== "ppt" &&
+          artifact &&
+          typeof artifact.id === "string" &&
+          artifact.id
+        ) {
+          const runtimeMetadata =
+            currentCardId === "word_document"
+              ? buildWordDirectEditRuntimeMetadata(
+                  config,
+                  ((typeof artifact.title === "string" && artifact.title) ||
+                    TOOL_LABELS[expandedTool as StudioToolKey] + " - Updated")
+                )
+              : undefined;
+          appendRuntimeArtifact(expandedTool as StudioToolKey, {
+            artifactId: artifact.id,
+            sessionId:
+              (typeof artifact.session_id === "string" && artifact.session_id) ||
+              effectiveSessionId,
+            toolType: expandedTool as StudioToolKey,
+            artifactType:
+              (typeof artifact.type === "string" &&
+                (artifact.type as ArtifactHistoryItem["artifactType"])) ||
+              "exercise",
+            metadata: {
+              ...(runtimeMetadata ?? {}),
+              title:
+                (typeof artifact.title === "string" && artifact.title) || undefined,
+              kind:
+                (typeof artifact.kind === "string" && artifact.kind) || undefined,
+              replaces_artifact_id:
+                (typeof artifact.replaces_artifact_id === "string" &&
+                  artifact.replaces_artifact_id) ||
+                undefined,
+              superseded_by_artifact_id:
+                (typeof artifact.superseded_by_artifact_id === "string" &&
+                  artifact.superseded_by_artifact_id) ||
+                undefined,
+            },
+            artifactKind:
+              (typeof artifact.kind === "string" && artifact.kind) || undefined,
+            sourceArtifactId: selectedSourceId || draftSourceArtifactId || null,
+            title:
+              (typeof artifact.title === "string" && artifact.title) ||
+              TOOL_LABELS[expandedTool as StudioToolKey] + " - Updated",
+            status: "completed",
+            createdAt:
+              (typeof artifact.updated_at === "string" && artifact.updated_at) ||
+              (typeof artifact.created_at === "string" && artifact.created_at) ||
+              new Date().toISOString(),
+            basedOnVersionId:
+              (typeof artifact.based_on_version_id === "string" &&
+                artifact.based_on_version_id) ||
+              null,
+            storagePath:
+              (typeof artifact.storage_path === "string" &&
+                artifact.storage_path) ||
+              undefined,
+            replacesArtifactId:
+              (typeof artifact.replaces_artifact_id === "string" &&
+                artifact.replaces_artifact_id) ||
+              null,
+            supersededByArtifactId:
+              (typeof artifact.superseded_by_artifact_id === "string" &&
+                artifact.superseded_by_artifact_id) ||
+              null,
+          });
+        }
+
         if (effectiveSessionId) {
           void fetchArtifactHistory(project.id, String(effectiveSessionId));
+          scheduleArtifactRefresh(project.id, String(effectiveSessionId));
         }
 
         return {

@@ -238,6 +238,9 @@ export function useWordHistoryStatusSync({
         if (!derived) return;
 
         syncedKeyRef.current = syncKey;
+        if (derived.artifactId) {
+          return;
+        }
         recordWorkflowEntry({
           toolType: "word",
           title: matchedArtifact?.title || activeWordItem?.title || "教学文档",

@@ -319,4 +319,69 @@ describe("useStudioCapabilityState", () => {
       );
     });
   });
+
+  it("keeps quiz in draft mode when a managed draft anchor clears the current artifact", async () => {
+    getCardMock.mockResolvedValue({
+      data: {
+        studio_card: {
+          id: "interactive_quick_quiz",
+          supports_chat_refine: true,
+          requires_source_artifact: false,
+          readiness: "foundation_ready",
+        },
+      },
+    });
+    getExecutionPlanMock.mockResolvedValue({
+      data: {
+        execution_plan: {
+          card_id: "interactive_quick_quiz",
+          readiness: "foundation_ready",
+        },
+      },
+    });
+    const artifactHistoryByTool: ArtifactHistoryByTool = {
+      ...EMPTY_ARTIFACT_HISTORY,
+      quiz: [
+        {
+          artifactId: "artifact-quiz-latest",
+          sessionId: "sess-quiz-latest",
+          toolType: "quiz",
+          artifactType: "exercise",
+          title: "旧小测",
+          status: "completed",
+          createdAt: "2026-04-21T10:00:00.000Z",
+          basedOnVersionId: null,
+          runId: "run-quiz-latest",
+          runNo: 3,
+        },
+      ],
+    };
+
+    await act(async () => {
+      render(
+        <HookProbe
+          expandedTool="quiz"
+          artifactHistoryByTool={artifactHistoryByTool}
+          managedWorkbenchState={{
+            mode: "draft",
+            target: null,
+            draftAnchors: {
+              quiz: {
+                sessionId: "sess-1",
+                artifactId: null,
+                runId: null,
+                status: null,
+              },
+            },
+          }}
+        />
+      );
+      await flushMicrotasks();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("current-artifact-id").textContent).toBe("null");
+      expect(screen.getByTestId("resolved-artifact-id").textContent).toBe("null");
+    });
+  });
 });

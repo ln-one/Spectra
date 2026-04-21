@@ -282,6 +282,30 @@ async def refine_studio_card(
                 message="Studio 卡片 refine 成功",
             )
 
+        if (
+            card_id == "interactive_quick_quiz"
+            and refine_body.artifact_id
+            and refine_body.refine_mode == RefineMode.CHAT_REFINE
+        ):
+            refine_config = dict(refine_body.config or {})
+            refine_config["chat_refine_scope"] = "full_quiz"
+            if refine_body.selection_anchor:
+                refine_config["selection_anchor"] = refine_body.selection_anchor
+            result = await execute_studio_card_refine_request(
+                card_id=card_id,
+                body=refine_body.model_copy(
+                    update={
+                        "config": refine_config,
+                        "refine_mode": RefineMode.STRUCTURED_REFINE,
+                    }
+                ),
+                user_id=user_id,
+            )
+            return success_response(
+                data={"execution_result": result.model_dump(mode="json")},
+                message="Studio 卡片 refine 成功",
+            )
+
         if not refine_body.message:
             raise APIException(
                 status_code=400,

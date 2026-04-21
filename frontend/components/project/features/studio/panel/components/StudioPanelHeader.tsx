@@ -27,7 +27,7 @@ interface StudioPanelHeaderProps {
   showHeaderActions?: boolean;
   showHeaderPrimaryAction?: boolean;
   showHeaderPersistenceActions?: boolean;
-  headerModeActionLabel?: "编辑" | "预览" | "完成";
+  headerModeActionLabel?: "编辑" | "预览" | "完成" | "答题" | "浏览";
   primaryActionLabel?: string;
   primaryActionState?: "idle" | "loading";
   primaryActionDisabled?: boolean;
@@ -35,6 +35,7 @@ interface StudioPanelHeaderProps {
   onHeaderPrimaryAction?: () => void;
   canWordSave?: boolean;
   canWordExport?: boolean;
+  wordSaveState?: "idle" | "saving";
   onWordSave?: () => void;
   onWordExport?: () => void;
 }
@@ -87,6 +88,7 @@ export function StudioPanelHeader({
   onHeaderPrimaryAction,
   canWordSave = false,
   canWordExport = false,
+  wordSaveState = "idle",
   onWordSave,
   onWordExport,
 }: StudioPanelHeaderProps) {
@@ -169,7 +171,7 @@ export function StudioPanelHeader({
                     className="h-8 px-3 text-xs"
                     onClick={onHeaderSwitchMode}
                   >
-                    {headerModeActionLabel === "编辑" ? (
+                    {headerModeActionLabel === "编辑" || headerModeActionLabel === "答题" ? (
                       <PencilLine className="mr-1 h-3.5 w-3.5" />
                     ) : headerModeActionLabel === "完成" ? (
                       <Check className="mr-1 h-3.5 w-3.5" />
@@ -183,17 +185,21 @@ export function StudioPanelHeader({
                       <Button
                         size="sm"
                         className="h-8 px-3 text-xs"
-                        disabled={!canWordSave}
+                        disabled={!canWordSave || wordSaveState === "saving"}
                         onClick={onWordSave}
                       >
-                        <Save className="mr-1 h-3.5 w-3.5" />
-                        保存
+                        {wordSaveState === "saving" ? (
+                          <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Save className="mr-1 h-3.5 w-3.5" />
+                        )}
+                        {wordSaveState === "saving" ? "保存中" : "保存"}
                       </Button>
                       <Button
                         variant="outline"
                         size="sm"
                         className="h-8 px-3 text-xs"
-                        disabled={!canWordExport}
+                        disabled={!canWordExport || wordSaveState === "saving"}
                         onClick={onWordExport}
                       >
                         <Download className="mr-1 h-3.5 w-3.5" />

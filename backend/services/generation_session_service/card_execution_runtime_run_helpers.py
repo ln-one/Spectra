@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import time
 from types import SimpleNamespace
 
 from schemas.studio_cards import StudioCardExecutionPreviewRequest
@@ -91,6 +92,23 @@ def _build_metadata_from_snapshot(snapshot: object) -> dict:
     return metadata
 
 
+def _is_word_direct_edit_config(config: object) -> bool:
+    if not isinstance(config, dict):
+        return False
+    if config.get("direct_edit") is True:
+        return True
+    operation = str(config.get("operation") or "").strip().lower()
+    if operation == "direct_edit":
+        return True
+    for key in ("document_content", "lesson_plan_markdown", "markdown_content"):
+        value = config.get(key)
+        if isinstance(value, dict) and value:
+            return True
+        if isinstance(value, str) and value.strip():
+            return True
+    return False
+
+
 async def ensure_local_artifact_record(*, artifact, fallback_session_id: str | None) -> None:
     artifact_model = getattr(db_service.db, "artifact", None)
     if artifact_model is None:
@@ -157,6 +175,21 @@ async def create_artifact_run(
     session_id: str | None = None,
     title_snapshot: dict | None = None,
 ):
+    started_at = time.perf_counter()
+
+    def _stage_log(stage: str) -> None:
+        logger.info(
+            "studio_artifact_run_stage card=%s session_id=%s artifact_id=%s run_id=%s stage=%s duration_ms=%.2f",
+            card_id,
+            getattr(artifact, "sessionId", None) or session_id,
+            getattr(artifact, "id", None),
+            getattr(run_for_response if 'run_for_response' in locals() else None, "id", None)
+            or getattr(run if 'run' in locals() else None, "id", None)
+            or getattr(body, "run_id", None),
+            stage,
+            (time.perf_counter() - started_at) * 1000,
+        )
+
     from services.generation_session_service.session_history import (
         RUN_STATUS_COMPLETED,
         RUN_STATUS_PENDING,
@@ -188,11 +221,13 @@ async def create_artifact_run(
             status=RUN_STATUS_PENDING,
         )
     run_for_response = run
+    _stage_log("run_loaded")
     if run:
         await ensure_local_artifact_record(
             artifact=artifact,
             fallback_session_id=getattr(artifact, "sessionId", None) or session_id,
         )
+        _stage_log("local_artifact_synced_initial")
         generating_run = await update_session_run(
             db=db_service.db,
             run_id=run.id,
@@ -201,6 +236,7 @@ async def create_artifact_run(
         )
         if generating_run:
             run_for_response = generating_run
+        _stage_log("run_marked_processing")
         finalized_run = await update_session_run(
             db=db_service.db,
             run_id=run.id,
@@ -210,6 +246,7 @@ async def create_artifact_run(
         )
         if finalized_run:
             run_for_response = finalized_run
+        _stage_log("run_marked_completed")
         current_metadata = _coerce_artifact_metadata_dict(
             getattr(artifact, "metadata", None)
         )
@@ -250,6 +287,7 @@ async def create_artifact_run(
             project_id=body.project_id,
             user_id=getattr(artifact, "ownerUserId", None) or user_id,
         )
+        _stage_log("artifact_run_metadata_synced")
         await ensure_local_artifact_record(
             artifact=SimpleNamespace(
                 id=getattr(artifact, "id", None),
@@ -269,6 +307,7 @@ async def create_artifact_run(
             ),
             fallback_session_id=getattr(artifact, "sessionId", None) or session_id,
         )
+        _stage_log("local_artifact_synced_final")
         effective_title_snapshot: dict | None = None
         if isinstance(body.config, dict):
             effective_title_snapshot = dict(body.config)
@@ -278,23 +317,35 @@ async def create_artifact_run(
                 **title_snapshot,
             }
 
-        await request_run_title_generation(
-            db=db_service.db,
-            run_id=run.id,
-            tool_type=run.toolType,
-            snapshot=effective_title_snapshot if effective_title_snapshot is not None else body.config,
+        skip_run_title_generation = (
+            card_id == "word_document" and _is_word_direct_edit_config(body.config)
         )
-        run_model = getattr(db_service.db, "sessionrun", None)
-        if run_model is not None and hasattr(run_model, "find_unique"):
-            refreshed_run = await run_model.find_unique(where={"id": run.id})
-            if refreshed_run is not None:
-                run_for_response = refreshed_run
+        if skip_run_title_generation:
+            logger.info(
+                "skip_run_title_generation_for_direct_edit run=%s card=%s",
+                run.id,
+                card_id,
+            )
+        else:
+            await request_run_title_generation(
+                db=db_service.db,
+                run_id=run.id,
+                tool_type=run.toolType,
+                snapshot=effective_title_snapshot if effective_title_snapshot is not None else body.config,
+            )
+            run_model = getattr(db_service.db, "sessionrun", None)
+            if run_model is not None and hasattr(run_model, "find_unique"):
+                refreshed_run = await run_model.find_unique(where={"id": run.id})
+                if refreshed_run is not None:
+                    run_for_response = refreshed_run
+        _stage_log("run_title_ready")
     await append_card_execution_completed_event(
         card_id=card_id,
         session_id=getattr(artifact, "sessionId", None) or session_id,
         artifact=artifact,
         run=run_for_response,
     )
+    _stage_log("completion_event_appended")
     return serialize_session_run(run_for_response)
 
 

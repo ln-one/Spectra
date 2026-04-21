@@ -1,8 +1,8 @@
-export type QuizStep = "config" | "generate" | "preview";
-
 export type QuizDifficulty = "easy" | "medium" | "hard";
 
 export type QuizQuestionType = "single" | "multiple" | "judge";
+
+export type QuizSurfaceMode = "browse" | "edit";
 
 export interface QuizQuestionItem {
   id: string;

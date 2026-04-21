@@ -107,6 +107,41 @@ async def generate_card_json_payload(
     )
 
 
+async def generate_card_json_payload_with_meta(
+    *,
+    prompt: str,
+    card_id: str,
+    phase: str,
+    rag_snippets: list[str],
+    max_tokens: int,
+    route_task: ModelRouteTask | str = ModelRouteTask.LESSON_PLAN_REASONING,
+    model: str | None = None,
+    response_format: dict[str, Any] | None = None,
+    timeout_seconds_override: float | None = None,
+) -> tuple[dict, str, dict[str, Any]]:
+    response, model_name = await _generate_card_response(
+        prompt=prompt,
+        card_id=card_id,
+        phase=phase,
+        rag_snippets=rag_snippets,
+        max_tokens=max_tokens,
+        route_task=route_task,
+        model=model,
+        response_format=response_format or {"type": "json_object"},
+        timeout_seconds_override=timeout_seconds_override,
+    )
+    return (
+        parse_ai_object_payload(
+            card_id=card_id,
+            ai_raw=str(response.get("content") or ""),
+            model=model_name,
+            phase="parse" if phase == "generate" else "parse_turn",
+        ),
+        model_name,
+        response,
+    )
+
+
 async def generate_card_text_payload(
     *,
     prompt: str,

@@ -93,6 +93,7 @@ async def test_resolve_word_document_title_treats_untitled_document_as_placehold
     [
         ("word_document", "docx"),
         ("knowledge_mindmap", "mindmap"),
+        ("interactive_quick_quiz", "exercise"),
     ],
 )
 async def test_structured_refine_updates_managed_artifact_in_place(

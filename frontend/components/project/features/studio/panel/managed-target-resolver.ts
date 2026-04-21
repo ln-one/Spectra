@@ -2,7 +2,11 @@ import type { ArtifactHistoryItem } from "@/lib/project-space/artifact-history";
 import type { ManagedResolvedTarget, ManagedResultTarget, StudioToolKey } from "../tools";
 import type { ManagedWorkbenchState } from "./types";
 
-const MANAGED_LIFECYCLE_TOOLS = new Set<StudioToolKey>(["word", "mindmap"]);
+const MANAGED_LIFECYCLE_TOOLS = new Set<StudioToolKey>([
+  "word",
+  "mindmap",
+  "quiz",
+]);
 
 function readTrimmedString(value: unknown): string | null {
   if (typeof value !== "string") return null;

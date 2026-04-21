@@ -34,6 +34,18 @@ logger = logging.getLogger(__name__)
 _RAG_CONTROL_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
 _RAG_SYMBOL_RUN_RE = re.compile(r"[`~^|<>]{3,}")
 _RAG_MULTI_PUNC_RE = re.compile(r"[，。；：、,.;:!?！？]{4,}")
+_RAG_FILE_TOKEN_RE = re.compile(
+    r"\b[\w.\-]+\.(?:pdf|pptx?|docx?|md|txt|xlsx?|csv|py|js|ts|tsx|json)\b",
+    flags=re.IGNORECASE,
+)
+_RAG_PAGE_TOKEN_RE = re.compile(
+    r"(?:见第?\s*\d+\s*页|第?\s*\d+\s*页|page\s*\d+|p\.\s*\d+)",
+    flags=re.IGNORECASE,
+)
+_RAG_CHUNK_TOKEN_RE = re.compile(
+    r"(?:chunk\s*[-:_]?\s*\d+|json\s+schema|renderer|metadata|prompt\s+instruction|template)",
+    flags=re.IGNORECASE,
+)
 
 
 def _env_positive_int(name: str, default: int) -> int:
@@ -61,6 +73,13 @@ def _resolve_mindmap_rag_budget() -> tuple[int, int, int]:
     return top_k, snippet_chars, max_snippets
 
 
+def _resolve_quiz_rag_budget() -> tuple[int, int, int]:
+    top_k = _env_positive_int("QUIZ_RAG_TOPK", 8)
+    snippet_chars = _env_positive_int("QUIZ_RAG_SNIPPET_CHARS", 700)
+    max_snippets = _env_positive_int("QUIZ_RAG_MAX_SNIPPETS", 5)
+    return top_k, snippet_chars, max_snippets
+
+
 def _sanitize_rag_text(text: str) -> str:
     candidate = str(text or "")
     candidate = candidate.replace("\r\n", "\n").replace("\r", "\n")
@@ -79,6 +98,40 @@ def _sanitize_rag_text(text: str) -> str:
     normalized = " ".join(cleaned_lines)
     normalized = re.sub(r"\s+", " ", normalized).strip()
     return normalized
+
+
+def _sanitize_quiz_rag_text(text: str) -> str:
+    candidate = _sanitize_rag_text(text)
+    candidate = re.sub(r"\[来源:[^\]]*\]", " ", candidate, flags=re.IGNORECASE)
+    candidate = _RAG_FILE_TOKEN_RE.sub(" ", candidate)
+    candidate = _RAG_PAGE_TOKEN_RE.sub(" ", candidate)
+    candidate = _RAG_CHUNK_TOKEN_RE.sub(" ", candidate)
+    candidate = re.sub(r"`[^`]+`", " ", candidate)
+    candidate = re.sub(r"\b(?:json|schema)\b", " ", candidate, flags=re.IGNORECASE)
+    candidate = re.sub(r"\b(?:def|class|function|const|let|return|import|export)\b", " ", candidate)
+    candidate = re.sub(r"\b\w+\s*\([^)]*\)\s*:?", " ", candidate)
+    candidate = re.sub(r"\s+", " ", candidate).strip(" -:;,.[](){}")
+    return candidate
+
+
+def _build_quiz_rag_query(config: dict[str, Any], source_hint: str | None = None) -> str:
+    parts: list[str] = []
+    scope = str(config.get("scope") or config.get("question_focus") or "").strip()
+    if scope:
+        parts.append(scope)
+    difficulty = str(config.get("difficulty") or "").strip()
+    if difficulty:
+        parts.append(f"难度 {difficulty}")
+    question_type = str(config.get("question_type") or "").strip()
+    if question_type:
+        parts.append(f"题型 {question_type}")
+    style_tags = config.get("style_tags") if isinstance(config.get("style_tags"), list) else []
+    cleaned_tags = [str(tag).strip() for tag in style_tags if str(tag).strip()]
+    if cleaned_tags:
+        parts.append("风格 " + " ".join(cleaned_tags[:4]))
+    if source_hint:
+        parts.append(f"来源 {source_hint}")
+    return " ".join(parts).strip() or "随堂测验"
 
 
 def _should_skip_animation_rag_item(item: dict[str, Any]) -> bool:
@@ -117,6 +170,8 @@ async def _load_rag_snippets(
         top_k, snippet_chars, max_snippets = _resolve_word_rag_budget()
     elif card_id == "knowledge_mindmap":
         top_k, snippet_chars, max_snippets = _resolve_mindmap_rag_budget()
+    elif card_id == "interactive_quick_quiz":
+        top_k, snippet_chars, max_snippets = _resolve_quiz_rag_budget()
     else:
         top_k, snippet_chars, max_snippets = 4, 400, 3
     timeout_seconds = system_settings_service.resolve_chat_rag_timeout_seconds()
@@ -152,7 +207,11 @@ async def _load_rag_snippets(
             item
         ):
             continue
-        content = _sanitize_rag_text(str(item.get("content") or ""))
+        content = (
+            _sanitize_quiz_rag_text(str(item.get("content") or ""))
+            if card_id == "interactive_quick_quiz"
+            else _sanitize_rag_text(str(item.get("content") or ""))
+        )
         if content:
             metadata = item.get("metadata") if isinstance(item.get("metadata"), dict) else {}
             source_label = (
@@ -212,19 +271,41 @@ async def build_studio_tool_artifact_content(
     if card_id not in SUPPORTED_CARD_IDS:
         return None
     cfg = dict(config or {})
-    query = card_query_text(card_id, cfg)
-    rag_snippets, source_hint = await asyncio.gather(
-        _load_rag_snippets(
+    raw_scope = str(cfg.get("scope") or cfg.get("question_focus") or "").strip()
+    if (
+        card_id == "interactive_quick_quiz"
+        and not raw_scope
+        and not rag_source_ids
+        and not source_artifact_id
+    ):
+        _raise_generation_error(
+            status_code=400,
+            error_code=ErrorCode.INVALID_INPUT,
+            message="Quiz generation requires a scope/topic or a bound source artifact.",
+            card_id=card_id,
+            model=None,
+            phase="preflight",
+            failure_reason="quiz_scope_missing",
+            retryable=False,
+        )
+    source_hint = await _load_source_artifact_hint(
+        source_artifact_id=source_artifact_id,
+        user_id=user_id,
+    )
+    query = (
+        _build_quiz_rag_query(cfg, source_hint)
+        if card_id == "interactive_quick_quiz"
+        else card_query_text(card_id, cfg)
+    )
+    if card_id == "interactive_quick_quiz" and not raw_scope and not source_hint:
+        rag_snippets = []
+    else:
+        rag_snippets = await _load_rag_snippets(
             project_id=project_id,
             query=query,
             rag_source_ids=rag_source_ids,
             card_id=card_id,
-        ),
-        _load_source_artifact_hint(
-            source_artifact_id=source_artifact_id,
-            user_id=user_id,
-        ),
-    )
+        )
     logger.info(
         "studio tool generation mode card_id=%s fallback_mode=%s",
         card_id,

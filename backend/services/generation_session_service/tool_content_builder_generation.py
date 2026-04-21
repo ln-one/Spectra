@@ -17,6 +17,10 @@ from services.generation_session_service.mindmap_generation_support import (
 from services.generation_session_service.mindmap_normalizer import (
     evaluate_mindmap_payload_quality,
 )
+from services.generation_session_service.quiz_generation_support import (
+    enforce_quiz_quality_gate,
+    generate_quiz_reviewed_payload,
+)
 from services.generation_session_service.word_template_engine import (
     build_word_markdown_prompt,
     build_word_markdown_reviewer_prompt,
@@ -311,6 +315,7 @@ async def generate_structured_artifact_content(
     rag_snippets: list[str],
     source_hint: str | None,
 ) -> dict[str, Any]:
+    quiz_generation_trace: dict[str, Any] | None = None
     if card_id == "word_document":
         payload = await _generate_word_document_markdown_first_payload(
             config=config,
@@ -337,6 +342,12 @@ async def generate_structured_artifact_content(
                 failure_reason="field_nodes_empty",
                 retryable=False,
             )
+    elif card_id == "interactive_quick_quiz":
+        payload, model_name, quiz_generation_trace = await generate_quiz_reviewed_payload(
+            config=config,
+            rag_snippets=rag_snippets,
+            source_hint=source_hint,
+        )
     else:
         payload, model_name = await generate_card_json_payload(
             prompt=_build_structured_artifact_prompt(
@@ -374,6 +385,16 @@ async def generate_structured_artifact_content(
             phase="validate",
             failure_reason=failure_reason,
             retryable=False,
+            extra=(
+                {
+                    "resolved_model": quiz_generation_trace.get("resolved_model"),
+                    "max_tokens": quiz_generation_trace.get("review_max_tokens")
+                    or quiz_generation_trace.get("generation_max_tokens"),
+                    "rag_snippet_count": quiz_generation_trace.get("rag_snippet_count", 0),
+                }
+                if card_id == "interactive_quick_quiz" and quiz_generation_trace
+                else None
+            ),
         )
     try:
         validate_card_payload(card_id, payload)
@@ -387,6 +408,16 @@ async def generate_structured_artifact_content(
             phase="validate",
             failure_reason=str(exc),
             retryable=False,
+            extra=(
+                {
+                    "resolved_model": quiz_generation_trace.get("resolved_model"),
+                    "max_tokens": quiz_generation_trace.get("review_max_tokens")
+                    or quiz_generation_trace.get("generation_max_tokens"),
+                    "rag_snippet_count": quiz_generation_trace.get("rag_snippet_count", 0),
+                }
+                if card_id == "interactive_quick_quiz" and quiz_generation_trace
+                else None
+            ),
         )
     if card_id == "knowledge_mindmap":
         quality_threshold = _env_positive_int("MINDMAP_QUALITY_THRESHOLD", 70)
@@ -415,4 +446,11 @@ async def generate_structured_artifact_content(
                     "mindmap_quality_metrics": metrics,
                 },
             )
+    if card_id == "interactive_quick_quiz":
+        enforce_quiz_quality_gate(
+            payload=payload,
+            config=config,
+            model_name=model_name,
+            generation_trace=quiz_generation_trace,
+        )
     return payload

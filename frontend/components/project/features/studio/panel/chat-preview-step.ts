@@ -38,5 +38,15 @@ export function shouldForcePreviewChatStep(params: {
       managedTargetStatus === "processing"
     );
   }
+  if (toolType === "quiz") {
+    return (
+      (expandedTool === "quiz" && isManagedHistoryMode) ||
+      Boolean(resolvedArtifactId) ||
+      Boolean(managedTargetArtifactId) ||
+      managedTargetStatus === "processing" ||
+      managedTargetStatus === "previewing" ||
+      managedTargetStatus === "completed"
+    );
+  }
   return false;
 }

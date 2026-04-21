@@ -115,6 +115,65 @@ function readNestedTitleFromMetadata(metadata: Artifact["metadata"]): string | n
   return null;
 }
 
+function readMindmapTitleFromMetadata(
+  metadata: Artifact["metadata"]
+): string | null {
+  const snapshot = readMetadataSnapshot(metadata);
+  if (!snapshot) return null;
+
+  const directTitle =
+    readTrimmedString(snapshot.title) ??
+    readTrimmedString(snapshot.topic) ??
+    readTrimmedString(snapshot.name) ??
+    readTrimmedString(snapshot.root_topic) ??
+    readTrimmedString(snapshot.subject);
+  if (directTitle) return directTitle;
+
+  const rootNode =
+    snapshot.root && typeof snapshot.root === "object" && !Array.isArray(snapshot.root)
+      ? (snapshot.root as Record<string, unknown>)
+      : null;
+  if (rootNode) {
+    const rootTitle =
+      readTrimmedString(rootNode.title) ??
+      readTrimmedString(rootNode.topic) ??
+      readTrimmedString(rootNode.name);
+    if (rootTitle) return rootTitle;
+  }
+
+  const nodes = Array.isArray(snapshot.nodes) ? snapshot.nodes : [];
+  for (const node of nodes) {
+    if (!node || typeof node !== "object" || Array.isArray(node)) continue;
+    const row = node as Record<string, unknown>;
+    const parentId = readTrimmedString(row.parent_id) ?? readTrimmedString(row.parentId);
+    if (parentId) continue;
+    const rootTitle =
+      readTrimmedString(row.title) ??
+      readTrimmedString(row.topic) ??
+      readTrimmedString(row.name);
+    if (rootTitle) return rootTitle;
+  }
+
+  return null;
+}
+
+function readQuizTitleFromMetadata(
+  metadata: Artifact["metadata"]
+): string | null {
+  const snapshot = readMetadataSnapshot(metadata);
+  if (!snapshot) return null;
+
+  const directTitle =
+    readTrimmedString(snapshot.title) ??
+    readTrimmedString(snapshot.name) ??
+    readTrimmedString(snapshot.topic);
+  if (directTitle) return directTitle;
+
+  const scope = readTrimmedString(snapshot.scope);
+  if (scope) return `${scope} 小测`;
+  return null;
+}
+
 function sanitizeWordDisplayTitle(raw: string): string {
   const normalized = raw.replace(/\s+/g, " ").trim();
   if (!normalized) return "";
@@ -139,6 +198,83 @@ function sanitizeWordDisplayTitle(raw: string): string {
     .replace(/[；;，,\s]+$/g, "")
     .trim();
   return cleaned || normalized;
+}
+
+function sanitizeMindmapDisplayTitle(raw: string): string {
+  const normalized = raw.replace(/\s+/g, " ").trim();
+  if (!normalized) return "";
+  const lowered = normalized.toLowerCase();
+  const compact = lowered.replace(/\s+/g, "");
+  const isPlaceholder =
+    lowered === "mindmap" ||
+    lowered === "mind map" ||
+    lowered === "知识导图" ||
+    lowered === "思维导图" ||
+    lowered === "未命名导图" ||
+    lowered === "未命名思维导图" ||
+    lowered === "未命名知识导图" ||
+    lowered === "loaded backend mindmap" ||
+    compact === "思维导图-preview" ||
+    compact === "知识导图-preview" ||
+    compact === "mindmap-preview" ||
+    compact === "mindmap生成记录";
+  if (isPlaceholder) return "";
+
+  const cleaned = normalized
+    .replace(/\s*[-·|｜:：]\s*preview$/i, "")
+    .replace(/\s*[-·|｜:：]\s*(?:mindmap|知识导图|思维导图)$/i, "")
+    .replace(/^(?:mindmap|知识导图|思维导图)\s*[-·|｜:：]\s*/i, "")
+    .replace(/[；;，,\s]+$/g, "")
+    .trim();
+
+  const cleanedLower = cleaned.toLowerCase();
+  if (
+    !cleaned ||
+    cleanedLower === "mindmap" ||
+    cleaned === "知识导图" ||
+    cleaned === "思维导图"
+  ) {
+    return "";
+  }
+  return cleaned;
+}
+
+function sanitizeQuizDisplayTitle(raw: string): string {
+  const normalized = raw.replace(/\s+/g, " ").trim();
+  if (!normalized) return "";
+  const lowered = normalized.toLowerCase();
+  const compact = lowered.replace(/\s+/g, "");
+  const isPlaceholder =
+    lowered === "quiz" ||
+    lowered === "随堂小测" ||
+    lowered === "课堂小测" ||
+    lowered === "未命名小测" ||
+    lowered === "未命名 quiz" ||
+    lowered === "未命名quiz" ||
+    compact === "quiz生成记录" ||
+    compact === "quiz-preview" ||
+    compact === "随堂小测-preview" ||
+    compact === "课堂小测-preview";
+  if (isPlaceholder) return "";
+
+  const cleaned = normalized
+    .replace(/\s*[-·|｜:：]\s*preview$/i, "")
+    .replace(/\s*[-·|｜:：]\s*quiz$/i, "")
+    .replace(/^quiz\s*[-·|｜:：]\s*/i, "")
+    .replace(/[；;，,\s]+$/g, "")
+    .trim();
+
+  const cleanedCompact = cleaned.toLowerCase().replace(/\s+/g, "");
+  if (
+    !cleaned ||
+    cleaned.toLowerCase() === "quiz" ||
+    cleaned === "随堂小测" ||
+    cleaned === "课堂小测" ||
+    cleanedCompact === "quiz生成记录"
+  ) {
+    return "";
+  }
+  return cleaned;
 }
 
 function normalizeStatus(statusRaw: unknown): ArtifactHistoryItem["status"] {
@@ -344,6 +480,8 @@ export function toArtifactHistoryItem(artifact: Artifact): ArtifactHistoryItem {
   );
   const metadataIsCurrent = readMetadataBoolean(artifact.metadata, "is_current");
   const nestedTitle = readNestedTitleFromMetadata(artifact.metadata);
+  const nestedMindmapTitle = readMindmapTitleFromMetadata(artifact.metadata);
+  const nestedQuizTitle = readQuizTitleFromMetadata(artifact.metadata);
   const wordCandidates =
     toolType === "word"
       ? [
@@ -355,18 +493,51 @@ export function toArtifactHistoryItem(artifact: Artifact): ArtifactHistoryItem {
           .map(sanitizeWordDisplayTitle)
           .filter((value) => Boolean(value))
       : [];
+  const mindmapCandidates =
+    toolType === "mindmap"
+      ? [
+          typeof metadataTitle === "string" ? metadataTitle.trim() : "",
+          typeof metadataName === "string" ? metadataName.trim() : "",
+          nestedMindmapTitle ?? "",
+          typeof metadataRunTitle === "string" ? metadataRunTitle.trim() : "",
+        ]
+          .map(sanitizeMindmapDisplayTitle)
+          .filter((value) => Boolean(value))
+      : [];
+  const quizCandidates =
+    toolType === "quiz"
+      ? [
+          typeof metadataTitle === "string" ? metadataTitle.trim() : "",
+          typeof metadataName === "string" ? metadataName.trim() : "",
+          nestedQuizTitle ?? "",
+          typeof metadataRunTitle === "string" ? metadataRunTitle.trim() : "",
+        ]
+          .map(sanitizeQuizDisplayTitle)
+          .filter((value) => Boolean(value))
+      : [];
   const rawTitle =
     toolType === "word"
       ? (wordCandidates[0] ?? "未命名教案")
-      : typeof metadataTitle === "string" && metadataTitle.trim()
-        ? metadataTitle.trim()
-        : typeof metadataName === "string" && metadataName.trim()
+      : toolType === "mindmap"
+        ? (mindmapCandidates[0] ?? `${titlePrefix} 生成记录`)
+        : toolType === "quiz"
+          ? (quizCandidates[0] ?? `${titlePrefix} 生成记录`)
+        : typeof metadataTitle === "string" && metadataTitle.trim()
+          ? metadataTitle.trim()
+          : typeof metadataName === "string" && metadataName.trim()
           ? metadataName.trim()
           : nestedTitle ??
             (typeof metadataRunTitle === "string" && metadataRunTitle.trim()
               ? metadataRunTitle.trim()
               : `${titlePrefix} 生成记录`);
-  const title = toolType === "word" ? rawTitle || "未命名教案" : rawTitle;
+  const title =
+    toolType === "word"
+      ? rawTitle || "未命名教案"
+      : toolType === "mindmap"
+        ? rawTitle || "未命名导图"
+        : toolType === "quiz"
+          ? rawTitle || "未命名小测"
+        : rawTitle;
 
   return {
     artifactId: artifact.id,

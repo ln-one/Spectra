@@ -20,6 +20,7 @@ import type {
   Message,
   ProjectStoreContext,
   ProjectState,
+  StudioChatContext,
   StudioHintMessagePayload,
 } from "./types";
 
@@ -66,6 +67,44 @@ function readFailureReason(error: unknown): string {
     return String((nestedFailure as Record<string, unknown>).failure_reason);
   }
   return "";
+}
+
+function areConfigSnapshotsEqual(
+  left: Record<string, unknown> | undefined,
+  right: Record<string, unknown> | undefined
+): boolean {
+  if (left === right) return true;
+  if (!left || !right) return !left && !right;
+  const leftKeys = Object.keys(left);
+  const rightKeys = Object.keys(right);
+  if (leftKeys.length !== rightKeys.length) return false;
+  for (const key of leftKeys) {
+    if (!Object.prototype.hasOwnProperty.call(right, key)) return false;
+    if (!Object.is(left[key], right[key])) return false;
+  }
+  return true;
+}
+
+function areStudioChatContextsEqual(
+  left: StudioChatContext | null,
+  right: StudioChatContext | null
+): boolean {
+  if (left === right) return true;
+  if (!left || !right) return left === right;
+  return (
+    left.projectId === right.projectId &&
+    left.sessionId === right.sessionId &&
+    left.toolType === right.toolType &&
+    left.toolLabel === right.toolLabel &&
+    left.cardId === right.cardId &&
+    left.step === right.step &&
+    left.canRefine === right.canRefine &&
+    left.isRefineMode === right.isRefineMode &&
+    left.targetArtifactId === right.targetArtifactId &&
+    left.targetRunId === right.targetRunId &&
+    left.sourceArtifactId === right.sourceArtifactId &&
+    areConfigSnapshotsEqual(left.configSnapshot, right.configSnapshot)
+  );
 }
 
 export function createChatActions({
@@ -240,6 +279,9 @@ export function createChatActions({
     },
 
     setStudioChatContext: (context) => {
+      if (areStudioChatContextsEqual(get().studioChatContext, context)) {
+        return;
+      }
       set({ studioChatContext: context });
     },
 

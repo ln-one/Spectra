@@ -370,7 +370,7 @@ describe("studio word card", () => {
     );
 
     expect(screen.queryByText("生成一份教案")).not.toBeInTheDocument();
-    expect(screen.getByText("正在加载教案内容...")).toBeInTheDocument();
+    expect(screen.getByText("正在生成教案")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "正在生成教案..." })).not.toBeInTheDocument();
   });
 
@@ -529,11 +529,11 @@ describe("studio word card", () => {
           refineMode: "structured_refine",
           config: expect.objectContaining({
             markdown_content: expect.any(String),
-            lesson_plan_markdown: expect.any(String),
-            document_content: expect.any(Object),
             document_title: "牛顿第二定律教案",
             document_summary: "已更新文档内容。",
             schema_id: "lesson_plan_v1",
+            operation: "direct_edit",
+            direct_edit: true,
           }),
         })
       );

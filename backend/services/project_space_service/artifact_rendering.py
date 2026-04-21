@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import logging
+import time
 from pathlib import Path
 
 from schemas.project_space import ArtifactType
@@ -12,6 +14,8 @@ from services.render_engine_adapter import (
     invoke_render_engine,
     normalize_render_engine_result,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def get_artifact_storage_path(
@@ -135,6 +139,7 @@ async def generate_office_artifact_via_render_service(
     user_id: str,
     normalized_content: dict[str, object],
 ) -> str:
+    started_at = time.perf_counter()
     authority_storage_path = await _resolve_authority_storage_path(
         service=service,
         artifact_type=artifact_type,
@@ -185,4 +190,12 @@ async def generate_office_artifact_via_render_service(
     actual_path = str(actual_path or "").strip()
     if not actual_path:
         raise RuntimeError(f"render_engine_missing_{artifact_type}_artifact")
+    logger.info(
+        "artifact_render_completed artifact_id=%s project_id=%s artifact_type=%s duration_ms=%.2f path=%s",
+        artifact_id,
+        project_id,
+        artifact_type,
+        (time.perf_counter() - started_at) * 1000,
+        actual_path,
+    )
     return actual_path

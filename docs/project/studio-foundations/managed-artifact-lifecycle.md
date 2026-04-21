@@ -242,6 +242,8 @@ Target behavior:
 - normal entry opens `DraftTarget`
 - first durable create makes a new `Artifact`
 - later save/refine updates that same artifact's latest visible state
+- direct edit/save is content-replacement editing and must bypass RAG / AI rewrite
+- chat refine remains a separate instruction-driven path and may still use AI rewrite + RAG
 - history click uses `PinnedArtifactTarget`
 - preview and export use the same resolved artifact target
 - no session-wide "latest Word result" fallback is allowed when reopening a specific artifact

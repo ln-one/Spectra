@@ -16,6 +16,8 @@ from services.project_space_service.service import project_space_service
 from utils.exceptions import APIException, ErrorCode
 
 from .card_source_bindings import get_card_source_artifact_types
+import time
+
 from .card_execution_runtime_helpers import (
     artifact_result_payload,
     build_source_snapshot_payload,
@@ -278,7 +280,11 @@ async def execute_studio_card_artifact_request(
 logger = logging.getLogger(__name__)
 
 
-UPDATE_IN_PLACE_CARDS = {"word_document", "knowledge_mindmap"}
+UPDATE_IN_PLACE_CARDS = {
+    "word_document",
+    "knowledge_mindmap",
+    "interactive_quick_quiz",
+}
 
 
 async def execute_studio_card_structured_refine(
@@ -289,18 +295,33 @@ async def execute_studio_card_structured_refine(
     preview,
     load_content=load_artifact_content,
 ) -> StudioCardExecutionResult:
+    started_at = time.perf_counter()
+
+    def _stage_log(stage: str) -> None:
+        logger.info(
+            "studio_structured_refine_stage card=%s stage=%s session_id=%s artifact_id=%s duration_ms=%.2f",
+            card_id,
+            stage,
+            body.session_id,
+            body.artifact_id,
+            (time.perf_counter() - started_at) * 1000,
+        )
+
     await project_space_service.check_project_permission(
         body.project_id,
         user_id,
         ProjectPermission.COLLABORATE,
     )
+    _stage_log("permission_checked")
     artifact = await validate_structured_refine_artifact(
         card_id=card_id,
         project_id=body.project_id,
         user_id=user_id,
         artifact_id=body.artifact_id,
     )
+    _stage_log("artifact_validated")
     current_content = await load_content(artifact)
+    _stage_log("content_loaded")
     updated_content = await build_structured_refine_artifact_content(
         card_id=card_id,
         current_content=current_content,
@@ -309,6 +330,7 @@ async def execute_studio_card_structured_refine(
         project_id=body.project_id,
         rag_source_ids=body.rag_source_ids,
     )
+    _stage_log("content_built")
     if card_id in UPDATE_IN_PLACE_CARDS:
         new_artifact = await update_existing_artifact(
             source_artifact=artifact,
@@ -323,6 +345,7 @@ async def execute_studio_card_structured_refine(
             user_id=user_id,
             content=updated_content,
         )
+    _stage_log("artifact_persisted")
     artifact_payload = artifact_result_payload(new_artifact)
     inserted_node_id = updated_content.get("_inserted_node_id")
     if isinstance(inserted_node_id, str) and inserted_node_id.strip():
@@ -335,6 +358,7 @@ async def execute_studio_card_structured_refine(
         session_id=getattr(new_artifact, "sessionId", None) or body.session_id,
         title_snapshot=updated_content if isinstance(updated_content, dict) else None,
     )
+    _stage_log("run_recorded")
     placement_supported = _resolve_animation_placement_supported(
         card_id=card_id,
         artifact_type=str(getattr(new_artifact, "type", "") or "").strip(),

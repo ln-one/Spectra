@@ -7,7 +7,7 @@ import json
 import logging
 import os
 import re
-from typing import Any
+from typing import Any, Literal
 
 from services.ai import ai_service
 from services.ai.model_router import ModelRouteTask
@@ -155,6 +155,21 @@ def _resolve_existing_markdown(
     return ""
 
 
+def _resolve_word_refine_mode(config: dict[str, Any]) -> Literal["direct_edit", "chat_refine"]:
+    if config.get("direct_edit") is True:
+        return "direct_edit"
+    if str(config.get("operation") or "").strip().lower() == "direct_edit":
+        return "direct_edit"
+    raw_document = config.get("document_content")
+    if isinstance(raw_document, dict) and raw_document:
+        return "direct_edit"
+    if str(config.get("lesson_plan_markdown") or "").strip():
+        return "direct_edit"
+    if str(config.get("markdown_content") or "").strip():
+        return "direct_edit"
+    return "chat_refine"
+
+
 async def _rewrite_markdown_with_instruction(
     *,
     base_markdown: str,
@@ -233,9 +248,24 @@ async def refine_word_document_content(
     rag_source_ids: list[str] | None,
 ) -> dict[str, Any]:
     updated = copy.deepcopy(current_content)
+    refine_mode = _resolve_word_refine_mode(config)
     raw_document = config.get("document_content")
-    if isinstance(raw_document, dict):
-        document_content = normalize_document_content(raw_document)
+    if refine_mode == "direct_edit":
+        if isinstance(raw_document, dict) and raw_document:
+            document_content = normalize_document_content(raw_document)
+        else:
+            direct_edit_markdown = str(
+                config.get("lesson_plan_markdown") or config.get("markdown_content") or ""
+            ).strip()
+            if not direct_edit_markdown:
+                raise APIException(
+                    status_code=400,
+                    error_code=ErrorCode.INVALID_INPUT,
+                    message="word_document direct edit requires document_content or markdown content",
+                )
+            document_content = normalize_document_content(
+                markdown_to_document_content(direct_edit_markdown)
+            )
     else:
         instruction = str(message or "").strip()
         base_markdown = _resolve_existing_markdown(

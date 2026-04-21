@@ -119,7 +119,10 @@ export const generateApi = {
   async getSession(sessionId: string): Promise<GenerationSessionResponse> {
     const result = await sdkClient.GET(
       "/api/v1/generate/sessions/{session_id}",
-      { params: { path: { session_id: sessionId } } }
+      {
+        params: { path: { session_id: sessionId } },
+        cache: "no-store",
+      }
     );
     return unwrap<GenerationSessionResponse>(result);
   },
@@ -136,7 +139,10 @@ export const generateApi = {
       `${API_BASE_URL}/api/v1/generate/sessions/${encodeURIComponent(sessionId)}`
     );
     url.searchParams.set("run_id", runId);
-    const response = await apiFetch(url.toString(), { method: "GET" });
+    const response = await apiFetch(url.toString(), {
+      method: "GET",
+      cache: "no-store",
+    });
     const payload = await response.json();
     if (!response.ok) {
       throw toApiError(payload, response.status);

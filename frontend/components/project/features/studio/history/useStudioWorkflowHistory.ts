@@ -24,6 +24,12 @@ const TOOL_ORDER: GenerationToolType[] = [
   "handout",
 ];
 
+const MANAGED_LIFECYCLE_TOOLS = new Set<GenerationToolType>([
+  "word",
+  "mindmap",
+  "quiz",
+]);
+
 const WORKFLOW_HISTORY_STORAGE_VERSION = "run-v2";
 
 type WorkflowEntryInput = {
@@ -391,8 +397,6 @@ export function useStudioWorkflowHistory(
     });
 
     if (!input.titleSource?.trim()) return;
-    if (polishedTitleRequestedRef.current[nextItem.id]) return;
-    polishedTitleRequestedRef.current[nextItem.id] = true;
     const rawTitleSource = input.titleSource.trim();
     const polishedTitle =
       summarizeTitleFromDraftJson(
@@ -401,11 +405,26 @@ export function useStudioWorkflowHistory(
       ) ??
       summarizeTitleFromText(rawTitleSource, input.toolLabel || input.title);
     if (!polishedTitle) return;
-    setWorkflowItems((prev) =>
-      prev.map((item) =>
-        item.id === nextItem.id ? { ...item, title: polishedTitle } : item
-      )
-    );
+    setWorkflowItems((prev) => {
+      const resolvedItem =
+        prev.find((item) => item.id === nextItem.id) ??
+        prev.find(
+          (item) =>
+            item.origin === "workflow" &&
+            item.toolType === input.toolType &&
+            item.sessionId === (input.sessionId ?? null) &&
+            normalizeRunId(item.runId) === normalizedInputRunId
+        ) ??
+        null;
+      const resolvedItemId = resolvedItem?.id ?? nextItem.id;
+      if (polishedTitleRequestedRef.current[resolvedItemId]) {
+        return prev;
+      }
+      polishedTitleRequestedRef.current[resolvedItemId] = true;
+      return prev.map((item) =>
+        item.id === resolvedItemId ? { ...item, title: polishedTitle } : item
+      );
+    });
   }, []);
 
   const trackStep = useCallback(
@@ -599,6 +618,15 @@ export function useStudioWorkflowHistory(
         return false;
       }
       if (
+        MANAGED_LIFECYCLE_TOOLS.has(item.toolType) &&
+        sessionArtifactsForTool.length > 0 &&
+        (item.status === "previewing" ||
+          item.status === "completed" ||
+          item.status === "failed")
+      ) {
+        return false;
+      }
+      if (
         item.status === "previewing" &&
         sessionArtifactsForTool.some((artifact) => artifact.status === "completed")
       ) {
@@ -653,6 +681,12 @@ export function useStudioWorkflowHistory(
     );
 
     const dedupedArtifacts = sessionScopedArtifacts.filter((item) => {
+      if (
+        MANAGED_LIFECYCLE_TOOLS.has(item.toolType) &&
+        (item.supersededByArtifactId || item.isCurrent === false)
+      ) {
+        return false;
+      }
       if (item.artifactId && workflowArtifactIds.has(item.artifactId)) {
         return false;
       }

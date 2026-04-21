@@ -280,12 +280,13 @@ async def validate_source_artifact(
 
 
 async def load_artifact_content(artifact) -> dict:
+    metadata = artifact_metadata_dict(artifact)
+    snapshot = metadata.get("content_snapshot")
+    if isinstance(snapshot, dict) and snapshot:
+        return snapshot
+
     artifact_type = str(getattr(artifact, "type", None) or "").strip().lower()
     if _is_legacy_animation_artifact_type(getattr(artifact, "type", None)):
-        metadata = artifact_metadata_dict(artifact)
-        snapshot = metadata.get("content_snapshot")
-        if isinstance(snapshot, dict):
-            return snapshot
         render_spec = metadata.get("render_spec")
         scenes = []
         if isinstance(render_spec, dict):

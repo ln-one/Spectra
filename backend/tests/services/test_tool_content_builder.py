@@ -51,12 +51,16 @@ async def test_build_studio_tool_artifact_content_strict_validates_minimum_field
         ),
     )
 
+    config = {"topic": "Forces"}
+    if card_id == "interactive_quick_quiz":
+        config = {"scope": "Forces"}
+
     with pytest.raises(APIException) as exc_info:
         await tool_content_builder.build_studio_tool_artifact_content(
             card_id=card_id,
             project_id="p-001",
             user_id="u-001",
-            config={"topic": "Forces"},
+            config=config,
         )
 
     exc = exc_info.value
@@ -263,6 +267,93 @@ def test_word_rag_snippet_sanitization_removes_symbol_noise():
     assert "物理层负责比特传输" in cleaned
 
 
+def test_quiz_rag_snippet_sanitization_removes_source_and_code_noise():
+    cleaned = tool_content_builder._sanitize_quiz_rag_text(
+        "[来源:file.pdf] 见第 3 页 chunk-7 def solve(): return schema json\n"
+        "牛顿第二定律说明合力与加速度关系。"
+    )
+    assert "file.pdf" not in cleaned
+    assert "chunk" not in cleaned.lower()
+    assert "schema" not in cleaned.lower()
+    assert "牛顿第二定律说明合力与加速度关系" in cleaned
+
+
+@pytest.mark.asyncio
+async def test_build_studio_tool_artifact_content_quiz_requires_scope_or_source(
+    monkeypatch,
+):
+    monkeypatch.setenv("STUDIO_TOOL_FALLBACK_MODE", "strict")
+    monkeypatch.setenv("STUDIO_TOOL_ENABLE_AI_GENERATION", "true")
+
+    with pytest.raises(APIException) as exc_info:
+        await tool_content_builder.build_studio_tool_artifact_content(
+            card_id="interactive_quick_quiz",
+            project_id="p-001",
+            user_id="u-001",
+            config={"difficulty": "medium"},
+        )
+
+    exc = exc_info.value
+    assert exc.status_code == 400
+    assert exc.details["failure_reason"] == "quiz_scope_missing"
+
+
+@pytest.mark.asyncio
+async def test_build_studio_tool_artifact_content_quiz_uses_composite_rag_query(
+    monkeypatch,
+):
+    monkeypatch.setenv("STUDIO_TOOL_FALLBACK_MODE", "strict")
+    monkeypatch.setenv("STUDIO_TOOL_ENABLE_AI_GENERATION", "true")
+    load_rag_mock = AsyncMock(return_value=["[来源:lesson.md] 牛顿第二定律应用题示例"])
+    monkeypatch.setattr(tool_content_builder, "_load_rag_snippets", load_rag_mock)
+    monkeypatch.setattr(
+        tool_content_builder,
+        "_load_source_artifact_hint",
+        AsyncMock(return_value="力学讲义 (docx)"),
+    )
+    monkeypatch.setattr(
+        tool_content_builder_routing,
+        "resolve_card_artifact_builder",
+        lambda _card_id: AsyncMock(
+            return_value={
+                "kind": "quiz",
+                "title": "牛顿第二定律小测",
+                "question_count": 1,
+                "questions": [
+                    {
+                        "id": "q-1",
+                        "question": "示例题",
+                        "options": ["A", "B", "C", "D"],
+                        "answer": "A",
+                        "explanation": "解析",
+                    }
+                ],
+            }
+        ),
+    )
+
+    await tool_content_builder.build_studio_tool_artifact_content(
+        card_id="interactive_quick_quiz",
+        project_id="p-001",
+        user_id="u-001",
+        config={
+            "scope": "牛顿第二定律",
+            "difficulty": "hard",
+            "question_type": "single",
+            "style_tags": ["贴近课堂", "强调易错点"],
+        },
+        source_artifact_id="artifact-1",
+        rag_source_ids=["file-1"],
+    )
+
+    query = load_rag_mock.await_args.kwargs["query"]
+    assert "牛顿第二定律" in query
+    assert "难度 hard" in query
+    assert "题型 single" in query
+    assert "强调易错点" in query
+    assert "力学讲义" in query
+
+
 @pytest.mark.parametrize(
     ("card_id", "ai_content", "config", "expected_title"),
     [
@@ -271,6 +362,12 @@ def test_word_rag_snippet_sanitization_removes_symbol_noise():
             '{"title":"Doc","summary":"Summary","layout_payload":{"exam_meta":{"duration_minutes":20,"total_score":100,"instructions":["按要求作答"]},"sections":[{"section_title":"选择题","question_type":"single_choice","questions":[{"prompt":"进程的定义是什么？","score":10,"options":["A","B","C","D"],"answer":"A","analysis":"依据课堂定义判断。"}]}],"answer_sheet":["1. A"],"grading_notes":["概念准确","条理清晰"]}}',
             {"topic": "Forces", "document_variant": "post_class_quiz"},
             "Doc",
+        ),
+        (
+            "interactive_quick_quiz",
+            '{"title":"资料显示：牛顿第二定律小测 json schema","scope":"牛顿第二定律","questions":[{"id":"Question 1","question":"资料显示：牛顿第二定律描述了什么关系？","options":["A. 力与加速度成正比","B. 速度与位移成正比","C. 质量与时间成正比","D. 位移与力成正比"],"answer":"A","explanation":"[来源:file.pdf] 重点考查合力、质量与加速度之间的关系。"},{"question":"牛顿第二定律描述了什么关系？","options":["力与加速度成正比","速度与位移成正比","质量与时间成正比","位移与力成正比"],"answer":0,"explanation":"正确项体现合力、质量与加速度之间的定量关系。"}]}',
+            {"scope": "牛顿第二定律", "question_count": 1},
+            "牛顿第二定律小测",
         ),
         (
             "interactive_games",
@@ -319,6 +416,12 @@ async def test_build_studio_tool_artifact_content_routes_cards_through_normalize
         assert payload["kind"] == "teaching_document"
         assert payload["legacy_kind"] == "word_document"
         assert payload["schema_id"] == "lesson_plan_v1"
+    if card_id == "interactive_quick_quiz":
+        assert payload["kind"] == "quiz"
+        assert payload["question_count"] == 1
+        assert payload["questions"][0]["id"] == "question-1"
+        assert payload["questions"][0]["answer"] == "力与加速度成正比"
+    elif card_id == "word_document":
         assert payload["document_content"]["type"] == "doc"
         assert isinstance(payload["lesson_plan"], dict)
         assert "preview_html" in payload

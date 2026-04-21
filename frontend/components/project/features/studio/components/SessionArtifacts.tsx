@@ -4,13 +4,9 @@ import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Archive,
-  CheckCircle2,
   ChevronDown,
   ChevronUp,
-  Clock3,
   Eye,
-  Loader2,
-  XCircle,
   RotateCw,
   Sparkles,
 } from "lucide-react";
@@ -19,6 +15,13 @@ import { cn } from "@/lib/utils";
 import { LightDeleteConfirm } from "@/components/project/features/shared/LightDeleteConfirm";
 import type { StudioHistoryItem } from "../history/types";
 import type { GenerationToolType } from "@/lib/project-space/artifact-history";
+import {
+  resolveHistoryStatusBadgeClass,
+  resolveHistoryStatusText,
+  resolveHistoryStatusVisual,
+  resolveHistoryTypeColor,
+  resolveHistoryTypeIcon,
+} from "../history/display";
 
 interface SessionArtifactsProps {
   groupedHistory: Array<[string, StudioHistoryItem[]]>;
@@ -27,17 +30,6 @@ interface SessionArtifactsProps {
   onOpenHistoryItem: (item: StudioHistoryItem) => void;
   onArchiveHistoryItem: (item: StudioHistoryItem) => void;
 }
-
-const TOOL_ACCENT_COLORS: Record<GenerationToolType, string> = {
-  ppt: "#f97316",
-  word: "#3b82f6",
-  mindmap: "#14b8a6",
-  outline: "#f43f5e",
-  quiz: "#8b5cf6",
-  summary: "#0ea5e9",
-  animation: "#22c55e",
-  handout: "#eab308",
-};
 
 const TEMPLATE_TOOL_TYPES = new Set<GenerationToolType>([
   "ppt",
@@ -54,103 +46,12 @@ const DEPOSITABLE_TOOL_TYPES = new Set<GenerationToolType>([
 ]);
 
 function getToolAccentColor(toolKey: string): string {
-  return (
-    TOOL_ACCENT_COLORS[toolKey as GenerationToolType] ?? "var(--project-accent)"
-  );
+  return resolveHistoryTypeColor(toolKey as GenerationToolType).primary;
 }
 
 function isRecentWorkCandidate(item: StudioHistoryItem): boolean {
   if (!TEMPLATE_TOOL_TYPES.has(item.toolType)) return false;
   return item.status === "completed" || item.status === "previewing";
-}
-
-type HistoryDisplayState =
-  | "outline_generating"
-  | "outline_pending_confirm"
-  | "slides_generating"
-  | "slide_preview_ready"
-  | "completed"
-  | "failed"
-  | "processing"
-  | "previewing"
-  | "pending"
-  | "draft";
-
-function resolveDisplayState(item: StudioHistoryItem): HistoryDisplayState {
-  if (item.toolType === "ppt") {
-    if (item.status === "failed") return "failed";
-    if (item.status === "completed") return "completed";
-    if (item.ppt_status) return item.ppt_status;
-    if (item.status === "previewing") return "slide_preview_ready";
-    if (item.status === "processing") return "slides_generating";
-    if (item.status === "draft") return "outline_generating";
-  }
-  if (item.status === "completed") return "completed";
-  if (item.status === "failed") return "failed";
-  if (item.status === "processing") return "processing";
-  if (item.status === "previewing") return "previewing";
-  if (item.status === "pending") return "pending";
-  return "draft";
-}
-
-function statusText(item: StudioHistoryItem): string {
-  const state = resolveDisplayState(item);
-  if (state === "outline_generating") return "大纲生成中";
-  if (state === "outline_pending_confirm") return "大纲待确认";
-  if (state === "slides_generating") return "课件生成中";
-  if (state === "slide_preview_ready") return "单页可预览";
-  if (state === "completed") {
-    return item.toolType === "ppt" ? "已完成" : "可预览";
-  }
-  if (state === "failed") return "失败";
-  if (state === "processing") return "生成中";
-  if (state === "previewing") return "可预览";
-  if (state === "pending") return "排队中";
-  return "草稿中";
-}
-
-function statusIcon(item: StudioHistoryItem) {
-  const state = resolveDisplayState(item);
-  if (state === "completed" || state === "slide_preview_ready") {
-    return <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />;
-  }
-  if (state === "failed") {
-    return <XCircle className="h-3.5 w-3.5 text-red-500" />;
-  }
-  if (state === "slides_generating" || state === "processing") {
-    return <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-500" />;
-  }
-  if (state === "outline_pending_confirm") {
-    return <Clock3 className="h-3.5 w-3.5 text-orange-500" />;
-  }
-  if (state === "pending") {
-    return <Clock3 className="h-3.5 w-3.5 text-zinc-500" />;
-  }
-  return <Clock3 className="h-3.5 w-3.5 text-amber-500" />;
-}
-
-function statusBadgeClass(item: StudioHistoryItem): string {
-  const state = resolveDisplayState(item);
-  if (state === "slides_generating" || state === "processing") {
-    return "bg-blue-100 text-blue-700";
-  }
-  if (
-    state === "completed" ||
-    state === "previewing" ||
-    state === "slide_preview_ready"
-  ) {
-    return "bg-emerald-100 text-emerald-700";
-  }
-  if (state === "failed") {
-    return "bg-red-100 text-red-700";
-  }
-  if (state === "pending") {
-    return "bg-zinc-100 text-zinc-700";
-  }
-  if (state === "outline_pending_confirm") {
-    return "bg-orange-100 text-orange-700";
-  }
-  return "bg-amber-100 text-amber-700";
 }
 
 function formatHistoryTime(value: string): string {
@@ -161,6 +62,16 @@ function formatHistoryTime(value: string): string {
   const hour = `${date.getHours()}`.padStart(2, "0");
   const minute = `${date.getMinutes()}`.padStart(2, "0");
   return `${month}-${day} ${hour}:${minute}`;
+}
+
+function toArtifactIdRecord(artifactIds: string[]): Record<string, true> {
+  return artifactIds.reduce<Record<string, true>>((acc, artifactId) => {
+    const normalized = artifactId.trim();
+    if (normalized) {
+      acc[normalized] = true;
+    }
+    return acc;
+  }, {});
 }
 
 export function SessionArtifacts({
@@ -205,14 +116,72 @@ export function SessionArtifacts({
       });
       setJoinedArtifactIds((prev) => ({ ...prev, [artifactId]: true }));
     };
+    const handleRemoved = (event: Event) => {
+      const artifactId = String(
+        (
+          event as CustomEvent<{ artifactId?: string; sourceId?: string }>
+        ).detail?.artifactId || ""
+      ).trim();
+      if (!artifactId) return;
+      setPendingJoinArtifactIds((prev) => {
+        if (!prev[artifactId]) return prev;
+        const next = { ...prev };
+        delete next[artifactId];
+        return next;
+      });
+      setJoinedArtifactIds((prev) => {
+        if (!prev[artifactId]) return prev;
+        const next = { ...prev };
+        delete next[artifactId];
+        return next;
+      });
+    };
+    const handleSync = (event: Event) => {
+      const artifactIds = Array.isArray(
+        (
+          event as CustomEvent<{ artifactIds?: string[] }>
+        ).detail?.artifactIds
+      )
+        ? (
+            event as CustomEvent<{ artifactIds?: string[] }>
+          ).detail?.artifactIds ?? []
+        : [];
+      setJoinedArtifactIds(toArtifactIdRecord(artifactIds));
+      setPendingJoinArtifactIds((prev) => {
+        if (Object.keys(prev).length === 0) return prev;
+        const next = { ...prev };
+        for (const artifactId of Object.keys(next)) {
+          if (artifactIds.includes(artifactId)) {
+            delete next[artifactId];
+          }
+        }
+        return next;
+      });
+    };
     window.addEventListener(
       "spectra:artifact-source-added",
       handleAdded as EventListener
+    );
+    window.addEventListener(
+      "spectra:artifact-sources-sync",
+      handleSync as EventListener
+    );
+    window.addEventListener(
+      "spectra:artifact-source-removed",
+      handleRemoved as EventListener
     );
     return () => {
       window.removeEventListener(
         "spectra:artifact-source-added",
         handleAdded as EventListener
+      );
+      window.removeEventListener(
+        "spectra:artifact-sources-sync",
+        handleSync as EventListener
+      );
+      window.removeEventListener(
+        "spectra:artifact-source-removed",
+        handleRemoved as EventListener
       );
     };
   }, []);
@@ -261,6 +230,48 @@ export function SessionArtifacts({
     }, 4000);
   };
 
+  const renderHistoryLeadingVisual = (
+    item: StudioHistoryItem,
+    size: "recent" | "history" = "history"
+  ) => {
+    const TypeIcon = resolveHistoryTypeIcon(item.toolType);
+    const typeColor = resolveHistoryTypeColor(item.toolType);
+    const statusVisual = resolveHistoryStatusVisual(item);
+    const StatusIcon = statusVisual.icon;
+    const shellSize = size === "recent" ? 40 : 34;
+    const iconSize = size === "recent" ? "h-4.5 w-4.5" : "h-4 w-4";
+
+    return (
+      <div className="relative shrink-0">
+        <div
+          className={cn(
+            "project-tool-icon flex items-center justify-center rounded-[var(--project-chip-radius)] border border-white/40 backdrop-blur-md"
+          )}
+          style={{
+            width: shellSize,
+            height: shellSize,
+            background: `linear-gradient(135deg, ${typeColor.glow}, transparent)`,
+            boxShadow: `0 8px 22px ${typeColor.glow}, inset 0 1px 0 rgba(255, 255, 255, 0.6)`,
+          }}
+        >
+          <TypeIcon className={iconSize} style={{ color: typeColor.primary }} />
+        </div>
+        <div
+          className={cn(
+            "absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full border",
+            statusVisual.className
+          )}
+        >
+          {StatusIcon ? (
+            <StatusIcon className={statusVisual.iconClassName} />
+          ) : (
+            <span className={statusVisual.dotClassName} />
+          )}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -296,18 +307,17 @@ export function SessionArtifacts({
               最近成果
             </p>
             {recentWork.map((item) => {
-              const toolAccent = getToolAccentColor(item.toolType);
               return (
                 <div
                   key={`recent-${item.id}`}
                   className="group flex items-center gap-2 rounded-xl border border-[var(--project-border)] bg-[var(--project-surface-elevated)] p-2 transition-colors hover:brightness-95"
                 >
                   <button
-                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--project-surface-muted)] shadow-sm"
+                    className="shrink-0"
                     onClick={() => onOpenHistoryItem(item)}
                     aria-label="回到这个成果继续工作"
                   >
-                    {statusIcon(item)}
+                    {renderHistoryLeadingVisual(item, "recent")}
                   </button>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-[11px] font-medium text-[var(--project-text-primary)]">
@@ -317,14 +327,14 @@ export function SessionArtifacts({
                       <span
                         className={cn(
                           "shrink-0 rounded-full px-1.5 py-0.5 whitespace-nowrap",
-                          statusBadgeClass(item)
+                          resolveHistoryStatusBadgeClass(item)
                         )}
                       >
-                        {statusText(item)}
+                        {resolveHistoryStatusText(item)}
                       </span>
                       <span
                         className="inline-block h-1.5 w-1.5 shrink-0 rounded-full"
-                        style={{ backgroundColor: toolAccent }}
+                        style={{ backgroundColor: getToolAccentColor(item.toolType) }}
                       />
                       <span className="min-w-0 truncate">
                         回到这个成果继续工作
@@ -399,7 +409,7 @@ export function SessionArtifacts({
                         onClick={() =>
                           setExpandedTools((prev) => ({
                             ...prev,
-                            [toolKey]: !Boolean(prev[toolKey]),
+                            [toolKey]: !prev[toolKey],
                           }))
                         }
                         aria-label={isExpanded ? "收起历史记录" : "展开历史记录"}
@@ -430,10 +440,11 @@ export function SessionArtifacts({
                       >
                         <button
                           type="button"
-                          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[var(--project-surface-elevated)] shadow-sm"
+                          className="shrink-0"
                           onClick={() => handleOpen(item)}
+                          aria-label={`打开${toolLabels[item.toolType] ?? item.toolType}历史记录`}
                         >
-                          {statusIcon(item)}
+                          {renderHistoryLeadingVisual(item)}
                         </button>
                         <div className="flex min-w-0 flex-1 flex-col justify-center">
                           <p className="w-full truncate text-[11px] font-medium text-[var(--project-text-primary)]">
@@ -443,10 +454,10 @@ export function SessionArtifacts({
                             <span
                               className={cn(
                                 "shrink-0 rounded-full px-1.5 py-0.5 whitespace-nowrap",
-                                statusBadgeClass(item)
+                                resolveHistoryStatusBadgeClass(item)
                               )}
                             >
-                              {statusText(item)}
+                              {resolveHistoryStatusText(item)}
                             </span>
                             <span
                               className="inline-block h-1.5 w-1.5 shrink-0 rounded-full"
