@@ -4,7 +4,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Plus,
   Search,
-  Grid3X3,
   List,
   Settings,
   Grid,
@@ -80,7 +79,7 @@ export default function ProjectsPage() {
           </p>
           <div className="mt-8 flex items-center justify-center gap-4">
             <Button
-              onClick={fetchProjects}
+              onClick={() => void fetchProjects()}
               className="rounded-full px-8 py-6 bg-zinc-900 hover:bg-zinc-800 transition-all"
             >
               尝试重连

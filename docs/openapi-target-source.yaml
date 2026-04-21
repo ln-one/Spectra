@@ -93,6 +93,8 @@ paths:
   # RAG
   /api/v1/rag/search:
     $ref: './openapi/paths/rag.yaml#/~1api~1v1~1rag~1search'
+  /api/v1/rag/prompt-suggestions:
+    $ref: './openapi/paths/rag.yaml#/~1api~1v1~1rag~1prompt-suggestions'
   /api/v1/rag/sources/{chunk_id}:
     $ref: './openapi/paths/rag.yaml#/~1api~1v1~1rag~1sources~1{chunk_id}'
   /api/v1/rag/sources/{chunk_id}/image:

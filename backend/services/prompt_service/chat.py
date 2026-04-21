@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+import json
 import re
-from typing import Optional
+from typing import Any, Optional
 
 from .constants import CHAT_NATURAL_FEW_SHOT
 from .escaping import escape_prompt_text
@@ -34,12 +35,89 @@ def contains_mechanical_option_pattern(text: str) -> bool:
     )
 
 
+def _build_teaching_brief_protocol_section(
+    teaching_brief_context: dict[str, Any] | None,
+) -> str:
+    if not teaching_brief_context:
+        return ""
+
+    status = str(teaching_brief_context.get("status") or "draft").strip() or "draft"
+    can_generate = bool(teaching_brief_context.get("can_generate"))
+    missing_fields = list(teaching_brief_context.get("missing_fields") or [])
+    current_brief = dict(teaching_brief_context.get("brief") or {})
+
+    protocol_parts = [
+        "你当前必须把教学需求单当作本轮会话的前置工作面，而不是可有可无的补充信息。",
+        "优先围绕教学需求单推进对话，再考虑是否进入课件生成建议。",
+    ]
+    if status == "confirmed":
+        protocol_parts.extend(
+            [
+                "教学需求单已确认，不要继续主动追问新的需求字段。",
+                "如果老师提出新的修改意图，提醒这会使已确认需求单失效，需要重新确认。",
+                "可以提示老师教学需求已确认完成，可以开始生成课件。",
+            ]
+        )
+    elif can_generate:
+        protocol_parts.extend(
+            [
+                "当前需求字段已齐备，但需求单尚未确认。",
+                "本轮应主动生成一段老师可读的需求总结，并明确询问“这些信息是否准确；如果没问题，我会标记需求单为已确认”。",
+                "在这段总结正文之后，追加一个独立代码块标记确认请求：```spectra_brief_summary",
+                '{"request_confirmation": true}',
+                "```",
+            ]
+        )
+    else:
+        protocol_parts.extend(
+            [
+                "你的首要任务是帮助老师逐步完善教学需求单。",
+                "每轮回复末尾必须只追问 missing_fields 中当前最紧迫的 1 个字段，不要一次追问多个散乱问题。",
+                "不要直接建议“开始生成 PPT”或“现在生成课件”，除非 missing_fields 已为空。",
+            ]
+        )
+
+    current_brief_json = escape_prompt_text(
+        json.dumps(current_brief, ensure_ascii=False, indent=2)
+    )
+    missing_fields_json = escape_prompt_text(
+        json.dumps(missing_fields, ensure_ascii=False)
+    )
+    behavior_rules = escape_prompt_text("\n".join(f"- {part}" for part in protocol_parts))
+
+    return f"""
+<teaching_brief_protocol status="{escape_prompt_text(status)}" can_generate="{str(can_generate).lower()}">
+  <current_brief>{current_brief_json}</current_brief>
+  <missing_fields>{missing_fields_json}</missing_fields>
+  <behavior_rules>
+{behavior_rules}
+  </behavior_rules>
+</teaching_brief_protocol>
+
+<structured_extraction_contract>
+如果老师本轮消息中包含教学需求信息，请在回复正文之后、以独立代码块输出一段 JSON：
+- 仅提取你有把握的字段：topic, audience, duration_minutes, lesson_hours, target_pages, teaching_objectives, knowledge_points, global_emphasis, global_difficulties, teaching_strategy, style_profile
+- 格式必须是：
+```spectra_brief_extract
+{{"field": "value", ...}}
+```
+- 如果需要附带置信度，可使用：
+```spectra_brief_extract
+{{"fields": {{"field": "value"}}, "confidence": 0.85}}
+```
+- 未提及或不确定的字段不要输出
+- 如果本轮没有任何可提取字段，不要输出该代码块
+</structured_extraction_contract>
+"""
+
+
 def build_chat_response_prompt(
     user_message: str,
     intent: str,
     session_id: Optional[str] = None,
     rag_context: Optional[list[dict]] = None,
     conversation_history: Optional[list[dict]] = None,
+    teaching_brief_context: Optional[dict[str, Any]] = None,
 ) -> str:
     """Build prompt for general chat responses."""
     rag_section = build_rag_reference_section(
@@ -47,6 +125,9 @@ def build_chat_response_prompt(
     )
     history_section = build_conversation_history_section(conversation_history)
     session_section = build_session_scope_section(session_id)
+    teaching_brief_section = _build_teaching_brief_protocol_section(
+        teaching_brief_context
+    )
 
     return f"""你是 Spectra 教学助教。你的任务是与老师自然共创，帮助老师推进教学设计，而不是机械应答。
 
@@ -54,7 +135,7 @@ def build_chat_response_prompt(
   <intent>{escape_prompt_text(intent)}</intent>
   <teacher_message>{escape_prompt_text(user_message)}</teacher_message>
 </task_context>
-{history_section}{session_section}{rag_section}
+{history_section}{session_section}{rag_section}{teaching_brief_section}
 <response_contract>
 1. 严禁使用机械的 A/B/C 选项格式（例如“请选择 A/B/C”“以下三种方式”）。
 2. 优先直接回应老师此刻最需要推进的问题，先给 1-2 个具体切入点，再决定是否追问。

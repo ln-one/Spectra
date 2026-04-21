@@ -58,6 +58,10 @@ class Message(BaseModel):
         None,
         description="assistant 回复关联的来源引用（RAG 命中时填充）",
     )
+    metadata: Optional[dict[str, Any]] = Field(
+        None,
+        description="消息元数据，用于 preview copilot、refine 或来源绑定场景。",
+    )
 
 
 class SendMessageRequest(BaseModel):
@@ -107,6 +111,10 @@ class SendMessageResponse(BaseModel):
     )
     session_title: Optional[str] = Field(None, description="当前会话展示标题")
     session_title_source: Optional[str] = Field(None, description="当前会话标题来源")
+    teaching_brief_hint: Optional[Dict[str, Any]] = Field(
+        None,
+        description="教学需求单候选更新提示，仅供前端提示刷新快照。",
+    )
 
 
 class GetMessagesResponse(BaseModel):

@@ -12,6 +12,7 @@ from services.generation_session_service.session_history import (
     SESSION_TITLE_SOURCE_DEFAULT,
     build_numbered_default_session_title,
 )
+from services.generation_session_service.teaching_brief import merge_session_options
 from services.platform.generation_event_constants import GenerationEventType
 from services.platform.state_transition_guard import GenerationState
 
@@ -66,9 +67,13 @@ async def create_session(
         )
 
     if existing_session:
+        merged_options = merge_session_options(
+            existing_raw=getattr(existing_session, "options", None),
+            incoming=resolved_options,
+        )
         update_data = {
             "outputType": output_type,
-            "options": json.dumps(resolved_options) if resolved_options else None,
+            "options": json.dumps(merged_options) if merged_options else None,
             "clientSessionId": client_session_id,
         }
         if not getattr(existing_session, "displayTitle", None):
@@ -103,7 +108,11 @@ async def create_session(
             "userId": user_id,
             "baseVersionId": project_base_version_id,
             "outputType": output_type,
-            "options": json.dumps(resolved_options) if resolved_options else None,
+            "options": json.dumps(
+                merge_session_options(existing_raw=None, incoming=resolved_options)
+            )
+            if resolved_options
+            else None,
             "clientSessionId": client_session_id,
             "state": initial_state,
             "renderVersion": 0,

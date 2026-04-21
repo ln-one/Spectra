@@ -86,7 +86,14 @@ async def _load_or_init_run_preview_payload(
         if isinstance(rendered, dict)
         else []
     )
-    format_name = str((rendered or {}).get("format") or "html").strip() or "html"
+    has_svg_pages = any(
+        str(page.get("format") or "").strip().lower() == "svg"
+        or str(page.get("svg_data_url") or "").startswith("data:image/svg+xml")
+        for page in pages
+    )
+    format_name = str((rendered or {}).get("format") or "svg").strip() or "svg"
+    if has_svg_pages:
+        format_name = "svg"
     payload["rendered_preview"] = {
         "format": format_name,
         "pages": sorted(
@@ -107,8 +114,15 @@ def _build_spectra_preview_page(
     slide_no: int,
     preview: dict[str, object],
 ) -> dict[str, object] | None:
-    html_preview = str(preview.get("html_preview") or "")
-    if not html_preview.strip():
+    raw_manifest = preview.get("preview")
+    manifest = dict(raw_manifest) if isinstance(raw_manifest, dict) else {}
+    svg_data_url = str(
+        preview.get("svg_data_url") or manifest.get("svg_data_url") or ""
+    ).strip()
+    preview_format = str(
+        preview.get("preview_format") or manifest.get("format") or ""
+    ).strip().lower()
+    if preview_format != "svg" or not svg_data_url.startswith("data:image/svg+xml"):
         return None
     try:
         page_index = int(preview.get("page_index") or (slide_no - 1))
@@ -133,18 +147,25 @@ def _build_spectra_preview_page(
     page: dict[str, object] = {
         "index": page_index,
         "slide_id": slide_id,
-        "html_preview": html_preview,
-        "image_url": preview.get("image_url"),
+        "format": "svg",
+        "svg_data_url": svg_data_url,
+        "preview": {
+            **manifest,
+            "index": page_index,
+            "slide_id": slide_id,
+            "format": "svg",
+            "svg_data_url": svg_data_url,
+        },
         "status": str(preview.get("status") or "ready"),
         "split_index": split_index,
         "split_count": max(1, split_count),
     }
-    width = preview.get("width")
-    height = preview.get("height")
-    if isinstance(width, int) and width > 0:
-        page["width"] = width
-    if isinstance(height, int) and height > 0:
-        page["height"] = height
+    width = preview.get("width") or manifest.get("width")
+    height = preview.get("height") or manifest.get("height")
+    if isinstance(width, (int, float)) and width > 0:
+        page["width"] = int(width)
+    if isinstance(height, (int, float)) and height > 0:
+        page["height"] = int(height)
     return page
 
 
@@ -153,8 +174,14 @@ def _upsert_rendered_preview_page(
 ) -> bool:
     rendered = preview_payload.get("rendered_preview")
     if not isinstance(rendered, dict):
-        rendered = {"format": "html", "pages": [], "page_count": 0}
+        rendered = {"format": "svg", "pages": [], "page_count": 0}
         preview_payload["rendered_preview"] = rendered
+    page_is_svg = (
+        str(page.get("format") or "").strip().lower() == "svg"
+        or str(page.get("svg_data_url") or "").startswith("data:image/svg+xml")
+    )
+    if page_is_svg and str(rendered.get("format") or "").strip().lower() != "svg":
+        rendered["format"] = "svg"
     pages = rendered.get("pages")
     if not isinstance(pages, list):
         pages = []

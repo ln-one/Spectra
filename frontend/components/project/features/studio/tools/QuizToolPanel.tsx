@@ -74,8 +74,8 @@ export function QuizToolPanel({
   const [, workflowSend] = useMachine(quizWorkflowMachine);
 
   const { suggestions, isLoading } = useStudioRagRecommendations({
-    query: "为当前项目推荐适合随堂小测的重点考查范围、易错点和典型题型",
-    fallbackSuggestions: ["当前项目核心概念", "高频易错点", "关键例题变式"],
+    surface: "studio_quiz",
+    seedText: scope,
   });
 
   useEffect(() => {

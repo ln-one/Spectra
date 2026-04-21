@@ -222,6 +222,7 @@ async def load_rag_context(
                     page_number=result.source.page_number,
                     timestamp=getattr(result.source, "timestamp", None),
                     score=result.score,
+                    content_preview=getattr(result, "content", "")[:240],
                     source_scope=(getattr(result, "metadata", None) or {}).get(
                         "source_scope"
                     ),

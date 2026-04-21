@@ -46,6 +46,7 @@ class ModelRouteTask(str, Enum):
     RAG_DEEP_SUMMARY = "rag_deep_summary"
     LESSON_PLAN_REASONING = "lesson_plan_reasoning"
     PREVIEW_MODIFICATION = "preview_modification"
+    PROMPT_SUGGESTION = "prompt_suggestion"
 
 
 @dataclass(frozen=True)
@@ -77,6 +78,7 @@ class ModelRouter:
         ModelRouteTask.RAG_DEEP_SUMMARY.value,
         ModelRouteTask.LESSON_PLAN_REASONING.value,
         ModelRouteTask.PREVIEW_MODIFICATION.value,
+        ModelRouteTask.PROMPT_SUGGESTION.value,
     )
     _TASK_ORDER = _LIGHT_TASKS + _ADAPTIVE_TASKS + _HEAVY_TASKS
     _LIGHT_TASK_SET = set(_LIGHT_TASKS)

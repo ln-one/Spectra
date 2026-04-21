@@ -9,6 +9,7 @@ import { toast } from "@/hooks/use-toast";
 import { studioCardsApi } from "@/lib/sdk/studio-cards";
 import { cn } from "@/lib/utils";
 import { useProjectStore, GENERATION_TOOLS } from "@/stores/projectStore";
+import { startCoursewarePptRun } from "@/stores/project-store/courseware-run";
 import { resolveReadySelectedFileIds } from "@/stores/project-store/source-scope";
 import type { GenerationToolType } from "@/lib/project-space/artifact-history";
 import { STUDIO_TOOL_COMPONENTS } from "../tools";
@@ -42,60 +43,6 @@ import type {
   StudioGovernanceRubric,
   StudioWorkflowState,
 } from "../tools";
-
-function extractSessionIdFromExecutionResult(
-  executionResult: Record<string, unknown>
-): string | null {
-  const session =
-    typeof executionResult.session === "object" &&
-    executionResult.session !== null
-      ? (executionResult.session as Record<string, unknown>)
-      : null;
-  return (
-    (typeof session?.session_id === "string" && session.session_id) ||
-    (typeof session?.id === "string" && session.id) ||
-    null
-  );
-}
-
-function extractRunIdFromExecutionResult(
-  executionResult: Record<string, unknown>
-): string | null {
-  const run =
-    typeof executionResult.run === "object" && executionResult.run !== null
-      ? (executionResult.run as Record<string, unknown>)
-      : null;
-  const runRunId = typeof run?.run_id === "string" ? run.run_id : null;
-  return runRunId && runRunId.trim() ? runRunId : null;
-}
-
-function mapVisualStyleToDiegoPreset(styleId: string): string {
-  const normalized = String(styleId || "")
-    .trim()
-    .toLowerCase();
-  const mapping: Record<string, string> = {
-    free: "auto",
-    wabi: "wabi-sabi",
-    brutalist: "neo-brutalism",
-    electro: "electro-pop",
-    geometric: "geo-bold",
-    modernacademic: "contemporary-academic",
-    curatorial: "academic-curation",
-    warmvc: "warm-vc",
-    coolblue: "rational-blue",
-    nordic: "nordic-research",
-    fluid: "emotional-flow",
-    cinema: "cinema-minimal",
-    "8bit": "8bit",
-  };
-  return mapping[normalized] || normalized || "auto";
-}
-
-function normalizePageCount(value: unknown): number {
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed)) return 12;
-  return Math.min(50, Math.max(1, Math.round(parsed)));
-}
 
 function getBindingStatus(
   binding?: { status?: string | null } | null
@@ -503,7 +450,8 @@ export function StudioPanelContainer({
     selectedArtifactSourceIds,
     draftSourceArtifactId: capability.draftSourceArtifactId,
     activeSessionId,
-    activeRunId,
+    activeRunId:
+      expandedTool === "ppt" ? activeRunId : seededRunIdForManagedTool,
     generationSession,
     isProtocolPending: capability.isProtocolPending,
     requiresSourceArtifact: capability.requiresSourceArtifact,
@@ -1363,56 +1311,17 @@ export function StudioPanelContainer({
                   files,
                   selectedFileIds
                 );
-                const effectiveSelectedSourceIds = Array.from(
-                  new Set([
-                    ...readySelectedFileIds,
-                    ...selectedArtifactSourceIds,
-                  ])
-                );
-                const generationMode =
-                  config.layoutMode === "classic" ? "template" : "scratch";
-                const normalizedPageCount = normalizePageCount(
-                  config.pageCount
-                );
-                const templateId =
-                  generationMode === "template"
-                    ? (config.templateId ?? undefined)
-                    : undefined;
-                const stylePreset =
-                  generationMode === "scratch"
-                    ? mapVisualStyleToDiegoPreset(config.visualStyle)
-                    : "auto";
-                const executeResponse = await studioCardsApi.execute(
-                  "courseware_ppt",
-                  {
-                    project_id: project.id,
-                    client_session_id: liveSessionId,
-                    run_id: liveRunId,
-                    selected_file_ids: effectiveSelectedSourceIds,
-                    rag_source_ids:
-                      effectiveSelectedSourceIds.length > 0
-                        ? effectiveSelectedSourceIds
-                        : undefined,
-                    selected_library_ids: selectedLibraryIds,
-                    config: {
-                      topic: config.prompt,
-                      pages: normalizedPageCount,
-                      target_slide_count: normalizedPageCount,
-                      generation_mode: generationMode,
-                      template_id: templateId,
-                      style_preset: stylePreset,
-                      visual_policy: config.visualPolicy,
-                    },
-                  }
-                );
-                const executionResult =
-                  (executeResponse?.data?.execution_result as Record<
-                    string,
-                    unknown
-                  >) ?? {};
-                sessionId =
-                  extractSessionIdFromExecutionResult(executionResult);
-                runId = extractRunIdFromExecutionResult(executionResult);
+                const execution = await startCoursewarePptRun({
+                  projectId: project.id,
+                  clientSessionId: liveSessionId,
+                  runId: liveRunId,
+                  ragSourceIds: readySelectedFileIds,
+                  selectedLibraryIds,
+                  config,
+                  teachingBrief: generationSession?.teaching_brief ?? undefined,
+                });
+                sessionId = execution.sessionId;
+                runId = execution.runId;
 
 	                if (!sessionId) {
 	                  throw new Error(

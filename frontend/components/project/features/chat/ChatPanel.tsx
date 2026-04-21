@@ -1,9 +1,10 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowUp, Loader2, Sparkles, Mic } from "lucide-react";
+import { ArrowUp, Loader2, Mic } from "lucide-react";
 import { toast } from "sonner";
+import { ThinkingMark } from "@/components/icons/status/ThinkingMark";
 import { useProjectStore } from "@/stores/projectStore";
 import { useShallow } from "zustand/react/shallow";
 import { cn } from "@/lib/utils";
@@ -20,6 +21,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { SUGGESTIONS } from "./constants";
 import { MessageBubble } from "./components/MessageBubble";
 import { ThinkingBubble } from "./components/ThinkingBubble";
+import { TeachingBriefDialog } from "./components/TeachingBriefDialog";
+import { TeachingBriefInlineCard } from "./components/TeachingBriefInlineCard";
 import { SelectedSourceScopeBadge } from "@/components/project/features/sources/components/SelectedSourceScopeBadge";
 import { TOOL_COLORS } from "@/components/project/features/studio/constants";
 import type { ChatMessage } from "./types";
@@ -90,6 +93,7 @@ export function ChatPanel({
     hydrateStudioLocalState,
     lastFailedInput,
     clearLastFailedInput,
+    latestBriefHint,
   } = useProjectStore(
     useShallow((state) => ({
       messages: state.messages,
@@ -105,6 +109,7 @@ export function ChatPanel({
       hydrateStudioLocalState: state.hydrateStudioLocalState,
       lastFailedInput: state.lastFailedInput,
       clearLastFailedInput: state.clearLastFailedInput,
+      latestBriefHint: state.latestBriefHint,
     }))
   );
 
@@ -592,28 +597,31 @@ export function ChatPanel({
               {CHAT_DESCRIPTION}
             </CardDescription>
           </div>
-          {showHeaderThinkingIndicator ? (
-            <motion.div
-              initial={{ opacity: 0, x: 10 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 10 }}
-              className="flex items-center gap-2 rounded-full border border-[var(--project-border)] bg-[var(--project-surface-muted)] px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-[var(--project-text-muted)] shadow-sm"
-            >
+          <div className="flex items-center gap-2">
+            <TeachingBriefDialog />
+            {showHeaderThinkingIndicator ? (
               <motion.div
-                animate={{
-                  scale: [1, 1.2, 1],
-                  opacity: [0.5, 1, 0.5],
-                }}
-                transition={{
-                  duration: 2,
-                  repeat: Infinity,
-                  ease: "easeInOut",
-                }}
-                className="h-1.5 w-1.5 rounded-full bg-[var(--project-accent)]"
-              />
-              <span>{THINKING_LABEL}</span>
-            </motion.div>
-          ) : null}
+                initial={{ opacity: 0, x: 10 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 10 }}
+                className="flex items-center gap-2 rounded-full border border-[var(--project-border)] bg-[var(--project-surface-muted)] px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-[var(--project-text-muted)] shadow-sm"
+              >
+                <motion.div
+                  animate={{
+                    scale: [1, 1.2, 1],
+                    opacity: [0.5, 1, 0.5],
+                  }}
+                  transition={{
+                    duration: 2,
+                    repeat: Infinity,
+                    ease: "easeInOut",
+                  }}
+                  className="h-1.5 w-1.5 rounded-full bg-[var(--project-accent)]"
+                />
+                <span>{THINKING_LABEL}</span>
+              </motion.div>
+            ) : null}
+          </div>
         </CardHeader>
 
         <CardContent className="relative h-[calc(100%-52px)] overflow-hidden p-0">
@@ -642,7 +650,7 @@ export function ChatPanel({
                     transition={{ type: "spring", stiffness: 300, damping: 20 }}
                     className="project-empty-icon mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--project-surface-muted)] shadow-sm"
                   >
-                    <Sparkles className="h-7 w-7 text-[var(--project-text-muted)]" />
+                    <ThinkingMark className="h-7 w-7 text-[var(--project-text-muted)]" />
                   </motion.div>
                   <p className="text-sm font-semibold text-[var(--project-text-primary)]">
                     {EMPTY_TITLE}
@@ -686,6 +694,7 @@ export function ChatPanel({
                   {showGlobalThinkingBubble && (
                     <ThinkingBubble toolColor={toolColors} />
                   )}
+                  <TeachingBriefInlineCard />
                   <div
                     ref={messagesEndRef}
                     style={{ scrollMarginBottom: `${composerClearance}px` }}
@@ -761,7 +770,7 @@ export function ChatPanel({
                     }}
                   >
                     <span className="truncate flex items-center gap-1.5">
-                      <Sparkles className="h-3.5 w-3.5" />
+                      <ThinkingMark className="h-3.5 w-3.5" />
                       正在微调：{refineToolLabel}
                     </span>
                     {isStudioRefining ? (
@@ -800,7 +809,11 @@ export function ChatPanel({
                     activeSessionId
                       ? isStudioRefineMode
                         ? REFINE_PLACEHOLDER
-                        : INPUT_PLACEHOLDER
+                        : (latestBriefHint?.briefStatus === 'review_pending' || latestBriefHint?.aiRequestsConfirmation)
+                          ? '继续补充教学需求，或点击上方确认'
+                          : latestBriefHint?.briefStatus === 'confirmed'
+                            ? '输入"开始生成"启动课件生成，或继续对话修改需求'
+                            : '描述您的教学目标，例如"面向高一学生讲解牛顿第二定律，45分钟"'
                       : NO_SESSION_PLACEHOLDER
                   }
                   disabled={

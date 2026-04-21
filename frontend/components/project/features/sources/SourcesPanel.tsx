@@ -187,7 +187,6 @@ export function SourcesPanel({
   const [pendingArtifactSourceIds, setPendingArtifactSourceIds] = useState<
     Record<string, true>
   >({});
-  const previousArtifactSourceIdsRef = useRef<string[]>([]);
   const referencedLibraryCards = useMemo<ReferencedLibraryCardData[]>(
     () =>
       activeReferencedLibraries.map((reference) => {
@@ -354,27 +353,6 @@ export function SourcesPanel({
     void loadArtifactSources();
   }, [loadArtifactSources]);
 
-  useEffect(() => {
-    if (artifactSources.length === 0) {
-      previousArtifactSourceIdsRef.current = [];
-      return;
-    }
-    const ids = artifactSources
-      .map((source) => source.id)
-      .filter((sourceId): sourceId is string => Boolean(sourceId));
-    if (!ids.length) {
-      previousArtifactSourceIdsRef.current = [];
-      return;
-    }
-    const previousIds = new Set(previousArtifactSourceIdsRef.current);
-    const nextIds = ids.filter((id) => !previousIds.has(id));
-    previousArtifactSourceIdsRef.current = ids;
-    if (!nextIds.length) return;
-    setSelectedArtifactSourceIds(
-      Array.from(new Set([...selectedArtifactSourceIds, ...nextIds]))
-    );
-  }, [artifactSources, selectedArtifactSourceIds, setSelectedArtifactSourceIds]);
-
   const normalizeLibrary = useCallback(
     (raw: unknown): SelectableLibrary | null => {
       if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
@@ -513,11 +491,6 @@ export function SourcesPanel({
               detail: { artifactId },
             })
           );
-          setSelectedArtifactSourceIds(
-            Array.from(
-              new Set([...selectedArtifactSourceIds, String(nextSource.id)])
-            )
-          );
         } else {
           await loadArtifactSources();
         }
@@ -536,8 +509,6 @@ export function SourcesPanel({
     [
       loadArtifactSources,
       projectId,
-      selectedArtifactSourceIds,
-      setSelectedArtifactSourceIds,
     ]
   );
 

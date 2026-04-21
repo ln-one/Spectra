@@ -118,6 +118,7 @@ async def _sync_pending_slide_previews(
         page_count = (
             int(rendered.get("page_count") or 0) if isinstance(rendered, dict) else 0
         )
+        svg_data_url = str(page.get("svg_data_url") or "")
         event_payload = {
             "stage": "preview_slide_rendered",
             "run_id": run.id,
@@ -130,9 +131,10 @@ async def _sync_pending_slide_previews(
             "slide_index": int(page.get("index") or 0),
             "slide_id": str(page.get("slide_id") or ""),
             "status": str(page.get("status") or "ready"),
-            "preview_ready": True,
-            "html_preview": str(page.get("html_preview") or ""),
-            "html_preview_ready": bool(str(page.get("html_preview") or "").strip()),
+            "preview_ready": bool(svg_data_url.strip()),
+            "preview_format": "svg",
+            "svg_data_url": svg_data_url or None,
+            "svg_preview_ready": bool(svg_data_url.strip()),
             "preview_width": int(page.get("width") or 0) or None,
             "preview_height": int(page.get("height") or 0) or None,
             "is_final": True,

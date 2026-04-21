@@ -46,6 +46,13 @@ function readString(value: unknown): string | null {
   return trimmed ? trimmed : null;
 }
 
+function isRenderableSvgDataUrl(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    value.trim().startsWith("data:image/svg+xml")
+  );
+}
+
 export function isMatchingSlideReadyEvent(
   event: { event_type?: unknown; payload?: unknown },
   runId: string
@@ -63,7 +70,15 @@ export function isMatchingSlideReadyEvent(
     readString(
       (payload?.section_payload as { run_id?: unknown } | undefined)?.run_id
     );
-  return payloadRunId === runId;
+  if (payloadRunId !== runId) return false;
+  const sectionPayload =
+    payload?.section_payload && typeof payload.section_payload === "object"
+      ? (payload.section_payload as Record<string, unknown>)
+      : null;
+  return (
+    isRenderableSvgDataUrl(payload?.svg_data_url) ||
+    isRenderableSvgDataUrl(sectionPayload?.svg_data_url)
+  );
 }
 
 function isMatchingOutlineCompletedEvent(

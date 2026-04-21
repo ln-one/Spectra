@@ -1,8 +1,9 @@
 ﻿import Link from "next/link";
 import { motion, useReducedMotion } from "framer-motion";
-import { ArrowRight, Play, Sparkles } from "lucide-react";
+import { ArrowRight, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { BrandMark } from "@/components/icons/brand/BrandMark";
 import { LightRays } from "@/components/ui/light-rays";
 
 export function CTASection({ onShowVideo }: { onShowVideo: () => void }) {
@@ -50,7 +51,7 @@ export function CTASection({ onShowVideo }: { onShowVideo: () => void }) {
                   }}
                   className="w-16 h-16 mx-auto mb-6 rounded-2xl bg-white/10 backdrop-blur-sm flex items-center justify-center border border-white/20 shadow-lg"
                 >
-                  <Sparkles className="w-8 h-8 text-white" />
+                  <BrandMark className="w-8 h-8 text-white" />
                 </motion.div>
 
                 <h2 className="text-3xl md:text-5xl font-bold mb-6 tracking-tight">

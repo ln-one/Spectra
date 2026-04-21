@@ -102,6 +102,29 @@ async def execute_rag_indexing_task(
             parse_result=parse_result,
             error_message=None,
         )
+        try:
+            from services.prompt_suggestion_pool import (
+                ALL_PROMPT_SUGGESTION_SURFACES,
+                build_project_source_fingerprint,
+                enqueue_project_prompt_suggestion_refresh_from_env,
+            )
+
+            source_fingerprint, _ = await build_project_source_fingerprint(
+                project_id,
+                db=db,
+            )
+            await enqueue_project_prompt_suggestion_refresh_from_env(
+                project_id=project_id,
+                surfaces=ALL_PROMPT_SUGGESTION_SURFACES,
+                source_fingerprint=source_fingerprint,
+            )
+        except Exception as enqueue_exc:
+            logger.warning(
+                "prompt_suggestion_pool_enqueue_failed: project_id=%s error=%s",
+                project_id,
+                enqueue_exc,
+                exc_info=True,
+            )
         logger.info(
             "rag_indexing_task_completed",
             extra={"file_id": file_id, "project_id": project_id},

@@ -2,12 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowUpRight, Check, ChevronUp, Sparkles, Trash2 } from "lucide-react";
+import { ArrowUpRight, Check, ChevronUp, Trash2 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
 import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
 import remarkGfm from "remark-gfm";
 import { ragApi } from "@/lib/sdk";
+import { SummaryMark } from "@/components/icons/status/SummaryMark";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { FILE_TYPE_CONFIG, STATUS_CONFIG } from "../constants";
@@ -478,7 +479,7 @@ export function FileItem({
           >
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2 text-[10px] text-[var(--project-text-muted)]">
-                <Sparkles className="h-3 w-3" />
+                <SummaryMark className="h-3 w-3" />
                 <span>文件解析摘要</span>
               </div>
 

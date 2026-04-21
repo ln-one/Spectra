@@ -18,7 +18,7 @@ import type { ToolPanelProps } from "./types";
 import { PreviewStep } from "./mindmap/PreviewStep";
 
 export function MindmapToolPanel({
-  toolName,
+  toolName: _toolName,
   onDraftChange,
   flowContext,
 }: ToolPanelProps) {

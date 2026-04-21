@@ -665,6 +665,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/rag/prompt-suggestions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 基于 RAG 生成提示建议
+         * @description 读取项目 RAG 资料，并由大模型生成可直接用于 PPT 或 Studio 工具的生成提示。
+         */
+        post: operations["postRagPromptSuggestions"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/rag/sources/{chunk_id}": {
         parameters: {
             query?: never;
@@ -1615,7 +1635,7 @@ export interface components {
         /** @enum {string} */
         GenerationState: "IDLE" | "CONFIGURING" | "ANALYZING" | "DRAFTING_OUTLINE" | "AWAITING_OUTLINE_CONFIRM" | "GENERATING_CONTENT" | "RENDERING" | "SUCCESS" | "FAILED";
         /** @enum {string} */
-        SessionTitleSource: "default" | "first_message" | "manual";
+        SessionTitleSource: "default" | "first_message" | "manual" | "fallback";
         GenerationSessionListItem: {
             session_id: string;
             project_id: string;
@@ -2397,10 +2417,25 @@ export interface components {
             based_on_version_id?: string | null;
             run_id?: string | null;
         };
+        SvgPreviewManifest: {
+            index: number;
+            slide_id: string;
+            /**
+             * @default svg
+             * @enum {string}
+             */
+            format: "svg";
+            svg_data_url: string;
+            width?: number | null;
+            height?: number | null;
+        };
         RenderedPreviewPage: {
             index: number;
             slide_id: string;
             image_url?: string | null;
+            format?: string | null;
+            svg_data_url?: string | null;
+            preview?: components["schemas"]["SvgPreviewManifest"];
             html_preview?: string | null;
             status?: string | null;
             /** @default 0 */
@@ -2440,6 +2475,72 @@ export interface components {
                 title?: string;
                 body?: string;
             };
+        };
+        AuthorityPreviewFrame: {
+            slide_id: string;
+            index: number;
+            /** @default 0 */
+            split_index: number;
+            /** @default 1 */
+            split_count: number;
+            status?: string | null;
+            format?: string | null;
+            svg_data_url?: string | null;
+            preview?: components["schemas"]["SvgPreviewManifest"];
+            width?: number | null;
+            height?: number | null;
+        };
+        AuthorityPreviewBlock: {
+            block_id: string;
+            /** @enum {string} */
+            kind: "heading" | "paragraph" | "bullet_list" | "image";
+            text?: string;
+            items?: string[];
+            src?: string;
+            alt?: string;
+        };
+        AuthorityPreviewSlide: {
+            slide_id: string;
+            index: number;
+            title?: string;
+            status?: string;
+            layout_kind?: string;
+            render_version?: number | null;
+            format?: string | null;
+            svg_data_url?: string | null;
+            preview?: components["schemas"]["SvgPreviewManifest"];
+            width?: number | null;
+            height?: number | null;
+            frames: components["schemas"]["AuthorityPreviewFrame"][];
+            editable_block_ids?: string[];
+            blocks?: components["schemas"]["AuthorityPreviewBlock"][];
+        };
+        AuthorityPreview: {
+            /**
+             * @default pagevra
+             * @enum {string}
+             */
+            provider: "pagevra" | "diego";
+            run_id?: string | null;
+            render_version?: number | null;
+            viewport?: {
+                width?: number | null;
+                height?: number | null;
+            };
+            compile_context_version?: number | null;
+            compile_context?: components["schemas"]["DiegoPreviewContext"];
+            theme?: {
+                primary?: string;
+                secondary?: string;
+                accent?: string;
+                light?: string;
+                bg?: string;
+            };
+            fonts?: {
+                title?: string;
+                body?: string;
+            };
+            slides: components["schemas"]["AuthorityPreviewSlide"][];
         };
         preview_SourceReference: {
             /** @description 来源片段唯一标识，可用于查询来源详情 */
@@ -2523,6 +2624,7 @@ export interface components {
                 artifact_anchor?: components["schemas"]["ArtifactAnchor"];
                 rendered_preview?: components["schemas"]["RenderedPreview"];
                 diego_preview_context?: components["schemas"]["DiegoPreviewContext"];
+                authority_preview?: components["schemas"]["AuthorityPreview"];
                 slides?: components["schemas"]["Slide"][];
                 lesson_plan?: components["schemas"]["LessonPlan"];
             };
@@ -2671,6 +2773,36 @@ export interface components {
             data: {
                 results?: components["schemas"]["RAGResult"][];
                 total?: number;
+            };
+            message: string;
+        };
+        /** @enum {string} */
+        PromptSuggestionSurface: "ppt_generation_config" | "studio_mindmap" | "studio_game" | "studio_quiz" | "studio_animation" | "studio_simulation" | "studio_speaker_notes" | "studio_word";
+        PromptSuggestionRequest: {
+            project_id: string;
+            surface: components["schemas"]["PromptSuggestionSurface"];
+            seed_text?: string | null;
+            /** @default 4 */
+            limit: number;
+            cursor?: number | null;
+            /** @default false */
+            refresh: boolean;
+            filters?: {
+                file_types?: ("pdf" | "word" | "video" | "image" | "ppt")[];
+                file_ids?: string[];
+            };
+        };
+        PromptSuggestionResponse: {
+            success: boolean;
+            data: {
+                suggestions: string[];
+                summary?: string | null;
+                rag_hit: boolean;
+                /** @enum {string} */
+                status: "ready" | "generating" | "stale" | "failed" | "empty";
+                pool_size: number;
+                generated_at?: string | null;
+                next_cursor?: number | null;
             };
             message: string;
         };
@@ -2848,10 +2980,23 @@ export interface components {
             };
             message: string;
         };
+        ProjectCreateRequest: {
+            name?: string | null;
+            description: string;
+            grade_level?: string;
+        };
         ProjectRequest: {
             name: string;
             description: string;
             grade_level?: string;
+        };
+        ProjectCreateRequestTarget: components["schemas"]["ProjectCreateRequest"] & {
+            base_project_id?: string | null;
+            /** @enum {string} */
+            reference_mode?: "follow" | "pinned";
+            /** @enum {string} */
+            visibility?: "private" | "shared";
+            is_referenceable?: boolean;
         };
         ProjectRequestTarget: components["schemas"]["ProjectRequest"] & {
             base_project_id?: string | null;
@@ -4463,6 +4608,35 @@ export interface operations {
             403: components["responses"]["Forbidden"];
         };
     };
+    postRagPromptSuggestions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PromptSuggestionRequest"];
+            };
+        };
+        responses: {
+            /** @description 提示建议生成成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PromptSuggestionResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            502: components["responses"]["BadGateway"];
+        };
+    };
     getRagSourcesByChunkId: {
         parameters: {
             query?: {
@@ -4784,7 +4958,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ProjectRequestTarget"];
+                "application/json": components["schemas"]["ProjectCreateRequestTarget"];
             };
         };
         responses: {

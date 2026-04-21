@@ -4,8 +4,18 @@ import { toast } from "@/hooks/use-toast";
 import {
   initialState,
   type ProjectStoreContext,
+  type Project,
   type ProjectState,
 } from "./types";
+
+function areProjectsEquivalent(
+  currentProject: Project | null,
+  nextProject: Project | null
+): boolean {
+  if (currentProject === nextProject) return true;
+  if (!currentProject || !nextProject) return false;
+  return JSON.stringify(currentProject) === JSON.stringify(nextProject);
+}
 
 export function createProjectActions({
   set,
@@ -25,7 +35,12 @@ export function createProjectActions({
       }
       try {
         const response = await projectsApi.getProject(projectId);
-        set({ project: response?.data?.project ?? null });
+        const nextProject = response?.data?.project ?? null;
+        set((state) =>
+          areProjectsEquivalent(state.project, nextProject)
+            ? {}
+            : { project: nextProject }
+        );
       } catch (error) {
         const message = getErrorMessage(error);
         if (!silent) {

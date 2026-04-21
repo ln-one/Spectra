@@ -6,6 +6,7 @@ import { generateApi } from "@/lib/sdk";
 import { getErrorMessage } from "@/lib/sdk/errors";
 import { useGenerationEvents } from "@/hooks/useGenerationEvents";
 import { useProjectStore } from "@/stores/projectStore";
+import type { SessionStatePayload } from "@/stores/project-store/types";
 import {
   DIEGO_EVENT_PREFIXES,
   EVENT_PAGE_CAP,
@@ -78,7 +79,7 @@ export interface OutlineStreamStateResult {
 }
 
 export function useOutlineStreamState({
-  topic = "课程大纲",
+  topic: _topic = "课程大纲",
   isBootstrapping = false,
   onConfirm,
   onPreview,
@@ -119,11 +120,14 @@ export function useOutlineStreamState({
 
   const processedEventKeysRef = useRef<Set<string>>(new Set());
   const processedDiegoSeqRef = useRef<Set<number>>(new Set());
+  const lastDiegoSeqRef = useRef(0);
   const requirementsResultLoggedRef = useRef(false);
   const lastLoggedStateRef = useRef<string>("");
   const lastRunScopeRef = useRef<string>("");
   const runScopedSnapshotSyncRef = useRef<string>("");
-  const snapshotSyncInFlightRef = useRef<Promise<unknown> | null>(null);
+  const snapshotSyncInFlightRef = useRef<Promise<SessionStatePayload | null> | null>(
+    null
+  );
   const logContainerRef = useRef<HTMLDivElement>(null!);
   const targetPageCountRef = useRef<number>(0);
 
@@ -156,7 +160,7 @@ export function useOutlineStreamState({
         const response = await generateApi.getSessionSnapshot(sessionId, {
           run_id: currentRunId,
         });
-        const latestSession = response?.data ?? null;
+        const latestSession = (response?.data ?? null) as SessionStatePayload | null;
         if (!latestSession) return null;
         useProjectStore.setState({
           generationSession: latestSession,
@@ -185,6 +189,7 @@ export function useOutlineStreamState({
     lastRunScopeRef.current = runScopeKey;
     processedEventKeysRef.current.clear();
     processedDiegoSeqRef.current.clear();
+    lastDiegoSeqRef.current = 0;
     requirementsResultLoggedRef.current = false;
     lastLoggedStateRef.current = "";
     outlineLockedRef.current = false;
@@ -198,6 +203,7 @@ export function useOutlineStreamState({
         cached.analysisPageCount || expectedPages || cached.slides.length || 0;
       setStreamLogs(cached.streamLogs);
       processedEventKeysRef.current = seedProcessedKeysFromLogs(cached.streamLogs);
+      lastDiegoSeqRef.current = cached.lastDiegoSeq || 0;
       setOutlineStreamText(cached.outlineStreamText);
       setAnalysisPageCount(cached.analysisPageCount);
       setSlides(ensureSlidesCount(cached.slides, cachedTargetCount));
@@ -373,8 +379,10 @@ export function useOutlineStreamState({
 
       const diegoSeq = Number(sectionPayload?.diego_seq || 0);
       if (diegoSeq > 0) {
+        if (diegoSeq <= lastDiegoSeqRef.current) return;
         if (processedDiegoSeqRef.current.has(diegoSeq)) return;
         processedDiegoSeqRef.current.add(diegoSeq);
+        lastDiegoSeqRef.current = diegoSeq;
       }
 
       const diegoEventType =
@@ -577,6 +585,7 @@ export function useOutlineStreamState({
       outlineStreamText,
       slides,
       analysisPageCount,
+      lastDiegoSeq: lastDiegoSeqRef.current,
     });
   }, [
     analysisPageCount,

@@ -2,87 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { generateApi, ragApi } from "@/lib/sdk";
+import { generateApi } from "@/lib/sdk";
 import { useNotification } from "@/hooks/use-notification";
+import { useRagPromptSuggestions } from "@/hooks/use-rag-prompt-suggestions";
 import { useProjectStore } from "@/stores/projectStore";
 import { useShallow } from "zustand/react/shallow";
 import { LAYOUT_MODES, TEMPLATE_CARDS } from "./constants";
-
-function pickRandom<T>(arr: T[], count: number): T[] {
-  const copy = [...arr];
-  copy.sort(() => Math.random() - 0.5);
-  return copy.slice(0, count);
-}
-
-function extractKeywords(input: string): string[] {
-  return input
-    .replace(/[^\u4e00-\u9fa5a-zA-Z0-9]/g, " ")
-    .split(/\s+/)
-    .filter((w) => w.length >= 2 && w.length <= 12)
-    .slice(0, 8);
-}
-
-function uniqueNonEmpty(items: string[]): string[] {
-  return Array.from(new Set(items.map((item) => item.trim()).filter(Boolean)));
-}
-
-function pickOne<T>(items: T[], fallback: T): T {
-  if (!items.length) return fallback;
-  const index = Math.floor(Math.random() * items.length);
-  return items[index];
-}
-
-function buildRagGuidedSuggestions(args: {
-  seed: string;
-  prompt: string;
-  keywords: string[];
-  mergedText: string;
-}): string[] {
-  const { seed, prompt, keywords, mergedText } = args;
-  const refinedKeywords = uniqueNonEmpty(keywords).slice(0, 8);
-  const focusA = refinedKeywords.slice(0, 2).join(", ") || "core concepts";
-  const focusB = refinedKeywords.slice(2, 5).join(", ") || focusA;
-  const evidenceSignals = uniqueNonEmpty(
-    mergedText
-      .split(/[.!?;\n]/)
-      .map((line) => line.trim())
-      .filter((line) => line.length >= 10)
-      .flatMap((line) => extractKeywords(line).slice(0, 2))
-  ).slice(0, 4);
-  const evidenceHint = evidenceSignals.join(", ") || focusA;
-
-  const starters = [
-    `Build an outline for "${seed}" with clear concept progression.`,
-    `Design a lesson deck around "${seed}" for classroom delivery.`,
-    `Create a teachable slide outline for "${seed}".`,
-  ];
-  const structures = [
-    "Use this structure: concept intro -> worked example -> guided practice -> recap.",
-    "Use this structure: question hook -> explanation -> activity -> quick check.",
-    "Use this structure: foundations -> key difficulties -> transfer application -> summary.",
-  ];
-  const constraints = [
-    `Prioritize: ${focusA}.`,
-    `Also cover: ${focusB}.`,
-    `Reference evidence from materials: ${evidenceHint}.`,
-  ];
-
-  const dynamic = Array.from({ length: 6 }, () => {
-    const start = pickOne(starters, starters[0]);
-    const structure = pickOne(structures, structures[0]);
-    return `${start} ${structure} ${constraints.join(" ")}`;
-  });
-
-  const focused = [
-    `Split "${seed}" into 4-6 modules, each with objective, key point, and check question.`,
-    `Output slide-ready section titles and one-line teaching intent for each section.`,
-    prompt.trim()
-      ? `Incorporate this user request as first priority: ${prompt.trim()}.`
-      : `Keep the outline practical, concise, and classroom-ready.`,
-  ];
-
-  return uniqueNonEmpty([...dynamic, ...focused]);
-}
 
 function resolveExpectedPages(options: unknown): number {
   if (!options || typeof options !== "object") return 0;
@@ -141,18 +66,8 @@ export function useGenerationConfigPanel({
   const projectId = params.id as string;
   const { error: notifyError, info: notifyInfo } = useNotification();
 
-  const {
-    project,
-    files,
-    selectedFileIds,
-    generationSession,
-    activeSessionId,
-    activeRunId,
-  } = useProjectStore(
+  const { generationSession, activeSessionId, activeRunId } = useProjectStore(
     useShallow((state) => ({
-      project: state.project,
-      files: state.files,
-      selectedFileIds: state.selectedFileIds,
       generationSession: state.generationSession,
       activeSessionId: state.activeSessionId,
       activeRunId: state.activeRunId,
@@ -171,11 +86,19 @@ export function useGenerationConfigPanel({
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>(
     TEMPLATE_CARDS[0].id
   );
-  const [suggestions, setSuggestions] = useState<string[]>([]);
-  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const [isCreatingSession, setIsCreatingSession] = useState(false);
   const [showOutlineEditor, setShowOutlineEditor] = useState(false);
   const [showRegenerateHint, setShowRegenerateHint] = useState(false);
+  const {
+    suggestions,
+    status: suggestionStatus,
+    isLoading: loadingSuggestions,
+    errorMessage: suggestionErrorMessage,
+    reload: generateSuggestionBatch,
+  } = useRagPromptSuggestions({
+    surface: "ppt_generation_config",
+    limit: 4,
+  });
 
   useEffect(() => {
     const mapping = LAYOUT_MODES.find((m) => m.id === layoutMode);
@@ -223,7 +146,6 @@ export function useGenerationConfigPanel({
 
   const sessionId =
     activeSessionId || generationSession?.session?.session_id || "";
-  const suggestionRequestIdRef = useRef(0);
   const outlinePollRequestIdRef = useRef(0);
   const workflowStageChangeRef = useRef(onWorkflowStageChange);
 
@@ -263,84 +185,6 @@ export function useGenerationConfigPanel({
     if (pageCount <= 20) return "Detailed";
     return "Full";
   }, [pageCount]);
-
-  const generateSuggestionBatch = useCallback(async () => {
-    if (!projectId) return;
-    setLoadingSuggestions(true);
-
-    try {
-      const readyFiles = files
-        .filter((file) => file.status === "ready")
-        .map((file) => file.id);
-
-      const filters =
-        selectedFileIds.length > 0
-          ? { file_ids: selectedFileIds }
-          : readyFiles.length > 0
-            ? { file_ids: readyFiles }
-            : undefined;
-
-      const seed = prompt.trim() || project?.name || "classroom lesson";
-      const ragResponse = await ragApi.search({
-        project_id: projectId,
-        query: `${seed} learning goals core concepts teaching activities classroom interaction`,
-        top_k: 5,
-        filters,
-      });
-
-      const chunks = ragResponse?.data?.results || [];
-      const mergedText = chunks.map((item) => item.content).join(" ");
-      const keywords = extractKeywords(mergedText);
-      const candidates = buildRagGuidedSuggestions({
-        seed,
-        prompt,
-        keywords,
-        mergedText,
-      });
-
-      setSuggestions((prev) => {
-        const next = pickRandom(candidates, 4);
-        if (
-          prev.length === next.length &&
-          prev.every((item, idx) => item === next[idx])
-        ) {
-          return prev;
-        }
-        return next;
-      });
-    } catch {
-      const seed = prompt.trim() || project?.name || "lesson topic";
-      const fallback = [
-        `Clarify teaching direction for "${seed}", then split core knowledge modules and learning goals.`,
-        `Organize "${seed}" as: foundation -> difficult points -> application -> recap.`,
-        "Generate outline prompts that include modules, classroom activities, and quick checks.",
-        "Plan progression as learn first, practice second, evaluate mastery last.",
-      ];
-      setSuggestions((prev) => {
-        if (
-          prev.length === fallback.length &&
-          prev.every((item, idx) => item === fallback[idx])
-        ) {
-          return prev;
-        }
-        return fallback;
-      });
-    } finally {
-      setLoadingSuggestions(false);
-    }
-  }, [files, project?.name, projectId, prompt, selectedFileIds]);
-
-  useEffect(() => {
-    const requestId = ++suggestionRequestIdRef.current;
-    const timer = window.setTimeout(async () => {
-      if (requestId !== suggestionRequestIdRef.current) return;
-      await generateSuggestionBatch();
-    }, 450);
-
-    return () => {
-      window.clearTimeout(timer);
-    };
-  }, [generateSuggestionBatch]);
 
   const handleGenerate = useCallback(async () => {
     if (!prompt.trim()) return;
@@ -604,7 +448,9 @@ export function useGenerationConfigPanel({
     selectedTemplateId,
     setSelectedTemplateId,
     suggestions,
+    suggestionStatus,
     loadingSuggestions,
+    suggestionErrorMessage,
     isCreatingSession,
     showRegenerateHint,
     showOutlineEditor,

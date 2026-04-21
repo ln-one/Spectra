@@ -88,9 +88,8 @@ export function SpeakerNotesToolPanel({
   const onSelectedSourceChange = flowContext?.onSelectedSourceChange;
 
   const { suggestions, summary, isLoading } = useStudioRagRecommendations({
-    query:
-      "为当前项目推荐适合生成说课讲稿的课件主题、说课目标、教学亮点和师生互动重点",
-    fallbackSuggestions: ["核心概念梳理", "重难点突破", "课堂互动设计"],
+    surface: "studio_speaker_notes",
+    seedText: [topic, speakerGoal].filter(Boolean).join(" "),
   });
 
   useEffect(() => {

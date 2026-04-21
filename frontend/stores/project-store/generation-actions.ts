@@ -46,7 +46,36 @@ function isFallbackSessionTitle(title: string, sessionId: string): boolean {
   return normalized === `会话 ${sessionId.slice(-6)}`;
 }
 
+function areGenerationHistoriesEquivalent(
+  currentHistory: GenerationHistory[],
+  nextHistory: GenerationHistory[]
+): boolean {
+  if (currentHistory === nextHistory) return true;
+  if (currentHistory.length !== nextHistory.length) return false;
+  return currentHistory.every((currentItem, index) => {
+    const nextItem = nextHistory[index];
+    return (
+      currentItem?.id === nextItem?.id &&
+      currentItem?.toolId === nextItem?.toolId &&
+      currentItem?.toolName === nextItem?.toolName &&
+      currentItem?.status === nextItem?.status &&
+      currentItem?.sessionState === nextItem?.sessionState &&
+      currentItem?.createdAt === nextItem?.createdAt &&
+      currentItem?.title === nextItem?.title &&
+      currentItem?.titleSource === nextItem?.titleSource
+    );
+  });
+}
+
 function resolveOutlineBaseVersion(
+  session: SessionStatePayload | null | undefined
+): number {
+  const parsed = extractOutlineVersion(session);
+  if (parsed >= 1) return parsed;
+  return 1;
+}
+
+function extractOutlineVersion(
   session: SessionStatePayload | null | undefined
 ): number {
   const rawVersion =
@@ -56,7 +85,7 @@ function resolveOutlineBaseVersion(
       ? rawVersion
       : Number.parseInt(String(rawVersion ?? ""), 10);
   if (Number.isFinite(parsed) && parsed >= 1) return parsed;
-  return 1;
+  return 0;
 }
 
 function readSessionSnapshotArtifacts(
@@ -217,8 +246,23 @@ export function createGenerationActions({
           activeSessionId === get().generationSession?.session?.session_id
             ? extractCurrentRunId(get().generationSession)
             : null;
-        set({ generationHistory: history, activeSessionId, activeRunId });
-        await get().fetchArtifactHistory(projectId, activeSessionId);
+        const previousState = get();
+        const historyChanged = !areGenerationHistoriesEquivalent(
+          previousState.generationHistory,
+          history
+        );
+        const activeSessionChanged =
+          previousState.activeSessionId !== activeSessionId;
+        const activeRunChanged = previousState.activeRunId !== activeRunId;
+
+        if (historyChanged || activeSessionChanged || activeRunChanged) {
+          set({
+            generationHistory: history,
+            activeSessionId,
+            activeRunId,
+          });
+          await get().fetchArtifactHistory(projectId, activeSessionId);
+        }
       } catch (error) {
         const message = getErrorMessage(error);
         toast({
@@ -422,10 +466,27 @@ export function createGenerationActions({
     updateOutline: async (sessionId: string, outline: OutlineDocument) => {
       try {
         const currentRunId = get().activeRunId ?? undefined;
-        const latestBeforeUpdate = await generateApi.getSessionSnapshot(sessionId, {
-          run_id: currentRunId,
-        });
-        const latestBeforePayload = latestBeforeUpdate?.data ?? null;
+        const [runScopedBeforeUpdate, sessionScopedBeforeUpdate] =
+          currentRunId
+            ? await Promise.all([
+                generateApi.getSessionSnapshot(sessionId, {
+                  run_id: currentRunId,
+                }),
+                generateApi.getSessionSnapshot(sessionId),
+              ])
+            : [await generateApi.getSessionSnapshot(sessionId), null];
+        const runScopedPayload = runScopedBeforeUpdate?.data ?? null;
+        const sessionScopedPayload = sessionScopedBeforeUpdate?.data ?? null;
+        const runScopedVersion = extractOutlineVersion(
+          runScopedPayload as SessionStatePayload | null
+        );
+        const sessionScopedVersion = extractOutlineVersion(
+          sessionScopedPayload as SessionStatePayload | null
+        );
+        const latestBeforePayload =
+          sessionScopedVersion > runScopedVersion
+            ? sessionScopedPayload
+            : runScopedPayload;
         const baseVersion = resolveOutlineBaseVersion(
           latestBeforePayload as SessionStatePayload | null
         );
@@ -435,6 +496,7 @@ export function createGenerationActions({
             command_type: "UPDATE_OUTLINE",
             base_version: baseVersion,
             outline,
+            run_id: currentRunId,
           },
         });
         const preferredRunId =

@@ -1,4 +1,5 @@
 import type { components as sdkComponents } from "@/lib/sdk/types";
+import type { CitationViewModel } from "@/lib/chat/citation-view-model";
 import {
   groupArtifactsByTool,
   type ArtifactHistoryByTool,
@@ -25,6 +26,52 @@ export type OutlineDocument = sdkComponents["schemas"]["OutlineDocument"];
 export type GenerationOptions = sdkComponents["schemas"]["GenerationOptions"];
 export type SessionStatePayload =
   sdkComponents["schemas"]["SessionStatePayloadTarget"];
+export interface TeachingBriefKnowledgePoint {
+  id: string;
+  title: string;
+  sequence: number;
+  importance: "core" | "normal";
+  difficulty: "high" | "normal" | "low";
+  teaching_method?: string;
+  notes?: string;
+}
+export interface TeachingBrief {
+  status: "draft" | "review_pending" | "confirmed" | "stale";
+  version: number;
+  last_confirmed_at?: string | null;
+  topic: string;
+  audience: string;
+  duration_minutes?: number | null;
+  lesson_hours?: number | null;
+  target_pages?: number | null;
+  teaching_objectives: string[];
+  knowledge_points: TeachingBriefKnowledgePoint[];
+  global_emphasis: string[];
+  global_difficulties: string[];
+  teaching_strategy: string;
+  style_profile?: {
+    template_family?: string;
+    visual_tone?: string;
+    notes?: string;
+  } | null;
+  readiness?: {
+    missing_fields?: string[];
+    can_generate?: boolean;
+  } | null;
+}
+export interface TeachingBriefProposal {
+  proposal_id: string;
+  source_message_id?: string;
+  proposed_changes: Record<string, unknown>;
+  reasoning_summary?: string;
+  confidence?: number;
+  requires_user_confirmation?: boolean;
+  created_at?: string;
+}
+export type SessionStatePayloadWithBrief = SessionStatePayload & {
+  teaching_brief?: TeachingBrief;
+  teaching_brief_proposals?: TeachingBriefProposal[];
+};
 
 export interface SessionRun {
   run_id: string;
@@ -58,6 +105,11 @@ export type ExpandedTool =
   | null;
 export type StudioManagedTool = Exclude<ExpandedTool, "ppt" | null>;
 export type StudioChatWorkflowStep = "config" | "generate" | "preview";
+export interface SourceFocusRequest
+  extends Pick<
+    CitationViewModel,
+    "chunkId" | "filename" | "pageNumber" | "timestamp" | "contentPreview"
+  > {}
 
 export interface StudioChatContext {
   projectId: string;
@@ -117,7 +169,7 @@ export interface ProjectState {
   selectedFileIds: string[];
   selectedLibraryIds: string[];
   selectedArtifactSourceIds: string[];
-  generationSession: SessionStatePayload | null;
+  generationSession: SessionStatePayloadWithBrief | null;
   generationHistory: GenerationHistory[];
   artifactHistoryByTool: ArtifactHistoryByTool;
   currentSessionArtifacts: ArtifactHistoryItem[];
@@ -129,6 +181,15 @@ export interface ProjectState {
   activeRunId: string | null;
   lastFailedInput: string | null;
   activeSourceDetail: SourceDetail | null;
+  activeSourceFocusNonce: number;
+
+  latestBriefHint: {
+    autoAppliedFields: string[];
+    aiRequestsConfirmation: boolean;
+    missingFields: string[];
+    briefStatus: string;
+    briefSnapshot: TeachingBrief | null;
+  } | null;
 
   layoutMode: LayoutMode;
   expandedTool: ExpandedTool;
@@ -176,9 +237,33 @@ export interface ProjectState {
   focusChatComposer: () => void;
   focusSourceByChunk: (
     chunkId: string,
-    projectId?: string | null
+    projectId?: string | null,
+    citation?: SourceFocusRequest | null
   ) => Promise<void>;
   clearActiveSource: () => void;
+  refreshGenerationSession: (
+    sessionId?: string | null,
+    options?: { runId?: string | null }
+  ) => Promise<SessionStatePayloadWithBrief | null>;
+  updateTeachingBriefDraft: (
+    sessionId: string,
+    patch: Record<string, unknown>
+  ) => Promise<void>;
+  applyTeachingBriefProposal: (
+    sessionId: string,
+    proposalId: string
+  ) => Promise<void>;
+  dismissTeachingBriefProposal: (
+    sessionId: string,
+    proposalId: string
+  ) => Promise<void>;
+  confirmTeachingBrief: (
+    sessionId: string,
+    patch?: Record<string, unknown>
+  ) => Promise<void>;
+  startPptFromTeachingBrief: (
+    sessionId?: string | null
+  ) => Promise<{ sessionId: string; runId: string } | null>;
   fetchGenerationHistory: (projectId: string) => Promise<void>;
   fetchArtifactHistory: (
     projectId: string,
@@ -275,6 +360,8 @@ export const initialState = {
   activeRunId: null as string | null,
   lastFailedInput: null as string | null,
   activeSourceDetail: null as SourceDetail | null,
+  activeSourceFocusNonce: 0,
+  latestBriefHint: null as ProjectState["latestBriefHint"],
   layoutMode: "normal" as LayoutMode,
   expandedTool: null as ExpandedTool,
   isLoading: false,

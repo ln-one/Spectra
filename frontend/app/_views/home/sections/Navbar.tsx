@@ -1,7 +1,7 @@
 ﻿import Link from "next/link";
 import { motion } from "framer-motion";
-import { Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { BrandMark } from "@/components/icons/brand/BrandMark";
 
 export function Navbar() {
   return (
@@ -15,7 +15,7 @@ export function Navbar() {
         <div className="flex h-16 items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center shadow-lg">
-              <Sparkles className="w-4 h-4 text-primary-foreground" />
+              <BrandMark className="w-4 h-4 text-primary-foreground" />
             </div>
             <span className="font-bold text-xl tracking-tight">Spectra</span>
           </div>

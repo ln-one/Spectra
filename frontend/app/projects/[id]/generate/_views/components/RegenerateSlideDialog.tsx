@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Loader2, Wand2 } from "lucide-react";
-import { diegoApi } from "@/lib/sdk/diego";
+import { previewApi } from "@/lib/sdk/preview";
 import { useToast } from "@/hooks/use-toast";
 import {
   Dialog,
@@ -16,7 +16,11 @@ import { Textarea } from "@/components/ui/textarea";
 interface RegenerateSlideDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  sessionId: string | null;
   runId: string;
+  artifactId?: string | null;
+  expectedRenderVersion?: number | null;
+  slideId?: string | null;
   slideNo: number;
   slideTitle?: string;
   onSuccess?: () => void;
@@ -25,7 +29,11 @@ interface RegenerateSlideDialogProps {
 export function RegenerateSlideDialog({
   open,
   onOpenChange,
+  sessionId,
   runId,
+  artifactId,
+  expectedRenderVersion,
+  slideId,
   slideNo,
   slideTitle,
   onSuccess,
@@ -35,20 +43,28 @@ export function RegenerateSlideDialog({
   const { toast } = useToast();
 
   const handleSubmit = async () => {
-    if (!instruction.trim() || isSubmitting) return;
+    if (!instruction.trim() || isSubmitting || !sessionId) return;
 
     try {
       setIsSubmitting(true);
-      await diegoApi.regenerateSlide(runId, slideNo, {
+      await previewApi.modifySessionPreview(sessionId, {
+        run_id: runId || undefined,
+        artifact_id: artifactId || undefined,
+        slide_id: slideId || undefined,
+        slide_index: slideNo,
         instruction: instruction.trim(),
+        base_render_version: expectedRenderVersion ?? undefined,
+        scope: "current_slide_only",
         preserve_style: true,
+        preserve_layout: true,
+        preserve_deck_consistency: true,
       });
-      
+
       toast({
         title: "重做请求已发送",
         description: `正在为您重新生成第 ${slideNo} 页，请稍候。`,
       });
-      
+
       setInstruction("");
       onOpenChange(false);
       onSuccess?.();
@@ -91,7 +107,7 @@ export function RegenerateSlideDialog({
           </Button>
           <Button
             onClick={() => void handleSubmit()}
-            disabled={!instruction.trim() || isSubmitting}
+            disabled={!sessionId || !instruction.trim() || isSubmitting}
             className="gap-2"
           >
             {isSubmitting ? (

@@ -76,6 +76,7 @@ export type OutlineRunCachePayload = {
   outlineStreamText: string;
   slides: SlideDraft[];
   analysisPageCount: number;
+  lastDiegoSeq: number;
   updatedAt: string;
 };
 

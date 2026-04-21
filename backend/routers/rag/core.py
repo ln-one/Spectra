@@ -1,9 +1,14 @@
 from typing import Optional
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
 
-from schemas.rag import RAGIndexRequest, RAGSearchRequest, RAGSimilarRequest
+from schemas.rag import (
+    PromptSuggestionRequest,
+    RAGIndexRequest,
+    RAGSearchRequest,
+    RAGSimilarRequest,
+)
 from services.rag_api_service import (
     find_similar_response,
     get_source_detail_response,
@@ -11,6 +16,7 @@ from services.rag_api_service import (
     index_file_response,
     search_knowledge_base_response,
 )
+from services.rag_api_service.prompt_suggestions import prompt_suggestions_response
 from utils.dependencies import get_current_user
 from utils.exceptions import APIException
 
@@ -31,6 +37,29 @@ async def search_knowledge_base(
         raise
     except Exception as exc:
         raise handle_rag_error("检索失败", exc)
+
+
+@router.post("/prompt-suggestions")
+async def generate_prompt_suggestions(
+    http_request: Request,
+    request: PromptSuggestionRequest,
+    user_id: str = Depends(get_current_user),
+):
+    """基于 RAG 资料生成可复用的生成提示建议。"""
+    try:
+        return await prompt_suggestions_response(
+            request,
+            user_id,
+            task_queue_service=getattr(
+                http_request.app.state,
+                "task_queue_service",
+                None,
+            ),
+        )
+    except APIException:
+        raise
+    except Exception as exc:
+        raise handle_rag_error("生成提示建议失败", exc)
 
 
 @router.get("/sources/{chunk_id}")

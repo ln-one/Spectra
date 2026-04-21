@@ -5,6 +5,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, Query
 
+from schemas.preview import SaveSlideSceneRequest
 from routers.generate_sessions.candidate_changes import (
     attach_auto_candidate_change,
     build_session_artifact_anchor,
@@ -31,6 +32,13 @@ from routers.generate_sessions.shared import (
     validate_optional_positive_int,
     validate_positive_int,
 )
+from services.generation_session_service.diego_slide_scene import (
+    get_diego_slide_scene_for_run,
+    save_diego_slide_scene_for_run,
+)
+from services.pexels_proxy import search_pexels_images
+from utils.exceptions import APIException, ErrorCode, NotFoundException
+from utils.responses import success_response
 from utils.dependencies import get_current_user
 
 router = APIRouter()
@@ -76,6 +84,58 @@ async def _resolve_preview_anchor(
     if run_id:
         anchor["run_id"] = run_id
     return anchor
+
+
+def _resolve_slide_no(slide_id: str, slides: list[dict]) -> int:
+    wanted = str(slide_id or "").strip()
+    for slide in slides:
+        index = int(slide.get("index") or 0)
+        identifiers = {
+            str(slide.get("id") or "").strip(),
+            str(slide.get("slide_id") or "").strip(),
+            f"slide-{index + 1}",
+        }
+        if wanted in identifiers:
+            return index + 1
+    if "-slide-" in wanted:
+        try:
+            return int(wanted.rsplit("-slide-", 1)[1]) + 1
+        except ValueError:
+            pass
+    if wanted.startswith("slide-"):
+        try:
+            return int(wanted.split("slide-", 1)[1])
+        except ValueError:
+            pass
+    raise NotFoundException(message=f"未找到页面: {slide_id}", error_code=ErrorCode.NOT_FOUND)
+
+
+async def _resolve_slide_context(
+    *,
+    session_id: str,
+    slide_id: str,
+    snapshot: dict,
+    artifact_id: Optional[str],
+    run_id: Optional[str],
+    user_id: str,
+) -> tuple[dict, int]:
+    anchor = await _resolve_preview_anchor(
+        session_id=session_id,
+        snapshot=snapshot,
+        artifact_id=artifact_id,
+        run_id=run_id,
+        user_id=user_id,
+    )
+    task_id = snapshot["session"].get("task_id")
+    _, slides, _, _ = await _load_preview_material(
+        session_id,
+        snapshot["session"]["project_id"],
+        anchor.get("artifact_id"),
+        task_id,
+        anchor.get("run_id"),
+    )
+    slide_no = _resolve_slide_no(slide_id, slides if isinstance(slides, list) else [])
+    return anchor, slide_no
 
 
 def _make_preview_anchor_resolver(user_id: str):
@@ -160,6 +220,84 @@ async def get_session_slide_preview(
         resolve_preview_anchor=_make_preview_anchor_resolver(user_id),
         load_preview_material=_load_preview_material,
     )
+
+
+@router.get("/sessions/{session_id}/preview/slides/{slide_id}/scene")
+async def get_session_slide_scene(
+    session_id: str,
+    slide_id: str,
+    artifact_id: Optional[str] = Query(None, description="指定来源成果 ID（可选）"),
+    run_id: Optional[str] = Query(None, description="指定运行 ID（可选）"),
+    user_id: str = Depends(get_current_user),
+):
+    snapshot = await _get_preview_snapshot_or_raise(session_id, user_id)
+    anchor, slide_no = await _resolve_slide_context(
+        session_id=session_id,
+        slide_id=slide_id,
+        snapshot=snapshot,
+        artifact_id=artifact_id,
+        run_id=run_id,
+        user_id=user_id,
+    )
+    resolved_run_id = str(anchor.get("run_id") or "").strip()
+    if not resolved_run_id:
+        raise APIException(
+            status_code=409,
+            error_code=ErrorCode.RESOURCE_CONFLICT,
+            message="当前预览未绑定运行，无法加载单页编辑场景",
+        )
+    scene = await get_diego_slide_scene_for_run(
+        db=_get_session_service().db,
+        run_id=resolved_run_id,
+        slide_no=slide_no,
+        user_id=user_id,
+    )
+    return success_response(data=scene, message="单页编辑场景获取成功")
+
+
+@router.post("/sessions/{session_id}/preview/slides/{slide_id}/scene/save")
+async def save_session_slide_scene(
+    session_id: str,
+    slide_id: str,
+    body: SaveSlideSceneRequest,
+    artifact_id: Optional[str] = Query(None, description="指定来源成果 ID（可选）"),
+    run_id: Optional[str] = Query(None, description="指定运行 ID（可选）"),
+    user_id: str = Depends(get_current_user),
+):
+    snapshot = await _get_preview_snapshot_or_raise(session_id, user_id)
+    anchor, slide_no = await _resolve_slide_context(
+        session_id=session_id,
+        slide_id=slide_id,
+        snapshot=snapshot,
+        artifact_id=artifact_id,
+        run_id=run_id,
+        user_id=user_id,
+    )
+    resolved_run_id = str(anchor.get("run_id") or "").strip()
+    if not resolved_run_id:
+        raise APIException(
+            status_code=409,
+            error_code=ErrorCode.RESOURCE_CONFLICT,
+            message="当前预览未绑定运行，无法保存单页编辑场景",
+        )
+    result = await save_diego_slide_scene_for_run(
+        db=_get_session_service().db,
+        run_id=resolved_run_id,
+        slide_no=slide_no,
+        payload=body.model_dump(mode="json"),
+        user_id=user_id,
+    )
+    return success_response(data=result, message="单页编辑场景保存成功")
+
+
+@router.get("/assets/pexels/search")
+async def search_pexels_assets(
+    q: str = Query(..., description="图片搜索词"),
+    user_id: str = Depends(get_current_user),
+):
+    del user_id
+    result = await search_pexels_images(q, per_page=4)
+    return success_response(data=result, message="图片搜索成功")
 
 
 @router.post("/sessions/{session_id}/preview/export")

@@ -5,6 +5,8 @@ from typing import Optional
 from schemas.generation import TaskStatus, build_generation_result_payload
 from services.platform.state_transition_guard import GenerationState
 
+_DEFAULT_PREVIEW_VIEWPORT = {"width": 1280, "height": 720}
+
 
 def build_artifact_anchor(session_id: str, artifact) -> dict:
     return {
@@ -163,6 +165,180 @@ def _resolved_diego_preview_context(
     return context
 
 
+def _normalize_preview_text(value: object) -> str:
+    return str(value or "").strip()
+
+
+def _coerce_positive_int(value: object) -> Optional[int]:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int) and value > 0:
+        return value
+    if isinstance(value, str) and value.strip().isdigit():
+        parsed = int(value.strip())
+        return parsed if parsed > 0 else None
+    return None
+
+
+def _normalize_rendered_preview_pages(rendered_preview: object) -> list[dict]:
+    if not isinstance(rendered_preview, dict):
+        return []
+    raw_pages = rendered_preview.get("pages")
+    if not isinstance(raw_pages, list):
+        return []
+    pages: list[dict] = []
+    for item in raw_pages:
+        if not isinstance(item, dict):
+            continue
+        raw_preview = item.get("preview")
+        preview = dict(raw_preview) if isinstance(raw_preview, dict) else {}
+        svg_data_url = _normalize_preview_text(
+            item.get("svg_data_url") or preview.get("svg_data_url")
+        )
+        if not svg_data_url.startswith("data:image/svg+xml"):
+            continue
+        index = int(item.get("index") or 0)
+        split_index = int(item.get("split_index") or 0)
+        slide_id = _normalize_preview_text(item.get("slide_id") or preview.get("slide_id")) or f"slide-{index}"
+        preview = {
+            **preview,
+            "index": index,
+            "slide_id": slide_id,
+            "format": "svg",
+            "svg_data_url": svg_data_url,
+        }
+        pages.append(
+            {
+                "index": index,
+                "slide_id": slide_id,
+                "format": "svg",
+                "svg_data_url": svg_data_url,
+                "preview": preview,
+                "status": _normalize_preview_text(item.get("status")) or "ready",
+                "split_index": split_index,
+                "split_count": _coerce_positive_int(item.get("split_count")) or 1,
+                "width": _coerce_positive_int(item.get("width")),
+                "height": _coerce_positive_int(item.get("height")),
+            }
+        )
+    pages.sort(key=lambda item: (item["index"], item["split_index"]))
+    return pages
+
+
+def _resolve_authority_viewport(pages: list[dict]) -> dict:
+    for page in pages:
+        width = _coerce_positive_int(page.get("width"))
+        height = _coerce_positive_int(page.get("height"))
+        if width and height:
+            return {"width": width, "height": height}
+    return dict(_DEFAULT_PREVIEW_VIEWPORT)
+
+
+def _build_authority_preview(
+    *,
+    slides: list[dict],
+    snapshot: dict,
+    anchor: dict,
+    diego_preview_context: Optional[dict],
+    rendered_preview: Optional[dict],
+) -> dict:
+    pages = _normalize_rendered_preview_pages(rendered_preview)
+    viewport = _resolve_authority_viewport(pages)
+    theme = (
+        diego_preview_context.get("theme")
+        if isinstance(diego_preview_context, dict)
+        and isinstance(diego_preview_context.get("theme"), dict)
+        else None
+    )
+    fonts = (
+        diego_preview_context.get("fonts")
+        if isinstance(diego_preview_context, dict)
+        and isinstance(diego_preview_context.get("fonts"), dict)
+        else None
+    )
+    compile_context_version = (
+        int(diego_preview_context.get("source_event_seq") or 0)
+        if isinstance(diego_preview_context, dict)
+        and str(diego_preview_context.get("source_event_seq") or "").strip()
+        else None
+    )
+    pages_by_slide_id: dict[str, list[dict]] = {}
+    pages_by_index: dict[int, list[dict]] = {}
+    for page in pages:
+        pages_by_slide_id.setdefault(str(page.get("slide_id") or ""), []).append(page)
+        pages_by_index.setdefault(int(page.get("index") or 0), []).append(page)
+
+    authority_slides: list[dict] = []
+    render_version = snapshot["session"].get("render_version") or 1
+    slide_slots: dict[tuple[str, int], dict] = {}
+    for slide in slides:
+        slide_id = _normalize_preview_text(slide.get("id")) or f"slide-{slide.get('index')}"
+        slide_slots[(slide_id, int(slide.get("index") or 0))] = dict(slide)
+    for page in pages:
+        key = (str(page.get("slide_id") or ""), int(page.get("index") or 0))
+        slide_slots.setdefault(key, {})
+
+    for (slide_id, slide_index), slide in sorted(
+        slide_slots.items(), key=lambda item: item[0][1]
+    ):
+        page_frames = [
+            {
+                "slide_id": str(page.get("slide_id") or slide_id),
+                "index": int(page.get("index") or slide_index),
+                "format": "svg",
+                "svg_data_url": page.get("svg_data_url"),
+                "preview": page.get("preview"),
+                "status": page.get("status"),
+                "split_index": int(page.get("split_index") or 0),
+                "split_count": _coerce_positive_int(page.get("split_count")) or 1,
+                "width": _coerce_positive_int(page.get("width")),
+                "height": _coerce_positive_int(page.get("height")),
+            }
+            for page in (
+                pages_by_slide_id.get(slide_id)
+                or pages_by_index.get(slide_index)
+                or []
+            )
+        ]
+        first_frame = page_frames[0] if page_frames else {}
+        authority_slides.append(
+            {
+                "slide_id": slide_id,
+                "index": slide_index,
+                "title": _normalize_preview_text(slide.get("title")),
+                "status": (
+                    str(first_frame.get("status") or "").strip()
+                    or ("ready" if page_frames else "pending")
+                ),
+                "render_version": render_version,
+                "preview": first_frame.get("preview"),
+                "format": "svg" if page_frames else None,
+                "svg_data_url": first_frame.get("svg_data_url"),
+                "width": _coerce_positive_int(first_frame.get("width")) or viewport["width"],
+                "height": _coerce_positive_int(first_frame.get("height")) or viewport["height"],
+                "frames": page_frames,
+                "editable_scene": None,
+                "node_map": [],
+            }
+        )
+    run_id = (
+        str(anchor.get("run_id") or "").strip()
+        or str(((snapshot.get("current_run") or {}).get("run_id") or "")).strip()
+        or None
+    )
+    return {
+        "provider": "pagevra",
+        "run_id": run_id,
+        "render_version": render_version,
+        "viewport": viewport,
+        "compile_context_version": compile_context_version,
+        "compile_context": diego_preview_context,
+        "theme": theme,
+        "fonts": fonts,
+        "slides": authority_slides,
+    }
+
+
 def build_preview_payload(
     session_id: str,
     snapshot: dict,
@@ -179,6 +355,13 @@ def build_preview_payload(
         content=content,
         snapshot=snapshot,
         anchor=anchor,
+    )
+    authority_preview = _build_authority_preview(
+        slides=slides,
+        snapshot=snapshot,
+        anchor=anchor,
+        diego_preview_context=diego_preview_context,
+        rendered_preview=rendered_preview,
     )
     return {
         "session_id": session_id,
@@ -197,6 +380,7 @@ def build_preview_payload(
         "slides_content_ready": bool(slides_content_markdown.strip()),
         "rendered_preview": rendered_preview,
         "diego_preview_context": diego_preview_context,
+        "authority_preview": authority_preview,
     }
 
 

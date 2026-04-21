@@ -9,7 +9,6 @@ from fastapi import status
 
 from routers.generate_sessions.preview_runtime_guards import (
     has_preview_content,
-    raise_legacy_courseware_modify_removed,
     raise_run_not_ready,
     resolve_modify_instruction,
     resolve_target_slide_id,
@@ -22,6 +21,9 @@ from routers.generate_sessions.preview_runtime_support import (
     SessionSnapshotLoader,
     attach_candidate_change_if_needed,
     load_preview_material_for_snapshot,
+)
+from services.generation_session_service.diego_preview_backfill import (
+    ensure_svg_authority_preview,
 )
 from services.platform.state_transition_guard import GenerationCommandType
 from services.preview_helpers import (
@@ -68,6 +70,14 @@ async def get_session_preview_response(
             resolve_preview_anchor=resolve_preview_anchor,
             load_preview_material=load_preview_material,
         )
+    )
+    resolved_run_id = anchor.get("run_id") or run_id
+    slides, content = await ensure_svg_authority_preview(
+        session_id=session_id,
+        run_id=resolved_run_id,
+        material_context=material_context,
+        slides=slides,
+        content=content,
     )
     if run_id and not run_material_ready(material_context, slides, content):
         raise_run_not_ready(run_id)
@@ -123,24 +133,9 @@ async def modify_session_preview_response(
 ):
     parse_candidate_change_payload(body.get("candidate_change"), "candidate_change")
     instruction = resolve_modify_instruction(body)
-    patch = body.get("patch") if isinstance(body.get("patch"), dict) else None
-    if patch is None:
-        patch = {"schema_version": 1, "operations": []}
-
     expected_render_version = resolve_modify_expected_render_version(body)
     validate_optional_positive_int(expected_render_version, "expected_render_version")
     snapshot = await get_preview_snapshot_or_raise(session_id, user_id)
-    logger.info(
-        "legacy_courseware_preview_modify_blocked session_id=%s tool_type=%s",
-        session_id,
-        ((snapshot.get("current_run") or {}).get("tool_type")),
-        extra={
-            "session_id": session_id,
-            "tool_type": ((snapshot.get("current_run") or {}).get("tool_type")),
-            "reason": "legacy_courseware_modify_removed",
-        },
-    )
-    raise_legacy_courseware_modify_removed()
     anchor = await resolve_preview_anchor(
         session_id,
         snapshot,
@@ -159,6 +154,7 @@ async def modify_session_preview_response(
     parsed_idempotency_key = parse_idempotency_key(idempotency_key)
     generation_command = {
         "command_type": GenerationCommandType.REGENERATE_SLIDE.value,
+        "run_id": anchor.get("run_id"),
         "slide_id": slide_id,
         "slide_index": slide_index,
         "instruction": instruction,
@@ -166,7 +162,6 @@ async def modify_session_preview_response(
         "preserve_style": bool(body.get("preserve_style", True)),
         "preserve_layout": bool(body.get("preserve_layout", True)),
         "preserve_deck_consistency": bool(body.get("preserve_deck_consistency", True)),
-        "patch": patch,
         "expected_render_version": expected_render_version,
     }
     result = await execute_session_command_or_raise(
@@ -198,6 +193,19 @@ async def modify_session_preview_response(
         payload=payload,
         attach_auto_candidate_change=attach_auto_candidate_change,
     )
+    logger.info(
+        "session_preview_modify_requested session_id=%s slide_id=%s slide_index=%s run_id=%s",
+        session_id,
+        slide_id,
+        slide_index,
+        anchor.get("run_id"),
+        extra={
+            "session_id": session_id,
+            "slide_id": slide_id,
+            "slide_index": slide_index,
+            "run_id": anchor.get("run_id"),
+        },
+    )
     return success_response(data=payload, message="预览修改请求已接收")
 
 
@@ -222,6 +230,14 @@ async def get_session_slide_preview_response(
             resolve_preview_anchor=resolve_preview_anchor,
             load_preview_material=load_preview_material,
         )
+    )
+    resolved_run_id = anchor.get("run_id") or run_id
+    slides, content = await ensure_svg_authority_preview(
+        session_id=session_id,
+        run_id=resolved_run_id,
+        material_context=material_context,
+        slides=slides,
+        content=content,
     )
     if run_id and not run_material_ready(material_context, slides, content):
         raise_run_not_ready(run_id)

@@ -58,6 +58,7 @@ class TestModelRouterRules:
         assert ModelRouteTask.RAG_DEEP_SUMMARY.value in tasks
         assert ModelRouteTask.LESSON_PLAN_REASONING.value in tasks
         assert ModelRouteTask.PREVIEW_MODIFICATION.value in tasks
+        assert ModelRouteTask.PROMPT_SUGGESTION.value in tasks
 
     def test_supported_tasks_keep_stable_order_for_audit_outputs(self):
         tasks = list(ModelRouter.supported_tasks())
@@ -70,6 +71,7 @@ class TestModelRouterRules:
             ModelRouteTask.RAG_DEEP_SUMMARY.value,
             ModelRouteTask.LESSON_PLAN_REASONING.value,
             ModelRouteTask.PREVIEW_MODIFICATION.value,
+            ModelRouteTask.PROMPT_SUGGESTION.value,
         ]
 
     def test_policy_table_contains_required_mapping_fields(self):
@@ -86,6 +88,10 @@ class TestModelRouterRules:
         task_rows = {row["task"]: row for row in rows}
         assert (
             task_rows[ModelRouteTask.LESSON_PLAN_REASONING.value]["default_model_tier"]
+            == "heavy"
+        )
+        assert (
+            task_rows[ModelRouteTask.PROMPT_SUGGESTION.value]["default_model_tier"]
             == "heavy"
         )
         assert task_rows[ModelRouteTask.CHAT_RESPONSE.value]["complexity"] == "adaptive"

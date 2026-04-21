@@ -7,6 +7,7 @@ RAG Indexing Service
 import logging
 import re
 import time
+from hashlib import sha1
 from typing import Any, Optional
 
 from schemas.common import normalize_source_type
@@ -36,6 +37,11 @@ def _normalize_text_for_chunking(value: str) -> str:
     text = re.sub(r"[ ]+\n", "\n", text)
     text = re.sub(r"\n{3,}", "\n\n", text)
     return text
+
+
+def _chunk_reuse_signature(*, chunk_index: int, content: str) -> str:
+    digest = sha1(str(content or "").encode("utf-8")).hexdigest()
+    return f"{chunk_index}:{digest}"
 
 
 async def index_upload_file_for_rag(
@@ -180,8 +186,18 @@ async def index_upload_file_for_rag(
     )
 
     db = db or db_service
+    existing_chunk_ids_by_signature: dict[str, str] = {}
 
     if reindex:
+        existing_chunks = await db.list_parsed_chunks(upload.id)
+        existing_chunk_ids_by_signature = {
+            _chunk_reuse_signature(
+                chunk_index=int(getattr(chunk, "chunkIndex", 0) or 0),
+                content=str(getattr(chunk, "content", "") or ""),
+            ): str(getattr(chunk, "id", "") or "")
+            for chunk in existing_chunks
+            if str(getattr(chunk, "id", "") or "").strip()
+        }
         logger.info(
             "reindex_requested: upload_id=%s project_id=%s",
             upload.id,
@@ -203,6 +219,9 @@ async def index_upload_file_for_rag(
 
     chunk_payloads = [
         {
+            "id": existing_chunk_ids_by_signature.get(
+                _chunk_reuse_signature(chunk_index=idx, content=chunk)
+            ),
             "chunk_index": idx,
             "content": chunk,
             "metadata": dict(base_metadata),

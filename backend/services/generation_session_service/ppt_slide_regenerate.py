@@ -6,6 +6,10 @@ from typing import Any
 
 from services.diego_client import build_diego_client
 from services.generation_session_service.background_tasks import spawn_background_task
+from services.generation_session_service.diego_run_binding import (
+    resolve_diego_binding_for_run,
+    resolve_run_and_session,
+)
 from services.generation_session_service.diego_runtime_helpers import (
     get_diego_binding_from_options,
     parse_options,
@@ -49,61 +53,6 @@ def _parse_json_dict(raw: Any) -> dict[str, Any]:
     return dict(parsed) if isinstance(parsed, dict) else {}
 
 
-async def _resolve_run_and_session(*, db, run_id: str, user_id: str):
-    run = await db.sessionrun.find_unique(where={"id": run_id})
-    if not run:
-        raise NotFoundException(
-            message=f"运行不存在: {run_id}",
-            error_code=ErrorCode.NOT_FOUND,
-        )
-    session_id = str(getattr(run, "sessionId", "") or "").strip()
-    if not session_id:
-        raise APIException(
-            status_code=409,
-            error_code=ErrorCode.RESOURCE_CONFLICT,
-            message="运行缺少会话绑定，无法执行单页重做",
-        )
-    session = await db.generationsession.find_unique(where={"id": session_id})
-    if not session or str(getattr(session, "userId", "") or "").strip() != user_id:
-        raise NotFoundException(
-            message=f"运行不存在: {run_id}",
-            error_code=ErrorCode.NOT_FOUND,
-        )
-    return run, session
-
-
-async def _resolve_diego_binding_for_run(*, db, session, run) -> dict[str, Any]:
-    options = parse_options(getattr(session, "options", None))
-    binding = get_diego_binding_from_options(options)
-    if binding and str(binding.get("spectra_run_id") or "").strip() == str(getattr(run, "id", "") or "").strip():
-        return binding
-
-    events = await db.sessionevent.find_many(
-        where={"sessionId": session.id},
-        order={"createdAt": "desc"},
-        take=250,
-    )
-    run_id = str(getattr(run, "id", "") or "").strip()
-    for event in events:
-        payload = _parse_json_dict(getattr(event, "payload", None))
-        if str(payload.get("run_id") or "").strip() != run_id:
-            continue
-        diego_run_id = str(payload.get("diego_run_id") or "").strip()
-        if not diego_run_id:
-            continue
-        return {
-            "diego_run_id": diego_run_id,
-            "diego_trace_id": str(payload.get("diego_trace_id") or "").strip() or None,
-            "spectra_run_id": run_id,
-        }
-
-    raise APIException(
-        status_code=409,
-        error_code=ErrorCode.RESOURCE_CONFLICT,
-        message="当前运行未绑定 Diego run，无法执行单页重做",
-    )
-
-
 async def regenerate_diego_slide_for_run(
     *,
     db,
@@ -135,8 +84,14 @@ async def regenerate_diego_slide_for_run(
             message="Diego 未启用或配置缺失（请检查 DIEGO_ENABLED / DIEGO_BASE_URL）",
         )
 
-    run, session = await _resolve_run_and_session(db=db, run_id=run_id, user_id=user_id)
-    binding = await _resolve_diego_binding_for_run(db=db, session=session, run=run)
+    run, session = await resolve_run_and_session(db=db, run_id=run_id, user_id=user_id)
+    binding = await resolve_diego_binding_for_run(
+        db=db,
+        session=session,
+        run=run,
+        parse_options=parse_options,
+        get_diego_binding_from_options=get_diego_binding_from_options,
+    )
     diego_run_id = str(binding.get("diego_run_id") or "").strip()
     if not diego_run_id:
         raise APIException(

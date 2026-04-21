@@ -204,6 +204,28 @@ class DiegoClient:
             f"/v1/ppt/runs/{run_id}/slides/{int(slide_no)}/preview",
         )
 
+    async def get_slide_scene(
+        self,
+        run_id: str,
+        slide_no: int,
+    ) -> dict[str, Any]:
+        return await self._request_json(
+            "GET",
+            f"/v1/ppt/runs/{run_id}/slides/{int(slide_no)}/scene",
+        )
+
+    async def save_slide_scene(
+        self,
+        run_id: str,
+        slide_no: int,
+        payload: dict[str, Any],
+    ) -> dict[str, Any]:
+        return await self._request_json(
+            "POST",
+            f"/v1/ppt/runs/{run_id}/slides/{int(slide_no)}/scene/save",
+            payload=payload,
+        )
+
     async def regenerate_slide(
         self,
         run_id: str,

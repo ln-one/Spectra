@@ -242,6 +242,12 @@ SessionStatePayloadTarget:
       type: array
       items:
         type: string
+    teaching_brief:
+      $ref: './generate-session-models.yaml#/TeachingBrief'
+    teaching_brief_proposals:
+      type: array
+      items:
+        $ref: './generate-session-models.yaml#/TeachingBriefProposal'
     current_run:
       $ref: '#/SessionRun'
     result:

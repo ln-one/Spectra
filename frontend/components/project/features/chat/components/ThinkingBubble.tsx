@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import { motion } from "framer-motion";
-import { Sparkles } from "lucide-react";
+import { ThinkingMark } from "@/components/icons/status/ThinkingMark";
 import { cn } from "@/lib/utils";
 
 interface ThinkingBubbleProps {
@@ -69,7 +69,7 @@ export function ThinkingBubble({ toolColor }: ThinkingBubbleProps) {
                 toolColor ? { backgroundColor: toolColor.soft } : undefined
               }
             >
-              <Sparkles
+              <ThinkingMark
                 className="h-3.5 w-3.5"
                 style={{
                   color: toolColor

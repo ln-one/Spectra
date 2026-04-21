@@ -1,5 +1,6 @@
 ﻿import Link from "next/link";
-import { Sparkles, Users } from "lucide-react";
+import { Users } from "lucide-react";
+import { BrandMark } from "@/components/icons/brand/BrandMark";
 import { Separator } from "@/components/ui/separator";
 import {
   Tooltip,
@@ -100,7 +101,7 @@ export function Footer() {
         <div className="flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-muted-foreground">
           <div className="flex items-center gap-2">
             <div className="w-6 h-6 rounded bg-primary flex items-center justify-center">
-              <Sparkles className="w-3.5 h-3.5 text-primary-foreground" />
+              <BrandMark className="w-3.5 h-3.5 text-primary-foreground" />
             </div>
             <span className="font-semibold text-foreground">Spectra</span>
             <span className="text-muted-foreground">

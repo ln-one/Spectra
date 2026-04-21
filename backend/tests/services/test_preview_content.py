@@ -347,6 +347,81 @@ async def test_load_preview_material_reads_artifact_preview_content(
 
 
 @pytest.mark.asyncio
+async def test_load_preview_material_prefers_run_cache_key_when_run_has_artifact(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        "services.preview_helpers.content.db_service",
+        SimpleNamespace(
+            db=SimpleNamespace(
+                sessionrun=SimpleNamespace(
+                    find_unique=AsyncMock(
+                        return_value=SimpleNamespace(
+                            id="run-001",
+                            sessionId="session-001",
+                            artifactId="artifact-001",
+                        )
+                    )
+                ),
+                artifact=SimpleNamespace(
+                    find_unique=AsyncMock(
+                        return_value=SimpleNamespace(
+                            id="artifact-001",
+                            sessionId="session-001",
+                            metadata=json.dumps(
+                                {
+                                    "preview_content": {
+                                        "title": "测试课程",
+                                        "markdown_content": "# Slide",
+                                        "lesson_plan_markdown": "plan",
+                                    }
+                                }
+                            ),
+                        )
+                    ),
+                    find_first=AsyncMock(return_value=None),
+                ),
+            ),
+        ),
+    )
+    monkeypatch.setattr(
+        "services.preview_helpers.content.load_preview_content",
+        AsyncMock(return_value=None),
+    )
+    save_mock = AsyncMock()
+    monkeypatch.setattr(
+        "services.preview_helpers.content.save_preview_content",
+        save_mock,
+    )
+    monkeypatch.setattr(
+        "services.preview_helpers.content.build_slides",
+        lambda _task_id, _md, _image_metadata=None, _render_markdown=None: [
+            SimpleNamespace(model_dump=lambda: {"id": "slide-1", "title": "S1"})
+        ],
+    )
+    monkeypatch.setattr(
+        "services.preview_helpers.content.build_lesson_plan",
+        lambda _slides, _plan_md: SimpleNamespace(
+            model_dump=lambda: {"summary": "ok", "steps": []}
+        ),
+    )
+
+    material_context, slides, _, content = await load_preview_material(
+        session_id="session-001",
+        project_id="project-001",
+        run_id="run-001",
+    )
+
+    assert material_context is not None
+    assert material_context["artifact_id"] == "artifact-001"
+    assert material_context["run_id"] == "run-001"
+    assert material_context["render_job_id"] == "run-001"
+    assert slides == [{"id": "slide-1", "title": "S1"}]
+    assert content["title"] == "测试课程"
+    save_mock.assert_awaited_with("run-001", content)
+
+
+@pytest.mark.asyncio
 async def test_load_preview_material_returns_explicitly_missing_without_artifact_preview_content(
     monkeypatch,
 ):

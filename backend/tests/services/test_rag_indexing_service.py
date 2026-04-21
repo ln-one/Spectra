@@ -193,6 +193,11 @@ async def test_index_upload_file_for_rag_reindex_deletes_old_data(monkeypatch):
         "delete_upload_index",
         delete_index_mock,
     )
+    monkeypatch.setattr(
+        rag_indexing_service.db_service,
+        "list_parsed_chunks",
+        AsyncMock(return_value=[]),
+    )
     delete_chunks_mock = AsyncMock(return_value=1)
     monkeypatch.setattr(
         rag_indexing_service.db_service,
@@ -219,6 +224,67 @@ async def test_index_upload_file_for_rag_reindex_deletes_old_data(monkeypatch):
     assert result["chunk_count"] == 1
     delete_index_mock.assert_awaited_once_with(project_id="p-001", upload_id="u-001")
     delete_chunks_mock.assert_awaited_once_with("u-001")
+
+
+@pytest.mark.asyncio
+async def test_index_upload_file_for_rag_reuses_matching_chunk_ids_on_reindex(
+    monkeypatch,
+):
+    upload = _fake_upload()
+    monkeypatch.setattr(
+        rag_indexing_service,
+        "extract_text_for_rag",
+        lambda filepath, filename, file_type, parser_override=None: (
+            "content",
+            {"text_length": 7},
+        ),
+    )
+    monkeypatch.setattr(
+        rag_indexing_service,
+        "split_text",
+        lambda text, chunk_size, chunk_overlap: ["content"],
+    )
+    monkeypatch.setattr(
+        rag_indexing_service.db_service,
+        "list_parsed_chunks",
+        AsyncMock(
+          return_value=[
+              SimpleNamespace(id="chunk-existing", chunkIndex=0, content="content")
+          ]
+        ),
+    )
+    monkeypatch.setattr(
+        rag_indexing_service.rag_service,
+        "delete_upload_index",
+        AsyncMock(return_value=1),
+    )
+    monkeypatch.setattr(
+        rag_indexing_service.db_service,
+        "delete_parsed_chunks",
+        AsyncMock(return_value=1),
+    )
+    create_chunks_mock = AsyncMock(
+        return_value=[SimpleNamespace(id="chunk-existing")]
+    )
+    monkeypatch.setattr(
+        rag_indexing_service.db_service,
+        "create_parsed_chunks",
+        create_chunks_mock,
+    )
+    monkeypatch.setattr(
+        rag_indexing_service.rag_service,
+        "index_chunks",
+        AsyncMock(return_value=1),
+    )
+
+    await rag_indexing_service.index_upload_file_for_rag(
+        upload=upload,
+        project_id="p-001",
+        reindex=True,
+    )
+
+    chunks_arg = create_chunks_mock.await_args.kwargs["chunks"]
+    assert chunks_arg[0]["id"] == "chunk-existing"
 
 
 @pytest.mark.asyncio

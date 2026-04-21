@@ -3,9 +3,9 @@
 import { motion } from "framer-motion";
 import { Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { GENERATION_TOOLS } from "@/stores/projectStore";
 import {
   ICON_LAYOUT_TRANSITION,
+  STUDIO_VISIBLE_TOOLS,
   TOOL_COLORS,
   TOOL_ICONS,
   type StudioTool,
@@ -29,7 +29,7 @@ export function ToolGrid({
       className="grid min-w-0 grid-cols-1 gap-2 pb-2 [@media(min-width:260px)]:grid-cols-2"
       transition={{ type: "spring", stiffness: 400, damping: 30 }}
     >
-      {GENERATION_TOOLS.map((tool) => {
+      {STUDIO_VISIBLE_TOOLS.map((tool) => {
         const Icon = TOOL_ICONS[tool.id] || Sparkles;
         const color = TOOL_COLORS[tool.id] || TOOL_COLORS.ppt;
         const isHovered = hoveredToolId === tool.id;

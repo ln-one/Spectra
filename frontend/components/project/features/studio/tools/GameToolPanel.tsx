@@ -67,8 +67,8 @@ export function GameToolPanel({
   const [lastGeneratedAt, setLastGeneratedAt] = useState<string | null>(null);
 
   const { suggestions, summary, isLoading } = useStudioRagRecommendations({
-    query: "为当前项目推荐适合生成课堂互动游戏的主题、玩法方向和闯关目标",
-    fallbackSuggestions: ["概念辨析", "因果链排序", "实验现象判断"],
+    surface: "studio_game",
+    seedText: [topic, creativeDirection].filter(Boolean).join(" "),
   });
 
   useEffect(() => {

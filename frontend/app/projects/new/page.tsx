@@ -9,7 +9,6 @@ import { toast } from "@/hooks/use-toast";
 import {
   Loader2,
   ArrowLeft,
-  Sparkles,
   Paperclip,
   X,
   ChevronDown,
@@ -19,6 +18,8 @@ import {
   Settings,
   Library,
 } from "lucide-react";
+import { BrandMark } from "@/components/icons/brand/BrandMark";
+import { ThinkingMark } from "@/components/icons/status/ThinkingMark";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -178,23 +179,19 @@ export default function NewProjectPage() {
     setSubmitError(null);
     setIsLoading(true);
     try {
-      // Use prompt as name if name is empty
+      const promptText = prompt.trim();
       const projectName =
-        formData.name.trim() ||
-        prompt.trim().split("\n")[0].substring(0, 20) ||
-        "新项目";
-      const projectDescription =
-        prompt.trim() || `${projectName} 的项目空间`;
-
-      const response = await projectsApi.createProject({
-        name: projectName,
-        description: projectDescription,
+        formData.name.trim() || promptText.split("\n")[0].substring(0, 20);
+      const createPayload = {
+        description: promptText,
         grade_level: formData.grade_level,
         base_project_id: formData.base_project_id || undefined,
         reference_mode: formData.reference_mode,
         visibility: formData.visibility,
         is_referenceable: formData.is_referenceable,
-      });
+        ...(projectName ? { name: projectName } : {}),
+      };
+      const response = await projectsApi.createProject(createPayload);
 
       const projectId = response?.data?.project?.id;
       if (projectId) {
@@ -254,7 +251,7 @@ export default function NewProjectPage() {
             animate={{ opacity: 1, scale: 1 }}
             className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-zinc-900 text-white shadow-xl shadow-zinc-200"
           >
-            <Sparkles className="w-4 h-4" />
+            <BrandMark className="w-4 h-4" />
             <span className="text-[10px] font-black uppercase tracking-[0.2em]">
               Spectra Agent
             </span>
@@ -289,7 +286,7 @@ export default function NewProjectPage() {
             <div className="space-y-4">
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center">
-                  <Sparkles className="w-4 h-4 text-blue-600" />
+                  <ThinkingMark className="w-4 h-4 text-blue-600" />
                 </div>
                 <h2 className="text-xl font-black text-zinc-900 tracking-tight">
                   教学构想{" "}

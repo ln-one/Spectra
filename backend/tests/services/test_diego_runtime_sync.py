@@ -9,6 +9,10 @@ from services.generation_session_service.diego_runtime_sync import (
 )
 from services.platform.generation_event_constants import GenerationEventType
 
+SVG_V1 = "data:image/svg+xml;base64,slidev1"
+SVG_FINAL = "data:image/svg+xml;base64,slidefinal"
+SVG_EVENT = "data:image/svg+xml;base64,eventpreview"
+
 
 class _FakeDiegoClient:
     def __init__(self) -> None:
@@ -44,7 +48,16 @@ class _FakeDiegoClient:
             "page_index": 0,
             "slide_id": "ignored-by-sync",
             "status": "ready",
-            "html_preview": "<html><body>slide-1</body></html>",
+            "preview_format": "svg",
+            "svg_data_url": SVG_FINAL,
+            "preview": {
+                "index": 0,
+                "slide_id": "ignored-by-sync",
+                "format": "svg",
+                "svg_data_url": SVG_FINAL,
+                "width": 1600,
+                "height": 900,
+            },
             "width": 1600,
             "height": 900,
         }
@@ -65,7 +78,16 @@ class _FakeDiegoClientEventPreviewOnly:
                     "payload": {
                         "slide_no": 1,
                         "status": "ok",
-                        "html_preview": "<html><body>event-preview</body></html>",
+                        "preview_format": "svg",
+                        "svg_data_url": SVG_EVENT,
+                        "preview": {
+                            "index": 0,
+                            "slide_id": "event-slide-1",
+                            "format": "svg",
+                            "svg_data_url": SVG_EVENT,
+                            "width": 1280,
+                            "height": 720,
+                        },
                         "preview_width": 1280,
                         "preview_height": 720,
                         "slide_id": "event-slide-1",
@@ -75,7 +97,59 @@ class _FakeDiegoClientEventPreviewOnly:
         }
 
     async def get_slide_preview(self, _run_id: str, _slide_no: int) -> dict:
-        raise AssertionError("should not fetch preview when event payload already contains html_preview")
+        raise AssertionError("should not fetch preview when event payload already contains svg_data_url")
+
+    async def download_pptx(self, _run_id: str) -> bytes:
+        return b"pptx-bytes"
+
+
+class _FakeDiegoClientSvgPreviewOnly:
+    def __init__(self) -> None:
+        self._poll_count = 0
+
+    async def get_run(self, _run_id: str) -> dict:
+        self._poll_count += 1
+        if self._poll_count == 1:
+            return {
+                "status": "SLIDES_GENERATING",
+                "events": [
+                    {
+                        "seq": 1,
+                        "event": "slide.generated",
+                        "payload": {"slide_no": 1, "status": "ok"},
+                    }
+                ],
+            }
+        return {
+            "status": "SUCCEEDED",
+            "events": [
+                {
+                    "seq": 1,
+                    "event": "slide.generated",
+                    "payload": {"slide_no": 1, "status": "ok"},
+                }
+            ],
+        }
+
+    async def get_slide_preview(self, _run_id: str, _slide_no: int) -> dict:
+        return {
+            "slide_no": 1,
+            "page_index": 0,
+            "slide_id": "svg-only-slide",
+            "status": "ready",
+            "preview_format": "svg",
+            "svg_data_url": SVG_FINAL,
+            "preview": {
+                "index": 0,
+                "slide_id": "svg-only-slide",
+                "format": "svg",
+                "svg_data_url": SVG_FINAL,
+                "width": 1600,
+                "height": 900,
+            },
+            "width": 1600,
+            "height": 900,
+        }
 
     async def download_pptx(self, _run_id: str) -> bytes:
         return b"pptx-bytes"
@@ -124,17 +198,22 @@ class _FakeDiegoClientWithMultiRevision:
 
     async def get_slide_preview(self, _run_id: str, _slide_no: int) -> dict:
         self._preview_count += 1
-        html = (
-            "<html><body>slide-1-v1</body></html>"
-            if self._preview_count == 1
-            else "<html><body>slide-1-final</body></html>"
-        )
+        svg = SVG_V1 if self._preview_count == 1 else SVG_FINAL
         return {
             "slide_no": 1,
             "page_index": 0,
             "slide_id": "ignored-by-sync",
             "status": "ready",
-            "html_preview": html,
+            "preview_format": "svg",
+            "svg_data_url": svg,
+            "preview": {
+                "index": 0,
+                "slide_id": "ignored-by-sync",
+                "format": "svg",
+                "svg_data_url": svg,
+                "width": 1600,
+                "height": 900,
+            },
             "width": 1600,
             "height": 900,
         }
@@ -230,10 +309,97 @@ async def test_sync_diego_generation_streams_slide_preview(monkeypatch):
         for call in append_event_mock.await_args_list
         if call.kwargs.get("event_type") == GenerationEventType.PPT_SLIDE_GENERATED.value
     )
-    assert preview_event["html_preview"] == "<html><body>slide-1</body></html>"
+    assert preview_event["preview_format"] == "svg"
+    assert preview_event["svg_data_url"] == SVG_FINAL
+    assert preview_event["svg_preview_ready"] is True
     assert preview_event["preview_width"] == 1600
     assert preview_event["preview_height"] == 900
     assert preview_event["is_final"] is True
+
+
+@pytest.mark.anyio
+async def test_sync_diego_generation_accepts_svg_only_preview(monkeypatch):
+    fake_client = _FakeDiegoClientSvgPreviewOnly()
+
+    session = SimpleNamespace(
+        id="sess-1",
+        projectId="proj-1",
+        userId="user-1",
+        baseVersionId=None,
+        options="{}",
+    )
+    db = SimpleNamespace(
+        generationsession=SimpleNamespace(find_unique=AsyncMock(return_value=session)),
+        outlineversion=SimpleNamespace(find_first=AsyncMock(return_value=None)),
+        project=SimpleNamespace(
+            find_unique=AsyncMock(return_value=SimpleNamespace(name="Demo"))
+        ),
+    )
+    run = SimpleNamespace(
+        id="run-1",
+        runNo=1,
+        title="Demo Run",
+        toolType="courseware_ppt",
+    )
+
+    append_event_mock = AsyncMock()
+    set_session_state_mock = AsyncMock()
+    persist_artifact_mock = AsyncMock(return_value=("artifact-1", "/download/pptx"))
+    save_preview_content_mock = AsyncMock()
+    sync_module_path = "services.generation_session_service.diego_runtime_sync"
+
+    monkeypatch.setattr(
+        f"{sync_module_path}.build_diego_client",
+        lambda: fake_client,
+    )
+    monkeypatch.setattr(
+        f"{sync_module_path}.append_event",
+        append_event_mock,
+    )
+    monkeypatch.setattr(
+        f"{sync_module_path}.set_session_state",
+        set_session_state_mock,
+    )
+    monkeypatch.setattr(
+        f"{sync_module_path}.persist_diego_success_artifact",
+        persist_artifact_mock,
+    )
+    monkeypatch.setattr(
+        f"{sync_module_path}.save_preview_content",
+        save_preview_content_mock,
+    )
+    monkeypatch.setattr(
+        f"{sync_module_path}.load_preview_content",
+        AsyncMock(return_value=None),
+    )
+    monkeypatch.setattr(
+        f"{sync_module_path}.asyncio.sleep",
+        AsyncMock(return_value=None),
+    )
+
+    await sync_diego_generation_until_terminal(
+        db=db,
+        session_id="sess-1",
+        run=run,
+        diego_run_id="diego-1",
+        diego_trace_id="trace-1",
+        poll_interval_seconds=0.01,
+        timeout_seconds=2,
+    )
+
+    preview_payload = save_preview_content_mock.await_args_list[-1].args[1]
+    final_page = preview_payload["rendered_preview"]["pages"][0]
+    assert final_page["slide_id"] == "svg-only-slide"
+    assert final_page["format"] == "svg"
+    assert final_page["svg_data_url"] == SVG_FINAL
+
+    preview_event = next(
+        call.kwargs["payload"]
+        for call in append_event_mock.await_args_list
+        if call.kwargs.get("event_type") == GenerationEventType.PPT_SLIDE_GENERATED.value
+    )
+    assert preview_event["svg_data_url"] == SVG_FINAL
+    assert preview_event["svg_preview_ready"] is True
 
 
 @pytest.mark.anyio
@@ -311,11 +477,11 @@ async def test_sync_diego_generation_refreshes_slide_until_latest_preview(monkey
 
     assert len(captured_preview_payloads) >= 2
     final_page = captured_preview_payloads[-1]["rendered_preview"]["pages"][0]
-    assert "slide-1-final" in str(final_page.get("html_preview") or "")
+    assert final_page.get("svg_data_url") == SVG_FINAL
 
 
 @pytest.mark.anyio
-async def test_sync_diego_generation_prefers_event_html_preview_and_finishes_when_pptx_ready(monkeypatch):
+async def test_sync_diego_generation_prefers_event_svg_preview_and_finishes_when_pptx_ready(monkeypatch):
     fake_client = _FakeDiegoClientEventPreviewOnly()
 
     session = SimpleNamespace(
@@ -389,6 +555,7 @@ async def test_sync_diego_generation_prefers_event_html_preview_and_finishes_whe
     preview_payload = save_preview_content_mock.await_args_list[-1].args[1]
     final_page = preview_payload["rendered_preview"]["pages"][0]
     assert final_page["slide_id"] == "event-slide-1"
-    assert final_page["html_preview"] == "<html><body>event-preview</body></html>"
+    assert final_page["format"] == "svg"
+    assert final_page["svg_data_url"] == SVG_EVENT
     assert persist_artifact_mock.await_count == 1
     assert sessionrun_update.await_count >= 1

@@ -12,8 +12,8 @@ import {
   LayoutTemplate,
   Lightbulb,
   RefreshCw,
-  Sparkles,
 } from "lucide-react";
+import { ThinkingMark } from "@/components/icons/status/ThinkingMark";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -87,7 +87,9 @@ export function GenerationConfigPanel({
     selectedTemplateId,
     setSelectedTemplateId,
     suggestions,
+    suggestionStatus,
     loadingSuggestions,
+    suggestionErrorMessage,
     isCreatingSession,
     showRegenerateHint,
     showOutlineEditor,
@@ -351,7 +353,7 @@ export function GenerationConfigPanel({
                 <motion.section variants={itemVariants}>
                   <div className="flex flex-wrap items-center gap-2">
                     <div className="flex h-8 items-center gap-1.5 rounded-full bg-amber-50 px-3 text-[12px] font-semibold text-amber-700 ring-1 ring-amber-100">
-                      <Sparkles className="h-3.5 w-3.5" />
+                      <ThinkingMark className="h-3.5 w-3.5" />
                       灵感
                     </div>
                     {suggestions.map((item, idx) => (
@@ -380,9 +382,36 @@ export function GenerationConfigPanel({
                       />
                       换一批
                     </motion.button>
-                    {loadingSuggestions && suggestions.length === 0 ? (
+                    {suggestionStatus === "generating" &&
+                    suggestions.length === 0 ? (
                       <span className="text-xs text-zinc-400">
-                        正在准备示例...
+                        正在生成提示池...
+                      </span>
+                    ) : null}
+                    {suggestionStatus === "empty" &&
+                    suggestions.length === 0 &&
+                    !loadingSuggestions ? (
+                      <span className="text-xs text-zinc-400">
+                        项目资料不足，暂无提示建议
+                      </span>
+                    ) : null}
+                    {suggestionStatus === "stale" && suggestions.length > 0 ? (
+                      <span className="text-xs text-zinc-400">
+                        正在刷新提示池
+                      </span>
+                    ) : null}
+                    {suggestionStatus === "failed" &&
+                    suggestions.length === 0 &&
+                    !loadingSuggestions ? (
+                      <span className="text-xs text-amber-600">
+                        提示池生成失败，点击“换一批”重试
+                      </span>
+                    ) : null}
+                    {!loadingSuggestions &&
+                    suggestions.length === 0 &&
+                    suggestionErrorMessage ? (
+                      <span className="text-xs text-amber-600">
+                        {suggestionErrorMessage}
                       </span>
                     ) : null}
                   </div>

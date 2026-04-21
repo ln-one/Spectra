@@ -103,14 +103,27 @@ describe("studio ppt history status sync", () => {
   it("matches slide-ready event only for the same run id", () => {
     const matchingEvent = {
       event_type: "ppt.slide.generated",
-      payload: { run_id: "run-1", slide_no: 1 },
+      payload: {
+        run_id: "run-1",
+        slide_no: 1,
+        svg_data_url: "data:image/svg+xml;base64,AAA",
+      },
     };
     const otherRunEvent = {
       event_type: "ppt.slide.generated",
-      payload: { run_id: "run-2", slide_no: 1 },
+      payload: {
+        run_id: "run-2",
+        slide_no: 1,
+        svg_data_url: "data:image/svg+xml;base64,AAA",
+      },
+    };
+    const noSvgEvent = {
+      event_type: "ppt.slide.generated",
+      payload: { run_id: "run-1", slide_no: 1 },
     };
     expect(isMatchingSlideReadyEvent(matchingEvent, "run-1")).toBe(true);
     expect(isMatchingSlideReadyEvent(otherRunEvent, "run-1")).toBe(false);
+    expect(isMatchingSlideReadyEvent(noSvgEvent, "run-1")).toBe(false);
   });
 
   it("maps outline.completed event to outline_pending_confirm for same run", () => {

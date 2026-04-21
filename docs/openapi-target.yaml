@@ -1418,6 +1418,38 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+  /api/v1/rag/prompt-suggestions:
+    post:
+      summary: 基于 RAG 生成提示建议
+      operationId: postRagPromptSuggestions
+      description: 读取项目 RAG 资料，并由大模型生成可直接用于 PPT 或 Studio 工具的生成提示。
+      tags:
+        - RAG
+      security:
+        - SessionAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PromptSuggestionRequest'
+      responses:
+        '200':
+          description: 提示建议生成成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PromptSuggestionResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '502':
+          $ref: '#/components/responses/BadGateway'
   /api/v1/rag/sources/{chunk_id}:
     get:
       summary: 查看来源详情
@@ -1861,7 +1893,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ProjectRequestTarget'
+              $ref: '#/components/schemas/ProjectCreateRequestTarget'
       responses:
         '200':
           description: 项目创建成功
@@ -5286,6 +5318,34 @@ components:
         run_id:
           type: string
           nullable: true
+    SvgPreviewManifest:
+      type: object
+      required:
+        - index
+        - slide_id
+        - format
+        - svg_data_url
+      properties:
+        index:
+          type: integer
+          minimum: 0
+        slide_id:
+          type: string
+        format:
+          type: string
+          enum:
+            - svg
+          default: svg
+        svg_data_url:
+          type: string
+        width:
+          type: integer
+          minimum: 1
+          nullable: true
+        height:
+          type: integer
+          minimum: 1
+          nullable: true
     RenderedPreviewPage:
       type: object
       required:
@@ -5300,6 +5360,14 @@ components:
         image_url:
           type: string
           nullable: true
+        format:
+          type: string
+          nullable: true
+        svg_data_url:
+          type: string
+          nullable: true
+        preview:
+          $ref: '#/components/schemas/SvgPreviewManifest'
         html_preview:
           type: string
           nullable: true
@@ -5377,6 +5445,181 @@ components:
               type: string
             body:
               type: string
+    AuthorityPreviewFrame:
+      type: object
+      required:
+        - slide_id
+        - index
+        - split_index
+        - split_count
+      properties:
+        slide_id:
+          type: string
+        index:
+          type: integer
+          minimum: 0
+        split_index:
+          type: integer
+          minimum: 0
+          default: 0
+        split_count:
+          type: integer
+          minimum: 1
+          default: 1
+        status:
+          type: string
+          nullable: true
+        format:
+          type: string
+          nullable: true
+        svg_data_url:
+          type: string
+          nullable: true
+        preview:
+          $ref: '#/components/schemas/SvgPreviewManifest'
+        width:
+          type: integer
+          minimum: 1
+          nullable: true
+        height:
+          type: integer
+          minimum: 1
+          nullable: true
+    AuthorityPreviewBlock:
+      type: object
+      required:
+        - block_id
+        - kind
+      properties:
+        block_id:
+          type: string
+        kind:
+          type: string
+          enum:
+            - heading
+            - paragraph
+            - bullet_list
+            - image
+        text:
+          type: string
+        items:
+          type: array
+          items:
+            type: string
+        src:
+          type: string
+        alt:
+          type: string
+    AuthorityPreviewSlide:
+      type: object
+      required:
+        - slide_id
+        - index
+        - frames
+      properties:
+        slide_id:
+          type: string
+        index:
+          type: integer
+          minimum: 0
+        title:
+          type: string
+        status:
+          type: string
+        layout_kind:
+          type: string
+        render_version:
+          type: integer
+          minimum: 1
+          nullable: true
+        format:
+          type: string
+          nullable: true
+        svg_data_url:
+          type: string
+          nullable: true
+        preview:
+          $ref: '#/components/schemas/SvgPreviewManifest'
+        width:
+          type: integer
+          minimum: 1
+          nullable: true
+        height:
+          type: integer
+          minimum: 1
+          nullable: true
+        frames:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuthorityPreviewFrame'
+        editable_block_ids:
+          type: array
+          items:
+            type: string
+        blocks:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuthorityPreviewBlock'
+    AuthorityPreview:
+      type: object
+      required:
+        - provider
+        - slides
+      properties:
+        provider:
+          type: string
+          enum:
+            - pagevra
+            - diego
+          default: pagevra
+        run_id:
+          type: string
+          nullable: true
+        render_version:
+          type: integer
+          minimum: 1
+          nullable: true
+        viewport:
+          type: object
+          properties:
+            width:
+              type: integer
+              minimum: 1
+              nullable: true
+            height:
+              type: integer
+              minimum: 1
+              nullable: true
+        compile_context_version:
+          type: integer
+          minimum: 1
+          nullable: true
+        compile_context:
+          $ref: '#/components/schemas/DiegoPreviewContext'
+        theme:
+          type: object
+          properties:
+            primary:
+              type: string
+            secondary:
+              type: string
+            accent:
+              type: string
+            light:
+              type: string
+            bg:
+              type: string
+        fonts:
+          type: object
+          properties:
+            title:
+              type: string
+            body:
+              type: string
+        slides:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuthorityPreviewSlide'
     preview_SourceReference:
       type: object
       required:
@@ -5553,6 +5796,8 @@ components:
               $ref: '#/components/schemas/RenderedPreview'
             diego_preview_context:
               $ref: '#/components/schemas/DiegoPreviewContext'
+            authority_preview:
+              $ref: '#/components/schemas/AuthorityPreview'
             slides:
               type: array
               items:
@@ -5863,6 +6108,104 @@ components:
                 $ref: '#/components/schemas/RAGResult'
             total:
               type: integer
+        message:
+          type: string
+    PromptSuggestionSurface:
+      type: string
+      enum:
+        - ppt_generation_config
+        - studio_mindmap
+        - studio_game
+        - studio_quiz
+        - studio_animation
+        - studio_simulation
+        - studio_speaker_notes
+        - studio_word
+    PromptSuggestionRequest:
+      type: object
+      required:
+        - project_id
+        - surface
+      properties:
+        project_id:
+          type: string
+        surface:
+          $ref: '#/components/schemas/PromptSuggestionSurface'
+        seed_text:
+          type: string
+          maxLength: 1000
+          nullable: true
+        limit:
+          type: integer
+          default: 4
+          minimum: 1
+          maximum: 8
+        cursor:
+          type: integer
+          minimum: 0
+          nullable: true
+        refresh:
+          type: boolean
+          default: false
+        filters:
+          type: object
+          properties:
+            file_types:
+              type: array
+              items:
+                type: string
+                enum:
+                  - pdf
+                  - word
+                  - video
+                  - image
+                  - ppt
+            file_ids:
+              type: array
+              items:
+                type: string
+    PromptSuggestionResponse:
+      type: object
+      required:
+        - success
+        - data
+        - message
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          required:
+            - suggestions
+            - rag_hit
+            - status
+            - pool_size
+          properties:
+            suggestions:
+              type: array
+              items:
+                type: string
+            summary:
+              type: string
+              nullable: true
+            rag_hit:
+              type: boolean
+            status:
+              type: string
+              enum:
+                - ready
+                - generating
+                - stale
+                - failed
+                - empty
+            pool_size:
+              type: integer
+            generated_at:
+              type: string
+              nullable: true
+            next_cursor:
+              type: integer
+              nullable: true
         message:
           type: string
     SourceDetailResponse:
@@ -6264,6 +6607,22 @@ components:
               type: integer
         message:
           type: string
+    ProjectCreateRequest:
+      type: object
+      required:
+        - description
+      properties:
+        name:
+          type: string
+          nullable: true
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          minLength: 1
+          maxLength: 2000
+        grade_level:
+          type: string
     ProjectRequest:
       type: object
       required:
@@ -6280,6 +6639,26 @@ components:
           maxLength: 2000
         grade_level:
           type: string
+    ProjectCreateRequestTarget:
+      allOf:
+        - $ref: '#/components/schemas/ProjectCreateRequest'
+        - type: object
+          properties:
+            base_project_id:
+              type: string
+              nullable: true
+            reference_mode:
+              type: string
+              enum:
+                - follow
+                - pinned
+            visibility:
+              type: string
+              enum:
+                - private
+                - shared
+            is_referenceable:
+              type: boolean
     ProjectRequestTarget:
       allOf:
         - $ref: '#/components/schemas/ProjectRequest'
