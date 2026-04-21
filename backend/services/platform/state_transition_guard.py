@@ -142,7 +142,7 @@ _TRANSITION_TABLE: dict[tuple[str, str], str] = {
         GenerationCommandType.CONFIRM_OUTLINE.value,
         GenerationState.AWAITING_OUTLINE_CONFIRM.value,
     ): GenerationState.GENERATING_CONTENT.value,
-    # REGENERATE_SLIDE：局部重绘，仅在 SUCCESS 或 RENDERING 后允许
+    # REGENERATE_SLIDE：局部重绘，允许在已有可编辑预览的终态继续发起
     (
         GenerationCommandType.REGENERATE_SLIDE.value,
         GenerationState.SUCCESS.value,
@@ -150,6 +150,10 @@ _TRANSITION_TABLE: dict[tuple[str, str], str] = {
     (
         GenerationCommandType.REGENERATE_SLIDE.value,
         GenerationState.RENDERING.value,
+    ): GenerationState.RENDERING.value,
+    (
+        GenerationCommandType.REGENERATE_SLIDE.value,
+        GenerationState.FAILED.value,
     ): GenerationState.RENDERING.value,
     # RESUME_SESSION：从 FAILED 或任意中断态恢复
     (
@@ -263,7 +267,11 @@ _ALLOWED_ACTIONS: dict[str, list[str]] = {
         "set_session_title",
     ],
     GenerationState.SUCCESS.value: ["regenerate_slide", "export", "set_session_title"],
-    GenerationState.FAILED.value: ["resume_session", "set_session_title"],
+    GenerationState.FAILED.value: [
+        "regenerate_slide",
+        "resume_session",
+        "set_session_title",
+    ],
 }
 
 
