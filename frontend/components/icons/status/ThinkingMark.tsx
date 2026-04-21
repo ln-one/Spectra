@@ -1,4 +1,6 @@
-import { Sparkles } from "lucide-react";
-import { createLucideIconAdapter } from "../shared/createLucideIconAdapter";
+import { LoadingLogo } from "../LoadingLogo";
+import type { AppIconProps } from "../shared/icon-types";
 
-export const ThinkingMark = createLucideIconAdapter(Sparkles);
+export function ThinkingMark(props: AppIconProps) {
+  return <LoadingLogo {...props} />;
+}

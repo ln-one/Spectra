@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { motion } from "framer-motion";
 import { ThinkingMark } from "@/components/icons/status/ThinkingMark";
@@ -60,17 +60,17 @@ export function ThinkingBubble({ toolColor }: ThinkingBubbleProps) {
                 rotate: [0, 90, 180, 270, 360],
               }}
               transition={{
-                duration: 6,
+                duration: 3,
                 repeat: Infinity,
                 ease: "linear",
               }}
-              className="flex h-6 w-6 items-center justify-center rounded-lg bg-[var(--project-surface-muted)]"
+              className="flex h-8 w-8 items-center justify-center rounded-xl bg-[var(--project-surface-muted)]"
               style={
                 toolColor ? { backgroundColor: toolColor.soft } : undefined
               }
             >
               <ThinkingMark
-                className="h-3.5 w-3.5"
+                className="h-5.5 w-5.5"
                 style={{
                   color: toolColor
                     ? toolColor.primary

@@ -1,4 +1,4 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { BrandMark } from "@/components/icons/brand/BrandMark";
@@ -14,10 +14,10 @@ export function Navbar() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center shadow-lg">
-              <BrandMark className="w-4 h-4 text-primary-foreground" />
+            <div className="w-8 h-8 rounded-lg bg-zinc-50 flex items-center justify-center shadow-sm border border-zinc-100">
+              <BrandMark className="w-5 h-5" />
             </div>
-            <span className="font-bold text-xl tracking-tight">Spectra</span>
+            <span className="font-bold text-xl tracking-tight text-zinc-900">Spectra</span>
           </div>
 
           <div className="hidden md:flex items-center gap-6">

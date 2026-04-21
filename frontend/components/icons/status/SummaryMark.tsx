@@ -1,4 +1,4 @@
-import { Sparkles } from "lucide-react";
+import { FileText } from "lucide-react";
 import { createLucideIconAdapter } from "../shared/createLucideIconAdapter";
 
-export const SummaryMark = createLucideIconAdapter(Sparkles);
+export const SummaryMark = createLucideIconAdapter(FileText);

@@ -1,4 +1,4 @@
-import { Sparkles } from "lucide-react";
+import { Star } from "lucide-react";
 import { createLucideIconAdapter } from "../shared/createLucideIconAdapter";
 
-export const ProjectFeaturedMark = createLucideIconAdapter(Sparkles);
+export const ProjectFeaturedMark = createLucideIconAdapter(Star);

@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
 import { motion } from "framer-motion";
@@ -55,12 +55,11 @@ export function ProjectHeader({
           className="flex items-center gap-2 group relative"
         >
           <motion.div
-            whileHover={{ scale: 1.05, rotate: 5 }}
-            whileTap={{ scale: 0.95 }}
-            className="project-header-logo w-9 h-9 rounded-2xl bg-[linear-gradient(135deg,var(--project-logo-start),var(--project-logo-end))] flex items-center justify-center shadow-md shadow-zinc-900/20 relative overflow-hidden"
+            whileHover={{ scale: 1.1, rotate: 5 }}
+            whileTap={{ scale: 0.9 }}
+            className="flex items-center justify-center relative"
           >
-            <div className="project-header-logo-gloss absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity" />
-            <BrandMark className="w-4 h-4 text-[var(--project-logo-text)]" />
+            <BrandMark className="w-10 h-10" />
           </motion.div>
         </Link>
 

@@ -27,35 +27,56 @@ interface ProjectCardProps {
 function getRandomLogoGradient(seedStr: string) {
   const logoColors = [
     "#FF3B30",
+    "#FF5230",
+    "#FF6830",
+    "#FF7F18",
     "#FF9500",
+    "#FFA300",
+    "#FFB100",
+    "#FFBF00",
     "#FFCC00",
+    "#D2D919",
+    "#A6D632",
+    "#79D44B",
     "#4CD964",
+    "#4FD58B",
+    "#53D1AF",
+    "#56CDD4",
     "#5AC8FA",
+    "#43B1FC",
+    "#2DA4FA",
+    "#168FFF",
     "#007AFF",
+    "#166EF3",
+    "#2C68EB",
+    "#425FE0",
     "#5856D6",
+    "#6B54D9",
+    "#844FC2",
+    "#9951D0",
     "#AF52DE",
   ];
-  
+
   let hash = 0;
   for (let i = 0; i < seedStr.length; i++) {
     hash = seedStr.charCodeAt(i) + ((hash << 5) - hash);
   }
-  
+
   const random = () => {
     const x = Math.sin(hash++) * 10000;
     return x - Math.floor(x);
   };
-  
+
   const colorCount = random() > 0.5 ? 3 : 2;
   const selectedColors: string[] = [];
   const availableColors = [...logoColors];
-  
+
   for (let i = 0; i < colorCount; i++) {
     const idx = Math.floor(random() * availableColors.length);
     selectedColors.push(availableColors[idx]);
     availableColors.splice(idx, 1);
   }
-  
+
   const hexToRgba = (hex: string, alpha: number) => {
     const r = parseInt(hex.slice(1, 3), 16);
     const g = parseInt(hex.slice(3, 5), 16);
@@ -63,18 +84,20 @@ function getRandomLogoGradient(seedStr: string) {
     return `rgba(${r}, ${g}, ${b}, ${alpha})`;
   };
 
-  const bgBase = "#ffffff";
+  const bgBase = hexToRgba("#ffffff", 1);
+
+
   if (colorCount === 2) {
     return `
-      radial-gradient(circle at 0% 0%, ${hexToRgba(selectedColors[0], 0.4)} 0%, transparent 80%),
-      radial-gradient(circle at 100% 100%, ${hexToRgba(selectedColors[1], 0.4)} 0%, transparent 80%),
+      radial-gradient(circle at 0% 0%, ${hexToRgba(selectedColors[0], 0.6)} 0%, transparent 70%),
+      radial-gradient(circle at 100% 100%, ${hexToRgba(selectedColors[1], 0.4)} 0%, transparent 90%),
       ${bgBase}
     `;
   } else {
     return `
-      radial-gradient(circle at 0% 0%, ${hexToRgba(selectedColors[0], 0.4)} 0%, transparent 70%),
-      radial-gradient(circle at 100% 100%, ${hexToRgba(selectedColors[1], 0.4)} 0%, transparent 70%),
-      radial-gradient(circle at 100% 0%, ${hexToRgba(selectedColors[2], 0.4)} 0%, transparent 70%),
+      radial-gradient(circle at 0% 0%, ${hexToRgba(selectedColors[0], 0.7)} 0%, transparent 70%),
+      radial-gradient(circle at 100% 100%, ${hexToRgba(selectedColors[1], 0.6)} 0%, transparent 80%),
+      radial-gradient(circle at 100% 0%, ${hexToRgba(selectedColors[2], 0.5)} 0%, transparent 90%),
       ${bgBase}
     `;
   }
@@ -169,7 +192,7 @@ export function ProjectCard({
             {formatDate(project.created_at || (project as any).createdAt || (project as any).updatedAt)}
           </p>
         </div>
-        
+
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button

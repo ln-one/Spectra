@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -8,7 +8,7 @@ import {
   Loader2,
   PencilLine,
   Save,
-  Sparkles,
+  Wand2,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -213,7 +213,7 @@ export function StudioPanelHeader({
                   {primaryActionState === "loading" ? (
                     <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
                   ) : (
-                    <Sparkles className="mr-1 h-3.5 w-3.5" />
+                    <Wand2 className="mr-1 h-3.5 w-3.5" />
                   )}
                   {primaryActionState === "loading"
                     ? primaryActionLabel

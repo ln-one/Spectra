@@ -664,7 +664,7 @@ export function useProjectDetailController() {
       }
 
       toast({
-        title: "会话已隐藏",
+        title: "会话已归档",
       });
     },
     [

@@ -1,4 +1,6 @@
-import { Sparkles } from "lucide-react";
-import { createLucideIconAdapter } from "../shared/createLucideIconAdapter";
+import { SpectraLogo } from "../SpectraLogo";
+import type { AppIconProps } from "../shared/icon-types";
 
-export const BrandMark = createLucideIconAdapter(Sparkles);
+export function BrandMark(props: AppIconProps) {
+  return <SpectraLogo {...props} />;
+}
