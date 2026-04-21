@@ -2,13 +2,14 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Suspense } from "react";
 import { useAuthStore } from "@/stores/authStore";
 import { useNotification } from "@/hooks/use-notification";
-import { Loader2 } from "lucide-react";
+import { Loader2, ArrowLeft } from "lucide-react";
 import { motion, useReducedMotion, type Easing } from "framer-motion";
 
 import {
@@ -21,13 +22,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { BrandMark } from "@/components/icons/brand/BrandMark";
 
 const loginSchema = z.object({
   email: z.string().min(1, "请输入邮箱").email("请输入有效的邮箱地址"),
@@ -71,14 +66,15 @@ function LoginForm() {
     }
   };
 
-  const containerVariants = {
+  const formVariants = {
     hidden: { opacity: 0, y: 20 },
     visible: {
       opacity: 1,
       y: 0,
       transition: {
-        duration: prefersReducedMotion ? 0 : 0.4,
+        duration: prefersReducedMotion ? 0 : 0.6,
         ease: "easeOut" as Easing,
+        staggerChildren: 0.1,
       },
     },
   };
@@ -88,61 +84,88 @@ function LoginForm() {
     visible: {
       opacity: 1,
       y: 0,
-      transition: {
-        duration: prefersReducedMotion ? 0 : 0.3,
-        ease: "easeOut" as Easing,
-      },
+      transition: { duration: prefersReducedMotion ? 0 : 0.4 },
     },
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background p-4">
-      <motion.div
-        initial="hidden"
-        animate="visible"
-        variants={containerVariants}
-        className="w-full max-w-sm"
-      >
-        <Card className="border-0 shadow-sm">
-          <CardHeader className="p-6 space-y-1 text-center pb-6">
-            <motion.div
-              variants={itemVariants}
-              initial="hidden"
-              animate="visible"
-              transition={{ delay: prefersReducedMotion ? 0 : 0.1 }}
-            >
-              <CardTitle className="text-2xl font-semibold tracking-tight">
-                登录
-              </CardTitle>
-              <CardDescription className="text-muted-foreground mt-2">
-                输入您的邮箱和密码
-              </CardDescription>
-            </motion.div>
-          </CardHeader>
+    <div className="min-h-screen w-full flex bg-background">
+      {/* Left Panel: Image */}
+      <div className="hidden lg:flex relative w-1/2 bg-zinc-950 overflow-hidden items-center justify-center">
+        <Image
+          src="/images/prism_core_bg.png"
+          alt="Knowledge Prism Background"
+          fill
+          className="object-cover opacity-90"
+          priority
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-zinc-950/80 via-transparent to-zinc-950/20" />
+        
+        {/* Quote / Branding on image */}
+        <div className="absolute bottom-12 left-12 right-12 z-10">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5, duration: 0.8 }}
+          >
+            <h2 className="text-3xl font-bold text-white tracking-tight mb-4 leading-tight">
+              折射思维的光芒
+            </h2>
+            <p className="text-zinc-400 text-lg font-medium tracking-wide">
+              AI 驱动的教学革命，从这里开始。
+            </p>
+          </motion.div>
+        </div>
+      </div>
 
-          <CardContent>
-            <Form {...form}>
-              <form
-                onSubmit={form.handleSubmit(onSubmit)}
-                className="space-y-5"
-              >
-                <motion.div
-                  variants={itemVariants}
-                  initial="hidden"
-                  animate="visible"
-                  transition={{ delay: prefersReducedMotion ? 0 : 0.2 }}
-                >
+      {/* Right Panel: Form */}
+      <div className="w-full lg:w-1/2 flex flex-col items-center justify-center relative p-8">
+        
+        {/* Back Button */}
+        <div className="absolute top-8 left-8">
+          <Link href="/" className="inline-flex items-center text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            返回首页
+          </Link>
+        </div>
+
+        <motion.div
+          initial="hidden"
+          animate="visible"
+          variants={formVariants}
+          className="w-full max-w-[400px] space-y-8"
+        >
+          {/* Header */}
+          <div className="text-center space-y-6">
+            <motion.div variants={itemVariants} className="flex justify-center">
+              <BrandMark className="w-48 h-48" />
+            </motion.div>
+            <motion.div variants={itemVariants}>
+              <h1 className="text-3xl font-bold tracking-tight text-foreground">
+                欢迎回来
+              </h1>
+              <p className="text-muted-foreground mt-2">
+                登录您的 Spectra 账号
+              </p>
+            </motion.div>
+          </div>
+
+          {/* Form */}
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              <motion.div variants={itemVariants}>
                   <FormField
                     control={form.control}
                     name="email"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>邮箱</FormLabel>
+                        <FormLabel className="text-foreground">邮箱</FormLabel>
                         <FormControl>
                           <Input
                             placeholder="your@email.com"
                             type="email"
                             disabled={isSubmitting}
+                            className="h-12 bg-zinc-50/50 border-zinc-200/60 focus-visible:ring-blue-500/20 focus-visible:border-blue-500/50 transition-all rounded-xl"
                             {...field}
                           />
                         </FormControl>
@@ -150,76 +173,69 @@ function LoginForm() {
                       </FormItem>
                     )}
                   />
-                </motion.div>
+              </motion.div>
 
-                <motion.div
-                  variants={itemVariants}
-                  initial="hidden"
-                  animate="visible"
-                  transition={{ delay: prefersReducedMotion ? 0 : 0.3 }}
-                >
-                  <FormField
-                    control={form.control}
-                    name="password"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>密码</FormLabel>
-                        <FormControl>
-                          <Input
-                            placeholder="••••••••"
-                            type="password"
-                            disabled={isSubmitting}
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </motion.div>
+              <motion.div variants={itemVariants}>
+                <FormField
+                  control={form.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <div className="flex items-center justify-between">
+                        <FormLabel className="text-foreground">密码</FormLabel>
+                        <Link href="#" className="text-xs font-medium text-zinc-400 hover:text-zinc-900 transition-colors">
+                          忘记密码？
+                        </Link>
+                      </div>
+                      <FormControl>
+                        <Input
+                          placeholder="••••••••"
+                          type="password"
+                          disabled={isSubmitting}
+                          className="h-12 bg-zinc-50/50 border-zinc-200/60 focus-visible:ring-blue-500/20 focus-visible:border-blue-500/50 transition-all rounded-xl"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </motion.div>
 
-                <motion.div
-                  variants={itemVariants}
-                  initial="hidden"
-                  animate="visible"
-                  transition={{ delay: prefersReducedMotion ? 0 : 0.4 }}
+              <motion.div variants={itemVariants} className="pt-2">
+                <Button
+                  type="submit"
+                  className="w-full h-12 text-base font-semibold shadow-xl hover:shadow-2xl hover:scale-[1.01] active:scale-[0.99] transition-all bg-zinc-900 text-white hover:bg-zinc-800 rounded-xl relative overflow-hidden group"
+                  disabled={isSubmitting}
                 >
-                  <Button
-                    type="submit"
-                    className="w-full"
-                    disabled={isSubmitting}
-                  >
-                    {isSubmitting ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        登录中...
-                      </>
-                    ) : (
-                      "登录"
-                    )}
-                  </Button>
-                </motion.div>
+                  <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/10 to-white/0 -translate-x-full group-hover:animate-shimmer" />
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                      登录中...
+                    </>
+                  ) : (
+                    "登录"
+                  )}
+                </Button>
+              </motion.div>
 
-                <motion.div
-                  variants={itemVariants}
-                  initial="hidden"
-                  animate="visible"
-                  transition={{ delay: prefersReducedMotion ? 0 : 0.5 }}
-                  className="text-center text-sm text-muted-foreground pt-2"
+              <motion.div
+                variants={itemVariants}
+                className="text-center text-sm text-muted-foreground pt-4"
+              >
+                还没有账号？{" "}
+                <Link
+                  href="/auth/register"
+                  className="text-foreground hover:text-blue-600 font-medium hover:underline transition-colors"
                 >
-                  还没有账号？{" "}
-                  <Link
-                    href="/auth/register"
-                    className="text-foreground hover:underline"
-                  >
-                    立即注册
-                  </Link>
-                </motion.div>
-              </form>
-            </Form>
-          </CardContent>
-        </Card>
-      </motion.div>
+                  立即注册
+                </Link>
+              </motion.div>
+            </form>
+          </Form>
+        </motion.div>
+      </div>
     </div>
   );
 }
@@ -227,7 +243,7 @@ function LoginForm() {
 function LoginLoading() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background">
-      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
     </div>
   );
 }
