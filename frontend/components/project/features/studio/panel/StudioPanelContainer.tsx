@@ -1481,8 +1481,7 @@ export function StudioPanelContainer({
           />
           <CardContent
             className={cn(
-              "relative overflow-hidden p-0",
-              isExpanded ? "h-[calc(100%-52px)]" : "h-full"
+              "relative h-[calc(100%-52px)] overflow-hidden p-0"
             )}
           >
             <StudioCollapsedView
