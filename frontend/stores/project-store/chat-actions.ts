@@ -1,4 +1,4 @@
-﻿import { chatApi, studioCardsApi } from "@/lib/sdk";
+import { chatApi, studioCardsApi } from "@/lib/sdk";
 import {
   createApiError,
   getChatLatencyNotice,
@@ -15,7 +15,6 @@ import {
   readStudioLocalPayload,
   writeStudioLocalPayload,
 } from "./studio-chat.helpers";
-import { isGenerateCoursewareIntent } from "./courseware-run";
 import { resolveReadySelectedFileIds } from "./source-scope";
 import type {
   Message,
@@ -372,18 +371,20 @@ export function createChatActions({
         const refreshedSnapshot = await get().refreshGenerationSession(
           response?.data?.session_id ?? effectiveSessionId
         );
-        if (
-          refreshedSnapshot?.teaching_brief?.status === "confirmed" &&
-          refreshedSnapshot?.teaching_brief?.readiness?.can_generate === true &&
-          isGenerateCoursewareIntent(content)
-        ) {
-          try {
-            await get().startPptFromTeachingBrief(
-              refreshedSnapshot.session?.session_id ?? effectiveSessionId
-            );
-          } catch {
-            // Auto-start failure should not turn the chat request into a failed send.
-          }
+
+        const observability = response?.data?.observability as Record<string, any> | undefined;
+        const teachingBriefHint = observability?.teaching_brief_hint as Record<string, any> | undefined;
+        
+        if (teachingBriefHint) {
+          set({
+            latestBriefHint: {
+              autoAppliedFields: teachingBriefHint.auto_applied_fields || [],
+              aiRequestsConfirmation: teachingBriefHint.ai_requests_confirmation || false,
+              missingFields: teachingBriefHint.missing_fields || [],
+              briefStatus: teachingBriefHint.brief_status || "draft",
+              briefSnapshot: teachingBriefHint.brief_snapshot || null,
+            }
+          });
         }
       } catch (error) {
         const message = getChatRequestErrorMessage(error);

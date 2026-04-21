@@ -183,6 +183,14 @@ export interface ProjectState {
   activeSourceDetail: SourceDetail | null;
   activeSourceFocusNonce: number;
 
+  latestBriefHint: {
+    autoAppliedFields: string[];
+    aiRequestsConfirmation: boolean;
+    missingFields: string[];
+    briefStatus: string;
+    briefSnapshot: TeachingBrief | null;
+  } | null;
+
   layoutMode: LayoutMode;
   expandedTool: ExpandedTool;
 
@@ -353,6 +361,7 @@ export const initialState = {
   lastFailedInput: null as string | null,
   activeSourceDetail: null as SourceDetail | null,
   activeSourceFocusNonce: 0,
+  latestBriefHint: null as ProjectState["latestBriefHint"],
   layoutMode: "normal" as LayoutMode,
   expandedTool: null as ExpandedTool,
   isLoading: false,

@@ -18,6 +18,7 @@ type TeachingBriefActionKeys =
   | "applyTeachingBriefProposal"
   | "dismissTeachingBriefProposal"
   | "confirmTeachingBrief"
+  | "confirmTeachingBriefFromChat"
   | "startPptFromTeachingBrief";
 
 function resolveActiveSessionId(get: ProjectStoreContext["get"], sessionId?: string | null) {
@@ -135,6 +136,24 @@ export function createTeachingBriefActions({
           command: {
             command_type: "CONFIRM_TEACHING_BRIEF",
             patch,
+          },
+        });
+        await syncSessionSnapshot(set, get, sessionId);
+      } catch (error) {
+        toast({
+          title: "确认教学需求单失败",
+          description: getErrorMessage(error),
+          variant: "destructive",
+        });
+        throw error;
+      }
+    },
+
+    confirmTeachingBriefFromChat: async (sessionId) => {
+      try {
+        await generateApi.sendCommand(sessionId, {
+          command: {
+            command_type: "CONFIRM_TEACHING_BRIEF",
           },
         });
         await syncSessionSnapshot(set, get, sessionId);

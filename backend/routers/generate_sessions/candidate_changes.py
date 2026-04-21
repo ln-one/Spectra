@@ -72,6 +72,24 @@ async def resolve_session_artifact_binding(
     run_id: Optional[str] = None,
 ):
     """Resolve artifact binding for preview/export in session scope."""
+    requested_artifact = None
+    normalized_artifact_id = str(artifact_id or "").strip()
+    if normalized_artifact_id:
+        requested_artifact = await project_space_service.get_artifact(
+            normalized_artifact_id,
+            user_id=user_id,
+        )
+        if not requested_artifact or requested_artifact.projectId != project_id:
+            raise NotFoundException(
+                message=f"成果不存在: {normalized_artifact_id}",
+                error_code=ErrorCode.NOT_FOUND,
+            )
+        if requested_artifact.sessionId and requested_artifact.sessionId != session_id:
+            raise NotFoundException(
+                message=f"成果 {normalized_artifact_id} 不属于会话 {session_id}",
+                error_code=ErrorCode.NOT_FOUND,
+            )
+
     if run_id:
         run_model = getattr(getattr(db_service, "db", None), "sessionrun", None)
         run = (
@@ -92,6 +110,8 @@ async def resolve_session_artifact_binding(
                 message=f"运行 {run_id} 不属于会话 {session_id}",
                 error_code=ErrorCode.NOT_FOUND,
             )
+        if requested_artifact is not None:
+            return requested_artifact
         run_artifact_id = getattr(run, "artifactId", None)
         if run_artifact_id:
             artifact = await project_space_service.get_artifact(
@@ -119,22 +139,8 @@ async def resolve_session_artifact_binding(
             return run_bound
         return None
 
-    if artifact_id:
-        artifact = await project_space_service.get_artifact(
-            artifact_id,
-            user_id=user_id,
-        )
-        if not artifact or artifact.projectId != project_id:
-            raise NotFoundException(
-                message=f"成果不存在: {artifact_id}",
-                error_code=ErrorCode.NOT_FOUND,
-            )
-        if artifact.sessionId and artifact.sessionId != session_id:
-            raise NotFoundException(
-                message=f"成果 {artifact_id} 不属于会话 {session_id}",
-                error_code=ErrorCode.NOT_FOUND,
-            )
-        return artifact
+    if requested_artifact is not None:
+        return requested_artifact
 
     if not user_id:
         return None

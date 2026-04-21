@@ -27,6 +27,7 @@ from .diego_runtime_sync import (
     sync_diego_generation_until_terminal,
     sync_diego_outline_until_ready,
 )
+from .snapshot_outline_queries import load_latest_outline
 
 _DIEGO_BINDING_KEY = "diego"
 
@@ -179,13 +180,18 @@ async def confirm_diego_outline_for_session(
 
     confirm_payload: dict[str, Any] = {"approved": True}
     command_outline = command.get("outline")
-    if isinstance(command_outline, dict):
-        confirm_payload["outline"] = convert_spectra_outline_to_diego(command_outline)
+    effective_outline = (
+        command_outline
+        if isinstance(command_outline, dict)
+        else await load_latest_outline(db, session, getattr(run, "id", None))
+    )
+    if isinstance(effective_outline, dict):
+        confirm_payload["outline"] = convert_spectra_outline_to_diego(effective_outline)
         base_version = command.get("base_version")
         try:
             parsed_base_version = int(base_version)
         except (TypeError, ValueError):
-            parsed_base_version = int(command_outline.get("version") or 0)
+            parsed_base_version = int(effective_outline.get("version") or 0)
         if parsed_base_version < 1:
             parsed_base_version = 1
         confirm_payload["base_version"] = parsed_base_version

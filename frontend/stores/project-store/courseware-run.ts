@@ -210,14 +210,14 @@ export async function startCoursewarePptRun(params: {
   const executionResult =
     (executeResponse?.data?.execution_result as Record<string, unknown>) ?? {};
   const sessionId = extractSessionIdFromExecutionResult(executionResult);
-  const runId = extractRunIdFromExecutionResult(executionResult);
+  const resolvedRunId = extractRunIdFromExecutionResult(executionResult);
   if (!sessionId) {
     throw new Error("Missing session_id in courseware execution result");
   }
-  if (!runId) {
+  if (!resolvedRunId) {
     throw new Error("Missing run.run_id in courseware execution result");
   }
-  return { sessionId, runId };
+  return { sessionId, runId: resolvedRunId };
 }
 
 export function isGenerateCoursewareIntent(content: string): boolean {
