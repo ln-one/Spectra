@@ -57,6 +57,10 @@ def _resolve_context_rounds() -> int:
     return max(1, min(int(_env_float("BRIEF_EXTRACTION_CONTEXT_ROUNDS", 5)), 12))
 
 
+def _resolve_max_tokens() -> int:
+    return max(400, min(int(_env_float("BRIEF_EXTRACTION_MAX_TOKENS", 1200)), 4000))
+
+
 def _resolve_min_confidence() -> float:
     return max(0.0, min(_env_float("BRIEF_EXTRACTION_MIN_CONFIDENCE", 0.6), 1.0))
 
@@ -122,7 +126,9 @@ def _parse_extraction_response(content: str) -> dict[str, Any] | None:
     if not parsed:
         return None
 
-    raw_fields = parsed.get("fields") if isinstance(parsed.get("fields"), dict) else parsed
+    raw_fields = (
+        parsed.get("fields") if isinstance(parsed.get("fields"), dict) else parsed
+    )
     fields = _normalize_extracted_fields(raw_fields)
     if not fields:
         return None
@@ -160,9 +166,9 @@ def _build_extraction_prompt(
         "你是 Spectra 教学需求单信息提取器。"
         "请根据最近几轮对话，提取当前可确认的教学需求字段。"
         "\n\n输出要求："
-        '\n1. 只输出一个 JSON 对象，不要解释，不要 markdown。'
-        '\n2. 如果没有可确认的新字段或修正，输出 {}。'
-        '\n3. 允许字段：topic, audience, duration_minutes, lesson_hours, target_pages, '
+        "\n1. 只输出一个 JSON 对象，不要解释，不要 markdown。"
+        "\n2. 如果没有可确认的新字段或修正，输出 {}。"
+        "\n3. 允许字段：topic, audience, duration_minutes, lesson_hours, target_pages, "
         "teaching_objectives, knowledge_points, global_emphasis, global_difficulties, "
         "teaching_strategy, style_profile。"
         '\n4. 输出格式优先为 {"fields": {...}, "confidence": 0.0-1.0}。'
@@ -186,7 +192,11 @@ def _next_session_state(current_state: str, brief_status: str) -> str:
         "AWAITING_REQUIREMENTS_CONFIRM",
     }:
         return current_state
-    return "CONFIGURING" if brief_status == "confirmed" else "AWAITING_REQUIREMENTS_CONFIRM"
+    return (
+        "CONFIGURING"
+        if brief_status == "confirmed"
+        else "AWAITING_REQUIREMENTS_CONFIRM"
+    )
 
 
 async def extract_brief_from_conversation(
@@ -211,7 +221,7 @@ async def extract_brief_from_conversation(
                 prompt=prompt,
                 model=_resolve_extraction_model(),
                 route_task=ModelRouteTask.SHORT_TEXT_POLISH,
-                max_tokens=400,
+                max_tokens=_resolve_max_tokens(),
                 response_format={"type": "json_object"},
             ),
             timeout=_resolve_timeout_seconds(),
@@ -238,7 +248,9 @@ def _select_fields_to_apply(
     for field_name, value in dict(proposed_fields or {}).items():
         if field_name not in ALLOWED_TEACHING_BRIEF_FIELDS:
             continue
-        current_value = _normalize_field_value(field_name, current_brief.get(field_name))
+        current_value = _normalize_field_value(
+            field_name, current_brief.get(field_name)
+        )
         incoming_value = _normalize_field_value(field_name, value)
         if not _has_meaningful_value(incoming_value):
             continue
@@ -282,14 +294,26 @@ async def run_background_brief_extraction(
         return
 
     try:
+        logger.info(
+            "background_brief_extraction started session=%s project=%s",
+            session_id,
+            project_id,
+        )
         session_record = await db_service.db.generationsession.find_unique(
             where={"id": session_id}
         )
         if session_record is None:
+            logger.info(
+                "background_brief_extraction skipped missing_session session=%s",
+                session_id,
+            )
             return
 
         current_brief = load_teaching_brief(getattr(session_record, "options", None))
         if current_brief.get("status") == "confirmed":
+            logger.info(
+                "background_brief_extraction skipped confirmed session=%s", session_id
+            )
             return
         missing_fields = list(
             (current_brief.get("readiness") or {}).get("missing_fields") or []
@@ -299,6 +323,10 @@ async def run_background_brief_extraction(
             session_id=session_id,
         )
         if not recent_messages:
+            logger.info(
+                "background_brief_extraction skipped no_recent_messages session=%s",
+                session_id,
+            )
             return
 
         extract_result = await extract_brief_from_conversation(
@@ -307,6 +335,7 @@ async def run_background_brief_extraction(
             missing_fields=missing_fields,
         )
         if not extract_result or not extract_result.get("fields"):
+            logger.info("background_brief_extraction no_fields session=%s", session_id)
             return
 
         latest_record = session_record
@@ -316,9 +345,15 @@ async def run_background_brief_extraction(
         )
         if refreshed_record is not None:
             latest_record = refreshed_record
-            latest_brief = load_teaching_brief(getattr(refreshed_record, "options", None))
+            latest_brief = load_teaching_brief(
+                getattr(refreshed_record, "options", None)
+            )
 
         if latest_brief.get("status") == "confirmed":
+            logger.info(
+                "background_brief_extraction skipped confirmed_after_refresh session=%s",
+                session_id,
+            )
             return
 
         selected_fields, overwritten_fields = _select_fields_to_apply(
@@ -327,6 +362,12 @@ async def run_background_brief_extraction(
             confidence=float(extract_result.get("confidence") or 0.0),
         )
         if not selected_fields:
+            logger.info(
+                "background_brief_extraction no_applicable_fields session=%s extracted_fields=%s confidence=%.2f",
+                session_id,
+                list(dict(extract_result.get("fields") or {}).keys()),
+                float(extract_result.get("confidence") or 0.0),
+            )
             return
 
         apply_result = auto_apply_ai_proposal(
@@ -339,6 +380,9 @@ async def run_background_brief_extraction(
         )
         applied_fields = list(apply_result.get("applied_fields") or [])
         if not applied_fields:
+            logger.info(
+                "background_brief_extraction no_applied_fields session=%s", session_id
+            )
             return
 
         next_brief = apply_result["brief"]
@@ -351,7 +395,9 @@ async def run_background_brief_extraction(
             where={"id": session_id},
             data={
                 "options": json.dumps(next_options, ensure_ascii=False),
-                "state": _next_session_state(current_state, str(next_brief.get("status") or "")),
+                "state": _next_session_state(
+                    current_state, str(next_brief.get("status") or "")
+                ),
             },
         )
         logger.info(

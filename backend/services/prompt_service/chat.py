@@ -45,10 +45,12 @@ def _build_teaching_brief_protocol_section(
     can_generate = bool(teaching_brief_context.get("can_generate"))
     missing_fields = list(teaching_brief_context.get("missing_fields") or [])
     current_brief = dict(teaching_brief_context.get("brief") or {})
+    recent_evidence = dict(teaching_brief_context.get("recent_evidence") or {})
 
     protocol_parts = [
         "你当前必须把教学需求单当作本轮会话的前置工作面，而不是可有可无的补充信息。",
         "优先围绕教学需求单推进对话，再考虑是否进入课件生成建议。",
+        "追问前必须同时检查 current_brief、recent_requirement_evidence 和 conversation_history；老师已经说过的信息不要重复追问。",
     ]
     if status == "confirmed":
         protocol_parts.extend(
@@ -70,7 +72,8 @@ def _build_teaching_brief_protocol_section(
         protocol_parts.extend(
             [
                 "你的首要任务是帮助老师逐步完善教学需求单。",
-                "每轮回复末尾必须只追问 missing_fields 中当前最紧迫的 1 个字段，不要一次追问多个散乱问题。",
+                "每轮回复末尾最多追问 missing_fields 中当前最紧迫且最近对话尚未回答的 1 个字段，不要一次追问多个散乱问题。",
+                "如果某个 missing_fields 字段已出现在 recent_requirement_evidence 中，先把它当作临时已回答事实，不要再次追问该字段。",
                 "不要直接建议“开始生成 PPT”或“现在生成课件”，除非 missing_fields 已为空。",
             ]
         )
@@ -98,12 +101,18 @@ def _build_teaching_brief_protocol_section(
     missing_fields_json = escape_prompt_text(
         json.dumps(missing_fields, ensure_ascii=False)
     )
-    behavior_rules = escape_prompt_text("\n".join(f"- {part}" for part in protocol_parts))
+    recent_evidence_json = escape_prompt_text(
+        json.dumps(recent_evidence, ensure_ascii=False, indent=2)
+    )
+    behavior_rules = escape_prompt_text(
+        "\n".join(f"- {part}" for part in protocol_parts)
+    )
 
     return f"""
 <teaching_brief_protocol status="{escape_prompt_text(status)}" can_generate="{str(can_generate).lower()}">
   <current_brief>{current_brief_json}</current_brief>
   <missing_fields>{missing_fields_json}</missing_fields>
+  <recent_requirement_evidence>{recent_evidence_json}</recent_requirement_evidence>
   <behavior_rules>
 {behavior_rules}
   </behavior_rules>

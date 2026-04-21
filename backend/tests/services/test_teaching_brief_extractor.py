@@ -13,6 +13,7 @@ from services.generation_session_service.teaching_brief_extractor import (
 async def test_extract_brief_from_conversation_finds_topic_and_audience(monkeypatch):
     monkeypatch.setenv("BRIEF_EXTRACTION_ENABLED", "true")
     monkeypatch.setenv("BRIEF_EXTRACTION_MIN_CONFIDENCE", "0.6")
+    monkeypatch.delenv("BRIEF_EXTRACTION_MAX_TOKENS", raising=False)
     generate_mock = AsyncMock(
         return_value={
             "content": (
@@ -37,8 +38,12 @@ async def test_extract_brief_from_conversation_finds_topic_and_audience(monkeypa
         "fields": {"topic": "牛顿第二定律", "audience": "高一学生"},
         "confidence": 0.84,
     }
-    assert generate_mock.await_args.kwargs["route_task"] == ModelRouteTask.SHORT_TEXT_POLISH
+    assert (
+        generate_mock.await_args.kwargs["route_task"]
+        == ModelRouteTask.SHORT_TEXT_POLISH
+    )
     assert generate_mock.await_args.kwargs["response_format"] == {"type": "json_object"}
+    assert generate_mock.await_args.kwargs["max_tokens"] == 1200
 
 
 @pytest.mark.asyncio

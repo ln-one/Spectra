@@ -58,6 +58,7 @@ from .runtime_helpers import (
     persist_assistant_message,
 )
 from .shared import logger, to_message, verify_project_ownership
+from .teaching_brief_evidence import build_recent_requirement_evidence
 from .teaching_brief_runtime import (
     build_generation_intent_payload,
     plan_brief_extraction,
@@ -227,6 +228,14 @@ async def process_chat_message(
             body=body,
             session_id=session_id,
         )
+        if teaching_brief_context is not None:
+            teaching_brief_context = {
+                **teaching_brief_context,
+                "recent_evidence": build_recent_requirement_evidence(
+                    history_payload=history_payload,
+                    latest_user_message=body.content,
+                ),
+            }
         (
             _rag_results,
             citations,
@@ -369,7 +378,9 @@ async def process_chat_message(
         teaching_brief_hint_payload = None
         extraction_plan = None
         if session_record is not None:
-            current_brief = load_teaching_brief(getattr(session_record, "options", None))
+            current_brief = load_teaching_brief(
+                getattr(session_record, "options", None)
+            )
             current_proposals = load_teaching_brief_proposals(
                 getattr(session_record, "options", None)
             )
@@ -385,7 +396,9 @@ async def process_chat_message(
                 brief_raw=current_brief,
                 latest_user_message=body.content,
             )
-            current_options = parse_session_options(getattr(session_record, "options", None))
+            current_options = parse_session_options(
+                getattr(session_record, "options", None)
+            )
             next_options = dict(extraction_plan["next_options"])
             if next_options != current_options:
                 next_options = store_teaching_brief(
