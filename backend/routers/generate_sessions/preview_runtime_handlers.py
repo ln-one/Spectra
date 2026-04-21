@@ -136,6 +136,26 @@ async def modify_session_preview_response(
     expected_render_version = resolve_modify_expected_render_version(body)
     validate_optional_positive_int(expected_render_version, "expected_render_version")
     snapshot = await get_preview_snapshot_or_raise(session_id, user_id)
+    current_render_version = int(snapshot["session"].get("render_version") or 0)
+    if (
+        expected_render_version is not None
+        and current_render_version
+        and current_render_version != expected_render_version
+    ):
+        raise APIException(
+            status_code=status.HTTP_409_CONFLICT,
+            error_code=ErrorCode.RESOURCE_CONFLICT,
+            message=(
+                "渲染版本冲突："
+                f"期望 {expected_render_version}，当前 {current_render_version}"
+            ),
+            details={
+                "reason": "render_version_conflict",
+                "expected_render_version": expected_render_version,
+                "current_render_version": current_render_version,
+            },
+            retryable=False,
+        )
     anchor = await resolve_preview_anchor(
         session_id,
         snapshot,

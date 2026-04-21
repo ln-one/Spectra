@@ -44,11 +44,22 @@ async def sync_diego_regenerated_slide_until_ready(
             target_event_seen = any(
                 int(item.get("seq") or 0) > baseline_seq
                 and str(item.get("event") or "").strip() == _DIEGO_EVENT_SLIDE_GENERATED
-                and int(((item.get("payload") or {}) if isinstance(item.get("payload"), dict) else {}).get("slide_no") or 0) == slide_no
+                and int(
+                    (
+                        (item.get("payload") or {})
+                        if isinstance(item.get("payload"), dict)
+                        else {}
+                    ).get("slide_no")
+                    or 0
+                )
+                == slide_no
                 for item in diego_events
             )
 
-            if target_event_seen or status in {_DIEGO_STATUS_SUCCEEDED, _DIEGO_STATUS_FAILED}:
+            if target_event_seen or status in {
+                _DIEGO_STATUS_SUCCEEDED,
+                _DIEGO_STATUS_FAILED,
+            }:
                 pending, preview_payload = await _sync_pending_slide_previews(
                     db=db,
                     session_id=session_id,
@@ -59,6 +70,7 @@ async def sync_diego_regenerated_slide_until_ready(
                     diego_status=status,
                     pending_slide_numbers={slide_no},
                     preview_payload=preview_payload,
+                    diego_render_version=detail.get("render_version"),
                 )
                 if not pending:
                     return

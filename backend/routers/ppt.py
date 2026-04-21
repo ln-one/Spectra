@@ -15,6 +15,7 @@ router = APIRouter()
 class RegenerateSlideBody(BaseModel):
     instruction: str = Field(min_length=1)
     preserve_style: bool = True
+    expected_render_version: int | None = Field(None, ge=1)
 
 
 @router.post("/ppt/runs/{run_id}/slides/{slide_no}/regenerate")
@@ -30,5 +31,6 @@ async def regenerate_ppt_slide(
         slide_no=slide_no,
         instruction=body.instruction,
         preserve_style=body.preserve_style,
+        expected_render_version=body.expected_render_version,
         user_id=user_id,
     )

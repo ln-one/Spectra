@@ -218,9 +218,6 @@ async def _reconcile_diego_success_session(
     if getattr(session, "state", None) not in _DIEGO_SUCCESS_RECONCILE_STATES:
         return session
 
-    if str(getattr(session, "pptUrl", "") or "").strip():
-        return session
-
     binding = _read_diego_binding(options)
     if not binding:
         return session
@@ -235,6 +232,78 @@ async def _reconcile_diego_success_session(
         return session
     if not await _is_latest_session_run(db=db, session_id=session.id, run_id=run_id):
         return session
+
+    existing_ppt_url = str(getattr(session, "pptUrl", "") or "").strip()
+    existing_word_url = str(getattr(session, "wordUrl", "") or "").strip()
+    if existing_ppt_url or existing_word_url:
+        current_run_status = str(getattr(run, "status", "") or "").strip().lower()
+        current_run_step = str(getattr(run, "step", "") or "").strip().lower()
+        if (
+            getattr(session, "state", None) == GenerationState.SUCCESS.value
+            and current_run_status == RUN_STATUS_COMPLETED
+            and current_run_step == RUN_STEP_COMPLETED
+        ):
+            return session
+
+        latest_artifact = await _load_latest_session_artifact(
+            db, session.projectId, session.id
+        )
+        artifact_id = (
+            getattr(latest_artifact, "id", None)
+            or getattr(run, "artifactId", None)
+        )
+        await update_session_run(
+            db=db,
+            run_id=run_id,
+            status=RUN_STATUS_COMPLETED,
+            step=RUN_STEP_COMPLETED,
+            artifact_id=artifact_id,
+        )
+        await set_session_state(
+            db=db,
+            session_id=session.id,
+            state=GenerationState.SUCCESS.value,
+            state_reason=TaskFailureStateReason.COMPLETED.value,
+            progress=100,
+            payload={
+                "stage": "local_output_reconciled",
+                "run_id": getattr(run, "id", None),
+                "run_no": getattr(run, "runNo", None),
+                "run_title": getattr(run, "title", None),
+                "tool_type": getattr(run, "toolType", None),
+                "artifact_id": artifact_id,
+                "output_urls": {
+                    "pptx": existing_ppt_url or None,
+                    "word": existing_word_url or None,
+                },
+            },
+            ppt_url=existing_ppt_url or None,
+        )
+        logger.info(
+            "diego_terminal_reconciled_existing_output session_id=%s run_id=%s",
+            session.id,
+            run_id,
+        )
+        return await get_owned_session(
+            db=db,
+            session_id=session.id,
+            user_id=session.userId,
+            select={
+                "id": True,
+                "projectId": True,
+                "userId": True,
+                "baseVersionId": True,
+                "state": True,
+                "stateReason": True,
+                "progress": True,
+                "resumable": True,
+                "updatedAt": True,
+                "renderVersion": True,
+                "options": True,
+                "pptUrl": True,
+                "wordUrl": True,
+            },
+        )
 
     client = build_diego_client()
     if client is None:

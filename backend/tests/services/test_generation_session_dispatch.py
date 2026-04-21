@@ -199,9 +199,10 @@ async def test_execute_command_regenerate_slide_routes_to_diego_runtime(
             )
         ),
     )
+    regenerate_slide = AsyncMock(return_value={"ok": True})
     monkeypatch.setattr(
         "services.generation_session_service.command_runtime.regenerate_diego_slide_for_run",
-        AsyncMock(return_value={"ok": True}),
+        regenerate_slide,
     )
     monkeypatch.setattr(
         "services.generation_session_service.command_api.request_run_title_generation",
@@ -210,6 +211,7 @@ async def test_execute_command_regenerate_slide_routes_to_diego_runtime(
     db.generationsession.update = AsyncMock(return_value=session)
     service._append_event = AsyncMock()
     db.sessionrun = SimpleNamespace(find_first=AsyncMock())
+    db.sessionevent = SimpleNamespace(create=AsyncMock())
 
     response = await service.execute_command(
         session_id="s-001",
@@ -219,8 +221,71 @@ async def test_execute_command_regenerate_slide_routes_to_diego_runtime(
             "slide_id": "slide-1",
             "slide_index": 1,
             "instruction": "rewrite",
+            "expected_render_version": 1,
         },
     )
 
     assert response["accepted"] is True
     assert response["transition"]["command_type"] == "REGENERATE_SLIDE"
+    regenerate_slide.assert_awaited_once()
+    assert regenerate_slide.await_args.kwargs["expected_render_version"] == 1
+
+
+@pytest.mark.anyio
+async def test_execute_command_regenerate_slide_rejects_stale_render_version(
+    monkeypatch,
+):
+    session = _fake_session(
+        state=GenerationState.SUCCESS.value,
+        output_type=SessionOutputType.PPT.value,
+        options="{}",
+    )
+    session.renderVersion = 3
+    db = SimpleNamespace(
+        idempotencykey=SimpleNamespace(find_unique=AsyncMock(return_value=None)),
+        generationsession=SimpleNamespace(find_unique=AsyncMock(return_value=session)),
+    )
+    service = GenerationSessionService(db=db)
+
+    monkeypatch.setattr(
+        (
+            "services.platform.task_recovery."
+            "TaskRecoveryService.is_session_already_running"
+        ),
+        AsyncMock(return_value=False),
+    )
+    monkeypatch.setattr(
+        service._guard,
+        "validate",
+        lambda *_: TransitionResult(
+            allowed=True,
+            from_state=GenerationState.SUCCESS.value,
+            to_state=GenerationState.RENDERING.value,
+            command_type=GenerationCommandType.REGENERATE_SLIDE.value,
+        ),
+    )
+    monkeypatch.setattr(
+        "services.generation_session_service.command_runtime.get_latest_session_run",
+        AsyncMock(return_value=SimpleNamespace(id="run-201")),
+    )
+    regenerate_slide = AsyncMock(return_value={"ok": True})
+    monkeypatch.setattr(
+        "services.generation_session_service.command_runtime.regenerate_diego_slide_for_run",
+        regenerate_slide,
+    )
+
+    with pytest.raises(ConflictError) as exc_info:
+        await service.execute_command(
+            session_id="s-001",
+            user_id="u-001",
+            command={
+                "command_type": GenerationCommandType.REGENERATE_SLIDE.value,
+                "slide_id": "slide-1",
+                "slide_index": 1,
+                "instruction": "rewrite",
+                "expected_render_version": 2,
+            },
+        )
+
+    assert exc_info.value.details["reason"] == "render_version_conflict"
+    regenerate_slide.assert_not_awaited()

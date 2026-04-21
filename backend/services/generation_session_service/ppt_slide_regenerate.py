@@ -61,6 +61,7 @@ async def regenerate_diego_slide_for_run(
     instruction: str,
     preserve_style: bool,
     user_id: str,
+    expected_render_version: int | None = None,
 ) -> dict[str, Any]:
     if slide_no < 1:
         raise APIException(
@@ -109,13 +110,16 @@ async def regenerate_diego_slide_for_run(
         ),
         default=0,
     )
+    regenerate_payload: dict[str, Any] = {
+        "instruction": instruction_text,
+        "preserve_style": bool(preserve_style),
+    }
+    if expected_render_version is not None:
+        regenerate_payload["expected_render_version"] = expected_render_version
     result = await client.regenerate_slide(
         diego_run_id,
         slide_no,
-        {
-            "instruction": instruction_text,
-            "preserve_style": bool(preserve_style),
-        },
+        regenerate_payload,
     )
     await update_session_run(
         db=db,

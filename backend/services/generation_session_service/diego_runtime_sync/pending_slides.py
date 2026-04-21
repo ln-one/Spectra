@@ -9,6 +9,9 @@ from services.generation_session_service.run_constants import (
     RUN_STEP_PREVIEW,
 )
 from services.generation_session_service.run_lifecycle import update_session_run
+from services.generation_session_service.render_version_sync import (
+    set_session_render_version,
+)
 from services.platform.generation_event_constants import GenerationEventType
 from utils.exceptions import ExternalServiceException
 
@@ -35,6 +38,7 @@ async def _sync_pending_slide_previews(
     pending_slide_numbers: set[int],
     preview_payload: dict | None,
     preview_by_slide_no: dict[int, dict[str, object]] | None = None,
+    diego_render_version: object = None,
 ) -> tuple[set[int], dict]:
     if not pending_slide_numbers:
         return set(), preview_payload or {}
@@ -108,6 +112,11 @@ async def _sync_pending_slide_previews(
             continue
 
         await active("save_preview_content")(run.id, payload)
+        await set_session_render_version(
+            db=db,
+            session_id=session_id,
+            render_version=diego_render_version,
+        )
         await update_session_run(
             db=db,
             run_id=run.id,

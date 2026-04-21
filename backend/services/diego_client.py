@@ -124,12 +124,18 @@ class DiegoClient:
             )
         return body
 
-    async def _request_bytes(self, method: str, path: str) -> bytes:
+    async def _request_bytes(
+        self,
+        method: str,
+        path: str,
+        *,
+        params: dict[str, Any] | None = None,
+    ) -> bytes:
         timeout = httpx.Timeout(self.timeout_seconds)
         url = f"{self.base_url}{path}"
         try:
             async with httpx.AsyncClient(timeout=timeout) as client:
-                response = await client.request(method, url)
+                response = await client.request(method, url, params=params)
         except httpx.TimeoutException as exc:
             raise ExternalServiceException(
                 message="Diego artifact download timeout",
@@ -236,6 +242,18 @@ class DiegoClient:
             "POST",
             f"/v1/ppt/runs/{run_id}/slides/{int(slide_no)}/regenerate",
             payload=payload,
+        )
+
+    async def get_slide_asset(
+        self,
+        run_id: str,
+        slide_no: int,
+        asset_path: str,
+    ) -> bytes:
+        return await self._request_bytes(
+            "GET",
+            f"/v1/ppt/runs/{run_id}/slides/{int(slide_no)}/asset",
+            params={"path": asset_path},
         )
 
 

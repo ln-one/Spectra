@@ -218,7 +218,9 @@ class SaveSlideSceneOperation(BaseModel):
 
 class SaveSlideSceneRequest(BaseModel):
     scene_version: str = Field(..., min_length=1)
-    operations: list[SaveSlideSceneOperation] = Field(default_factory=list, min_length=1)
+    operations: list[SaveSlideSceneOperation] = Field(
+        default_factory=list, min_length=1
+    )
 
 
 class SaveSlideSceneData(BaseModel):
@@ -226,6 +228,7 @@ class SaveSlideSceneData(BaseModel):
     slide_id: str
     slide_index: int = Field(..., ge=0)
     slide_no: int = Field(..., ge=1)
+    render_version: Optional[int] = Field(None, ge=1)
     status: str = "ready"
     scene: EditableSlideScene
     preview: dict[str, Any] = Field(default_factory=dict)

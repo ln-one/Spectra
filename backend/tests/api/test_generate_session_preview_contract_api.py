@@ -9,6 +9,7 @@ from main import app
 from services.generation_session_service import GenerationSessionService
 from services.platform.state_transition_guard import GenerationState
 from utils.dependencies import get_current_user
+from utils.exceptions import APIException, ErrorCode
 
 _USER_ID = "u-preview-001"
 
@@ -128,7 +129,9 @@ def test_get_preview_includes_artifact_binding(client, monkeypatch, _as_user):
     assert authority_slide["slide_id"] == "slide-1"
     assert authority_slide["svg_data_url"] == "data:image/svg+xml;base64,abc"
     assert authority_slide["frames"][0]["slide_id"] == "slide-1"
-    assert authority_slide["frames"][0]["svg_data_url"] == "data:image/svg+xml;base64,abc"
+    assert (
+        authority_slide["frames"][0]["svg_data_url"] == "data:image/svg+xml;base64,abc"
+    )
 
 
 def test_get_preview_includes_slide_image_metadata(client, monkeypatch, _as_user):
@@ -364,7 +367,7 @@ def test_modify_preview_accepts_base_render_version_alias(
 ):
     execute_command = AsyncMock(return_value={"task_id": "gt-001"})
     svc = SimpleNamespace(
-        get_session_snapshot=AsyncMock(return_value=_snapshot(render_version=5)),
+        get_session_snapshot=AsyncMock(return_value=_snapshot(render_version=3)),
         execute_command=execute_command,
     )
     monkeypatch.setattr(
@@ -416,9 +419,102 @@ def test_modify_preview_accepts_base_render_version_alias(
     assert command["expected_render_version"] == 3
 
 
-def test_modify_preview_defaults_to_current_slide_when_page_not_passed(
+def test_modify_preview_accepts_authority_slide_id_suffix(
     client, monkeypatch, _as_user
 ):
+    execute_command = AsyncMock(return_value={"task_id": "gt-004"})
+    svc = SimpleNamespace(
+        get_session_snapshot=AsyncMock(return_value=_snapshot(render_version=5)),
+        execute_command=execute_command,
+    )
+    monkeypatch.setattr(
+        generate_sessions_preview_router, "_get_session_service", lambda: svc
+    )
+    monkeypatch.setattr(
+        generate_sessions_preview_router,
+        "_resolve_session_artifact_binding",
+        AsyncMock(return_value=SimpleNamespace(id="a-004", basedOnVersionId="v-004")),
+    )
+    monkeypatch.setattr(
+        generate_sessions_preview_router,
+        "_load_preview_material",
+        AsyncMock(
+            return_value=(
+                SimpleNamespace(id="t-004"),
+                [
+                    {
+                        "id": "legacy-slide-1",
+                        "index": 0,
+                        "title": "S1",
+                        "content": "C1",
+                        "sources": [],
+                    },
+                    {
+                        "id": "legacy-slide-4",
+                        "index": 3,
+                        "title": "S4",
+                        "content": "C4",
+                        "sources": [],
+                    },
+                ],
+                None,
+                {},
+            )
+        ),
+    )
+
+    resp = client.post(
+        "/api/v1/generate/sessions/s-preview-001/preview/modify",
+        json={
+            "run_id": "run-002",
+            "slide_id": "run-002-slide-3",
+            "slide_index": 4,
+            "instruction": "重做第4页",
+            "artifact_id": "a-004",
+        },
+    )
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["data"]["slide_id"] == "run-002-slide-3"
+    assert body["data"]["slide_index"] == 4
+    execute_command.assert_awaited_once()
+    command = execute_command.await_args.kwargs["command"]
+    assert command["slide_id"] == "run-002-slide-3"
+    assert command["slide_index"] == 4
+
+
+def test_modify_preview_rejects_stale_base_render_version(
+    client, monkeypatch, _as_user
+):
+    execute_command = AsyncMock(return_value={"task_id": "gt-001"})
+    svc = SimpleNamespace(
+        get_session_snapshot=AsyncMock(return_value=_snapshot(render_version=3)),
+        execute_command=execute_command,
+    )
+    monkeypatch.setattr(
+        generate_sessions_preview_router, "_get_session_service", lambda: svc
+    )
+
+    resp = client.post(
+        "/api/v1/generate/sessions/s-preview-001/preview/modify",
+        json={
+            "slide_id": "slide-1",
+            "instruction": "把第1页改成问题导入",
+            "artifact_id": "a-002",
+            "base_render_version": 4,
+        },
+    )
+
+    assert resp.status_code == 409
+    body = resp.json()
+    assert body["success"] is False
+    assert body["error"]["code"] == "RESOURCE_CONFLICT"
+    assert body["error"]["details"]["reason"] == "render_version_conflict"
+    execute_command.assert_not_awaited()
+
+
+def test_modify_preview_requires_explicit_slide_target(client, monkeypatch, _as_user):
     execute_command = AsyncMock(return_value={"task_id": "gt-002"})
     svc = SimpleNamespace(
         get_session_snapshot=AsyncMock(return_value=_snapshot(render_version=6)),
@@ -467,13 +563,73 @@ def test_modify_preview_defaults_to_current_slide_when_page_not_passed(
             "artifact_id": "a-003",
         },
     )
-    assert resp.status_code == 200
+    assert resp.status_code == 400
     body = resp.json()
-    assert body["success"] is True
-    execute_command.assert_awaited_once()
-    command = execute_command.await_args.kwargs["command"]
-    assert command["slide_id"] == "slide-1"
-    assert command["slide_index"] == 1
+    assert body["success"] is False
+    assert body["error"]["code"] == "INVALID_INPUT"
+    execute_command.assert_not_awaited()
+
+
+def test_modify_preview_rejects_conflicting_slide_targets(
+    client, monkeypatch, _as_user
+):
+    execute_command = AsyncMock(return_value={"task_id": "gt-005"})
+    svc = SimpleNamespace(
+        get_session_snapshot=AsyncMock(return_value=_snapshot(render_version=5)),
+        execute_command=execute_command,
+    )
+    monkeypatch.setattr(
+        generate_sessions_preview_router, "_get_session_service", lambda: svc
+    )
+    monkeypatch.setattr(
+        generate_sessions_preview_router,
+        "_resolve_session_artifact_binding",
+        AsyncMock(return_value=SimpleNamespace(id="a-005", basedOnVersionId="v-005")),
+    )
+    monkeypatch.setattr(
+        generate_sessions_preview_router,
+        "_load_preview_material",
+        AsyncMock(
+            return_value=(
+                SimpleNamespace(id="t-005"),
+                [
+                    {
+                        "id": "run-005-slide-0",
+                        "index": 0,
+                        "title": "S1",
+                        "content": "C1",
+                        "sources": [],
+                    },
+                    {
+                        "id": "run-005-slide-3",
+                        "index": 3,
+                        "title": "S4",
+                        "content": "C4",
+                        "sources": [],
+                    },
+                ],
+                None,
+                {},
+            )
+        ),
+    )
+
+    resp = client.post(
+        "/api/v1/generate/sessions/s-preview-001/preview/modify",
+        json={
+            "run_id": "run-005",
+            "slide_id": "run-005-slide-3",
+            "slide_index": 3,
+            "instruction": "重做第4页",
+            "artifact_id": "a-005",
+        },
+    )
+
+    assert resp.status_code == 400
+    body = resp.json()
+    assert body["success"] is False
+    assert body["error"]["details"]["reason"] == "slide_target_conflict"
+    execute_command.assert_not_awaited()
 
 
 def test_modify_preview_rejects_conflicting_render_versions(client, _as_user):
@@ -547,7 +703,9 @@ def test_modify_preview_accepts_ppt_session_modify(client, monkeypatch, _as_user
     monkeypatch.setattr(
         generate_sessions_preview_router,
         "_resolve_session_artifact_binding",
-        AsyncMock(return_value=SimpleNamespace(id="a-ppt-001", basedOnVersionId="v-ppt-001")),
+        AsyncMock(
+            return_value=SimpleNamespace(id="a-ppt-001", basedOnVersionId="v-ppt-001")
+        ),
     )
     monkeypatch.setattr(
         generate_sessions_preview_router,
@@ -586,14 +744,19 @@ def test_modify_preview_accepts_ppt_session_modify(client, monkeypatch, _as_user
 
 
 def test_get_slide_scene_returns_diego_scene(client, monkeypatch, _as_user):
-    svc = SimpleNamespace(get_session_snapshot=AsyncMock(return_value=_ppt_snapshot()))
+    svc = SimpleNamespace(
+        _db=SimpleNamespace(),
+        get_session_snapshot=AsyncMock(return_value=_ppt_snapshot()),
+    )
     monkeypatch.setattr(
         generate_sessions_preview_router, "_get_session_service", lambda: svc
     )
     monkeypatch.setattr(
         generate_sessions_preview_router,
         "_resolve_session_artifact_binding",
-        AsyncMock(return_value=SimpleNamespace(id="a-ppt-001", basedOnVersionId="v-ppt-001")),
+        AsyncMock(
+            return_value=SimpleNamespace(id="a-ppt-001", basedOnVersionId="v-ppt-001")
+        ),
     )
     monkeypatch.setattr(
         generate_sessions_preview_router,
@@ -622,7 +785,14 @@ def test_get_slide_scene_returns_diego_scene(client, monkeypatch, _as_user):
             "slide_index": 0,
             "slide_no": 1,
             "scene_version": "scene-v1",
-            "nodes": [{"node_id": "text:config:title", "kind": "text", "label": "Title", "text": "S1"}],
+            "nodes": [
+                {
+                    "node_id": "text:config:title",
+                    "kind": "text",
+                    "label": "Title",
+                    "text": "S1",
+                }
+            ],
             "readonly": False,
             "readonly_reason": None,
         }
@@ -647,14 +817,19 @@ def test_get_slide_scene_returns_diego_scene(client, monkeypatch, _as_user):
 
 
 def test_save_slide_scene_forwards_operations_to_diego(client, monkeypatch, _as_user):
-    svc = SimpleNamespace(get_session_snapshot=AsyncMock(return_value=_ppt_snapshot()))
+    svc = SimpleNamespace(
+        _db=SimpleNamespace(),
+        get_session_snapshot=AsyncMock(return_value=_ppt_snapshot()),
+    )
     monkeypatch.setattr(
         generate_sessions_preview_router, "_get_session_service", lambda: svc
     )
     monkeypatch.setattr(
         generate_sessions_preview_router,
         "_resolve_session_artifact_binding",
-        AsyncMock(return_value=SimpleNamespace(id="a-ppt-001", basedOnVersionId="v-ppt-001")),
+        AsyncMock(
+            return_value=SimpleNamespace(id="a-ppt-001", basedOnVersionId="v-ppt-001")
+        ),
     )
     monkeypatch.setattr(
         generate_sessions_preview_router,
@@ -693,7 +868,10 @@ def test_save_slide_scene_forwards_operations_to_diego(client, monkeypatch, _as_
                 "readonly": False,
                 "readonly_reason": None,
             },
-            "preview": {"slide_id": "run-001-slide-0", "svg_data_url": "data:image/svg+xml;base64,abc"},
+            "preview": {
+                "slide_id": "run-001-slide-0",
+                "svg_data_url": "data:image/svg+xml;base64,abc",
+            },
         }
     )
     monkeypatch.setattr(
@@ -721,7 +899,182 @@ def test_save_slide_scene_forwards_operations_to_diego(client, monkeypatch, _as_
     assert body["data"]["scene"]["scene_version"] == "scene-v2"
     save_scene.assert_awaited_once()
     assert save_scene.await_args.kwargs["slide_no"] == 1
-    assert save_scene.await_args.kwargs["payload"]["operations"][0]["node_id"] == "text:config:title"
+    assert (
+        save_scene.await_args.kwargs["payload"]["operations"][0]["node_id"]
+        == "text:config:title"
+    )
+
+
+def test_save_slide_scene_forwards_replace_image_to_diego(
+    client, monkeypatch, _as_user
+):
+    svc = SimpleNamespace(
+        _db=SimpleNamespace(),
+        get_session_snapshot=AsyncMock(return_value=_ppt_snapshot()),
+    )
+    monkeypatch.setattr(
+        generate_sessions_preview_router, "_get_session_service", lambda: svc
+    )
+    monkeypatch.setattr(
+        generate_sessions_preview_router,
+        "_resolve_session_artifact_binding",
+        AsyncMock(
+            return_value=SimpleNamespace(id="a-ppt-001", basedOnVersionId="v-ppt-001")
+        ),
+    )
+    monkeypatch.setattr(
+        generate_sessions_preview_router,
+        "_load_preview_material",
+        AsyncMock(
+            return_value=(
+                SimpleNamespace(id="t-ppt-001"),
+                [
+                    {
+                        "id": "run-001-slide-0",
+                        "index": 0,
+                        "title": "S1",
+                        "content": "C1",
+                        "sources": [],
+                    }
+                ],
+                None,
+                {},
+            )
+        ),
+    )
+    save_scene = AsyncMock(
+        return_value={
+            "run_id": "run-001",
+            "slide_id": "run-001-slide-0",
+            "slide_index": 0,
+            "slide_no": 1,
+            "status": "ready",
+            "scene": {
+                "run_id": "run-001",
+                "slide_id": "run-001-slide-0",
+                "slide_index": 0,
+                "slide_no": 1,
+                "scene_version": "scene-v2",
+                "nodes": [
+                    {
+                        "node_id": "image:hero",
+                        "kind": "image",
+                        "label": "Hero image",
+                        "src": "https://img.test/full.jpg",
+                    }
+                ],
+                "readonly": False,
+                "readonly_reason": None,
+            },
+            "preview": {
+                "slide_id": "run-001-slide-0",
+                "svg_data_url": "data:image/svg+xml;base64,updated",
+            },
+        }
+    )
+    monkeypatch.setattr(
+        generate_sessions_preview_router,
+        "save_diego_slide_scene_for_run",
+        save_scene,
+    )
+
+    resp = client.post(
+        "/api/v1/generate/sessions/s-preview-001/preview/slides/run-001-slide-0/scene/save?run_id=run-001",
+        json={
+            "scene_version": "scene-v1",
+            "operations": [
+                {
+                    "op": "replace_image",
+                    "node_id": "image:hero",
+                    "value": "https://img.test/full.jpg",
+                }
+            ],
+        },
+    )
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["data"]["scene"]["nodes"][0]["src"] == "https://img.test/full.jpg"
+    save_scene.assert_awaited_once()
+    operation = save_scene.await_args.kwargs["payload"]["operations"][0]
+    assert operation == {
+        "op": "replace_image",
+        "node_id": "image:hero",
+        "value": "https://img.test/full.jpg",
+    }
+
+
+def test_save_slide_scene_stale_scene_version_returns_conflict(
+    client, monkeypatch, _as_user
+):
+    svc = SimpleNamespace(
+        _db=SimpleNamespace(),
+        get_session_snapshot=AsyncMock(return_value=_ppt_snapshot()),
+    )
+    monkeypatch.setattr(
+        generate_sessions_preview_router, "_get_session_service", lambda: svc
+    )
+    monkeypatch.setattr(
+        generate_sessions_preview_router,
+        "_resolve_session_artifact_binding",
+        AsyncMock(
+            return_value=SimpleNamespace(id="a-ppt-001", basedOnVersionId="v-ppt-001")
+        ),
+    )
+    monkeypatch.setattr(
+        generate_sessions_preview_router,
+        "_load_preview_material",
+        AsyncMock(
+            return_value=(
+                SimpleNamespace(id="t-ppt-001"),
+                [
+                    {
+                        "id": "run-001-slide-0",
+                        "index": 0,
+                        "title": "S1",
+                        "content": "C1",
+                        "sources": [],
+                    }
+                ],
+                None,
+                {},
+            )
+        ),
+    )
+    save_scene = AsyncMock(
+        side_effect=APIException(
+            status_code=409,
+            error_code=ErrorCode.RESOURCE_CONFLICT,
+            message="scene_version 已过期",
+            details={"reason": "diego_scene_conflict"},
+            retryable=False,
+        )
+    )
+    monkeypatch.setattr(
+        generate_sessions_preview_router,
+        "save_diego_slide_scene_for_run",
+        save_scene,
+    )
+
+    resp = client.post(
+        "/api/v1/generate/sessions/s-preview-001/preview/slides/run-001-slide-0/scene/save?run_id=run-001",
+        json={
+            "scene_version": "scene-old",
+            "operations": [
+                {
+                    "op": "replace_text",
+                    "node_id": "text:config:title",
+                    "value": "New Title",
+                }
+            ],
+        },
+    )
+
+    assert resp.status_code == 409
+    body = resp.json()
+    assert body["success"] is False
+    assert body["error"]["code"] == "RESOURCE_CONFLICT"
+    assert body["error"]["details"]["reason"] == "diego_scene_conflict"
 
 
 def test_search_pexels_assets_returns_proxy_payload(client, monkeypatch, _as_user):
@@ -740,7 +1093,9 @@ def test_search_pexels_assets_returns_proxy_payload(client, monkeypatch, _as_use
             ],
         }
     )
-    monkeypatch.setattr(generate_sessions_preview_router, "search_pexels_images", search)
+    monkeypatch.setattr(
+        generate_sessions_preview_router, "search_pexels_images", search
+    )
 
     resp = client.get("/api/v1/generate/assets/pexels/search?q=teacher classroom")
 

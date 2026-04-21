@@ -62,10 +62,15 @@ async def _try_download_ready_pptx(
 ) -> bytes | None:
     status = str(detail.get("status") or "").strip().upper()
     error_code = str(detail.get("error_code") or "").strip().upper()
-    should_probe = _has_diego_pptx_hint(detail) or status in {
-        _DIEGO_STATUS_COMPILING,
-        _DIEGO_STATUS_SUCCEEDED,
-    } or (status == _DIEGO_STATUS_FAILED and error_code == "FINALIZE_TIMEOUT")
+    should_probe = (
+        _has_diego_pptx_hint(detail)
+        or status
+        in {
+            _DIEGO_STATUS_COMPILING,
+            _DIEGO_STATUS_SUCCEEDED,
+        }
+        or (status == _DIEGO_STATUS_FAILED and error_code == "FINALIZE_TIMEOUT")
+    )
     if not should_probe:
         return None
     try:
@@ -90,15 +95,11 @@ async def _persist_success_and_finalize(
     diego_trace_id: Optional[str],
     pptx_bytes: bytes,
 ) -> None:
-    session = await db.generationsession.find_unique(
-        where={"id": session_id}
-    )
+    session = await db.generationsession.find_unique(where={"id": session_id})
     if not session:
         return
     options = parse_options(getattr(session, "options", None))
-    artifact_id, output_url = await active(
-        "persist_diego_success_artifact"
-    )(
+    artifact_id, output_url = await active("persist_diego_success_artifact")(
         db=db,
         session=session,
         run=run,
@@ -206,6 +207,7 @@ async def sync_diego_generation_until_terminal(
                         pending_slide_numbers=pending_slide_numbers,
                         preview_payload=preview_payload,
                         preview_by_slide_no=pending_slide_payloads,
+                        diego_render_version=detail.get("render_version"),
                     )
                 )
                 for slide_no in list(pending_slide_payloads):
@@ -273,6 +275,7 @@ async def sync_diego_generation_until_terminal(
                             pending_slide_numbers=pending_slide_numbers,
                             preview_payload=preview_payload,
                             preview_by_slide_no=pending_slide_payloads,
+                            diego_render_version=detail.get("render_version"),
                         )
                     )
                     for slide_no in list(pending_slide_payloads):
