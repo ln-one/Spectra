@@ -25,9 +25,6 @@ from services.generation_session_service.teaching_brief import (
 from services.generation_session_service.teaching_brief_extractor import (
     run_background_brief_extraction,
 )
-from services.generation_session_service.teaching_brief_prompting import (
-    detect_brief_confirmation_request,
-)
 from services.prompt_service import build_prompt_traceability
 from utils.exceptions import (
     APIException,
@@ -301,7 +298,6 @@ async def process_chat_message(
             )
         )
         stage_timings_ms.update(generation_timings)
-        confirmation_requested = detect_brief_confirmation_request(assistant_content)
         route_info = generation_meta["route_info"]
         selected_model = generation_meta["selected_model"]
         provider_model = generation_meta["provider_model"]
@@ -386,11 +382,6 @@ async def process_chat_message(
                 getattr(session_record, "options", None)
             )
             auto_applied_fields: list[str] = []
-            confirmation_requested = bool(
-                confirmation_requested
-                and (current_brief.get("readiness") or {}).get("can_generate")
-                and current_brief.get("status") != "confirmed"
-            )
 
             extraction_plan = plan_brief_extraction(
                 options_raw=getattr(session_record, "options", None),
@@ -430,13 +421,11 @@ async def process_chat_message(
                     "can_generate"
                 ),
                 "brief_snapshot": current_brief,
-                "ai_requests_confirmation": confirmation_requested,
                 "auto_applied_fields": auto_applied_fields,
                 "missing_fields": (current_brief.get("readiness") or {}).get(
                     "missing_fields"
                 )
                 or [],
-                "brief_status": current_brief.get("status"),
                 "extraction_scheduled": bool(extraction_plan.get("should_run")),
                 "extraction_reason": extraction_plan.get("extraction_reason"),
                 "refresh_after_ms": extraction_plan.get("refresh_after_ms"),

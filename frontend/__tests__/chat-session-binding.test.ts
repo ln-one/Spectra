@@ -269,9 +269,8 @@ describe("chat session binding", () => {
         },
         teaching_brief_hint: {
           auto_applied_fields: [],
-          ai_requests_confirmation: false,
           missing_fields: [],
-          brief_status: "review_pending",
+          status: "live",
           brief_snapshot: { topic: "图形学" },
           generation_intent: true,
           generation_ready: true,

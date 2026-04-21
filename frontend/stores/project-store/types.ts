@@ -36,9 +36,9 @@ export interface TeachingBriefKnowledgePoint {
   notes?: string;
 }
 export interface TeachingBrief {
-  status: "draft" | "review_pending" | "confirmed" | "stale";
+  status: "live";
   version: number;
-  last_confirmed_at?: string | null;
+  last_reviewed_at?: string | null;
   topic: string;
   audience: string;
   duration_minutes?: number | null;
@@ -202,9 +202,8 @@ export interface ProjectState {
   latestBriefHint: {
     sessionId: string | null;
     autoAppliedFields: string[];
-    aiRequestsConfirmation: boolean;
     missingFields: string[];
-    briefStatus: string;
+    status: string;
     briefSnapshot: TeachingBrief | null;
     generationIntent: boolean;
     generationReady: boolean;

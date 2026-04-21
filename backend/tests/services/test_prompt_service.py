@@ -158,14 +158,13 @@ class TestPromptService:
             user_message="我要做一个高一物理课件",
             intent="general_chat",
             teaching_brief_context={
-                "status": "review_pending",
                 "can_generate": False,
                 "missing_fields": ["knowledge_points", "duration_or_pages"],
                 "brief": {"topic": "牛顿第二定律", "audience": "高一学生"},
             },
         )
 
-        assert '<teaching_brief_protocol status="review_pending"' in prompt
+        assert '<teaching_brief_protocol status="live"' in prompt
         assert "&quot;knowledge_points&quot;" in prompt
         assert "教学需求单" in prompt
         assert "spectra_brief_extract" not in prompt
@@ -176,7 +175,6 @@ class TestPromptService:
             user_message="都讲",
             intent="general_chat",
             teaching_brief_context={
-                "status": "draft",
                 "can_generate": False,
                 "missing_fields": ["duration_or_pages"],
                 "brief": {"topic": "", "audience": "", "lesson_hours": None},

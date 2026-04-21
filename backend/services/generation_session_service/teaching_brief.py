@@ -30,7 +30,6 @@ _MISSING_TIME_OR_PAGES = "duration_or_pages"
 
 
 class TeachingBriefPromptContext(TypedDict):
-    status: str
     can_generate: bool
     missing_fields: list[str]
     brief: dict[str, Any]
@@ -187,9 +186,10 @@ def compute_teaching_brief_readiness(brief: dict[str, Any]) -> dict[str, Any]:
 def normalize_teaching_brief(raw: Any) -> dict[str, Any]:
     incoming = raw if isinstance(raw, dict) else {}
     brief = {
-        "status": _normalize_text(incoming.get("status")) or "draft",
+        "status": "live",
         "version": _normalize_int(incoming.get("version")) or 1,
-        "last_confirmed_at": incoming.get("last_confirmed_at"),
+        "last_reviewed_at": incoming.get("last_reviewed_at")
+        or incoming.get("last_confirmed_at"),
         "topic": _normalize_text(incoming.get("topic")),
         "audience": _normalize_text(incoming.get("audience")),
         "duration_minutes": _normalize_int(incoming.get("duration_minutes")),
@@ -245,7 +245,6 @@ def build_teaching_brief_prompt_context(
     brief = load_teaching_brief(options_raw)
     readiness = dict(brief.get("readiness") or {})
     return {
-        "status": _normalize_text(brief.get("status")) or "draft",
         "can_generate": bool(readiness.get("can_generate")),
         "missing_fields": list(readiness.get("missing_fields") or []),
         "brief": brief,
@@ -265,6 +264,7 @@ def patch_teaching_brief(
     *,
     next_status: Optional[str] = None,
 ) -> dict[str, Any]:
+    del next_status
     brief = normalize_teaching_brief(brief_raw)
     patch = patch or {}
 
@@ -296,12 +296,7 @@ def patch_teaching_brief(
         brief["style_profile"] = _normalize_style_profile(patch.get("style_profile"))
 
     brief["version"] = int(brief.get("version") or 1) + 1
-    if next_status:
-        brief["status"] = next_status
-    elif brief.get("status") == "confirmed":
-        brief["status"] = "stale"
-    else:
-        brief["status"] = "review_pending"
+    brief["status"] = "live"
     brief["readiness"] = compute_teaching_brief_readiness(brief)
     return brief
 
@@ -322,8 +317,8 @@ def store_teaching_brief(
 def confirm_teaching_brief(brief_raw: Any) -> dict[str, Any]:
     brief = normalize_teaching_brief(brief_raw)
     brief["version"] = int(brief.get("version") or 1) + 1
-    brief["status"] = "confirmed"
-    brief["last_confirmed_at"] = now_iso()
+    brief["status"] = "live"
+    brief["last_reviewed_at"] = now_iso()
     brief["readiness"] = compute_teaching_brief_readiness(brief)
     return brief
 
@@ -333,7 +328,7 @@ def apply_proposal_to_brief(
     proposal: dict[str, Any],
 ) -> dict[str, Any]:
     proposed_changes = dict(proposal.get("proposed_changes") or {})
-    return patch_teaching_brief(brief_raw, proposed_changes, next_status="review_pending")
+    return patch_teaching_brief(brief_raw, proposed_changes)
 
 
 def _normalize_field_value(field_name: str, value: Any) -> Any:
@@ -416,7 +411,7 @@ def auto_apply_ai_proposal(
             "applied_fields": [],
             "proposals": current_proposals,
             "queued_proposal": None,
-            "status": current_brief.get("status"),
+            "status": "live",
         }
 
     normalized_proposal = _normalize_brief_proposal(proposal, proposed_changes)
@@ -426,22 +421,10 @@ def auto_apply_ai_proposal(
             "applied_fields": [],
             "proposals": [*current_proposals, normalized_proposal],
             "queued_proposal": normalized_proposal,
-            "status": current_brief.get("status"),
+            "status": "live",
         }
 
-    next_status = (
-        "stale"
-        if proposal_conflicts_with_confirmed_brief(
-            current_brief,
-            {"proposed_changes": proposed_changes},
-        )
-        else "review_pending"
-    )
-    next_brief = patch_teaching_brief(
-        current_brief,
-        proposed_changes,
-        next_status=next_status,
-    )
+    next_brief = patch_teaching_brief(current_brief, proposed_changes)
     return {
         "brief": next_brief,
         "applied_fields": list(proposed_changes.keys()),
@@ -449,37 +432,3 @@ def auto_apply_ai_proposal(
         "queued_proposal": None,
         "status": next_brief.get("status"),
     }
-
-
-def proposal_conflicts_with_confirmed_brief(
-    brief_raw: Any,
-    proposal: dict[str, Any],
-) -> bool:
-    brief = normalize_teaching_brief(brief_raw)
-    if brief.get("status") != "confirmed":
-        return False
-    proposed_changes = dict(proposal.get("proposed_changes") or {})
-    for key, value in proposed_changes.items():
-        current = brief.get(key)
-        if key == "knowledge_points":
-            proposed_titles = [
-                item.get("title")
-                for item in _normalize_knowledge_points(value)
-                if item.get("title")
-            ]
-            current_titles = [
-                item.get("title")
-                for item in brief.get("knowledge_points") or []
-                if isinstance(item, dict) and item.get("title")
-            ]
-            if proposed_titles and current_titles and proposed_titles != current_titles:
-                return True
-            continue
-        normalized_current = current
-        if isinstance(current, list):
-            normalized_current = _normalize_list(current)
-        if isinstance(value, list):
-            value = _normalize_list(value)
-        if normalized_current not in (None, "", []) and normalized_current != value:
-            return True
-    return False

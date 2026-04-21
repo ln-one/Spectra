@@ -18,11 +18,11 @@ def test_detect_generation_intent_matches_courseware_start_request():
     assert detect_generation_intent("先继续聊需求") is False
 
 
-def test_build_generation_intent_payload_opens_confirm_for_review_pending_brief():
+def test_build_generation_intent_payload_opens_confirm_for_live_brief():
     payload = build_generation_intent_payload(
         content="合理，开始吧",
         brief_raw={
-            "status": "review_pending",
+            "status": "live",
             "topic": "光照模型",
             "audience": "软件工程大二学生",
             "lesson_hours": 5,
@@ -36,7 +36,7 @@ def test_build_generation_intent_payload_opens_confirm_for_review_pending_brief(
     assert payload["generation_action"] == GENERATION_ACTION_OPEN_GENERATION_CONFIRM
 
 
-def test_build_generation_intent_payload_opens_confirm_for_confirmed_brief():
+def test_build_generation_intent_payload_ignores_legacy_confirmed_status():
     payload = build_generation_intent_payload(
         content="开始生成 PPT",
         brief_raw={
@@ -72,7 +72,7 @@ def test_build_generation_confirm_draft_defaults_page_count_to_eight(monkeypatch
         build_generation_confirm_draft(
             content="开始生成 PPT",
             brief_raw={
-                "status": "review_pending",
+                "status": "live",
                 "topic": "图形学基础",
                 "audience": "软件工程大二学生",
                 "lesson_hours": 12,
@@ -98,7 +98,7 @@ def test_build_generation_intent_payload_blocks_when_brief_missing_fields():
     payload = build_generation_intent_payload(
         content="开始生成 PPT",
         brief_raw={
-            "status": "draft",
+            "status": "live",
             "topic": "光照模型",
             "readiness": {
                 "missing_fields": ["audience"],
@@ -126,7 +126,7 @@ def test_plan_brief_extraction_triggers_after_four_idle_turns(monkeypatch):
 
     plan = plan_brief_extraction(
         options_raw={"_brief_extraction_turn_count": 3},
-        brief_raw={"status": "draft"},
+        brief_raw={"status": "live"},
         latest_user_message="继续聊",
     )
 
@@ -144,7 +144,7 @@ def test_plan_brief_extraction_does_not_fallback_before_four_idle_turns(monkeypa
 
     plan = plan_brief_extraction(
         options_raw={"_brief_extraction_turn_count": 2},
-        brief_raw={"status": "draft"},
+        brief_raw={"status": "live"},
         latest_user_message="继续聊",
     )
 
@@ -172,7 +172,7 @@ def test_plan_brief_extraction_triggers_when_missing_duration_is_answered():
     plan = plan_brief_extraction(
         options_raw={},
         brief_raw={
-            "status": "review_pending",
+            "status": "live",
             "topic": "算法",
             "audience": "软件工程大二学生",
             "knowledge_points": ["概念", "算法思路"],
@@ -194,7 +194,7 @@ def test_plan_brief_extraction_triggers_when_missing_duration_is_answered():
 def test_plan_brief_extraction_triggers_on_generation_intent():
     plan = plan_brief_extraction(
         options_raw={},
-        brief_raw={"status": "review_pending"},
+        brief_raw={"status": "live"},
         latest_user_message="好了，直接给我完整大纲吧",
     )
 
@@ -207,7 +207,7 @@ def test_plan_brief_extraction_skips_when_brief_ready_to_start():
     plan = plan_brief_extraction(
         options_raw={},
         brief_raw={
-            "status": "review_pending",
+            "status": "live",
             "topic": "算法设计",
             "audience": "软件工程大二学生",
             "lesson_hours": 12,
@@ -232,7 +232,7 @@ def test_plan_brief_extraction_debounces_interval_trigger_after_recent_schedule(
             "_brief_extraction_turn_count": 3,
         },
         brief_raw={
-            "status": "draft",
+            "status": "live",
             "readiness": {
                 "missing_fields": ["audience"],
                 "can_generate": False,
@@ -251,7 +251,7 @@ def test_plan_brief_extraction_does_not_debounce_missing_field_answer():
     plan = plan_brief_extraction(
         options_raw={"_brief_extraction_last_scheduled_at": time.time()},
         brief_raw={
-            "status": "draft",
+            "status": "live",
             "readiness": {
                 "missing_fields": ["audience"],
                 "can_generate": False,
@@ -268,7 +268,7 @@ def test_plan_brief_extraction_does_not_debounce_missing_field_answer():
 def test_plan_brief_extraction_triggers_early_when_message_fills_most_gaps():
     plan = plan_brief_extraction(
         options_raw={},
-        brief_raw={"status": "draft"},
+        brief_raw={"status": "live"},
         latest_user_message="我要做牛顿第二定律，面向高一学生，知识点包括受力分析和加速度，做12页PPT。",
     )
 

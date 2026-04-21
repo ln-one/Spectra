@@ -185,7 +185,7 @@ def _build_extraction_prompt(
     )
 
 
-def _next_session_state(current_state: str, brief_status: str) -> str:
+def _next_session_state(current_state: str) -> str:
     if current_state not in {
         "IDLE",
         "CONFIGURING",
@@ -193,11 +193,7 @@ def _next_session_state(current_state: str, brief_status: str) -> str:
         "AWAITING_REQUIREMENTS_CONFIRM",
     }:
         return current_state
-    return (
-        "CONFIGURING"
-        if brief_status == "confirmed"
-        else "AWAITING_REQUIREMENTS_CONFIRM"
-    )
+    return "CONFIGURING"
 
 
 async def extract_brief_from_conversation(
@@ -311,11 +307,6 @@ async def run_background_brief_extraction(
             return
 
         current_brief = load_teaching_brief(getattr(session_record, "options", None))
-        if current_brief.get("status") == "confirmed":
-            logger.info(
-                "background_brief_extraction skipped confirmed session=%s", session_id
-            )
-            return
         missing_fields = list(
             (current_brief.get("readiness") or {}).get("missing_fields") or []
         )
@@ -349,13 +340,6 @@ async def run_background_brief_extraction(
             latest_brief = load_teaching_brief(
                 getattr(refreshed_record, "options", None)
             )
-
-        if latest_brief.get("status") == "confirmed":
-            logger.info(
-                "background_brief_extraction skipped confirmed_after_refresh session=%s",
-                session_id,
-            )
-            return
 
         selected_fields, overwritten_fields = _select_fields_to_apply(
             current_brief=latest_brief,
@@ -396,9 +380,7 @@ async def run_background_brief_extraction(
             where={"id": session_id},
             data={
                 "options": json.dumps(next_options, ensure_ascii=False),
-                "state": _next_session_state(
-                    current_state, str(next_brief.get("status") or "")
-                ),
+                "state": _next_session_state(current_state),
             },
         )
         logger.info(

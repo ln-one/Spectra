@@ -211,8 +211,8 @@ def test_send_message_schedules_background_brief_extraction_on_early_trigger(
     body = resp.json()["data"]
     hint = body["teaching_brief_hint"]
     assert hint["auto_applied_fields"] == []
-    assert hint["ai_requests_confirmation"] is False
-    assert hint["brief_status"] == "draft"
+    assert "ai_requests_confirmation" not in hint
+    assert hint["status"] == "live"
     assert hint["extraction_scheduled"] is True
     assert hint["extraction_reason"] == "missing_field_answer"
     assert hint["refresh_after_ms"] >= 500
@@ -228,14 +228,14 @@ def test_send_message_schedules_background_brief_extraction_on_early_trigger(
     assert "state" not in update_payload
 
 
-def test_send_message_marks_ai_confirmation_request_in_brief_hint(
+def test_send_message_keeps_live_brief_hint_without_confirmation_status(
     client, monkeypatch, _as_user
 ):
     _mock(monkeypatch, db_service, "get_project", _fake_project())
     session_options = json.dumps(
         {
             "teaching_brief": {
-                "status": "review_pending",
+                "status": "live",
                 "topic": "牛顿第二定律",
                 "audience": "高一学生",
                 "target_pages": 12,
@@ -293,10 +293,9 @@ def test_send_message_marks_ai_confirmation_request_in_brief_hint(
 
     assert resp.status_code == 200
     hint = resp.json()["data"]["teaching_brief_hint"]
-    assert hint["ai_requests_confirmation"] is True
     assert hint["auto_applied_fields"] == []
     assert hint["can_generate"] is True
-    assert hint["brief_status"] == "review_pending"
+    assert hint["status"] == "live"
     assert update_mock.await_count == 1
 
     saved_assistant_content = create_mock.await_args_list[1].kwargs["content"]
@@ -446,7 +445,7 @@ def test_send_message_returns_generation_intent_hint(client, monkeypatch, _as_us
                             options=json.dumps(
                                 {
                                     "teaching_brief": {
-                                        "status": "review_pending",
+                                        "status": "live",
                                         "topic": "光照模型",
                                         "audience": "软件工程大二学生",
                                         "lesson_hours": 5,

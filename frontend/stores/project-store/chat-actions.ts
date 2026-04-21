@@ -498,9 +498,8 @@ export function createChatActions({
             latestBriefHint: {
               sessionId: actionSessionId,
               autoAppliedFields: teachingBriefHint.auto_applied_fields || [],
-              aiRequestsConfirmation: teachingBriefHint.ai_requests_confirmation || false,
               missingFields: teachingBriefHint.missing_fields || [],
-              briefStatus: teachingBriefHint.brief_status || "draft",
+              status: teachingBriefHint.status || "live",
               briefSnapshot: teachingBriefHint.brief_snapshot || null,
               generationIntent: teachingBriefHint.generation_intent || false,
               generationReady: teachingBriefHint.generation_ready || false,

@@ -124,8 +124,6 @@ def build_generation_intent_payload(
             blocked_reason = "教学需求单尚不完整：缺少" + "、".join(
                 _MISSING_FIELD_LABELS.get(field, field) for field in missing_fields
             )
-        elif status != "confirmed":
-            blocked_reason = "请先确认教学需求单"
         else:
             blocked_reason = "教学需求单尚未满足生成条件"
     return {

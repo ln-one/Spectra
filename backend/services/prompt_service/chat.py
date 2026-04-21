@@ -41,7 +41,6 @@ def _build_teaching_brief_protocol_section(
     if not teaching_brief_context:
         return ""
 
-    status = str(teaching_brief_context.get("status") or "draft").strip() or "draft"
     can_generate = bool(teaching_brief_context.get("can_generate"))
     missing_fields = list(teaching_brief_context.get("missing_fields") or [])
     current_brief = dict(teaching_brief_context.get("brief") or {})
@@ -52,22 +51,13 @@ def _build_teaching_brief_protocol_section(
         "优先围绕教学需求单推进对话，再考虑是否进入课件生成建议。",
         "追问前必须同时检查 current_brief、recent_requirement_evidence 和 conversation_history；老师已经说过的信息不要重复追问。",
     ]
-    if status == "confirmed":
+    if can_generate:
         protocol_parts.extend(
             [
-                "教学需求单已确认，不要继续主动追问新的需求字段。",
-                "如果老师提出新的修改意图，提醒这会使已确认需求单失效，需要重新确认。",
-                "可以提示老师教学需求已确认完成，可以开始生成课件。",
-                "如果老师明确表示“开始吧 / 按这个来 / 合理，开始生成”，只简短确认系统将启动课件生成流程；不要在聊天正文里继续输出逐页 PPT 文本、完整 PPT 文案或 Markdown 幻灯片。",
-            ]
-        )
-    elif can_generate:
-        protocol_parts.extend(
-            [
-                "当前需求字段已齐备，但需求单尚未确认。",
-                "本轮应主动生成一段老师可读的需求总结，列出已收集到的关键信息。",
-                "你必须明确询问“这些信息是否准确？如果没问题，我会标记需求单为已确认”。",
-                "如果老师明确表示“开始吧 / 按这个来 / 合理，开始生成”，只简短确认系统将确认需求并启动课件生成流程；不要在聊天正文里继续输出逐页 PPT 文本、完整 PPT 文案或 Markdown 幻灯片。",
+                "当前需求字段已齐备，教学需求单应被视为持续更新的 live 上下文，而不是等待老师手动确认的表单。",
+                "如果老师还在补充、修正或细化需求，直接吸收这些信息并继续推进，不要强调需求单需要重新确认。",
+                "如果老师明确表示“开始吧 / 按这个来 / 合理，开始生成”，只简短确认系统将进入课件生成确认流程；不要在聊天正文里继续输出逐页 PPT 文本、完整 PPT 文案或 Markdown 幻灯片。",
+                "如果老师尚未表达开始生成，可以简要总结当前收集到的教学信息，并自然引导继续细化，而不是要求确认需求单。",
             ]
         )
     else:
@@ -111,7 +101,7 @@ def _build_teaching_brief_protocol_section(
     )
 
     return f"""
-<teaching_brief_protocol status="{escape_prompt_text(status)}" can_generate="{str(can_generate).lower()}">
+<teaching_brief_protocol status="live" can_generate="{str(can_generate).lower()}">
   <current_brief>{current_brief_json}</current_brief>
   <missing_fields>{missing_fields_json}</missing_fields>
   <recent_requirement_evidence>{recent_evidence_json}</recent_requirement_evidence>

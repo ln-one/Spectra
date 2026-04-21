@@ -28,15 +28,14 @@ def test_patch_teaching_brief_computes_readiness():
             "target_pages": 12,
             "knowledge_points": ["同分母分数加法", "异分母分数通分"],
         },
-        next_status="review_pending",
     )
 
-    assert brief["status"] == "review_pending"
+    assert brief["status"] == "live"
     assert brief["readiness"]["can_generate"] is True
     assert brief["readiness"]["missing_fields"] == []
 
 
-def test_confirm_teaching_brief_marks_timestamp():
+def test_confirm_teaching_brief_marks_review_timestamp():
     brief = confirm_teaching_brief(
         {
             "topic": "分数加减法",
@@ -46,8 +45,8 @@ def test_confirm_teaching_brief_marks_timestamp():
         }
     )
 
-    assert brief["status"] == "confirmed"
-    assert isinstance(brief["last_confirmed_at"], str)
+    assert brief["status"] == "live"
+    assert isinstance(brief["last_reviewed_at"], str)
 
 
 def test_build_brief_prompt_hint_reads_from_session_options():
@@ -69,19 +68,17 @@ def test_build_brief_prompt_hint_reads_from_session_options():
     assert loaded["topic"] == "分数加减法"
 
 
-def test_build_teaching_brief_prompt_context_exposes_status_and_missing_fields():
+def test_build_teaching_brief_prompt_context_exposes_missing_fields():
     options = store_teaching_brief(
         {},
         brief={
             "topic": "牛顿第二定律",
             "audience": "高一学生",
-            "status": "review_pending",
         },
     )
 
     context = build_teaching_brief_prompt_context(options)
 
-    assert context["status"] == "review_pending"
     assert context["can_generate"] is False
     assert "knowledge_points" in context["missing_fields"]
     assert context["brief"]["topic"] == "牛顿第二定律"
@@ -100,15 +97,14 @@ def test_auto_apply_ai_proposal_updates_brief_without_queueing():
     )
 
     assert result["applied_fields"] == ["topic", "audience"]
-    assert result["brief"]["status"] == "review_pending"
+    assert result["brief"]["status"] == "live"
     assert result["brief"]["topic"] == "牛顿第二定律"
     assert result["brief"]["audience"] == "高一学生"
 
 
-def test_auto_apply_ai_proposal_marks_confirmed_brief_as_stale_on_conflict():
+def test_auto_apply_ai_proposal_overwrites_live_brief_without_stale_state():
     result = auto_apply_ai_proposal(
         {
-            "status": "confirmed",
             "topic": "牛顿第一定律",
             "audience": "高一学生",
             "target_pages": 12,
@@ -123,7 +119,7 @@ def test_auto_apply_ai_proposal_marks_confirmed_brief_as_stale_on_conflict():
     )
 
     assert result["applied_fields"] == ["topic"]
-    assert result["brief"]["status"] == "stale"
+    assert result["brief"]["status"] == "live"
     assert result["brief"]["topic"] == "牛顿第二定律"
 
 
@@ -145,22 +141,22 @@ def test_auto_apply_ai_proposal_can_queue_confirmation_required_proposal():
 
 
 @pytest.mark.asyncio
-async def test_background_extraction_does_not_overwrite_confirmed_brief(monkeypatch):
-    confirmed_options = store_teaching_brief(
+async def test_background_extraction_can_update_reviewed_brief(monkeypatch):
+    reviewed_options = store_teaching_brief(
         {},
         brief={
-            "status": "confirmed",
             "topic": "牛顿第二定律",
             "audience": "高一学生",
             "target_pages": 12,
             "knowledge_points": ["受力分析", "加速度与合力"],
+            "last_reviewed_at": "2026-04-21T00:00:00+00:00",
         },
     )
     find_unique = AsyncMock(
         return_value=SimpleNamespace(
             id="session-1",
             projectId="project-1",
-            options=json.dumps(confirmed_options, ensure_ascii=False),
+            options=json.dumps(reviewed_options, ensure_ascii=False),
             state="CONFIGURING",
         )
     )
@@ -174,7 +170,12 @@ async def test_background_extraction_does_not_overwrite_confirmed_brief(monkeypa
                     find_unique=find_unique,
                     update=update_mock,
                 )
-            )
+            ),
+            get_recent_conversation_messages=AsyncMock(
+                return_value=[
+                    SimpleNamespace(role="user", content="主题改成牛顿第一定律")
+                ]
+            ),
         ),
     )
     extract_mock = AsyncMock(
@@ -194,5 +195,5 @@ async def test_background_extraction_does_not_overwrite_confirmed_brief(monkeypa
         project_id="project-1",
     )
 
-    extract_mock.assert_not_awaited()
-    update_mock.assert_not_awaited()
+    extract_mock.assert_awaited_once()
+    update_mock.assert_awaited_once()

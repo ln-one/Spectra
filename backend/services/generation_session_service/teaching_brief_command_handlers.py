@@ -67,7 +67,6 @@ async def handle_update_teaching_brief_draft(
     brief = patch_teaching_brief(
         getattr(session, "options", None),
         dict(command.get("patch") or {}),
-        next_status="review_pending",
     )
     proposals = load_teaching_brief_proposals(getattr(session, "options", None))
     await _persist_teaching_brief(
@@ -169,7 +168,6 @@ async def handle_confirm_teaching_brief(
         base_brief = patch_teaching_brief(
             base_brief,
             patch,
-            next_status="review_pending",
         )
     brief = confirm_teaching_brief(base_brief)
     proposals = load_teaching_brief_proposals(getattr(session, "options", None))
@@ -182,7 +180,7 @@ async def handle_confirm_teaching_brief(
         append_event=append_event,
         event_type=GenerationEventType.STATE_CHANGED.value,
         event_payload={
-            "reason": "teaching_brief_confirmed",
+            "reason": "teaching_brief_reviewed",
             "teaching_brief": brief,
         },
     )

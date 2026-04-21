@@ -99,7 +99,7 @@ async def test_extraction_prompt_treats_assistant_as_context_only(monkeypatch):
             {"role": "user", "content": "安排12个课时"},
             {"role": "assistant", "content": "可以按 4课时 设计第一模块。"},
         ],
-        current_brief={"status": "review_pending"},
+        current_brief={"status": "live"},
         missing_fields=["duration_or_pages"],
     )
 
