@@ -95,6 +95,8 @@ async def test_resolve_word_document_title_treats_untitled_document_as_placehold
     [
         ("word_document", "docx"),
         ("knowledge_mindmap", "mindmap"),
+        ("interactive_quick_quiz", "exercise"),
+        ("interactive_games", "html"),
     ],
 )
 async def test_structured_refine_updates_managed_artifact_in_place(
@@ -193,34 +195,37 @@ async def test_structured_refine_updates_managed_artifact_in_place(
 
 
 @pytest.mark.anyio
-async def test_quiz_structured_refine_creates_replacement_artifact(
+async def test_word_direct_edit_structured_refine_skips_loading_existing_docx_content(
     monkeypatch,
 ):
     source_artifact = SimpleNamespace(
         id="artifact-001",
         projectId="project-001",
         sessionId="session-001",
-        type="exercise",
+        type="docx",
         visibility="private",
         basedOnVersionId="version-001",
-        metadata={"title": "旧小测"},
+        metadata={"title": "原教学文档"},
     )
-    replacement_artifact = SimpleNamespace(
-        id="artifact-002",
+    updated_artifact = SimpleNamespace(
+        id="artifact-001",
         projectId="project-001",
         sessionId="session-001",
-        type="exercise",
+        type="docx",
         visibility="private",
         basedOnVersionId="version-001",
-        metadata={"title": "新小测"},
+        metadata={"title": "原教学文档"},
     )
     body = SimpleNamespace(
         project_id="project-001",
         session_id="session-001",
         artifact_id="artifact-001",
         source_artifact_id=None,
-        message="请更新内容",
-        config={"operation": "direct_edit_question"},
+        message="更新文档内容",
+        config={
+            "direct_edit": True,
+            "markdown_content": "# 原教学文档\n\n## 新内容\n\n- 已修改",
+        },
         rag_source_ids=[],
         selection_anchor=None,
         refine_mode=SimpleNamespace(value="structured_refine"),
@@ -231,19 +236,26 @@ async def test_quiz_structured_refine_creates_replacement_artifact(
         readiness="ready",
         refine_request={
             "method": "POST",
-            "endpoint": "/studio-cards/interactive_quick_quiz/refine",
+            "endpoint": "/studio-cards/word_document/refine",
             "mode": "structured_refine",
         },
         execution_carrier="artifact",
     )
 
     validate_artifact_mock = AsyncMock(return_value=source_artifact)
-    build_content_mock = AsyncMock(return_value={"title": "新小测"})
-    update_existing_mock = AsyncMock()
-    create_replacement_mock = AsyncMock(return_value=replacement_artifact)
-    create_run_mock = AsyncMock(
-        return_value={"run_id": "run-002", "run_no": 2, "artifact_id": "artifact-002"}
+    build_content_mock = AsyncMock(
+        return_value={
+            "title": "原教学文档",
+            "kind": "teaching_document",
+            "legacy_kind": "word_document",
+            "lesson_plan_markdown": "# 原教学文档\n\n## 新内容\n\n- 已修改",
+        }
     )
+    update_existing_mock = AsyncMock(return_value=updated_artifact)
+    create_run_mock = AsyncMock(
+        return_value={"run_id": "run-001", "run_no": 1, "artifact_id": "artifact-001"}
+    )
+    load_content_mock = AsyncMock(side_effect=AssertionError("should not load docx"))
 
     monkeypatch.setattr(
         "services.generation_session_service.card_execution_runtime_artifacts.validate_structured_refine_artifact",
@@ -258,10 +270,6 @@ async def test_quiz_structured_refine_creates_replacement_artifact(
         update_existing_mock,
     )
     monkeypatch.setattr(
-        "services.generation_session_service.card_execution_runtime_artifacts.create_replacement_artifact",
-        create_replacement_mock,
-    )
-    monkeypatch.setattr(
         "services.generation_session_service.card_execution_runtime_artifacts.create_artifact_run",
         create_run_mock,
     )
@@ -272,18 +280,18 @@ async def test_quiz_structured_refine_creates_replacement_artifact(
     )
 
     result = await execute_studio_card_structured_refine(
-        card_id="interactive_quick_quiz",
+        card_id="word_document",
         body=body,
         user_id="user-001",
         preview=preview,
-        load_content=AsyncMock(return_value={"title": "旧小测"}),
+        load_content=load_content_mock,
     )
 
-    update_existing_mock.assert_not_awaited()
-    create_replacement_mock.assert_awaited_once()
-    assert result.artifact["id"] == "artifact-002"
-    assert result.latest_runnable_state["active_artifact_id"] == "artifact-002"
-    assert result.provenance["replaces_artifact_id"] == "artifact-001"
+    load_content_mock.assert_not_awaited()
+    assert (
+        build_content_mock.await_args.kwargs["current_content"]["title"] == "原教学文档"
+    )
+    assert result.artifact["id"] == "artifact-001"
 
 
 def test_normalize_simulator_turn_result_backfills_required_fields() -> None:
@@ -433,6 +441,7 @@ async def test_execute_studio_card_artifact_request_marks_requested_run_failed_o
         ("word_document", "docx", "牛顿第二定律教案"),
         ("knowledge_mindmap", "mindmap", "牛顿第二定律导图"),
         ("interactive_quick_quiz", "exercise", "牛顿第二定律小测"),
+        ("interactive_games", "html", "牛顿第二定律互动游戏"),
     ],
 )
 async def test_execute_studio_card_artifact_request_creates_new_artifact_for_initial_generation(

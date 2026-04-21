@@ -27,6 +27,7 @@ function WorkflowHistoryProbe() {
         type="button"
         onClick={() =>
           recordWorkflowEntry({
+            workflowId: "workflow:word:draft-1",
             toolType: "word",
             title: "教学文档 - Draft",
             status: "draft",
@@ -47,6 +48,7 @@ function WorkflowHistoryProbe() {
         type="button"
         onClick={() =>
           recordWorkflowEntry({
+            workflowId: "workflow:word:draft-1",
             toolType: "word",
             title: "教学文档 - Generating",
             status: "processing",
@@ -84,6 +86,7 @@ function WorkflowHistoryRunAwareProbe() {
         type="button"
         onClick={() =>
           recordWorkflowEntry({
+            workflowId: "workflow:word:run-aware",
             toolType: "word",
             title: "教学文档 - Draft",
             status: "draft",
@@ -104,6 +107,7 @@ function WorkflowHistoryRunAwareProbe() {
         type="button"
         onClick={() =>
           recordWorkflowEntry({
+            workflowId: "workflow:word:run-aware",
             toolType: "word",
             title: "教学文档 - Generating",
             status: "processing",
@@ -173,6 +177,44 @@ function WorkflowHistoryExplicitWorkflowProbe() {
       <div data-testid="word-explicit-count">{String(wordItems.length)}</div>
       <div data-testid="word-explicit-first-status">{wordItems[0]?.status ?? ""}</div>
       <div data-testid="word-explicit-second-status">{wordItems[1]?.status ?? ""}</div>
+    </div>
+  );
+}
+
+function WorkflowHistoryImplicitSessionProbe() {
+  const { groupedHistory, recordWorkflowEntry } = useStudioWorkflowHistory(
+    buildEmptyHistory(),
+    "sess-1",
+    "proj-1"
+  );
+  const wordItems = groupedHistory.find(([toolType]) => toolType === "word")?.[1] ?? [];
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => {
+          recordWorkflowEntry({
+            toolType: "word",
+            title: "教案 A",
+            status: "draft",
+            step: "generate",
+            sessionId: "sess-1",
+            toolLabel: "教学文档",
+          });
+          recordWorkflowEntry({
+            toolType: "word",
+            title: "教案 B",
+            status: "draft",
+            step: "generate",
+            sessionId: "sess-1",
+            toolLabel: "教学文档",
+          });
+        }}
+      >
+        record-implicit-session-workflows
+      </button>
+      <div data-testid="word-implicit-count">{String(wordItems.length)}</div>
     </div>
   );
 }
@@ -474,12 +516,61 @@ function WorkflowHistoryMindmapReplacementProbe() {
   );
 }
 
+function WorkflowHistoryFailedNewArtifactProbe() {
+  const artifactHistory = buildEmptyHistory();
+  artifactHistory.word = [
+    {
+      artifactId: "word-artifact-1",
+      sessionId: "sess-1",
+      toolType: "word",
+      artifactType: "docx",
+      title: "已有教案",
+      metadataTitle: "已有教案",
+      status: "completed",
+      createdAt: "2026-04-19T15:45:00.000Z",
+      basedOnVersionId: null,
+      runId: null,
+      runNo: null,
+    },
+  ];
+  const { groupedHistory, recordWorkflowEntry } = useStudioWorkflowHistory(
+    artifactHistory,
+    "sess-1",
+    "proj-1"
+  );
+  const wordItems = groupedHistory.find(([toolType]) => toolType === "word")?.[1] ?? [];
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() =>
+          recordWorkflowEntry({
+            workflowId: "workflow:word:new-failed",
+            toolType: "word",
+            title: "新教案生成失败",
+            status: "failed",
+            step: "preview",
+            sessionId: "sess-1",
+            toolLabel: "教学文档",
+          })
+        }
+      >
+        record-failed-new-artifact
+      </button>
+      <div data-testid="word-failed-count">{String(wordItems.length)}</div>
+      <div data-testid="word-failed-first-title">{wordItems[0]?.title ?? ""}</div>
+      <div data-testid="word-failed-second-title">{wordItems[1]?.title ?? ""}</div>
+    </div>
+  );
+}
+
 describe("useStudioWorkflowHistory", () => {
   beforeEach(() => {
     window.localStorage.clear();
   });
 
-  it("reuses the same transient word workflow entry across draft and processing", () => {
+  it("updates the same workflow row when callers reuse an explicit workflow id", () => {
     render(<WorkflowHistoryProbe />);
 
     act(() => {
@@ -491,7 +582,7 @@ describe("useStudioWorkflowHistory", () => {
     expect(screen.getByTestId("word-status").textContent).toBe("processing");
   });
 
-  it("promotes a draft row to processing even when the follow-up update is missing runId", () => {
+  it("keeps the same workflow row when a follow-up update reuses workflowId but omits runId", () => {
     render(<WorkflowHistoryRunAwareProbe />);
 
     act(() => {
@@ -514,6 +605,16 @@ describe("useStudioWorkflowHistory", () => {
     expect(screen.getByTestId("word-explicit-count").textContent).toBe("2");
     expect(screen.getByTestId("word-explicit-first-status").textContent).toBe("draft");
     expect(screen.getByTestId("word-explicit-second-status").textContent).toBe("processing");
+  });
+
+  it("does not collapse draft rows just because tool and session match", () => {
+    render(<WorkflowHistoryImplicitSessionProbe />);
+
+    act(() => {
+      fireEvent.click(screen.getByText("record-implicit-session-workflows"));
+    });
+
+    expect(screen.getByTestId("word-implicit-count").textContent).toBe("2");
   });
 
   it("builds the workflow title from lesson-plan fields instead of raw JSON keys", () => {
@@ -551,6 +652,22 @@ describe("useStudioWorkflowHistory", () => {
 
     expect(screen.getByTestId("word-artifact-update-count").textContent).toBe("1");
     expect(screen.getByTestId("word-artifact-update-title").textContent).toBe(
+      "已有教案"
+    );
+  });
+
+  it("keeps a failed new-artifact workflow visible beside older completed artifacts", () => {
+    render(<WorkflowHistoryFailedNewArtifactProbe />);
+
+    act(() => {
+      fireEvent.click(screen.getByText("record-failed-new-artifact"));
+    });
+
+    expect(screen.getByTestId("word-failed-count").textContent).toBe("2");
+    expect(screen.getByTestId("word-failed-first-title").textContent).toBe(
+      "新教案生成失败"
+    );
+    expect(screen.getByTestId("word-failed-second-title").textContent).toBe(
       "已有教案"
     );
   });

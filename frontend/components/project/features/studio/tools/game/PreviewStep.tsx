@@ -43,8 +43,9 @@ export function PreviewStep({
   }
 
   return (
-    <div className="h-full min-h-0 rounded-2xl border border-zinc-200 bg-white p-4">
+    <div className="h-full min-h-0 overflow-hidden rounded-2xl border border-zinc-200 bg-white">
       <GameSurfaceAdapter
+        key={payload.runtime.html ?? "interactive-game-empty"}
         payload={payload}
         latestArtifactId={latestArtifactId}
         onExportArtifact={flowContext?.onExportArtifact}

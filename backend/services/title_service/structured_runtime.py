@@ -71,6 +71,11 @@ def _build_request_kwargs(
         ],
         "tool_choice": {"type": "function", "function": {"name": "set_title"}},
     }
+    if model.startswith("dashscope/"):
+        request_kwargs["extra_body"] = {
+            "result_format": "message",
+            "enable_thinking": False,
+        }
     return request_kwargs
 
 

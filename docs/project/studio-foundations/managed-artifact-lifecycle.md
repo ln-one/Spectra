@@ -6,7 +6,11 @@
 
 Implementation note:
 
-- Phase 1 code integration has started for `word_document` and `knowledge_mindmap`
+- Phase 1 code integration is now active for:
+  - `word_document`
+  - `interactive_quick_quiz`
+  - `knowledge_mindmap`
+  - `interactive_games`
 - current implementation target is: `new draft -> new artifact`, `refine/save -> update same artifact`, `history click -> pinned artifact`
 
 ## 1. Why this exists
@@ -258,12 +262,30 @@ Target behavior:
 - history click uses `PinnedArtifactTarget`
 - any existing replacement/latest filtering must be treated as artifact-local latest-state logic, not as capability-level default entry logic
 
-### 8.3 Later managed tools
+### 8.3 `interactive_quick_quiz`
+
+Target behavior:
+
+- normal entry opens `DraftTarget`
+- new create makes a new artifact
+- question edits / save / structured refine keep updating that same quiz artifact
+- history click uses `PinnedArtifactTarget`
+- quiz editing must not reopen another quiz from the same session just because it is newer
+
+### 8.4 `interactive_games`
+
+Target behavior:
+
+- normal entry opens `DraftTarget`
+- new create makes a new artifact
+- later save/refine keeps updating the same `interactive_game.v2` artifact
+- history click uses `PinnedArtifactTarget`
+- draft/history/result switching must not be decided by session-latest or run-latest guesses
+
+### 8.5 Later managed tools
 
 The same model should later apply to:
 
-- `interactive_quick_quiz`
-- `interactive_games`
 - `speaker_notes`
 - `demonstration_animations`
 - `classroom_qa_simulator`

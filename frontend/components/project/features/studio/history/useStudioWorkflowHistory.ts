@@ -217,15 +217,6 @@ function pickPreferredWorkflowItem(
   return incomingTime >= currentTime ? incoming : current;
 }
 
-function isNonTerminalWorkflowItem(item: StudioHistoryItem): boolean {
-  return (
-    item.origin === "workflow" &&
-    item.status !== "completed" &&
-    item.status !== "failed" &&
-    !item.artifactId
-  );
-}
-
 type RequestedStepByTool = Partial<
   Record<GenerationToolType, StudioHistoryStep>
 >;
@@ -243,6 +234,35 @@ function isInvalidPptWorkflowWithoutRunId(item: StudioHistoryItem): boolean {
     item.toolType === "ppt" &&
     !normalizeRunId(item.runId)
   );
+}
+
+function resolveExistingWorkflowItem(
+  items: StudioHistoryItem[],
+  input: WorkflowEntryInput,
+  normalizedRunId: string | null
+): StudioHistoryItem | null {
+  if (input.artifactId) {
+    return (
+      items.find(
+        (item) =>
+          item.origin === "workflow" &&
+          item.toolType === input.toolType &&
+          item.artifactId === input.artifactId
+      ) ?? null
+    );
+  }
+  if (normalizedRunId) {
+    return (
+      items.find(
+        (item) =>
+          item.origin === "workflow" &&
+          item.toolType === input.toolType &&
+          item.sessionId === (input.sessionId ?? null) &&
+          normalizeRunId(item.runId) === normalizedRunId
+      ) ?? null
+    );
+  }
+  return null;
 }
 
 function readPersistedWorkflowHistory(
@@ -362,28 +382,13 @@ export function useStudioWorkflowHistory(
       if (requestedWorkflowId) {
         resolvedItemId = requestedWorkflowId;
       }
-      const sameSessionItems = input.sessionId
-        ? prev.filter(
-            (item) =>
-              item.origin === "workflow" &&
-              item.toolType === input.toolType &&
-              item.sessionId === input.sessionId
-          )
-        : [];
-      const activeSessionWorkflow = sameSessionItems.filter(isNonTerminalWorkflowItem);
-      if (!requestedWorkflowId && normalizedInputRunId && input.sessionId) {
-        const sameRunItem = sameSessionItems.find(
-          (item) => normalizeRunId(item.runId) === normalizedInputRunId
+      if (!requestedWorkflowId) {
+        const existingWorkflow = resolveExistingWorkflowItem(
+          prev,
+          input,
+          normalizedInputRunId
         );
-        resolvedItemId =
-          sameRunItem?.id ??
-          (activeSessionWorkflow.length === 1 ? activeSessionWorkflow[0]?.id : undefined) ??
-          resolvedItemId;
-      } else if (!requestedWorkflowId && input.sessionId) {
-        const transientItem =
-          activeSessionWorkflow.find((item) => !normalizeRunId(item.runId)) ??
-          activeSessionWorkflow[0];
-        resolvedItemId = transientItem?.id ?? resolvedItemId;
+        resolvedItemId = existingWorkflow?.id ?? resolvedItemId;
       }
       finalWorkflowId = resolvedItemId;
       const index = prev.findIndex((item) => item.id === resolvedItemId);
@@ -431,13 +436,7 @@ export function useStudioWorkflowHistory(
     setWorkflowItems((prev) => {
       const resolvedItem =
         prev.find((item) => item.id === nextItem.id) ??
-        prev.find(
-          (item) =>
-            item.origin === "workflow" &&
-            item.toolType === input.toolType &&
-            item.sessionId === (input.sessionId ?? null) &&
-            normalizeRunId(item.runId) === normalizedInputRunId
-        ) ??
+        resolveExistingWorkflowItem(prev, input, normalizedInputRunId) ??
         null;
       const resolvedItemId = resolvedItem?.id ?? finalWorkflowId;
       if (polishedTitleRequestedRef.current[resolvedItemId]) {
@@ -644,9 +643,7 @@ export function useStudioWorkflowHistory(
       if (
         MANAGED_LIFECYCLE_TOOLS.has(item.toolType) &&
         sessionArtifactsForTool.length > 0 &&
-        (item.status === "previewing" ||
-          item.status === "completed" ||
-          item.status === "failed")
+        (item.status === "previewing" || item.status === "completed")
       ) {
         return false;
       }

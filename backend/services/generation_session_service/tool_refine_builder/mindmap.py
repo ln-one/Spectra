@@ -145,7 +145,7 @@ async def refine_mindmap_content(
     query = str(
         config.get("topic") or updated.get("title") or message or "mindmap extension"
     )
-    rag_snippets = await _load_rag_snippets(
+    rag_snippets = await _load_refine_rag_snippets(
         project_id=project_id,
         query=query,
         rag_source_ids=rag_source_ids,

@@ -332,6 +332,14 @@ export function PreviewStep({
     handleExportWithLatest,
   ]);
 
+  useEffect(() => {
+    window.dispatchEvent(
+      new CustomEvent("spectra:word:mode-changed", {
+        detail: { mode: activeTab },
+      })
+    );
+  }, [activeTab]);
+
   return (
     <div className="space-y-2">
       {isBackendPlaceholder && !hasDraftContent && !isPreviewLoading ? (

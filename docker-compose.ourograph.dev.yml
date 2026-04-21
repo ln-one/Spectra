@@ -4,6 +4,8 @@ services:
     build:
       context: ./ourograph
       dockerfile: Dockerfile.dev
+    environment:
+      - JAVA_TOOL_OPTIONS=-Xms256m -Xmx1024m -XX:MaxMetaspaceSize=256m
     healthcheck:
       start_period: 180s
     volumes:

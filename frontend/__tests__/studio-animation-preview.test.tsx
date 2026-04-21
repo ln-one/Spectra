@@ -137,6 +137,70 @@ describe("studio animation preview", () => {
     expect(screen.getByText("动画生成中")).toBeInTheDocument();
   });
 
+  it("shows fake ai generation stage before the bubble sort mock preview appears", () => {
+    render(
+      <PreviewStep
+        lastGeneratedAt={null}
+        serverSpecPreview={null}
+        showBubbleSortMock
+        mockGenerationStartedAt={new Date(Date.now() - 5_000).toISOString()}
+        flowContext={buildFlowContext({
+          capabilityStatus: "executing",
+          workflowState: "executing",
+          latestArtifacts: [],
+          resolvedArtifact: null,
+        })}
+      />
+    );
+
+    expect(screen.getByText("动画生成中")).toBeInTheDocument();
+    expect(
+      screen.getByText("正在按冒泡排序教学主题生成正式动画，请稍候。")
+    ).toBeInTheDocument();
+  });
+
+  it("shows bubble sort mock preview after the fake ai generation stage completes", () => {
+    render(
+      <PreviewStep
+        lastGeneratedAt={null}
+        serverSpecPreview={null}
+        showBubbleSortMock
+        mockGenerationStartedAt={new Date(Date.now() - 25_000).toISOString()}
+        flowContext={buildFlowContext({
+          capabilityStatus: "executing",
+          workflowState: "executing",
+          latestArtifacts: [],
+          resolvedArtifact: null,
+        })}
+      />
+    );
+
+    expect(screen.getByText("动画预览")).toBeInTheDocument();
+    expect(screen.getByText("生成已完成，可直接查看当前动画结果。")).toBeInTheDocument();
+    expect(
+      screen.getByTestId("animation-runtime-motion-canvas-shell")
+    ).toBeInTheDocument();
+  });
+
+  it("keeps the white bar preview even after a real artifact is ready", () => {
+    render(
+      <PreviewStep
+        lastGeneratedAt="2026-04-17T08:00:00.000Z"
+        serverSpecPreview={null}
+        showBubbleSortMock
+        mockGenerationStartedAt={new Date(Date.now() - 25_000).toISOString()}
+        flowContext={buildFlowContext()}
+      />
+    );
+
+    expect(screen.getByText("动画预览")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "导出 GIF" })).toBeInTheDocument();
+    expect(
+      screen.getByTestId("animation-runtime-motion-canvas-shell")
+    ).toBeInTheDocument();
+    expect(screen.queryByTitle("动画视频预览")).not.toBeInTheDocument();
+  });
+
   it("renders simplified runtime preview and export entry", () => {
     render(
       <PreviewStep

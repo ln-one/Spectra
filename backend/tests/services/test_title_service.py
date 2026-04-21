@@ -215,6 +215,61 @@ async def test_generate_structured_title_uses_forced_tool_call_with_title_budget
 
 
 @pytest.mark.anyio
+async def test_generate_structured_title_disables_dashscope_thinking_for_tool_calls(
+    monkeypatch,
+):
+    captured: dict[str, object] = {}
+
+    async def _fake_completion(**kwargs):
+        captured.update(kwargs)
+
+        class _Function:
+            arguments = (
+                '{"title":"教学大纲备课","basis_key":"first_message_seed","scene":"session"}'
+            )
+
+        class _ToolCall:
+            function = _Function()
+
+        class _Message:
+            tool_calls = [_ToolCall()]
+
+        class _Choice:
+            message = _Message()
+
+        class _Response:
+            choices = [_Choice()]
+
+        return _Response()
+
+    monkeypatch.setattr(
+        "services.title_service.structured_runtime.acompletion",
+        _fake_completion,
+    )
+    monkeypatch.setattr(
+        "services.title_service.structured_runtime.resolve_requested_model",
+        lambda **_: (
+            SimpleNamespace(reason="lightweight_task"),
+            "qwen3.5-flash-2026-02-23",
+            "title_polish",
+        ),
+    )
+
+    result = await generate_structured_title(
+        scene="session",
+        payload={"scene": "session", "key_facts": {"first_message_seed": "教学大纲"}},
+        entity_id="session-001",
+    )
+
+    assert captured["model"] == "dashscope/qwen3.5-flash-2026-02-23"
+    assert captured["extra_body"] == {
+        "result_format": "message",
+        "enable_thinking": False,
+    }
+    assert result.title == "教学大纲备课"
+
+
+@pytest.mark.anyio
 async def test_generate_structured_title_parses_minimax_raw_tool_call_content(
     monkeypatch,
 ):

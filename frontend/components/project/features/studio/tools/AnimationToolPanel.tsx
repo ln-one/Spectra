@@ -21,6 +21,10 @@ import {
   getReadinessLabel,
   resolveDefaultExplainerStylePack,
 } from "./animation/constants";
+import {
+  BUBBLE_SORT_MOCK_FORMAT,
+  isBubbleSortMockRequest,
+} from "./animation/bubbleSortMock";
 import { PreviewStep } from "./animation/PreviewStep";
 import type {
   AnimationPlacementSlot,
@@ -55,6 +59,22 @@ function normalizeRhythm(value: unknown): AnimationRhythm {
 function normalizeFormat(value: unknown): AnimationOutputFormat {
   // Hard-disable expensive cloud video path (mp4/cloud_video_wan).
   if (value === "gif") return "gif";
+  return "html5";
+}
+
+function resolveDraftAnimationFormat(params: {
+  draftFormat: AnimationOutputFormat;
+  hasManualFormatSelection: boolean;
+  hasArtifact: boolean;
+  nextTopic: string;
+  nextFocus: string;
+}): AnimationOutputFormat {
+  if (params.hasManualFormatSelection || params.hasArtifact) {
+    return params.draftFormat;
+  }
+  if (isBubbleSortMockRequest(params.nextTopic, params.nextFocus)) {
+    return BUBBLE_SORT_MOCK_FORMAT;
+  }
   return "html5";
 }
 
@@ -115,6 +135,9 @@ export function AnimationToolPanel({
   const [isRecommendingPlacement, setIsRecommendingPlacement] = useState(false);
   const [isConfirmingPlacement, setIsConfirmingPlacement] = useState(false);
   const [hasRequestedGeneration, setHasRequestedGeneration] = useState(false);
+  const [mockGenerationStartedAt, setMockGenerationStartedAt] = useState<string | null>(
+    null
+  );
   const [lastGeneratedAt, setLastGeneratedAt] = useState<string | null>(null);
   const [placementRecommendation, setPlacementRecommendation] = useState<Record<
     string,
@@ -139,6 +162,11 @@ export function AnimationToolPanel({
     surface: "studio_animation",
     seedText: [topic, focus].filter(Boolean).join(" "),
   });
+  const isBubbleSortScenario = isBubbleSortMockRequest(
+    topic,
+    focus,
+    flowContext?.managedResultTarget?.title ?? null
+  );
 
   useEffect(() => {
     if (!hasBootstrappedTopic && !topic.trim() && suggestions[0]) {
@@ -157,8 +185,13 @@ export function AnimationToolPanel({
     const nextDuration = normalizeDraftNumber(draft.duration_seconds, 6);
     const nextRhythm = normalizeRhythm(draft.rhythm);
     const nextFormat = normalizeFormat(draft.animation_format);
-    const resolvedFormat =
-      !hasManualFormatSelection && !latestArtifactId ? "html5" : nextFormat;
+    const resolvedFormat = resolveDraftAnimationFormat({
+      draftFormat: nextFormat,
+      hasManualFormatSelection,
+      hasArtifact: Boolean(latestArtifactId),
+      nextTopic,
+      nextFocus,
+    });
     const nextStylePack = normalizeStylePack(draft.style_pack);
     const nextVisualType = normalizeVisualType(draft.visual_type);
 
@@ -177,7 +210,8 @@ export function AnimationToolPanel({
   ]);
 
   useEffect(() => {
-    const safeAnimationFormat = animationFormat === "gif" ? "gif" : "html5";
+    const safeAnimationFormat =
+      isBubbleSortScenario || animationFormat === "gif" ? "gif" : "html5";
     onDraftChange?.({
       topic,
       motion_brief: focus,
@@ -194,6 +228,7 @@ export function AnimationToolPanel({
     durationSeconds,
     flowContext?.selectedSourceId,
     focus,
+    isBubbleSortScenario,
     onDraftChange,
     rhythm,
     stylePack,
@@ -217,6 +252,13 @@ export function AnimationToolPanel({
   );
   const shouldShowPreview =
     isHistoryResultMode || hasRequestedGeneration || isGenerating;
+  const shouldShowBubbleSortMock =
+    isBubbleSortScenario &&
+    (hasRequestedGeneration ||
+      isHistoryResultMode ||
+      resultTargetStatus === "processing" ||
+      resultTargetStatus === "previewing" ||
+      resultTargetStatus === "completed");
   const shouldShowComposeCard = !shouldShowPreview;
 
   useEffect(() => {
@@ -229,6 +271,15 @@ export function AnimationToolPanel({
       setHasManualFormatSelection(false);
     }
   }, [flowContext?.managedWorkbenchMode]);
+
+  useEffect(() => {
+    if (!isBubbleSortScenario) return;
+    if (!hasManualFormatSelection && !latestArtifactId) {
+      setAnimationFormat((previous) =>
+        previous === BUBBLE_SORT_MOCK_FORMAT ? previous : BUBBLE_SORT_MOCK_FORMAT
+      );
+    }
+  }, [hasManualFormatSelection, isBubbleSortScenario, latestArtifactId]);
 
   const prepareSpecPreview = async () => {
     if (!flowContext?.onPreviewExecution) return;
@@ -261,6 +312,17 @@ export function AnimationToolPanel({
   const handleGenerate = async () => {
     if (!topic.trim() || isGenerating) return;
 
+    if (isBubbleSortScenario) {
+      const startedAt = new Date().toISOString();
+      setHasRequestedGeneration(true);
+      setMockGenerationStartedAt(startedAt);
+      if (flowContext?.onExecute) {
+        await flowContext.onExecute();
+      }
+      setLastGeneratedAt(startedAt);
+      return;
+    }
+
     await prepareSpecPreview();
 
     if (flowContext?.onPrepareGenerate) {
@@ -269,6 +331,9 @@ export function AnimationToolPanel({
     }
 
     setHasRequestedGeneration(true);
+    setMockGenerationStartedAt(
+      isBubbleSortScenario ? new Date().toISOString() : null
+    );
 
     if (!flowContext?.onExecute) {
       setLastGeneratedAt(new Date().toISOString());
@@ -605,6 +670,13 @@ export function AnimationToolPanel({
               onStylePackChange={setStylePack}
               onVisualTypeChange={setVisualType}
               onFocusChange={setFocus}
+              topic={topic}
+              showBubbleSortMock={shouldShowBubbleSortMock}
+              mockGenerationStartedAt={
+                mockGenerationStartedAt ??
+                flowContext?.managedResultTarget?.createdAt ??
+                lastGeneratedAt
+              }
               onRefine={() => {
                 if (latestArtifactId) {
                   void handleStructuredRefine();

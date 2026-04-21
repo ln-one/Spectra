@@ -44,6 +44,47 @@ def _clean_markdown_output(text: str) -> str:
     return cleaned
 
 
+def _normalize_refined_markdown_outline(markdown: str) -> str:
+    normalized = str(markdown or "").replace("\r\n", "\n").replace("\r", "\n").strip()
+    if not normalized:
+        return ""
+
+    lines = normalized.split("\n")
+    normalized_lines: list[str] = []
+    first_heading_seen = False
+    previous_heading_level = 0
+    active_level_shift = 0
+
+    for raw_line in lines:
+        stripped = raw_line.strip()
+        match = re.match(r"^(#{1,6})\s+(.+)$", stripped)
+        if not match:
+            normalized_lines.append(raw_line)
+            continue
+
+        heading_text = match.group(2).strip()
+        raw_level = len(match.group(1))
+        if not first_heading_seen:
+            level = 1
+            first_heading_seen = True
+            active_level_shift = 0
+        else:
+            if raw_level == 1:
+                level = 2
+                active_level_shift = 1
+            else:
+                level = raw_level + active_level_shift
+            level = min(level, 3)
+            if previous_heading_level >= 2 and level > previous_heading_level + 1:
+                level = previous_heading_level + 1
+            level = max(level, 2)
+
+        previous_heading_level = level
+        normalized_lines.append(f"{'#' * level} {heading_text}")
+
+    return "\n".join(normalized_lines).strip()
+
+
 def _normalize_for_compare(text: str) -> str:
     return re.sub(r"\s+", "", str(text or ""))
 
@@ -186,9 +227,13 @@ async def _rewrite_markdown_with_instruction(
         "你是教学文档编辑助手。请根据“修改要求”直接改写当前 Markdown 教案。\n"
         "只输出改写后的完整 Markdown，不要解释，不要代码块围栏。\n"
         "保持原主题与章节结构，优先提升教学可执行性与可读层级。\n"
-        "要求：\n"
-        "- 保留并强化 # / ## / ### 层级。\n"
+        "严格输出约束：\n"
+        "- 全文只能有一个 # 主标题。\n"
+        "- 正文章节使用 ##，子节使用 ###，不要把多个章节都写成 #。\n"
+        "- 保留并强化 # / ## / ### 层级，不要把原有多级标题压平成同一级。\n"
         "- 适度使用 - 和 1. 列表。\n"
+        "- 仅使用标题、段落、无序列表、有序列表这四类 Markdown 结构。\n"
+        "- 不要输出表格、代码块、引用、HTML 标签。\n"
         "- 不得无故压缩原文中的章节、表格、教学流程细节、分层要求和评价要点。\n"
         "- 删除噪声字段、异常符号和无意义片段。\n"
         f"修改要求：{message}\n"
@@ -198,6 +243,7 @@ async def _rewrite_markdown_with_instruction(
     )
     model = str(os.getenv("STUDIO_WORD_REFINE_MODEL", "") or "").strip() or None
     max_tokens = _resolve_refine_max_tokens()
+    base_title = _extract_markdown_title(base_markdown)
     result = await ai_service.generate(
         prompt=prompt,
         model=model,
@@ -223,6 +269,9 @@ async def _rewrite_markdown_with_instruction(
         rewritten_markdown = _clean_markdown_output(
             str(retry_result.get("content") or "")
         )
+    rewritten_markdown = _normalize_refined_markdown_outline(rewritten_markdown)
+    if base_title and not _extract_markdown_title(rewritten_markdown):
+        rewritten_markdown = f"# {base_title}\n\n{rewritten_markdown}".strip()
     if not rewritten_markdown:
         raise APIException(
             status_code=502,

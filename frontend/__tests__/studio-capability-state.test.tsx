@@ -40,7 +40,14 @@ function HookProbe({
   draftSourceArtifactId = null,
   managedWorkbenchState = null,
 }: {
-  expandedTool?: "word" | "quiz" | "mindmap" | "summary" | "animation" | "handout";
+  expandedTool?:
+    | "word"
+    | "quiz"
+    | "mindmap"
+    | "outline"
+    | "summary"
+    | "animation"
+    | "handout";
   artifactHistoryByTool?: ArtifactHistoryByTool;
   draftSourceArtifactId?: string | null;
   managedWorkbenchState?: ManagedWorkbenchState | null;
@@ -373,6 +380,135 @@ describe("useStudioCapabilityState", () => {
                 status: null,
               },
             },
+          }}
+        />
+      );
+      await flushMicrotasks();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("current-artifact-id").textContent).toBe("null");
+      expect(screen.getByTestId("resolved-artifact-id").textContent).toBe("null");
+    });
+  });
+
+  it("does not reopen a same-session historical artifact when starting a new managed draft", async () => {
+    getCardMock.mockResolvedValue({
+      data: {
+        studio_card: {
+          id: "word_document",
+          supports_chat_refine: true,
+          requires_source_artifact: false,
+          readiness: "foundation_ready",
+        },
+      },
+    });
+    getExecutionPlanMock.mockResolvedValue({
+      data: {
+        execution_plan: {
+          card_id: "word_document",
+          readiness: "foundation_ready",
+        },
+      },
+    });
+    const artifactHistoryByTool: ArtifactHistoryByTool = {
+      ...EMPTY_ARTIFACT_HISTORY,
+      word: [
+        {
+          artifactId: "artifact-word-old",
+          sessionId: "sess-1",
+          toolType: "word",
+          artifactType: "docx",
+          title: "旧教案",
+          status: "completed",
+          createdAt: "2026-04-21T10:00:00.000Z",
+          basedOnVersionId: null,
+          runId: "run-word-old",
+          runNo: 1,
+        },
+      ],
+    };
+
+    await act(async () => {
+      render(
+        <HookProbe
+          expandedTool="word"
+          artifactHistoryByTool={artifactHistoryByTool}
+          managedWorkbenchState={{
+            mode: "draft",
+            target: null,
+            draftAnchors: {
+              word: {
+                sessionId: "sess-1",
+                artifactId: null,
+                runId: null,
+                status: null,
+              },
+            },
+          }}
+        />
+      );
+      await flushMicrotasks();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("current-artifact-id").textContent).toBe("null");
+      expect(screen.getByTestId("resolved-artifact-id").textContent).toBe("null");
+    });
+  });
+
+  it("does not fall back to the latest artifact when a pinned managed history target is missing", async () => {
+    getCardMock.mockResolvedValue({
+      data: {
+        studio_card: {
+          id: "interactive_games",
+          supports_chat_refine: true,
+          requires_source_artifact: false,
+          readiness: "foundation_ready",
+        },
+      },
+    });
+    getExecutionPlanMock.mockResolvedValue({
+      data: {
+        execution_plan: {
+          card_id: "interactive_games",
+          readiness: "foundation_ready",
+        },
+      },
+    });
+    const artifactHistoryByTool: ArtifactHistoryByTool = {
+      ...EMPTY_ARTIFACT_HISTORY,
+      outline: [
+        {
+          artifactId: "artifact-game-latest",
+          sessionId: "sess-1",
+          toolType: "outline",
+          artifactType: "html",
+          title: "游戏 A",
+          status: "completed",
+          createdAt: "2026-04-21T10:00:00.000Z",
+          basedOnVersionId: null,
+          runId: "run-game-latest",
+          runNo: 1,
+        },
+      ],
+    };
+
+    await act(async () => {
+      render(
+        <HookProbe
+          expandedTool="outline"
+          artifactHistoryByTool={artifactHistoryByTool}
+          managedWorkbenchState={{
+            mode: "history",
+            target: {
+              toolType: "outline",
+              sessionId: "sess-1",
+              artifactId: "artifact-game-missing",
+              runId: null,
+              status: "completed",
+            },
+            draftAnchors: {},
           }}
         />
       );

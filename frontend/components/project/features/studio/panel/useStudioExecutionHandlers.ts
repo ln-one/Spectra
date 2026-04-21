@@ -57,6 +57,13 @@ type StudioActionKind =
   | "follow_up_turn"
   | "load_sources";
 
+const UPDATE_IN_PLACE_TOOLS = new Set<StudioToolKey>([
+  "word",
+  "mindmap",
+  "quiz",
+  "outline",
+]);
+
 function readString(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
@@ -1150,6 +1157,8 @@ export function useStudioExecutionHandlers({
           executionResult.artifact !== null
             ? (executionResult.artifact as Record<string, unknown>)
             : null;
+        const returnedArtifactId =
+          artifact && typeof artifact.id === "string" ? artifact.id : null;
         const returnedSessionId =
           (typeof executionResult.session === "object" &&
           executionResult.session !== null
@@ -1173,6 +1182,32 @@ export function useStudioExecutionHandlers({
           };
         }
         const effectiveSessionId = activeSessionId;
+        if (
+          expandedTool &&
+          expandedTool !== "ppt" &&
+          UPDATE_IN_PLACE_TOOLS.has(expandedTool as StudioToolKey) &&
+          returnedArtifactId &&
+          returnedArtifactId !== artifactId
+        ) {
+          console.warn("[studio.lifecycle_contract_mismatch]", {
+            card_id: currentCardId,
+            tool_type: expandedTool,
+            expected_artifact_id: artifactId,
+            returned_artifact_id: returnedArtifactId,
+            reason: "managed_refine_returned_new_artifact",
+          });
+          toast({
+            title: "保存未落到原成果",
+            description: "本次更新返回了新的成果标识，已按异常中断，请刷新后重试。",
+            variant: "destructive",
+          });
+          return {
+            ok: false,
+            artifactId: null,
+            effectiveSessionId,
+            insertedNodeId: null,
+          };
+        }
 
         if (
           expandedTool &&

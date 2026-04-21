@@ -68,7 +68,7 @@ def markdown_to_document_content(markdown: str) -> dict[str, Any]:
             flush_list()
             continue
 
-        heading_match = re.match(r"^(#{1,3})\s+(.+)$", line)
+        heading_match = re.match(r"^(#{1,6})\s+(.+)$", line)
         if heading_match:
             flush_paragraph()
             flush_list()
@@ -121,7 +121,9 @@ def normalize_document_content(document: Any) -> dict[str, Any]:
         if node_type == "heading":
             attrs = node.get("attrs") if isinstance(node.get("attrs"), dict) else {}
             level = attrs.get("level")
-            normalized["attrs"] = {"level": level if level in {1, 2, 3} else 2}
+            normalized["attrs"] = {
+                "level": level if level in {1, 2, 3, 4, 5, 6} else 2
+            }
         if node_type == "text":
             text = str(node.get("text") or "").strip()
             if not text:
@@ -175,7 +177,7 @@ def document_content_to_markdown(document: dict[str, Any]) -> str:
         if node_type == "heading":
             level = 2
             attrs = node.get("attrs")
-            if isinstance(attrs, dict) and attrs.get("level") in {1, 2, 3}:
+            if isinstance(attrs, dict) and attrs.get("level") in {1, 2, 3, 4, 5, 6}:
                 level = int(attrs["level"])
             text = _extract_text(node.get("content"))
             lines.extend([f"{'#' * level} {text}", ""])
@@ -210,8 +212,11 @@ def document_content_to_html(document: dict[str, Any], *, title: str, summary: s
         text = _extract_text(node.get("content"))
         if node_type == "heading":
             attrs = node.get("attrs") if isinstance(node.get("attrs"), dict) else {}
-            level = attrs.get("level") if attrs.get("level") in {1, 2, 3} else 2
-            body_parts.append(f"<h{level + 1}>{html.escape(text)}</h{level + 1}>")
+            level = (
+                attrs.get("level") if attrs.get("level") in {1, 2, 3, 4, 5, 6} else 2
+            )
+            html_level = min(int(level) + 1, 6)
+            body_parts.append(f"<h{html_level}>{html.escape(text)}</h{html_level}>")
         elif node_type == "paragraph":
             body_parts.append(f"<p>{html.escape(text)}</p>")
         elif node_type in {"bulletList", "orderedList"}:

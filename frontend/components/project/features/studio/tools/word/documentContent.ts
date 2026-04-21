@@ -61,7 +61,7 @@ export function markdownToDoc(markdown: string): JSONContent {
       continue;
     }
 
-    const headingMatch = line.match(/^(#{1,3})\s+(.+)$/);
+    const headingMatch = line.match(/^(#{1,6})\s+(.+)$/);
     if (headingMatch) {
       flushParagraph();
       content.push({
@@ -136,7 +136,7 @@ export function documentToMarkdown(document?: JSONContent | null): string {
     if (node.type === "heading") {
       const level =
         typeof node.attrs?.level === "number"
-          ? Math.min(3, Math.max(1, node.attrs.level))
+          ? Math.min(6, Math.max(1, node.attrs.level))
           : 1;
       const text = extractNodeText(node);
       if (text) blocks.push(`${"#".repeat(level)} ${text}`);

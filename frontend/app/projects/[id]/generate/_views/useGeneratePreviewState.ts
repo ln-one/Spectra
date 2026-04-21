@@ -5,11 +5,12 @@ import {
   type GenerationEvent,
   type SessionRun,
 } from "@/lib/sdk/generate";
-import { ApiError } from "@/lib/sdk/client";
+import { ApiError, apiFetch, toApiError } from "@/lib/sdk/client";
 import { useGenerationEvents } from "@/hooks/useGenerationEvents";
 import { useProjectStore } from "@/stores/projectStore";
 import { toast } from "@/hooks/use-toast";
 import type { components } from "@/lib/sdk/types";
+import { buildArtifactDownloadFilename } from "@/lib/project-space/download-filename";
 import {
   parseEventPayloadObject,
   readOutlineRunCache,
@@ -255,6 +256,50 @@ function resolvePptUrlFromSnapshot(value: unknown): string | null {
   }
 
   return null;
+}
+
+function triggerBlobDownload(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+async function downloadPptFromUrl(
+  pptUrl: string,
+  options?: { title?: string | null; runId?: string | null }
+): Promise<void> {
+  const downloadUrl = new URL(
+    pptUrl,
+    typeof window !== "undefined" ? window.location.origin : undefined
+  );
+  downloadUrl.searchParams.set("ts", Date.now().toString());
+
+  const response = await apiFetch(downloadUrl.toString(), {
+    cache: "no-store",
+  });
+  if (!response.ok) {
+    let payload: unknown = { message: "下载 PPT 失败" };
+    try {
+      payload = await response.json();
+    } catch {
+      // Keep the default payload when the body is not JSON.
+    }
+    throw toApiError(payload, response.status);
+  }
+
+  const blob = await response.blob();
+  triggerBlobDownload(
+    blob,
+    buildArtifactDownloadFilename({
+      title: options?.title,
+      artifactId: options?.runId,
+      artifactType: "pptx",
+      ext: "pptx",
+    })
+  );
 }
 
 function isOutlineLike(value: unknown): boolean {
@@ -1648,8 +1693,17 @@ export function useGeneratePreviewState({
     try {
       setIsExporting(true);
 
+      const currentRun =
+        sessionRuns.find((run) => run.run_id === activeRunId) || null;
+      const sessionTitle =
+        generationHistory
+          .find((item) => item.id === activeSessionId)
+          ?.title?.trim() || null;
+      const exportTitle =
+        currentRun?.run_title?.trim() || sessionTitle || "未命名演示文稿";
+
       let exportArtifactId =
-        sessionRuns.find((run) => run.run_id === activeRunId)?.artifact_id ||
+        currentRun?.artifact_id ||
         currentArtifactId ||
         null;
       if (!exportArtifactId) {
@@ -1664,9 +1718,21 @@ export function useGeneratePreviewState({
         return;
       }
 
+      if (currentPptUrl) {
+        await downloadPptFromUrl(currentPptUrl, {
+          title: exportTitle,
+          runId: activeRunId,
+        });
+        toast({
+          title: "导出成功",
+          description: "文件已开始下载",
+        });
+        return;
+      }
+
       toast({
         title: "导出失败",
-        description: "当前 run 尚未绑定可导出的 PPTX 产物",
+        description: "当前 run 尚未绑定 artifact，且会话也未返回可下载的 PPTX 地址",
         variant: "destructive",
       });
     } catch (error) {
@@ -1685,6 +1751,8 @@ export function useGeneratePreviewState({
     exportArtifact,
     sessionRuns,
     currentArtifactId,
+    currentPptUrl,
+    generationHistory,
   ]);
 
   const currentRunDetail = useMemo(() => {

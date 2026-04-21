@@ -93,6 +93,8 @@ export interface ManagedResultTarget {
   sessionId?: string | null;
   runId?: string | null;
   artifactId?: string | null;
+  title?: string | null;
+  createdAt?: string | null;
   status?:
     | "pending"
     | "draft"

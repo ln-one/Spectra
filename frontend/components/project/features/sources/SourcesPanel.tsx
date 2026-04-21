@@ -128,6 +128,9 @@ function dispatchArtifactSourcesSync(sources: ArtifactBackedSource[]) {
         artifactIds: sources
           .map((item) => String(item.artifact_id || "").trim())
           .filter(Boolean),
+        sourceKeys: sources
+          .map((item) => String(item.id || item.artifact_id || "").trim())
+          .filter(Boolean),
       },
     })
   );
@@ -196,6 +199,9 @@ export function SourcesPanel({
     Record<string, ReferencedLibrarySummary>
   >({});
   const [artifactSources, setArtifactSources] = useState<ArtifactBackedSource[]>([]);
+  const [localArtifactSources, setLocalArtifactSources] = useState<
+    ArtifactBackedSource[]
+  >([]);
   const [artifactSourcesError, setArtifactSourcesError] = useState<string | null>(null);
   const [pendingArtifactSourceIds, setPendingArtifactSourceIds] = useState<
     Record<string, true>
@@ -233,7 +239,7 @@ export function SourcesPanel({
   );
   const artifactSourceCards = useMemo<ArtifactSourceCardData[]>(
     () =>
-      artifactSources.map((source) => {
+      [...localArtifactSources, ...artifactSources].map((source) => {
         const syntheticFile: UploadedFile = {
           id: source.id,
           filename:
@@ -257,7 +263,7 @@ export function SourcesPanel({
           sessionId: source.session_id ?? null,
         };
       }),
-    [artifactSources]
+    [artifactSources, localArtifactSources]
   );
   const shouldAnimateList =
     files.length + referencedLibraryCards.length + artifactSourceCards.length <= 12;
@@ -366,8 +372,8 @@ export function SourcesPanel({
   }, [loadArtifactSources]);
 
   useEffect(() => {
-    dispatchArtifactSourcesSync(artifactSources);
-  }, [artifactSources]);
+    dispatchArtifactSourcesSync([...localArtifactSources, ...artifactSources]);
+  }, [artifactSources, localArtifactSources]);
 
   const normalizeLibrary = useCallback(
     (raw: unknown): SelectableLibrary | null => {
@@ -478,16 +484,62 @@ export function SourcesPanel({
   const handleCreateArtifactSource = useCallback(
     async ({
       artifactId,
+      sourceKey,
       surfaceKind,
       preferredTitle,
+      fakeSource,
+      sessionId,
+      runId,
+      toolType,
     }: {
       artifactId: string;
+      sourceKey?: string | null;
       surfaceKind?: string | null;
       preferredTitle?: string | null;
+      fakeSource?: boolean;
+      sessionId?: string | null;
+      runId?: string | null;
+      toolType?: string | null;
     }) => {
+      const pendingKey = String(sourceKey || artifactId).trim();
       try {
-        setPendingArtifactSourceIds((prev) => ({ ...prev, [artifactId]: true }));
+        if (!pendingKey) return;
+        setPendingArtifactSourceIds((prev) => ({ ...prev, [pendingKey]: true }));
         setArtifactSourcesError(null);
+        if (fakeSource) {
+          const now = new Date().toISOString();
+          const fakeId = pendingKey;
+          const normalizedTitle = resolveArtifactSourceTitle(
+            preferredTitle,
+            preferredTitle
+          );
+          const fakeSourceRecord = {
+            id: fakeId,
+            artifact_id: fakeId,
+            artifact_type: "pptx",
+            tool_type: toolType ?? "ppt",
+            title: normalizedTitle,
+            filename: `${normalizedTitle || "ppt-source"}.pptx`,
+            surface_kind: surfaceKind ?? "slides",
+            created_at: now,
+            updated_at: now,
+            session_id: sessionId ?? null,
+            run_id: runId ?? null,
+          } as ArtifactBackedSource;
+          setLocalArtifactSources((prev) => {
+            const existing = prev.filter((item) => item.id !== fakeId);
+            return [fakeSourceRecord, ...existing];
+          });
+          window.dispatchEvent(
+            new CustomEvent("spectra:artifact-source-added", {
+              detail: {
+                artifactId: fakeId,
+                sourceKey: fakeId,
+              },
+            })
+          );
+          return;
+        }
         const response = await projectsApi.createArtifactSource(projectId, {
           artifact_id: artifactId,
           surface_kind: surfaceKind ?? undefined,
@@ -504,7 +556,10 @@ export function SourcesPanel({
           });
           window.dispatchEvent(
             new CustomEvent("spectra:artifact-source-added", {
-              detail: { artifactId },
+              detail: {
+                artifactId,
+                sourceKey: pendingKey,
+              },
             })
           );
         } else {
@@ -517,7 +572,7 @@ export function SourcesPanel({
       } finally {
         setPendingArtifactSourceIds((prev) => {
           const next = { ...prev };
-          delete next[artifactId];
+          delete next[pendingKey];
           return next;
         });
       }
@@ -530,6 +585,31 @@ export function SourcesPanel({
 
   const handleDeleteArtifactSource = useCallback(
     async (sourceId: string) => {
+      const localSource = localArtifactSources.find((item) => item.id === sourceId) ?? null;
+      if (localSource) {
+        setPendingArtifactSourceIds((prev) => ({ ...prev, [sourceId]: true }));
+        setSelectedArtifactSourceIds(
+          selectedArtifactSourceIds.filter((id) => id !== sourceId)
+        );
+        setLocalArtifactSources((prev) =>
+          prev.filter((item) => item.id !== sourceId)
+        );
+        window.dispatchEvent(
+          new CustomEvent("spectra:artifact-source-removed", {
+            detail: {
+              artifactId: sourceId,
+              sourceId,
+              sourceKey: sourceId,
+            },
+          })
+        );
+        setPendingArtifactSourceIds((prev) => {
+          const next = { ...prev };
+          delete next[sourceId];
+          return next;
+        });
+        return;
+      }
       const matchedSource = artifactSources.find((item) => item.id === sourceId) ?? null;
       try {
         setPendingArtifactSourceIds((prev) => ({ ...prev, [sourceId]: true }));
@@ -561,7 +641,13 @@ export function SourcesPanel({
         });
       }
     },
-    [artifactSources, projectId, selectedArtifactSourceIds, setSelectedArtifactSourceIds]
+    [
+      artifactSources,
+      localArtifactSources,
+      projectId,
+      selectedArtifactSourceIds,
+      setSelectedArtifactSourceIds,
+    ]
   );
 
   const handleOpenArtifactSource = useCallback((card: ArtifactSourceCardData) => {
@@ -632,16 +718,27 @@ export function SourcesPanel({
       const detail = (
         event as CustomEvent<{
           artifactId?: string;
+          sourceKey?: string;
           surfaceKind?: string | null;
           title?: string | null;
+          fakeSource?: boolean;
+          sessionId?: string | null;
+          runId?: string | null;
+          toolType?: string | null;
         }>
       ).detail;
       const artifactId = String(detail?.artifactId || "").trim();
-      if (!artifactId) return;
+      const sourceKey = String(detail?.sourceKey || "").trim();
+      if (!artifactId && !sourceKey) return;
       void handleCreateArtifactSource({
         artifactId,
+        sourceKey,
         surfaceKind: detail?.surfaceKind ?? null,
         preferredTitle: detail?.title ?? null,
+        fakeSource: detail?.fakeSource === true,
+        sessionId: detail?.sessionId ?? null,
+        runId: detail?.runId ?? null,
+        toolType: detail?.toolType ?? null,
       });
     };
 

@@ -92,6 +92,7 @@ services:
       - /app/.next
     environment:
       - NODE_ENV=development
+      - NODE_OPTIONS=--max-old-space-size=1280
       - NEXT_PUBLIC_API_URL=http://localhost:8000
       - INTERNAL_API_URL=http://backend:8000
       - NEXT_PUBLIC_API_TIMEOUT_MS=180000

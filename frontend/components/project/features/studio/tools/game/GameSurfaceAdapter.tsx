@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { Download, HelpCircle, KeyRound } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Download, HelpCircle, KeyRound, RotateCcw, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -186,17 +186,32 @@ function readNumericValue(
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
+interface SandboxFeedbackState {
+  message: string;
+  tone: "neutral" | "good" | "bad";
+  scoreText: string | null;
+  progressText: string | null;
+  timerText: string | null;
+}
+
 function buildSandboxSrcDoc(html: string): string {
   const sandboxPatch = `
 <style>
 html, body {
   height: 100%;
-  overflow: hidden !important;
-  scrollbar-width: none;
+  overflow: auto !important;
+  scrollbar-width: thin;
   background: #fff !important;
 }
 body::-webkit-scrollbar {
-  display: none;
+  width: 10px;
+}
+body::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.45);
+  border-radius: 999px;
+}
+body::-webkit-scrollbar-track {
+  background: transparent;
 }
 .app {
   min-height: 100vh !important;
@@ -235,42 +250,62 @@ body::-webkit-scrollbar {
 }
 .content {
   padding: 0 !important;
-  min-height: 100vh !important;
-  display: flex !important;
-  flex-direction: column !important;
+  min-height: auto !important;
+  display: block !important;
 }
 .workspace {
   margin-top: 0 !important;
   gap: 12px !important;
-  flex: 1 1 auto !important;
-  overflow: auto !important;
-  padding: 0 0 92px 0 !important;
+  overflow: visible !important;
+  padding: 0 0 12px 0 !important;
 }
 .toolbar {
-  position: sticky !important;
-  bottom: 0 !important;
-  z-index: 4 !important;
-  justify-content: flex-end !important;
-  padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px)) !important;
-  border-top: 1px solid #e2e8f0 !important;
-  background: rgba(255,255,255,.96) !important;
-  backdrop-filter: blur(12px) !important;
+  display: none !important;
+}
+.card {
+  border-radius: 0 !important;
+  border-left: 0 !important;
+  border-right: 0 !important;
+  padding-left: 16px !important;
+  padding-right: 16px !important;
+}
+.zones,
+.link-grid {
+  padding-bottom: 8px !important;
 }
 </style>
 <script>
 (function() {
-  function applyHudLayout() {
+  function applyLayout() {
     var meta = document.querySelector('.meta');
-    if (!meta) return;
-    meta.style.display = 'none';
+    if (meta) meta.style.display = 'none';
+  }
+
+  function bindExternalActions() {
+    window.addEventListener('message', function(event) {
+      var data = event && event.data ? event.data : null;
+      if (!data || data.source !== 'spectra-interactive-game-host') return;
+      if (data.type === 'CHECK_ANSWER') {
+        var check = document.getElementById('check-btn');
+        if (check) check.click();
+      }
+      if (data.type === 'RESET_GAME') {
+        var reset = document.getElementById('reset-btn');
+        if (reset) reset.click();
+      }
+    });
   }
 
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', applyHudLayout, { once: true });
+    document.addEventListener('DOMContentLoaded', function() {
+      applyLayout();
+      bindExternalActions();
+    }, { once: true });
   } else {
-    applyHudLayout();
+    applyLayout();
+    bindExternalActions();
   }
-  window.addEventListener('load', applyHudLayout, { once: true });
+  window.addEventListener('load', applyLayout, { once: true });
 })();
 </script>`;
 
@@ -294,8 +329,16 @@ export function GameSurfaceAdapter({
   latestArtifactId,
   onExportArtifact,
 }: GameSurfaceAdapterProps) {
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const [isRuleDialogOpen, setIsRuleDialogOpen] = useState(false);
   const [isAnswerDialogOpen, setIsAnswerDialogOpen] = useState(false);
+  const [feedback, setFeedback] = useState<SandboxFeedbackState>({
+    message: "开始作答。",
+    tone: "neutral",
+    scoreText: null,
+    progressText: null,
+    timerText: null,
+  });
 
   const teacherNotes = useMemo(
     () => (payload.teacherNotes.length > 0 ? payload.teacherNotes : ["暂无额外教师备注。"]),
@@ -308,6 +351,70 @@ export function GameSurfaceAdapter({
   const maxScore = readNumericValue(payload.scorePolicy, "max_score");
   const timerSeconds = readNumericValue(payload.scorePolicy, "timer_seconds");
   const passThreshold = readNumericValue(payload.completionRule, "pass_threshold");
+
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      const data = event.data;
+      if (!isRecord(data) || data.source !== "spectra-interactive-game-runtime") {
+        return;
+      }
+
+      if (data.type === "GAME_STATE") {
+        setFeedback((current) => ({
+          ...current,
+          scoreText:
+            typeof data.score === "number" && Number.isFinite(data.score)
+              ? String(data.score)
+              : current.scoreText,
+          progressText:
+            typeof data.progressText === "string" ? data.progressText : current.progressText,
+          timerText:
+            typeof data.timerText === "string" ? data.timerText : current.timerText,
+        }));
+        return;
+      }
+
+      if (data.type === "GAME_FEEDBACK") {
+        setFeedback((current) => ({
+          message:
+            typeof data.message === "string" && data.message.trim().length > 0
+              ? data.message.trim()
+              : current.message,
+          tone:
+            data.tone === "good" || data.tone === "bad" || data.tone === "neutral"
+              ? data.tone
+              : current.tone,
+          scoreText:
+            typeof data.score === "number" && Number.isFinite(data.score)
+              ? String(data.score)
+              : current.scoreText,
+          progressText:
+            typeof data.progressText === "string" ? data.progressText : current.progressText,
+          timerText:
+            typeof data.timerText === "string" ? data.timerText : current.timerText,
+        }));
+      }
+    };
+
+    window.addEventListener("message", handleMessage);
+    return () => window.removeEventListener("message", handleMessage);
+  }, []);
+
+  const postSandboxAction = (type: "CHECK_ANSWER" | "RESET_GAME") => {
+    if (type === "RESET_GAME") {
+      setFeedback({
+        message: "正在重新开始。",
+        tone: "neutral",
+        scoreText: null,
+        progressText: null,
+        timerText: null,
+      });
+    }
+    iframeRef.current?.contentWindow?.postMessage(
+      { source: "spectra-interactive-game-host", type },
+      "*"
+    );
+  };
 
   if (!payload.runtime.html) {
     return (
@@ -323,13 +430,13 @@ export function GameSurfaceAdapter({
 
   return (
     <>
-      <div className="relative h-full min-h-0 overflow-hidden rounded-[20px] border border-zinc-200 bg-white">
-        <div className="absolute right-3 top-3 z-10 flex items-center gap-2">
+      <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-[20px] border border-zinc-200 bg-white">
+        <div className="flex items-center justify-end gap-2 border-b border-zinc-200 px-3 py-3">
           <Button
             type="button"
             variant="outline"
             size="icon"
-            className="h-8 w-8 rounded-full bg-white/92 shadow-sm backdrop-blur"
+            className="h-8 w-8 rounded-full bg-white"
             onClick={() => setIsRuleDialogOpen(true)}
             aria-label="查看规则"
             title="查看规则"
@@ -340,7 +447,7 @@ export function GameSurfaceAdapter({
             type="button"
             variant="outline"
             size="icon"
-            className="h-8 w-8 rounded-full bg-white/92 shadow-sm backdrop-blur"
+            className="h-8 w-8 rounded-full bg-white"
             onClick={() => setIsAnswerDialogOpen(true)}
             aria-label="查看答案"
             title="查看答案"
@@ -352,7 +459,7 @@ export function GameSurfaceAdapter({
               type="button"
               variant="outline"
               size="icon"
-              className="h-8 w-8 rounded-full bg-white/92 shadow-sm backdrop-blur"
+              className="h-8 w-8 rounded-full bg-white"
               onClick={() => void onExportArtifact(latestArtifactId)}
               aria-label="导出"
               title="导出"
@@ -361,12 +468,67 @@ export function GameSurfaceAdapter({
             </Button>
           ) : null}
         </div>
-        <iframe
-          title="interactive-game-sandbox"
-          srcDoc={buildSandboxSrcDoc(payload.runtime.html)}
-          sandbox="allow-scripts"
-          className="h-full min-h-[760px] w-full bg-white"
-        />
+        <div className="min-h-0 flex-1 overflow-hidden">
+          <iframe
+            ref={iframeRef}
+            title="interactive-game-sandbox"
+            srcDoc={buildSandboxSrcDoc(payload.runtime.html)}
+            sandbox="allow-scripts"
+            className="h-full min-h-[680px] w-full bg-white"
+          />
+        </div>
+        <div className="border-t border-zinc-200 bg-white px-4 py-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <div
+              className={[
+                "min-w-0 flex-1 text-sm leading-6",
+                feedback.tone === "good"
+                  ? "text-emerald-600"
+                  : feedback.tone === "bad"
+                    ? "text-rose-600"
+                    : "text-zinc-600",
+              ].join(" ")}
+            >
+              {feedback.message}
+            </div>
+            {feedback.progressText ? (
+              <div className="shrink-0 text-xs text-zinc-500">
+                进度 {feedback.progressText}
+              </div>
+            ) : null}
+            {feedback.scoreText ? (
+              <div className="shrink-0 text-xs text-zinc-500">
+                得分 {feedback.scoreText}
+              </div>
+            ) : null}
+            {feedback.timerText ? (
+              <div className="shrink-0 text-xs text-zinc-500">
+                计时 {feedback.timerText}
+              </div>
+            ) : null}
+          </div>
+          <div className="mt-3 flex items-center justify-end gap-2">
+          <Button
+            type="button"
+            size="sm"
+            className="h-9 rounded-full px-3 text-xs"
+            onClick={() => postSandboxAction("CHECK_ANSWER")}
+          >
+            <Send className="mr-1.5 h-3.5 w-3.5" />
+            检查答案
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-9 rounded-full px-3 text-xs"
+            onClick={() => postSandboxAction("RESET_GAME")}
+          >
+            <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
+            重新开始
+          </Button>
+        </div>
+        </div>
       </div>
 
       <Dialog open={isRuleDialogOpen} onOpenChange={setIsRuleDialogOpen}>

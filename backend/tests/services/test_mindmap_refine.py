@@ -84,6 +84,36 @@ async def test_refine_mindmap_content_full_map_rewrite_uses_review_chain(monkeyp
 
 
 @pytest.mark.asyncio
+async def test_refine_mindmap_content_edit_operation_matches_frontend_protocol(
+    monkeypatch,
+):
+    current_content = _build_large_mindmap("停止等待协议")
+    load_snippets = AsyncMock(return_value=["不应命中的 RAG 片段"])
+    monkeypatch.setattr(
+        "services.generation_session_service.tool_refine_builder.mindmap._load_refine_rag_snippets",
+        load_snippets,
+    )
+
+    updated = await refine_mindmap_content(
+        current_content=current_content,
+        message="信道利用率",
+        config={
+            "selected_node_path": "b2",
+            "node_operation": "edit",
+            "manual_node_summary": "描述节点在导图中的具体含义。",
+        },
+        project_id="p-001",
+        rag_source_ids=["file-1"],
+    )
+
+    edited = next(node for node in updated["nodes"] if node["id"] == "b2")
+    assert edited["title"] == "信道利用率"
+    assert edited["summary"] == "描述节点在导图中的具体含义。"
+    assert updated["summary"] == "Updated node b2."
+    load_snippets.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_refine_mindmap_content_allows_result_when_requested_depth_not_met_but_quality_holds(
     monkeypatch,
 ):

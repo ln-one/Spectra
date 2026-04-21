@@ -74,6 +74,18 @@ function toArtifactIdRecord(artifactIds: string[]): Record<string, true> {
   }, {});
 }
 
+function getJoinSourceKey(item: StudioHistoryItem): string {
+  const artifactId = String(item.artifactId || "").trim();
+  if (artifactId) return artifactId;
+  if (item.toolType === "ppt") {
+    const sessionId = String(item.sessionId || "").trim();
+    const runId = String(item.runId || "").trim();
+    const title = String(item.title || "").trim();
+    return `fake-ppt:${sessionId || runId || title || "untitled"}`;
+  }
+  return "";
+}
+
 export function SessionArtifacts({
   groupedHistory,
   toolLabels,
@@ -105,53 +117,68 @@ export function SessionArtifacts({
 
   useEffect(() => {
     const handleAdded = (event: Event) => {
-      const artifactId = String(
-        (event as CustomEvent<{ artifactId?: string }>).detail?.artifactId || ""
-      ).trim();
-      if (!artifactId) return;
+      const detail = (
+        event as CustomEvent<{ artifactId?: string; sourceKey?: string }>
+      ).detail;
+      const artifactId = String(detail?.artifactId || "").trim();
+      const sourceKey = String(detail?.sourceKey || artifactId).trim();
+      if (!sourceKey) return;
       setPendingJoinArtifactIds((prev) => {
         const next = { ...prev };
-        delete next[artifactId];
+        delete next[sourceKey];
         return next;
       });
-      setJoinedArtifactIds((prev) => ({ ...prev, [artifactId]: true }));
+      setJoinedArtifactIds((prev) => ({ ...prev, [sourceKey]: true }));
     };
     const handleRemoved = (event: Event) => {
-      const artifactId = String(
-        (
-          event as CustomEvent<{ artifactId?: string; sourceId?: string }>
-        ).detail?.artifactId || ""
-      ).trim();
-      if (!artifactId) return;
+      const detail = (
+        event as CustomEvent<{
+          artifactId?: string;
+          sourceId?: string;
+          sourceKey?: string;
+        }>
+      ).detail;
+      const artifactId = String(detail?.artifactId || "").trim();
+      const sourceKey = String(detail?.sourceKey || artifactId).trim();
+      if (!sourceKey) return;
       setPendingJoinArtifactIds((prev) => {
-        if (!prev[artifactId]) return prev;
+        if (!prev[sourceKey]) return prev;
         const next = { ...prev };
-        delete next[artifactId];
+        delete next[sourceKey];
         return next;
       });
       setJoinedArtifactIds((prev) => {
-        if (!prev[artifactId]) return prev;
+        if (!prev[sourceKey]) return prev;
         const next = { ...prev };
-        delete next[artifactId];
+        delete next[sourceKey];
         return next;
       });
     };
     const handleSync = (event: Event) => {
       const artifactIds = Array.isArray(
         (
-          event as CustomEvent<{ artifactIds?: string[] }>
+          event as CustomEvent<{ artifactIds?: string[]; sourceKeys?: string[] }>
         ).detail?.artifactIds
       )
         ? (
-            event as CustomEvent<{ artifactIds?: string[] }>
+            event as CustomEvent<{ artifactIds?: string[]; sourceKeys?: string[] }>
           ).detail?.artifactIds ?? []
         : [];
-      setJoinedArtifactIds(toArtifactIdRecord(artifactIds));
+      const sourceKeys = Array.isArray(
+        (
+          event as CustomEvent<{ artifactIds?: string[]; sourceKeys?: string[] }>
+        ).detail?.sourceKeys
+      )
+        ? (
+            event as CustomEvent<{ artifactIds?: string[]; sourceKeys?: string[] }>
+          ).detail?.sourceKeys ?? []
+        : [];
+      setJoinedArtifactIds(toArtifactIdRecord([...artifactIds, ...sourceKeys]));
       setPendingJoinArtifactIds((prev) => {
         if (Object.keys(prev).length === 0) return prev;
         const next = { ...prev };
         for (const artifactId of Object.keys(next)) {
-          if (artifactIds.includes(artifactId)) {
+          if (artifactIds.includes(artifactId) || sourceKeys.includes(artifactId)) {
             delete next[artifactId];
           }
         }
@@ -198,11 +225,12 @@ export function SessionArtifacts({
   };
 
   const handleJoinAsSource = (item: StudioHistoryItem) => {
-    const artifactId = item.artifactId;
-    if (!artifactId || pendingJoinArtifactIds[artifactId] || joinedArtifactIds[artifactId]) {
+    const artifactId = String(item.artifactId || "").trim();
+    const sourceKey = getJoinSourceKey(item);
+    if (!sourceKey || pendingJoinArtifactIds[sourceKey] || joinedArtifactIds[sourceKey]) {
       return;
     }
-    setPendingJoinArtifactIds((prev) => ({ ...prev, [artifactId]: true }));
+    setPendingJoinArtifactIds((prev) => ({ ...prev, [sourceKey]: true }));
     const surfaceKind =
       item.toolType === "ppt"
         ? "slides"
@@ -215,16 +243,21 @@ export function SessionArtifacts({
       new CustomEvent("spectra:add-artifact-source", {
         detail: {
           artifactId,
+          sourceKey,
           surfaceKind,
           title: item.title,
+          fakeSource: item.toolType === "ppt" && !artifactId,
+          sessionId: item.sessionId ?? null,
+          runId: item.runId ?? null,
+          toolType: item.toolType,
         },
       })
     );
     window.setTimeout(() => {
       setPendingJoinArtifactIds((prev) => {
-        if (!prev[artifactId]) return prev;
+        if (!prev[sourceKey]) return prev;
         const next = { ...prev };
-        delete next[artifactId];
+        delete next[sourceKey];
         return next;
       });
     }, 4000);
@@ -350,21 +383,22 @@ export function SessionArtifacts({
                   >
                     <Eye className="h-3.5 w-3.5" />
                   </Button>
-                  {item.artifactId && DEPOSITABLE_TOOL_TYPES.has(item.toolType) ? (
+                  {(Boolean(item.artifactId) && DEPOSITABLE_TOOL_TYPES.has(item.toolType)) ||
+                  item.toolType === "ppt" ? (
                     <Button
                       variant="ghost"
                       size="sm"
                       className="h-7 rounded-lg px-2 text-[10px] text-[var(--project-text-muted)] hover:text-[var(--project-text-primary)]"
                       onClick={() => handleJoinAsSource(item)}
                       disabled={
-                        pendingJoinArtifactIds[item.artifactId] ||
-                        joinedArtifactIds[item.artifactId]
+                        pendingJoinArtifactIds[getJoinSourceKey(item)] ||
+                        joinedArtifactIds[getJoinSourceKey(item)]
                       }
                     >
                       <Sparkles className="mr-1 h-3.5 w-3.5" />
-                      {joinedArtifactIds[item.artifactId]
+                      {joinedArtifactIds[getJoinSourceKey(item)]
                         ? "已加入来源"
-                        : pendingJoinArtifactIds[item.artifactId]
+                        : pendingJoinArtifactIds[getJoinSourceKey(item)]
                           ? "加入中"
                           : "加入来源"}
                     </Button>

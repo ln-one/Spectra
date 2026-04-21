@@ -5,6 +5,7 @@ import { Clapperboard, Download, PlayCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { ToolFlowContext } from "../types";
 import { WorkbenchCenteredState } from "../WorkbenchCenteredState";
+import { BubbleSortMockPreview } from "./BubbleSortMockPreview";
 import { AnimationRuntimeHost } from "./runtime/host";
 import { readAnimationRuntimeSnapshot } from "./runtime/snapshot";
 import type {
@@ -33,6 +34,9 @@ interface PreviewStepProps {
   onStylePackChange?: (value: AnimationStylePack) => void;
   onVisualTypeChange?: (value: AnimationVisualType | null) => void;
   onFocusChange?: (value: string) => void;
+  topic?: string;
+  showBubbleSortMock?: boolean;
+  mockGenerationStartedAt?: string | null;
   onRefine?: () => void;
   onRecommendPlacement?: (pptArtifactId: string) => void;
   onConfirmPlacement?: (
@@ -46,6 +50,8 @@ export function PreviewStep({
   lastGeneratedAt,
   flowContext,
   serverSpecPreview,
+  showBubbleSortMock = false,
+  mockGenerationStartedAt = null,
 }: PreviewStepProps) {
   const capabilityStatus = flowContext?.capabilityStatus ?? "backend_placeholder";
   const managedStatus = flowContext?.managedResultTarget?.status ?? null;
@@ -113,6 +119,15 @@ export function PreviewStep({
   );
 
   const hasReadyArtifact = Boolean(latestArtifactId) && capabilityStatus === "backend_ready";
+
+  if (showBubbleSortMock) {
+    return (
+      <BubbleSortMockPreview
+        startedAt={mockGenerationStartedAt}
+        exportArtifactId={latestArtifactId}
+      />
+    );
+  }
 
   if (!hasReadyArtifact) {
     return (

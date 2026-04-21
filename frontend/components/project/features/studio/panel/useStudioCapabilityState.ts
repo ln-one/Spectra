@@ -132,17 +132,13 @@ export function useStudioCapabilityState({
         if (!resolvedManagedTarget.artifactId) {
           return [];
         }
-        const filteredDraftArtifacts = mergedToolArtifacts.filter((item) =>
+        return mergedToolArtifacts.filter((item) =>
           doesArtifactMatchResolvedTarget(item, resolvedManagedTarget)
         );
-        return filteredDraftArtifacts;
       }
-      const filtered = mergedToolArtifacts.filter((item) =>
+      return mergedToolArtifacts.filter((item) =>
         doesArtifactMatchResolvedTarget(item, resolvedManagedTarget)
       );
-      if (filtered.length > 0) {
-        return filtered;
-      }
     }
     const normalizedRunId = activeRunId?.trim() || null;
     if (!normalizedRunId) {

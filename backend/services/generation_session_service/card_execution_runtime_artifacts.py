@@ -19,6 +19,7 @@ from .card_source_bindings import get_card_source_artifact_types
 import time
 
 from .card_execution_runtime_helpers import (
+    artifact_metadata_dict,
     artifact_result_payload,
     build_source_snapshot_payload,
     build_latest_runnable_state,
@@ -33,6 +34,7 @@ from .card_execution_runtime_helpers import (
     validate_structured_refine_artifact,
 )
 from .card_execution_runtime_run_helpers import (
+    _is_word_direct_edit_config,
     create_artifact_run,
     mark_requested_run_execution_failed,
     promote_requested_run_to_generating,
@@ -87,6 +89,33 @@ def _resolve_animation_placement_supported(
     if card_id != "demonstration_animations":
         return None
     return _normalize_animation_output_format(artifact_type, content) == "gif"
+
+
+def _build_fast_word_direct_edit_content_seed(artifact) -> dict:
+    metadata = artifact_metadata_dict(artifact)
+    snapshot = metadata.get("content_snapshot")
+    if isinstance(snapshot, dict) and snapshot:
+        return dict(snapshot)
+
+    seeded: dict[str, object] = {}
+    for key in (
+        "kind",
+        "legacy_kind",
+        "schema_id",
+        "schema_version",
+        "preset",
+        "title",
+        "summary",
+        "source_snapshot",
+        "source_title",
+        "provenance",
+        "source_binding",
+        "latest_runnable_state",
+    ):
+        value = metadata.get(key)
+        if value is not None:
+            seeded[key] = value
+    return seeded
 
 
 async def execute_studio_card_artifact_request(
@@ -283,6 +312,7 @@ logger = logging.getLogger(__name__)
 UPDATE_IN_PLACE_CARDS = {
     "word_document",
     "knowledge_mindmap",
+    "interactive_quick_quiz",
     "interactive_games",
 }
 
@@ -325,7 +355,10 @@ async def execute_studio_card_structured_refine(
         artifact_id=body.artifact_id,
     )
     _stage_log("artifact_validated")
-    current_content = await load_content(artifact)
+    if card_id == "word_document" and _is_word_direct_edit_config(body.config):
+        current_content = _build_fast_word_direct_edit_content_seed(artifact)
+    else:
+        current_content = await load_content(artifact)
     _stage_log("content_loaded")
     updated_content = await build_structured_refine_artifact_content(
         card_id=card_id,

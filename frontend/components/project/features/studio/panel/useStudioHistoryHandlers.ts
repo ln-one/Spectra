@@ -339,6 +339,8 @@ export function useStudioHistoryHandlers({
         sessionId: item.sessionId ?? null,
         runId: item.runId ?? null,
         artifactId: item.artifactId ?? null,
+        title: item.title ?? null,
+        createdAt: item.createdAt ?? null,
         status: item.status,
       });
       setManagedToolRunSeed(

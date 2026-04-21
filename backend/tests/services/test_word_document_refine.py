@@ -283,3 +283,46 @@ async def test_refine_word_document_message_only_keeps_chat_refine_with_rag(monk
     }
     assert isinstance(seen.get("generate_kwargs"), dict)
     assert "理解细胞器功能" in updated["lesson_plan_markdown"]
+
+
+@pytest.mark.asyncio
+async def test_refine_word_document_chat_refine_normalizes_heading_hierarchy(monkeypatch):
+    current_content = {
+        "title": "细胞结构教案",
+        "summary": "旧摘要",
+        "lesson_plan_markdown": (
+            "# 细胞结构教案\n\n## 教学目标\n\n- 认识细胞器\n\n## 教学过程\n\n- 观察示意图"
+        ),
+    }
+
+    async def fake_load_rag_snippets(**_: object) -> list[str]:
+        return []
+
+    async def fake_generate(**_: object) -> dict[str, str]:
+        return {
+            "content": (
+                "# 细胞结构教案\n\n"
+                "# 教学目标\n\n"
+                "- 理解细胞器功能\n\n"
+                "# 教学过程\n\n"
+                "## 活动一\n\n"
+                "- 观察结构示意图"
+            )
+        }
+
+    monkeypatch.setattr(word_refine, "_load_rag_snippets", fake_load_rag_snippets)
+    monkeypatch.setattr(word_refine.ai_service, "generate", fake_generate)
+
+    updated = await refine_word_document_content(
+        current_content=current_content,
+        message="把结构写得更清楚",
+        config={},
+        project_id="p-001",
+        rag_source_ids=None,
+    )
+
+    assert updated["lesson_plan_markdown"].startswith("# 细胞结构教案")
+    assert "\n## 教学目标\n" in updated["lesson_plan_markdown"]
+    assert "\n## 教学过程\n" in updated["lesson_plan_markdown"]
+    assert "\n### 活动一\n" in updated["lesson_plan_markdown"]
+    assert updated["lesson_plan_markdown"].count("\n# ") == 0

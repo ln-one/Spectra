@@ -138,18 +138,19 @@ export function resolveManagedTarget(params: {
   }
 
   const draftAnchor = managedWorkbenchState?.draftAnchors?.[toolType] ?? null;
-  const matchedArtifact = findArtifactByIdentity(
-    currentToolArtifacts,
-    toolType,
-    draftAnchor?.sessionId ?? activeSessionId,
-    draftAnchor?.artifactId ?? null,
-    null
-  );
+  const matchedArtifact = draftAnchor?.artifactId
+    ? findArtifactByIdentity(
+        currentToolArtifacts,
+        toolType,
+        null,
+        draftAnchor.artifactId,
+        null
+      )
+    : null;
   return {
     kind: "draft",
     toolType,
-    sessionId:
-      draftAnchor?.sessionId ?? matchedArtifact?.sessionId ?? activeSessionId,
+    sessionId: draftAnchor?.sessionId ?? activeSessionId,
     artifactId: draftAnchor?.artifactId ?? matchedArtifact?.artifactId ?? null,
     runId: draftAnchor?.runId ?? matchedArtifact?.runId ?? null,
     status: normalizeTargetStatus(

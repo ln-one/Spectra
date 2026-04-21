@@ -48,6 +48,7 @@ import type {
   StudioGovernanceRubric,
   StudioWorkflowState,
 } from "../tools";
+import { isBubbleSortMockRequest } from "../tools/animation/bubbleSortMock";
 import { parseGamePayload } from "../tools/game/GameSurfaceAdapter";
 
 function getBindingStatus(
@@ -1131,6 +1132,14 @@ export function StudioPanelContainer({
     onExecute: async () => {
       if (!expandedTool || expandedTool === "ppt") return false;
       const toolType = expandedTool as GenerationToolType;
+      const isLocalBubbleSortAnimation =
+        toolType === "animation" &&
+        isBubbleSortMockRequest(
+          typeof currentToolDraft.topic === "string" ? currentToolDraft.topic : null,
+          typeof currentToolDraft.motion_brief === "string"
+            ? currentToolDraft.motion_brief
+            : null
+        );
       const contextSessionId = activeSessionId ?? null;
       const seededRun =
         managedToolRunSeedRef.current[toolType as StudioToolKey] ?? null;
@@ -1143,6 +1152,53 @@ export function StudioPanelContainer({
         seededRun?.sessionId === executionSessionId
           ? seededRun.runId
           : null;
+      if (isLocalBubbleSortAnimation) {
+        const createdAt = new Date().toISOString();
+        const localTitle =
+          (typeof currentToolDraft.topic === "string" &&
+            currentToolDraft.topic.trim()) ||
+          TOOL_LABELS[toolType];
+        const workflowId = recordWorkflowEntry({
+          workflowId: pendingWorkflowId,
+          toolType,
+          title: localTitle,
+          status: "processing",
+          step: "preview",
+          sessionId: executionSessionId,
+          createdAt,
+          titleSource: buildWorkflowTitleSource(toolType, currentToolDraft),
+          toolLabel: TOOL_LABELS[toolType],
+        });
+        recordWorkflowEntry({
+          workflowId,
+          toolType,
+          title: localTitle,
+          status: "previewing",
+          step: "preview",
+          sessionId: executionSessionId,
+          createdAt,
+          titleSource: buildWorkflowTitleSource(toolType, currentToolDraft),
+          toolLabel: TOOL_LABELS[toolType],
+        });
+        setManagedWorkbenchState((prev) => ({
+          mode: "history",
+          target: {
+            toolType: toolType as StudioToolKey,
+            sessionId: executionSessionId,
+            runId: null,
+            artifactId: null,
+            title: localTitle,
+            createdAt,
+            status: "previewing",
+          },
+          draftAnchors: prev.draftAnchors,
+        }));
+        if (executionSessionId) {
+          syncStudioChatContextByStep(toolType, "preview", executionSessionId);
+          pushStudioStageHint(toolType, "preview", executionSessionId);
+        }
+        return true;
+      }
       syncStudioChatContextByStep(toolType, "generate", executionSessionId);
       if (executionSessionId) {
         recordWorkflowEntry({
@@ -1457,6 +1513,25 @@ export function StudioPanelContainer({
       })
     );
   }, [isWordHeaderActionsVisible, isWordHeaderGenerateVisible]);
+  useEffect(() => {
+    const onWordModeChanged = (event: Event) => {
+      const customEvent = event as CustomEvent<{ mode?: "edit" | "preview" }>;
+      const nextMode = customEvent.detail?.mode;
+      if (nextMode === "edit" || nextMode === "preview") {
+        setWordViewMode((prev) => (prev === nextMode ? prev : nextMode));
+      }
+    };
+    window.addEventListener(
+      "spectra:word:mode-changed",
+      onWordModeChanged as EventListener
+    );
+    return () => {
+      window.removeEventListener(
+        "spectra:word:mode-changed",
+        onWordModeChanged as EventListener
+      );
+    };
+  }, []);
   const isMindmapHeaderModeVisible = Boolean(
     isExpanded &&
       expandedTool === "mindmap" &&
@@ -1668,14 +1743,8 @@ export function StudioPanelContainer({
       isOutlineHeaderGenerateVisible &&
       execution.isStudioActionRunning
   );
-  const effectiveWordViewMode =
-    isWordHeaderActionsVisible || isWordHeaderGenerateVisible
-      ? "preview"
-      : wordViewMode;
-  const effectiveMindmapViewMode =
-    isMindmapHeaderModeVisible || isMindmapHeaderGenerateVisible
-      ? "preview"
-      : mindmapViewMode;
+  const effectiveWordViewMode = wordViewMode;
+  const effectiveMindmapViewMode = mindmapViewMode;
   const effectiveQuizViewMode =
     quizViewMode;
   const resolvedHeaderTitle =
@@ -1943,8 +2012,6 @@ export function StudioPanelContainer({
 	                  });
 	                  throw new Error("Missing active session for courseware execution");
 	                }
-	                const liveRunId =
-	                  liveStoreState.activeRunId ?? activeRunId ?? undefined;
                 const readySelectedFileIds = resolveReadySelectedFileIds(
                   files,
                   selectedFileIds
@@ -1952,7 +2019,6 @@ export function StudioPanelContainer({
                 const execution = await startCoursewarePptRun({
                   projectId: project.id,
                   clientSessionId: liveSessionId,
-                  runId: liveRunId,
                   ragSourceIds: readySelectedFileIds,
                   selectedLibraryIds,
                   config,

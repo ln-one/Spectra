@@ -214,8 +214,8 @@ def build_studio_card_execution_preview(
                     },
                 },
                 notes=(
-                    "单题重写通过 refine 触发 replacement artifact，"
-                    "current_question_id 用作正式锚点。"
+                    "单题重写通过 structured refine 更新当前 quiz artifact 的 latest visible state，"
+                    "current_question_id 用作题目级锚点。"
                 ),
             ),
         )
@@ -265,8 +265,8 @@ def build_studio_card_execution_preview(
                     },
                 },
                 notes=(
-                    "节点扩展通过 refine 触发 replacement artifact，"
-                    "selected_node_path 用作正式锚点。"
+                    "节点扩展/编辑通过 structured refine 更新当前 mindmap artifact 的 latest visible state，"
+                    "selected_node_path 用作节点级锚点。"
                 ),
             ),
         )
@@ -388,7 +388,7 @@ def build_studio_card_execution_preview(
                         or cfg.get("source_artifact_id"),
                     },
                 },
-                notes="互动游戏 refine 返回新的 runnable artifact state，并维持同一 artifact 的当前可见状态。",
+                notes="互动游戏 refine 更新当前 interactive_game.v2 artifact 的 latest visible state，并返回新的 runnable state。",
             ),
             source_request=StudioCardResolvedRequest(
                 method="GET",

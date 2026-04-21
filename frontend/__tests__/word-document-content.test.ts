@@ -30,4 +30,27 @@ describe("word document content helpers", () => {
     expect(rebuilt).toContain("2. TCP/IP");
     expect(rebuilt).toContain("课程目标：掌握分层思想。");
   });
+
+  it("preserves deeper heading levels during markdown round-trip", () => {
+    const markdown = [
+      "# 主标题",
+      "",
+      "## 第二层",
+      "",
+      "### 第三层",
+      "",
+      "#### 第四层",
+      "",
+      "##### 第五层",
+      "",
+      "###### 第六层",
+    ].join("\n");
+
+    const doc = markdownToDoc(markdown);
+    const rebuilt = documentToMarkdown(doc);
+
+    expect(rebuilt).toContain("#### 第四层");
+    expect(rebuilt).toContain("##### 第五层");
+    expect(rebuilt).toContain("###### 第六层");
+  });
 });
