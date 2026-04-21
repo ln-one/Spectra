@@ -31,6 +31,22 @@ type ChatActionKeys =
   | "pushStudioHintMessage"
   | "focusChatComposer";
 
+type CoursewareGenerationAction =
+  | "start_courseware"
+  | "confirm_and_start_courseware";
+
+function normalizeCoursewareGenerationAction(
+  value: unknown
+): CoursewareGenerationAction | null {
+  if (
+    value === "start_courseware" ||
+    value === "confirm_and_start_courseware"
+  ) {
+    return value;
+  }
+  return null;
+}
+
 function hasProjectLocalState(
   map: Record<string, unknown>,
   projectId: string
@@ -61,6 +77,7 @@ export function createChatActions({
   let latestFetchRequestId = 0;
   let refineQueue = Promise.resolve();
   let refinePendingCount = 0;
+  const generationActionInFlight = new Set<string>();
 
   const ensureProjectLocalState = (projectId: string) => {
     const state = get();
@@ -218,6 +235,37 @@ export function createChatActions({
       });
 
     await refineQueue;
+  };
+
+  const executeCoursewareGenerationAction = async (
+    projectId: string,
+    sessionId: string,
+    action: CoursewareGenerationAction
+  ) => {
+    const dedupeKey = `${sessionId}:${action}`;
+    if (generationActionInFlight.has(dedupeKey)) {
+      return;
+    }
+    generationActionInFlight.add(dedupeKey);
+    try {
+      if (action === "confirm_and_start_courseware") {
+        await get().confirmTeachingBriefFromChat(sessionId);
+      }
+      const result = await get().startPptFromTeachingBrief(sessionId);
+      if (result) {
+        await get().fetchGenerationHistory(projectId);
+      }
+    } catch (error) {
+      const message = getErrorMessage(error);
+      set({
+        error: createApiError({
+          code: "AUTO_START_COURSEWARE_FAILED",
+          message,
+        }),
+      });
+    } finally {
+      generationActionInFlight.delete(dedupeKey);
+    }
   };
 
   return {
@@ -392,6 +440,9 @@ export function createChatActions({
             typeof teachingBriefHint.refresh_after_ms === "number"
               ? teachingBriefHint.refresh_after_ms
               : Number(teachingBriefHint.refresh_after_ms) || 3000;
+          const generationAction = normalizeCoursewareGenerationAction(
+            teachingBriefHint.generation_action
+          );
           set({
             latestBriefHint: {
               autoAppliedFields: teachingBriefHint.auto_applied_fields || [],
@@ -402,6 +453,7 @@ export function createChatActions({
               generationIntent: teachingBriefHint.generation_intent || false,
               generationReady: teachingBriefHint.generation_ready || false,
               generationBlockedReason: teachingBriefHint.generation_blocked_reason || "",
+              generationAction,
               extractionScheduled: teachingBriefHint.extraction_scheduled === true,
               extractionReason:
                 typeof teachingBriefHint.extraction_reason === "string"
@@ -410,12 +462,25 @@ export function createChatActions({
               refreshAfterMs,
             }
           });
+
+          const actionSessionId = response?.data?.session_id ?? effectiveSessionId;
+          if (generationAction && actionSessionId) {
+            await executeCoursewareGenerationAction(
+              projectId,
+              actionSessionId,
+              generationAction
+            );
+          }
         }
 
+        const generationAction = normalizeCoursewareGenerationAction(
+          teachingBriefHint?.generation_action
+        );
         const shouldDelayedRefresh = !!(
-          teachingBriefHint?.extraction_scheduled ||
-          teachingBriefHint?.generation_intent ||
-          (teachingBriefHint?.auto_applied_fields?.length > 0)
+          !generationAction &&
+          (teachingBriefHint?.extraction_scheduled ||
+            teachingBriefHint?.generation_intent ||
+            (teachingBriefHint?.auto_applied_fields?.length > 0))
         );
         
         if (shouldDelayedRefresh) {

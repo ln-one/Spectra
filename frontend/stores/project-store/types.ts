@@ -192,6 +192,10 @@ export interface ProjectState {
     generationIntent: boolean;
     generationReady: boolean;
     generationBlockedReason: string;
+    generationAction:
+      | "start_courseware"
+      | "confirm_and_start_courseware"
+      | null;
     extractionScheduled: boolean;
     extractionReason: string | null;
     refreshAfterMs: number;

@@ -29,6 +29,15 @@ _GENERATION_INTENT_PATTERNS = [
     r"(直接|现在|马上).{0,8}(完整大纲|教学大纲|课件大纲)",
 ]
 
+_GENERATION_CONFIRMATION_PATTERNS = [
+    r"(合理|可以|没问题|好|好的|行|确认|同意).{0,8}(开始|生成|启动|继续|做|出).{0,4}(吧|来|课件|ppt|幻灯片)?",
+    r"(就|按|照).{0,4}(这个|当前|上述|上面|方案|框架).{0,8}(生成|开始|启动|做|出|来)",
+    r"(开始|生成|启动|做|出).{0,6}(吧|来吧|就这样)",
+]
+
+GENERATION_ACTION_START_COURSEWARE = "start_courseware"
+GENERATION_ACTION_CONFIRM_AND_START_COURSEWARE = "confirm_and_start_courseware"
+
 _DIRECT_OUTPUT_INTENT_RE = re.compile(
     r"(直接|现在|马上).{0,8}(给我|输出|生成|整理).{0,8}(完整)?(教学)?大纲|开始.{0,8}(生成|做|出)",
     re.IGNORECASE,
@@ -82,9 +91,15 @@ def detect_generation_intent(content: str) -> bool:
     normalized = str(content or "").strip().lower()
     if not normalized:
         return False
-    return any(
+    explicit_intent = any(
         re.search(pattern, normalized, re.IGNORECASE)
         for pattern in _GENERATION_INTENT_PATTERNS
+    )
+    if explicit_intent:
+        return True
+    return any(
+        re.search(pattern, normalized, re.IGNORECASE)
+        for pattern in _GENERATION_CONFIRMATION_PATTERNS
     )
 
 
@@ -96,15 +111,23 @@ def build_generation_intent_payload(
     brief = normalize_teaching_brief(brief_raw)
     readiness = dict(brief.get("readiness") or compute_teaching_brief_readiness(brief))
     generation_intent = detect_generation_intent(content)
-    generation_ready = bool(readiness.get("can_generate")) and str(brief.get("status") or "") == "confirmed"
+    can_generate = bool(readiness.get("can_generate"))
+    status = str(brief.get("status") or "")
+    generation_action = None
+    if generation_intent and can_generate:
+        if status == "confirmed":
+            generation_action = GENERATION_ACTION_START_COURSEWARE
+        elif status == "review_pending":
+            generation_action = GENERATION_ACTION_CONFIRM_AND_START_COURSEWARE
+    generation_ready = generation_action is not None
     blocked_reason = ""
-    if generation_intent and not generation_ready:
+    if generation_intent and not generation_action:
         missing_fields = list(readiness.get("missing_fields") or [])
         if missing_fields:
             blocked_reason = "教学需求单尚不完整：缺少" + "、".join(
                 _MISSING_FIELD_LABELS.get(field, field) for field in missing_fields
             )
-        elif str(brief.get("status") or "") != "confirmed":
+        elif status != "confirmed":
             blocked_reason = "请先确认教学需求单"
         else:
             blocked_reason = "教学需求单尚未满足生成条件"
@@ -112,6 +135,7 @@ def build_generation_intent_payload(
         "generation_intent": generation_intent,
         "generation_ready": generation_ready,
         "generation_blocked_reason": blocked_reason,
+        "generation_action": generation_action,
     }
 
 
@@ -248,7 +272,11 @@ def plan_brief_extraction(
     )
     idle_fallback_trigger = next_turn_count >= resolve_brief_extraction_idle_turns()
     extraction_reason = None
-    if generation_intent_trigger:
+    if generation_intent_trigger and bool(
+        (brief.get("readiness") or {}).get("can_generate")
+    ):
+        extraction_reason = None
+    elif generation_intent_trigger:
         extraction_reason = "generation_intent"
     elif missing_field_answer_trigger:
         extraction_reason = "missing_field_answer"

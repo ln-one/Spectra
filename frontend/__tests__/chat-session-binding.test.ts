@@ -198,6 +198,93 @@ describe("chat session binding", () => {
     expect(toast).not.toHaveBeenCalled();
   });
 
+  it("auto confirms and starts courseware when chat returns generation action", async () => {
+    type MutableState = Pick<
+      ProjectState,
+      | "activeSessionId"
+      | "messages"
+      | "selectedFileIds"
+      | "selectedLibraryIds"
+      | "selectedArtifactSourceIds"
+      | "files"
+      | "generationHistory"
+      | "lastFailedInput"
+      | "isSending"
+      | "latestBriefHint"
+      | "error"
+      | "fetchGenerationHistory"
+      | "refreshGenerationSession"
+      | "confirmTeachingBriefFromChat"
+      | "startPptFromTeachingBrief"
+    >;
+
+    let state: MutableState = {
+      activeSessionId: "s-001",
+      messages: [],
+      selectedFileIds: [],
+      selectedLibraryIds: [],
+      selectedArtifactSourceIds: [],
+      files: [],
+      generationHistory: [],
+      lastFailedInput: null,
+      isSending: false,
+      latestBriefHint: null,
+      error: null,
+      fetchGenerationHistory: jest.fn().mockResolvedValue(undefined),
+      refreshGenerationSession: jest.fn().mockResolvedValue(null),
+      confirmTeachingBriefFromChat: jest.fn().mockResolvedValue(undefined),
+      startPptFromTeachingBrief: jest
+        .fn()
+        .mockResolvedValue({ sessionId: "s-001", runId: "run-001" }),
+    };
+
+    const set = jest.fn(
+      (
+        partial:
+          | Partial<MutableState>
+          | ((current: MutableState) => Partial<MutableState>)
+      ) => {
+        const next =
+          typeof partial === "function" ? partial(state) : (partial ?? {});
+        state = { ...state, ...next };
+      }
+    ) as unknown as ProjectStoreContext["set"];
+    const get = jest.fn(() => state as unknown as ProjectState);
+    const actions = createChatActions({ set, get });
+
+    (chatApi.sendMessage as jest.Mock).mockResolvedValue({
+      data: {
+        session_id: "s-001",
+        message: {
+          id: "m-002",
+          role: "assistant",
+          content: "将启动课件生成流程。",
+          timestamp: "now",
+        },
+        teaching_brief_hint: {
+          auto_applied_fields: [],
+          ai_requests_confirmation: false,
+          missing_fields: [],
+          brief_status: "review_pending",
+          brief_snapshot: { topic: "图形学" },
+          generation_intent: true,
+          generation_ready: true,
+          generation_blocked_reason: "",
+          generation_action: "confirm_and_start_courseware",
+          extraction_scheduled: false,
+        },
+      },
+    });
+
+    await actions.sendMessage("p-001", "合理，开始吧");
+
+    expect(state.confirmTeachingBriefFromChat).toHaveBeenCalledWith("s-001");
+    expect(state.startPptFromTeachingBrief).toHaveBeenCalledWith("s-001");
+    expect(state.latestBriefHint?.generationAction).toBe(
+      "confirm_and_start_courseware"
+    );
+  });
+
   it("ignores stale fetchMessages responses when switching sessions quickly", async () => {
     const set = jest.fn();
     const get = jest.fn(

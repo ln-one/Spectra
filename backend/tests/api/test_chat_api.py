@@ -483,8 +483,9 @@ def test_send_message_returns_generation_intent_hint(client, monkeypatch, _as_us
     assert resp.status_code == 200
     hint = resp.json()["data"]["teaching_brief_hint"]
     assert hint["generation_intent"] is True
-    assert hint["generation_ready"] is False
-    assert hint["generation_blocked_reason"] == "请先确认教学需求单"
+    assert hint["generation_ready"] is True
+    assert hint["generation_blocked_reason"] == ""
+    assert hint["generation_action"] == "confirm_and_start_courseware"
 
 
 def test_send_message_rejects_missing_session_id(client, monkeypatch, _as_user):

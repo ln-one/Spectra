@@ -1,4 +1,6 @@
 from routers.chat.teaching_brief_runtime import (
+    GENERATION_ACTION_CONFIRM_AND_START_COURSEWARE,
+    GENERATION_ACTION_START_COURSEWARE,
     build_generation_intent_payload,
     detect_generation_intent,
     plan_brief_extraction,
@@ -8,12 +10,14 @@ from routers.chat.teaching_brief_runtime import (
 
 def test_detect_generation_intent_matches_courseware_start_request():
     assert detect_generation_intent("现在开始生成这套 PPT") is True
+    assert detect_generation_intent("合理，开始吧") is True
+    assert detect_generation_intent("就按这个方案生成") is True
     assert detect_generation_intent("先继续聊需求") is False
 
 
-def test_build_generation_intent_payload_blocks_when_brief_not_confirmed():
+def test_build_generation_intent_payload_confirms_review_pending_brief():
     payload = build_generation_intent_payload(
-        content="开始生成 PPT",
+        content="合理，开始吧",
         brief_raw={
             "status": "review_pending",
             "topic": "光照模型",
@@ -24,8 +28,47 @@ def test_build_generation_intent_payload_blocks_when_brief_not_confirmed():
     )
 
     assert payload["generation_intent"] is True
+    assert payload["generation_ready"] is True
+    assert payload["generation_blocked_reason"] == ""
+    assert (
+        payload["generation_action"]
+        == GENERATION_ACTION_CONFIRM_AND_START_COURSEWARE
+    )
+
+
+def test_build_generation_intent_payload_starts_confirmed_brief():
+    payload = build_generation_intent_payload(
+        content="开始生成 PPT",
+        brief_raw={
+            "status": "confirmed",
+            "topic": "光照模型",
+            "audience": "软件工程大二学生",
+            "lesson_hours": 5,
+            "knowledge_points": ["Phong", "Blinn-Phong"],
+        },
+    )
+
+    assert payload["generation_ready"] is True
+    assert payload["generation_action"] == GENERATION_ACTION_START_COURSEWARE
+
+
+def test_build_generation_intent_payload_blocks_when_brief_missing_fields():
+    payload = build_generation_intent_payload(
+        content="开始生成 PPT",
+        brief_raw={
+            "status": "draft",
+            "topic": "光照模型",
+            "readiness": {
+                "missing_fields": ["audience"],
+                "can_generate": False,
+            },
+        },
+    )
+
+    assert payload["generation_intent"] is True
     assert payload["generation_ready"] is False
-    assert payload["generation_blocked_reason"] == "请先确认教学需求单"
+    assert payload["generation_action"] is None
+    assert payload["generation_blocked_reason"] == "教学需求单尚不完整：缺少受众、知识点、课时或页数"
 
 
 def test_resolve_brief_extraction_idle_turns_defaults_to_four(monkeypatch):
@@ -116,6 +159,28 @@ def test_plan_brief_extraction_triggers_on_generation_intent():
     assert plan["should_run"] is True
     assert plan["generation_intent_trigger"] is True
     assert plan["extraction_reason"] == "generation_intent"
+
+
+def test_plan_brief_extraction_skips_when_brief_ready_to_start():
+    plan = plan_brief_extraction(
+        options_raw={},
+        brief_raw={
+            "status": "review_pending",
+            "topic": "算法设计",
+            "audience": "软件工程大二学生",
+            "lesson_hours": 12,
+            "knowledge_points": ["概念", "算法思路"],
+            "readiness": {
+                "missing_fields": [],
+                "can_generate": True,
+            },
+        },
+        latest_user_message="合理，开始吧",
+    )
+
+    assert plan["should_run"] is False
+    assert plan["generation_intent_trigger"] is True
+    assert plan["extraction_reason"] is None
 
 
 def test_plan_brief_extraction_debounces_recent_schedule():
