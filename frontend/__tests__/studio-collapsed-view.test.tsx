@@ -2,7 +2,6 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { StudioCollapsedView } from "@/components/project/features/studio/panel/components/StudioCollapsedView";
 import type { StudioHistoryItem } from "@/components/project/features/studio/history/types";
 import { GENERATION_TOOLS } from "@/stores/projectStore";
-import { STUDIO_VISIBLE_TOOLS } from "@/components/project/features/studio/constants";
 
 function makeHistoryItem(
   overrides: Partial<StudioHistoryItem> = {}
@@ -66,15 +65,21 @@ describe("StudioCollapsedView", () => {
     expect(screen.getByRole("button", { name: "互动游戏" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "随堂小测" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "演示动画" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "说课助手" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "学情预演" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "说课助手" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "学情预演" })).toBeInTheDocument();
     expect(screen.getAllByText("牛顿第二定律讲稿").length).toBeGreaterThan(0);
 
+    fireEvent.click(screen.getByRole("button", { name: "说课助手" }));
+
+    expect(
+      screen.getByText("当前账号没有开通会员权限，请联系管理员")
+    ).toBeInTheDocument();
+    expect(onToolClick).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "我知道了" }));
     fireEvent.click(screen.getByRole("button", { name: "教学文档" }));
 
-    const wordTool = STUDIO_VISIBLE_TOOLS.find((tool) => tool.type === "word");
-    expect(GENERATION_TOOLS.find((tool) => tool.type === "summary")).toBeDefined();
-    expect(GENERATION_TOOLS.find((tool) => tool.type === "handout")).toBeDefined();
+    const wordTool = GENERATION_TOOLS.find((tool) => tool.type === "word");
     expect(onToolClick).toHaveBeenCalledWith(wordTool);
   });
 });
