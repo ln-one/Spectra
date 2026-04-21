@@ -1,7 +1,6 @@
 import { chatApi, studioCardsApi } from "@/lib/sdk";
 import {
   createApiError,
-  getChatLatencyNotice,
   getChatRequestErrorMessage,
   getErrorMessage,
 } from "@/lib/sdk/errors";
@@ -348,16 +347,6 @@ export function createChatActions({
 
         await get().fetchGenerationHistory(projectId);
 
-        const latencyNotice = getChatLatencyNotice(
-          response?.data?.observability ?? null
-        );
-        if (latencyNotice) {
-          toast({
-            title: "聊天响应较慢",
-            description: latencyNotice,
-          });
-        }
-
         if (response?.data?.message) {
           set((state) => ({
             messages: [
@@ -449,7 +438,7 @@ export function createChatActions({
         return;
       }
 
-      const initialRunId = context.targetRunId || get().activeRunId || null;
+      const initialRunId = context.targetRunId || null;
       const userRefineMessage = createLocalMessage("user", normalizedContent, {
         kind: "studio_refine_user",
         refineToolType: context.toolType,
@@ -539,7 +528,6 @@ export function createChatActions({
             (typeof runPayload?.run_id === "string" && runPayload.run_id) ||
             (typeof runPayload?.id === "string" && runPayload.id) ||
             (response?.data as { run_id?: string } | undefined)?.run_id ||
-            get().activeRunId ||
             initialRunId;
           const refinedArtifactId =
             (typeof artifactPayload?.id === "string" && artifactPayload.id) ||
@@ -551,9 +539,6 @@ export function createChatActions({
 
           if (refinedSessionId !== get().activeSessionId) {
             set({ activeSessionId: refinedSessionId });
-          }
-          if (refinedRunId && refinedRunId !== get().activeRunId) {
-            set({ activeRunId: refinedRunId });
           }
 
           await get().fetchArtifactHistory(projectId, refinedSessionId);

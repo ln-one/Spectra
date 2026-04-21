@@ -74,14 +74,3 @@ export function getChatRequestErrorMessage(error: unknown): string {
   }
   return getErrorMessage(error);
 }
-
-export function getChatLatencyNotice(observability: unknown): string | null {
-  if (!observability || typeof observability !== "object") return null;
-  const totalDurationMs = (observability as { total_duration_ms?: unknown })
-    .total_duration_ms;
-  if (typeof totalDurationMs !== "number" || totalDurationMs < 15000) {
-    return null;
-  }
-  const seconds = Math.max(1, Math.round(totalDurationMs / 1000));
-  return `本次聊天响应较慢，模型大约用了 ${seconds} 秒返回。`;
-}

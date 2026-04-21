@@ -1,12 +1,17 @@
 import { chatApi } from "@/lib/sdk";
 import { createChatActions } from "@/stores/project-store/chat-actions";
 import type { ProjectState } from "@/stores/project-store/types";
+import { toast } from "@/hooks/use-toast";
 
 jest.mock("@/lib/sdk", () => ({
   chatApi: {
     getMessages: jest.fn(),
     sendMessage: jest.fn(),
   },
+}));
+
+jest.mock("@/hooks/use-toast", () => ({
+  toast: jest.fn(),
 }));
 
 describe("chat session binding", () => {
@@ -44,6 +49,75 @@ describe("chat session binding", () => {
     await actions.sendMessage("p-001", "hello");
 
     expect(chatApi.sendMessage).not.toHaveBeenCalled();
+  });
+
+  it("does not show a slow-response toast after a successful chat reply", async () => {
+    type MutableState = Pick<
+      ProjectState,
+      | "activeSessionId"
+      | "messages"
+      | "selectedFileIds"
+      | "selectedLibraryIds"
+      | "selectedArtifactSourceIds"
+      | "files"
+      | "generationHistory"
+      | "lastFailedInput"
+      | "isSending"
+      | "latestBriefHint"
+      | "error"
+      | "fetchGenerationHistory"
+      | "refreshGenerationSession"
+    >;
+
+    let state: MutableState = {
+      activeSessionId: "s-001",
+      messages: [],
+      selectedFileIds: [],
+      selectedLibraryIds: [],
+      selectedArtifactSourceIds: [],
+      files: [],
+      generationHistory: [],
+      lastFailedInput: null,
+      isSending: false,
+      latestBriefHint: null,
+      error: null,
+      fetchGenerationHistory: jest.fn().mockResolvedValue(undefined),
+      refreshGenerationSession: jest.fn().mockResolvedValue(null),
+    };
+
+    const set = jest.fn(
+      (
+        partial:
+          | Partial<MutableState>
+          | ((current: MutableState) => Partial<MutableState>)
+      ) => {
+        const next =
+          typeof partial === "function" ? partial(state) : (partial ?? {});
+        state = { ...state, ...next };
+      }
+    );
+    const get = jest.fn(() => state as unknown as ProjectState);
+    const actions = createChatActions({ set, get });
+
+    (chatApi.sendMessage as jest.Mock).mockResolvedValue({
+      data: {
+        session_id: "s-001",
+        message: {
+          id: "m-002",
+          role: "assistant",
+          content: "reply",
+          timestamp: "now",
+        },
+        observability: {
+          total_duration_ms: 22000,
+        },
+      },
+    });
+
+    await actions.sendMessage("p-001", "hello");
+
+    expect(chatApi.sendMessage).toHaveBeenCalled();
+    expect(toast).not.toHaveBeenCalled();
   });
 
   it("ignores stale fetchMessages responses when switching sessions quickly", async () => {

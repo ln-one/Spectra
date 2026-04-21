@@ -106,7 +106,6 @@ export function useProjectDetailController() {
   const searchParams = useSearchParams();
   const projectId = params.id as string;
   const querySessionId = searchParams.get("session");
-  const queryRunId = searchParams.get("run");
 
   const {
     project,
@@ -158,11 +157,9 @@ export function useProjectDetailController() {
   const [activeReferences, setActiveReferences] = useState<ProjectReference[]>(
     []
   );
-  const consumedQueryRunKeysRef = useRef<Set<string>>(new Set());
   const lastFetchedMessagesSessionRef = useRef<string | null>(null);
 
   useEffect(() => {
-    consumedQueryRunKeysRef.current.clear();
     lastFetchedMessagesSessionRef.current = null;
   }, [projectId]);
 
@@ -289,17 +286,12 @@ export function useProjectDetailController() {
   }, [hiddenSessionIds, projectId]);
 
   const updateSessionInUrl = useCallback(
-    (sessionId: string, runId?: string | null) => {
+    (sessionId: string) => {
       const nextSearch = new URLSearchParams(
         typeof window !== "undefined" ? window.location.search : ""
       );
       nextSearch.set("session", sessionId);
-      const normalizedRunId = String(runId || "").trim();
-      if (normalizedRunId) {
-        nextSearch.set("run", normalizedRunId);
-      } else {
-        nextSearch.delete("run");
-      }
+      nextSearch.delete("run");
       router.replace(`/projects/${projectId}?${nextSearch.toString()}`, {
         scroll: false,
       });
@@ -308,22 +300,15 @@ export function useProjectDetailController() {
   );
 
   const loadSessionSnapshot = useCallback(
-    async (sessionId: string, runId?: string | null) => {
-      const normalizedRunId = String(runId || "").trim();
-      const response = normalizedRunId
-        ? await generateApi.getSessionByRun(sessionId, {
-            run_id: normalizedRunId,
-          })
-        : await generateApi.getSession(sessionId);
+    async (sessionId: string) => {
+      const response = await generateApi.getSession(sessionId);
       const snapshot = response?.data ?? null;
       return {
         snapshot,
         runId:
           extractCurrentRunId(
             snapshot as { current_run?: { run_id?: string } } | null
-          ) ||
-          normalizedRunId ||
-          null,
+          ) || null,
       };
     },
     []
@@ -463,7 +448,7 @@ export function useProjectDetailController() {
       if (activeSessionId !== null) {
         setActiveSessionId(null);
       }
-      useProjectStore.setState({ generationSession: null });
+      useProjectStore.setState({ generationSession: null, activeRunId: null });
       lastFetchedMessagesSessionRef.current = null;
       void fetchMessages(projectId, null);
       void fetchArtifactHistory(projectId, null);
@@ -471,32 +456,13 @@ export function useProjectDetailController() {
     }
 
     const nextSessionId = preferredSessionId;
-    const normalizedQueryRunId = String(queryRunId ?? "").trim();
-    const queryRunKey = normalizedQueryRunId
-      ? `${nextSessionId}:${normalizedQueryRunId}`
-      : "";
-    const canConsumeQueryRunIntent =
-      Boolean(queryRunKey) && !consumedQueryRunKeysRef.current.has(queryRunKey);
-    const consumeQueryRunIntent = () => {
-      if (!queryRunKey) return;
-      consumedQueryRunKeysRef.current.add(queryRunKey);
-    };
 
     if (nextSessionId && nextSessionId !== activeSessionId) {
       setActiveSessionId(nextSessionId);
       void fetchArtifactHistory(projectId, nextSessionId);
-      if (canConsumeQueryRunIntent) {
-        consumeQueryRunIntent();
-      }
-      const bootstrapRunId = canConsumeQueryRunIntent
-        ? normalizedQueryRunId
-        : null;
       void (async () => {
         try {
-          const { snapshot, runId } = await loadSessionSnapshot(
-            nextSessionId,
-            bootstrapRunId
-          );
+          const { snapshot, runId } = await loadSessionSnapshot(nextSessionId);
           if (cancelled) return;
           useProjectStore.setState({
             generationSession: snapshot,
@@ -520,33 +486,14 @@ export function useProjectDetailController() {
       void fetchMessages(projectId, nextSessionId);
     }
 
-    if (nextSessionId && nextSessionId === activeSessionId && activeRunId) {
-      if (queryRunId !== activeRunId) updateSessionInUrl(nextSessionId, activeRunId);
+    if (nextSessionId && querySessionId !== nextSessionId) {
+      updateSessionInUrl(nextSessionId);
     } else if (
       nextSessionId &&
-      nextSessionId === activeSessionId &&
-      canConsumeQueryRunIntent
+      typeof window !== "undefined" &&
+      new URLSearchParams(window.location.search).has("run")
     ) {
-      consumeQueryRunIntent();
-      void (async () => {
-        try {
-          const { snapshot, runId } = await loadSessionSnapshot(
-            nextSessionId,
-            normalizedQueryRunId
-          );
-          if (cancelled) return;
-          useProjectStore.setState({
-            generationSession: snapshot,
-            activeRunId: runId,
-          });
-        } catch {
-          // Keep current snapshot when run-scoped sync fails.
-        }
-      })();
-    }
-
-    if (nextSessionId && querySessionId !== nextSessionId) {
-      updateSessionInUrl(nextSessionId, null);
+      updateSessionInUrl(nextSessionId);
     }
 
     return () => {
@@ -555,9 +502,7 @@ export function useProjectDetailController() {
   }, [
     visibleGenerationHistory,
     querySessionId,
-    queryRunId,
     activeSessionId,
-    activeRunId,
     fetchArtifactHistory,
     fetchMessages,
     loadSessionSnapshot,
@@ -576,7 +521,7 @@ export function useProjectDetailController() {
       if (!sessionId || sessionId === "empty") return;
       setActiveSessionId(sessionId);
       lastFetchedMessagesSessionRef.current = sessionId;
-      updateSessionInUrl(sessionId, null);
+      updateSessionInUrl(sessionId);
       const [messagesResult, artifactsResult, sessionResult] =
         await Promise.allSettled([
           fetchMessages(projectId, sessionId),

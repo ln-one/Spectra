@@ -450,7 +450,8 @@ export function StudioPanelContainer({
     selectedArtifactSourceIds,
     draftSourceArtifactId: capability.draftSourceArtifactId,
     activeSessionId,
-    activeRunId,
+    activeRunId:
+      expandedTool === "ppt" ? activeRunId : seededRunIdForManagedTool,
     generationSession,
     isProtocolPending: capability.isProtocolPending,
     requiresSourceArtifact: capability.requiresSourceArtifact,

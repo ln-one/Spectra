@@ -140,13 +140,4 @@ describe("chat error helpers", () => {
 
     expect(getChatRequestErrorMessage(error)).toContain("聊天连接被中途断开");
   });
-
-  it("returns a slow-response notice only when duration is high enough", () => {
-    const { getChatLatencyNotice } = require("@/lib/sdk/errors");
-
-    expect(getChatLatencyNotice({ total_duration_ms: 22000 })).toContain(
-      "22 秒"
-    );
-    expect(getChatLatencyNotice({ total_duration_ms: 9000 })).toBeNull();
-  });
 });
