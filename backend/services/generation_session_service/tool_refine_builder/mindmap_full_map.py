@@ -304,8 +304,6 @@ def enforce_mindmap_refine_quality(
         regression_issues.append("rewrite_shrank_nodes")
     if current_depth >= 4 and next_depth < max(4, current_depth - 1):
         regression_issues.append("rewrite_shrank_depth")
-    if requested_depth and requested_depth > 0 and next_depth < requested_depth:
-        regression_issues.append("requested_depth_not_met")
     if next_duplicates > current_duplicates + 1:
         regression_issues.append("rewrite_increased_duplicates")
     if next_noise > current_noise:
@@ -326,6 +324,14 @@ def enforce_mindmap_refine_quality(
         current_metrics,
         ",".join(regression_issues),
     )
+    if requested_depth and requested_depth > 0 and next_depth < requested_depth:
+        logger.warning(
+            "knowledge_mindmap refine depth target not met: requested_depth=%s current_depth=%s next_depth=%s model=%s",
+            requested_depth,
+            current_depth,
+            next_depth,
+            model_name or "-",
+        )
 
     if score < quality_threshold or regression_issues:
         failure_reasons = issues[:]

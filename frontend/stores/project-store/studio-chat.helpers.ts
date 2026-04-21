@@ -178,7 +178,6 @@ export function buildRefineFailureMessage(
       insufficient_primary_branches: "一级分支过少",
       mindmap_too_small: "导图规模过小",
       insufficient_depth: "层级过浅",
-      requested_depth_not_met: "未达到要求层级",
       rewrite_shrank_nodes: "节点数明显减少",
       rewrite_shrank_depth: "层级被压缩",
       rewrite_increased_duplicates: "重复分支变多",

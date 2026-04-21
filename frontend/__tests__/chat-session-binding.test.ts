@@ -424,33 +424,4 @@ describe("chat session binding", () => {
     );
   });
 
-  it("shows requested depth failure copy for mindmap refine toast", async () => {
-    const context: StudioChatContext = {
-      projectId: "p-001",
-      sessionId: "s-001",
-      toolType: "mindmap",
-      toolLabel: "思维导图",
-      cardId: "knowledge_mindmap",
-      step: "preview",
-      canRefine: true,
-      isRefineMode: true,
-      targetArtifactId: "artifact-001",
-    };
-    const { actions } = createRefineHarness(context);
-
-    (studioCardsApi.refine as jest.Mock).mockRejectedValue(
-      new ApiError("INVALID_INPUT", "Refined mindmap payload failed quality score checks.", 422, {
-        failure_reason: "mindmap_refine_quality_low:requested_depth_not_met",
-      })
-    );
-
-    await actions.sendStudioRefineMessage("p-001", "改成五层");
-
-    expect(toast).toHaveBeenCalledWith(
-      expect.objectContaining({
-        title: "微调失败",
-        description: "思维导图微调已被自动拦截：未达到要求层级。",
-      })
-    );
-  });
 });

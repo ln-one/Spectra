@@ -84,7 +84,9 @@ async def test_refine_mindmap_content_full_map_rewrite_uses_review_chain(monkeyp
 
 
 @pytest.mark.asyncio
-async def test_refine_mindmap_content_rejects_when_requested_depth_not_met(monkeypatch):
+async def test_refine_mindmap_content_allows_result_when_requested_depth_not_met_but_quality_holds(
+    monkeypatch,
+):
     current_content = _build_large_mindmap("停止等待协议")
     generated_payload = _build_large_mindmap("停止等待协议")
     reviewed_payload = _build_large_mindmap("停止等待协议")
@@ -98,18 +100,16 @@ async def test_refine_mindmap_content_rejects_when_requested_depth_not_met(monke
         AsyncMock(side_effect=[(generated_payload, "model-a"), (reviewed_payload, "model-b")]),
     )
 
-    with pytest.raises(APIException) as exc_info:
-        await refine_mindmap_content(
-            current_content=current_content,
-            message="把整张导图改成五层结构",
-            config={"chat_refine_scope": "full_map"},
-            project_id="p-001",
-            rag_source_ids=["file-1"],
-        )
+    updated = await refine_mindmap_content(
+        current_content=current_content,
+        message="把整张导图改成五层结构",
+        config={"chat_refine_scope": "full_map"},
+        project_id="p-001",
+        rag_source_ids=["file-1"],
+    )
 
-    exc = exc_info.value
-    assert exc.status_code == 422
-    assert "requested_depth_not_met" in str(exc.details["failure_reason"])
+    assert updated["kind"] == "mindmap"
+    assert updated["title"] == "停止等待协议"
 
 
 @pytest.mark.asyncio

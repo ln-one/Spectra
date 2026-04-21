@@ -231,7 +231,6 @@ def build_mindmap_review_prompt(
         or config.get("title")
         or "当前主题"
     ).strip()
-    del config
     schema_hint = _build_flat_mindmap_schema_hint()
     draft_snapshot = _summarize_review_payload(draft_payload)
     _score, _issues, metrics = evaluate_mindmap_payload_quality(draft_payload)
