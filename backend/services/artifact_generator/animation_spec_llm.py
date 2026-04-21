@@ -195,7 +195,7 @@ async def _call_llm(system_prompt: str, user_prompt: str) -> str:
         acompletion(
             model=model,
             messages=messages,
-            max_tokens=1200,
+            max_tokens=12000,
         ),
         timeout=timeout,
     )

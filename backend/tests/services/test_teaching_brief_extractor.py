@@ -43,7 +43,7 @@ async def test_extract_brief_from_conversation_finds_topic_and_audience(monkeypa
         == ModelRouteTask.SHORT_TEXT_POLISH
     )
     assert generate_mock.await_args.kwargs["response_format"] == {"type": "json_object"}
-    assert generate_mock.await_args.kwargs["max_tokens"] == 1200
+    assert generate_mock.await_args.kwargs["max_tokens"] == 12000
 
 
 @pytest.mark.asyncio

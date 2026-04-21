@@ -26,7 +26,7 @@ from .prompts import _build_generation_prompt, _build_ir_prompt, _build_repair_p
 
 
 async def _call_llm(
-    system_prompt: str, user_prompt: str, max_tokens: int = 2400
+    system_prompt: str, user_prompt: str, max_tokens: int = 24000
 ) -> str:
     from services.ai import _resolve_model_name, acompletion
 
@@ -127,7 +127,7 @@ async def _generate_via_ir(spec: dict[str, Any]) -> str:
     system_prompt, user_prompt = _build_ir_prompt(spec)
 
     for attempt in range(2):
-        raw = await _call_llm(system_prompt, user_prompt, max_tokens=3000)
+        raw = await _call_llm(system_prompt, user_prompt, max_tokens=30000)
 
         try:
             # Extract JSON from LLM response
@@ -180,7 +180,7 @@ async def _generate_via_ir(spec: dict[str, Any]) -> str:
 async def _generate_legacy(spec: dict[str, Any]) -> str:
     """Legacy: LLM generates Manim Python code directly."""
     system_prompt, user_prompt = _build_generation_prompt(spec)
-    raw = await _call_llm(system_prompt, user_prompt, max_tokens=2400)
+    raw = await _call_llm(system_prompt, user_prompt, max_tokens=24000)
     code = _sanitize_manim_code(_extract_python_code(raw))
     syntax_error = _check_syntax(code)
     if syntax_error:
@@ -190,7 +190,7 @@ async def _generate_legacy(spec: dict[str, Any]) -> str:
         code = _sanitize_manim_code(
             _extract_python_code(
                 await _call_llm(
-                    *_build_repair_prompt(code, syntax_error), max_tokens=2400
+                    *_build_repair_prompt(code, syntax_error), max_tokens=24000
                 )
             )
         )
@@ -205,5 +205,5 @@ async def _generate_legacy(spec: dict[str, Any]) -> str:
 async def repair_manim_code(code: str, error: str) -> str:
     """Ask LLM to fix broken Manim code given the error message."""
     system_prompt, user_prompt = _build_repair_prompt(code, error)
-    raw = await _call_llm(system_prompt, user_prompt, max_tokens=2400)
+    raw = await _call_llm(system_prompt, user_prompt, max_tokens=24000)
     return _sanitize_manim_code(_extract_python_code(raw))

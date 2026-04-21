@@ -6,7 +6,10 @@ from typing import Any
 from utils.exceptions import ErrorCode
 
 from .tool_content_builder_ai import generate_card_json_payload
-from .tool_content_builder_support import raise_generation_error, validate_simulator_turn_payload
+from .tool_content_builder_support import (
+    raise_generation_error,
+    validate_simulator_turn_payload,
+)
 
 
 def _build_simulator_turn_prompt(
@@ -48,7 +51,9 @@ def _normalize_simulator_turn_payload(
         else {}
     )
     existing_turns = (
-        current_content.get("turns") if isinstance(current_content.get("turns"), list) else []
+        current_content.get("turns")
+        if isinstance(current_content.get("turns"), list)
+        else []
     )
     normalized_turns: list[dict[str, Any]] = []
     for index, raw_turn in enumerate(existing_turns, start=1):
@@ -56,7 +61,9 @@ def _normalize_simulator_turn_payload(
             continue
         normalized_turns.append(
             {
-                "turn_anchor": str(raw_turn.get("turn_anchor") or f"turn-{index}").strip()
+                "turn_anchor": str(
+                    raw_turn.get("turn_anchor") or f"turn-{index}"
+                ).strip()
                 or f"turn-{index}",
                 "student_profile": str(
                     raw_turn.get("student_profile") or raw_turn.get("student") or ""
@@ -72,14 +79,19 @@ def _normalize_simulator_turn_payload(
             }
         )
 
-    turn_anchor = str(
-        turn_result.get("turn_anchor") or f"turn-{len(normalized_turns) + 1}"
-    ).strip() or f"turn-{len(normalized_turns) + 1}"
+    turn_anchor = (
+        str(
+            turn_result.get("turn_anchor") or f"turn-{len(normalized_turns) + 1}"
+        ).strip()
+        or f"turn-{len(normalized_turns) + 1}"
+    )
     normalized_turn = {
         "turn_anchor": turn_anchor,
         "student_profile": str(turn_result.get("student_profile") or "").strip(),
         "student_question": str(turn_result.get("student_question") or "").strip(),
-        "teacher_answer": str(turn_result.get("teacher_answer") or teacher_answer).strip(),
+        "teacher_answer": str(
+            turn_result.get("teacher_answer") or teacher_answer
+        ).strip(),
         "teacher_hint": str(turn_result.get("teacher_hint") or "").strip(),
         "feedback": str(
             turn_result.get("feedback") or turn_result.get("analysis") or ""
@@ -95,9 +107,11 @@ def _normalize_simulator_turn_payload(
     key_points = (
         updated_content.get("key_points")
         if isinstance(updated_content.get("key_points"), list)
-        else current_content.get("key_points")
-        if isinstance(current_content.get("key_points"), list)
-        else []
+        else (
+            current_content.get("key_points")
+            if isinstance(current_content.get("key_points"), list)
+            else []
+        )
     )
     normalized_updated_content = {
         **current_content,
@@ -105,7 +119,9 @@ def _normalize_simulator_turn_payload(
         "kind": "classroom_qa_simulator",
         "schema_version": "classroom_qa_simulator.v2",
         "title": str(
-            updated_content.get("title") or current_content.get("title") or "课堂问答模拟"
+            updated_content.get("title")
+            or current_content.get("title")
+            or "课堂问答模拟"
         ).strip()
         or "课堂问答模拟",
         "summary": summary or "已更新课堂问答模拟最新轮次。",
@@ -146,12 +162,14 @@ async def generate_simulator_turn_update(
         card_id="classroom_qa_simulator",
         phase="generate_turn",
         rag_snippets=rag_snippets,
-        max_tokens=1800,
+        max_tokens=18000,
     )
-    normalized_updated_content, normalized_turn_result = _normalize_simulator_turn_payload(
-        payload,
-        current_content,
-        teacher_answer,
+    normalized_updated_content, normalized_turn_result = (
+        _normalize_simulator_turn_payload(
+            payload,
+            current_content,
+            teacher_answer,
+        )
     )
     try:
         validate_simulator_turn_payload(

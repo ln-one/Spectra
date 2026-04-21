@@ -32,7 +32,7 @@ async def generate_with_routing(
     model: Optional[str] = None,
     route_task: Optional[ModelRouteTask | str] = None,
     has_rag_context: bool = False,
-    max_tokens: Optional[int] = 500,
+    max_tokens: Optional[int] = 5000,
     response_format: Optional[dict] = None,
     timeout_seconds_override: Optional[float] = None,
 ) -> dict:

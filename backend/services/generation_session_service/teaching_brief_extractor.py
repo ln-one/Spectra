@@ -58,7 +58,7 @@ def _resolve_context_rounds() -> int:
 
 
 def _resolve_max_tokens() -> int:
-    return max(400, min(int(_env_float("BRIEF_EXTRACTION_MAX_TOKENS", 1200)), 4000))
+    return max(4000, min(int(_env_float("BRIEF_EXTRACTION_MAX_TOKENS", 12000)), 40000))
 
 
 def _resolve_min_confidence() -> float:

@@ -151,7 +151,9 @@ def test_resolve_card_artifact_builder_uses_dedicated_animation_builder():
     )
     assert (
         tool_content_builder_routing.resolve_card_artifact_builder("word_document")
-        is not tool_content_builder_routing.STUDIO_CARD_BUILDERS["demonstration_animations"]
+        is not tool_content_builder_routing.STUDIO_CARD_BUILDERS[
+            "demonstration_animations"
+        ]
     )
 
 
@@ -189,24 +191,23 @@ def test_validate_animation_payload_allows_descriptive_draft_without_runtime_arr
     )
 
 
-def test_structured_generation_uses_larger_token_budget_for_mindmap_than_speaker_notes():
-    assert (
-        tool_content_builder_generation._resolve_card_generation_max_tokens(
-            "knowledge_mindmap"
-        )
-        > tool_content_builder_generation._resolve_card_generation_max_tokens("speaker_notes")
+def test_structured_generation_uses_larger_token_budget_for_speaker_notes():
+    assert tool_content_builder_generation._resolve_card_generation_max_tokens(
+        "speaker_notes"
+    ) > tool_content_builder_generation._resolve_card_generation_max_tokens(
+        "knowledge_mindmap"
     )
     assert (
         tool_content_builder_generation._resolve_card_generation_max_tokens(
             "speaker_notes"
         )
-        == 4800
+        == 48000
     )
     assert (
         tool_content_builder_generation._resolve_card_generation_max_tokens(
             "word_document"
         )
-        == 5000
+        == 50000
     )
 
 
@@ -440,9 +441,9 @@ async def test_build_studio_tool_artifact_content_word_uses_markdown_first_gener
     first_call = generate_mock.await_args_list[0].kwargs
     review_call = generate_mock.await_args_list[1].kwargs
     assert first_call["response_format"] is None
-    assert first_call["max_tokens"] == 5000
+    assert first_call["max_tokens"] == 50000
     assert review_call["response_format"] is None
-    assert review_call["max_tokens"] == 3200
+    assert review_call["max_tokens"] == 32000
 
 
 @pytest.mark.asyncio

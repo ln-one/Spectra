@@ -71,7 +71,7 @@ async def generate_prompt_suggestion_pool(
             prompt=prompt,
             route_task=ModelRouteTask.PROMPT_SUGGESTION,
             has_rag_context=True,
-            max_tokens=5000,
+            max_tokens=50000,
         )
         payload = extract_json_object(ai_result.get("content", ""))
         suggestions, summary = normalize_suggestions(
@@ -118,9 +118,7 @@ async def generate_prompt_suggestion_pool(
         ) from exc
 
     status_value = (
-        PromptSuggestionStatus.READY
-        if suggestions
-        else PromptSuggestionStatus.EMPTY
+        PromptSuggestionStatus.READY if suggestions else PromptSuggestionStatus.EMPTY
     )
     await upsert_cache(
         db,

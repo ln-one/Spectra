@@ -35,18 +35,21 @@ from .tool_content_builder_support import (
     raise_generation_error,
     validate_card_payload,
 )
-from .word_document_normalizer import build_word_payload_from_markdown, sanitize_word_title
+from .word_document_normalizer import (
+    build_word_payload_from_markdown,
+    sanitize_word_title,
+)
 
 logger = logging.getLogger(__name__)
 
 
 _CARD_GENERATION_MAX_TOKENS: dict[str, int] = {
-    "speaker_notes": 4800,
-    "word_document": 5000,
-    "knowledge_mindmap": 5200,
-    "interactive_quick_quiz": 1800,
-    "interactive_games": 2200,
-    "classroom_qa_simulator": 2400,
+    "speaker_notes": 48000,
+    "word_document": 50000,
+    "knowledge_mindmap": 18000,
+    "interactive_quick_quiz": 18000,
+    "interactive_games": 22000,
+    "classroom_qa_simulator": 24000,
 }
 
 
@@ -62,8 +65,12 @@ def _env_positive_int(name: str, default: int) -> int:
 
 
 def _resolve_word_model() -> str | None:
-    tier = str(os.getenv("WORD_LESSON_PLAN_MODEL_TIER", "quality") or "").strip().lower()
-    explicit_quality_model = str(os.getenv("WORD_LESSON_PLAN_QUALITY_MODEL", "")).strip()
+    tier = (
+        str(os.getenv("WORD_LESSON_PLAN_MODEL_TIER", "quality") or "").strip().lower()
+    )
+    explicit_quality_model = str(
+        os.getenv("WORD_LESSON_PLAN_QUALITY_MODEL", "")
+    ).strip()
     shared_quality_model = str(os.getenv("QUALITY_MODEL", "")).strip()
     if tier == "quality":
         return explicit_quality_model or shared_quality_model or ai_service.large_model
@@ -76,10 +83,10 @@ def _resolve_word_model() -> str | None:
 
 def _resolve_card_generation_max_tokens(card_id: str) -> int:
     if card_id == "word_document":
-        return _env_positive_int("WORD_LESSON_PLAN_MAX_TOKENS", 5000)
+        return _env_positive_int("WORD_LESSON_PLAN_MAX_TOKENS", 50000)
     if card_id == "knowledge_mindmap":
-        return _env_positive_int("MINDMAP_MAX_TOKENS", 5200)
-    return _CARD_GENERATION_MAX_TOKENS.get(card_id, 1600)
+        return _env_positive_int("MINDMAP_MAX_TOKENS", 18000)
+    return _CARD_GENERATION_MAX_TOKENS.get(card_id, 16000)
 
 
 def _env_bool(name: str, default: bool) -> bool:
@@ -184,7 +191,7 @@ async def _review_word_markdown(
 ) -> tuple[str, str | None]:
     if not _env_bool("WORD_MARKDOWN_REVIEW_ENABLED", True):
         return markdown, None
-    review_max_tokens = _env_positive_int("WORD_MARKDOWN_REVIEW_MAX_TOKENS", 3200)
+    review_max_tokens = _env_positive_int("WORD_MARKDOWN_REVIEW_MAX_TOKENS", 32000)
     reviewed_markdown, reviewed_model, _meta = await generate_card_text_payload(
         prompt=build_word_markdown_reviewer_prompt(topic=topic, markdown=markdown),
         card_id="word_document",
@@ -280,7 +287,9 @@ async def _generate_word_document_markdown_first_payload(
             markdown=reviewed_markdown,
             config=config,
         )
-        payload["title"] = sanitize_word_title(payload.get("title") or "") or payload["title"]
+        payload["title"] = (
+            sanitize_word_title(payload.get("title") or "") or payload["title"]
+        )
         return payload
     except ValueError as exc:
         raise_generation_error(

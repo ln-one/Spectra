@@ -67,7 +67,22 @@ def _html_to_markdown_like_text(value: str) -> str:
 
 
 def _is_generic_word_title(value: str) -> bool:
-    return is_placeholder_word_title(value) or str(value or "").strip().lower() in {
+    normalized = str(value or "").strip()
+    if not normalized:
+        return True
+    lowered = normalized.lower()
+    return is_placeholder_word_title(value) or bool(
+        re.match(
+            r"^第\s*\d+\s*次讲义文档(?:[。.!！])?$", normalized, flags=re.IGNORECASE
+        )
+    ) or lowered in {
+        "教案",
+        "教学教案",
+        "教学文档",
+        "讲义文档",
+        "未命名教案",
+        "word 生成记录",
+        "word生成记录",
         "教学文档工作台",
         "教学文档（生成中）",
         "教学文档 - 生成中",
@@ -176,7 +191,9 @@ async def _rewrite_markdown_with_instruction(
         max_tokens=max_tokens,
     )
     rewritten_markdown = _clean_markdown_output(str(result.get("content") or ""))
-    if _normalize_for_compare(rewritten_markdown) == _normalize_for_compare(base_markdown):
+    if _normalize_for_compare(rewritten_markdown) == _normalize_for_compare(
+        base_markdown
+    ):
         retry_prompt = (
             prompt
             + "\n注意：你上一次改写与原文几乎一致。请严格执行修改要求，至少做 3 处可见改动。"
@@ -272,7 +289,9 @@ async def refine_word_document_content(
         title = compose_word_title(source_title)
     else:
         title = "教学文档"
-    summary = str(config.get("document_summary") or updated.get("summary") or message or "").strip()
+    summary = str(
+        config.get("document_summary") or updated.get("summary") or message or ""
+    ).strip()
     if not summary:
         summary = "已更新文档内容。"
 

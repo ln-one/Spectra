@@ -16,7 +16,7 @@ async def classify_intent(service, user_message: str) -> IntentClassification:
         response = await service.generate(
             prompt=prompt,
             route_task=ModelRouteTask.INTENT_CLASSIFICATION,
-            max_tokens=200,
+            max_tokens=2000,
         )
         content = response["content"].strip()
         parsed = json.loads(content)
@@ -64,7 +64,7 @@ async def parse_modify_intent(service, instruction: str) -> ModifyIntent:
         response = await service.generate(
             prompt=prompt,
             route_task=ModelRouteTask.INTENT_CLASSIFICATION,
-            max_tokens=200,
+            max_tokens=2000,
         )
         content = response["content"].strip()
         parsed = json.loads(content)

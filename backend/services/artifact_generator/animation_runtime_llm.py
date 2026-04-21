@@ -13,7 +13,10 @@ from services.ai import acompletion
 from services.ai.model_resolution import _resolve_model_name
 
 from .animation_runtime_codegen import build_explainer_draft_seed
-from .animation_runtime_contract import ExplainerDraftV1, build_runtime_contract_prompt_fragment
+from .animation_runtime_contract import (
+    ExplainerDraftV1,
+    build_runtime_contract_prompt_fragment,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -151,7 +154,9 @@ def _build_generation_prompt(
         focus=_clean_text(content.get("focus")),
         duration_seconds=int(content.get("duration_seconds") or 6),
         rhythm=_clean_text(content.get("rhythm") or "balanced"),
-        style_pack=_clean_text(content.get("style_pack") or "teaching_ppt_minimal_gray"),
+        style_pack=_clean_text(
+            content.get("style_pack") or "teaching_ppt_minimal_gray"
+        ),
         prompt_digest=prompt_digest,
         scene_outline_json=json.dumps(scene_outline, ensure_ascii=False, indent=2),
         steps_json=json.dumps(steps, ensure_ascii=False, indent=2),
@@ -175,7 +180,9 @@ def _build_repair_prompt(
         summary=_clean_text(content.get("summary")),
         prompt_digest=prompt_digest,
         current_draft_json=json.dumps(current_draft, ensure_ascii=False, indent=2),
-        validation_errors_json=json.dumps(validation_errors, ensure_ascii=False, indent=2),
+        validation_errors_json=json.dumps(
+            validation_errors, ensure_ascii=False, indent=2
+        ),
         seed_draft_json=json.dumps(seed_draft, ensure_ascii=False, indent=2),
         contract_prompt=build_runtime_contract_prompt_fragment(),
     )
@@ -193,7 +200,7 @@ def _build_request_kwargs(
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
         ],
-        "max_tokens": 1400,
+        "max_tokens": 14000,
         "response_format": {
             "type": "json_schema",
             "json_schema": {
@@ -289,5 +296,7 @@ async def repair_animation_runtime_plan_with_llm(
     )
     draft, meta = await _call_llm_for_draft(system_prompt, user_prompt, repair=True)
     if not draft:
-        logger.warning("animation_runtime_llm: failed to extract repaired explainer draft JSON")
+        logger.warning(
+            "animation_runtime_llm: failed to extract repaired explainer draft JSON"
+        )
     return draft, meta

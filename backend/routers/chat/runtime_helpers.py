@@ -13,7 +13,9 @@ from services.chat import (
     resolve_effective_selected_library_ids,
 )
 from services.database import db_service
-from services.generation_session_service.teaching_brief import TeachingBriefPromptContext
+from services.generation_session_service.teaching_brief import (
+    TeachingBriefPromptContext,
+)
 from services.prompt_service import contains_mechanical_option_pattern, prompt_service
 
 from .message_flow import build_history_payload, load_rag_context
@@ -44,8 +46,8 @@ def _env_positive_int(name: str, default: int) -> int:
 
 
 def _resolve_chat_response_max_tokens() -> int:
-    configured = _env_positive_int("CHAT_RESPONSE_MAX_TOKENS", 1800)
-    return max(256, min(configured, 8000))
+    configured = _env_positive_int("CHAT_RESPONSE_MAX_TOKENS", 18000)
+    return max(2560, min(configured, 80000))
 
 
 def _project_upload_fields(upload, *, select: dict | None = None) -> dict | object:
@@ -180,7 +182,9 @@ async def build_enabled_library_hint(
             where={"id": {"in": normalized_ids}}
         )
     except Exception as exc:
-        logger.warning("enabled library lookup failed: ids=%s error=%s", normalized_ids, exc)
+        logger.warning(
+            "enabled library lookup failed: ids=%s error=%s", normalized_ids, exc
+        )
         return None
 
     library_names_by_id: dict[str, str] = {}
@@ -338,14 +342,14 @@ async def generate_assistant_reply(
     assistant_digest = ""
     stage_timings_ms: dict[str, float] = {}
     token_budget = (
-        _env_positive_int("STUDIO_WORD_REFINE_MAX_TOKENS", 3200)
+        _env_positive_int("STUDIO_WORD_REFINE_MAX_TOKENS", 32000)
         if is_word_studio_refine
         else _resolve_chat_response_max_tokens()
     )
     rewrite_token_budget = (
-        _env_positive_int("STUDIO_WORD_REFINE_REWRITE_MAX_TOKENS", 2000)
+        _env_positive_int("STUDIO_WORD_REFINE_REWRITE_MAX_TOKENS", 20000)
         if is_word_studio_refine
-        else _env_positive_int("CHAT_REWRITE_MAX_TOKENS", 1200)
+        else _env_positive_int("CHAT_REWRITE_MAX_TOKENS", 12000)
     )
     refine_model = (
         str(os.getenv("STUDIO_WORD_REFINE_MODEL", "") or "").strip()

@@ -121,7 +121,9 @@ def test_send_message_success(client, monkeypatch, _as_user):
             create_conversation_message=AsyncMock(
                 side_effect=[
                     _fake_conv(role="user", conv_id="c-user"),
-                    _fake_conv(role="assistant", content="assistant reply", conv_id="c-ai"),
+                    _fake_conv(
+                        role="assistant", content="assistant reply", conv_id="c-ai"
+                    ),
                 ]
             ),
             get_recent_conversation_messages=AsyncMock(
@@ -146,7 +148,7 @@ def test_send_message_success(client, monkeypatch, _as_user):
     assert body["data"]["session_title_updated"] is False
     assert body["data"]["teaching_brief_hint"]["generation_intent"] is False
     assert len(body["data"]["suggestions"]) == 3
-    assert ai_service.generate.await_args.kwargs["max_tokens"] == 2000
+    assert ai_service.generate.await_args.kwargs["max_tokens"] == 20000
 
 
 def test_send_message_schedules_background_brief_extraction_on_early_trigger(
@@ -299,15 +301,15 @@ def test_send_message_marks_ai_confirmation_request_in_brief_hint(
 
 
 def test_chat_response_max_tokens_is_env_configurable(monkeypatch):
-    monkeypatch.setenv("CHAT_RESPONSE_MAX_TOKENS", "2200")
-    assert _resolve_chat_response_max_tokens() == 2200
+    monkeypatch.setenv("CHAT_RESPONSE_MAX_TOKENS", "22000")
+    assert _resolve_chat_response_max_tokens() == 22000
 
 
 def test_chat_response_max_tokens_is_bounded(monkeypatch):
-    monkeypatch.setenv("CHAT_RESPONSE_MAX_TOKENS", "12000")
-    assert _resolve_chat_response_max_tokens() == 8000
+    monkeypatch.setenv("CHAT_RESPONSE_MAX_TOKENS", "120000")
+    assert _resolve_chat_response_max_tokens() == 80000
     monkeypatch.setenv("CHAT_RESPONSE_MAX_TOKENS", "120")
-    assert _resolve_chat_response_max_tokens() == 256
+    assert _resolve_chat_response_max_tokens() == 2560
 
 
 def test_send_message_requests_background_session_title_generation_once(
@@ -336,7 +338,9 @@ def test_send_message_requests_background_session_title_generation_once(
             create_conversation_message=AsyncMock(
                 side_effect=[
                     _fake_conv(role="user", conv_id="c-user"),
-                    _fake_conv(role="assistant", content="assistant reply", conv_id="c-ai"),
+                    _fake_conv(
+                        role="assistant", content="assistant reply", conv_id="c-ai"
+                    ),
                 ]
             ),
             get_recent_conversation_messages=AsyncMock(
@@ -391,7 +395,9 @@ def test_send_message_does_not_request_session_title_after_first_message(
             create_conversation_message=AsyncMock(
                 side_effect=[
                     _fake_conv(role="user", conv_id="c-user"),
-                    _fake_conv(role="assistant", content="assistant reply", conv_id="c-ai"),
+                    _fake_conv(
+                        role="assistant", content="assistant reply", conv_id="c-ai"
+                    ),
                 ]
             ),
             get_recent_conversation_messages=AsyncMock(
@@ -400,7 +406,9 @@ def test_send_message_does_not_request_session_title_after_first_message(
         ),
     )
     request_mock = AsyncMock(return_value=False)
-    monkeypatch.setattr("routers.chat.runtime.request_session_title_generation", request_mock)
+    monkeypatch.setattr(
+        "routers.chat.runtime.request_session_title_generation", request_mock
+    )
     _mock(monkeypatch, ai_service, "generate", {"content": "assistant reply"})
 
     resp = client.post("/api/v1/chat/messages", json=_MSG)
@@ -457,7 +465,12 @@ def test_send_message_returns_generation_intent_hint(client, monkeypatch, _as_us
             ),
         ),
     )
-    _mock(monkeypatch, ai_service, "generate", {"content": "需求已明确，你可以确认后开始生成。"})
+    _mock(
+        monkeypatch,
+        ai_service,
+        "generate",
+        {"content": "需求已明确，你可以确认后开始生成。"},
+    )
 
     resp = client.post(
         "/api/v1/chat/messages",

@@ -20,7 +20,7 @@ from .structured_prompting import build_structured_title_system_prompt
 logger = logging.getLogger(__name__)
 
 TitleScene = Literal["project", "session", "run"]
-TITLE_RESPONSE_MAX_TOKENS = 512
+TITLE_RESPONSE_MAX_TOKENS = 5120
 
 
 class StructuredTitleArguments(BaseModel):
