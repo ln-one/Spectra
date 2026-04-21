@@ -1,6 +1,6 @@
 "use client";
 
-import dagre from "@dagrejs/dagre";
+import { hierarchy, tree as createTreeLayout } from "d3-hierarchy";
 import { memo, useCallback, useEffect, useMemo, useRef } from "react";
 import ReactFlow, {
   Background,
@@ -47,6 +47,7 @@ type FlowNodeData = {
   rawLabel: string;
   summary?: string;
   childCount: number;
+  depth: number;
   isRoot: boolean;
   hasIncoming: boolean;
   hasOutgoing: boolean;
@@ -60,14 +61,13 @@ type FlowNodeData = {
 
 const NODE_WIDTH = 300;
 const NODE_HEIGHT = 120;
-const RANK_GAP = 220;
-const NODE_GAP = 56;
-const EDGE_GAP = 24;
+const HORIZONTAL_GAP = 240;
+const VERTICAL_GAP = 84;
 const HANDLE_SIZE = 10;
 const HANDLE_OVERHANG = 5;
 const EDGE_CURVATURE = 0.3;
 const EDGE_COLOR = "#94a3b8";
-const EDGE_STROKE_WIDTH = 2.2;
+const EDGE_STROKE_WIDTH = 2.1;
 const EDGE_DOT_RADIUS = 4.5;
 const INCOMING_HANDLE_ID = "incoming";
 const OUTGOING_HANDLE_ID = "outgoing";
@@ -104,35 +104,80 @@ function buildFlow(
     | "onRequestDelete"
   >
 ): { nodes: Node<FlowNodeData>[]; edges: Edge[] } {
-  const graph = new dagre.graphlib.Graph().setDefaultEdgeLabel(() => ({}));
-  graph.setGraph({
-    rankdir: "LR",
-    nodesep: NODE_GAP,
-    ranksep: RANK_GAP,
-    edgesep: EDGE_GAP,
-    marginx: 40,
-    marginy: 40,
-  });
-
-  const visibleNodes: MindNode[] = [];
   const edges: Edge[] = [];
   const incomingNodeIds = new Set<string>();
   const outgoingNodeIds = new Set<string>();
-  const visit = (node: MindNode, ancestors: string[]) => {
-    if (shouldHideNode(node, collapsedNodeIds, ancestors)) return;
+  const nodeDepths = new Map<string, number>();
+  const branchOrder = new Map<string, number>();
+  const subtreeSizeCache = new Map<string, number>();
 
-    visibleNodes.push(node);
-    graph.setNode(node.id, {
-      width: NODE_WIDTH,
-      height: NODE_HEIGHT,
+  const buildVisibleTree = (node: MindNode, ancestors: string[]): MindNode | null => {
+    if (shouldHideNode(node, collapsedNodeIds, ancestors)) return null;
+    if (collapsedNodeIds.has(node.id)) {
+      return { ...node, children: [] };
+    }
+    const visibleChildren = (node.children ?? [])
+      .map((child) => buildVisibleTree(child, [...ancestors, node.id]))
+      .filter(Boolean) as MindNode[];
+    return { ...node, children: visibleChildren };
+  };
+
+  const visibleRoot = buildVisibleTree(root, []);
+  if (!visibleRoot) {
+    return { nodes: [], edges: [] };
+  }
+
+  const countSubtree = (node: MindNode): number => {
+    const cached = subtreeSizeCache.get(node.id);
+    if (cached) return cached;
+    const size =
+      1 + (node.children ?? []).reduce((sum, child) => sum + countSubtree(child), 0);
+    subtreeSizeCache.set(node.id, size);
+    return size;
+  };
+
+  const hierarchyRoot = hierarchy<MindNode>(visibleRoot, (node) => node.children ?? []);
+  countSubtree(visibleRoot);
+  const layout = createTreeLayout<MindNode>()
+    .nodeSize([NODE_HEIGHT + VERTICAL_GAP, NODE_WIDTH + HORIZONTAL_GAP])
+    .separation((left, right) => {
+      const leftSize = subtreeSizeCache.get(left.data.id) ?? 1;
+      const rightSize = subtreeSizeCache.get(right.data.id) ?? 1;
+      const siblingFactor = left.parent === right.parent ? 1 : 1.35;
+      const densityFactor = 1 + Math.min(1.35, (leftSize + rightSize) / 10);
+      const shallowBias = left.depth <= 1 || right.depth <= 1 ? 1.16 : 1;
+      return siblingFactor * densityFactor * shallowBias;
     });
 
-    if (collapsedNodeIds.has(node.id)) return;
+  const laidOutRoot = layout(hierarchyRoot);
+  const firstLevelChildren = laidOutRoot.children ?? [];
+  firstLevelChildren.forEach((branch, index) => {
+    branchOrder.set(branch.data.id, index);
+  });
+
+  const resolveBranchIndex = (node: typeof laidOutRoot): number => {
+    if (node.depth <= 0) return 0;
+    const anchor = node.ancestors().find((ancestor) => ancestor.depth === 1);
+    return anchor ? branchOrder.get(anchor.data.id) ?? 0 : 0;
+  };
+
+  const computeVerticalBias = (node: typeof laidOutRoot): number => {
+    if (node.depth === 0) return 0;
+    const branchIndex = resolveBranchIndex(node);
+    const branchDirection = branchIndex % 2 === 0 ? -1 : 1;
+    const branchMagnitude = branchIndex === 0 ? 0 : Math.min(54, 12 + branchIndex * 8);
+    const depthBias = node.depth <= 1 ? 0 : branchDirection * branchMagnitude;
+    const siblingSpread = node.parent?.children?.length ?? 1;
+    const localOffset =
+      node.depth <= 1 ? 0 : ((node.parent?.children?.findIndex((child) => child === node) ?? 0) - (siblingSpread - 1) / 2) * 14;
+    return depthBias + localOffset;
+  };
+
+  laidOutRoot.each((layoutNode) => {
+    const node = layoutNode.data;
+    nodeDepths.set(node.id, layoutNode.depth);
 
     for (const child of node.children ?? []) {
-      if (shouldHideNode(child, collapsedNodeIds, [...ancestors, node.id])) continue;
-
-      graph.setEdge(node.id, child.id);
       edges.push({
         id: `${node.id}-${child.id}`,
         source: node.id,
@@ -140,32 +185,35 @@ function buildFlow(
         target: child.id,
         targetHandle: INCOMING_HANDLE_ID,
         type: "mindmapEdge",
+        data: {
+          sourceDepth: layoutNode.depth,
+          targetDepth: layoutNode.depth + 1,
+        },
         style: {
           stroke: EDGE_COLOR,
-          strokeWidth: EDGE_STROKE_WIDTH,
+          strokeWidth: layoutNode.depth <= 1 ? 2.5 : EDGE_STROKE_WIDTH,
+          opacity: layoutNode.depth <= 1 ? 0.98 : 0.82,
           strokeLinecap: "round" as const,
           strokeLinejoin: "round" as const,
         },
       });
       outgoingNodeIds.add(node.id);
       incomingNodeIds.add(child.id);
-      visit(child, [...ancestors, node.id]);
     }
-  };
+  });
 
-  visit(root, []);
-  dagre.layout(graph);
-
-  const nodes = visibleNodes.map((node) => {
-    const layoutNode = graph.node(node.id);
+  const nodes = laidOutRoot.descendants().map((layoutNode) => {
+    const node = layoutNode.data;
+    const depth = nodeDepths.get(node.id) ?? 0;
+    const verticalBias = computeVerticalBias(layoutNode);
     return {
       id: node.id,
       type: "mindNode",
       width: NODE_WIDTH,
       height: NODE_HEIGHT,
       position: {
-        x: layoutNode.x - NODE_WIDTH / 2,
-        y: layoutNode.y - NODE_HEIGHT / 2,
+        x: layoutNode.y - NODE_WIDTH / 2,
+        y: layoutNode.x + verticalBias - NODE_HEIGHT / 2,
       },
       draggable: false,
       selectable: true,
@@ -177,6 +225,7 @@ function buildFlow(
         isRoot: !node.parentId || node.parentId === node.id,
         hasIncoming: incomingNodeIds.has(node.id),
         hasOutgoing: outgoingNodeIds.has(node.id),
+        depth,
         canStructuredEdit: handlers.canStructuredEdit,
         isSubmitting: handlers.isSubmitting,
         mode: handlers.mode,

@@ -313,9 +313,24 @@ def evaluate_mindmap_payload_quality(payload: dict[str, Any]) -> tuple[int, list
     primary_branch_count = len(children_map.get(root_id, []))
     avg_title_length = int(sum(len(title) for title in titles) / max(len(titles), 1))
     duplicate_title_count = sum(1 for count in duplicate_counter.values() if count > 1)
-    thin_chain_ratio = int(
-        (single_child_internal_nodes / max(internal_nodes, 1)) * 100
-    )
+    thin_chain_ratio = int((single_child_internal_nodes / max(internal_nodes, 1)) * 100)
+    deep_branch_count = 0
+    uneven_branching_bonus = 0
+    depth_map: dict[str, int] = {root_id: 1}
+    queue = deque([root_id])
+    while queue:
+        current = queue.popleft()
+        depth = depth_map.get(current, 1)
+        children = children_map.get(current, [])
+        if depth >= 3 and len(children) >= 2:
+            deep_branch_count += 1
+        if depth == 2 and len(children) >= 3:
+            uneven_branching_bonus += 1
+        for child in children:
+            if child in depth_map:
+                continue
+            depth_map[child] = depth + 1
+            queue.append(child)
     metrics = {
         "node_count": len(nodes),
         "primary_branch_count": primary_branch_count,
@@ -324,32 +339,36 @@ def evaluate_mindmap_payload_quality(payload: dict[str, Any]) -> tuple[int, list
         "noise_hits": noise_hits,
         "duplicate_title_count": duplicate_title_count,
         "thin_chain_ratio": thin_chain_ratio,
+        "deep_branch_count": deep_branch_count,
+        "uneven_branching_bonus": uneven_branching_bonus,
     }
 
     issues: list[str] = []
     score = 100
-    if primary_branch_count < 4:
+    if primary_branch_count < 3:
         issues.append("insufficient_primary_branches")
-        score -= 18
-    if primary_branch_count > 8:
-        issues.append("too_many_primary_branches")
-        score -= 10
+        score -= 14
     if len(nodes) < 12:
         issues.append("mindmap_too_small")
         score -= 16
-    if max_depth < 4:
+    if max_depth < 3:
         issues.append("insufficient_depth")
-        score -= 20
-    if avg_title_length > 18:
+        score -= 18
+    if avg_title_length > 24:
         issues.append("titles_too_verbose")
-        score -= 12
+        score -= 10
     if noise_hits > 0:
         issues.append("contains_rag_noise")
         score -= 18
     if duplicate_title_count > 1:
         issues.append("repeated_titles")
         score -= 10
-    if thin_chain_ratio > 60:
+    if thin_chain_ratio > 85 and max_depth < 5:
         issues.append("thin_chain_structure")
-        score -= 8
+        score -= 6
+    if max_depth >= 4 and deep_branch_count == 0:
+        issues.append("missing_deep_branching")
+        score -= 6
+    if uneven_branching_bonus > 0:
+        score += min(4, uneven_branching_bonus * 2)
     return max(0, min(100, score)), issues, metrics

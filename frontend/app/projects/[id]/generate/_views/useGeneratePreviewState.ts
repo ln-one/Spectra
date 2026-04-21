@@ -1190,7 +1190,6 @@ export function useGeneratePreviewState({
 
       const response = await previewApi.getSessionPreview(activeSessionId, {
         run_id: activeRunId,
-        artifact_id: currentArtifactId ?? undefined,
       });
       const previewData = (response.data ?? null) as PreviewResponseData | null;
 

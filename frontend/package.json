@@ -17,7 +17,6 @@
     "sdk:generate": "openapi-typescript ../docs/openapi-target.yaml -o lib/sdk/types.ts"
   },
   "dependencies": {
-    "@dagrejs/dagre": "^3.0.0",
     "@hookform/resolvers": "^5.2.2",
     "@motion-canvas/2d": "^3.17.2",
     "@motion-canvas/core": "^3.17.2",
@@ -60,6 +59,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
+    "d3-hierarchy": "^3.1.2",
     "date-fns": "^4.1.0",
     "embla-carousel-react": "^8.6.0",
     "framer-motion": "^12.34.0",

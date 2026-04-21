@@ -131,16 +131,16 @@ export function PreviewStep({
   const initialMarkdown = useMemo(() => {
     const fromPreview = markdown.trim();
     if (fromPreview) return fromPreview;
-    const fromContent =
-      artifactContent && typeof artifactContent.markdown_content === "string"
-        ? artifactContent.markdown_content.trim()
-        : "";
-    if (fromContent) return fromContent;
     const fromLessonPlan =
       artifactContent && typeof artifactContent.lesson_plan_markdown === "string"
         ? artifactContent.lesson_plan_markdown.trim()
         : "";
     if (fromLessonPlan) return fromLessonPlan;
+    const fromContent =
+      artifactContent && typeof artifactContent.markdown_content === "string"
+        ? artifactContent.markdown_content.trim()
+        : "";
+    if (fromContent) return fromContent;
     if (
       artifactContent?.document_content &&
       typeof artifactContent.document_content === "object"

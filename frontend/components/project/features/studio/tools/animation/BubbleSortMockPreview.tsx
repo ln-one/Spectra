@@ -216,8 +216,13 @@ export function BubbleSortMockPreview({
       }
 
       gif.finish();
+      const gifBytes = gif.bytes();
+      const gifBuffer = gifBytes.buffer.slice(
+        gifBytes.byteOffset,
+        gifBytes.byteOffset + gifBytes.byteLength
+      ) as ArrayBuffer;
 
-      const blob = new Blob([gif.bytes()], {
+      const blob = new Blob([gifBuffer], {
         type: "image/gif",
       });
       const url = URL.createObjectURL(blob);

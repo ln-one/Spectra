@@ -63,6 +63,19 @@ interface PreviewCopilotDrawerProps {
   currentRenderVersion: number | null;
 }
 
+function buildRunScopedSlideDetailQuery(
+  runId: string | null,
+  artifactId: string | null
+): { run_id?: string; artifact_id?: string } {
+  const normalizedRunId = typeof runId === "string" ? runId.trim() : "";
+  if (normalizedRunId) {
+    return { run_id: normalizedRunId };
+  }
+  const normalizedArtifactId =
+    typeof artifactId === "string" ? artifactId.trim() : "";
+  return normalizedArtifactId ? { artifact_id: normalizedArtifactId } : {};
+}
+
 const COPILOT_UI_SCALE = 1.25;
 
 function filterPreviewMessages(
@@ -217,10 +230,12 @@ function resolveNodePreviewSrc({
   if (!normalized) return "";
   if (isRenderableImageSrc(normalized)) return normalized;
   if (!sessionId || !slideId) return "";
-  return previewApi.buildSessionSlideAssetUrl(sessionId, slideId, normalized, {
-    artifact_id: artifactId ?? undefined,
-    run_id: runId ?? undefined,
-  });
+  return previewApi.buildSessionSlideAssetUrl(
+    sessionId,
+    slideId,
+    normalized,
+    buildRunScopedSlideDetailQuery(runId, artifactId)
+  );
 }
 
 function NodeImagePreview({
@@ -465,9 +480,10 @@ export function PreviewCopilotDrawer({
     requestedSlideIndex: number;
   }) => {
     if (!sessionId) return;
+    const targetQuery = buildRunScopedSlideDetailQuery(runId, artifactId);
     await previewApi.modifySessionPreview(sessionId, {
-      run_id: runId ?? undefined,
-      artifact_id: artifactId ?? undefined,
+      run_id: targetQuery.run_id,
+      artifact_id: targetQuery.artifact_id,
       slide_index: requestedSlideIndex + 1,
       slide_id:
         requestedSlideIndex === activeSlide?.index
@@ -531,10 +547,7 @@ export function PreviewCopilotDrawer({
           scene_version: sceneVersion,
           operations: dirtyOperations,
         },
-        {
-          artifact_id: artifactId ?? undefined,
-          run_id: runId ?? undefined,
-        }
+        buildRunScopedSlideDetailQuery(runId, artifactId)
       );
       setDraftValues({});
       onSceneUpdated?.(response.data.scene);

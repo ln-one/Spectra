@@ -4,9 +4,11 @@ import pytest
 
 from services.generation_session_service.tool_refine_builder import word_document as word_refine
 from services.generation_session_service.tool_refine_builder.word_document import (
+    _resolve_chat_refine_model,
     _resolve_refine_max_tokens,
     refine_word_document_content,
 )
+from utils.exceptions import APIException
 from services.generation_session_service.word_document_content import markdown_to_document_content
 
 
@@ -326,3 +328,225 @@ async def test_refine_word_document_chat_refine_normalizes_heading_hierarchy(mon
     assert "\n## 教学过程\n" in updated["lesson_plan_markdown"]
     assert "\n### 活动一\n" in updated["lesson_plan_markdown"]
     assert updated["lesson_plan_markdown"].count("\n# ") == 0
+
+
+@pytest.mark.asyncio
+async def test_refine_word_document_chat_refine_renumbers_ordered_lists(monkeypatch):
+    current_content = {
+        "title": "Linux内核教案",
+        "summary": "旧摘要",
+        "lesson_plan_markdown": "# Linux内核教案\n\n## 教学流程\n\n1. 导入\n2. 讲解\n3. 实操",
+    }
+
+    async def fake_load_rag_snippets(**_: object) -> list[str]:
+        return []
+
+    async def fake_generate(**_: object) -> dict[str, str]:
+        return {
+            "content": (
+                "# Linux内核教案\n\n"
+                "## 教学流程\n\n"
+                "1. 导入与定位阶段（0 至 8 分钟）\n"
+                "1. 结构拆解阶段（8 至 23 分钟）\n"
+                "1. 分层实操阶段（23 至 40 分钟）\n"
+                "1. 收敛与反馈阶段（40 至 45 分钟）"
+            )
+        }
+
+    monkeypatch.setattr(word_refine, "_load_rag_snippets", fake_load_rag_snippets)
+    monkeypatch.setattr(word_refine.ai_service, "generate", fake_generate)
+
+    updated = await refine_word_document_content(
+        current_content=current_content,
+        message="把教学流程严格按时间轴重写",
+        config={},
+        project_id="p-001",
+        rag_source_ids=None,
+    )
+
+    assert "1. 导入与定位阶段" in updated["lesson_plan_markdown"]
+    assert "2. 结构拆解阶段" in updated["lesson_plan_markdown"]
+    assert "3. 分层实操阶段" in updated["lesson_plan_markdown"]
+    assert "4. 收敛与反馈阶段" in updated["lesson_plan_markdown"]
+
+
+def test_resolve_chat_refine_model_prefers_quality_model_chain(monkeypatch):
+    monkeypatch.delenv("STUDIO_WORD_CHAT_REFINE_MODEL", raising=False)
+    monkeypatch.delenv("WORD_LESSON_PLAN_QUALITY_MODEL", raising=False)
+    monkeypatch.delenv("STUDIO_WORD_REFINE_MODEL", raising=False)
+
+    assert _resolve_chat_refine_model() is None
+
+    monkeypatch.setenv("STUDIO_WORD_REFINE_MODEL", "qwen3.6-flash")
+    assert _resolve_chat_refine_model() == "qwen3.6-flash"
+
+    monkeypatch.setenv("WORD_LESSON_PLAN_QUALITY_MODEL", "qwen3.6-plus")
+    assert _resolve_chat_refine_model() == "qwen3.6-plus"
+
+    monkeypatch.setenv("STUDIO_WORD_CHAT_REFINE_MODEL", "gpt-5.4")
+    assert _resolve_chat_refine_model() == "gpt-5.4"
+
+
+@pytest.mark.asyncio
+async def test_refine_word_document_chat_refine_preserves_tables_and_markdown_truth(monkeypatch):
+    current_content = {
+        "title": "Linux内核教案",
+        "summary": "旧摘要",
+        "lesson_plan_markdown": (
+            "# Linux内核教案\n\n"
+            "## 教学目标\n\n"
+            "- 认识 ELF 结构\n\n"
+            "## 教学流程\n\n"
+            "| 阶段 | 教师活动 | 学生活动 |\n"
+            "| --- | --- | --- |\n"
+            "| 导入 | 展示案例 | 回答问题 |\n"
+        ),
+    }
+
+    async def fake_load_rag_snippets(**_: object) -> list[str]:
+        return ["ELF 结构", "动态链接"]
+
+    async def fake_generate(**_: object) -> dict[str, str]:
+        return {
+            "content": (
+                "# Linux内核教案\n\n"
+                "## 教学目标\n\n"
+                "- 识别 ELF 关键节区\n"
+                "- 理解加载路径\n\n"
+                "## 教学流程\n\n"
+                "| 阶段 | 教师活动 | 学生活动 |\n"
+                "| --- | --- | --- |\n"
+                "| 导入 | 展示案例 | 回答问题 |\n"
+                "| 实操 | 演示 readelf | 完成节区定位 |\n"
+            )
+        }
+
+    monkeypatch.setattr(word_refine, "_load_rag_snippets", fake_load_rag_snippets)
+    monkeypatch.setattr(word_refine.ai_service, "generate", fake_generate)
+
+    updated = await refine_word_document_content(
+        current_content=current_content,
+        message="把流程设计得更可执行",
+        config={},
+        project_id="p-001",
+        rag_source_ids=["rag-1"],
+    )
+
+    assert "| 阶段 | 教师活动 | 学生活动 |" in updated["lesson_plan_markdown"]
+    assert "| 实操 | 演示 readelf | 完成节区定位 |" in updated["lesson_plan_markdown"]
+    assert updated["markdown_content"] == updated["lesson_plan_markdown"]
+    assert "<table>" in updated["preview_html"]
+    assert "<td>演示 readelf</td>" in updated["preview_html"]
+
+
+@pytest.mark.asyncio
+async def test_refine_word_document_chat_refine_quality_guard_retries_and_accepts_repaired_markdown(
+    monkeypatch,
+):
+    current_content = {
+        "title": "Linux内核教案",
+        "summary": "旧摘要",
+        "lesson_plan_markdown": (
+            "# Linux内核教案\n\n"
+            "## 教学目标\n\n"
+            "- 认识 ELF 节区\n\n"
+            "## 教学流程\n\n"
+            "| 阶段 | 教师活动 | 学生活动 |\n"
+            "| --- | --- | --- |\n"
+            "| 导入 | 展示案例 | 回答问题 |\n"
+        ),
+    }
+    call_count = 0
+
+    async def fake_load_rag_snippets(**_: object) -> list[str]:
+        return []
+
+    async def fake_generate(**_: object) -> dict[str, str]:
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            return {
+                "content": (
+                    "# Linux内核教案\n\n"
+                    "# 教学目标\n\n"
+                    "- 认识 ELF 节区\n\n"
+                    "# 教学流程\n\n"
+                    "- 用列表替代表格"
+                )
+            }
+        return {
+            "content": (
+                "# Linux内核教案\n\n"
+                "## 教学目标\n\n"
+                "- 认识 ELF 节区\n"
+                "- 理解装载流程\n\n"
+                "## 教学流程\n\n"
+                "| 阶段 | 教师活动 | 学生活动 |\n"
+                "| --- | --- | --- |\n"
+                "| 导入 | 展示案例 | 回答问题 |\n"
+                "| 实操 | 演示 readelf | 完成节区分析 |\n"
+            )
+        }
+
+    monkeypatch.setattr(word_refine, "_load_rag_snippets", fake_load_rag_snippets)
+    monkeypatch.setattr(word_refine.ai_service, "generate", fake_generate)
+
+    updated = await refine_word_document_content(
+        current_content=current_content,
+        message="增强结构与量规",
+        config={},
+        project_id="p-001",
+        rag_source_ids=None,
+    )
+
+    assert call_count == 2
+    assert "| 阶段 | 教师活动 | 学生活动 |" in updated["lesson_plan_markdown"]
+    assert "\n## 教学流程\n" in updated["lesson_plan_markdown"]
+
+
+@pytest.mark.asyncio
+async def test_refine_word_document_chat_refine_quality_guard_rejects_persistently_degraded_markdown(
+    monkeypatch,
+):
+    current_content = {
+        "title": "Linux内核教案",
+        "summary": "旧摘要",
+        "lesson_plan_markdown": (
+            "# Linux内核教案\n\n"
+            "## 教学目标\n\n"
+            "- 认识 ELF 节区\n\n"
+            "## 教学流程\n\n"
+            "| 阶段 | 教师活动 | 学生活动 |\n"
+            "| --- | --- | --- |\n"
+            "| 导入 | 展示案例 | 回答问题 |\n"
+        ),
+    }
+
+    async def fake_load_rag_snippets(**_: object) -> list[str]:
+        return []
+
+    async def fake_generate(**_: object) -> dict[str, str]:
+        return {
+            "content": (
+                "# Linux内核教案\n\n"
+                "# 教学目标\n\n"
+                "- 认识 ELF 节区\n\n"
+                "# 教学流程\n\n"
+                "- 用列表替代表格"
+            )
+        }
+
+    monkeypatch.setattr(word_refine, "_load_rag_snippets", fake_load_rag_snippets)
+    monkeypatch.setattr(word_refine.ai_service, "generate", fake_generate)
+
+    with pytest.raises(APIException) as exc_info:
+        await refine_word_document_content(
+            current_content=current_content,
+            message="增强结构与量规",
+            config={},
+            project_id="p-001",
+            rag_source_ids=None,
+        )
+
+    assert exc_info.value.details["reason"] == "word_refine_quality_guard"
+    assert "markdown_table_lost" in exc_info.value.details["issues"]

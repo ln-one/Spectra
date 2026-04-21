@@ -8,7 +8,11 @@ from services.generation_session_service.word_template_engine import (
     build_word_schema_hint,
     resolve_word_document_variant,
 )
-from .word_document_content import document_content_to_html, markdown_to_document_content
+from .word_document_content import (
+    document_content_to_html,
+    lesson_plan_markdown_to_html,
+    markdown_to_document_content,
+)
 
 
 def resolve_word_document_schema_hint(config: dict[str, Any] | None = None) -> str:
@@ -32,8 +36,8 @@ def normalize_word_document_payload(
     normalized["lesson_plan_markdown"] = effective_markdown
     normalized["document_content"] = markdown_to_document_content(effective_markdown)
     if preferred_markdown:
-        normalized["preview_html"] = document_content_to_html(
-            normalized["document_content"],
+        normalized["preview_html"] = lesson_plan_markdown_to_html(
+            effective_markdown,
             title=str(normalized.get("title") or ""),
             summary=str(normalized.get("summary") or ""),
         )

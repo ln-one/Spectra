@@ -520,10 +520,9 @@ export default function StreamingWorkbenchPageView() {
         const response = await previewApi.getSessionSlideScene(
           activeSessionId,
           activeAuthoritySlideId,
-          {
-            artifact_id: currentArtifactId ?? undefined,
-            run_id: activeRunId ?? undefined,
-          }
+          activeRunId?.trim()
+            ? { run_id: activeRunId }
+            : { artifact_id: currentArtifactId ?? undefined }
         );
         if (cancelled) return;
         setSceneBySlideId((previous) => ({

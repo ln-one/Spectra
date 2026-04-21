@@ -194,6 +194,144 @@ def document_content_to_markdown(document: dict[str, Any]) -> str:
     return "\n".join(lines).strip()
 
 
+def _split_markdown_table_row(line: str) -> list[str]:
+    stripped = str(line or "").strip()
+    if stripped.startswith("|"):
+        stripped = stripped[1:]
+    if stripped.endswith("|"):
+        stripped = stripped[:-1]
+    return [cell.strip() for cell in stripped.split("|")]
+
+
+def _is_markdown_table_separator(line: str) -> bool:
+    cells = _split_markdown_table_row(line)
+    if not cells:
+        return False
+    has_dash = False
+    for cell in cells:
+        normalized = cell.replace(":", "").replace("-", "").strip()
+        if normalized:
+            return False
+        if "-" in cell:
+            has_dash = True
+    return has_dash
+
+
+def _is_markdown_table_row(line: str) -> bool:
+    stripped = str(line or "").strip()
+    return stripped.count("|") >= 2
+
+
+def _render_markdown_table(block_lines: list[str]) -> str:
+    if len(block_lines) < 2:
+        return ""
+    header = _split_markdown_table_row(block_lines[0])
+    body_lines = block_lines[2:]
+    rows = [_split_markdown_table_row(line) for line in body_lines if _is_markdown_table_row(line)]
+    thead = "".join(f"<th>{html.escape(cell)}</th>" for cell in header)
+    tbody_rows = []
+    for row in rows:
+        cells = "".join(f"<td>{html.escape(cell)}</td>" for cell in row)
+        tbody_rows.append(f"<tr>{cells}</tr>")
+    tbody = "".join(tbody_rows)
+    return f"<table><thead><tr>{thead}</tr></thead><tbody>{tbody}</tbody></table>"
+
+
+def lesson_plan_markdown_to_html(markdown: str, *, title: str, summary: str) -> str:
+    lines = str(markdown or "").replace("\r\n", "\n").replace("\r", "\n").split("\n")
+    body_parts = [
+        f"<h1>{html.escape(title)}</h1>",
+        f"<p class=\"lede\">{html.escape(summary)}</p>" if summary.strip() else "",
+    ]
+    index = 0
+
+    while index < len(lines):
+        raw_line = lines[index]
+        stripped = raw_line.strip()
+        if not stripped:
+            index += 1
+            continue
+
+        heading_match = re.match(r"^(#{1,6})\s+(.+)$", stripped)
+        if heading_match:
+            level = len(heading_match.group(1))
+            html_level = min(level + 1, 6)
+            body_parts.append(
+                f"<h{html_level}>{html.escape(heading_match.group(2).strip())}</h{html_level}>"
+            )
+            index += 1
+            continue
+
+        if (
+            index + 1 < len(lines)
+            and _is_markdown_table_row(stripped)
+            and _is_markdown_table_separator(lines[index + 1])
+        ):
+            table_lines = [stripped, lines[index + 1].strip()]
+            index += 2
+            while index < len(lines) and _is_markdown_table_row(lines[index].strip()):
+                table_lines.append(lines[index].strip())
+                index += 1
+            rendered_table = _render_markdown_table(table_lines)
+            if rendered_table:
+                body_parts.append(rendered_table)
+                continue
+
+        bullet_match = re.match(r"^[-*+]\s+(.+)$", stripped)
+        if bullet_match:
+            items: list[str] = []
+            while index < len(lines):
+                match = re.match(r"^[-*+]\s+(.+)$", lines[index].strip())
+                if not match:
+                    break
+                items.append(match.group(1).strip())
+                index += 1
+            body_parts.append(_render_list(items, ordered=False))
+            continue
+
+        ordered_match = re.match(r"^\d+\.\s+(.+)$", stripped)
+        if ordered_match:
+            items = []
+            while index < len(lines):
+                match = re.match(r"^\d+\.\s+(.+)$", lines[index].strip())
+                if not match:
+                    break
+                items.append(match.group(1).strip())
+                index += 1
+            body_parts.append(_render_list(items, ordered=True))
+            continue
+
+        paragraph_lines = [stripped]
+        index += 1
+        while index < len(lines):
+            candidate = lines[index].strip()
+            if not candidate:
+                break
+            if re.match(r"^(#{1,6})\s+(.+)$", candidate):
+                break
+            if re.match(r"^[-*+]\s+(.+)$", candidate):
+                break
+            if re.match(r"^\d+\.\s+(.+)$", candidate):
+                break
+            if (
+                index + 1 < len(lines)
+                and _is_markdown_table_row(candidate)
+                and _is_markdown_table_separator(lines[index + 1])
+            ):
+                break
+            paragraph_lines.append(candidate)
+            index += 1
+        body_parts.append(f"<p>{html.escape(' '.join(paragraph_lines))}</p>")
+
+    body = "".join(part for part in body_parts if part)
+    return (
+        "<!doctype html><html><head><meta charset=\"utf-8\" />"
+        "<title>Word Preview</title></head><body><main>"
+        f"{body}"
+        "</main></body></html>"
+    )
+
+
 def _render_list(items: list[str], *, ordered: bool) -> str:
     tag = "ol" if ordered else "ul"
     body = "".join(f"<li>{html.escape(item)}</li>" for item in items if item)

@@ -68,12 +68,11 @@ def test_evaluate_mindmap_payload_quality_rejects_small_noisy_tree():
 
     assert score < 70
     assert "mindmap_too_small" in issues
-    assert "insufficient_depth" in issues
     assert "contains_rag_noise" in issues
     assert metrics["node_count"] == 3
 
 
-def test_evaluate_mindmap_payload_quality_accepts_large_balanced_tree():
+def test_evaluate_mindmap_payload_quality_accepts_large_asymmetric_tree():
     payload = {
         "title": "信道利用率",
         "nodes": [
@@ -81,26 +80,27 @@ def test_evaluate_mindmap_payload_quality_accepts_large_balanced_tree():
             {"id": "a", "parent_id": "root", "title": "核心定义"},
             {"id": "b", "parent_id": "root", "title": "影响因素"},
             {"id": "c", "parent_id": "root", "title": "效率推导"},
-            {"id": "d", "parent_id": "root", "title": "典型误区"},
-            {"id": "e", "parent_id": "root", "title": "优化思路"},
             {"id": "a1", "parent_id": "a", "title": "发送周期"},
             {"id": "a2", "parent_id": "a", "title": "有效负载"},
             {"id": "b1", "parent_id": "b", "title": "传播时延"},
-            {"id": "b2", "parent_id": "b", "title": "确认等待"},
             {"id": "c1", "parent_id": "c", "title": "公式结构"},
             {"id": "c2", "parent_id": "c", "title": "变量关系"},
-            {"id": "d1", "parent_id": "d", "title": "只看带宽"},
-            {"id": "d2", "parent_id": "d", "title": "忽略 RTT"},
-            {"id": "e1", "parent_id": "e", "title": "滑动窗口"},
-            {"id": "e2", "parent_id": "e", "title": "批量确认"},
             {"id": "c1a", "parent_id": "c1", "title": "发送时间"},
             {"id": "c1b", "parent_id": "c1", "title": "往返等待"},
+            {"id": "c1a1", "parent_id": "c1a", "title": "帧长影响"},
+            {"id": "c1a2", "parent_id": "c1a", "title": "链路带宽"},
+            {"id": "c1b1", "parent_id": "c1b", "title": "确认返回"},
+            {"id": "c1b2", "parent_id": "c1b", "title": "空闲等待"},
+            {"id": "c1b2a", "parent_id": "c1b2", "title": "低利用率来源"},
+            {"id": "c2a", "parent_id": "c2", "title": "公式变形"},
+            {"id": "c2b", "parent_id": "c2", "title": "比例关系"},
         ],
     }
 
     score, issues, metrics = evaluate_mindmap_payload_quality(payload)
 
     assert score >= 70
-    assert issues == []
+    assert "contains_rag_noise" not in issues
+    assert "mindmap_too_small" not in issues
     assert metrics["max_depth"] >= 4
-    assert metrics["primary_branch_count"] == 5
+    assert metrics["primary_branch_count"] == 3

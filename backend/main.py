@@ -221,6 +221,12 @@ async def readiness_check():
 
 @app.get("/health/live", tags=["Health"])
 async def liveness_check():
+    """Lightweight liveness endpoint for container healthchecks."""
+    return {"status": "alive"}
+
+
+@app.get("/health/live", tags=["Health"])
+async def liveness_check():
     """Liveness endpoint for orchestrators (process-only)."""
     return {"status": "alive"}
 

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import copy
-import json
 import logging
 import os
 import re
@@ -14,10 +13,18 @@ from services.ai.model_router import ModelRouteTask
 from utils.exceptions import APIException, ErrorCode
 
 from .common import _load_rag_snippets
+from .word_document_markdown_quality import (
+    _build_refine_prompt,
+    _build_repair_prompt,
+    _collect_markdown_quality_issues,
+    _count_valid_markdown_tables,
+    _extract_markdown_title,
+    _finalize_refined_markdown,
+)
 from ..card_execution_runtime_word import compose_word_title, is_placeholder_word_title
 from ..word_document_content import (
-    document_content_to_html,
     document_content_to_markdown,
+    lesson_plan_markdown_to_html,
     markdown_to_document_content,
     normalize_document_content,
 )
@@ -42,47 +49,6 @@ def _clean_markdown_output(text: str) -> str:
         cleaned = re.sub(r"^```[a-zA-Z0-9_-]*\n?", "", cleaned).strip()
         cleaned = re.sub(r"\n?```$", "", cleaned).strip()
     return cleaned
-
-
-def _normalize_refined_markdown_outline(markdown: str) -> str:
-    normalized = str(markdown or "").replace("\r\n", "\n").replace("\r", "\n").strip()
-    if not normalized:
-        return ""
-
-    lines = normalized.split("\n")
-    normalized_lines: list[str] = []
-    first_heading_seen = False
-    previous_heading_level = 0
-    active_level_shift = 0
-
-    for raw_line in lines:
-        stripped = raw_line.strip()
-        match = re.match(r"^(#{1,6})\s+(.+)$", stripped)
-        if not match:
-            normalized_lines.append(raw_line)
-            continue
-
-        heading_text = match.group(2).strip()
-        raw_level = len(match.group(1))
-        if not first_heading_seen:
-            level = 1
-            first_heading_seen = True
-            active_level_shift = 0
-        else:
-            if raw_level == 1:
-                level = 2
-                active_level_shift = 1
-            else:
-                level = raw_level + active_level_shift
-            level = min(level, 3)
-            if previous_heading_level >= 2 and level > previous_heading_level + 1:
-                level = previous_heading_level + 1
-            level = max(level, 2)
-
-        previous_heading_level = level
-        normalized_lines.append(f"{'#' * level} {heading_text}")
-
-    return "\n".join(normalized_lines).strip()
 
 
 def _normalize_for_compare(text: str) -> str:
@@ -128,15 +94,6 @@ def _is_generic_word_title(value: str) -> bool:
         "教学文档（生成中）",
         "教学文档 - 生成中",
     }
-
-
-def _extract_markdown_title(markdown: str) -> str:
-    for line in str(markdown or "").splitlines():
-        stripped = line.strip()
-        match = re.match(r"^#\s+(.+)$", stripped)
-        if match:
-            return match.group(1).strip()
-    return ""
 
 
 def _resolve_refine_max_tokens() -> int:
@@ -211,6 +168,18 @@ def _resolve_word_refine_mode(config: dict[str, Any]) -> Literal["direct_edit", 
     return "chat_refine"
 
 
+def _resolve_chat_refine_model() -> str | None:
+    for env_name in (
+        "STUDIO_WORD_CHAT_REFINE_MODEL",
+        "WORD_LESSON_PLAN_QUALITY_MODEL",
+        "STUDIO_WORD_REFINE_MODEL",
+    ):
+        resolved = str(os.getenv(env_name, "") or "").strip()
+        if resolved:
+            return resolved
+    return None
+
+
 async def _rewrite_markdown_with_instruction(
     *,
     base_markdown: str,
@@ -223,27 +192,13 @@ async def _rewrite_markdown_with_instruction(
         query=message,
         rag_source_ids=rag_source_ids,
     )
-    prompt = (
-        "你是教学文档编辑助手。请根据“修改要求”直接改写当前 Markdown 教案。\n"
-        "只输出改写后的完整 Markdown，不要解释，不要代码块围栏。\n"
-        "保持原主题与章节结构，优先提升教学可执行性与可读层级。\n"
-        "严格输出约束：\n"
-        "- 全文只能有一个 # 主标题。\n"
-        "- 正文章节使用 ##，子节使用 ###，不要把多个章节都写成 #。\n"
-        "- 保留并强化 # / ## / ### 层级，不要把原有多级标题压平成同一级。\n"
-        "- 适度使用 - 和 1. 列表。\n"
-        "- 仅使用标题、段落、无序列表、有序列表这四类 Markdown 结构。\n"
-        "- 不要输出表格、代码块、引用、HTML 标签。\n"
-        "- 不得无故压缩原文中的章节、表格、教学流程细节、分层要求和评价要点。\n"
-        "- 删除噪声字段、异常符号和无意义片段。\n"
-        f"修改要求：{message}\n"
-        f"参考片段：{json.dumps(rag_snippets, ensure_ascii=False)}\n"
-        "当前 Markdown：\n"
-        f"{base_markdown}\n"
+    prompt = _build_refine_prompt(
+        base_markdown=base_markdown,
+        message=message,
+        rag_snippets=rag_snippets,
     )
-    model = str(os.getenv("STUDIO_WORD_REFINE_MODEL", "") or "").strip() or None
+    model = _resolve_chat_refine_model()
     max_tokens = _resolve_refine_max_tokens()
-    base_title = _extract_markdown_title(base_markdown)
     result = await ai_service.generate(
         prompt=prompt,
         model=model,
@@ -251,13 +206,31 @@ async def _rewrite_markdown_with_instruction(
         has_rag_context=bool(rag_snippets),
         max_tokens=max_tokens,
     )
-    rewritten_markdown = _clean_markdown_output(str(result.get("content") or ""))
-    if _normalize_for_compare(rewritten_markdown) == _normalize_for_compare(
+    rewritten_markdown = _finalize_refined_markdown(
+        base_markdown,
+        _clean_markdown_output(str(result.get("content") or "")),
+    )
+    retry_required = _normalize_for_compare(rewritten_markdown) == _normalize_for_compare(
         base_markdown
-    ):
-        retry_prompt = (
-            prompt
-            + "\n注意：你上一次改写与原文几乎一致。请严格执行修改要求，至少做 3 处可见改动。"
+    )
+    quality_issues = _collect_markdown_quality_issues(
+        base_markdown=base_markdown,
+        candidate_markdown=rewritten_markdown,
+    )
+    if retry_required or quality_issues:
+        retry_issues = list(quality_issues)
+        if retry_required:
+            retry_issues.append("insufficient_change")
+        logger.warning(
+            "word_document refine quality guard triggered: model=%s issues=%s",
+            model or "default",
+            retry_issues,
+        )
+        retry_prompt = _build_repair_prompt(
+            base_markdown=base_markdown,
+            candidate_markdown=rewritten_markdown,
+            message=message,
+            issues=retry_issues,
         )
         retry_result = await ai_service.generate(
             prompt=retry_prompt,
@@ -266,24 +239,44 @@ async def _rewrite_markdown_with_instruction(
             has_rag_context=bool(rag_snippets),
             max_tokens=max_tokens,
         )
-        rewritten_markdown = _clean_markdown_output(
-            str(retry_result.get("content") or "")
+        rewritten_markdown = _finalize_refined_markdown(
+            base_markdown,
+            _clean_markdown_output(str(retry_result.get("content") or "")),
         )
-    rewritten_markdown = _normalize_refined_markdown_outline(rewritten_markdown)
-    if base_title and not _extract_markdown_title(rewritten_markdown):
-        rewritten_markdown = f"# {base_title}\n\n{rewritten_markdown}".strip()
+        quality_issues = _collect_markdown_quality_issues(
+            base_markdown=base_markdown,
+            candidate_markdown=rewritten_markdown,
+        )
     if not rewritten_markdown:
         raise APIException(
             status_code=502,
             error_code=ErrorCode.EXTERNAL_SERVICE_ERROR,
             message="Word 文档微调返回为空，请重试。",
         )
+    if quality_issues:
+        logger.warning(
+            "word_document refine rejected by quality guard: model=%s issues=%s",
+            model or "default",
+            quality_issues,
+        )
+        raise APIException(
+            status_code=502,
+            error_code=ErrorCode.EXTERNAL_SERVICE_ERROR,
+            message="教学文档微调结果结构退化，请重试。",
+            details={
+                "reason": "word_refine_quality_guard",
+                "issues": quality_issues,
+            },
+        )
     logger.info(
-        "word_document refine rewrite: model=%s max_tokens=%s base_markdown_length=%s output_length=%s",
+        "word_document refine rewrite: model=%s max_tokens=%s base_markdown_length=%s output_length=%s base_tables=%s output_tables=%s retried=%s",
         model or "default",
         max_tokens,
         len(base_markdown),
         len(rewritten_markdown),
+        _count_valid_markdown_tables(base_markdown),
+        _count_valid_markdown_tables(rewritten_markdown),
+        retry_required or bool(quality_issues),
     )
     return rewritten_markdown
 
@@ -299,9 +292,11 @@ async def refine_word_document_content(
     updated = copy.deepcopy(current_content)
     refine_mode = _resolve_word_refine_mode(config)
     raw_document = config.get("document_content")
+    final_markdown = ""
     if refine_mode == "direct_edit":
         if isinstance(raw_document, dict) and raw_document:
             document_content = normalize_document_content(raw_document)
+            final_markdown = document_content_to_markdown(document_content)
         else:
             direct_edit_markdown = str(
                 config.get("lesson_plan_markdown") or config.get("markdown_content") or ""
@@ -312,9 +307,8 @@ async def refine_word_document_content(
                     error_code=ErrorCode.INVALID_INPUT,
                     message="word_document direct edit requires document_content or markdown content",
                 )
-            document_content = normalize_document_content(
-                markdown_to_document_content(direct_edit_markdown)
-            )
+            final_markdown = direct_edit_markdown
+            document_content = normalize_document_content(markdown_to_document_content(final_markdown))
     else:
         instruction = str(message or "").strip()
         base_markdown = _resolve_existing_markdown(
@@ -339,9 +333,8 @@ async def refine_word_document_content(
             project_id=project_id,
             rag_source_ids=rag_source_ids,
         )
-        document_content = normalize_document_content(
-            markdown_to_document_content(rewritten_markdown)
-        )
+        final_markdown = rewritten_markdown
+        document_content = markdown_to_document_content(final_markdown)
     if not isinstance(document_content, dict):
         raise APIException(
             status_code=400,
@@ -355,6 +348,7 @@ async def refine_word_document_content(
     markdown_title = _extract_markdown_title(
         str(config.get("lesson_plan_markdown") or "")
         or str(config.get("markdown_content") or "")
+        or final_markdown
         or _resolve_existing_markdown(current_content=current_content, config=config)
     )
     source_title = _resolve_source_title(current_content, config)
@@ -382,9 +376,12 @@ async def refine_word_document_content(
     updated["title"] = title
     updated["summary"] = summary
     updated["document_content"] = document_content
-    updated["lesson_plan_markdown"] = document_content_to_markdown(document_content)
-    updated["preview_html"] = document_content_to_html(
-        document_content,
+    updated["lesson_plan_markdown"] = final_markdown or document_content_to_markdown(
+        document_content
+    )
+    updated["markdown_content"] = updated["lesson_plan_markdown"]
+    updated["preview_html"] = lesson_plan_markdown_to_html(
+        updated["lesson_plan_markdown"],
         title=title,
         summary=summary,
     )

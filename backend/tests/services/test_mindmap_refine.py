@@ -84,6 +84,79 @@ async def test_refine_mindmap_content_full_map_rewrite_uses_review_chain(monkeyp
 
 
 @pytest.mark.asyncio
+async def test_refine_mindmap_content_targets_local_subtree_when_node_is_named(monkeypatch):
+    current_content = _build_large_mindmap("停止等待协议")
+    generated_payload = {
+        "title": "过程",
+        "summary": "扩展过程分支",
+        "nodes": [
+            {"id": "c3", "parent_id": None, "title": "过程", "summary": "过程主线"},
+            {"id": "c3-a", "parent_id": "c3", "title": "发送阶段", "summary": "发送数据帧"},
+            {"id": "c3-b", "parent_id": "c3", "title": "确认阶段", "summary": "等待确认"},
+            {"id": "c3-a-1", "parent_id": "c3-a", "title": "缓存检查", "summary": "确认缓存可用"},
+        ],
+    }
+    reviewed_payload = {
+        "title": "过程",
+        "summary": "扩展后的过程分支",
+        "nodes": [
+            {"id": "c3", "parent_id": None, "title": "过程", "summary": "过程主线"},
+            {"id": "send", "parent_id": "c3", "title": "发送阶段", "summary": "发送数据帧"},
+            {"id": "ack", "parent_id": "c3", "title": "确认阶段", "summary": "等待确认"},
+            {"id": "timer", "parent_id": "ack", "title": "超时判断", "summary": "判断是否重传"},
+            {"id": "retry", "parent_id": "timer", "title": "重传策略", "summary": "超时后重新发送"},
+        ],
+    }
+
+    monkeypatch.setattr(
+        "services.generation_session_service.tool_refine_builder.mindmap_full_map._load_rag_snippets",
+        AsyncMock(return_value=["过程分支可以细分为发送、确认、超时和重传等环节。"]),
+    )
+    generate_payload = AsyncMock(side_effect=[(generated_payload, "model-a"), (reviewed_payload, "model-b")])
+    monkeypatch.setattr(
+        "services.generation_session_service.tool_refine_builder.mindmap_full_map.generate_card_json_payload",
+        generate_payload,
+    )
+
+    updated = await refine_mindmap_content(
+        current_content=current_content,
+        message='给“过程”节点增加 3 个子节点，然后每个再增加 2 个节点',
+        config={"chat_refine_scope": "full_map"},
+        project_id="p-001",
+        rag_source_ids=["file-1"],
+    )
+
+    assert updated["kind"] == "mindmap"
+    process_children = [node for node in updated["nodes"] if node.get("parent_id") == "c3"]
+    assert len(process_children) >= 2
+    assert any(node["title"] == "发送阶段" for node in process_children)
+    assert any(node["title"] == "确认阶段" for node in process_children)
+    unrelated_branch = next(node for node in updated["nodes"] if node["id"] == "b1")
+    assert unrelated_branch["title"] == "概念"
+    first_prompt = generate_payload.await_args_list[0].kwargs["prompt"]
+    assert "local subtree rewrite" in first_prompt.lower()
+    assert "Target subtree snapshot" in first_prompt
+
+
+@pytest.mark.asyncio
+async def test_refine_mindmap_content_rejects_unknown_target_node(monkeypatch):
+    current_content = _build_large_mindmap("停止等待协议")
+
+    with pytest.raises(APIException) as exc_info:
+        await refine_mindmap_content(
+            current_content=current_content,
+            message='给“不存在的节点”增加 3 个子节点',
+            config={"chat_refine_scope": "full_map"},
+            project_id="p-001",
+            rag_source_ids=["file-1"],
+        )
+
+    assert exc_info.value.status_code == 422
+    assert exc_info.value.details.get("failure_reason") == "mindmap_target_node_not_found"
+    assert exc_info.value.details.get("candidate_node_titles") is not None
+
+
+@pytest.mark.asyncio
 async def test_refine_mindmap_content_edit_operation_matches_frontend_protocol(
     monkeypatch,
 ):
@@ -150,6 +223,8 @@ async def test_load_refine_rag_snippets_filters_code_like_noise(monkeypatch):
             return_value=[
                 'function resolveLayoutType(spec) { return "structure_layers"; }',
                 "[来源:foo.ts] export default function Demo() { return <div/> }",
+                "5007 37 38 39 40 Time out elapsed_ms 30000 prompt_chars 1820",
+                "![img](foo.png) ### markdown residue ###",
                 "停止等待协议通过确认与超时重传保证可靠性，但信道利用率较低。",
             ]
         ),

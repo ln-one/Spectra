@@ -44,12 +44,20 @@ export function RegenerateSlideDialog({
 
   const handleSubmit = async () => {
     if (!instruction.trim() || isSubmitting || !sessionId) return;
+    const normalizedRunId = typeof runId === "string" ? runId.trim() : "";
+    const normalizedArtifactId =
+      typeof artifactId === "string" ? artifactId.trim() : "";
+    const targetQuery = normalizedRunId
+      ? { run_id: normalizedRunId }
+      : normalizedArtifactId
+        ? { artifact_id: normalizedArtifactId }
+        : {};
 
     try {
       setIsSubmitting(true);
       await previewApi.modifySessionPreview(sessionId, {
-        run_id: runId || undefined,
-        artifact_id: artifactId || undefined,
+        run_id: targetQuery.run_id,
+        artifact_id: targetQuery.artifact_id,
         slide_id: slideId || undefined,
         slide_index: slideNo,
         instruction: instruction.trim(),

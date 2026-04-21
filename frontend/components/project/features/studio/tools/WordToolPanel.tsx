@@ -36,16 +36,16 @@ function readResolvedWordMarkdown(
       ? (flowContext.resolvedArtifact.content as Record<string, unknown>)
       : null;
   if (!content) return "";
-  const markdown =
-    typeof content.markdown_content === "string"
-      ? content.markdown_content.trim()
-      : "";
-  if (markdown) return markdown;
   const lessonPlanMarkdown =
     typeof content.lesson_plan_markdown === "string"
       ? content.lesson_plan_markdown.trim()
       : "";
   if (lessonPlanMarkdown) return lessonPlanMarkdown;
+  const markdown =
+    typeof content.markdown_content === "string"
+      ? content.markdown_content.trim()
+      : "";
+  if (markdown) return markdown;
   return "";
 }
 

@@ -203,14 +203,16 @@ def build_mindmap_generation_prompt(
             "Mind-map requirements:",
             "- Build around one clear central question or topic.",
             "- Prefer a visually rich map with multiple levels, not a shallow 3-layer summary.",
-            "- Target 4 to 7 primary branches with meaningful variety.",
-            "- Expand deeper where helpful so the tree feels complete, but avoid long one-child chains.",
+            "- Aim for a substantial map, but treat branch count as a flexible design choice rather than a fixed quota.",
+            "- Allow asymmetry: some branches can be much deeper, denser, or more detailed than others when the topic naturally supports it.",
+            "- Expand deeply where helpful, and do not force every branch to have matching depth or matching child counts.",
             "- Organize branches using mind-map-friendly structures such as concept, mechanism, comparison, misconception, application, example, strategy, relation, or process.",
-            "- Titles must be short words or short phrases, suitable for node labels.",
+            "- Titles should usually stay short words or short phrases suitable for node labels, but clarity is more important than mechanical brevity.",
             "- Summaries must be clean synthesized explanations, not source fragments.",
             "- Do not mention files, pages, chunks, sources, prompt instructions, or retrieval.",
             "- Do not write phrases like '资料里提到', '来源', '见第X页', or filename references.",
             "- Remove repetition and merge overlapping branches.",
+            "- Favor a mind-map that feels authored and insightful, not a perfectly uniform taxonomy tree.",
             "- Return a flat nodes array. Do not rely on nested children arrays as the primary structure.",
             f"Expected JSON shape example: {schema_hint}",
         ]
@@ -235,7 +237,7 @@ def build_mindmap_review_prompt(
     draft_snapshot = _summarize_review_payload(draft_payload)
     _score, _issues, metrics = evaluate_mindmap_payload_quality(draft_payload)
     min_node_count = max(12, int(metrics.get("node_count") or 0))
-    min_primary_branches = max(4, int(metrics.get("primary_branch_count") or 0))
+    min_primary_branches = max(3, int(metrics.get("primary_branch_count") or 0))
     requested_depth = resolve_requested_mindmap_depth(config, instruction)
     min_depth = max(4, int(metrics.get("max_depth") or 0), int(requested_depth or 0))
     depth_requirement_line = (
@@ -255,7 +257,7 @@ def build_mindmap_review_prompt(
         "- Rewrite summaries to be clean, synthesized, and classroom-ready.\n"
         "- Remove all RAG residue, file names, page numbers, chunk markers, and quoted-fragment tone.\n"
         "- Merge duplicate or near-duplicate branches.\n"
-        "- Expand branches that are too thin so the map feels substantial and balanced.\n"
+        "- Expand branches that are too thin so the map feels substantial, but do not force uniformity.\n"
         "- Keep the root focused on a single topic.\n"
         f"- Keep at least {min_node_count} nodes unless the user explicitly asked to simplify.\n"
         f"- Keep at least {min_primary_branches} primary branches unless the user explicitly asked to simplify.\n"
@@ -263,6 +265,8 @@ def build_mindmap_review_prompt(
         f"{depth_requirement_line}"
         "- Do not collapse the map into a one-node summary.\n"
         "- Preserve the overall structural richness of the draft.\n"
+        "- Allow asymmetric structure: some branches may be deeper or denser than others if that improves teaching value.\n"
+        "- Do not flatten distinctive deep branches just to make the map look balanced.\n"
         "- Return a flat nodes array. Do not rely on nested children arrays as the primary structure.\n"
         "- Preserve structured JSON output only.\n"
         f"Expected JSON shape example: {schema_hint}\n"

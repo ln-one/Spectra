@@ -1,5 +1,9 @@
 import type { AnimationOutputFormat } from "./types";
-import type { AnimationArtifactRuntimeSnapshot } from "./runtime/types";
+import type {
+  AnimationArtifactRuntimeSnapshot,
+  GraphEntity,
+  GraphStepFrame,
+} from "./runtime/types";
 
 export const BUBBLE_SORT_MOCK_DURATION_SECONDS = 20;
 export const BUBBLE_SORT_MOCK_FORMAT: AnimationOutputFormat = "gif";
@@ -82,7 +86,7 @@ function buildSceneOutline(totalSteps: number) {
 export function buildBubbleSortMockRuntimeSnapshot(): AnimationArtifactRuntimeSnapshot {
   const spec = buildBubbleSortMockSpec();
   const maxValue = Math.max(...spec.dataset, 1);
-  const steps = spec.steps.map((step, index) => ({
+  const steps: GraphStepFrame[] = spec.steps.map((step, index) => ({
     index,
     primary_caption: {
       title: buildStepTitle(step),
@@ -107,7 +111,7 @@ export function buildBubbleSortMockRuntimeSnapshot(): AnimationArtifactRuntimeSn
         }),
         max_value: maxValue,
       },
-    ],
+    ] satisfies GraphEntity[],
     actions: [],
     focus_targets: ["track-main"],
   }));
