@@ -1,6 +1,6 @@
 export function SpectraLogo({ className }: { className?: string }) {
   return (
-    <svg className={className} viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
+    <svg className={className} width="100%" height="100%" viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
       <defs>
         <linearGradient id="color-1" x1="0%" y1="0%" x2="0%" y2="100%">
           <stop offset="0%" stopColor="#FF3B30"></stop>

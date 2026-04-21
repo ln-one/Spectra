@@ -9,6 +9,7 @@ interface LightRaysProps extends React.HTMLAttributes<HTMLDivElement> {
   ref?: React.Ref<HTMLDivElement>;
   count?: number;
   color?: string;
+  colors?: string[]; // Array of CSS colors (e.g. hex or rgba)
   blur?: number;
   speed?: number;
   length?: string;
@@ -23,9 +24,10 @@ type LightRay = {
   delay: number;
   duration: number;
   intensity: number;
+  colorVar: string;
 };
 
-const createRays = (count: number, cycle: number): LightRay[] => {
+const createRays = (count: number, cycle: number, colors?: string[]): LightRay[] => {
   if (count <= 0) return [];
 
   return Array.from({ length: count }, (_, index) => {
@@ -36,6 +38,9 @@ const createRays = (count: number, cycle: number): LightRay[] => {
     const delay = Math.random() * cycle;
     const duration = cycle * (0.75 + Math.random() * 0.5);
     const intensity = 0.6 + Math.random() * 0.5;
+    const colorVar = colors && colors.length > 0 
+      ? colors[Math.floor(Math.random() * colors.length)] 
+      : "var(--light-rays-color)";
 
     return {
       id: `${index}-${Math.round(left * 10)}`,
@@ -46,6 +51,7 @@ const createRays = (count: number, cycle: number): LightRay[] => {
       delay,
       duration,
       intensity,
+      colorVar,
     };
   });
 };
@@ -58,14 +64,16 @@ const Ray = ({
   delay,
   duration,
   intensity,
+  colorVar,
 }: LightRay) => {
   return (
     <motion.div
-      className="pointer-events-none absolute -top-[12%] left-[var(--ray-left)] h-[var(--light-rays-length)] w-[var(--ray-width)] origin-top -translate-x-1/2 rounded-full bg-linear-to-b from-[color-mix(in_srgb,var(--light-rays-color)_70%,transparent)] to-transparent opacity-0 mix-blend-screen blur-[var(--light-rays-blur)]"
+      className="pointer-events-none absolute -top-[12%] left-[var(--ray-left)] h-[var(--light-rays-length)] w-[var(--ray-width)] origin-top -translate-x-1/2 rounded-full bg-linear-to-b from-[color-mix(in_srgb,var(--ray-color)_70%,transparent)] to-transparent opacity-0 mix-blend-screen blur-[var(--light-rays-blur)]"
       style={
         {
           "--ray-left": `${left}%`,
           "--ray-width": `${width}px`,
+          "--ray-color": colorVar,
         } as CSSProperties
       }
       initial={{ rotate: rotate }}
@@ -89,6 +97,7 @@ export function LightRays({
   style,
   count = 7,
   color = "rgba(160, 210, 255, 0.2)",
+  colors,
   blur = 36,
   speed = 14,
   length = "70vh",
@@ -99,8 +108,8 @@ export function LightRays({
   const cycleDuration = Math.max(speed, 0.1);
 
   useEffect(() => {
-    setRays(createRays(count, cycleDuration));
-  }, [count, cycleDuration]);
+    setRays(createRays(count, cycleDuration, colors));
+  }, [count, cycleDuration, colors]);
 
   return (
     <div
