@@ -4,7 +4,7 @@ import re
 import uuid
 from typing import Optional
 
-from services.generation_session_service.teaching_brief import (
+from services.generation_session_service.teaching_brief_projection import (
     build_brief_prompt_hint,
     extract_brief_fields_from_options,
 )

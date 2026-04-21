@@ -451,48 +451,6 @@ def auto_apply_ai_proposal(
     }
 
 
-def build_brief_prompt_hint(brief_raw: Any) -> str:
-    from services.generation_session_service.teaching_brief_prompting import (
-        build_brief_prompt_hint as _build_brief_prompt_hint,
-    )
-
-    return _build_brief_prompt_hint(brief_raw)
-
-
-def extract_brief_fields_from_options(options_raw: Any) -> dict[str, Any]:
-    options = parse_session_options(options_raw)
-    brief = normalize_teaching_brief(options.get(TEACHING_BRIEF_KEY))
-    result: dict[str, Any] = {}
-    if brief.get("topic"):
-        result["topic"] = brief["topic"]
-    if brief.get("audience"):
-        result["audience"] = brief["audience"]
-    if brief.get("target_pages"):
-        result["target_pages"] = brief["target_pages"]
-    if brief.get("duration_minutes"):
-        result["target_duration_minutes"] = brief["duration_minutes"]
-    elif brief.get("lesson_hours"):
-        result["lesson_hours"] = brief["lesson_hours"]
-    if brief.get("teaching_strategy"):
-        result["teaching_strategy"] = brief["teaching_strategy"]
-    return result
-
-
-def infer_teaching_brief_proposal(
-    *,
-    content: str,
-    source_message_id: str,
-) -> Optional[dict[str, Any]]:
-    from services.generation_session_service.teaching_brief_prompting import (
-        infer_teaching_brief_proposal as _infer_teaching_brief_proposal,
-    )
-
-    return _infer_teaching_brief_proposal(
-        content=content,
-        source_message_id=source_message_id,
-    )
-
-
 def proposal_conflicts_with_confirmed_brief(
     brief_raw: Any,
     proposal: dict[str, Any],
@@ -525,19 +483,3 @@ def proposal_conflicts_with_confirmed_brief(
         if normalized_current not in (None, "", []) and normalized_current != value:
             return True
     return False
-
-
-def remove_proposal_by_id(
-    proposals: list[dict[str, Any]],
-    proposal_id: str,
-) -> tuple[list[dict[str, Any]], Optional[dict[str, Any]]]:
-    normalized_id = _normalize_text(proposal_id)
-    kept: list[dict[str, Any]] = []
-    removed: Optional[dict[str, Any]] = None
-    for proposal in proposals:
-        current_id = _normalize_text(proposal.get("proposal_id"))
-        if removed is None and current_id == normalized_id:
-            removed = proposal
-            continue
-        kept.append(proposal)
-    return kept, removed

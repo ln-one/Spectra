@@ -167,29 +167,9 @@ class TestPromptService:
 
         assert '<teaching_brief_protocol status="review_pending"' in prompt
         assert "&quot;knowledge_points&quot;" in prompt
-        assert "spectra_brief_extract" in prompt
-        assert "spectra_brief_summary" not in prompt
         assert "教学需求单" in prompt
-
-    def test_chat_response_prompt_includes_confirmation_marker_contract_when_ready(self):
-        prompt = self.svc.build_chat_response_prompt(
-            user_message="请确认并开始下一步",
-            intent="general_chat",
-            teaching_brief_context={
-                "status": "review_pending",
-                "can_generate": True,
-                "missing_fields": [],
-                "brief": {
-                    "topic": "牛顿第二定律",
-                    "audience": "高一学生",
-                    "target_pages": 12,
-                    "knowledge_points": ["受力分析"],
-                },
-            },
-        )
-
-        assert "spectra_brief_summary" in prompt
-        assert "request_confirmation" in prompt
+        assert "spectra_brief_extract" not in prompt
+        assert "spectra_brief_summary" not in prompt
 
     def test_prompt_suggestion_prompt_requires_json_and_rag_grounding(self):
         rag = [{"content": "细胞分裂包含间期和分裂期", "source": {"filename": "bio.pdf"}}]

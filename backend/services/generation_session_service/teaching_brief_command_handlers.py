@@ -5,13 +5,15 @@ import json
 from services.generation_session_service.event_store import (
     persist_session_update_and_events,
 )
+from services.generation_session_service.teaching_brief_proposals import (
+    remove_proposal_by_id,
+)
 from services.generation_session_service.teaching_brief import (
     apply_proposal_to_brief,
     confirm_teaching_brief,
     load_teaching_brief,
     load_teaching_brief_proposals,
     patch_teaching_brief,
-    remove_proposal_by_id,
     store_teaching_brief,
 )
 from services.platform.generation_event_constants import GenerationEventType

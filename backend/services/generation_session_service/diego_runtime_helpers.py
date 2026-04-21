@@ -3,9 +3,9 @@ from __future__ import annotations
 import json
 from typing import Any, Optional
 
-from services.generation_session_service.teaching_brief import (
+from services.generation_session_service.teaching_brief import load_teaching_brief
+from services.generation_session_service.teaching_brief_projection import (
     extract_brief_fields_from_options,
-    load_teaching_brief,
 )
 
 _DIEGO_BINDING_KEY = "diego"

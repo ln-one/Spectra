@@ -1,3 +1,4 @@
+import asyncio
 import json
 import os
 import time
@@ -15,12 +16,17 @@ from services.generation_session_service.session_history import (
     request_session_title_generation,
 )
 from services.generation_session_service.teaching_brief import (
-    auto_apply_ai_proposal,
     build_teaching_brief_prompt_context,
     load_teaching_brief,
     load_teaching_brief_proposals,
-    now_iso,
+    parse_session_options,
     store_teaching_brief,
+)
+from services.generation_session_service.teaching_brief_extractor import (
+    run_background_brief_extraction,
+)
+from services.generation_session_service.teaching_brief_prompting import (
+    detect_brief_confirmation_request,
 )
 from services.prompt_service import build_prompt_traceability
 from utils.exceptions import (
@@ -35,12 +41,6 @@ from .citation_utils import (
     align_citations_with_content,
     append_citation_markers,
     sanitize_cite_tags,
-)
-from .brief_extract_parser import (
-    detect_brief_summary_block,
-    parse_structured_brief_extract,
-    strip_brief_extract_block,
-    strip_brief_summary_markers,
 )
 from .observability import (
     FEW_SHOT_VERSION,
@@ -58,6 +58,10 @@ from .runtime_helpers import (
     persist_assistant_message,
 )
 from .shared import logger, to_message, verify_project_ownership
+from .teaching_brief_runtime import (
+    build_generation_intent_payload,
+    plan_brief_extraction,
+)
 
 
 def _get_generation_session_lookup_db():
@@ -287,10 +291,7 @@ async def process_chat_message(
             )
         )
         stage_timings_ms.update(generation_timings)
-        structured_brief_extract = parse_structured_brief_extract(assistant_content)
-        assistant_content = strip_brief_extract_block(assistant_content)
-        confirmation_requested = detect_brief_summary_block(assistant_content)
-        assistant_content = strip_brief_summary_markers(assistant_content)
+        confirmation_requested = detect_brief_confirmation_request(assistant_content)
         route_info = generation_meta["route_info"]
         selected_model = generation_meta["selected_model"]
         provider_model = generation_meta["provider_model"]
@@ -365,83 +366,44 @@ async def process_chat_message(
 
         msg_dict = to_message(assistant_msg)
         msg_dict["citations"] = citations or []
-
-        brief_proposal = None
-        if structured_brief_extract is not None:
-            brief_proposal = {
-                "proposal_id": str(uuid4()),
-                "source_message_id": str(getattr(user_message, "id", "") or ""),
-                "proposed_changes": structured_brief_extract["fields"],
-                "reasoning_summary": "AI 从本轮对话中识别到新的教学需求字段。",
-                "confidence": structured_brief_extract.get("confidence", 0.85),
-                "requires_user_confirmation": False,
-                "created_at": now_iso(),
-            }
         teaching_brief_hint_payload = None
+        extraction_plan = None
         if session_record is not None:
             current_brief = load_teaching_brief(getattr(session_record, "options", None))
             current_proposals = load_teaching_brief_proposals(
                 getattr(session_record, "options", None)
             )
             auto_applied_fields: list[str] = []
-            queued_proposal = None
-            if brief_proposal is not None:
-                apply_result = auto_apply_ai_proposal(
-                    current_brief,
-                    brief_proposal,
-                    proposals_raw=current_proposals,
-                )
-                current_brief = apply_result["brief"]
-                auto_applied_fields = list(apply_result.get("applied_fields") or [])
-                current_proposals = list(apply_result.get("proposals") or [])
-                queued_proposal = apply_result.get("queued_proposal")
-                if auto_applied_fields or queued_proposal is not None:
-                    current_state = str(getattr(session_record, "state", "") or "")
-                    next_state = current_state
-                    if current_state in {
-                        "IDLE",
-                        "CONFIGURING",
-                        "ANALYZING",
-                        "AWAITING_REQUIREMENTS_CONFIRM",
-                    }:
-                        next_state = (
-                            "CONFIGURING"
-                            if current_brief.get("status") == "confirmed"
-                            else "AWAITING_REQUIREMENTS_CONFIRM"
-                        )
-                    next_options = store_teaching_brief(
-                        getattr(session_record, "options", None),
-                        brief=current_brief,
-                        proposals=current_proposals,
-                    )
-                    await db_service.db.generationsession.update(
-                        where={"id": session_id},
-                        data={
-                            "options": json.dumps(next_options, ensure_ascii=False),
-                            "state": next_state,
-                        },
-                    )
-            else:
-                auto_applied_fields = []
-
             confirmation_requested = bool(
                 confirmation_requested
                 and (current_brief.get("readiness") or {}).get("can_generate")
                 and current_brief.get("status") != "confirmed"
             )
-            if brief_proposal is not None and not auto_applied_fields and queued_proposal is None:
-                brief_proposal = None
 
+            extraction_plan = plan_brief_extraction(
+                options_raw=getattr(session_record, "options", None),
+                brief_raw=current_brief,
+                latest_user_message=body.content,
+            )
+            current_options = parse_session_options(getattr(session_record, "options", None))
+            next_options = dict(extraction_plan["next_options"])
+            if next_options != current_options:
+                next_options = store_teaching_brief(
+                    next_options,
+                    brief=current_brief,
+                    proposals=current_proposals,
+                )
+                await db_service.db.generationsession.update(
+                    where={"id": session_id},
+                    data={"options": json.dumps(next_options, ensure_ascii=False)},
+                )
+
+            generation_intent_payload = build_generation_intent_payload(
+                content=body.content,
+                brief_raw=current_brief,
+            )
             teaching_brief_hint_payload = {
-                "proposal_id": (
-                    brief_proposal.get("proposal_id")
-                    if brief_proposal is not None
-                    else (
-                        queued_proposal.get("proposal_id")
-                        if isinstance(queued_proposal, dict)
-                        else None
-                    )
-                ),
+                "proposal_id": None,
                 "proposal_count": len(current_proposals),
                 "status": current_brief.get("status"),
                 "can_generate": (current_brief.get("readiness") or {}).get(
@@ -455,7 +417,15 @@ async def process_chat_message(
                 )
                 or [],
                 "brief_status": current_brief.get("status"),
+                **generation_intent_payload,
             }
+            if extraction_plan.get("should_run"):
+                asyncio.create_task(
+                    run_background_brief_extraction(
+                        session_id=session_id,
+                        project_id=body.project_id,
+                    )
+                )
 
         response_payload = success_response(
             data={

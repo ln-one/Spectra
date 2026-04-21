@@ -1,15 +1,19 @@
 from __future__ import annotations
 
 import re
-from typing import Any, Optional
-from uuid import uuid4
+from typing import Any
 
 from services.generation_session_service.teaching_brief import (
-    _normalize_list,
     _normalize_text,
     load_teaching_brief,
-    now_iso,
 )
+
+_CONFIRMATION_PATTERNS = [
+    r"这些信息是否准确",
+    r"以上(?:信息|需求).{0,12}(?:是否准确|是否正确)",
+    r"如果没问题.{0,24}(?:需求单|教学需求).{0,12}(?:已确认|标记为已确认)",
+    r"请确认(?:一下)?(?:这些|以上)?(?:信息|需求)",
+]
 
 
 def build_brief_prompt_hint(brief_raw: Any) -> str:
@@ -44,78 +48,8 @@ def build_brief_prompt_hint(brief_raw: Any) -> str:
     return "\n".join(lines)
 
 
-def _extract_match(pattern: str, content: str) -> str:
-    matched = re.search(pattern, content, re.IGNORECASE)
-    if not matched:
-        return ""
-    return _normalize_text(matched.group(1))
-
-
-def infer_teaching_brief_proposal(
-    *,
-    content: str,
-    source_message_id: str,
-) -> Optional[dict[str, Any]]:
+def detect_brief_confirmation_request(content: str) -> bool:
     normalized = _normalize_text(content)
     if not normalized:
-        return None
-
-    proposed_changes: dict[str, Any] = {}
-    page_match = re.search(r"(\d{1,2})\s*(?:页|p\b|pages?)", normalized, re.IGNORECASE)
-    if page_match:
-        proposed_changes["target_pages"] = int(page_match.group(1))
-
-    duration_match = re.search(r"(\d{1,3})\s*分钟", normalized)
-    if duration_match:
-        proposed_changes["duration_minutes"] = int(duration_match.group(1))
-
-    lesson_match = re.search(r"(\d{1,2})\s*课时", normalized)
-    if lesson_match:
-        proposed_changes["lesson_hours"] = int(lesson_match.group(1))
-
-    audience = _extract_match(r"(?:面向|给|针对)\s*([^，。,\n]{2,30})", normalized)
-    if audience:
-        proposed_changes["audience"] = audience
-
-    topic = _extract_match(r"(?:主题|课题|内容)[是为:]?\s*([^，。,\n]{2,40})", normalized)
-    if topic:
-        proposed_changes["topic"] = topic
-
-    strategy = _extract_match(r"(?:教学策略|授课方式)[是为:]?\s*([^。,\n]{2,60})", normalized)
-    if strategy:
-        proposed_changes["teaching_strategy"] = strategy
-
-    emphasis = _extract_match(r"(?:重点|突出)\s*[是为:]?\s*([^。,\n]{2,80})", normalized)
-    if emphasis:
-        proposed_changes["global_emphasis"] = _normalize_list(emphasis)
-
-    difficulties = _extract_match(r"(?:难点|困难点)\s*[是为:]?\s*([^。,\n]{2,80})", normalized)
-    if difficulties:
-        proposed_changes["global_difficulties"] = _normalize_list(difficulties)
-
-    knowledge_match = _extract_match(
-        r"(?:知识点|内容包括|包括|涵盖)\s*[：: ]?\s*([^。]{4,120})", normalized
-    )
-    if knowledge_match:
-        proposed_changes["knowledge_points"] = _normalize_list(knowledge_match)
-
-    objective_match = _extract_match(r"(?:教学目标|目标)\s*[：: ]?\s*([^。]{4,120})", normalized)
-    if objective_match:
-        proposed_changes["teaching_objectives"] = _normalize_list(objective_match)
-
-    style_match = _extract_match(r"(?:风格|版式|视觉风格)\s*[：: ]?\s*([^。,\n]{2,40})", normalized)
-    if style_match:
-        proposed_changes["style_profile"] = {"visual_tone": style_match}
-
-    if not proposed_changes:
-        return None
-
-    return {
-        "proposal_id": str(uuid4()),
-        "source_message_id": source_message_id,
-        "proposed_changes": proposed_changes,
-        "reasoning_summary": "根据最新对话提取到新的教学需求候选字段。",
-        "confidence": 0.62,
-        "requires_user_confirmation": True,
-        "created_at": now_iso(),
-    }
+        return False
+    return any(re.search(pattern, normalized) for pattern in _CONFIRMATION_PATTERNS)
