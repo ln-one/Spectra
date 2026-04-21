@@ -246,7 +246,7 @@ export function SessionArtifacts({
           sourceKey,
           surfaceKind,
           title: item.title,
-          fakeSource: item.toolType === "ppt" && !artifactId,
+          fakeSource: item.toolType === "ppt",
           sessionId: item.sessionId ?? null,
           runId: item.runId ?? null,
           toolType: item.toolType,

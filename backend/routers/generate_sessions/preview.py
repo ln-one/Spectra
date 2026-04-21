@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import mimetypes
+import json
 
 from typing import Optional
 from uuid import UUID
@@ -72,6 +73,23 @@ async def _get_preview_snapshot_or_raise(session_id: str, user_id: str) -> dict:
     )
 
 
+def _artifact_metadata_run_id(artifact) -> str | None:
+    if artifact is None:
+        return None
+    metadata = getattr(artifact, "metadata", None)
+    payload = metadata if isinstance(metadata, dict) else None
+    if payload is None and isinstance(metadata, str) and metadata.strip():
+        try:
+            parsed = json.loads(metadata)
+        except json.JSONDecodeError:
+            parsed = None
+        payload = parsed if isinstance(parsed, dict) else None
+    if not isinstance(payload, dict):
+        return None
+    resolved = str(payload.get("run_id") or "").strip()
+    return resolved or None
+
+
 async def _resolve_preview_anchor(
     session_id: str,
     snapshot: dict,
@@ -87,6 +105,9 @@ async def _resolve_preview_anchor(
         run_id=run_id,
     )
     anchor = _build_artifact_anchor(session_id, bound_artifact)
+    artifact_run_id = _artifact_metadata_run_id(bound_artifact)
+    if artifact_run_id:
+        anchor["run_id"] = artifact_run_id
     if run_id:
         anchor["run_id"] = run_id
     return anchor

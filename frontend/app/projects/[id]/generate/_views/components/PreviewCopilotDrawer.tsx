@@ -67,13 +67,16 @@ function buildRunScopedSlideDetailQuery(
   runId: string | null,
   artifactId: string | null
 ): { run_id?: string; artifact_id?: string } {
+  const normalizedArtifactId =
+    typeof artifactId === "string" ? artifactId.trim() : "";
+  if (normalizedArtifactId) {
+    return { artifact_id: normalizedArtifactId };
+  }
   const normalizedRunId = typeof runId === "string" ? runId.trim() : "";
   if (normalizedRunId) {
     return { run_id: normalizedRunId };
   }
-  const normalizedArtifactId =
-    typeof artifactId === "string" ? artifactId.trim() : "";
-  return normalizedArtifactId ? { artifact_id: normalizedArtifactId } : {};
+  return {};
 }
 
 const COPILOT_UI_SCALE = 1.25;
