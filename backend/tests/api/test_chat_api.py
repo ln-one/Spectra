@@ -213,6 +213,9 @@ def test_send_message_schedules_background_brief_extraction_on_early_trigger(
     assert hint["auto_applied_fields"] == []
     assert hint["ai_requests_confirmation"] is False
     assert hint["brief_status"] == "draft"
+    assert hint["extraction_scheduled"] is True
+    assert hint["extraction_reason"] == "missing_field_answer"
+    assert hint["refresh_after_ms"] >= 500
     assert "knowledge_points" in hint["missing_fields"]
     assert len(_mock_background_brief_task) == 1
 

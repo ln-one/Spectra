@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import re
+import time
 from typing import Any
 
 from services.generation_session_service.teaching_brief import (
@@ -11,6 +12,8 @@ from services.generation_session_service.teaching_brief import (
 )
 
 BRIEF_EXTRACTION_TURN_COUNT_KEY = "_brief_extraction_turn_count"
+BRIEF_EXTRACTION_LAST_SCHEDULED_AT_KEY = "_brief_extraction_last_scheduled_at"
+BRIEF_EXTRACTION_REFRESH_AFTER_MS = 3500
 
 _MISSING_FIELD_LABELS = {
     "topic": "主题",
@@ -22,7 +25,13 @@ _MISSING_FIELD_LABELS = {
 _GENERATION_INTENT_PATTERNS = [
     r"(生成|开始|启动|创建|做一套|出一套).{0,12}(ppt|课件|幻灯片)",
     r"(ppt|课件|幻灯片).{0,12}(生成|开始|启动|创建)",
+    r"(直接|现在|马上).{0,8}(完整大纲|教学大纲|课件大纲)",
 ]
+
+_DIRECT_OUTPUT_INTENT_RE = re.compile(
+    r"(直接|现在|马上).{0,8}(给我|输出|生成|整理).{0,8}(完整)?(教学)?大纲|开始.{0,8}(生成|做|出)",
+    re.IGNORECASE,
+)
 
 
 def _env_positive_int(name: str, default: int) -> int:
@@ -40,11 +49,31 @@ def resolve_brief_extraction_interval() -> int:
     return max(1, min(_env_positive_int("BRIEF_EXTRACTION_INTERVAL", 3), 20))
 
 
+def resolve_brief_extraction_debounce_seconds() -> int:
+    return max(0, min(_env_positive_int("BRIEF_EXTRACTION_SCHEDULE_DEBOUNCE_SECONDS", 3), 30))
+
+
+def resolve_brief_extraction_refresh_after_ms() -> int:
+    return max(
+        500,
+        min(
+            _env_positive_int(
+                "BRIEF_EXTRACTION_REFRESH_AFTER_MS",
+                BRIEF_EXTRACTION_REFRESH_AFTER_MS,
+            ),
+            15000,
+        ),
+    )
+
+
 def detect_generation_intent(content: str) -> bool:
     normalized = str(content or "").strip().lower()
     if not normalized:
         return False
-    return any(re.search(pattern, normalized, re.IGNORECASE) for pattern in _GENERATION_INTENT_PATTERNS)
+    return any(
+        re.search(pattern, normalized, re.IGNORECASE)
+        for pattern in _GENERATION_INTENT_PATTERNS
+    )
 
 
 def build_generation_intent_payload(
@@ -113,6 +142,66 @@ def _estimate_missing_fields_after_message(
     return [field for field in missing_fields if field in remaining]
 
 
+def _detect_answered_missing_fields(
+    *,
+    missing_fields: list[str],
+    content: str,
+) -> set[str]:
+    normalized = str(content or "").strip()
+    if not normalized:
+        return set()
+
+    answered: set[str] = set()
+    remaining = set(missing_fields)
+    if "topic" in remaining and re.search(
+        r"(第[一二三四五六七八九十\d]+章|主题|课题|讲什么|讲(?:解)?\s*[^，。,\n]{2,40}|着重\s*[^，。,\n]{2,40})",
+        normalized,
+        re.IGNORECASE,
+    ):
+        answered.add("topic")
+    if "audience" in remaining and re.search(
+        r"(?:面向|针对)\s*[^，。,\n]{2,40}|给\s*[^，。,\n]{2,40}(?:学生|老师|教师|学员|班|专业)",
+        normalized,
+        re.IGNORECASE,
+    ):
+        answered.add("audience")
+    if "knowledge_points" in remaining and re.search(
+        r"(知识点|内容包括|包括|涵盖|讲哪些|全部讲|都讲|着重|重点讲|算法部分)",
+        normalized,
+        re.IGNORECASE,
+    ):
+        answered.add("knowledge_points")
+    if "duration_or_pages" in remaining and re.search(
+        r"(\d{1,3}\s*分钟)|(\d{1,2}\s*个?\s*课时)|(\d{1,3}\s*(?:页|p\b|pages?))",
+        normalized,
+        re.IGNORECASE,
+    ):
+        answered.add("duration_or_pages")
+    return answered
+
+
+def _contains_field_evidence(content: str) -> bool:
+    normalized = str(content or "").strip()
+    if not normalized:
+        return False
+    return bool(
+        re.search(
+            r"(第[一二三四五六七八九十\d]+章|主题|课题|面向|针对|知识点|内容包括|包括|涵盖|讲哪些|全部讲|都讲|着重|重点讲|\d{1,3}\s*分钟|\d{1,2}\s*个?\s*课时|\d{1,3}\s*(?:页|p\b|pages?))",
+            normalized,
+            re.IGNORECASE,
+        )
+    )
+
+
+def _recently_scheduled(options: dict[str, Any], *, now: float) -> bool:
+    try:
+        last_scheduled_at = float(options.get(BRIEF_EXTRACTION_LAST_SCHEDULED_AT_KEY) or 0)
+    except (TypeError, ValueError):
+        return False
+    debounce_seconds = resolve_brief_extraction_debounce_seconds()
+    return debounce_seconds > 0 and last_scheduled_at > 0 and now - last_scheduled_at < debounce_seconds
+
+
 def plan_brief_extraction(
     *,
     options_raw: Any,
@@ -120,6 +209,7 @@ def plan_brief_extraction(
     latest_user_message: str,
 ) -> dict[str, Any]:
     options = parse_session_options(options_raw)
+    now = time.time()
     try:
         previous_turn_count = int(options.get(BRIEF_EXTRACTION_TURN_COUNT_KEY) or 0)
     except (TypeError, ValueError):
@@ -132,17 +222,51 @@ def plan_brief_extraction(
         brief_raw=brief,
         content=latest_user_message,
     )
+    answered_missing_fields = _detect_answered_missing_fields(
+        missing_fields=current_missing_fields,
+        content=latest_user_message,
+    )
+    generation_intent_trigger = detect_generation_intent(
+        latest_user_message
+    ) or bool(_DIRECT_OUTPUT_INTENT_RE.search(str(latest_user_message or "")))
+    missing_field_answer_trigger = bool(answered_missing_fields)
+    field_evidence_trigger = _contains_field_evidence(latest_user_message)
     immediate_trigger = (
         len(current_missing_fields) >= 3 and len(estimated_missing_fields) <= 1
     )
     interval_trigger = next_turn_count >= resolve_brief_extraction_interval()
-    should_run = immediate_trigger or interval_trigger
+    extraction_reason = None
+    if generation_intent_trigger:
+        extraction_reason = "generation_intent"
+    elif missing_field_answer_trigger:
+        extraction_reason = "missing_field_answer"
+    elif immediate_trigger or field_evidence_trigger:
+        extraction_reason = "field_evidence"
+    elif interval_trigger:
+        extraction_reason = "interval"
+
+    should_run = extraction_reason is not None
+    debounced = bool(should_run and _recently_scheduled(options, now=now))
+    if debounced:
+        should_run = False
+
     options[BRIEF_EXTRACTION_TURN_COUNT_KEY] = 0 if should_run else next_turn_count
+    if should_run:
+        options[BRIEF_EXTRACTION_LAST_SCHEDULED_AT_KEY] = now
 
     return {
         "should_run": should_run,
         "immediate_trigger": immediate_trigger,
         "interval_trigger": interval_trigger,
+        "field_evidence_trigger": field_evidence_trigger,
+        "generation_intent_trigger": generation_intent_trigger,
+        "missing_field_answer_trigger": missing_field_answer_trigger,
+        "debounced": debounced,
+        "reason": extraction_reason if should_run else None,
+        "extraction_reason": extraction_reason if should_run else None,
+        "detected_reason": extraction_reason,
+        "answered_missing_fields": sorted(answered_missing_fields),
+        "refresh_after_ms": resolve_brief_extraction_refresh_after_ms(),
         "pending_turn_count": options[BRIEF_EXTRACTION_TURN_COUNT_KEY],
         "next_options": options,
     }

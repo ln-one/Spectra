@@ -430,6 +430,9 @@ async def process_chat_message(
                 )
                 or [],
                 "brief_status": current_brief.get("status"),
+                "extraction_scheduled": bool(extraction_plan.get("should_run")),
+                "extraction_reason": extraction_plan.get("extraction_reason"),
+                "refresh_after_ms": extraction_plan.get("refresh_after_ms"),
                 **generation_intent_payload,
             }
             if extraction_plan.get("should_run"):

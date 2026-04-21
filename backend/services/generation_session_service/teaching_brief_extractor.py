@@ -175,6 +175,7 @@ def _build_extraction_prompt(
         "\n5. 可以做高置信度语义推断，但不要臆造未出现的信息。"
         "\n6. 如果你判断已有字段值是错的，并且最近对话给出了更可信的新值，可以输出修正后的字段，同时提高 confidence。"
         "\n7. 低置信度时宁可少提取，不要为了覆盖而覆盖。"
+        "\n8. 只有 user 行是需求事实来源；assistant 行只作为上下文，不允许把 assistant 自己提出的课时、页数、受众、主题当作用户需求写入或覆盖。"
         "\n\n当前 brief：\n"
         f"{json.dumps(current_brief, ensure_ascii=False, indent=2)}"
         "\n\n当前缺失字段：\n"

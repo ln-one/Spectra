@@ -4,6 +4,7 @@ import { createChatActions } from "@/stores/project-store/chat-actions";
 import { buildRefineFailureMessage } from "@/stores/project-store/studio-chat.helpers";
 import type {
   ProjectState,
+  ProjectStoreContext,
   StudioChatContext,
 } from "@/stores/project-store/types";
 import { toast } from "@/hooks/use-toast";
@@ -172,7 +173,7 @@ describe("chat session binding", () => {
           typeof partial === "function" ? partial(state) : (partial ?? {});
         state = { ...state, ...next };
       }
-    );
+    ) as unknown as ProjectStoreContext["set"];
     const get = jest.fn(() => state as unknown as ProjectState);
     const actions = createChatActions({ set, get });
 

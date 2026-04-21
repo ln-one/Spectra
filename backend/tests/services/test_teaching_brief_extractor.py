@@ -86,3 +86,23 @@ def test_select_fields_to_apply_allows_overwrite_when_confidence_high():
 
     assert selected == {"topic": "新主题", "audience": "高一学生"}
     assert overwritten == ["topic", "audience"]
+
+
+@pytest.mark.asyncio
+async def test_extraction_prompt_treats_assistant_as_context_only(monkeypatch):
+    monkeypatch.setenv("BRIEF_EXTRACTION_ENABLED", "true")
+    generate_mock = AsyncMock(return_value={"content": "{}"})
+    monkeypatch.setattr(ai_service, "generate", generate_mock)
+
+    await extract_brief_from_conversation(
+        recent_messages=[
+            {"role": "user", "content": "安排12个课时"},
+            {"role": "assistant", "content": "可以按 4课时 设计第一模块。"},
+        ],
+        current_brief={"status": "review_pending"},
+        missing_fields=["duration_or_pages"],
+    )
+
+    prompt = generate_mock.await_args.kwargs["prompt"]
+    assert "只有 user 行是需求事实来源" in prompt
+    assert "assistant 行只作为上下文" in prompt

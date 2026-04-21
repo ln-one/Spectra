@@ -24,3 +24,25 @@ def test_build_recent_requirement_evidence_extracts_strategy():
     )
 
     assert evidence["teaching_strategy"] == "不讲代码实现，侧重算法原理讲解"
+
+
+def test_recent_requirement_evidence_does_not_trust_assistant_hours():
+    evidence = build_recent_requirement_evidence(
+        history_payload=[
+            {"role": "user", "content": "安排12个课时，着重概念和算法思路"},
+            {"role": "assistant", "content": "可以拆成 4课时 概念、4课时算法、4课时案例。"},
+        ],
+        latest_user_message="好了，直接给我完整大纲吧",
+    )
+
+    assert evidence["lesson_hours"] == 12
+    assert evidence["duration_or_pages"] == "12课时"
+
+
+def test_recent_requirement_evidence_does_not_parse_direct_outline_as_audience():
+    evidence = build_recent_requirement_evidence(
+        history_payload=[],
+        latest_user_message="好了，直接给我完整大纲吧",
+    )
+
+    assert "audience" not in evidence

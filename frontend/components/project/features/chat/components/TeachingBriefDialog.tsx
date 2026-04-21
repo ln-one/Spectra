@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { FileText, Sparkles, ChevronDown, ChevronUp, Info } from "lucide-react";
+import { useEffect, useMemo, useState, useCallback } from "react";
+import { FileText, Sparkles, ChevronDown, ChevronUp, Info, Check, Save } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,10 +16,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useProjectStore } from "@/stores/projectStore";
 import { cn } from "@/lib/utils";
-import type {
-  TeachingBrief,
-  TeachingBriefProposal,
-} from "@/stores/project-store/types";
+import type { TeachingBrief } from "@/stores/project-store/types";
+import { useDebounce } from "@/hooks/use-debounce";
 
 type BriefFormState = {
   topic: string;
@@ -33,8 +31,6 @@ type BriefFormState = {
   global_difficulties: string;
   teaching_strategy: string;
   visual_tone: string;
-  template_family: string;
-  style_notes: string;
 };
 
 function toMultilineText(items: string[] | undefined): string {
@@ -58,8 +54,6 @@ function briefToFormState(brief?: TeachingBrief | null): BriefFormState {
     global_difficulties: toMultilineText(brief?.global_difficulties),
     teaching_strategy: brief?.teaching_strategy ?? "",
     visual_tone: brief?.style_profile?.visual_tone ?? "",
-    template_family: brief?.style_profile?.template_family ?? "",
-    style_notes: brief?.style_profile?.notes ?? "",
   };
 }
 
@@ -88,16 +82,8 @@ function formToPatch(form: BriefFormState): Record<string, unknown> {
     teaching_strategy: form.teaching_strategy.trim(),
     style_profile: {
       visual_tone: form.visual_tone.trim(),
-      template_family: form.template_family.trim(),
-      notes: form.style_notes.trim(),
     },
   };
-}
-
-function summarizeProposalFields(proposal: TeachingBriefProposal): string {
-  const fields = Object.keys(proposal.proposed_changes || {});
-  if (fields.length === 0) return "未识别到结构化字段";
-  return fields.join(" / ");
 }
 
 function getStatusLabel(status?: string): string {
@@ -109,7 +95,7 @@ function getStatusLabel(status?: string): string {
     case "stale":
       return "待重新确认";
     default:
-      return "草稿";
+      return "整理中";
   }
 }
 
@@ -126,15 +112,13 @@ function getStatusColor(status?: string): string {
   }
 }
 
-const REQUIRED_FIELDS = ["topic", "audience", "target_pages"]; // Mock required fields for progress
+const REQUIRED_FIELDS = ["topic", "audience", "target_pages"];
 
 export function TeachingBriefDialog() {
   const {
     activeSessionId,
     generationSession,
     updateTeachingBriefDraft,
-    applyTeachingBriefProposal,
-    dismissTeachingBriefProposal,
     confirmTeachingBrief,
     startPptFromTeachingBrief,
   } = useProjectStore(
@@ -142,26 +126,25 @@ export function TeachingBriefDialog() {
       activeSessionId: state.activeSessionId,
       generationSession: state.generationSession,
       updateTeachingBriefDraft: state.updateTeachingBriefDraft,
-      applyTeachingBriefProposal: state.applyTeachingBriefProposal,
-      dismissTeachingBriefProposal: state.dismissTeachingBriefProposal,
       confirmTeachingBrief: state.confirmTeachingBrief,
       startPptFromTeachingBrief: state.startPptFromTeachingBrief,
     }))
   );
   const [open, setOpen] = useState(false);
   const brief = generationSession?.teaching_brief;
-  const proposals = generationSession?.teaching_brief_proposals ?? [];
   const [form, setForm] = useState<BriefFormState>(() => briefToFormState(brief));
   const [isSaving, setIsSaving] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   // Group collapse states
   const [basicOpen, setBasicOpen] = useState(true);
   const [designOpen, setDesignOpen] = useState(true);
-  const [styleOpen, setStyleOpen] = useState(false);
+  const [styleOpen, setStyleOpen] = useState(true);
 
   useEffect(() => {
     if (!open) return;
     setForm(briefToFormState(brief));
+    setHasUnsavedChanges(false);
   }, [brief, open]);
 
   const missingFields = useMemo(
@@ -173,18 +156,30 @@ export function TeachingBriefDialog() {
   const totalRequiredCount = REQUIRED_FIELDS.length;
   const progressPercent = Math.round((filledRequiredCount / totalRequiredCount) * 100);
 
-  const handleFieldChange = (key: keyof BriefFormState, value: string) => {
-    setForm((prev) => ({ ...prev, [key]: value }));
-  };
+  const debouncedForm = useDebounce(form, 1200);
 
-  const handleSave = async () => {
-    if (!activeSessionId) return;
+  const performAutoSave = useCallback(async (currentForm: BriefFormState) => {
+    if (!activeSessionId || !hasUnsavedChanges) return;
     setIsSaving(true);
     try {
-      await updateTeachingBriefDraft(activeSessionId, formToPatch(form));
+      await updateTeachingBriefDraft(activeSessionId, formToPatch(currentForm));
+      setHasUnsavedChanges(false);
+    } catch (e) {
+      console.error("Auto save failed", e);
     } finally {
       setIsSaving(false);
     }
+  }, [activeSessionId, hasUnsavedChanges, updateTeachingBriefDraft]);
+
+  useEffect(() => {
+    if (open && hasUnsavedChanges) {
+      void performAutoSave(debouncedForm);
+    }
+  }, [debouncedForm, open, hasUnsavedChanges, performAutoSave]);
+
+  const handleFieldChange = (key: keyof BriefFormState, value: string) => {
+    setForm((prev) => ({ ...prev, [key]: value }));
+    setHasUnsavedChanges(true);
   };
 
   const handleConfirm = async () => {
@@ -192,6 +187,7 @@ export function TeachingBriefDialog() {
     setIsSaving(true);
     try {
       await confirmTeachingBrief(activeSessionId, formToPatch(form));
+      setHasUnsavedChanges(false);
     } finally {
       setIsSaving(false);
     }
@@ -206,311 +202,306 @@ export function TeachingBriefDialog() {
           type="button"
           variant="outline"
           size="sm"
-          className="h-8 rounded-full border-slate-200 bg-white px-3 text-[12px] text-slate-800"
+          className="h-8 rounded-full border-slate-200 bg-white px-3 text-[12px] text-slate-800 hover:bg-slate-50"
           disabled={!activeSessionId}
         >
           <FileText className="mr-1.5 h-3.5 w-3.5" />
           需求单: {getStatusLabel(brief?.status)}
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-h-[85vh] max-w-4xl overflow-hidden border-slate-200 bg-slate-50 p-0 text-slate-900">
-        <DialogHeader className="border-b border-slate-200 bg-white px-6 py-4">
+      <DialogContent className="max-h-[92vh] max-w-2xl overflow-hidden border-slate-200 bg-white p-0 text-slate-900 shadow-2xl rounded-3xl">
+        <DialogHeader className="border-b border-slate-100 bg-slate-50/50 px-6 py-5">
           <div className="flex items-center justify-between">
-            <div>
-              <DialogTitle className="flex items-center gap-2 text-slate-900">
-                <Sparkles className="h-4 w-4 text-teal-700" />
+            <div className="space-y-1">
+              <DialogTitle className="flex items-center gap-2 text-xl font-bold text-slate-900">
+                <Sparkles className="h-5 w-5 text-indigo-600" />
                 教学需求单
               </DialogTitle>
-              <DialogDescription className="text-slate-500">
-                完整的意图建模，指导最终的课件生成。
+              <DialogDescription className="text-[11px] font-medium text-slate-500">
+                这是 Spectra 根据对话自动整理的教学需求摘要，你可以随时手动修改；确认后才会作为生成依据。
               </DialogDescription>
             </div>
             
-            {/* Top Dashboard */}
             <div className="flex items-center gap-4">
-               <div className="flex items-center gap-2">
-                 <div className="relative h-10 w-10">
-                   <svg className="h-full w-full" viewBox="0 0 36 36">
-                     <path
+               <div className="flex items-center gap-3">
+                 <div className="relative h-14 w-14">
+                   <svg className="h-full w-full -rotate-90" viewBox="0 0 36 36">
+                     <circle
                        className="stroke-slate-200"
                        fill="none"
-                       strokeWidth="3"
-                       d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                       strokeWidth="2.5"
+                       cx="18" cy="18" r="16"
                      />
-                     <path
-                       className="stroke-teal-500"
+                     <circle
+                       className="stroke-indigo-500 transition-all duration-700 ease-out"
                        fill="none"
-                       strokeWidth="3"
+                       strokeWidth="2.5"
                        strokeDasharray={`${progressPercent}, 100`}
-                       d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                       strokeLinecap="round"
+                       cx="18" cy="18" r="16"
                      />
                    </svg>
-                   <div className="absolute inset-0 flex items-center justify-center text-[10px] font-medium text-slate-700">
-                     {progressPercent}%
+                   <div className="absolute inset-0 flex flex-col items-center justify-center">
+                     <span className="text-[12px] font-bold text-slate-800 leading-none">{progressPercent}%</span>
+                     <span className="text-[7px] text-slate-400 font-bold uppercase mt-0.5">完成度</span>
                    </div>
                  </div>
-                 <div className="flex flex-col">
-                   <span className={cn("text-[10px] px-1.5 py-0.5 rounded-sm border font-medium", getStatusColor(brief?.status))}>
+                 <div className="flex flex-col items-end gap-1.5">
+                   <span className={cn("text-[10px] px-2.5 py-0.5 rounded-full border font-bold uppercase tracking-widest", getStatusColor(brief?.status))}>
                      {getStatusLabel(brief?.status)}
                    </span>
-                   <span className="text-[10px] text-slate-400">版本 {brief?.version ?? 1}</span>
+                   <div className="flex items-center gap-2 text-[10px] text-slate-400 font-bold">
+                     {isSaving ? (
+                       <span className="flex items-center gap-1 text-indigo-500">
+                         <Save className="h-2.5 w-2.5 animate-pulse" /> 正在同步
+                       </span>
+                     ) : hasUnsavedChanges ? (
+                       <span className="flex items-center gap-1 text-amber-500">
+                         <Save className="h-2.5 w-2.5" /> 待同步
+                       </span>
+                     ) : (
+                       <span className="flex items-center gap-1 text-slate-400">
+                         <Check className="h-2.5 w-2.5" /> 已同步
+                       </span>
+                     )}
+                     <span className="bg-slate-100 px-1 rounded">V{brief?.version ?? 1}</span>
+                   </div>
                  </div>
                </div>
             </div>
           </div>
         </DialogHeader>
 
-        <div className="grid max-h-[calc(85vh-82px)] grid-cols-[1.3fr_0.9fr] overflow-hidden">
-          <div className="overflow-y-auto px-6 py-5 bg-white">
+        <div className="overflow-y-auto px-8 py-8 scrollbar-hide">
+          <div className="mb-5 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs font-medium text-slate-600">
+            AI 自动识别内容，可人工覆盖。
+          </div>
 
-            {missingFields.length > 0 ? (
-              <div className="mb-4 rounded-xl border border-amber-400/40 bg-amber-50/80 px-4 py-3 text-xs text-amber-900 flex items-start gap-2">
-                <Info className="w-4 h-4 mt-0.5 shrink-0" />
-                <span>当前仍缺少：<strong>{missingFields.join(" / ")}</strong>，请补充完整以进行生成。</span>
+          {missingFields.length > 0 && (
+            <div className="mb-8 rounded-2xl border border-amber-200 bg-amber-50/50 px-5 py-4 text-xs text-amber-900 flex items-start gap-4">
+              <div className="mt-0.5 rounded-full bg-amber-200 p-1.5 shrink-0">
+                <Info className="w-3.5 h-3.5 text-amber-700" />
               </div>
-            ) : null}
-
-            {/* Group 1: Basic Info */}
-            <div className="mb-4 rounded-xl border border-slate-100 bg-white overflow-hidden">
-              <button 
-                className="flex w-full items-center justify-between bg-slate-50/50 px-4 py-3 text-sm font-medium text-slate-800 hover:bg-slate-50 transition-colors"
-                onClick={() => setBasicOpen(!basicOpen)}
-              >
-                📝 基本信息
-                {basicOpen ? <ChevronUp className="h-4 w-4 text-slate-400" /> : <ChevronDown className="h-4 w-4 text-slate-400" />}
-              </button>
-              {basicOpen && (
-                <div className="p-4 grid grid-cols-2 gap-4">
-                  <div className="col-span-2 sm:col-span-1">
-                    <label className="mb-1 block text-xs font-medium text-slate-600">教学主题 <span className="text-red-400">*</span></label>
-                    <Input
-                      value={form.topic}
-                      onChange={(event) => handleFieldChange("topic", event.target.value)}
-                      placeholder="教学主题"
-                      className={cn(!form.topic && missingFields.includes("topic") ? "border-amber-300 bg-amber-50" : "")}
-                    />
-                  </div>
-                  <div className="col-span-2 sm:col-span-1">
-                    <label className="mb-1 block text-xs font-medium text-slate-600">受众 <span className="text-red-400">*</span></label>
-                    <Input
-                      value={form.audience}
-                      onChange={(event) => handleFieldChange("audience", event.target.value)}
-                      placeholder="如高一学生/青年教师"
-                      className={cn(!form.audience && missingFields.includes("audience") ? "border-amber-300 bg-amber-50" : "")}
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-slate-600">时长 (分钟)</label>
-                    <Input
-                      value={form.duration_minutes}
-                      onChange={(event) => handleFieldChange("duration_minutes", event.target.value)}
-                      placeholder="例如: 45"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-slate-600">目标页数 <span className="text-red-400">*</span></label>
-                    <Input
-                      value={form.target_pages}
-                      onChange={(event) => handleFieldChange("target_pages", event.target.value)}
-                      placeholder="例如: 20"
-                      className={cn(!form.target_pages && missingFields.includes("target_pages") ? "border-amber-300 bg-amber-50" : "")}
-                    />
-                  </div>
-                </div>
-              )}
+              <div className="space-y-1.5">
+                <p className="font-bold tracking-tight">建议完善以下信息：</p>
+                <p className="text-amber-800/80 leading-relaxed font-medium">
+                  {missingFields.map(f => `「${f}」`).join(" · ")}，补全后生成效果更佳。
+                </p>
+              </div>
             </div>
+          )}
 
-            {/* Group 2: Teaching Design */}
-            <div className="mb-4 rounded-xl border border-slate-100 bg-white overflow-hidden">
-              <button 
-                className="flex w-full items-center justify-between bg-slate-50/50 px-4 py-3 text-sm font-medium text-slate-800 hover:bg-slate-50 transition-colors"
-                onClick={() => setDesignOpen(!designOpen)}
-              >
-                🎯 教学设计
-                {designOpen ? <ChevronUp className="h-4 w-4 text-slate-400" /> : <ChevronDown className="h-4 w-4 text-slate-400" />}
-              </button>
-              {designOpen && (
-                <div className="p-4 grid grid-cols-2 gap-4">
-                  <div className="col-span-2">
-                    <label className="mb-1 block text-xs font-medium text-slate-600">教学目标</label>
-                    <Textarea
-                      value={form.teaching_objectives}
-                      onChange={(event) => handleFieldChange("teaching_objectives", event.target.value)}
-                      placeholder="教学目标，一行一条"
-                      className="min-h-20"
-                    />
-                  </div>
-                  <div className="col-span-2">
-                    <label className="mb-1 block text-xs font-medium text-slate-600">知识点</label>
-                    <Textarea
-                      value={form.knowledge_points}
-                      onChange={(event) => handleFieldChange("knowledge_points", event.target.value)}
-                      placeholder="知识点，一行一条"
-                      className="min-h-20"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-slate-600">重点</label>
+          {/* Group 1: Basic Info */}
+          <section className="mb-8 space-y-5">
+            <div 
+              className="flex items-center justify-between cursor-pointer group"
+              onClick={() => setBasicOpen(!basicOpen)}
+            >
+              <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2.5">
+                <div className="h-2 w-2 rounded-full bg-indigo-500 shadow-sm" />
+                核心背景
+              </h3>
+              <div className="flex items-center gap-2 text-[10px] font-bold text-slate-300 group-hover:text-slate-400 transition-colors uppercase">
+                {basicOpen ? "收起" : "展开"}
+                {basicOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+              </div>
+            </div>
+            
+            {basicOpen && (
+              <div className="grid grid-cols-2 gap-x-6 gap-y-5 pl-4.5 border-l-2 border-indigo-50 ml-1">
+                <div className="col-span-2 sm:col-span-1 space-y-2">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">教学主题 <span className="text-red-500">*</span></label>
+                  <Input
+                    value={form.topic}
+                    onChange={(event) => handleFieldChange("topic", event.target.value)}
+                    placeholder="例如：量子力学入门"
+                    className={cn(
+                      "h-11 rounded-xl border-slate-200 bg-slate-50/20 focus:bg-white focus:ring-indigo-100 transition-all",
+                      !form.topic && missingFields.includes("topic") ? "border-amber-300 ring-2 ring-amber-100/50" : ""
+                    )}
+                  />
+                </div>
+                <div className="col-span-2 sm:col-span-1 space-y-2">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">目标受众 <span className="text-red-500">*</span></label>
+                  <Input
+                    value={form.audience}
+                    onChange={(event) => handleFieldChange("audience", event.target.value)}
+                    placeholder="例如：大一理工科学生"
+                    className={cn(
+                      "h-11 rounded-xl border-slate-200 bg-slate-50/20 focus:bg-white focus:ring-indigo-100 transition-all",
+                      !form.audience && missingFields.includes("audience") ? "border-amber-300 ring-2 ring-amber-100/50" : ""
+                    )}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">预计课时</label>
+                  <Input
+                    type="number"
+                    value={form.lesson_hours}
+                    onChange={(event) => handleFieldChange("lesson_hours", event.target.value)}
+                    placeholder="1"
+                    className="h-11 rounded-xl border-slate-200 bg-slate-50/20 focus:bg-white focus:ring-indigo-100 transition-all"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">生成页数 <span className="text-red-500">*</span></label>
+                  <Input
+                    type="number"
+                    value={form.target_pages}
+                    onChange={(event) => handleFieldChange("target_pages", event.target.value)}
+                    placeholder="20"
+                    className={cn(
+                      "h-11 rounded-xl border-slate-200 bg-slate-50/20 focus:bg-white focus:ring-indigo-100 transition-all",
+                      !form.target_pages && missingFields.includes("target_pages") ? "border-amber-300 ring-2 ring-amber-100/50" : ""
+                    )}
+                  />
+                </div>
+              </div>
+            )}
+          </section>
+
+          {/* Group 2: Teaching Design */}
+          <section className="mb-8 space-y-5">
+            <div 
+              className="flex items-center justify-between cursor-pointer group"
+              onClick={() => setDesignOpen(!designOpen)}
+            >
+              <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2.5">
+                <div className="h-2 w-2 rounded-full bg-teal-500 shadow-sm" />
+                教学逻辑
+              </h3>
+              <div className="flex items-center gap-2 text-[10px] font-bold text-slate-300 group-hover:text-slate-400 transition-colors uppercase">
+                {designOpen ? "收起" : "展开"}
+                {designOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+              </div>
+            </div>
+            
+            {designOpen && (
+              <div className="space-y-5 pl-4.5 border-l-2 border-teal-50 ml-1">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">教学目标</label>
+                  <Textarea
+                    value={form.teaching_objectives}
+                    onChange={(event) => handleFieldChange("teaching_objectives", event.target.value)}
+                    placeholder="本节课学生应掌握... (一行一条)"
+                    className="min-h-[100px] rounded-xl border-slate-200 bg-slate-50/20 focus:bg-white focus:ring-teal-100 transition-all resize-none text-xs leading-relaxed"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">核心知识点</label>
+                  <Textarea
+                    value={form.knowledge_points}
+                    onChange={(event) => handleFieldChange("knowledge_points", event.target.value)}
+                    placeholder="课件必须包含的关键概念 (一行一条)"
+                    className="min-h-[100px] rounded-xl border-slate-200 bg-slate-50/20 focus:bg-white focus:ring-teal-100 transition-all resize-none text-xs leading-relaxed"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-x-6">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">教学重点</label>
                     <Textarea
                       value={form.global_emphasis}
                       onChange={(event) => handleFieldChange("global_emphasis", event.target.value)}
-                      placeholder="重点，一行一条"
-                      className="min-h-16"
+                      placeholder="重点标注内容"
+                      className="min-h-[70px] rounded-xl border-slate-200 bg-slate-50/20 focus:bg-white focus:ring-teal-100 transition-all resize-none text-xs leading-relaxed"
                     />
                   </div>
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-slate-600">难点</label>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">教学难点</label>
                     <Textarea
                       value={form.global_difficulties}
                       onChange={(event) => handleFieldChange("global_difficulties", event.target.value)}
-                      placeholder="难点，一行一条"
-                      className="min-h-16"
-                    />
-                  </div>
-                  <div className="col-span-2">
-                    <label className="mb-1 block text-xs font-medium text-slate-600">教学策略</label>
-                    <Input
-                      value={form.teaching_strategy}
-                      onChange={(event) => handleFieldChange("teaching_strategy", event.target.value)}
-                      placeholder="如启发式教学、案例导向"
+                      placeholder="需要深度讲解的内容"
+                      className="min-h-[70px] rounded-xl border-slate-200 bg-slate-50/20 focus:bg-white focus:ring-teal-100 transition-all resize-none text-xs leading-relaxed"
                     />
                   </div>
                 </div>
-              )}
-            </div>
-
-            {/* Group 3: Style Preferences */}
-            <div className="mb-4 rounded-xl border border-slate-100 bg-white overflow-hidden">
-              <button 
-                className="flex w-full items-center justify-between bg-slate-50/50 px-4 py-3 text-sm font-medium text-slate-800 hover:bg-slate-50 transition-colors"
-                onClick={() => setStyleOpen(!styleOpen)}
-              >
-                🎨 风格偏好
-                {styleOpen ? <ChevronUp className="h-4 w-4 text-slate-400" /> : <ChevronDown className="h-4 w-4 text-slate-400" />}
-              </button>
-              {styleOpen && (
-                <div className="p-4 grid grid-cols-2 gap-4">
-                   <div>
-                    <label className="mb-1 block text-xs font-medium text-slate-600">视觉风格</label>
-                    <Input
-                      value={form.visual_tone}
-                      onChange={(event) => handleFieldChange("visual_tone", event.target.value)}
-                      placeholder="风格偏好"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-slate-600">模板族</label>
-                    <Input
-                      value={form.template_family}
-                      onChange={(event) => handleFieldChange("template_family", event.target.value)}
-                      placeholder="模板族"
-                    />
-                  </div>
-                  <div className="col-span-2">
-                    <label className="mb-1 block text-xs font-medium text-slate-600">额外风格说明</label>
-                    <Textarea
-                      value={form.style_notes}
-                      onChange={(event) => handleFieldChange("style_notes", event.target.value)}
-                      placeholder="额外说明"
-                      className="min-h-16"
-                    />
-                  </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">建议教学策略</label>
+                  <Input
+                    value={form.teaching_strategy}
+                    onChange={(event) => handleFieldChange("teaching_strategy", event.target.value)}
+                    placeholder="如：启发式教学、案例导向、PBL、小组讨论"
+                    className="h-11 rounded-xl border-slate-200 bg-slate-50/20 focus:bg-white focus:ring-teal-100 transition-all"
+                  />
                 </div>
-              )}
-            </div>
+              </div>
+            )}
+          </section>
 
-            <div className="mt-6 flex flex-wrap justify-end items-center gap-3 border-t border-slate-100 pt-4">
-              <Button
-                type="button"
-                variant="outline"
-                className="text-slate-600 hover:text-slate-900"
-                onClick={() => void handleSave()}
-                disabled={!activeSessionId || isSaving}
-              >
-                保存草稿
-              </Button>
-              <Button
-                type="button"
-                className={cn(brief?.status !== "confirmed" ? "bg-teal-600 hover:bg-teal-700 text-white" : "bg-slate-800 hover:bg-slate-900")}
-                onClick={() => void handleConfirm()}
-                disabled={!activeSessionId || isSaving || brief?.readiness?.can_generate === false}
-              >
-                确认需求
-              </Button>
-              <Button
-                type="button"
-                variant={canGenerate ? "default" : "outline"}
-                className={cn(canGenerate ? "bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white border-0 shadow-md" : "")}
-                onClick={() => void startPptFromTeachingBrief(activeSessionId)}
-                disabled={!activeSessionId || !canGenerate}
-              >
-                <Sparkles className="w-4 h-4 mr-1.5" />
-                开始生成 PPT
-              </Button>
+          {/* Group 3: Style Preferences */}
+          <section className="mb-2 space-y-5">
+            <div 
+              className="flex items-center justify-between cursor-pointer group"
+              onClick={() => setStyleOpen(!styleOpen)}
+            >
+              <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2.5">
+                <div className="h-2 w-2 rounded-full bg-purple-500 shadow-sm" />
+                视觉风格
+              </h3>
+              <div className="flex items-center gap-2 text-[10px] font-bold text-slate-300 group-hover:text-slate-400 transition-colors uppercase">
+                {styleOpen ? "收起" : "展开"}
+                {styleOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+              </div>
             </div>
+            
+            {styleOpen && (
+              <div className="pl-4.5 border-l-2 border-purple-50 ml-1">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">视觉意向说明</label>
+                  <Input
+                    value={form.visual_tone}
+                    onChange={(event) => handleFieldChange("visual_tone", event.target.value)}
+                    placeholder="如：极简商务、清新校园、学术严谨、科技感、深色主题"
+                    className="h-11 rounded-xl border-slate-200 bg-slate-50/20 focus:bg-white focus:ring-purple-100 transition-all"
+                  />
+                </div>
+              </div>
+            )}
+          </section>
+        </div>
+
+        <div className="mt-auto flex items-center justify-between border-t border-slate-100 bg-slate-50/50 px-8 py-6">
+          <div className="flex items-center gap-2 text-[9px] text-slate-400 font-bold uppercase tracking-wider">
+            <div className="h-1 w-1 rounded-full bg-red-400" />
+            星号项为生成课件的最低要求
           </div>
-
-          <div className="border-l border-slate-200 bg-slate-50/90 px-5 py-5">
-            <div className="mb-3 text-sm font-semibold text-slate-900">
-              对话候选更新
-            </div>
-            <div className="space-y-3 overflow-y-auto">
-              {proposals.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-5 text-xs text-slate-500">
-                  当前没有新的候选更新。继续对话时，系统会把可抽取字段放到这里等待确认。
-                </div>
-              ) : (
-                proposals.map((proposal) => (
-                  <div
-                    key={proposal.proposal_id}
-                    className="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-[0_8px_24px_rgba(15,23,42,0.06)]"
-                  >
-                    <div className="text-xs font-medium text-slate-900">
-                      字段：{summarizeProposalFields(proposal)}
-                    </div>
-                    {proposal.reasoning_summary ? (
-                      <div className="mt-1 text-xs text-slate-500">
-                        {proposal.reasoning_summary}
-                      </div>
-                    ) : null}
-                    {proposal.confidence != null ? (
-                      <div className="mt-1 text-[11px] text-slate-500">
-                        置信度：{Math.round((proposal.confidence || 0) * 100)}%
-                      </div>
-                    ) : null}
-                    <div className="mt-3 flex gap-2">
-                      <Button
-                        size="sm"
-                        onClick={() =>
-                          activeSessionId
-                            ? applyTeachingBriefProposal(
-                                activeSessionId,
-                                proposal.proposal_id
-                              )
-                            : Promise.resolve()
-                        }
-                      >
-                        接受
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() =>
-                          activeSessionId
-                            ? dismissTeachingBriefProposal(
-                                activeSessionId,
-                                proposal.proposal_id
-                              )
-                            : Promise.resolve()
-                        }
-                      >
-                        忽略
-                      </Button>
-                    </div>
-                  </div>
-                ))
+          <div className="flex items-center gap-3">
+            <Button
+              type="button"
+              variant="ghost"
+              className="text-slate-500 hover:text-slate-800 text-xs font-bold transition-colors"
+              onClick={() => setOpen(false)}
+            >
+              取消
+            </Button>
+            <Button
+              type="button"
+              className={cn(
+                "h-11 px-7 rounded-2xl font-bold transition-all shadow-sm active:scale-95",
+                brief?.status !== "confirmed" 
+                  ? "bg-slate-900 text-white hover:bg-slate-800" 
+                  : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
               )}
-            </div>
+              onClick={() => void handleConfirm()}
+              disabled={!activeSessionId || isSaving || brief?.readiness?.can_generate === false}
+            >
+              {brief?.status === "confirmed" ? "重新确认" : "完成并确认"}
+            </Button>
+            <Button
+              type="button"
+              className={cn(
+                "h-11 px-7 rounded-2xl font-bold transition-all shadow-lg active:scale-95",
+                canGenerate 
+                  ? "bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:from-indigo-700 hover:to-purple-700 border-0" 
+                  : "bg-slate-200 text-slate-400"
+              )}
+              onClick={() => void startPptFromTeachingBrief(activeSessionId)}
+              disabled={!activeSessionId || !canGenerate}
+            >
+              <Sparkles className="w-4 h-4 mr-2" />
+              立即生成课件
+            </Button>
           </div>
         </div>
       </DialogContent>

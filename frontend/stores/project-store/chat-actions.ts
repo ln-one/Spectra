@@ -377,10 +377,21 @@ export function createChatActions({
           response?.data?.session_id ?? effectiveSessionId
         );
 
-        const observability = response?.data?.observability as Record<string, any> | undefined;
-        const teachingBriefHint = observability?.teaching_brief_hint as Record<string, any> | undefined;
+        const observability =
+          responseData.observability &&
+          typeof responseData.observability === "object"
+            ? (responseData.observability as Record<string, unknown>)
+            : null;
+        const teachingBriefHint = (
+          responseData.teaching_brief_hint || observability?.teaching_brief_hint
+        ) as Record<string, any> | undefined;
+
         
         if (teachingBriefHint) {
+          const refreshAfterMs =
+            typeof teachingBriefHint.refresh_after_ms === "number"
+              ? teachingBriefHint.refresh_after_ms
+              : Number(teachingBriefHint.refresh_after_ms) || 3000;
           set({
             latestBriefHint: {
               autoAppliedFields: teachingBriefHint.auto_applied_fields || [],
@@ -388,8 +399,48 @@ export function createChatActions({
               missingFields: teachingBriefHint.missing_fields || [],
               briefStatus: teachingBriefHint.brief_status || "draft",
               briefSnapshot: teachingBriefHint.brief_snapshot || null,
+              generationIntent: teachingBriefHint.generation_intent || false,
+              generationReady: teachingBriefHint.generation_ready || false,
+              generationBlockedReason: teachingBriefHint.generation_blocked_reason || "",
+              extractionScheduled: teachingBriefHint.extraction_scheduled === true,
+              extractionReason:
+                typeof teachingBriefHint.extraction_reason === "string"
+                  ? teachingBriefHint.extraction_reason
+                  : null,
+              refreshAfterMs,
             }
           });
+        }
+
+        const shouldDelayedRefresh = !!(
+          teachingBriefHint?.extraction_scheduled ||
+          teachingBriefHint?.generation_intent ||
+          (teachingBriefHint?.auto_applied_fields?.length > 0)
+        );
+        
+        if (shouldDelayedRefresh) {
+          const refreshDelayMs =
+            typeof teachingBriefHint?.refresh_after_ms === "number"
+              ? teachingBriefHint.refresh_after_ms
+              : Number(teachingBriefHint?.refresh_after_ms) || 3000;
+          const prevVersion =
+            refreshedSnapshot?.teaching_brief?.version ??
+            get().generationSession?.teaching_brief?.version ??
+            0;
+          setTimeout(() => {
+            const sid = response?.data?.session_id ?? effectiveSessionId;
+            if (sid) {
+              void get().refreshGenerationSession(sid).then((snapshot) => {
+                const newVersion = snapshot?.teaching_brief?.version ?? 0;
+                if (newVersion > prevVersion) {
+                  toast({
+                    title: "需求单自动提取成功",
+                    description: "AI 已从刚才的对话中自动提取并更新了教学需求。",
+                  });
+                }
+              });
+            }
+          }, refreshDelayMs);
         }
       } catch (error) {
         const message = getChatRequestErrorMessage(error);

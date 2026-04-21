@@ -189,6 +189,12 @@ export interface ProjectState {
     missingFields: string[];
     briefStatus: string;
     briefSnapshot: TeachingBrief | null;
+    generationIntent: boolean;
+    generationReady: boolean;
+    generationBlockedReason: string;
+    extractionScheduled: boolean;
+    extractionReason: string | null;
+    refreshAfterMs: number;
   } | null;
 
   layoutMode: LayoutMode;

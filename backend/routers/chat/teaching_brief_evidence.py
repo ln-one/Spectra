@@ -7,7 +7,7 @@ _DURATION_RE = re.compile(r"(?P<value>\d{1,3})\s*分钟")
 _LESSON_HOURS_RE = re.compile(r"(?P<value>\d{1,2})\s*个?\s*课时")
 _PAGES_RE = re.compile(r"(?P<value>\d{1,3})\s*(?:页|p\b|pages?)", re.IGNORECASE)
 _AUDIENCE_RE = re.compile(
-    r"(?:面向|给|针对)\s*(?P<value>[^，。；;\n]{2,40}(?:学生|老师|教师|学员|班|专业)?)"
+    r"(?:面向|针对)\s*(?P<value>[^，。；;\n]{2,40})|给\s*(?P<give_value>[^，。；;\n]{2,40}(?:学生|老师|教师|学员|班|专业))"
 )
 _OBJECTIVE_RE = re.compile(
     r"(?:只需|只要|目标是|要求|达到)\s*[\"“]?(?P<value>理解原理|掌握原理|了解概念|会推导|会实现|能应用)[\"”]?"
@@ -21,7 +21,7 @@ def _clean_text(value: Any) -> str:
 def _message_text(message: dict[str, Any]) -> str:
     role = _clean_text(message.get("role")).lower()
     content = _clean_text(message.get("content"))
-    if role not in {"user", "assistant"} or not content:
+    if role != "user" or not content:
         return ""
     return content
 
@@ -40,7 +40,8 @@ def _last_text_match(pattern: re.Pattern[str], text: str) -> str:
     matches = list(pattern.finditer(text))
     if not matches:
         return ""
-    return _clean_text(matches[-1].group("value"))
+    matched = matches[-1]
+    return _clean_text(matched.groupdict().get("value") or matched.groupdict().get("give_value"))
 
 
 def build_recent_requirement_evidence(

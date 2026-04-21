@@ -38,7 +38,62 @@ def test_plan_brief_extraction_triggers_on_interval(monkeypatch):
 
     assert plan["should_run"] is True
     assert plan["interval_trigger"] is True
+    assert plan["extraction_reason"] == "interval"
     assert plan["pending_turn_count"] == 0
+
+
+def test_plan_brief_extraction_triggers_when_missing_duration_is_answered():
+    plan = plan_brief_extraction(
+        options_raw={},
+        brief_raw={
+            "status": "review_pending",
+            "topic": "算法",
+            "audience": "软件工程大二学生",
+            "knowledge_points": ["概念", "算法思路"],
+            "readiness": {
+                "missing_fields": ["duration_or_pages"],
+                "can_generate": False,
+            },
+        },
+        latest_user_message="安排12个课时，着重概念和算法思路，实验和代码暂不考虑",
+    )
+
+    assert plan["should_run"] is True
+    assert plan["missing_field_answer_trigger"] is True
+    assert plan["answered_missing_fields"] == ["duration_or_pages"]
+    assert plan["extraction_reason"] == "missing_field_answer"
+    assert plan["refresh_after_ms"] >= 500
+
+
+def test_plan_brief_extraction_triggers_on_generation_intent():
+    plan = plan_brief_extraction(
+        options_raw={},
+        brief_raw={"status": "review_pending"},
+        latest_user_message="好了，直接给我完整大纲吧",
+    )
+
+    assert plan["should_run"] is True
+    assert plan["generation_intent_trigger"] is True
+    assert plan["extraction_reason"] == "generation_intent"
+
+
+def test_plan_brief_extraction_debounces_recent_schedule():
+    plan = plan_brief_extraction(
+        options_raw={"_brief_extraction_last_scheduled_at": 9999999999},
+        brief_raw={
+            "status": "draft",
+            "readiness": {
+                "missing_fields": ["audience"],
+                "can_generate": False,
+            },
+        },
+        latest_user_message="面向软件工程专业的大二学生",
+    )
+
+    assert plan["should_run"] is False
+    assert plan["debounced"] is True
+    assert plan["detected_reason"] == "missing_field_answer"
+    assert plan["extraction_reason"] is None
 
 
 def test_plan_brief_extraction_triggers_early_when_message_fills_most_gaps():
@@ -50,4 +105,5 @@ def test_plan_brief_extraction_triggers_early_when_message_fills_most_gaps():
 
     assert plan["should_run"] is True
     assert plan["immediate_trigger"] is True
+    assert plan["extraction_reason"] == "missing_field_answer"
     assert plan["pending_turn_count"] == 0
