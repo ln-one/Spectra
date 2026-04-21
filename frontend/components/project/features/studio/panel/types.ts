@@ -50,7 +50,15 @@ export type RuntimeArtifactsByTool = Partial<
   Record<StudioToolKey, ArtifactHistoryItem[]>
 >;
 
+export interface ManagedDraftAnchor {
+  sessionId: string | null;
+  artifactId: string | null;
+  runId: string | null;
+  status: StudioHistoryStatus | null;
+}
+
 export interface ManagedWorkbenchState {
   mode: "draft" | "history";
   target: ManagedResultTarget | null;
+  draftAnchors: Partial<Record<StudioToolKey, ManagedDraftAnchor>>;
 }

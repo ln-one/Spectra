@@ -189,14 +189,12 @@ def test_validate_animation_payload_allows_descriptive_draft_without_runtime_arr
     )
 
 
-def test_structured_generation_uses_larger_token_budget_for_speaker_notes():
+def test_structured_generation_uses_larger_token_budget_for_mindmap_than_speaker_notes():
     assert (
         tool_content_builder_generation._resolve_card_generation_max_tokens(
-            "speaker_notes"
-        )
-        > tool_content_builder_generation._resolve_card_generation_max_tokens(
             "knowledge_mindmap"
         )
+        > tool_content_builder_generation._resolve_card_generation_max_tokens("speaker_notes")
     )
     assert (
         tool_content_builder_generation._resolve_card_generation_max_tokens(
@@ -219,6 +217,40 @@ def test_structured_generation_word_token_budget_can_be_overridden(monkeypatch):
             "word_document"
         )
         == 5600
+    )
+
+
+def test_structured_generation_mindmap_timeout_can_be_overridden(monkeypatch):
+    monkeypatch.delenv("MINDMAP_TIMEOUT_SECONDS", raising=False)
+    monkeypatch.delenv("MINDMAP_REVIEW_TIMEOUT_SECONDS", raising=False)
+
+    assert tool_content_builder_generation._resolve_mindmap_timeout_seconds() is None
+    assert (
+        tool_content_builder_generation._resolve_mindmap_review_timeout_seconds()
+        is None
+    )
+
+    monkeypatch.setenv("MINDMAP_TIMEOUT_SECONDS", "240")
+    assert tool_content_builder_generation._resolve_mindmap_timeout_seconds() == 240
+    assert (
+        tool_content_builder_generation._resolve_mindmap_review_timeout_seconds()
+        == 240
+    )
+
+    monkeypatch.setenv("MINDMAP_REVIEW_TIMEOUT_SECONDS", "360")
+    assert (
+        tool_content_builder_generation._resolve_mindmap_review_timeout_seconds()
+        == 360
+    )
+
+
+def test_structured_generation_mindmap_token_budget_can_be_overridden(monkeypatch):
+    monkeypatch.setenv("MINDMAP_MAX_TOKENS", "6400")
+    assert (
+        tool_content_builder_generation._resolve_card_generation_max_tokens(
+            "knowledge_mindmap"
+        )
+        == 6400
     )
 
 
@@ -453,6 +485,145 @@ async def test_build_studio_tool_artifact_content_strict_rejects_invalid_schema(
     assert exc.error_code == ErrorCode.INVALID_INPUT
     assert exc.details["phase"] == "validate"
     assert "field_nodes_empty" in str(exc.details["failure_reason"])
+
+
+@pytest.mark.asyncio
+async def test_build_studio_tool_artifact_content_reviews_mindmap_and_uses_large_budget(
+    monkeypatch,
+):
+    monkeypatch.setenv("STUDIO_TOOL_FALLBACK_MODE", "strict")
+    monkeypatch.setenv("STUDIO_TOOL_ENABLE_AI_GENERATION", "true")
+    monkeypatch.setenv("MINDMAP_REVIEW_ENABLED", "true")
+    monkeypatch.setattr(
+        tool_content_builder,
+        "_load_rag_snippets",
+        AsyncMock(return_value=["[来源:doc.pdf] 停止等待协议的效率受发送时间和往返等待时间共同影响。"]),
+    )
+    monkeypatch.setattr(
+        tool_content_builder,
+        "_load_source_artifact_hint",
+        AsyncMock(return_value=None),
+    )
+    generate_mock = AsyncMock(
+        side_effect=[
+            {
+                "content": (
+                    '{"title":"停止等待协议","nodes":['
+                    '{"id":"root","parent_id":null,"title":"停止等待协议"},'
+                    '{"id":"a","parent_id":"root","title":"定义"},'
+                    '{"id":"a1","parent_id":"a","title":"发送确认"},'
+                    '{"id":"a2","parent_id":"a","title":"逐帧等待"},'
+                    '{"id":"b","parent_id":"root","title":"效率问题 chunk 01","summary":"见第3页"},'
+                    '{"id":"b1","parent_id":"b","title":"传播时延"},'
+                    '{"id":"b2","parent_id":"b","title":"确认等待"},'
+                    '{"id":"c","parent_id":"root","title":"影响因素"},'
+                    '{"id":"c1","parent_id":"c","title":"RTT"},'
+                    '{"id":"c2","parent_id":"c","title":"帧长"},'
+                    '{"id":"d","parent_id":"root","title":"误区"},'
+                    '{"id":"d1","parent_id":"d","title":"只看带宽"},'
+                    '{"id":"d2","parent_id":"d","title":"忽略等待"},'
+                    '{"id":"e","parent_id":"root","title":"优化"},'
+                    '{"id":"e1","parent_id":"e","title":"滑动窗口"},'
+                    '{"id":"e2","parent_id":"e","title":"批量确认"},'
+                    '{"id":"e1a","parent_id":"e1","title":"并行发送"},'
+                    '{"id":"e1b","parent_id":"e1","title":"提高利用率"}]}'
+                ),
+                "model": "openai/gpt-5.4",
+            },
+            {
+                "content": (
+                    '{"title":"停止等待协议","summary":"围绕效率与优化思路组织的知识导图","nodes":['
+                    '{"id":"root","parent_id":null,"title":"停止等待协议"},'
+                    '{"id":"a","parent_id":"root","title":"基本机制"},'
+                    '{"id":"a1","parent_id":"a","title":"发送确认"},'
+                    '{"id":"a2","parent_id":"a","title":"逐帧等待"},'
+                    '{"id":"b","parent_id":"root","title":"效率瓶颈"},'
+                    '{"id":"b1","parent_id":"b","title":"传播时延"},'
+                    '{"id":"b2","parent_id":"b","title":"确认等待"},'
+                    '{"id":"c","parent_id":"root","title":"关键变量"},'
+                    '{"id":"c1","parent_id":"c","title":"RTT"},'
+                    '{"id":"c2","parent_id":"c","title":"帧长"},'
+                    '{"id":"d","parent_id":"root","title":"常见误区"},'
+                    '{"id":"d1","parent_id":"d","title":"只看带宽"},'
+                    '{"id":"d2","parent_id":"d","title":"忽略等待"},'
+                    '{"id":"e","parent_id":"root","title":"优化方向"},'
+                    '{"id":"e1","parent_id":"e","title":"滑动窗口"},'
+                    '{"id":"e2","parent_id":"e","title":"批量确认"},'
+                    '{"id":"e1a","parent_id":"e1","title":"并行发送"},'
+                    '{"id":"e1b","parent_id":"e1","title":"提高利用率"}]}'
+                ),
+                "model": "openai/gpt-5.4",
+            },
+        ]
+    )
+    monkeypatch.setattr(
+        tool_content_builder_generation.ai_service,
+        "generate",
+        generate_mock,
+    )
+
+    payload = await tool_content_builder.build_studio_tool_artifact_content(
+        card_id="knowledge_mindmap",
+        project_id="p-001",
+        user_id="u-001",
+        config={"topic": "停止等待协议", "depth": 5},
+    )
+
+    assert payload["title"] == "停止等待协议"
+    assert generate_mock.await_count == 2
+    first_call = generate_mock.await_args_list[0].kwargs
+    review_call = generate_mock.await_args_list[1].kwargs
+    assert first_call["response_format"] == {"type": "json_object"}
+    assert first_call["max_tokens"] == 5200
+    assert review_call["response_format"] == {"type": "json_object"}
+    assert review_call["max_tokens"] == 5200
+
+
+@pytest.mark.asyncio
+async def test_build_studio_tool_artifact_content_rejects_low_quality_mindmap(
+    monkeypatch,
+):
+    monkeypatch.setenv("STUDIO_TOOL_FALLBACK_MODE", "strict")
+    monkeypatch.setenv("STUDIO_TOOL_ENABLE_AI_GENERATION", "true")
+    monkeypatch.setenv("MINDMAP_REVIEW_ENABLED", "false")
+    monkeypatch.setattr(
+        tool_content_builder,
+        "_load_rag_snippets",
+        AsyncMock(return_value=["rag snippet"]),
+    )
+    monkeypatch.setattr(
+        tool_content_builder,
+        "_load_source_artifact_hint",
+        AsyncMock(return_value=None),
+    )
+    monkeypatch.setattr(
+        tool_content_builder_generation.ai_service,
+        "generate",
+        AsyncMock(
+            return_value={
+                "content": (
+                    '{"title":"Mindmap","nodes":['
+                    '{"id":"root","parent_id":null,"title":"Mindmap"},'
+                    '{"id":"a","parent_id":"root","title":"资料里提到的定义","summary":"见第2页 chunk 01"},'
+                    '{"id":"b","parent_id":"a","title":"展开说明"}]}'
+                ),
+                "model": "openai/gpt-4o-mini",
+            }
+        ),
+    )
+
+    with pytest.raises(APIException) as exc_info:
+        await tool_content_builder.build_studio_tool_artifact_content(
+            card_id="knowledge_mindmap",
+            project_id="p-001",
+            user_id="u-001",
+            config={"topic": "Newton laws"},
+        )
+
+    exc = exc_info.value
+    assert exc.status_code == 422
+    assert exc.details["phase"] == "quality_gate"
+    assert str(exc.details["failure_reason"]).startswith("mindmap_quality_low:")
 
 
 @pytest.mark.asyncio

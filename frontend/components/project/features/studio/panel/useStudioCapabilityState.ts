@@ -17,6 +17,10 @@ import {
   DEFAULT_CAPABILITY_PENDING_REASON,
   STUDIO_CARD_BY_TOOL,
 } from "./constants";
+import {
+  doesArtifactMatchResolvedTarget,
+  resolveManagedTarget,
+} from "./managed-target-resolver";
 import type {
   ManagedWorkbenchState,
   CapabilityStateByCardId,
@@ -34,6 +38,7 @@ interface UseStudioCapabilityStateArgs {
   activeSessionId: string | null;
   activeRunId: string | null;
   expandedTool: GenerationToolType | null;
+  generationSession?: unknown;
   artifactHistoryByTool: ArtifactHistoryByTool;
   draftSourceArtifactId: string | null;
   managedWorkbenchState?: ManagedWorkbenchState | null;
@@ -44,6 +49,7 @@ export function useStudioCapabilityState({
   activeSessionId,
   activeRunId,
   expandedTool,
+  generationSession,
   artifactHistoryByTool,
   draftSourceArtifactId,
   managedWorkbenchState = null,
@@ -91,54 +97,65 @@ export function useStudioCapabilityState({
   const isProtocolPending = currentReadiness === "protocol_pending";
   const hasSourceBinding = Boolean(selectedSourceId || draftSourceArtifactId);
 
-  const currentToolArtifacts = useMemo(() => {
+  const mergedToolArtifacts = useMemo(() => {
     if (!expandedToolKey) return [];
     const fromStore = artifactHistoryByTool[expandedToolKey] ?? [];
-    const merged = mergeToolArtifacts(
+    return mergeToolArtifacts(
       expandedToolKey,
       fromStore,
       runtimeArtifactsByTool
     );
-    const resultTarget =
-      managedWorkbenchState?.mode === "history" &&
-      managedWorkbenchState.target?.toolType === expandedToolKey
-        ? managedWorkbenchState.target
-        : null;
-    if (resultTarget) {
-      const filtered = merged.filter((item) => {
-        if (resultTarget.artifactId && item.artifactId === resultTarget.artifactId) {
-          return true;
+  }, [artifactHistoryByTool, expandedToolKey, runtimeArtifactsByTool]);
+
+  const resolvedManagedTarget = useMemo(
+    () =>
+      resolveManagedTarget({
+        toolType: expandedToolKey,
+        managedWorkbenchState,
+        activeSessionId,
+        activeRunId,
+        currentToolArtifacts: mergedToolArtifacts,
+      }),
+    [
+      activeRunId,
+      activeSessionId,
+      expandedToolKey,
+      managedWorkbenchState,
+      mergedToolArtifacts,
+    ]
+  );
+
+  const currentToolArtifacts = useMemo(() => {
+    if (!expandedToolKey) return [];
+    if (resolvedManagedTarget?.toolType === expandedToolKey) {
+      if (resolvedManagedTarget.kind === "draft") {
+        if (!resolvedManagedTarget.artifactId) {
+          return [];
         }
-        if (
-          resultTarget.runId &&
-          resultTarget.sessionId &&
-          item.runId === resultTarget.runId &&
-          item.sessionId === resultTarget.sessionId
-        ) {
-          return true;
-        }
-        if (resultTarget.sessionId && item.sessionId === resultTarget.sessionId) {
-          return true;
-        }
-        return false;
-      });
+        const filteredDraftArtifacts = mergedToolArtifacts.filter((item) =>
+          doesArtifactMatchResolvedTarget(item, resolvedManagedTarget)
+        );
+        return filteredDraftArtifacts;
+      }
+      const filtered = mergedToolArtifacts.filter((item) =>
+        doesArtifactMatchResolvedTarget(item, resolvedManagedTarget)
+      );
       if (filtered.length > 0) {
         return filtered;
       }
     }
     const normalizedRunId = activeRunId?.trim() || null;
     if (!normalizedRunId) {
-      return merged;
+      return mergedToolArtifacts;
     }
-    return merged.filter(
+    return mergedToolArtifacts.filter(
       (item) => (item.runId?.trim() || null) === normalizedRunId
     );
   }, [
     activeRunId,
-    artifactHistoryByTool,
     expandedToolKey,
-    managedWorkbenchState,
-    runtimeArtifactsByTool,
+    mergedToolArtifacts,
+    resolvedManagedTarget,
   ]);
 
   const completedPptHistorySources = useMemo<StudioSourceOption[]>(() => {
@@ -468,6 +485,7 @@ export function useStudioCapabilityState({
     supportsChatRefine,
     hasSourceBinding,
     currentToolArtifacts,
+    resolvedManagedTarget,
     activeCapabilityState,
     isLoadingCardProtocol,
     upsertCurrentCardSources,

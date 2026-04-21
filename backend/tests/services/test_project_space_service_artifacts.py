@@ -262,3 +262,59 @@ async def test_create_artifact_with_file_stores_structured_snapshot_for_docx(
     assert snapshot["title"] == "牛顿第一定律教案"
     assert snapshot["source_artifact_id"] == "a-ppt-001"
     assert snapshot["document_content"] == {"type": "doc", "content": []}
+
+
+@pytest.mark.asyncio
+async def test_update_artifact_with_file_syncs_metadata_title_from_docx_content(
+    monkeypatch,
+):
+    monkeypatch.setenv("OUROGRAPH_BASE_URL", "http://ourograph.test")
+    service = ProjectSpaceService()
+    service.db = SimpleNamespace()
+    artifact = SimpleNamespace(
+        id="a-docx",
+        projectId="p-1",
+        sessionId=None,
+        basedOnVersionId="v-1",
+        type="docx",
+        visibility="private",
+        storagePath="generated/lesson.docx",
+        metadata='{"title":"未命名文档"}',
+    )
+    updated_artifact = SimpleNamespace(
+        id="a-docx",
+        projectId="p-1",
+        sessionId=None,
+        basedOnVersionId="v-1",
+        type="docx",
+        visibility="private",
+        storagePath="generated/lesson.docx",
+        metadata="{}",
+    )
+    monkeypatch.setattr(
+        "services.project_space_service.artifacts.resolve_based_on_version_id",
+        AsyncMock(return_value="v-1"),
+    )
+    monkeypatch.setattr(
+        "services.project_space_service.artifacts._generate_artifact_file",
+        AsyncMock(return_value="generated/lesson.docx"),
+    )
+    monkeypatch.setattr(
+        "services.project_space_service.artifacts.silently_accrete_artifact",
+        AsyncMock(return_value=None),
+    )
+    update_metadata = AsyncMock(return_value=updated_artifact)
+    monkeypatch.setattr(service, "update_artifact_metadata", update_metadata)
+    monkeypatch.setattr(service, "bind_artifact_to_version", AsyncMock())
+
+    await service.update_artifact_with_file(
+        artifact=artifact,
+        project_id="p-1",
+        user_id="u-1",
+        content={
+            "title": "计算机网络：物理层教案",
+            "document_content": {"type": "doc", "content": []},
+        },
+    )
+
+    assert update_metadata.await_args.args[1]["title"] == "计算机网络：物理层教案"

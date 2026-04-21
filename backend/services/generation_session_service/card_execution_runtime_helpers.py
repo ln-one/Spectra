@@ -353,6 +353,22 @@ async def create_replacement_artifact(
     )
 
 
+async def update_existing_artifact(
+    *,
+    source_artifact,
+    project_id: str,
+    user_id: str,
+    content: dict,
+):
+    return await project_space_service.update_artifact_with_file(
+        artifact=source_artifact,
+        project_id=project_id,
+        user_id=user_id,
+        content=content,
+        based_on_version_id=getattr(source_artifact, "basedOnVersionId", None),
+    )
+
+
 def build_source_binding_payload(
     *,
     card_id: str,

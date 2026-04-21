@@ -222,6 +222,15 @@ def build_studio_card_execution_preview(
 
     if card_id == "knowledge_mindmap":
         selected_node_path = cfg.get("selected_node_path") or cfg.get("selected_id")
+        initial_content = {"topic": cfg.get("topic")}
+        if cfg.get("depth") not in (None, ""):
+            initial_content["depth"] = cfg.get("depth")
+        if cfg.get("focus") not in (None, ""):
+            initial_content["focus"] = cfg.get("focus")
+        if cfg.get("target_audience") not in (None, ""):
+            initial_content["target_audience"] = cfg.get("target_audience")
+        if cfg.get("focus_scope") not in (None, ""):
+            initial_content["focus_scope"] = cfg.get("focus_scope")
         return StudioCardExecutionPreview(
             card_id=card_id,
             readiness=StudioCardReadiness.FOUNDATION_READY,
@@ -233,15 +242,7 @@ def build_studio_card_execution_preview(
                     "type": ArtifactType.MINDMAP.value,
                     "visibility": artifact_visibility,
                     "rag_source_ids": rag_source_ids or [],
-                    "content": {
-                        "topic": cfg.get("topic"),
-                        "depth": cfg.get("depth", 3),
-                        "focus": cfg.get(
-                            "focus", cfg.get("focus_scope", "full_project")
-                        ),
-                        "target_audience": cfg.get("target_audience"),
-                        "focus_scope": cfg.get("focus_scope", "full_project"),
-                    },
+                    "content": initial_content,
                 },
                 notes=(
                     "导图卡片通过 mindmap artifact 创建承托，"

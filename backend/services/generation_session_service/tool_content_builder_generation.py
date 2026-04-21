@@ -7,6 +7,16 @@ import re
 from typing import Any
 
 from services.ai.model_router import ModelRouteTask
+from services.generation_session_service.mindmap_generation_support import (
+    build_mindmap_review_prompt as _build_mindmap_review_prompt,
+    generate_mindmap_reviewed_payload as _generate_mindmap_reviewed_payload,
+    resolve_mindmap_model as _resolve_mindmap_model,
+    resolve_mindmap_review_timeout_seconds as _resolve_mindmap_review_timeout_seconds,
+    resolve_mindmap_timeout_seconds as _resolve_mindmap_timeout_seconds,
+)
+from services.generation_session_service.mindmap_normalizer import (
+    evaluate_mindmap_payload_quality,
+)
 from services.generation_session_service.word_template_engine import (
     build_word_markdown_prompt,
     build_word_markdown_reviewer_prompt,
@@ -33,7 +43,7 @@ logger = logging.getLogger(__name__)
 _CARD_GENERATION_MAX_TOKENS: dict[str, int] = {
     "speaker_notes": 4800,
     "word_document": 5000,
-    "knowledge_mindmap": 1800,
+    "knowledge_mindmap": 5200,
     "interactive_quick_quiz": 1800,
     "interactive_games": 2200,
     "classroom_qa_simulator": 2400,
@@ -67,6 +77,8 @@ def _resolve_word_model() -> str | None:
 def _resolve_card_generation_max_tokens(card_id: str) -> int:
     if card_id == "word_document":
         return _env_positive_int("WORD_LESSON_PLAN_MAX_TOKENS", 5000)
+    if card_id == "knowledge_mindmap":
+        return _env_positive_int("MINDMAP_MAX_TOKENS", 5200)
     return _CARD_GENERATION_MAX_TOKENS.get(card_id, 1600)
 
 
@@ -297,6 +309,25 @@ async def generate_structured_artifact_content(
             source_hint=source_hint,
         )
         model_name = _resolve_word_model() or ai_service.large_model
+    elif card_id == "knowledge_mindmap":
+        payload, model_name = await _generate_mindmap_reviewed_payload(
+            config=config,
+            rag_snippets=rag_snippets,
+            source_hint=source_hint,
+            resolve_card_generation_max_tokens=_resolve_card_generation_max_tokens,
+        )
+        raw_nodes = payload.get("nodes")
+        if not isinstance(raw_nodes, list) or not raw_nodes:
+            raise_generation_error(
+                status_code=400,
+                error_code=ErrorCode.INVALID_INPUT,
+                message="AI payload failed studio card schema validation.",
+                card_id=card_id,
+                model=model_name,
+                phase="validate",
+                failure_reason="field_nodes_empty",
+                retryable=False,
+            )
     else:
         payload, model_name = await generate_card_json_payload(
             prompt=_build_structured_artifact_prompt(
@@ -348,4 +379,31 @@ async def generate_structured_artifact_content(
             failure_reason=str(exc),
             retryable=False,
         )
+    if card_id == "knowledge_mindmap":
+        quality_threshold = _env_positive_int("MINDMAP_QUALITY_THRESHOLD", 70)
+        score, issues, metrics = evaluate_mindmap_payload_quality(payload)
+        logger.info(
+            "knowledge_mindmap quality metadata: model=%s score=%s threshold=%s issues=%s metrics=%s",
+            model_name,
+            score,
+            quality_threshold,
+            ",".join(issues),
+            metrics,
+        )
+        if score < quality_threshold:
+            raise_generation_error(
+                status_code=422,
+                error_code=ErrorCode.INVALID_INPUT,
+                message="Generated mindmap payload failed quality score checks.",
+                card_id=card_id,
+                model=model_name,
+                phase="quality_gate",
+                failure_reason="mindmap_quality_low:" + ",".join(issues[:6]),
+                retryable=False,
+                extra={
+                    "mindmap_quality_score": score,
+                    "mindmap_quality_threshold": quality_threshold,
+                    "mindmap_quality_metrics": metrics,
+                },
+            )
     return payload

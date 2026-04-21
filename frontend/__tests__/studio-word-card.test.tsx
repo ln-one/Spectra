@@ -1,7 +1,10 @@
 import type { ReactNode } from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ToolFlowContext } from "@/components/project/features/studio/tools";
-import { PreviewStep } from "@/components/project/features/studio/tools/word/PreviewStep";
+import {
+  PreviewStep,
+  WORD_PREVIEW_HEADING_CLASSES,
+} from "@/components/project/features/studio/tools/word/PreviewStep";
 import { WordToolPanel } from "@/components/project/features/studio/tools/WordToolPanel";
 
 jest.mock("react-markdown", () => ({
@@ -218,7 +221,7 @@ describe("studio word card", () => {
       <WordToolPanel
         toolName="教案"
         flowContext={buildFlowContext({
-          wordWorkbenchMode: "draft",
+          managedWorkbenchMode: "draft",
           capabilityStatus: "backend_ready",
           resolvedArtifact: {
             artifactId: "word-artifact-1",
@@ -248,6 +251,51 @@ describe("studio word card", () => {
     expect(screen.queryByText("编辑文档")).not.toBeInTheDocument();
   });
 
+  it("prefers raw lesson plan markdown over reconstructed document content for preview", () => {
+    render(
+      <PreviewStep
+        markdown=""
+        isGenerating={false}
+        lastGeneratedAt={null}
+        flowContext={buildFlowContext({
+          capabilityStatus: "backend_ready",
+          resolvedArtifact: {
+            artifactId: "word-artifact-1",
+            artifactType: "docx",
+            contentKind: "json",
+            content: {
+              title: "网络通信教案",
+              lesson_plan_markdown:
+                "## 关键知识可视化对照表\n\n| 对比维度 | 核心特征 |\n| --- | --- |\n| 串行传输 | 单通道顺序发送 |",
+              document_content: {
+                type: "doc",
+                content: [
+                  {
+                    type: "heading",
+                    attrs: { level: 2 },
+                    content: [{ type: "text", text: "关键知识可视化对照表" }],
+                  },
+                  {
+                    type: "paragraph",
+                    content: [
+                      {
+                        type: "text",
+                        text: "旧结构化内容会把表格压平成普通段落",
+                      },
+                    ],
+                  },
+                ],
+              },
+            },
+          },
+        })}
+      />
+    );
+
+    expect(screen.getByText(/\| 对比维度 \| 核心特征 \|/)).toBeInTheDocument();
+    expect(screen.queryByText("旧结构化内容会把表格压平成普通段落")).not.toBeInTheDocument();
+  });
+
   it("restores the saved lesson-plan draft instead of being overwritten by recommendations", () => {
     render(
       <WordToolPanel
@@ -273,8 +321,9 @@ describe("studio word card", () => {
       <WordToolPanel
         toolName="教案"
         flowContext={buildFlowContext({
-          wordWorkbenchMode: "history",
-          wordResultTarget: {
+          managedWorkbenchMode: "history",
+          resolvedTarget: {
+            kind: "pinned_artifact",
             sessionId: "sess-history",
             artifactId: "word-artifact-1",
           },
@@ -307,8 +356,9 @@ describe("studio word card", () => {
       <WordToolPanel
         toolName="教案"
         flowContext={buildFlowContext({
-          wordWorkbenchMode: "history",
-          wordResultTarget: {
+          managedWorkbenchMode: "history",
+          resolvedTarget: {
+            kind: "pinned_run",
             sessionId: "sess-history",
             runId: "run-history",
             status: "processing",
@@ -329,8 +379,9 @@ describe("studio word card", () => {
       <WordToolPanel
         toolName="教案"
         flowContext={buildFlowContext({
-          wordWorkbenchMode: "history",
-          wordResultTarget: {
+          managedWorkbenchMode: "history",
+          resolvedTarget: {
+            kind: "pinned_artifact",
             sessionId: "sess-history",
             runId: "run-history",
             artifactId: "word-artifact-1",
@@ -360,8 +411,9 @@ describe("studio word card", () => {
       <WordToolPanel
         toolName="教案"
         flowContext={buildFlowContext({
-          wordWorkbenchMode: "history",
-          wordResultTarget: {
+          managedWorkbenchMode: "history",
+          resolvedTarget: {
+            kind: "pinned_artifact",
             sessionId: "sess-history",
             artifactId: "word-artifact-1",
             status: "completed",
@@ -402,7 +454,13 @@ describe("studio word card", () => {
         isGenerating={false}
         lastGeneratedAt={"2026-04-17T08:00:00.000Z"}
         flowContext={buildFlowContext({
-          wordWorkbenchMode: "history",
+          managedWorkbenchMode: "history",
+          resolvedTarget: {
+            kind: "pinned_artifact",
+            sessionId: "sess-history",
+            artifactId: "word-artifact-1",
+            status: "completed",
+          },
           capabilityStatus: "backend_ready",
           capabilityReason: "Loaded backend Word document.",
           onExportArtifact,
@@ -471,6 +529,7 @@ describe("studio word card", () => {
           refineMode: "structured_refine",
           config: expect.objectContaining({
             markdown_content: expect.any(String),
+            lesson_plan_markdown: expect.any(String),
             document_content: expect.any(Object),
             document_title: "牛顿第二定律教案",
             document_summary: "已更新文档内容。",
@@ -487,6 +546,56 @@ describe("studio word card", () => {
     });
   });
 
+  it("falls back to the markdown heading when artifact title is still generic", async () => {
+    const onStructuredRefineArtifact = jest
+      .fn()
+      .mockResolvedValue({ ok: true, artifactId: "word-artifact-2" });
+
+    render(
+      <PreviewStep
+        markdown=""
+        isGenerating={false}
+        lastGeneratedAt={null}
+        flowContext={buildFlowContext({
+          capabilityStatus: "backend_ready",
+          onStructuredRefineArtifact,
+          resolvedArtifact: {
+            artifactId: "word-artifact-1",
+            artifactType: "docx",
+            contentKind: "json",
+            content: {
+              kind: "teaching_document",
+              title: "未命名文档",
+              summary: "已更新文档内容。",
+              lesson_plan_markdown: "# 计算机网络：物理层教案\n\n## 教学目标\n\n- 理解物理层功能",
+            },
+          },
+        })}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "编辑" }));
+    fireEvent.click(screen.getByRole("button", { name: "保存修改" }));
+
+    await waitFor(() => {
+      expect(onStructuredRefineArtifact).toHaveBeenCalledWith(
+        expect.objectContaining({
+          config: expect.objectContaining({
+            document_title: "计算机网络：物理层教案",
+          }),
+        })
+      );
+    });
+  });
+
+  it("exports the tuned heading classes for the word preview surface", () => {
+    expect(WORD_PREVIEW_HEADING_CLASSES).toEqual({
+      h1: "mt-4 text-[1.7rem] font-bold leading-tight text-zinc-900",
+      h2: "mt-6 border-b border-zinc-200 pb-1.5 text-[1.35rem] font-semibold leading-tight text-zinc-900",
+      h3: "mt-5 text-[1.1rem] font-semibold leading-7 text-zinc-900",
+    });
+  });
+
   it("shows an explicit failure state instead of silently falling back to compose", () => {
     render(
       <PreviewStep
@@ -495,7 +604,7 @@ describe("studio word card", () => {
         lastGeneratedAt={null}
         resultStatus="failed"
         flowContext={buildFlowContext({
-          wordWorkbenchMode: "history",
+          managedWorkbenchMode: "history",
           capabilityStatus: "backend_ready",
         })}
       />
@@ -512,7 +621,7 @@ describe("studio word card", () => {
         lastGeneratedAt={null}
         flowContext={buildFlowContext({
           capabilityStatus: "backend_placeholder",
-          wordWorkbenchMode: "history",
+          managedWorkbenchMode: "history",
         })}
       />
     );

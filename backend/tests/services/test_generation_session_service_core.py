@@ -177,20 +177,36 @@ async def test_get_session_snapshot_includes_grouped_session_artifacts():
     session = _fake_session(state=GenerationState.SUCCESS.value)
     artifacts = [
         SimpleNamespace(
+            id="art-word-001",
+            type="docx",
+            metadata='{"title":"旧教案","is_current":false,"superseded_by_artifact_id":"art-word-002"}',
+            basedOnVersionId="ver-010",
+            createdAt=datetime(2026, 4, 20, 10, 0, tzinfo=timezone.utc),
+            updatedAt=datetime(2026, 4, 20, 10, 0, tzinfo=timezone.utc),
+        ),
+        SimpleNamespace(
+            id="art-word-002",
+            type="docx",
+            metadata='{"title":"新教案","is_current":true,"replaces_artifact_id":"art-word-001"}',
+            basedOnVersionId="ver-011",
+            createdAt=datetime(2026, 4, 20, 11, 0, tzinfo=timezone.utc),
+            updatedAt=datetime(2026, 4, 20, 11, 0, tzinfo=timezone.utc),
+        ),
+        SimpleNamespace(
             id="art-outline-001",
             type="summary",
             metadata='{"kind":"outline","is_current":true}',
             basedOnVersionId="ver-002",
-            createdAt=datetime.now(timezone.utc),
-            updatedAt=datetime.now(timezone.utc),
+            createdAt=datetime(2026, 4, 20, 12, 0, tzinfo=timezone.utc),
+            updatedAt=datetime(2026, 4, 20, 12, 0, tzinfo=timezone.utc),
         ),
         SimpleNamespace(
             id="art-ppt-001",
             type="pptx",
             metadata='{"is_current":false,"superseded_by_artifact_id":"art-ppt-002"}',
             basedOnVersionId="ver-001",
-            createdAt=datetime.now(timezone.utc),
-            updatedAt=datetime.now(timezone.utc),
+            createdAt=datetime(2026, 4, 20, 9, 0, tzinfo=timezone.utc),
+            updatedAt=datetime(2026, 4, 20, 9, 0, tzinfo=timezone.utc),
         ),
     ]
     db = SimpleNamespace(
@@ -208,6 +224,20 @@ async def test_get_session_snapshot_includes_grouped_session_artifacts():
 
     assert payload["artifact_id"] == "art-outline-001"
     assert payload["session_artifact_groups"][0]["items"]
+    word_group = next(
+        group
+        for group in payload["session_artifact_groups"]
+        if group["capability"] == "word"
+    )
+    assert word_group["current_artifact_id"] == "art-word-002"
+    assert word_group["current_artifact_anchor"]["artifact_id"] == "art-word-002"
+    ppt_group = next(
+        group
+        for group in payload["session_artifact_groups"]
+        if group["capability"] == "ppt"
+    )
+    assert ppt_group["current_artifact_id"] is None
+    assert ppt_group["current_artifact_anchor"] is None
     db.artifact.find_many.assert_awaited_once_with(
         where={"projectId": "p-001", "sessionId": "s-001"},
         order={"updatedAt": "desc"},

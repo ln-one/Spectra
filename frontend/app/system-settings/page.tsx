@@ -9,7 +9,6 @@ import {
   type SystemSettingsUpdateRequest,
 } from "@/lib/sdk";
 import {
-  getChatLatencyNotice,
   getChatRequestErrorMessage,
   getErrorMessage,
 } from "@/lib/sdk/errors";
@@ -175,12 +174,9 @@ export default function SystemSettingsPage() {
             : null,
         observability: response?.data?.observability ?? null,
       });
-      const latencyNotice = getChatLatencyNotice(
-        response?.data?.observability ?? null
-      );
       toast({
         title: "验证请求已发送",
-        description: latencyNotice ?? "下方可查看 request trace。",
+        description: "下方可查看 request trace。",
       });
     } catch (error) {
       toast({

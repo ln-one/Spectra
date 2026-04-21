@@ -34,6 +34,7 @@ async def generate_with_routing(
     has_rag_context: bool = False,
     max_tokens: Optional[int] = 500,
     response_format: Optional[dict] = None,
+    timeout_seconds_override: Optional[float] = None,
 ) -> dict:
     started_at = time.perf_counter()
 
@@ -51,7 +52,11 @@ async def generate_with_routing(
     resolved_model = requested_model
     fallback_triggered = False
     fallback_model = route_decision.fallback_model if route_decision else None
-    timeout_seconds = service._resolve_timeout_seconds(route_task)
+    timeout_seconds = (
+        float(timeout_seconds_override)
+        if timeout_seconds_override is not None and float(timeout_seconds_override) > 0
+        else service._resolve_timeout_seconds(route_task)
+    )
     retry_attempts = 0
     fallback_target = None
 

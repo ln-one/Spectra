@@ -200,8 +200,130 @@ async def create_artifact_with_file(
     return artifact
 
 
+async def update_artifact_with_file(
+    *,
+    service,
+    artifact,
+    project_id: str,
+    user_id: str,
+    content: Optional[dict] = None,
+    based_on_version_id: Optional[str] = None,
+):
+    artifact_type = normalize_artifact_type(str(getattr(artifact, "type", "") or ""))
+    visibility = normalize_artifact_visibility(
+        str(getattr(artifact, "visibility", "") or "private")
+    ).value
+    artifact_id = str(getattr(artifact, "id", "") or "").strip()
+    if not artifact_id:
+        raise ValueError("update_artifact_with_file requires artifact.id")
+
+    resolved_based_on_version_id = await resolve_based_on_version_id(
+        service=service,
+        project_id=project_id,
+        user_id=user_id,
+        based_on_version_id=(
+            based_on_version_id
+            if based_on_version_id is not None
+            else getattr(artifact, "basedOnVersionId", None)
+        ),
+    )
+    normalized_content = normalize_artifact_content(artifact_type, content)
+
+    storage_path = await _generate_artifact_file(
+        service=service,
+        artifact_type=artifact_type,
+        project_id=project_id,
+        artifact_id=artifact_id,
+        user_id=user_id,
+        normalized_content=normalized_content,
+    )
+    existing_metadata = parse_artifact_metadata(getattr(artifact, "metadata", None))
+    for stale_key in (
+        "replaces_artifact_id",
+        "superseded_by_artifact_id",
+    ):
+        existing_metadata.pop(stale_key, None)
+    metadata = {
+        **existing_metadata,
+        **build_artifact_metadata(
+            artifact_type,
+            normalized_content,
+            user_id,
+            artifact_mode="update",
+        ),
+    }
+    updated_artifact = await service.update_artifact_metadata(
+        artifact_id,
+        metadata,
+        project_id=project_id,
+        user_id=user_id,
+    )
+
+    current_based_on_version_id = getattr(updated_artifact, "basedOnVersionId", None)
+    if (
+        resolved_based_on_version_id
+        and resolved_based_on_version_id != current_based_on_version_id
+    ):
+        updated_artifact = await service.bind_artifact_to_version(
+            project_id=project_id,
+            artifact_id=artifact_id,
+            based_on_version_id=resolved_based_on_version_id,
+            user_id=user_id,
+        )
+
+    if storage_path and not str(getattr(updated_artifact, "storagePath", "") or "").strip():
+        setattr(updated_artifact, "storagePath", storage_path)
+    if (
+        resolved_based_on_version_id
+        and not getattr(updated_artifact, "basedOnVersionId", None)
+    ):
+        setattr(updated_artifact, "basedOnVersionId", resolved_based_on_version_id)
+
+    try:
+        timeout_seconds = float(
+            str(os.getenv("ARTIFACT_SILENT_ACCRETION_TIMEOUT_SECONDS", "8")).strip()
+            or "8"
+        )
+    except ValueError:
+        timeout_seconds = 8.0
+
+    try:
+        coroutine = silently_accrete_artifact(
+            db=service.db,
+            artifact=updated_artifact,
+            project_id=project_id,
+            artifact_type=artifact_type,
+            visibility=visibility,
+            session_id=getattr(artifact, "sessionId", None),
+            based_on_version_id=resolved_based_on_version_id,
+            normalized_content=normalized_content,
+        )
+        if timeout_seconds > 0:
+            await asyncio.wait_for(coroutine, timeout=timeout_seconds)
+        else:
+            await coroutine
+    except asyncio.TimeoutError:
+        logger.warning(
+            "artifact_silent_accretion_timeout artifact=%s project=%s timeout=%s",
+            artifact_id,
+            project_id,
+            timeout_seconds,
+        )
+    except Exception as exc:
+        logger.warning(
+            "artifact_silent_accretion_failed artifact=%s project=%s error=%s",
+            artifact_id,
+            project_id,
+            exc,
+            exc_info=True,
+        )
+
+    return updated_artifact
+
+
 __all__ = [
     "create_artifact_with_file",
     "generate_office_artifact_via_render_service",
     "get_artifact_storage_path",
+    "update_artifact_with_file",
 ]

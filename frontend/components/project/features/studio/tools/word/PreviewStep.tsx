@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { FileText, Loader2, Save } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import rehypeSanitize from "rehype-sanitize";
@@ -28,6 +28,12 @@ interface PreviewStepProps {
 
 type WordTab = "edit" | "preview";
 
+export const WORD_PREVIEW_HEADING_CLASSES = {
+  h1: "mt-4 text-[1.7rem] font-bold leading-tight text-zinc-900",
+  h2: "mt-6 border-b border-zinc-200 pb-1.5 text-[1.35rem] font-semibold leading-tight text-zinc-900",
+  h3: "mt-5 text-[1.1rem] font-semibold leading-7 text-zinc-900",
+} as const;
+
 function isUuidLike(value: string | null): boolean {
   if (!value) return false;
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
@@ -52,6 +58,7 @@ function isGenericDocumentTitle(value: string | null): boolean {
     normalized === "教学文档" ||
     normalized === "教学教案" ||
     normalized === "讲义文档" ||
+    normalized === "未命名文档" ||
     normalized === "未命名教案" ||
     normalized === "word 生成记录" ||
     normalized === "word生成记录" ||
@@ -69,10 +76,12 @@ export function PreviewStep({
   toolbarMode = "internal",
   resultStatus = null,
 }: PreviewStepProps) {
-  const latestArtifact =
-    flowContext?.latestArtifacts?.[0] ?? flowContext?.resolvedArtifact ?? null;
+  const latestArtifact = flowContext?.latestArtifacts?.[0] ?? null;
   const exportArtifactId =
-    (latestArtifact as { artifactId?: string | null } | null)?.artifactId ?? "";
+    flowContext?.resolvedTarget?.artifactId ??
+    flowContext?.resolvedArtifact?.artifactId ??
+    latestArtifact?.artifactId ??
+    "";
   const artifactContent =
     flowContext?.resolvedArtifact?.content &&
     typeof flowContext.resolvedArtifact.content === "object"
@@ -83,8 +92,7 @@ export function PreviewStep({
       ? (artifactContent.source_snapshot as Record<string, unknown>)
       : null;
   const sourceArtifactId =
-    (latestArtifact as { sourceArtifactId?: string | null } | null)
-      ?.sourceArtifactId ??
+    latestArtifact?.sourceArtifactId ??
     (typeof sourceSnapshot?.primary_source_id === "string"
       ? sourceSnapshot.primary_source_id
       : null) ??
@@ -110,7 +118,7 @@ export function PreviewStep({
       ? artifactContent.title.trim()
       : null;
   const latestArtifactTitle =
-    (latestArtifact as { title?: string | null } | null)?.title ?? null;
+    latestArtifact?.title ?? null;
   const displayTitle = !isGenericDocumentTitle(contentTitle)
     ? contentTitle
     : !isGenericDocumentTitle(latestArtifactTitle)
@@ -125,6 +133,11 @@ export function PreviewStep({
         ? artifactContent.markdown_content.trim()
         : "";
     if (fromContent) return fromContent;
+    const fromLessonPlan =
+      artifactContent && typeof artifactContent.lesson_plan_markdown === "string"
+        ? artifactContent.lesson_plan_markdown.trim()
+        : "";
+    if (fromLessonPlan) return fromLessonPlan;
     if (
       artifactContent?.document_content &&
       typeof artifactContent.document_content === "object"
@@ -167,7 +180,7 @@ export function PreviewStep({
     setLatestSavedArtifactId(exportArtifactId);
   }, [exportArtifactId]);
 
-  const handleSaveReplacement = async (): Promise<string | null> => {
+  const handleSaveReplacement = useCallback(async (): Promise<string | null> => {
     if (!canStructuredSave || !flowContext?.resolvedArtifact?.artifactId) return null;
     setIsSaving(true);
     setSaveNotice(null);
@@ -178,17 +191,23 @@ export function PreviewStep({
         refineMode: "structured_refine",
         config: {
           markdown_content: markdownDraft,
+          lesson_plan_markdown: markdownDraft,
           document_content: markdownToDoc(markdownDraft),
           document_title: (() => {
+            const markdownTitle = extractHeadingTitle(markdownDraft);
             const existingTitle =
               typeof artifactContent?.title === "string" && artifactContent.title.trim()
                 ? artifactContent.title.trim()
                 : displayTitle && !isUuidLike(displayTitle)
                   ? displayTitle
                   : null;
-            return existingTitle && !isGenericDocumentTitle(existingTitle)
-              ? existingTitle
-              : undefined;
+            if (existingTitle && !isGenericDocumentTitle(existingTitle)) {
+              return existingTitle;
+            }
+            if (markdownTitle && !isGenericDocumentTitle(markdownTitle)) {
+              return markdownTitle;
+            }
+            return undefined;
           })(),
           document_summary:
             typeof artifactContent?.summary === "string" && artifactContent.summary.trim()
@@ -209,14 +228,14 @@ export function PreviewStep({
         response?.artifactId ?? flowContext.resolvedArtifact.artifactId;
       setLatestSavedArtifactId(nextArtifactId);
       setSavedBaselineMarkdown(markdownDraft);
-      setSaveNotice("已保存为当前文档的新版本。");
+      setSaveNotice("已保存到当前文档。");
       return nextArtifactId;
     } finally {
       setIsSaving(false);
     }
-  };
+  }, [artifactContent, canStructuredSave, displayTitle, flowContext, markdownDraft]);
 
-  const handleExportWithLatest = async () => {
+  const handleExportWithLatest = useCallback(async () => {
     if (!flowContext?.onExportArtifact || !exportArtifactId) return;
     const isDirty = markdownDraft.trim() !== savedBaselineMarkdown.trim();
     let artifactIdForExport = latestSavedArtifactId || exportArtifactId;
@@ -224,9 +243,18 @@ export function PreviewStep({
       const savedArtifactId = await handleSaveReplacement();
       if (savedArtifactId) artifactIdForExport = savedArtifactId;
     }
-    setSaveNotice("导出将使用当前已保存版本。");
+    setSaveNotice("导出将使用当前文档。");
     await flowContext.onExportArtifact(artifactIdForExport);
-  };
+  }, [
+    canStructuredSave,
+    exportArtifactId,
+    flowContext,
+    handleSaveReplacement,
+    isSaving,
+    latestSavedArtifactId,
+    markdownDraft,
+    savedBaselineMarkdown,
+  ]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -377,16 +405,13 @@ export function PreviewStep({
                 rehypePlugins={[rehypeSanitize]}
                 components={{
                   h1: (props) => (
-                    <h1 className="mt-6 text-3xl font-bold tracking-tight" {...props} />
+                    <h1 className={WORD_PREVIEW_HEADING_CLASSES.h1} {...props} />
                   ),
                   h2: (props) => (
-                    <h2
-                      className="mt-8 border-b border-zinc-200 pb-2 text-2xl font-semibold"
-                      {...props}
-                    />
+                    <h2 className={WORD_PREVIEW_HEADING_CLASSES.h2} {...props} />
                   ),
                   h3: (props) => (
-                    <h3 className="mt-6 text-xl font-semibold" {...props} />
+                    <h3 className={WORD_PREVIEW_HEADING_CLASSES.h3} {...props} />
                   ),
                   p: (props) => <p className="my-4 leading-7 text-zinc-800" {...props} />,
                   ul: (props) => <ul className="my-4 list-disc space-y-1 pl-6" {...props} />,

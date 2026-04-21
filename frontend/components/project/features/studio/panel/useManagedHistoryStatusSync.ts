@@ -11,7 +11,7 @@ import {
 } from "@/lib/project-space/artifact-history";
 import { TOOL_LABELS } from "../constants";
 import type { StudioHistoryItem, StudioHistoryStatus, StudioHistoryStep } from "../history/types";
-import type { ManagedResultTarget, StudioToolKey } from "../tools";
+import type { ManagedResolvedTarget, StudioToolKey } from "../tools";
 
 const SYNC_INTERVAL_MS = 2500;
 
@@ -28,7 +28,7 @@ interface UseManagedHistoryStatusSyncArgs {
   projectId: string | null;
   activeSessionId: string | null;
   groupedHistory: Array<[GenerationToolType | string, StudioHistoryItem[]]>;
-  managedResultTarget: ManagedResultTarget | null | undefined;
+  resolvedTarget: ManagedResolvedTarget | null | undefined;
   fetchArtifactHistory: (projectId: string, sessionId: string | null) => Promise<void>;
   recordWorkflowEntry: (payload: {
     toolType: GenerationToolType;
@@ -67,7 +67,7 @@ function readManagedArtifact(
     const matched = sessionArtifacts.find((item) => item.runId === runId);
     if (matched) return matched;
   }
-  return sessionArtifacts[0] ?? null;
+  return null;
 }
 
 function deriveManagedStatus(params: {
@@ -137,21 +137,21 @@ export function useManagedHistoryStatusSync({
   projectId,
   activeSessionId,
   groupedHistory,
-  managedResultTarget,
+  resolvedTarget,
   fetchArtifactHistory,
   recordWorkflowEntry,
 }: UseManagedHistoryStatusSyncArgs) {
   const syncingRef = useRef(false);
   const syncedKeyRef = useRef<string | null>(null);
 
-  const targetToolType = managedResultTarget?.toolType as GenerationToolType | null;
+  const targetToolType = resolvedTarget?.toolType as GenerationToolType | null;
   const activeManagedItem = useMemo(() => {
     if (!targetToolType) return null;
     const toolGroup = groupedHistory.find(([toolType]) => toolType === targetToolType);
     const items = toolGroup?.[1] ?? [];
-    const targetSessionId = managedResultTarget?.sessionId ?? activeSessionId;
-    const targetRunId = managedResultTarget?.runId ?? null;
-    const targetArtifactId = managedResultTarget?.artifactId ?? null;
+    const targetSessionId = resolvedTarget?.sessionId ?? activeSessionId;
+    const targetRunId = resolvedTarget?.runId ?? null;
+    const targetArtifactId = resolvedTarget?.artifactId ?? null;
     if (!targetSessionId) return null;
     return (
       items.find(
@@ -160,20 +160,19 @@ export function useManagedHistoryStatusSync({
           ((targetArtifactId && item.artifactId === targetArtifactId) ||
             (targetRunId && item.runId === targetRunId))
       ) ??
-      items.find((item) => item.sessionId === targetSessionId) ??
       null
     );
-  }, [activeSessionId, groupedHistory, managedResultTarget, targetToolType]);
+  }, [activeSessionId, groupedHistory, resolvedTarget, targetToolType]);
 
   useEffect(() => {
     if (!projectId || !targetToolType) return;
-    const sessionId = managedResultTarget?.sessionId ?? activeSessionId ?? null;
+    const sessionId = resolvedTarget?.sessionId ?? activeSessionId ?? null;
     if (!sessionId) return;
 
-    const seedRunId = managedResultTarget?.runId ?? activeManagedItem?.runId ?? null;
+    const seedRunId = resolvedTarget?.runId ?? activeManagedItem?.runId ?? null;
     const seedArtifactId =
-      managedResultTarget?.artifactId ?? activeManagedItem?.artifactId ?? null;
-    const seedStatus = managedResultTarget?.status ?? activeManagedItem?.status ?? null;
+      resolvedTarget?.artifactId ?? activeManagedItem?.artifactId ?? null;
+    const seedStatus = resolvedTarget?.status ?? activeManagedItem?.status ?? null;
     if (
       seedStatus === "completed" ||
       seedStatus === "failed" ||
@@ -271,7 +270,7 @@ export function useManagedHistoryStatusSync({
     activeSessionId,
     fetchArtifactHistory,
     groupedHistory,
-    managedResultTarget,
+    resolvedTarget,
     projectId,
     recordWorkflowEntry,
     targetToolType,

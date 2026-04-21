@@ -333,6 +333,7 @@ export function useStudioHistoryHandlers({
       setLayoutMode("expanded");
       setExpandedTool(item.toolType as StudioToolKey);
       onManagedOpenHistoryResult?.({
+        kind: "pinned_artifact",
         toolType: item.toolType as StudioToolKey,
         sessionId: item.sessionId ?? null,
         runId: item.runId ?? null,

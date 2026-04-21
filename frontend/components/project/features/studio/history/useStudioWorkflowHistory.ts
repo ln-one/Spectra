@@ -267,24 +267,6 @@ function shouldPromoteWorkflowStatus(
   return artifactTime >= workflowTime;
 }
 
-function filterCurrentMindmapReplacementHeads(
-  items: StudioHistoryItem[]
-): StudioHistoryItem[] {
-  const replacedIds = new Set(
-    items
-      .filter((item) => item.origin === "artifact")
-      .map((item) => item.replacesArtifactId)
-      .filter((id): id is string => Boolean(id))
-  );
-  return items.filter((item) => {
-    if (item.origin !== "artifact") return true;
-    if (item.supersededByArtifactId) return false;
-    if (item.isCurrent === false) return false;
-    if (item.artifactId && replacedIds.has(item.artifactId)) return false;
-    return true;
-  });
-}
-
 export function useStudioWorkflowHistory(
   artifactHistoryByTool: ArtifactHistoryByTool,
   activeSessionId?: string | null,
@@ -617,22 +599,6 @@ export function useStudioWorkflowHistory(
         return false;
       }
       if (
-        item.toolType === "word" &&
-        sessionArtifactsForTool.some((artifact) => {
-          if (artifact.status !== "completed" && artifact.status !== "failed") {
-            return false;
-          }
-          const workflowTime = new Date(item.createdAt).getTime();
-          const artifactTime = new Date(artifact.createdAt).getTime();
-          if (!Number.isFinite(workflowTime) || !Number.isFinite(artifactTime)) {
-            return true;
-          }
-          return artifactTime >= workflowTime;
-        })
-      ) {
-        return false;
-      }
-      if (
         item.status === "previewing" &&
         sessionArtifactsForTool.some((artifact) => artifact.status === "completed")
       ) {
@@ -710,11 +676,7 @@ export function useStudioWorkflowHistory(
           (a, b) =>
             new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
         );
-      const normalizedItems =
-        toolType === "mindmap"
-          ? filterCurrentMindmapReplacementHeads(items)
-          : items;
-      return [toolType, normalizedItems] as [
+      return [toolType, items] as [
         GenerationToolType,
         StudioHistoryItem[],
       ];

@@ -88,6 +88,7 @@ export interface ToolArtifactPreviewItem {
 }
 
 export interface ManagedResultTarget {
+  kind?: ManagedTargetKind | null;
   toolType?: StudioToolKey | null;
   sessionId?: string | null;
   runId?: string | null;
@@ -100,6 +101,28 @@ export interface ManagedResultTarget {
     | "completed"
     | "failed"
     | null;
+}
+
+export type ManagedTargetKind =
+  | "pinned_artifact"
+  | "pinned_run"
+  | "draft";
+
+export interface ManagedResolvedTarget {
+  kind: ManagedTargetKind;
+  toolType: StudioToolKey;
+  sessionId: string | null;
+  artifactId: string | null;
+  runId: string | null;
+  status:
+    | "pending"
+    | "draft"
+    | "processing"
+    | "previewing"
+    | "completed"
+    | "failed"
+    | null;
+  isHistorical: boolean;
 }
 
 export interface ToolDisplayModel {
@@ -151,8 +174,7 @@ export interface ToolFlowContext {
   currentDraft?: ToolDraftState;
   managedWorkbenchMode?: "draft" | "history";
   managedResultTarget?: ManagedResultTarget | null;
-  wordWorkbenchMode?: "draft" | "history";
-  wordResultTarget?: ManagedResultTarget | null;
+  resolvedTarget?: ManagedResolvedTarget | null;
   onStepChange?: (stepId: string) => void;
   onSelectedSourceChange?: (sourceId: string | null) => void;
   onLoadSources?: () => Promise<void> | void;

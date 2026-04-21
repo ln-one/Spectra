@@ -261,6 +261,7 @@ export interface ProjectState {
     sessionId: string,
     patch?: Record<string, unknown>
   ) => Promise<void>;
+  confirmTeachingBriefFromChat: (sessionId: string) => Promise<void>;
   startPptFromTeachingBrief: (
     sessionId?: string | null
   ) => Promise<{ sessionId: string; runId: string } | null>;

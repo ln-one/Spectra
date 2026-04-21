@@ -123,6 +123,7 @@ function sanitizeWordDisplayTitle(raw: string): string {
     /^第\s*\d+\s*次讲义文档(?:[。.!！])?$/i.test(normalized) ||
     lowered === "讲义文档" ||
     lowered === "教学文档" ||
+    lowered === "未命名文档" ||
     lowered === "教案" ||
     lowered === "教学教案" ||
     lowered === "未命名教案" ||

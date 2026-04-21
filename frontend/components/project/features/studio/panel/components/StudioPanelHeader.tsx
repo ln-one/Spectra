@@ -1,7 +1,15 @@
 ﻿"use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { Download, Eye, Loader2, PencilLine, Save, Sparkles } from "lucide-react";
+import {
+  Check,
+  Download,
+  Eye,
+  Loader2,
+  PencilLine,
+  Save,
+  Sparkles,
+} from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,17 +24,19 @@ interface StudioPanelHeaderProps {
   currentIcon: LucideIcon;
   currentColor: { primary: string; glow: string };
   customTitle?: string | null;
-  showWordActions?: boolean;
-  showWordGenerate?: boolean;
+  showHeaderActions?: boolean;
+  showHeaderPrimaryAction?: boolean;
+  showHeaderPersistenceActions?: boolean;
+  headerModeActionLabel?: "编辑" | "预览" | "完成";
+  primaryActionLabel?: string;
+  primaryActionState?: "idle" | "loading";
+  primaryActionDisabled?: boolean;
+  onHeaderSwitchMode?: () => void;
+  onHeaderPrimaryAction?: () => void;
   canWordSave?: boolean;
   canWordExport?: boolean;
-  canWordGenerate?: boolean;
-  isWordGenerating?: boolean;
-  wordModeActionLabel?: "编辑" | "预览";
-  onWordSwitchMode?: () => void;
   onWordSave?: () => void;
   onWordExport?: () => void;
-  onWordGenerate?: () => void;
 }
 
 function renderMorphChars(text: string, kind: "title" | "desc") {
@@ -66,17 +76,19 @@ export function StudioPanelHeader({
   currentIcon: CurrentIcon,
   currentColor,
   customTitle = null,
-  showWordActions = false,
-  showWordGenerate = false,
+  showHeaderActions = false,
+  showHeaderPrimaryAction = false,
+  showHeaderPersistenceActions = false,
+  headerModeActionLabel = "编辑",
+  primaryActionLabel = "生成",
+  primaryActionState = "idle",
+  primaryActionDisabled = false,
+  onHeaderSwitchMode,
+  onHeaderPrimaryAction,
   canWordSave = false,
   canWordExport = false,
-  canWordGenerate = false,
-  isWordGenerating = false,
-  wordModeActionLabel = "编辑",
-  onWordSwitchMode,
   onWordSave,
   onWordExport,
-  onWordGenerate,
 }: StudioPanelHeaderProps) {
   const titleText = isExpanded
     ? customTitle?.trim() || TOOL_LABELS[expandedTool || "ppt"]
@@ -144,55 +156,63 @@ export function StudioPanelHeader({
               transition={{ duration: 0.15 }}
               className="flex items-center gap-2"
             >
-              {showWordActions ? (
+              {showHeaderActions ? (
                 <>
                   <Button
                     variant="outline"
                     size="sm"
                     className="h-8 px-3 text-xs"
-                    onClick={onWordSwitchMode}
+                    onClick={onHeaderSwitchMode}
                   >
-                    {wordModeActionLabel === "编辑" ? (
+                    {headerModeActionLabel === "编辑" ? (
                       <PencilLine className="mr-1 h-3.5 w-3.5" />
+                    ) : headerModeActionLabel === "完成" ? (
+                      <Check className="mr-1 h-3.5 w-3.5" />
                     ) : (
                       <Eye className="mr-1 h-3.5 w-3.5" />
                     )}
-                    {wordModeActionLabel}
+                    {headerModeActionLabel}
                   </Button>
-                  <Button
-                    size="sm"
-                    className="h-8 px-3 text-xs"
-                    disabled={!canWordSave}
-                    onClick={onWordSave}
-                  >
-                    <Save className="mr-1 h-3.5 w-3.5" />
-                    保存
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-8 px-3 text-xs"
-                    disabled={!canWordExport}
-                    onClick={onWordExport}
-                  >
-                    <Download className="mr-1 h-3.5 w-3.5" />
-                    导出
-                  </Button>
+                  {showHeaderPersistenceActions ? (
+                    <>
+                      <Button
+                        size="sm"
+                        className="h-8 px-3 text-xs"
+                        disabled={!canWordSave}
+                        onClick={onWordSave}
+                      >
+                        <Save className="mr-1 h-3.5 w-3.5" />
+                        保存
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 px-3 text-xs"
+                        disabled={!canWordExport}
+                        onClick={onWordExport}
+                      >
+                        <Download className="mr-1 h-3.5 w-3.5" />
+                        导出
+                      </Button>
+                    </>
+                  ) : null}
                 </>
               ) : null}
-              {showWordGenerate ? (
+              {showHeaderPrimaryAction ? (
                 <Button
                   size="sm"
                   className="h-8 px-3 text-xs"
-                  disabled={!canWordGenerate || isWordGenerating}
-                  onClick={onWordGenerate}
+                  disabled={primaryActionDisabled || primaryActionState === "loading"}
+                  onClick={onHeaderPrimaryAction}
                 >
-                  {isWordGenerating ? (
+                  {primaryActionState === "loading" ? (
                     <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
                   ) : (
                     <Sparkles className="mr-1 h-3.5 w-3.5" />
                   )}
-                  {isWordGenerating ? "生成中" : "生成"}
+                  {primaryActionState === "loading"
+                    ? primaryActionLabel
+                    : primaryActionLabel}
                 </Button>
               ) : null}
               <Button

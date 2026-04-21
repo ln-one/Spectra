@@ -9,9 +9,16 @@ from utils.exceptions import APIException, ErrorCode
 
 from .common import (
     _find_mindmap_node,
-    _load_rag_snippets,
     _require_manual_mindmap_title,
     _resolve_mindmap_target_id,
+)
+from .mindmap_full_map import (
+    load_refine_rag_snippets as _load_refine_rag_snippets,
+    resolve_mindmap_refine_max_tokens as _resolve_mindmap_refine_max_tokens,
+    resolve_mindmap_refine_review_max_tokens as _resolve_mindmap_refine_review_max_tokens,
+    resolve_mindmap_refine_timeout_seconds as _resolve_mindmap_refine_timeout_seconds,
+    resolve_mindmap_review_timeout_seconds as _resolve_mindmap_review_timeout_seconds,
+    rewrite_full_mindmap as _rewrite_full_mindmap,
 )
 
 
@@ -45,6 +52,15 @@ async def refine_mindmap_content(
     project_id: str,
     rag_source_ids: list[str] | None,
 ) -> dict[str, Any]:
+    if str(config.get("chat_refine_scope") or "").strip() == "full_map":
+        return await _rewrite_full_mindmap(
+            current_content=current_content,
+            message=message,
+            config=config,
+            project_id=project_id,
+            rag_source_ids=rag_source_ids,
+        )
+
     updated = copy.deepcopy(current_content)
     nodes = [
         dict(node) for node in (updated.get("nodes") or []) if isinstance(node, dict)

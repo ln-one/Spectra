@@ -70,6 +70,9 @@ const EMPTY_DESCRIPTION = "向 AI 助手提问关于项目的内容";
 const INPUT_PLACEHOLDER = "输入消息...";
 const NO_SESSION_PLACEHOLDER = "请先在会话选择器中点击“新建会话”";
 const REFINE_PLACEHOLDER = "例如：再详细一点 / 增加案例 / 更简洁";
+const STUDIO_REFINE_PLACEHOLDERS: Partial<Record<string, string>> = {
+  mindmap: "例如：把整张导图扩成更完整的大图 / 重组一级分支 / 压缩重复节点 / 换成更适合课堂讲解的结构",
+};
 
 function normalizeMessageContent(content: string): string {
   return content.replace(/\s+/g, " ").trim();
@@ -213,6 +216,10 @@ export function ChatPanel({
       ? TOOL_COLORS[studioChatContext.toolType]
       : undefined;
   const refineToolLabel = studioChatContext?.toolLabel ?? "工具微调";
+  const refinePlaceholder =
+    (studioChatContext?.toolType
+      ? STUDIO_REFINE_PLACEHOLDERS[studioChatContext.toolType]
+      : null) ?? REFINE_PLACEHOLDER;
   const isAIGenerating = isSending || isStudioRefining;
   const showHeaderThinkingIndicator = isSending && !isStudioRefineMode;
   const hasInlineRefineThinkingMessage =
@@ -808,7 +815,7 @@ export function ChatPanel({
                   placeholder={
                     activeSessionId
                       ? isStudioRefineMode
-                        ? REFINE_PLACEHOLDER
+                        ? refinePlaceholder
                         : (latestBriefHint?.briefStatus === 'review_pending' || latestBriefHint?.aiRequestsConfirmation)
                           ? '继续补充教学需求，或点击上方确认'
                           : latestBriefHint?.briefStatus === 'confirmed'

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import copy
 import json
+import logging
 import os
 import re
 from typing import Any
@@ -13,12 +14,15 @@ from services.ai.model_router import ModelRouteTask
 from utils.exceptions import APIException, ErrorCode
 
 from .common import _load_rag_snippets
+from ..card_execution_runtime_word import compose_word_title, is_placeholder_word_title
 from ..word_document_content import (
     document_content_to_html,
     document_content_to_markdown,
     markdown_to_document_content,
     normalize_document_content,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def _env_positive_int(name: str, default: int) -> int:
@@ -63,27 +67,42 @@ def _html_to_markdown_like_text(value: str) -> str:
 
 
 def _is_generic_word_title(value: str) -> bool:
-    normalized = str(value or "").strip()
-    if not normalized:
-        return True
-    lowered = normalized.lower()
-    return bool(
-        re.match(r"^第\s*\d+\s*次讲义文档(?:[。.!！])?$", normalized, flags=re.IGNORECASE)
-        or lowered in {
-            "教案",
-            "教学教案",
-            "教学文档",
-            "讲义文档",
-            "未命名教案",
-            "word 生成记录",
-            "word生成记录",
-            "教学文档工作台",
-            "教学文档（生成中）",
-            "教学文档 - 生成中",
-            "教学文档",
-            "教学教案",
-        }
+    return is_placeholder_word_title(value) or str(value or "").strip().lower() in {
+        "教学文档工作台",
+        "教学文档（生成中）",
+        "教学文档 - 生成中",
+    }
+
+
+def _extract_markdown_title(markdown: str) -> str:
+    for line in str(markdown or "").splitlines():
+        stripped = line.strip()
+        match = re.match(r"^#\s+(.+)$", stripped)
+        if match:
+            return match.group(1).strip()
+    return ""
+
+
+def _resolve_refine_max_tokens() -> int:
+    from ..tool_content_builder_generation import _resolve_card_generation_max_tokens
+
+    generation_floor = _resolve_card_generation_max_tokens("word_document")
+    explicit_refine_limit = _env_positive_int(
+        "STUDIO_WORD_REFINE_MAX_TOKENS",
+        generation_floor,
     )
+    return max(generation_floor, explicit_refine_limit)
+
+
+def _resolve_source_title(current_content: dict[str, Any], config: dict[str, Any]) -> str:
+    source_snapshot = current_content.get("source_snapshot")
+    if isinstance(source_snapshot, dict):
+        primary_source_title = str(
+            source_snapshot.get("primary_source_title") or ""
+        ).strip()
+        if primary_source_title:
+            return primary_source_title
+    return str(config.get("source_title") or current_content.get("source_title") or "").strip()
 
 
 def _resolve_existing_markdown(
@@ -140,6 +159,7 @@ async def _rewrite_markdown_with_instruction(
         "要求：\n"
         "- 保留并强化 # / ## / ### 层级。\n"
         "- 适度使用 - 和 1. 列表。\n"
+        "- 不得无故压缩原文中的章节、表格、教学流程细节、分层要求和评价要点。\n"
         "- 删除噪声字段、异常符号和无意义片段。\n"
         f"修改要求：{message}\n"
         f"参考片段：{json.dumps(rag_snippets, ensure_ascii=False)}\n"
@@ -147,7 +167,7 @@ async def _rewrite_markdown_with_instruction(
         f"{base_markdown}\n"
     )
     model = str(os.getenv("STUDIO_WORD_REFINE_MODEL", "") or "").strip() or None
-    max_tokens = _env_positive_int("STUDIO_WORD_REFINE_MAX_TOKENS", 3200)
+    max_tokens = _resolve_refine_max_tokens()
     result = await ai_service.generate(
         prompt=prompt,
         model=model,
@@ -177,6 +197,13 @@ async def _rewrite_markdown_with_instruction(
             error_code=ErrorCode.EXTERNAL_SERVICE_ERROR,
             message="Word 文档微调返回为空，请重试。",
         )
+    logger.info(
+        "word_document refine rewrite: model=%s max_tokens=%s base_markdown_length=%s output_length=%s",
+        model or "default",
+        max_tokens,
+        len(base_markdown),
+        len(rewritten_markdown),
+    )
     return rewritten_markdown
 
 
@@ -229,10 +256,20 @@ async def refine_word_document_content(
     current_title = str(
         updated.get("title") or current_content.get("title") or ""
     ).strip()
+    markdown_title = _extract_markdown_title(
+        str(config.get("lesson_plan_markdown") or "")
+        or str(config.get("markdown_content") or "")
+        or _resolve_existing_markdown(current_content=current_content, config=config)
+    )
+    source_title = _resolve_source_title(current_content, config)
     if requested_title and not _is_generic_word_title(requested_title):
         title = requested_title
-    elif current_title:
+    elif current_title and not _is_generic_word_title(current_title):
         title = current_title
+    elif markdown_title and not _is_generic_word_title(markdown_title):
+        title = compose_word_title(markdown_title)
+    elif source_title:
+        title = compose_word_title(source_title)
     else:
         title = "教学文档"
     summary = str(config.get("document_summary") or updated.get("summary") or message or "").strip()

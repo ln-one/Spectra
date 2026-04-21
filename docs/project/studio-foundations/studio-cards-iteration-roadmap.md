@@ -11,6 +11,11 @@ Studio cards should evolve by:
 - shrinking the generic builder
 - borrowing mature UI/runtime substrates where the market is already deep
 - keeping Spectra-specific semantics in protocol, artifact, and source-binding layers
+- converging all managed tools on one current-result lifecycle model
+
+Lifecycle anchor:
+
+- see [managed-artifact-lifecycle.md](./managed-artifact-lifecycle.md) for the shared `artifact identity / draft entry / pinned artifact / run` model that should govern managed-tool result selection
 
 This roadmap explicitly does **not** start with:
 

@@ -25,6 +25,7 @@ from .card_execution_runtime_helpers import (
     create_replacement_artifact,
     load_artifact_content,
     resolve_effective_source_artifact_id,
+    update_existing_artifact,
     validate_simulator_turn_artifact,
     validate_source_artifact,
     validate_structured_refine_artifact,
@@ -277,6 +278,9 @@ async def execute_studio_card_artifact_request(
 logger = logging.getLogger(__name__)
 
 
+UPDATE_IN_PLACE_CARDS = {"word_document", "knowledge_mindmap"}
+
+
 async def execute_studio_card_structured_refine(
     *,
     card_id: str,
@@ -305,12 +309,20 @@ async def execute_studio_card_structured_refine(
         project_id=body.project_id,
         rag_source_ids=body.rag_source_ids,
     )
-    new_artifact = await create_replacement_artifact(
-        source_artifact=artifact,
-        project_id=body.project_id,
-        user_id=user_id,
-        content=updated_content,
-    )
+    if card_id in UPDATE_IN_PLACE_CARDS:
+        new_artifact = await update_existing_artifact(
+            source_artifact=artifact,
+            project_id=body.project_id,
+            user_id=user_id,
+            content=updated_content,
+        )
+    else:
+        new_artifact = await create_replacement_artifact(
+            source_artifact=artifact,
+            project_id=body.project_id,
+            user_id=user_id,
+            content=updated_content,
+        )
     artifact_payload = artifact_result_payload(new_artifact)
     inserted_node_id = updated_content.get("_inserted_node_id")
     if isinstance(inserted_node_id, str) and inserted_node_id.strip():
@@ -363,7 +375,9 @@ async def execute_studio_card_structured_refine(
                 "primary_source_id": body.primary_source_id,
                 "selected_source_ids": body.selected_source_ids,
             },
-            replaces_artifact_id=body.artifact_id,
+            replaces_artifact_id=(
+                body.artifact_id if card_id not in UPDATE_IN_PLACE_CARDS else None
+            ),
         ),
         source_binding=build_source_binding_payload(
             card_id=card_id,

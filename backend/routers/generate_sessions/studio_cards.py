@@ -59,6 +59,26 @@ from .studio_card_route_support import (
 router = APIRouter()
 
 
+def _read_artifact_bool(metadata, key: str) -> bool | None:
+    if not isinstance(metadata, dict):
+        return None
+    value = metadata.get(key)
+    if isinstance(value, bool):
+        return value
+    return None
+
+
+def _source_is_current_head(artifact) -> bool:
+    metadata = getattr(artifact, "metadata", None)
+    superseded_by_artifact_id = None
+    if isinstance(metadata, dict):
+        superseded_by_artifact_id = metadata.get("superseded_by_artifact_id")
+    return (
+        _read_artifact_bool(metadata, "is_current") is not False
+        and not superseded_by_artifact_id
+    )
+
+
 def _serialize_artifact_response_payload(artifact):
     return {
         "id": getattr(artifact, "id", None),
@@ -233,6 +253,28 @@ async def refine_studio_card(
             result = await execute_studio_card_refine_request(
                 card_id=card_id,
                 body=refine_body,
+                user_id=user_id,
+            )
+            return success_response(
+                data={"execution_result": result.model_dump(mode="json")},
+                message="Studio 卡片 refine 成功",
+            )
+
+        if (
+            card_id == "knowledge_mindmap"
+            and refine_body.artifact_id
+            and refine_body.refine_mode == RefineMode.CHAT_REFINE
+        ):
+            refine_config = dict(refine_body.config or {})
+            refine_config["chat_refine_scope"] = "full_map"
+            result = await execute_studio_card_refine_request(
+                card_id=card_id,
+                body=refine_body.model_copy(
+                    update={
+                        "config": refine_config,
+                        "refine_mode": RefineMode.STRUCTURED_REFINE,
+                    }
+                ),
                 user_id=user_id,
             )
             return success_response(
@@ -463,14 +505,10 @@ async def get_studio_card_sources(
         )
 
     def _source_sort_key(artifact):
-        metadata = getattr(artifact, "metadata", None)
         updated_at = getattr(artifact, "updatedAt", None)
-        superseded_by_artifact_id = None
-        if isinstance(metadata, dict):
-            superseded_by_artifact_id = metadata.get("superseded_by_artifact_id")
-        return (bool(superseded_by_artifact_id), updated_at)
+        return (_source_is_current_head(artifact), updated_at)
 
-    sources.sort(key=_source_sort_key)
+    sources.sort(key=_source_sort_key, reverse=True)
     serialized_sources = [
         serialize_card_source_artifact(artifact) for artifact in sources
     ]

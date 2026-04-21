@@ -229,9 +229,9 @@ CARD_CAPABILITIES: tuple[StudioCardCapability, ...] = (
         ],
         actions=[
             StudioCardAction(type="generate", label="生成导图"),
-            StudioCardAction(type="chat_refine", label="按选中节点扩展分支"),
+            StudioCardAction(type="chat_refine", label="对话微调整张导图"),
         ],
-        notes="导图 artifact 与节点级 refine 已具备，节点扩展通过 replacement artifact 收口。",
+        notes="导图 artifact 已具备；整图对话 refine 与节点级 replacement refine 可并行使用。",
     ),
     StudioCardCapability(
         id="demonstration_animations",

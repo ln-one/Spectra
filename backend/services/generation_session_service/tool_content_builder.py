@@ -54,6 +54,13 @@ def _resolve_word_rag_budget() -> tuple[int, int, int]:
     return top_k, snippet_chars, max_snippets
 
 
+def _resolve_mindmap_rag_budget() -> tuple[int, int, int]:
+    top_k = _env_positive_int("MINDMAP_RAG_TOPK", 10)
+    snippet_chars = _env_positive_int("MINDMAP_RAG_SNIPPET_CHARS", 850)
+    max_snippets = _env_positive_int("MINDMAP_RAG_MAX_SNIPPETS", 8)
+    return top_k, snippet_chars, max_snippets
+
+
 def _sanitize_rag_text(text: str) -> str:
     candidate = str(text or "")
     candidate = candidate.replace("\r\n", "\n").replace("\r", "\n")
@@ -108,6 +115,8 @@ async def _load_rag_snippets(
 
     if card_id == "word_document":
         top_k, snippet_chars, max_snippets = _resolve_word_rag_budget()
+    elif card_id == "knowledge_mindmap":
+        top_k, snippet_chars, max_snippets = _resolve_mindmap_rag_budget()
     else:
         top_k, snippet_chars, max_snippets = 4, 400, 3
     timeout_seconds = system_settings_service.resolve_chat_rag_timeout_seconds()

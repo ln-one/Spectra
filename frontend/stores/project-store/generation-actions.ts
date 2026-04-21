@@ -325,6 +325,16 @@ export function createGenerationActions({
         set({
           artifactHistoryByTool: sessionHistoryByTool,
           currentSessionArtifacts: sessionArtifacts,
+          generationSession:
+            effectiveSessionId ===
+              (get().activeSessionId ??
+                get().generationSession?.session?.session_id ??
+                null) && sessionSnapshotResponse?.data
+              ? {
+                  ...(get().generationSession ?? {}),
+                  ...(sessionSnapshotResponse.data as SessionStatePayload),
+                }
+              : get().generationSession,
         });
       } catch (error) {
         const message = getErrorMessage(error);

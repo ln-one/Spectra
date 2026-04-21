@@ -6,6 +6,9 @@ from typing import Any
 from services.generation_session_service.interactive_games_legacy_adapter import (
     resolve_interactive_game_schema_hint,
 )
+from services.generation_session_service.mindmap_normalizer import (
+    build_mindmap_schema_hint,
+)
 from services.generation_session_service.word_document_normalizer import (
     resolve_word_document_schema_hint,
 )
@@ -265,10 +268,7 @@ def build_schema_hint(card_id: str, config: dict[str, Any] | None = None) -> str
             '{"title":"", "summary":"", "pages":12, "template":"default"}'
         ),
         "word_document": resolve_word_document_schema_hint(config),
-        "knowledge_mindmap": (
-            '{"title":"",'
-            ' "nodes":[{"id":"root","parent_id":null,"title":"","summary":""}]}'
-        ),
+        "knowledge_mindmap": build_mindmap_schema_hint(config),
         "interactive_quick_quiz": (
             '{"title":"",'
             ' "questions":[{"id":"","question":"","options":[""],'

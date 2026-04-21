@@ -21,6 +21,7 @@ def is_placeholder_word_title(value: str) -> bool:
             "教案",
             "教学教案",
             "教学文档",
+            "未命名文档",
             "讲义文档",
             "未命名教案",
             "word 生成记录",

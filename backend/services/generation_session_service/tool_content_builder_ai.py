@@ -19,6 +19,7 @@ async def _generate_card_response(
     route_task: ModelRouteTask | str = ModelRouteTask.LESSON_PLAN_REASONING,
     response_format: dict[str, Any] | None = None,
     model: str | None = None,
+    timeout_seconds_override: float | None = None,
 ) -> tuple[dict[str, Any], str]:
     try:
         response = await ai_service.generate(
@@ -28,6 +29,7 @@ async def _generate_card_response(
             has_rag_context=bool(rag_snippets),
             max_tokens=max_tokens,
             response_format=response_format,
+            timeout_seconds_override=timeout_seconds_override,
         )
     except APIException as exc:
         details = dict(exc.details or {})
@@ -81,6 +83,7 @@ async def generate_card_json_payload(
     route_task: ModelRouteTask | str = ModelRouteTask.LESSON_PLAN_REASONING,
     model: str | None = None,
     response_format: dict[str, Any] | None = None,
+    timeout_seconds_override: float | None = None,
 ) -> tuple[dict, str]:
     response, model_name = await _generate_card_response(
         prompt=prompt,
@@ -91,6 +94,7 @@ async def generate_card_json_payload(
         route_task=route_task,
         model=model,
         response_format=response_format or {"type": "json_object"},
+        timeout_seconds_override=timeout_seconds_override,
     )
     return (
         parse_ai_object_payload(
@@ -112,6 +116,7 @@ async def generate_card_text_payload(
     max_tokens: int,
     route_task: ModelRouteTask | str = ModelRouteTask.LESSON_PLAN_REASONING,
     model: str | None = None,
+    timeout_seconds_override: float | None = None,
 ) -> tuple[str, str, dict[str, Any]]:
     response, model_name = await _generate_card_response(
         prompt=prompt,
@@ -122,6 +127,7 @@ async def generate_card_text_payload(
         route_task=route_task,
         model=model,
         response_format=None,
+        timeout_seconds_override=timeout_seconds_override,
     )
     content = str(response.get("content") or "").strip()
     if not content:

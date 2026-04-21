@@ -70,6 +70,35 @@ def _artifact_lineage_flags(
     )
 
 
+def _artifact_is_current(metadata: dict | None) -> bool | None:
+    payload = metadata or {}
+    value = payload.get("is_current")
+    if isinstance(value, bool):
+        return value
+    return None
+
+
+def _current_head_sort_key(item: dict) -> tuple[str, str]:
+    return (
+        item.get("updated_at") or "",
+        item.get("created_at") or "",
+    )
+
+
+def _select_current_head(
+    items: list[dict],
+) -> dict | None:
+    candidates = [
+        item
+        for item in items
+        if item.get("is_current") is not False
+        and not item.get("superseded_by_artifact_id")
+    ]
+    if not candidates:
+        return None
+    return max(candidates, key=_current_head_sort_key)
+
+
 def _history_sort_key(item: dict) -> tuple[bool, bool, str]:
     return (
         not bool(item.get("superseded_by_artifact_id")),
@@ -143,6 +172,7 @@ async def get_session_artifact_history(
             "based_on_version_id": getattr(artifact, "basedOnVersionId", None),
             "replaces_artifact_id": replaces_artifact_id,
             "superseded_by_artifact_id": superseded_by_artifact_id,
+            "is_current": _artifact_is_current(metadata),
             "artifact_anchor": build_artifact_anchor(session_id, artifact),
             "created_at": (
                 artifact.createdAt.isoformat()
@@ -169,15 +199,23 @@ async def get_session_artifact_history(
             reverse=True,
         )
 
-    grouped_items = [
-        {
-            "capability": capability,
-            "count": len(items),
-            "items": items,
-            "artifacts": items,
-        }
-        for capability, items in grouped.items()
-    ]
+    grouped_items = []
+    for capability, items in grouped.items():
+        current_head = _select_current_head(items)
+        grouped_items.append(
+            {
+                "capability": capability,
+                "count": len(items),
+                "items": items,
+                "artifacts": items,
+                "current_artifact_id": (
+                    current_head.get("artifact_id") if current_head else None
+                ),
+                "current_artifact_anchor": (
+                    current_head.get("artifact_anchor") if current_head else None
+                ),
+            }
+        )
     latest_artifact = history_items[0] if history_items else None
     return {
         "session_artifacts": history_items,

@@ -303,6 +303,7 @@ describe("useStudioCapabilityState", () => {
               artifactId: "artifact-old",
               status: "completed",
             },
+            draftAnchors: {},
           }}
         />
       );

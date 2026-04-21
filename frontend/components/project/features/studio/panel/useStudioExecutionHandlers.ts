@@ -141,7 +141,7 @@ function resolveManagedArtifactForRun(
     const matched = toolArtifacts.find((item) => item.runId === runId);
     if (matched) return matched;
   }
-  return toolArtifacts[0] ?? null;
+  return null;
 }
 
 export function useStudioExecutionHandlers({

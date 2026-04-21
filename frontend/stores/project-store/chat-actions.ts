@@ -38,6 +38,22 @@ function hasProjectLocalState(
   return Object.prototype.hasOwnProperty.call(map, projectId);
 }
 
+function readFailureReason(error: unknown): string {
+  if (!error || typeof error !== "object") return "";
+  const details = (error as { details?: Record<string, unknown> }).details;
+  const directFailure = details?.failure_reason;
+  if (typeof directFailure === "string") return directFailure;
+  const nestedFailure = details?.details;
+  if (
+    nestedFailure &&
+    typeof nestedFailure === "object" &&
+    typeof (nestedFailure as Record<string, unknown>).failure_reason === "string"
+  ) {
+    return String((nestedFailure as Record<string, unknown>).failure_reason);
+  }
+  return "";
+}
+
 export function createChatActions({
   set,
   get,
@@ -486,7 +502,7 @@ export function createChatActions({
             refine_mode:
               context.cardId === "word_document"
                 ? "structured_refine"
-                : undefined,
+                : "chat_refine",
             source_artifact_id: context.sourceArtifactId || undefined,
             config: context.configSnapshot,
             selected_file_ids: effectiveSelectedSourceIds,
@@ -537,6 +553,13 @@ export function createChatActions({
               ?.artifact_id ||
             null;
 
+          if (
+            context.cardId === "knowledge_mindmap" &&
+            !refinedArtifactId
+          ) {
+            throw new Error("未生成新版导图");
+          }
+
           if (refinedSessionId !== get().activeSessionId) {
             set({ activeSessionId: refinedSessionId });
           }
@@ -586,16 +609,19 @@ export function createChatActions({
           );
         } catch (error) {
           const message = getErrorMessage(error);
+          const failureReason = readFailureReason(error);
+          const failureDescription = buildRefineFailureMessage(
+            context.toolType,
+            context.toolLabel,
+            failureReason
+          );
           updateLocalMessage(
             projectId,
             effectiveSessionId,
             refineStatusMessage.id,
             (prevMessage) => ({
               ...prevMessage,
-              content: buildRefineFailureMessage(
-                context.toolType,
-                context.toolLabel
-              ),
+              content: failureDescription,
               localMeta: {
                 ...prevMessage.localMeta,
                 kind: "studio_refine_status",
@@ -609,7 +635,12 @@ export function createChatActions({
           );
           toast({
             title: "微调失败",
-            description: message,
+            description:
+              failureReason &&
+              (failureReason.includes("timeout") ||
+                failureReason.includes("mindmap_refine_quality_low"))
+                ? failureDescription
+                : message,
             variant: "destructive",
           });
         }

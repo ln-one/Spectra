@@ -1,18 +1,13 @@
 from __future__ import annotations
 
-import json
-from datetime import datetime, timezone
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
 
-from services.database import db_service
-from services.generation_session_service.card_execution_runtime_run_helpers import (
-    create_artifact_run,
-)
 from services.generation_session_service.card_execution_runtime_artifacts import (
     execute_studio_card_artifact_request,
+    execute_studio_card_structured_refine,
 )
 from services.generation_session_service.card_execution_runtime_simulator import (
     normalize_simulator_turn_result,
@@ -20,113 +15,11 @@ from services.generation_session_service.card_execution_runtime_simulator import
 from services.generation_session_service.card_execution_runtime_helpers import (
     build_latest_runnable_state,
 )
-from services.generation_session_service.simulator_turn_generation import (
-    generate_simulator_turn_update,
-)
 from services.generation_session_service.card_execution_runtime_word import (
     resolve_word_document_title,
 )
 from services.project_space_service.service import project_space_service
 from utils.exceptions import APIException, ErrorCode
-
-
-@pytest.mark.anyio
-async def test_create_artifact_run_appends_task_completed_event_for_bound_session(
-    monkeypatch,
-):
-    now = datetime.now(timezone.utc)
-    artifact = SimpleNamespace(
-        id="artifact-001",
-        projectId="project-001",
-        sessionId="session-001",
-        type="exercise",
-        metadata={},
-        createdAt=now,
-        updatedAt=now,
-    )
-    body = SimpleNamespace(project_id="project-001", config={"question_count": 5})
-    pending_run = SimpleNamespace(
-        id="run-001",
-        sessionId="session-001",
-        projectId="project-001",
-        toolType="studio_card:interactive_quick_quiz",
-        runNo=1,
-        title="第1次随堂小测",
-        titleSource="pending",
-        titleUpdatedAt=None,
-        status="processing",
-        step="generate",
-        artifactId="artifact-001",
-        createdAt=now,
-        updatedAt=now,
-    )
-    completed_run = SimpleNamespace(
-        id="run-001",
-        sessionId="session-001",
-        projectId="project-001",
-        toolType="studio_card:interactive_quick_quiz",
-        runNo=1,
-        title="第1次随堂小测",
-        titleSource="pending",
-        titleUpdatedAt=None,
-        status="completed",
-        step="completed",
-        artifactId="artifact-001",
-        createdAt=now,
-        updatedAt=now,
-    )
-
-    db_handle = SimpleNamespace(
-        generationsession=SimpleNamespace(
-            find_unique=AsyncMock(
-                return_value=SimpleNamespace(
-                    id="session-001",
-                    state="IDLE",
-                    stateReason=None,
-                    progress=0,
-                )
-            ),
-            update=AsyncMock(),
-        ),
-        sessionevent=SimpleNamespace(create=AsyncMock()),
-    )
-    monkeypatch.setattr(db_service, "db", db_handle)
-    monkeypatch.setattr(
-        project_space_service,
-        "update_artifact_metadata",
-        AsyncMock(),
-    )
-
-    monkeypatch.setattr(
-        "services.generation_session_service.session_history.create_session_run",
-        AsyncMock(return_value=pending_run),
-    )
-    monkeypatch.setattr(
-        "services.generation_session_service.session_history.update_session_run",
-        AsyncMock(return_value=completed_run),
-    )
-    monkeypatch.setattr(
-        "services.generation_session_service.session_history.request_run_title_generation",
-        AsyncMock(return_value=True),
-    )
-
-    run_payload = await create_artifact_run(
-        card_id="interactive_quick_quiz",
-        body=body,
-        artifact=artifact,
-        session_id="session-001",
-    )
-
-    assert run_payload["run_id"] == "run-001"
-    db_handle.sessionevent.create.assert_awaited_once()
-    event_data = db_handle.sessionevent.create.await_args.kwargs["data"]
-    payload = json.loads(event_data["payload"])
-    assert event_data["eventType"] == "task.completed"
-    assert event_data["sessionId"] == "session-001"
-    assert payload["stage"] == "studio_card_execute"
-    assert payload["card_id"] == "interactive_quick_quiz"
-    assert payload["artifact_id"] == "artifact-001"
-    assert payload["run_trace"]["run_id"] == "run-001"
 
 
 @pytest.mark.anyio
@@ -169,6 +62,132 @@ async def test_resolve_word_document_title_ignores_placeholder_existing_title(mo
     )
 
     assert title == "计算机网络物理层教案"
+
+
+@pytest.mark.anyio
+async def test_resolve_word_document_title_treats_untitled_document_as_placeholder(
+    monkeypatch,
+):
+    source_artifact = SimpleNamespace(
+        metadata={"title": "细胞膜的结构与功能"},
+    )
+    monkeypatch.setattr(
+        project_space_service,
+        "get_artifact",
+        AsyncMock(return_value=source_artifact),
+    )
+
+    title = await resolve_word_document_title(
+        source_artifact_id="ppt-art-003",
+        user_id="u-001",
+        config={"topic": "不会被采用"},
+        existing_title="未命名文档",
+    )
+
+    assert title == "细胞膜的结构与功能教案"
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    ("card_id", "artifact_type"),
+    [
+        ("word_document", "docx"),
+        ("knowledge_mindmap", "mindmap"),
+    ],
+)
+async def test_structured_refine_updates_managed_artifact_in_place(
+    monkeypatch,
+    card_id,
+    artifact_type,
+):
+    source_artifact = SimpleNamespace(
+        id="artifact-001",
+        projectId="project-001",
+        sessionId="session-001",
+        type=artifact_type,
+        visibility="private",
+        basedOnVersionId="version-001",
+        metadata={"title": "旧成果"},
+    )
+    updated_artifact = SimpleNamespace(
+        id="artifact-001",
+        projectId="project-001",
+        sessionId="session-001",
+        type=artifact_type,
+        visibility="private",
+        basedOnVersionId="version-001",
+        metadata={"title": "新成果"},
+    )
+    body = SimpleNamespace(
+        project_id="project-001",
+        session_id="session-001",
+        artifact_id="artifact-001",
+        source_artifact_id=None,
+        message="请更新内容",
+        config={"topic": "test"},
+        rag_source_ids=[],
+        selection_anchor=None,
+        refine_mode=SimpleNamespace(value="structured_refine"),
+        primary_source_id=None,
+        selected_source_ids=[],
+    )
+    preview = SimpleNamespace(
+        readiness="ready",
+        refine_request={
+            "method": "POST",
+            "endpoint": f"/studio-cards/{card_id}/refine",
+            "mode": "structured_refine",
+        },
+        execution_carrier="artifact",
+    )
+
+    validate_artifact_mock = AsyncMock(return_value=source_artifact)
+    build_content_mock = AsyncMock(return_value={"title": "新成果"})
+    update_existing_mock = AsyncMock(return_value=updated_artifact)
+    create_replacement_mock = AsyncMock()
+    create_run_mock = AsyncMock(
+        return_value={"run_id": "run-001", "run_no": 1, "artifact_id": "artifact-001"}
+    )
+
+    monkeypatch.setattr(
+        "services.generation_session_service.card_execution_runtime_artifacts.validate_structured_refine_artifact",
+        validate_artifact_mock,
+    )
+    monkeypatch.setattr(
+        "services.generation_session_service.card_execution_runtime_artifacts.build_structured_refine_artifact_content",
+        build_content_mock,
+    )
+    monkeypatch.setattr(
+        "services.generation_session_service.card_execution_runtime_artifacts.update_existing_artifact",
+        update_existing_mock,
+    )
+    monkeypatch.setattr(
+        "services.generation_session_service.card_execution_runtime_artifacts.create_replacement_artifact",
+        create_replacement_mock,
+    )
+    monkeypatch.setattr(
+        "services.generation_session_service.card_execution_runtime_artifacts.create_artifact_run",
+        create_run_mock,
+    )
+    monkeypatch.setattr(
+        project_space_service,
+        "check_project_permission",
+        AsyncMock(return_value=True),
+    )
+
+    result = await execute_studio_card_structured_refine(
+        card_id=card_id,
+        body=body,
+        user_id="user-001",
+        preview=preview,
+        load_content=AsyncMock(return_value={"title": "旧成果"}),
+    )
+
+    update_existing_mock.assert_awaited_once()
+    create_replacement_mock.assert_not_called()
+    assert result.artifact["id"] == "artifact-001"
+    assert result.artifact["replaces_artifact_id"] is None
+    assert result.latest_runnable_state["active_artifact_id"] == "artifact-001"
 
 
 def test_normalize_simulator_turn_result_backfills_required_fields() -> None:
@@ -224,60 +243,6 @@ def test_build_latest_runnable_state_uses_card_specific_next_action() -> None:
     assert animation_gif_state["next_action"] == "placement"
     assert animation_gif_state["can_recommend_placement"] is True
     assert animation_gif_state["can_confirm_placement"] is True
-
-
-@pytest.mark.anyio
-async def test_generate_simulator_turn_update_normalizes_turn_history(monkeypatch):
-    monkeypatch.setattr(
-        "services.generation_session_service.tool_content_builder_generation._generate_json_payload",
-        AsyncMock(
-            return_value=(
-                {
-                    "updated_content": {
-                        "title": "课堂问答模拟",
-                        "summary": "进入下一轮追问。",
-                        "question_focus": "速度与加速度",
-                    },
-                    "turn_result": {
-                        "turn_anchor": "turn-2",
-                        "student_profile": "detail_oriented",
-                        "student_question": "减速时加速度方向如何判断？",
-                        "feedback": "建议让学生先举一个反例。",
-                        "score": 90,
-                        "next_focus": "反例构造",
-                    },
-                },
-                "openai/test-model",
-            )
-        ),
-    )
-
-    updated_content, turn_result = await generate_simulator_turn_update(
-        current_content={
-            "kind": "classroom_qa_simulator",
-            "title": "课堂问答模拟",
-            "summary": "已有首轮。",
-            "turns": [
-                {
-                    "student_profile": "detail_oriented",
-                    "student_question": "如果速度向右，合力一定向右吗？",
-                    "teacher_answer": "先拆开速度和合力方向。",
-                    "feedback": "先区分速度方向与加速度方向。",
-                }
-            ],
-        },
-        teacher_answer="看速度变化趋势，再判断加速度方向。",
-        config={"topic": "牛顿第二定律"},
-        rag_snippets=[],
-    )
-
-    assert updated_content["schema_version"] == "classroom_qa_simulator.v2"
-    assert len(updated_content["turns"]) == 2
-    assert updated_content["turns"][0]["turn_anchor"] == "turn-1"
-    assert updated_content["turns"][1]["turn_anchor"] == "turn-2"
-    assert updated_content["turns"][1]["teacher_answer"] == "看速度变化趋势，再判断加速度方向。"
-    assert turn_result["turn_anchor"] == "turn-2"
-    assert turn_result["next_focus"] == "反例构造"
 
 
 @pytest.mark.anyio

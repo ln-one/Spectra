@@ -67,6 +67,7 @@ describe("mindmap preview", () => {
   it("renders a pure workspace surface and defaults to preview mode", async () => {
     const { container } = render(
       <PreviewStep
+        mode="preview"
         selectedId="root"
         lastGeneratedAt="2026-04-18T09:00:00.000Z"
         flowContext={buildFlowContext()}
@@ -79,7 +80,6 @@ describe("mindmap preview", () => {
     expect(screen.queryByText("节点工作台")).not.toBeInTheDocument();
     expect(screen.queryByText("知识导图")).not.toBeInTheDocument();
 
-    expect(screen.getByRole("button", { name: "编辑" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "重命名" })).not.toBeInTheDocument();
     expect(screen.queryByText("编辑当前节点")).not.toBeInTheDocument();
     expect(screen.getByText("牛顿第二定律")).toBeInTheDocument();
@@ -122,14 +122,13 @@ describe("mindmap preview", () => {
 
     render(
       <PreviewStep
+        mode="edit"
         selectedId="root"
         lastGeneratedAt="2026-04-18T09:00:00.000Z"
         flowContext={buildFlowContext({ onStructuredRefineArtifact })}
         onSelectNode={onSelectNode}
       />
     );
-
-    fireEvent.click(screen.getByRole("button", { name: "编辑" }));
     fireEvent.click(screen.getByRole("button", { name: "新增子节点" }));
     await waitFor(() => {
       expect(screen.getByPlaceholderText("子节点名称")).toBeInTheDocument();
@@ -159,19 +158,34 @@ describe("mindmap preview", () => {
     });
   });
 
+  it("does not render a chat refine button inside the workspace", async () => {
+    render(
+      <PreviewStep
+        mode="preview"
+        selectedId="root"
+        lastGeneratedAt="2026-04-18T09:00:00.000Z"
+        flowContext={buildFlowContext({ onRefine: jest.fn() })}
+        onSelectNode={() => undefined}
+      />
+    );
+
+    expect(
+      screen.queryByRole("button", { name: "打开对话微调" })
+    ).not.toBeInTheDocument();
+  });
+
   it("submits edit and delete operations through structured refine", async () => {
     const onStructuredRefineArtifact = jest.fn().mockResolvedValue({ ok: true });
 
     render(
       <PreviewStep
+        mode="edit"
         selectedId="child-1"
         lastGeneratedAt="2026-04-18T09:00:00.000Z"
         flowContext={buildFlowContext({ onStructuredRefineArtifact })}
         onSelectNode={() => undefined}
       />
     );
-
-    fireEvent.click(screen.getByRole("button", { name: "编辑" }));
     fireEvent.click(screen.getByRole("button", { name: "重命名" }));
     fireEvent.change(screen.getByPlaceholderText("输入新的节点名称"), {
       target: { value: "质量" },

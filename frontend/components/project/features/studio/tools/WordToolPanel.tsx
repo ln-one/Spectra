@@ -62,25 +62,35 @@ export function WordToolPanel({
       )?.title) ||
     null;
   const latestArtifact = flowContext?.latestArtifacts?.[0];
+  const isHistoryResultMode = flowContext?.resolvedTarget?.isHistorical === true;
   const previewArtifactId =
-    flowContext?.resolvedArtifact?.artifactId ?? latestArtifact?.artifactId;
-  const previewRunId = latestArtifact?.runId ?? null;
+    flowContext?.resolvedTarget?.artifactId ??
+    (isHistoryResultMode
+      ? flowContext?.resolvedArtifact?.artifactId ?? latestArtifact?.artifactId
+      : null);
+  const previewRunId =
+    flowContext?.resolvedTarget?.kind === "pinned_run"
+      ? flowContext?.resolvedTarget?.runId ?? null
+      : null;
   const previewSessionId =
-    flowContext?.wordResultTarget?.sessionId ?? activeSessionId ?? null;
-  const isHistoryResultMode = flowContext?.wordWorkbenchMode === "history";
-  const resultTargetStatus = flowContext?.wordResultTarget?.status ?? null;
+    flowContext?.resolvedTarget?.sessionId ??
+    activeSessionId ??
+    null;
+  const resultTargetStatus = flowContext?.resolvedTarget?.status ?? null;
   const hasPreviewArtifact = Boolean(previewArtifactId);
   const isGenerating = Boolean(
     isGeneratingLocal ||
       (resultTargetStatus === "processing" && !hasPreviewArtifact) ||
       flowContext?.isActionRunning
   );
-  const shouldShowPreview = Boolean(isHistoryResultMode || isGenerating);
+  const shouldShowPreview = Boolean(
+    isHistoryResultMode || hasPreviewArtifact || isGenerating
+  );
   const shouldShowComposeCard = !shouldShowPreview;
   const hasGenerationAnchor = Boolean(primarySourceId || promptText.trim());
 
   useEffect(() => {
-    if (flowContext?.wordWorkbenchMode !== "draft") return;
+    if (flowContext?.managedWorkbenchMode !== "draft") return;
     const nextPrompt =
       typeof flowContext?.currentDraft?.output_requirements === "string"
         ? flowContext.currentDraft.output_requirements
@@ -89,10 +99,10 @@ export function WordToolPanel({
   }, [flowContext?.currentDraft]);
 
   useEffect(() => {
-    if (flowContext?.wordWorkbenchMode !== "draft" || isGenerating) return;
+    if (flowContext?.managedWorkbenchMode !== "draft" || isGenerating) return;
     setBackendMarkdown("");
     setBackendPreviewError(null);
-  }, [flowContext?.wordWorkbenchMode, isGenerating]);
+  }, [flowContext?.managedWorkbenchMode, isGenerating]);
 
   useEffect(() => {
     onDraftChange?.({

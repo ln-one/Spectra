@@ -9,7 +9,7 @@ from services.database import db_service
 from services.ourograph_client import ourograph_base_url, ourograph_client
 from utils.exceptions import ExternalServiceException
 
-from .artifacts import create_artifact_with_file
+from .artifacts import create_artifact_with_file, update_artifact_with_file
 
 logger = logging.getLogger(__name__)
 
@@ -182,6 +182,25 @@ class ProjectSpaceService:
             based_on_version_id=based_on_version_id,
             content=content,
             artifact_mode=artifact_mode,
+        )
+
+    async def update_artifact_with_file(
+        self,
+        *,
+        artifact,
+        project_id: str,
+        user_id: str,
+        content=None,
+        based_on_version_id=None,
+    ):
+        self._ensure_remote_configured()
+        return await update_artifact_with_file(
+            service=self,
+            artifact=artifact,
+            project_id=project_id,
+            user_id=user_id,
+            content=content,
+            based_on_version_id=based_on_version_id,
         )
 
     async def bind_artifact_to_version(self, *args, **kwargs):

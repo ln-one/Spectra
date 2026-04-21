@@ -184,6 +184,7 @@ class AIService:
         has_rag_context: bool = False,
         max_tokens: Optional[int] = 500,
         response_format: Optional[dict] = None,
+        timeout_seconds_override: Optional[float] = None,
     ) -> dict:
         return await generate_with_routing(
             self,
@@ -193,6 +194,7 @@ class AIService:
             has_rag_context=has_rag_context,
             max_tokens=max_tokens,
             response_format=response_format,
+            timeout_seconds_override=timeout_seconds_override,
         )
 
     async def classify_intent(self, user_message: str):

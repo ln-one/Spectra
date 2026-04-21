@@ -36,6 +36,7 @@ describe("mindmap preview child insertion", () => {
       return (
         <>
           <PreviewStep
+            mode="preview"
             selectedId={selectedId}
             lastGeneratedAt={null}
             flowContext={buildFlowContext()}
@@ -66,14 +67,13 @@ describe("mindmap preview child insertion", () => {
 
     render(
       <PreviewStep
+        mode="edit"
         selectedId="root"
         lastGeneratedAt={null}
         flowContext={buildFlowContext({ onStructuredRefineArtifact })}
         onSelectNode={onSelectNode}
       />
     );
-
-    fireEvent.click(screen.getByRole("button", { name: "编辑" }));
     await waitFor(() => {
       expect(screen.getByRole("button", { name: "新增子节点" })).toBeInTheDocument();
     });
@@ -112,6 +112,7 @@ describe("mindmap preview child insertion", () => {
   it("disables add-child action when artifact id is unavailable", async () => {
     render(
       <PreviewStep
+        mode="edit"
         selectedId="root"
         lastGeneratedAt={null}
         flowContext={{
@@ -131,16 +132,15 @@ describe("mindmap preview child insertion", () => {
         onSelectNode={() => undefined}
       />
     );
-
-    fireEvent.click(screen.getByRole("button", { name: "编辑" }));
     await waitFor(() => {
       expect(screen.getByRole("button", { name: "新增子节点" })).toBeDisabled();
     });
   });
 
   it("hides the inspector when clicking blank canvas or switching back to preview", async () => {
-    const { container } = render(
+    const { container, rerender } = render(
       <PreviewStep
+        mode="edit"
         selectedId="root"
         lastGeneratedAt={null}
         flowContext={buildFlowContext({
@@ -150,7 +150,6 @@ describe("mindmap preview child insertion", () => {
       />
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "编辑" }));
     fireEvent.click(screen.getByRole("button", { name: "新增子节点" }));
     await waitFor(() => {
       expect(screen.getByPlaceholderText("子节点名称")).toBeInTheDocument();
@@ -168,7 +167,17 @@ describe("mindmap preview child insertion", () => {
       expect(screen.getByPlaceholderText("子节点名称")).toBeInTheDocument();
     });
     fireEvent.click(screen.getByRole("button", { name: "取消" }));
-    fireEvent.click(screen.getByRole("button", { name: "完成" }));
+    rerender(
+      <PreviewStep
+        mode="preview"
+        selectedId="root"
+        lastGeneratedAt={null}
+        flowContext={buildFlowContext({
+          onStructuredRefineArtifact: jest.fn().mockResolvedValue({ ok: true }),
+        })}
+        onSelectNode={() => undefined}
+      />
+    );
     await waitFor(() => {
       expect(screen.queryByPlaceholderText("子节点名称")).not.toBeInTheDocument();
     });

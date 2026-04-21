@@ -33,6 +33,8 @@ def test_active_cards_expose_conservative_governance_snapshots():
 
     assert mindmap_card is not None
     assert mindmap_card["governance_tag"] == "borrow"
+    assert mindmap_card["supports_chat_refine"] is True
+    assert "chat_refine" in mindmap_card["supported_refine_modes"]
     assert "structured_refine" in mindmap_card["supported_refine_modes"]
     assert "node" in mindmap_card["supported_selection_scopes"]
 

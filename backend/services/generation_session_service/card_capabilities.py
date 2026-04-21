@@ -59,7 +59,10 @@ CARD_DISPLAY_SEMANTICS = {
         "artifact_surface_type": ArtifactSurfaceType.GRAPH,
         "capability_engine": CapabilityEngine.NODE_GRAPH,
         "execution_carrier": ExecutionCarrier.ARTIFACT,
-        "supported_refine_modes": [RefineMode.STRUCTURED_REFINE],
+        "supported_refine_modes": [
+            RefineMode.CHAT_REFINE,
+            RefineMode.STRUCTURED_REFINE,
+        ],
         "supported_selection_scopes": [SelectionScope.NODE],
         "source_binding_mode": SourceBindingMode.NONE,
     },

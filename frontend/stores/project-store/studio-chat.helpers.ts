@@ -156,8 +156,46 @@ export function buildRefineSuccessMessage(
 
 export function buildRefineFailureMessage(
   toolType: StudioManagedTool,
-  toolLabel?: string
+  toolLabel?: string,
+  failureReason?: string
 ): string {
   const alias = resolveToolAlias(toolType, toolLabel);
+  const normalizedReason = (failureReason || "").toLowerCase();
+  const qualityReasons = normalizedReason.startsWith("mindmap_refine_quality_low:")
+    ? normalizedReason
+        .replace("mindmap_refine_quality_low:", "")
+        .split(",")
+        .filter(Boolean)
+    : [];
+  if (
+    normalizedReason.includes("timeout") ||
+    normalizedReason.includes("upstream_timeout")
+  ) {
+    return `${alias}微调超时，模型在限定时间内没有返回新版结果。`;
+  }
+  if (qualityReasons.length > 0) {
+    const issueMap: Record<string, string> = {
+      insufficient_primary_branches: "一级分支过少",
+      mindmap_too_small: "导图规模过小",
+      insufficient_depth: "层级过浅",
+      requested_depth_not_met: "未达到要求层级",
+      rewrite_shrank_nodes: "节点数明显减少",
+      rewrite_shrank_depth: "层级被压缩",
+      rewrite_increased_duplicates: "重复分支变多",
+      rewrite_reintroduced_rag_noise: "残留了资料噪声",
+      rewrite_titles_more_verbose: "标题变得过长",
+      repeated_titles: "标题重复",
+      contains_rag_noise: "存在资料残渣",
+      thin_chain_structure: "结构过于单链",
+    };
+    const readable = qualityReasons
+      .map((reason) => issueMap[reason] || "")
+      .filter(Boolean)
+      .slice(0, 3)
+      .join("、");
+    return readable
+      ? `${alias}微调已被自动拦截：${readable}。`
+      : `${alias}微调结果质量退化，已自动拦截。`;
+  }
   return `${alias}微调失败，请重试。`;
 }

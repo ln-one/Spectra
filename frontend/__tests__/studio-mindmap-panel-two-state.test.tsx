@@ -43,7 +43,7 @@ describe("mindmap panel two-state workbench", () => {
     );
 
     expect(screen.getByText("生成要求")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "一键生成导图" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "一键生成导图" })).not.toBeInTheDocument();
     expect(screen.queryByText("知识导图")).not.toBeInTheDocument();
   });
 
@@ -63,7 +63,7 @@ describe("mindmap panel two-state workbench", () => {
     );
 
     await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "一键生成导图" }));
+      window.dispatchEvent(new CustomEvent("spectra:mindmap:generate"));
     });
 
     expect(onExecute).toHaveBeenCalled();
@@ -118,7 +118,72 @@ describe("mindmap panel two-state workbench", () => {
 
     expect(screen.queryByText("生成要求")).not.toBeInTheDocument();
     expect(screen.getByText("网络层")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "编辑" })).toBeInTheDocument();
     expect(screen.queryByText("编辑当前节点")).not.toBeInTheDocument();
+  });
+
+  it("returns to draft surface when artifact exists but backend tree is empty", () => {
+    render(
+      <MindmapToolPanel
+        toolId="mindmap"
+        toolName="思维导图"
+        flowContext={buildFlowContext({
+          resolvedArtifact: {
+            artifactId: "mindmap-artifact-empty",
+            artifactType: "mindmap",
+            contentKind: "json",
+            content: {
+              kind: "mindmap",
+              nodes: [],
+            },
+          },
+        })}
+      />
+    );
+
+    expect(screen.getByText("生成要求")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "一键生成导图" })).not.toBeInTheDocument();
+    expect(screen.queryByText("暂未收到后端真实导图")).not.toBeInTheDocument();
+  });
+
+  it("responds to header mode events after a result is available", async () => {
+    render(
+      <MindmapToolPanel
+        toolId="mindmap"
+        toolName="思维导图"
+        flowContext={buildFlowContext({
+          resolvedArtifact: {
+            artifactId: "mindmap-artifact-1",
+            artifactType: "mindmap",
+            contentKind: "json",
+            content: {
+              kind: "mindmap",
+              nodes: [
+                {
+                  id: "root",
+                  label: "网络层",
+                  children: [{ id: "child-1", label: "路由算法" }],
+                },
+              ],
+            },
+          },
+        })}
+      />
+    );
+
+    expect(screen.queryByRole("button", { name: "新增子节点" })).not.toBeInTheDocument();
+
+    act(() => {
+      window.dispatchEvent(
+        new CustomEvent("spectra:mindmap:set-mode", {
+          detail: { mode: "edit" },
+        })
+      );
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByText("网络层"));
+    });
+
+    expect(screen.getByRole("button", { name: "新增子节点" })).toBeInTheDocument();
   });
 });

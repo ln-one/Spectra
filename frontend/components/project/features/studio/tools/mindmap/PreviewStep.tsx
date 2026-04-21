@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Check, Loader2, Network, PencilLine, Plus, Save } from "lucide-react";
+import { Loader2, Network, Plus, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -26,13 +26,13 @@ import { GraphSurfaceAdapter } from "./GraphSurfaceAdapter";
 import type { MindNode } from "./types";
 
 interface PreviewStepProps {
+  mode: "preview" | "edit";
   selectedId: string;
   lastGeneratedAt: string | null;
   flowContext?: ToolFlowContext;
   onSelectNode: (id: string) => void;
 }
 
-type MindmapMode = "preview" | "edit";
 type ActionDialog =
   | { type: "edit"; nodeId: string }
   | { type: "add-child"; nodeId: string }
@@ -134,12 +134,12 @@ function findNodeById(node: MindNode, id: string): MindNode | null {
 }
 
 export function PreviewStep({
+  mode,
   selectedId,
   lastGeneratedAt: _lastGeneratedAt,
   flowContext,
   onSelectNode,
 }: PreviewStepProps) {
-  const [activeMode, setActiveMode] = useState<MindmapMode>("preview");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [actionDialog, setActionDialog] = useState<ActionDialog>(null);
@@ -200,19 +200,17 @@ export function PreviewStep({
       artifactId &&
       typeof flowContext?.onStructuredRefineArtifact === "function"
   );
-
   const closeTransientUi = useCallback(() => {
     setActionDialog(null);
     setPendingDeleteNodeId(null);
   }, []);
 
-  const handleModeChange = useCallback((nextMode: MindmapMode) => {
-    setActiveMode(nextMode);
+  useEffect(() => {
     setSubmitError("");
-    if (nextMode === "preview") {
+    if (mode === "preview") {
       closeTransientUi();
     }
-  }, [closeTransientUi]);
+  }, [closeTransientUi, mode]);
 
   const handleCanvasClick = useCallback(() => {
     if (activeTree) {
@@ -224,7 +222,7 @@ export function PreviewStep({
 
   const openEditDialog = useCallback(
     (nodeId: string) => {
-      if (!activeTree || activeMode !== "edit") return;
+      if (!activeTree || mode !== "edit") return;
       const node = findNodeById(activeTree, nodeId);
       if (!node) return;
       onSelectNode(node.id);
@@ -233,12 +231,12 @@ export function PreviewStep({
       setActionDialog({ type: "edit", nodeId: node.id });
       setSubmitError("");
     },
-    [activeMode, activeTree, onSelectNode]
+    [activeTree, mode, onSelectNode]
   );
 
   const openAddChildDialog = useCallback(
     (nodeId: string) => {
-      if (!activeTree || activeMode !== "edit") return;
+      if (!activeTree || mode !== "edit") return;
       const node = findNodeById(activeTree, nodeId);
       if (!node) return;
       onSelectNode(node.id);
@@ -247,19 +245,19 @@ export function PreviewStep({
       setActionDialog({ type: "add-child", nodeId: node.id });
       setSubmitError("");
     },
-    [activeMode, activeTree, onSelectNode]
+    [activeTree, mode, onSelectNode]
   );
 
   const openDeleteDialog = useCallback(
     (nodeId: string) => {
-      if (!activeTree || activeMode !== "edit") return;
+      if (!activeTree || mode !== "edit") return;
       const node = findNodeById(activeTree, nodeId);
       if (!node) return;
       onSelectNode(node.id);
       setPendingDeleteNodeId(node.id);
       setSubmitError("");
     },
-    [activeMode, activeTree, onSelectNode]
+    [activeTree, mode, onSelectNode]
   );
 
   const submitStructuredRefine = useCallback(
@@ -384,35 +382,11 @@ export function PreviewStep({
 
   return (
     <>
-      <div className="flex h-full min-h-0 flex-col gap-3">
-        <div className="flex flex-wrap items-center justify-end gap-2 px-1 pt-1">
-          <Button
-            type="button"
-            variant={activeMode === "edit" ? "default" : "outline"}
-            size="sm"
-            className="h-8 text-xs"
-            onClick={() =>
-              handleModeChange(activeMode === "edit" ? "preview" : "edit")
-            }
-          >
-            {activeMode === "edit" ? (
-              <>
-                <Check className="h-3.5 w-3.5" />
-                完成
-              </>
-            ) : (
-              <>
-                <PencilLine className="h-3.5 w-3.5" />
-                编辑
-              </>
-            )}
-          </Button>
-        </div>
-
+      <div className="flex h-full min-h-0 flex-col">
         <div className="relative min-h-0 flex-1 overflow-hidden rounded-2xl border border-zinc-200 bg-white">
           <GraphSurfaceAdapter
             tree={activeTree}
-            mode={activeMode}
+            mode={mode}
             selectedId={selectedNode?.id || activeTree.id}
             onSelectNode={onSelectNode}
             onCanvasClick={handleCanvasClick}
