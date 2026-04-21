@@ -9,7 +9,9 @@ from services.database import db_service
 from services.generation_session_service.card_execution_runtime_failure_events import (
     append_card_execution_failed_event,
 )
-from services.generation_session_service.event_store import append_event
+from services.generation_session_service.event_store import (
+    persist_session_update_and_events,
+)
 from services.generation_session_service.session_history import build_run_trace_payload
 from services.platform.generation_event_constants import GenerationEventType
 from services.platform.state_transition_guard import GenerationState
@@ -505,18 +507,6 @@ async def append_card_execution_completed_event(
             else:
                 update_payload["options"] = normalized_options
 
-    if hasattr(session_model, "update"):
-        try:
-            session = await session_model.update(
-                where={"id": session_id},
-                data=update_payload,
-            )
-        except Exception as exc:
-            logger.warning(
-                "Skip studio-card completion state sync due to update error: %s",
-                exc,
-            )
-
     payload = {
         "stage": "studio_card_execute",
         "card_id": card_id,
@@ -526,25 +516,27 @@ async def append_card_execution_completed_event(
     }
 
     try:
-        await append_event(
+        await persist_session_update_and_events(
             db=db_handle,
             schema_version=1,
             session_id=session_id,
-            event_type=GenerationEventType.TASK_COMPLETED.value,
-            state=GenerationState.SUCCESS.value,
-            state_reason=TaskFailureStateReason.COMPLETED.value,
-            progress=100,
-            payload=payload,
-        )
-        await append_event(
-            db=db_handle,
-            schema_version=1,
-            session_id=session_id,
-            event_type=GenerationEventType.STATE_CHANGED.value,
-            state=GenerationState.SUCCESS.value,
-            state_reason=TaskFailureStateReason.COMPLETED.value,
-            progress=100,
-            payload=payload,
+            session_data=update_payload,
+            events=[
+                {
+                    "event_type": GenerationEventType.TASK_COMPLETED.value,
+                    "state": GenerationState.SUCCESS.value,
+                    "state_reason": TaskFailureStateReason.COMPLETED.value,
+                    "progress": 100,
+                    "payload": payload,
+                },
+                {
+                    "event_type": GenerationEventType.STATE_CHANGED.value,
+                    "state": GenerationState.SUCCESS.value,
+                    "state_reason": TaskFailureStateReason.COMPLETED.value,
+                    "progress": 100,
+                    "payload": payload,
+                },
+            ],
         )
     except Exception as exc:
         logger.warning("Skip studio-card completion event persistence failure: %s", exc)

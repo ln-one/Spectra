@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import json
 
+from services.generation_session_service.event_store import (
+    persist_session_update_and_events,
+)
 from services.generation_session_service.teaching_brief import (
     apply_proposal_to_brief,
     confirm_teaching_brief,
@@ -30,19 +33,24 @@ async def _persist_teaching_brief(
         brief=brief,
         proposals=proposals,
     )
-    await db.generationsession.update(
-        where={"id": session.id},
-        data={
+    await persist_session_update_and_events(
+        db=db,
+        schema_version=1,
+        session_id=session.id,
+        session_data={
             "state": new_state,
+            "stateReason": getattr(session, "stateReason", None),
             "options": json.dumps(next_options, ensure_ascii=False),
         },
-    )
-    await append_event(
-        session_id=session.id,
-        event_type=event_type,
-        state=new_state,
-        progress=getattr(session, "progress", 0),
-        payload=event_payload,
+        events=[
+            {
+                "event_type": event_type,
+                "state": new_state,
+                "state_reason": getattr(session, "stateReason", None),
+                "progress": getattr(session, "progress", 0),
+                "payload": event_payload,
+            }
+        ],
     )
 
 

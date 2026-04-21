@@ -3,7 +3,9 @@ from __future__ import annotations
 import logging
 
 from services.database import db_service
-from services.generation_session_service.event_store import append_event
+from services.generation_session_service.event_store import (
+    persist_session_update_and_events,
+)
 from services.platform.generation_event_constants import GenerationEventType
 from services.platform.state_transition_guard import GenerationState
 from services.task_executor.constants import TaskFailureStateReason
@@ -84,43 +86,30 @@ async def append_card_execution_failed_event(
         "errorRetryable": retryable,
         "resumable": True,
     }
-    if hasattr(session_model, "update"):
-        try:
-            await session_model.update(
-                where={"id": session_id},
-                data=update_payload,
-            )
-        except Exception as exc:
-            logger.warning(
-                "Skip studio-card failed state sync due to update error: %s",
-                exc,
-            )
-
     try:
-        await append_event(
+        await persist_session_update_and_events(
             db=db_handle,
             schema_version=1,
             session_id=session_id,
-            event_type=GenerationEventType.GENERATION_FAILED.value,
-            state=GenerationState.FAILED.value,
-            payload=payload,
-        )
-        await append_event(
-            db=db_handle,
-            schema_version=1,
-            session_id=session_id,
-            event_type=GenerationEventType.TASK_FAILED.value,
-            state=GenerationState.FAILED.value,
-            payload=payload,
-        )
-        await append_event(
-            db=db_handle,
-            schema_version=1,
-            session_id=session_id,
-            event_type=GenerationEventType.STATE_CHANGED.value,
-            state=GenerationState.FAILED.value,
-            state_reason=state_reason,
-            payload=payload,
+            session_data=update_payload,
+            events=[
+                {
+                    "event_type": GenerationEventType.GENERATION_FAILED.value,
+                    "state": GenerationState.FAILED.value,
+                    "payload": payload,
+                },
+                {
+                    "event_type": GenerationEventType.TASK_FAILED.value,
+                    "state": GenerationState.FAILED.value,
+                    "payload": payload,
+                },
+                {
+                    "event_type": GenerationEventType.STATE_CHANGED.value,
+                    "state": GenerationState.FAILED.value,
+                    "state_reason": state_reason,
+                    "payload": payload,
+                },
+            ],
         )
     except Exception as exc:
         logger.warning("Skip studio-card failed event persistence failure: %s", exc)

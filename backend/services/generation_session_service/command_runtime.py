@@ -2,6 +2,9 @@ from __future__ import annotations
 
 from typing import Awaitable, Callable
 
+from services.generation_session_service.event_store import (
+    persist_session_update_and_events,
+)
 from services.generation_session_service.ppt_slide_regenerate import (
     regenerate_diego_slide_for_run,
 )
@@ -69,42 +72,45 @@ async def handle_regenerate_slide(
         )
 
     previous_state = str(getattr(session, "state", "") or "")
+    previous_state_reason = str(getattr(session, "stateReason", "") or "").strip() or None
     slide_id = str(command.get("slide_id") or "").strip() or None
     instruction = str(command.get("instruction") or "").strip()
     preserve_style = bool(command.get("preserve_style", True))
 
-    await db.generationsession.update(
-        where={"id": session_id},
-        data={
+    await persist_session_update_and_events(
+        db=db,
+        schema_version=1,
+        session_id=session_id,
+        session_data={
             "state": new_state,
             "stateReason": "slide_modify_processing",
             "errorCode": None,
             "errorMessage": None,
         },
-    )
-    await append_event(
-        session_id=session_id,
-        event_type=GenerationEventType.STATE_CHANGED.value,
-        state=new_state,
-        state_reason="slide_modify_processing",
-        payload={
-            "run_id": requested_run_id,
-            "slide_id": slide_id,
-            "slide_index": slide_no,
-        },
-    )
-    await append_event(
-        session_id=session_id,
-        event_type=GenerationEventType.SLIDE_MODIFY_PROCESSING.value,
-        state=new_state,
-        state_reason="slide_modify_processing",
-        payload={
-            "run_id": requested_run_id,
-            "slide_id": slide_id,
-            "slide_index": slide_no,
-            "instruction": instruction,
-            "patch": command.get("patch"),
-        },
+        events=[
+            {
+                "event_type": GenerationEventType.STATE_CHANGED.value,
+                "state": new_state,
+                "state_reason": "slide_modify_processing",
+                "payload": {
+                    "run_id": requested_run_id,
+                    "slide_id": slide_id,
+                    "slide_index": slide_no,
+                },
+            },
+            {
+                "event_type": GenerationEventType.SLIDE_MODIFY_PROCESSING.value,
+                "state": new_state,
+                "state_reason": "slide_modify_processing",
+                "payload": {
+                    "run_id": requested_run_id,
+                    "slide_id": slide_id,
+                    "slide_index": slide_no,
+                    "instruction": instruction,
+                    "patch": command.get("patch"),
+                },
+            },
+        ],
     )
 
     try:
@@ -117,24 +123,39 @@ async def handle_regenerate_slide(
             user_id=user_id,
         )
     except Exception as exc:
-        await db.generationsession.update(
-            where={"id": session_id},
-            data={
-                "state": previous_state or getattr(session, "state", new_state),
-                "stateReason": "slide_modify_failed",
-            },
-        )
-        await append_event(
+        restored_state = previous_state or getattr(session, "state", new_state)
+        await persist_session_update_and_events(
+            db=db,
+            schema_version=1,
             session_id=session_id,
-            event_type=GenerationEventType.SLIDE_MODIFY_FAILED.value,
-            state=previous_state or getattr(session, "state", new_state),
-            state_reason="slide_modify_failed",
-            payload={
-                "run_id": requested_run_id,
-                "slide_id": slide_id,
-                "slide_index": slide_no,
-                "error_message": str(exc),
+            session_data={
+                "state": restored_state,
+                "stateReason": previous_state_reason or "slide_modify_failed",
             },
+            events=[
+                {
+                    "event_type": GenerationEventType.STATE_CHANGED.value,
+                    "state": restored_state,
+                    "state_reason": previous_state_reason or "slide_modify_failed",
+                    "payload": {
+                        "run_id": requested_run_id,
+                        "slide_id": slide_id,
+                        "slide_index": slide_no,
+                        "error_message": str(exc),
+                    },
+                },
+                {
+                    "event_type": GenerationEventType.SLIDE_MODIFY_FAILED.value,
+                    "state": restored_state,
+                    "state_reason": "slide_modify_failed",
+                    "payload": {
+                        "run_id": requested_run_id,
+                        "slide_id": slide_id,
+                        "slide_index": slide_no,
+                        "error_message": str(exc),
+                    },
+                },
+            ],
         )
         raise
 
