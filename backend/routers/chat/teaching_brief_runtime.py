@@ -14,6 +14,7 @@ from services.generation_session_service.teaching_brief import (
 BRIEF_EXTRACTION_TURN_COUNT_KEY = "_brief_extraction_turn_count"
 BRIEF_EXTRACTION_LAST_SCHEDULED_AT_KEY = "_brief_extraction_last_scheduled_at"
 BRIEF_EXTRACTION_REFRESH_AFTER_MS = 3500
+BRIEF_EXTRACTION_IDLE_TURNS_DEFAULT = 4
 
 _MISSING_FIELD_LABELS = {
     "topic": "主题",
@@ -45,8 +46,19 @@ def _env_positive_int(name: str, default: int) -> int:
     return value if value > 0 else default
 
 
+def resolve_brief_extraction_idle_turns() -> int:
+    legacy_default = _env_positive_int(
+        "BRIEF_EXTRACTION_INTERVAL",
+        BRIEF_EXTRACTION_IDLE_TURNS_DEFAULT,
+    )
+    return max(
+        1,
+        min(_env_positive_int("BRIEF_EXTRACTION_IDLE_TURNS", legacy_default), 20),
+    )
+
+
 def resolve_brief_extraction_interval() -> int:
-    return max(1, min(_env_positive_int("BRIEF_EXTRACTION_INTERVAL", 3), 20))
+    return resolve_brief_extraction_idle_turns()
 
 
 def resolve_brief_extraction_debounce_seconds() -> int:
@@ -234,7 +246,7 @@ def plan_brief_extraction(
     immediate_trigger = (
         len(current_missing_fields) >= 3 and len(estimated_missing_fields) <= 1
     )
-    interval_trigger = next_turn_count >= resolve_brief_extraction_interval()
+    idle_fallback_trigger = next_turn_count >= resolve_brief_extraction_idle_turns()
     extraction_reason = None
     if generation_intent_trigger:
         extraction_reason = "generation_intent"
@@ -242,7 +254,7 @@ def plan_brief_extraction(
         extraction_reason = "missing_field_answer"
     elif immediate_trigger or field_evidence_trigger:
         extraction_reason = "field_evidence"
-    elif interval_trigger:
+    elif idle_fallback_trigger:
         extraction_reason = "interval"
 
     should_run = extraction_reason is not None
@@ -257,7 +269,9 @@ def plan_brief_extraction(
     return {
         "should_run": should_run,
         "immediate_trigger": immediate_trigger,
-        "interval_trigger": interval_trigger,
+        "interval_trigger": idle_fallback_trigger,
+        "idle_fallback_trigger": idle_fallback_trigger,
+        "idle_turns_without_extraction": next_turn_count,
         "field_evidence_trigger": field_evidence_trigger,
         "generation_intent_trigger": generation_intent_trigger,
         "missing_field_answer_trigger": missing_field_answer_trigger,

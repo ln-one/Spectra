@@ -2,6 +2,7 @@ from routers.chat.teaching_brief_runtime import (
     build_generation_intent_payload,
     detect_generation_intent,
     plan_brief_extraction,
+    resolve_brief_extraction_idle_turns,
 )
 
 
@@ -27,8 +28,34 @@ def test_build_generation_intent_payload_blocks_when_brief_not_confirmed():
     assert payload["generation_blocked_reason"] == "请先确认教学需求单"
 
 
-def test_plan_brief_extraction_triggers_on_interval(monkeypatch):
-    monkeypatch.setenv("BRIEF_EXTRACTION_INTERVAL", "3")
+def test_resolve_brief_extraction_idle_turns_defaults_to_four(monkeypatch):
+    monkeypatch.delenv("BRIEF_EXTRACTION_IDLE_TURNS", raising=False)
+    monkeypatch.delenv("BRIEF_EXTRACTION_INTERVAL", raising=False)
+
+    assert resolve_brief_extraction_idle_turns() == 4
+
+
+def test_plan_brief_extraction_triggers_after_four_idle_turns(monkeypatch):
+    monkeypatch.delenv("BRIEF_EXTRACTION_IDLE_TURNS", raising=False)
+    monkeypatch.delenv("BRIEF_EXTRACTION_INTERVAL", raising=False)
+
+    plan = plan_brief_extraction(
+        options_raw={"_brief_extraction_turn_count": 3},
+        brief_raw={"status": "draft"},
+        latest_user_message="继续聊",
+    )
+
+    assert plan["should_run"] is True
+    assert plan["interval_trigger"] is True
+    assert plan["idle_fallback_trigger"] is True
+    assert plan["idle_turns_without_extraction"] == 4
+    assert plan["extraction_reason"] == "interval"
+    assert plan["pending_turn_count"] == 0
+
+
+def test_plan_brief_extraction_does_not_fallback_before_four_idle_turns(monkeypatch):
+    monkeypatch.delenv("BRIEF_EXTRACTION_IDLE_TURNS", raising=False)
+    monkeypatch.delenv("BRIEF_EXTRACTION_INTERVAL", raising=False)
 
     plan = plan_brief_extraction(
         options_raw={"_brief_extraction_turn_count": 2},
@@ -36,10 +63,24 @@ def test_plan_brief_extraction_triggers_on_interval(monkeypatch):
         latest_user_message="继续聊",
     )
 
-    assert plan["should_run"] is True
-    assert plan["interval_trigger"] is True
-    assert plan["extraction_reason"] == "interval"
-    assert plan["pending_turn_count"] == 0
+    assert plan["should_run"] is False
+    assert plan["interval_trigger"] is False
+    assert plan["idle_fallback_trigger"] is False
+    assert plan["pending_turn_count"] == 3
+
+
+def test_plan_brief_extraction_legacy_interval_env_still_supported(monkeypatch):
+    monkeypatch.delenv("BRIEF_EXTRACTION_IDLE_TURNS", raising=False)
+    monkeypatch.setenv("BRIEF_EXTRACTION_INTERVAL", "3")
+
+    assert resolve_brief_extraction_idle_turns() == 3
+
+
+def test_plan_brief_extraction_idle_turn_env_overrides_legacy_interval(monkeypatch):
+    monkeypatch.setenv("BRIEF_EXTRACTION_INTERVAL", "3")
+    monkeypatch.setenv("BRIEF_EXTRACTION_IDLE_TURNS", "5")
+
+    assert resolve_brief_extraction_idle_turns() == 5
 
 
 def test_plan_brief_extraction_triggers_when_missing_duration_is_answered():
