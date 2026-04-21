@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ArtifactWorkbenchShell } from "../ArtifactWorkbenchShell";
 import type { ToolFlowContext } from "../types";
+import { WorkbenchCenteredState } from "../WorkbenchCenteredState";
 import { buildArtifactWorkbenchViewModel } from "../workbenchViewModel";
 
 interface PreviewStepProps {
@@ -195,14 +196,13 @@ export function PreviewStep({
       }}
       viewModel={viewModel}
       emptyState={
-        <div className="mt-4 rounded-2xl border border-dashed border-zinc-300 bg-zinc-50 px-4 py-12 text-center">
-          <MessageSquareText className="mx-auto h-8 w-8 text-zinc-400" />
-          <p className="mt-3 text-sm font-medium text-zinc-700">
-            暂未收到后端真实预演内容
-          </p>
-          <p className="mt-1 text-[11px] text-zinc-500">
-            当前不再渲染前端模拟对话，只展示后端真实返回结果。
-          </p>
+        <div className="mt-4">
+          <WorkbenchCenteredState
+            tone="amber"
+            icon={MessageSquareText}
+            title="暂未收到后端真实预演内容"
+            description="当前不再渲染前端模拟对话，只展示后端真实返回结果。"
+          />
         </div>
       }
     >

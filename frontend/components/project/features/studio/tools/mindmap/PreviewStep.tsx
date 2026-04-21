@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import type { ToolFlowContext } from "../types";
+import { WorkbenchCenteredState } from "../WorkbenchCenteredState";
 import { GraphSurfaceAdapter } from "./GraphSurfaceAdapter";
 import type { MindNode } from "./types";
 
@@ -153,6 +154,10 @@ export function PreviewStep({
   const childTitleInputRef = useRef<HTMLInputElement | null>(null);
 
   const activeTree = useMemo(() => extractBackendTree(flowContext), [flowContext]);
+  const isBackendGenerating =
+    flowContext?.managedResultTarget?.status === "processing" ||
+    flowContext?.workflowState === "executing" ||
+    flowContext?.workflowState === "continuing";
   const selectedNode = useMemo(() => {
     if (!activeTree) return null;
     return findNodeById(activeTree, selectedId || activeTree.id) ?? activeTree;
@@ -370,13 +375,18 @@ export function PreviewStep({
 
   if (!activeTree) {
     return (
-      <div className="h-full min-h-0 rounded-2xl border border-dashed border-zinc-300 bg-zinc-50 px-4 py-12 text-center">
-        <Network className="mx-auto h-8 w-8 text-zinc-400" />
-        <p className="mt-3 text-sm font-medium text-zinc-700">暂未收到后端真实导图</p>
-        <p className="mt-1 text-[11px] text-zinc-500">
-          {flowContext?.capabilityReason || "等待后端返回 nodes 后会自动加载到工作面。"}
-        </p>
-      </div>
+      <WorkbenchCenteredState
+        tone="teal"
+        loading={isBackendGenerating}
+        icon={Network}
+        title={isBackendGenerating ? "导图生成中" : "暂未收到后端真实导图"}
+        description={
+          isBackendGenerating
+            ? "正在整理主题主干、分支层级与节点关系，生成完成后会自动进入导图工作面。"
+            : flowContext?.capabilityReason || "等待后端返回 nodes 后会自动加载到工作面。"
+        }
+        pill={isBackendGenerating ? "思维导图工作台正在准备中" : "导图结果返回后会在这里直接展开"}
+      />
     );
   }
 

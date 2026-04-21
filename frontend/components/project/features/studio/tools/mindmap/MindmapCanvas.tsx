@@ -420,6 +420,19 @@ export function MindmapCanvas({
   );
   const nodeTypes = useMemo(() => ({ mindNode: MindmapNode }), []);
   const edgeTypes = useMemo<EdgeTypes>(() => ({ mindmapEdge: MindmapEdge }), []);
+  const layoutSignature = useMemo(
+    () =>
+      [
+        flow.nodes
+          .map(
+            (node) =>
+              `${node.id}:${Math.round(node.position.x)}:${Math.round(node.position.y)}`
+          )
+          .join("|"),
+        flow.edges.map((edge) => edge.id).join("|"),
+      ].join("::"),
+    [flow.edges, flow.nodes]
+  );
 
   const fitToView = useCallback(() => {
     reactFlowRef.current?.fitView({
@@ -431,7 +444,7 @@ export function MindmapCanvas({
 
   useEffect(() => {
     fitToView();
-  }, [fitToView, nodes, flow.edges]);
+  }, [fitToView, layoutSignature]);
 
   return (
     <div className="h-full min-h-0 w-full overflow-hidden rounded-none border-0 bg-white">

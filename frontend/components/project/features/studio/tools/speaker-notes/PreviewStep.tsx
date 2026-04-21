@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Mic2 } from "lucide-react";
 import { ArtifactWorkbenchShell } from "../ArtifactWorkbenchShell";
 import type { ToolFlowContext } from "../types";
+import { WorkbenchCenteredState } from "../WorkbenchCenteredState";
 import { buildArtifactWorkbenchViewModel } from "../workbenchViewModel";
 import { SpeakerNotesSurfaceAdapter } from "./SpeakerNotesSurfaceAdapter";
 import type {
@@ -204,14 +205,13 @@ export function PreviewStep({
       }}
       viewModel={viewModel}
       emptyState={
-        <div className="mt-4 rounded-2xl border border-dashed border-zinc-300 bg-zinc-50 px-4 py-12 text-center">
-          <Mic2 className="mx-auto h-8 w-8 text-zinc-400" />
-          <p className="mt-3 text-sm font-medium text-zinc-700">
-            暂未收到后端真实说课讲稿
-          </p>
-          <p className="mt-1 text-[11px] text-zinc-500">
-            当前只展示后端真实返回结果，不再渲染前端示意讲稿。
-          </p>
+        <div className="mt-4">
+          <WorkbenchCenteredState
+            tone="sky"
+            icon={Mic2}
+            title="暂未收到后端真实说课讲稿"
+            description="当前只展示后端真实返回结果，不再渲染前端示意讲稿。"
+          />
         </div>
       }
     >

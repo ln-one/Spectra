@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useMemo } from "react";
-import { Download, Loader2, PlayCircle } from "lucide-react";
+import { Clapperboard, Download, PlayCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { ToolFlowContext } from "../types";
+import { WorkbenchCenteredState } from "../WorkbenchCenteredState";
 import { AnimationRuntimeHost } from "./runtime/host";
 import { readAnimationRuntimeSnapshot } from "./runtime/snapshot";
 import type {
@@ -115,17 +116,18 @@ export function PreviewStep({
 
   if (!hasReadyArtifact) {
     return (
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6">
-        <div className="flex items-center gap-2 text-sm font-medium text-zinc-800">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          正在等待后端输出动画成果
-        </div>
-        <p className="mt-2 text-xs text-zinc-500">
-          {isGenerating
+      <WorkbenchCenteredState
+        tone="emerald"
+        loading={isGenerating}
+        icon={Clapperboard}
+        title={isGenerating ? "动画生成中" : "暂未收到后端真实动画"}
+        description={
+          isGenerating
             ? "生成任务执行中，结果返回后会自动进入预览。"
-            : "还没有收到首个真实成果，请稍等后端返回。"}
-        </p>
-      </div>
+            : "还没有收到首个真实成果，请稍等后端返回。"
+        }
+        pill={isGenerating ? "动画工作台正在准备中" : "动画成果返回后会在这里直接展开"}
+      />
     );
   }
 
@@ -206,9 +208,13 @@ export function PreviewStep({
           <AnimationRuntimeHost snapshot={runtimeSnapshot} minimal />
         </section>
       ) : (
-        <section className="rounded-2xl border border-dashed border-zinc-300 bg-zinc-50 px-4 py-6 text-[11px] text-zinc-500">
-          后端已返回成果，但当前没有可展示的媒体或 runtime 预览内容。
-        </section>
+        <WorkbenchCenteredState
+          tone="emerald"
+          variant="compact"
+          icon={Clapperboard}
+          title="动画成果暂不可预览"
+          description="后端已返回成果，但当前没有可展示的媒体或 runtime 预览内容。"
+        />
       )}
     </div>
   );

@@ -1,5 +1,6 @@
 import { Download, Gamepad2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { WorkbenchCenteredState } from "../WorkbenchCenteredState";
 
 export type ParsedGamePayload = {
   html: string | null;
@@ -193,15 +194,12 @@ export function GameSurfaceAdapter({
           />
         </div>
       ) : (
-        <div className="rounded-2xl border border-dashed border-zinc-300 bg-zinc-50 px-4 py-12 text-center">
-          <Gamepad2 className="mx-auto h-8 w-8 text-zinc-400" />
-          <p className="mt-3 text-sm font-medium text-zinc-700">
-            暂未收到后端真实游戏
-          </p>
-          <p className="mt-1 text-[11px] text-zinc-500">
-            当前不会渲染前端假游戏。等待后端 HTML 返回后，这里会直接变成可试玩的课堂玩法。
-          </p>
-        </div>
+        <WorkbenchCenteredState
+          tone="rose"
+          icon={Gamepad2}
+          title="暂未收到后端真实游戏"
+          description="当前不会渲染前端假游戏。等待后端 HTML 返回后，这里会直接变成可试玩的课堂玩法。"
+        />
       )}
     </div>
   );

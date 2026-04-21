@@ -117,7 +117,24 @@ describe("studio animation preview", () => {
       />
     );
 
-    expect(screen.getByText("正在等待后端输出动画成果")).toBeInTheDocument();
+    expect(screen.getByText("暂未收到后端真实动画")).toBeInTheDocument();
+  });
+
+  it("shows animation loading state while generation is executing", () => {
+    render(
+      <PreviewStep
+        lastGeneratedAt={null}
+        serverSpecPreview={null}
+        flowContext={buildFlowContext({
+          capabilityStatus: "executing",
+          workflowState: "executing",
+          latestArtifacts: [],
+          resolvedArtifact: null,
+        })}
+      />
+    );
+
+    expect(screen.getByText("动画生成中")).toBeInTheDocument();
   });
 
   it("renders simplified runtime preview and export entry", () => {
@@ -283,5 +300,29 @@ describe("studio animation preview", () => {
       screen.getByTestId("animation-runtime-motion-canvas-shell")
     ).toBeInTheDocument();
     expect(screen.getByTestId("animation-runtime-track")).toBeInTheDocument();
+  });
+
+  it("shows a themed empty-result state when backend artifact has no renderable preview", () => {
+    render(
+      <PreviewStep
+        lastGeneratedAt="2026-04-17T08:00:00.000Z"
+        serverSpecPreview={null}
+        flowContext={buildFlowContext({
+          resolvedArtifact: {
+            artifactId: "anim-artifact-empty",
+            artifactType: "gif",
+            contentKind: "media",
+            content: null,
+            blob: null,
+            artifactMetadata: {},
+          },
+        })}
+      />
+    );
+
+    expect(screen.getByText("动画成果暂不可预览")).toBeInTheDocument();
+    expect(
+      screen.getByText("后端已返回成果，但当前没有可展示的媒体或 runtime 预览内容。")
+    ).toBeInTheDocument();
   });
 });
