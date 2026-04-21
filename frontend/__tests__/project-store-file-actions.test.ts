@@ -110,6 +110,25 @@ describe("project store source lazy repair", () => {
     expect(mockedIndexFile).toHaveBeenCalledWith({ file_id: "file-1" });
   });
 
+  it("does not auto-select files that newly become ready", async () => {
+    const { actions, getState } = createStoreHarness();
+    mockedGetProjectFiles.mockResolvedValue({
+      data: {
+        files: [
+          {
+            id: "file-ready-1",
+            filename: "lesson.pdf",
+            status: "ready",
+          },
+        ],
+      },
+    } as never);
+
+    await actions.fetchFiles("proj-1");
+
+    expect(getState().selectedFileIds).toEqual([]);
+  });
+
   it("reuses the active source detail when the same chunk is focused again", async () => {
     const { actions, getState } = createStoreHarness();
     mockedGetSourceDetail.mockResolvedValue({

@@ -1315,12 +1315,6 @@ export function StudioPanelContainer({
                   clientSessionId: liveSessionId,
                   runId: liveRunId,
                   ragSourceIds: readySelectedFileIds,
-                  selectedSourceIds: Array.from(
-                    new Set([
-                      ...readySelectedFileIds,
-                      ...selectedArtifactSourceIds,
-                    ])
-                  ),
                   selectedLibraryIds,
                   config,
                   teachingBrief: generationSession?.teaching_brief ?? undefined,

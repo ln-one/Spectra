@@ -393,20 +393,10 @@ export function createFileActions({
           const nextFiles = response.data.files;
           set((state) => ({
             files: nextFiles,
-            selectedFileIds: resolveReadySelectedFileIds(nextFiles, [
-              ...state.selectedFileIds,
-              ...nextFiles
-                .filter(
-                  (file) => {
-                    if (file.status !== "ready") return false;
-                    const existingFile = state.files.find(
-                      (candidate) => candidate.id === file.id
-                    );
-                    return !existingFile || existingFile.status !== "ready";
-                  }
-                )
-                .map((file) => file.id),
-            ]),
+            selectedFileIds: resolveReadySelectedFileIds(
+              nextFiles,
+              state.selectedFileIds
+            ),
           }));
 
           let hasPending = false;

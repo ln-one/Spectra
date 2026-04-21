@@ -130,7 +130,6 @@ export async function startCoursewarePptRun(params: {
   clientSessionId: string;
   runId?: string | null;
   ragSourceIds?: string[];
-  selectedSourceIds?: string[];
   selectedLibraryIds?: string[];
   config: CoursewareGenerationConfig;
   teachingBrief?: TeachingBriefSnapshot | null;
@@ -140,7 +139,6 @@ export async function startCoursewarePptRun(params: {
     clientSessionId,
     runId,
     ragSourceIds,
-    selectedSourceIds,
     selectedLibraryIds,
     config,
     teachingBrief,
@@ -154,23 +152,17 @@ export async function startCoursewarePptRun(params: {
     generationMode === "scratch"
       ? mapVisualStyleToDiegoPreset(config.visualStyle)
       : "auto";
-  const effectiveSelectedSourceIds = Array.from(
-    new Set([
-      ...(selectedSourceIds ?? []),
-      ...(ragSourceIds ?? []),
-    ])
-  );
   const executeResponse = await studioCardsApi.execute("courseware_ppt", {
     project_id: projectId,
     client_session_id: clientSessionId,
     run_id: runId ?? undefined,
     selected_file_ids:
-      effectiveSelectedSourceIds.length > 0
-        ? effectiveSelectedSourceIds
+      ragSourceIds && ragSourceIds.length > 0
+        ? ragSourceIds
         : undefined,
     rag_source_ids:
-      effectiveSelectedSourceIds.length > 0
-        ? effectiveSelectedSourceIds
+      ragSourceIds && ragSourceIds.length > 0
+        ? ragSourceIds
         : undefined,
     selected_library_ids:
       selectedLibraryIds && selectedLibraryIds.length > 0
