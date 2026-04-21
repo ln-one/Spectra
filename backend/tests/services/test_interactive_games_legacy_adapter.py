@@ -78,8 +78,23 @@ async def test_refine_mindmap_content_supports_rename_delete_and_reparent():
     )
     assert any(node["title"] == "质量" for node in renamed["nodes"])
 
-    reparented = await refine_mindmap_content(
+    edited = await refine_mindmap_content(
         current_content=renamed,
+        message="作用力",
+        config={
+            "selected_node_path": "child-1",
+            "node_operation": "edit",
+            "manual_node_summary": "描述节点在导图中的具体含义。",
+        },
+        project_id="p-001",
+        rag_source_ids=None,
+    )
+    edited_node = next(node for node in edited["nodes"] if node["id"] == "child-1")
+    assert edited_node["title"] == "作用力"
+    assert edited_node["summary"] == "描述节点在导图中的具体含义。"
+
+    reparented = await refine_mindmap_content(
+        current_content=edited,
         message="质量",
         config={
             "selected_node_path": "child-1",

@@ -47,7 +47,11 @@ function buildFlowContext(
             id: "root",
             label: "牛顿第二定律",
             children: [
-              { id: "child-1", label: "合力" },
+              {
+                id: "child-1",
+                label: "合力",
+                children: [{ id: "grandchild-1", label: "受力分析" }],
+              },
               { id: "child-2", label: "加速度" },
             ],
           },
@@ -60,8 +64,8 @@ function buildFlowContext(
 }
 
 describe("mindmap preview", () => {
-  it("renders pure workspace surface and removes legacy wrappers", () => {
-    render(
+  it("renders a pure workspace surface and defaults to preview mode", async () => {
+    const { container } = render(
       <PreviewStep
         selectedId="root"
         lastGeneratedAt="2026-04-18T09:00:00.000Z"
@@ -75,13 +79,42 @@ describe("mindmap preview", () => {
     expect(screen.queryByText("节点工作台")).not.toBeInTheDocument();
     expect(screen.queryByText("知识导图")).not.toBeInTheDocument();
 
-    expect(screen.getByRole("button", { name: "重命名" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "新增子节点" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "删除节点" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "编辑" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "重命名" })).not.toBeInTheDocument();
+    expect(screen.queryByText("编辑当前节点")).not.toBeInTheDocument();
     expect(screen.getByText("牛顿第二定律")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(container.querySelector(".react-flow__edges")).not.toBeNull();
+      expect(container.querySelector(".react-flow__handle-left")).not.toBeNull();
+      expect(container.querySelector(".react-flow__handle-right")).not.toBeNull();
+    });
+
+    const rootNode = container.querySelector('[data-testid="rf__node-root"]') as HTMLElement | null;
+    const internalNode = container.querySelector(
+      '[data-testid="rf__node-child-1"]'
+    ) as HTMLElement | null;
+    const leafNode = container.querySelector(
+      '[data-testid="rf__node-child-2"]'
+    ) as HTMLElement | null;
+
+    expect(rootNode).not.toBeNull();
+    expect(internalNode).not.toBeNull();
+    expect(leafNode).not.toBeNull();
+
+    expect(rootNode?.querySelector(".react-flow__handle-left")).toBeNull();
+    expect(rootNode?.querySelector(".react-flow__handle-right")).not.toBeNull();
+    expect(internalNode?.querySelector(".react-flow__handle-left")).not.toBeNull();
+    expect(internalNode?.querySelector(".react-flow__handle-right")).not.toBeNull();
+    expect(leafNode?.querySelector(".react-flow__handle-left")).not.toBeNull();
+    expect(leafNode?.querySelector(".react-flow__handle-right")).toBeNull();
+
+    const rootRightHandle = rootNode?.querySelector(
+      ".react-flow__handle-right"
+    ) as HTMLElement | null;
+    expect(rootRightHandle).not.toBeNull();
   });
 
-  it("submits child refinement against the selected node", async () => {
+  it("submits child refinement from the dialog in edit mode", async () => {
     const onStructuredRefineArtifact = jest
       .fn()
       .mockResolvedValue({ ok: true, insertedNodeId: "child-3" });
@@ -96,10 +129,15 @@ describe("mindmap preview", () => {
       />
     );
 
+    fireEvent.click(screen.getByRole("button", { name: "编辑" }));
+    fireEvent.click(screen.getByRole("button", { name: "新增子节点" }));
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText("子节点名称")).toBeInTheDocument();
+    });
     fireEvent.change(screen.getByPlaceholderText("子节点名称"), {
       target: { value: "质量" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "新增子节点" }));
+    fireEvent.click(screen.getByRole("button", { name: "确认新增" }));
 
     await waitFor(() => {
       expect(onStructuredRefineArtifact).toHaveBeenCalledWith({
@@ -121,7 +159,7 @@ describe("mindmap preview", () => {
     });
   });
 
-  it("submits rename and delete operations through structured refine", async () => {
+  it("submits edit and delete operations through structured refine", async () => {
     const onStructuredRefineArtifact = jest.fn().mockResolvedValue({ ok: true });
 
     render(
@@ -133,10 +171,15 @@ describe("mindmap preview", () => {
       />
     );
 
-    fireEvent.change(screen.getByPlaceholderText("节点名称"), {
+    fireEvent.click(screen.getByRole("button", { name: "编辑" }));
+    fireEvent.click(screen.getByRole("button", { name: "重命名" }));
+    fireEvent.change(screen.getByPlaceholderText("输入新的节点名称"), {
       target: { value: "质量" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "重命名" }));
+    fireEvent.change(screen.getByPlaceholderText("节点说明（可选）"), {
+      target: { value: "重新解释合力的定义。" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "保存修改" }));
 
     await waitFor(() => {
       expect(onStructuredRefineArtifact).toHaveBeenNthCalledWith(
@@ -146,13 +189,15 @@ describe("mindmap preview", () => {
           message: "质量",
           config: expect.objectContaining({
             selected_node_path: "child-1",
-            node_operation: "rename",
+            node_operation: "edit",
+            manual_node_summary: "重新解释合力的定义。",
           }),
         })
       );
     });
 
     fireEvent.click(screen.getByRole("button", { name: "删除节点" }));
+    fireEvent.click(screen.getByRole("button", { name: "确认删除" }));
 
     await waitFor(() => {
       expect(onStructuredRefineArtifact).toHaveBeenNthCalledWith(

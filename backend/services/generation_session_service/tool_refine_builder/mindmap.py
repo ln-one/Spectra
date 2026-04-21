@@ -19,6 +19,10 @@ def _normalize_node_id(value: Any) -> str:
     return str(value or "").strip()
 
 
+def _normalize_node_summary(value: Any) -> str:
+    return str(value or "").strip()[:220]
+
+
 def _delete_node_and_descendants(nodes: list[dict[str, Any]], target_id: str) -> list[dict[str, Any]]:
     descendants = {target_id}
     changed = True
@@ -60,6 +64,18 @@ async def refine_mindmap_content(
         updated["kind"] = "mindmap"
         updated["nodes"] = nodes
         updated["summary"] = f"Renamed node {target_id}."
+        return updated
+    if operation == "edit":
+        new_title = _require_manual_mindmap_title(message)
+        target_node["title"] = new_title
+        new_summary = _normalize_node_summary(config.get("manual_node_summary"))
+        if new_summary:
+            target_node["summary"] = new_summary
+        else:
+            target_node.pop("summary", None)
+        updated["kind"] = "mindmap"
+        updated["nodes"] = nodes
+        updated["summary"] = f"Updated node {target_id}."
         return updated
     if operation == "delete":
         if not _normalize_node_id(target_node.get("parent_id")):

@@ -118,5 +118,7 @@ describe("mindmap panel two-state workbench", () => {
 
     expect(screen.queryByText("生成要求")).not.toBeInTheDocument();
     expect(screen.getByText("网络层")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "编辑" })).toBeInTheDocument();
+    expect(screen.queryByText("编辑当前节点")).not.toBeInTheDocument();
   });
 });

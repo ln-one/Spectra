@@ -30,26 +30,29 @@ function buildFlowContext(
 }
 
 describe("mindmap preview child insertion", () => {
-  it("updates selected node when a canvas node is clicked", () => {
+  it("updates selected node when a canvas node is clicked", async () => {
     const SelectionHarness = () => {
       const [selectedId, setSelectedId] = React.useState("root");
       return (
-        <PreviewStep
-          selectedId={selectedId}
-          lastGeneratedAt={null}
-          flowContext={buildFlowContext()}
-          onSelectNode={setSelectedId}
-        />
+        <>
+          <PreviewStep
+            selectedId={selectedId}
+            lastGeneratedAt={null}
+            flowContext={buildFlowContext()}
+            onSelectNode={setSelectedId}
+          />
+          <div data-testid="selected-node">{selectedId}</div>
+        </>
       );
     };
 
     render(<SelectionHarness />);
 
-    expect(screen.getByDisplayValue("进程管理")).toBeInTheDocument();
-
+    expect(screen.getByText("进程管理")).toBeInTheDocument();
     fireEvent.click(screen.getAllByText("基本概念")[0]);
-
-    expect(screen.getByDisplayValue("基本概念")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByTestId("selected-node")).toHaveTextContent("child-1");
+    });
   });
 
   it("submits structured refine request for selected node", async () => {
@@ -70,14 +73,21 @@ describe("mindmap preview child insertion", () => {
       />
     );
 
+    fireEvent.click(screen.getByRole("button", { name: "编辑" }));
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "新增子节点" })).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByRole("button", { name: "新增子节点" }));
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText("子节点名称")).toBeInTheDocument();
+    });
     fireEvent.change(screen.getByPlaceholderText("子节点名称"), {
       target: { value: "进程切换开销" },
     });
     fireEvent.change(screen.getByPlaceholderText("子节点说明（可选）"), {
       target: { value: "描述调度与上下文切换的额外成本" },
     });
-
-    fireEvent.click(screen.getByRole("button", { name: "新增子节点" }));
+    fireEvent.click(screen.getByRole("button", { name: "确认新增" }));
 
     await waitFor(() => {
       expect(onStructuredRefineArtifact).toHaveBeenCalledWith({
@@ -99,7 +109,7 @@ describe("mindmap preview child insertion", () => {
     expect(onSelectNode).toHaveBeenCalledWith("root-refine-2");
   });
 
-  it("disables add-child action when artifact id is unavailable", () => {
+  it("disables add-child action when artifact id is unavailable", async () => {
     render(
       <PreviewStep
         selectedId="root"
@@ -122,6 +132,45 @@ describe("mindmap preview child insertion", () => {
       />
     );
 
-    expect(screen.getByRole("button", { name: "新增子节点" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "编辑" }));
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "新增子节点" })).toBeDisabled();
+    });
+  });
+
+  it("hides the inspector when clicking blank canvas or switching back to preview", async () => {
+    const { container } = render(
+      <PreviewStep
+        selectedId="root"
+        lastGeneratedAt={null}
+        flowContext={buildFlowContext({
+          onStructuredRefineArtifact: jest.fn().mockResolvedValue({ ok: true }),
+        })}
+        onSelectNode={() => undefined}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "编辑" }));
+    fireEvent.click(screen.getByRole("button", { name: "新增子节点" }));
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText("子节点名称")).toBeInTheDocument();
+    });
+
+    const pane = container.querySelector(".react-flow__pane");
+    expect(pane).not.toBeNull();
+    fireEvent.click(pane!);
+    await waitFor(() => {
+      expect(screen.queryByPlaceholderText("子节点名称")).not.toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "新增子节点" }));
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText("子节点名称")).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByRole("button", { name: "取消" }));
+    fireEvent.click(screen.getByRole("button", { name: "完成" }));
+    await waitFor(() => {
+      expect(screen.queryByPlaceholderText("子节点名称")).not.toBeInTheDocument();
+    });
   });
 });
