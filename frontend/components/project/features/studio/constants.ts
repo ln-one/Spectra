@@ -13,6 +13,15 @@ import { GENERATION_TOOLS, type GenerationTool } from "@/stores/projectStore";
 import type { StudioToolKey, ToolDisplayModel } from "./tools/types";
 import { STUDIO_CARD_BY_TOOL } from "./panel/constants";
 
+export const HIDDEN_STUDIO_TOOL_TYPES = new Set<StudioToolKey>([
+  "summary",
+  "handout",
+]);
+
+export const STUDIO_VISIBLE_TOOLS: GenerationTool[] = GENERATION_TOOLS.filter(
+  (tool) => !HIDDEN_STUDIO_TOOL_TYPES.has(tool.type as StudioToolKey)
+);
+
 export const TOOL_ICONS: Record<string, LucideIcon> = {
   ppt: MonitorPlay,
   word: FileText,
