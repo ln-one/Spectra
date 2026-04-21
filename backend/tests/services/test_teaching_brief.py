@@ -1,3 +1,11 @@
+import json
+from types import SimpleNamespace
+from unittest.mock import AsyncMock
+
+import pytest
+
+from services.database import db_service
+from services.generation_session_service import teaching_brief_extractor
 from services.generation_session_service.teaching_brief import (
     auto_apply_ai_proposal,
     build_teaching_brief_prompt_context,
@@ -98,7 +106,8 @@ def test_auto_apply_ai_proposal_updates_brief_without_queueing():
             "proposed_changes": {
                 "topic": "牛顿第二定律",
                 "audience": "高一学生",
-            }
+            },
+            "requires_user_confirmation": False,
         },
     )
 
@@ -120,10 +129,82 @@ def test_auto_apply_ai_proposal_marks_confirmed_brief_as_stale_on_conflict():
         {
             "proposed_changes": {
                 "topic": "牛顿第二定律",
-            }
+            },
+            "requires_user_confirmation": False,
         },
     )
 
     assert result["applied_fields"] == ["topic"]
     assert result["brief"]["status"] == "stale"
     assert result["brief"]["topic"] == "牛顿第二定律"
+
+
+def test_auto_apply_ai_proposal_can_queue_confirmation_required_proposal():
+    result = auto_apply_ai_proposal(
+        {"topic": "牛顿第二定律"},
+        {
+            "proposal_id": "proposal-1",
+            "proposed_changes": {"audience": "高一学生"},
+            "requires_user_confirmation": True,
+        },
+        proposals_raw=[],
+    )
+
+    assert result["applied_fields"] == []
+    assert result["brief"]["topic"] == "牛顿第二定律"
+    assert result["queued_proposal"]["proposal_id"] == "proposal-1"
+    assert result["proposals"][0]["proposed_changes"] == {"audience": "高一学生"}
+
+
+@pytest.mark.asyncio
+async def test_background_extraction_does_not_overwrite_confirmed_brief(monkeypatch):
+    confirmed_options = store_teaching_brief(
+        {},
+        brief={
+            "status": "confirmed",
+            "topic": "牛顿第二定律",
+            "audience": "高一学生",
+            "target_pages": 12,
+            "knowledge_points": ["受力分析", "加速度与合力"],
+        },
+    )
+    find_unique = AsyncMock(
+        return_value=SimpleNamespace(
+            id="session-1",
+            options=json.dumps(confirmed_options, ensure_ascii=False),
+            state="CONFIGURING",
+        )
+    )
+    update_mock = AsyncMock()
+    monkeypatch.setattr(
+        db_service,
+        "_instance",
+        SimpleNamespace(
+            db=SimpleNamespace(
+                generationsession=SimpleNamespace(
+                    find_unique=find_unique,
+                    update=update_mock,
+                )
+            )
+        ),
+    )
+    extract_mock = AsyncMock(
+        return_value={
+            "fields": {"topic": "牛顿第一定律"},
+            "confidence": 0.92,
+        }
+    )
+    monkeypatch.setattr(
+        teaching_brief_extractor,
+        "extract_brief_from_conversation",
+        extract_mock,
+    )
+
+    await teaching_brief_extractor.run_background_brief_extraction(
+        session_id="session-1",
+        user_message="其实想改成牛顿第一定律",
+        assistant_reply="我先帮你整理当前信息。",
+    )
+
+    extract_mock.assert_not_awaited()
+    update_mock.assert_not_awaited()

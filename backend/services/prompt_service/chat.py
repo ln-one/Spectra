@@ -62,10 +62,9 @@ def _build_teaching_brief_protocol_section(
         protocol_parts.extend(
             [
                 "当前需求字段已齐备，但需求单尚未确认。",
-                "本轮应主动生成一段老师可读的需求总结，并明确询问“这些信息是否准确；如果没问题，我会标记需求单为已确认”。",
-                "在这段总结正文之后，追加一个独立代码块标记确认请求：```spectra_brief_summary",
-                '{"request_confirmation": true}',
-                "```",
+                "本轮应主动生成一段老师可读的需求总结，列出已收集到的关键信息。",
+                "你必须明确询问“这些信息是否准确？如果没问题，我会标记需求单为已确认”。",
+                "在需求总结正文之后追加确认标记代码块，供系统识别确认节点。",
             ]
         )
     else:
@@ -73,9 +72,27 @@ def _build_teaching_brief_protocol_section(
             [
                 "你的首要任务是帮助老师逐步完善教学需求单。",
                 "每轮回复末尾必须只追问 missing_fields 中当前最紧迫的 1 个字段，不要一次追问多个散乱问题。",
+                "如果老师本轮消息里出现了可识别的教学需求字段，在正文之后追加结构化提取代码块。",
                 "不要直接建议“开始生成 PPT”或“现在生成课件”，除非 missing_fields 已为空。",
             ]
         )
+        if not any(
+            current_brief.get(field_name)
+            for field_name in (
+                "topic",
+                "audience",
+                "knowledge_points",
+                "duration_minutes",
+                "lesson_hours",
+                "target_pages",
+            )
+        ):
+            protocol_parts.extend(
+                [
+                    "如果当前需求单几乎为空，优先自然引导老师说出教学主题、受众、课时或页数中的一个基础锚点。",
+                    "问题要像助教对话，不要问成表单。",
+                ]
+            )
 
     current_brief_json = escape_prompt_text(
         json.dumps(current_brief, ensure_ascii=False, indent=2)
@@ -93,20 +110,43 @@ def _build_teaching_brief_protocol_section(
 {behavior_rules}
   </behavior_rules>
 </teaching_brief_protocol>
+"""
 
+
+def _build_structured_extraction_contract_section(
+    teaching_brief_context: dict[str, Any] | None,
+) -> str:
+    if not teaching_brief_context:
+        return ""
+
+    status = str(teaching_brief_context.get("status") or "draft").strip() or "draft"
+    can_generate = bool(teaching_brief_context.get("can_generate"))
+    lines = [
+        "如果老师的消息中包含任何可提取的教学需求信息，请在回复正文之后、以独立代码块输出结构化 JSON。",
+        "可提取字段：topic, audience, duration_minutes, lesson_hours, target_pages, teaching_objectives, knowledge_points, global_emphasis, global_difficulties, teaching_strategy, style_profile。",
+        "仅输出你有信心的字段；不确定、未提及或只是你的猜测时，不要输出。",
+        "格式必须是：```spectra_brief_extract",
+        '{"field": "value", "...": "..."}',
+        "```",
+        "如果需要附带置信度，可改为：```spectra_brief_extract",
+        '{"fields": {"field": "value"}, "confidence": 0.85}',
+        "```",
+        "如果本轮没有任何可提取字段，不要输出 spectra_brief_extract 代码块。",
+    ]
+    if can_generate and status != "confirmed":
+        lines.extend(
+            [
+                "当你主动发起需求确认时，在需求总结正文之后追加：```spectra_brief_summary",
+                '{"request_confirmation": true}',
+                "```",
+                "除了 spectra_brief_extract 和 spectra_brief_summary，不要输出任何其他控制代码块。",
+            ]
+        )
+    contract_text = escape_prompt_text("\n".join(lines))
+
+    return f"""
 <structured_extraction_contract>
-如果老师本轮消息中包含教学需求信息，请在回复正文之后、以独立代码块输出一段 JSON：
-- 仅提取你有把握的字段：topic, audience, duration_minutes, lesson_hours, target_pages, teaching_objectives, knowledge_points, global_emphasis, global_difficulties, teaching_strategy, style_profile
-- 格式必须是：
-```spectra_brief_extract
-{{"field": "value", ...}}
-```
-- 如果需要附带置信度，可使用：
-```spectra_brief_extract
-{{"fields": {{"field": "value"}}, "confidence": 0.85}}
-```
-- 未提及或不确定的字段不要输出
-- 如果本轮没有任何可提取字段，不要输出该代码块
+{contract_text}
 </structured_extraction_contract>
 """
 
@@ -128,6 +168,9 @@ def build_chat_response_prompt(
     teaching_brief_section = _build_teaching_brief_protocol_section(
         teaching_brief_context
     )
+    extraction_contract_section = _build_structured_extraction_contract_section(
+        teaching_brief_context
+    )
 
     return f"""你是 Spectra 教学助教。你的任务是与老师自然共创，帮助老师推进教学设计，而不是机械应答。
 
@@ -135,7 +178,7 @@ def build_chat_response_prompt(
   <intent>{escape_prompt_text(intent)}</intent>
   <teacher_message>{escape_prompt_text(user_message)}</teacher_message>
 </task_context>
-{history_section}{session_section}{rag_section}{teaching_brief_section}
+{history_section}{session_section}{rag_section}{teaching_brief_section}{extraction_contract_section}
 <response_contract>
 1. 严禁使用机械的 A/B/C 选项格式（例如“请选择 A/B/C”“以下三种方式”）。
 2. 优先直接回应老师此刻最需要推进的问题，先给 1-2 个具体切入点，再决定是否追问。

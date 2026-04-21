@@ -86,10 +86,8 @@ def _mock_owned_session_scope(monkeypatch):
 
 def test_send_message_success(client, monkeypatch, _as_user):
     _mock(monkeypatch, db_service, "get_project", _fake_project())
-    monkeypatch.setattr(
-        db_service.db,
-        "generationsession",
-        SimpleNamespace(
+    fake_db = SimpleNamespace(
+        generationsession=SimpleNamespace(
             find_unique=AsyncMock(
                 return_value=SimpleNamespace(
                     id="s-bootstrap-001",
@@ -98,27 +96,23 @@ def test_send_message_success(client, monkeypatch, _as_user):
                 )
             )
         ),
-    )
-    monkeypatch.setattr(
-        db_service.db,
-        "conversation",
-        SimpleNamespace(count=AsyncMock(return_value=1)),
+        conversation=SimpleNamespace(count=AsyncMock(return_value=1)),
     )
     monkeypatch.setattr(
         db_service,
-        "create_conversation_message",
-        AsyncMock(
-            side_effect=[
-                _fake_conv(role="user", conv_id="c-user"),
-                _fake_conv(role="assistant", content="assistant reply", conv_id="c-ai"),
-            ]
+        "_instance",
+        SimpleNamespace(
+            db=fake_db,
+            create_conversation_message=AsyncMock(
+                side_effect=[
+                    _fake_conv(role="user", conv_id="c-user"),
+                    _fake_conv(role="assistant", content="assistant reply", conv_id="c-ai"),
+                ]
+            ),
+            get_recent_conversation_messages=AsyncMock(
+                return_value=[_fake_conv(role="user", content="previous message")]
+            ),
         ),
-    )
-    _mock(
-        monkeypatch,
-        db_service,
-        "get_recent_conversation_messages",
-        [_fake_conv(role="user", content="previous message")],
     )
     _mock(monkeypatch, ai_service, "generate", {"content": "assistant reply"})
 
@@ -266,7 +260,7 @@ def test_send_message_marks_ai_confirmation_request_in_brief_hint(
         {
             "content": (
                 "我先总结一下当前需求：面向高一学生，主题是牛顿第二定律，预计 12 页。\n\n"
-                "如果这些信息准确，我下一步会把需求单标记为已确认。\n"
+                "这些信息是否准确？如果没问题，我会把需求单标记为已确认。\n"
                 "```spectra_brief_summary\n"
                 '{"request_confirmation": true}\n'
                 "```"
@@ -304,10 +298,8 @@ def test_send_message_requests_background_session_title_generation_once(
     client, monkeypatch, _as_user
 ):
     _mock(monkeypatch, db_service, "get_project", _fake_project())
-    monkeypatch.setattr(
-        db_service.db,
-        "generationsession",
-        SimpleNamespace(
+    fake_db = SimpleNamespace(
+        generationsession=SimpleNamespace(
             find_unique=AsyncMock(
                 return_value=SimpleNamespace(
                     id="s-bootstrap-001",
@@ -316,27 +308,23 @@ def test_send_message_requests_background_session_title_generation_once(
                 )
             )
         ),
-    )
-    monkeypatch.setattr(
-        db_service.db,
-        "conversation",
-        SimpleNamespace(count=AsyncMock(return_value=1)),
+        conversation=SimpleNamespace(count=AsyncMock(return_value=1)),
     )
     monkeypatch.setattr(
         db_service,
-        "create_conversation_message",
-        AsyncMock(
-            side_effect=[
-                _fake_conv(role="user", conv_id="c-user"),
-                _fake_conv(role="assistant", content="assistant reply", conv_id="c-ai"),
-            ]
+        "_instance",
+        SimpleNamespace(
+            db=fake_db,
+            create_conversation_message=AsyncMock(
+                side_effect=[
+                    _fake_conv(role="user", conv_id="c-user"),
+                    _fake_conv(role="assistant", content="assistant reply", conv_id="c-ai"),
+                ]
+            ),
+            get_recent_conversation_messages=AsyncMock(
+                return_value=[_fake_conv(role="user", content="previous message")]
+            ),
         ),
-    )
-    _mock(
-        monkeypatch,
-        db_service,
-        "get_recent_conversation_messages",
-        [_fake_conv(role="user", content="previous message")],
     )
     request_mock = AsyncMock(return_value=True)
     monkeypatch.setattr(
@@ -352,9 +340,10 @@ def test_send_message_requests_background_session_title_generation_once(
     assert body["data"]["session_title"] == "会话-ap-001"
     assert body["data"]["session_title_source"] == "default"
     request_mock.assert_awaited_once_with(
-        db=db_service.db,
+        db=fake_db,
         session_id="s-001",
         first_message="Hello AI",
+        project_name="Test Project",
     )
 
 
@@ -362,10 +351,8 @@ def test_send_message_does_not_request_session_title_after_first_message(
     client, monkeypatch, _as_user
 ):
     _mock(monkeypatch, db_service, "get_project", _fake_project())
-    monkeypatch.setattr(
-        db_service.db,
-        "generationsession",
-        SimpleNamespace(
+    fake_db = SimpleNamespace(
+        generationsession=SimpleNamespace(
             find_unique=AsyncMock(
                 return_value=SimpleNamespace(
                     id="s-bootstrap-001",
@@ -374,27 +361,23 @@ def test_send_message_does_not_request_session_title_after_first_message(
                 )
             )
         ),
-    )
-    monkeypatch.setattr(
-        db_service.db,
-        "conversation",
-        SimpleNamespace(count=AsyncMock(return_value=2)),
+        conversation=SimpleNamespace(count=AsyncMock(return_value=2)),
     )
     monkeypatch.setattr(
         db_service,
-        "create_conversation_message",
-        AsyncMock(
-            side_effect=[
-                _fake_conv(role="user", conv_id="c-user"),
-                _fake_conv(role="assistant", content="assistant reply", conv_id="c-ai"),
-            ]
+        "_instance",
+        SimpleNamespace(
+            db=fake_db,
+            create_conversation_message=AsyncMock(
+                side_effect=[
+                    _fake_conv(role="user", conv_id="c-user"),
+                    _fake_conv(role="assistant", content="assistant reply", conv_id="c-ai"),
+                ]
+            ),
+            get_recent_conversation_messages=AsyncMock(
+                return_value=[_fake_conv(role="user", content="previous message")]
+            ),
         ),
-    )
-    _mock(
-        monkeypatch,
-        db_service,
-        "get_recent_conversation_messages",
-        [_fake_conv(role="user", content="previous message")],
     )
     request_mock = AsyncMock(return_value=False)
     monkeypatch.setattr("routers.chat.runtime.request_session_title_generation", request_mock)

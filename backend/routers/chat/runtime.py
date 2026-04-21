@@ -384,11 +384,18 @@ async def process_chat_message(
                 getattr(session_record, "options", None)
             )
             auto_applied_fields: list[str] = []
+            queued_proposal = None
             if brief_proposal is not None:
-                apply_result = auto_apply_ai_proposal(current_brief, brief_proposal)
+                apply_result = auto_apply_ai_proposal(
+                    current_brief,
+                    brief_proposal,
+                    proposals_raw=current_proposals,
+                )
                 current_brief = apply_result["brief"]
                 auto_applied_fields = list(apply_result.get("applied_fields") or [])
-                if auto_applied_fields:
+                current_proposals = list(apply_result.get("proposals") or [])
+                queued_proposal = apply_result.get("queued_proposal")
+                if auto_applied_fields or queued_proposal is not None:
                     current_state = str(getattr(session_record, "state", "") or "")
                     next_state = current_state
                     if current_state in {
@@ -422,12 +429,18 @@ async def process_chat_message(
                 and (current_brief.get("readiness") or {}).get("can_generate")
                 and current_brief.get("status") != "confirmed"
             )
-            if brief_proposal is not None and not auto_applied_fields:
+            if brief_proposal is not None and not auto_applied_fields and queued_proposal is None:
                 brief_proposal = None
 
             teaching_brief_hint_payload = {
                 "proposal_id": (
-                    brief_proposal.get("proposal_id") if brief_proposal is not None else None
+                    brief_proposal.get("proposal_id")
+                    if brief_proposal is not None
+                    else (
+                        queued_proposal.get("proposal_id")
+                        if isinstance(queued_proposal, dict)
+                        else None
+                    )
                 ),
                 "proposal_count": len(current_proposals),
                 "status": current_brief.get("status"),

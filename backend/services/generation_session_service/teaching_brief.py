@@ -371,16 +371,61 @@ def _filter_changed_proposed_changes(
     return changed
 
 
-def auto_apply_ai_proposal(brief_raw: Any, proposal: dict[str, Any]) -> dict[str, Any]:
+def _normalize_brief_proposal(
+    proposal: dict[str, Any],
+    proposed_changes: dict[str, Any],
+) -> dict[str, Any]:
+    confidence = proposal.get("confidence", 0.85)
+    try:
+        confidence_value = float(confidence)
+    except (TypeError, ValueError):
+        confidence_value = 0.85
+    return {
+        "proposal_id": _normalize_text(proposal.get("proposal_id")) or str(uuid4()),
+        "source_message_id": _normalize_text(proposal.get("source_message_id")),
+        "proposed_changes": proposed_changes,
+        "reasoning_summary": _normalize_text(proposal.get("reasoning_summary"))
+        or "根据最新对话提取到新的教学需求候选字段。",
+        "confidence": max(0.0, min(confidence_value, 1.0)),
+        "requires_user_confirmation": bool(
+            proposal.get("requires_user_confirmation", True)
+        ),
+        "created_at": proposal.get("created_at") or now_iso(),
+    }
+
+
+def auto_apply_ai_proposal(
+    brief_raw: Any,
+    proposal: dict[str, Any],
+    *,
+    proposals_raw: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
     proposed_changes = _filter_changed_proposed_changes(
         brief_raw,
         dict(proposal.get("proposed_changes") or {}),
     )
     current_brief = normalize_teaching_brief(brief_raw)
+    current_proposals = (
+        load_teaching_brief_proposals({TEACHING_BRIEF_PROPOSALS_KEY: proposals_raw})
+        if proposals_raw is not None
+        else []
+    )
     if not proposed_changes:
         return {
             "brief": current_brief,
             "applied_fields": [],
+            "proposals": current_proposals,
+            "queued_proposal": None,
+            "status": current_brief.get("status"),
+        }
+
+    normalized_proposal = _normalize_brief_proposal(proposal, proposed_changes)
+    if normalized_proposal.get("requires_user_confirmation"):
+        return {
+            "brief": current_brief,
+            "applied_fields": [],
+            "proposals": [*current_proposals, normalized_proposal],
+            "queued_proposal": normalized_proposal,
             "status": current_brief.get("status"),
         }
 
@@ -400,6 +445,8 @@ def auto_apply_ai_proposal(brief_raw: Any, proposal: dict[str, Any]) -> dict[str
     return {
         "brief": next_brief,
         "applied_fields": list(proposed_changes.keys()),
+        "proposals": current_proposals,
+        "queued_proposal": None,
         "status": next_brief.get("status"),
     }
 

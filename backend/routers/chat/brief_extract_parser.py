@@ -29,7 +29,7 @@ def parse_structured_brief_extract(content: str) -> dict[str, Any] | None:
     if not matched:
         return None
 
-    body = (matched.group("body") or "").strip()
+    body = str(matched.group("body") or "").strip()
     if not body:
         return None
 
@@ -43,7 +43,7 @@ def parse_structured_brief_extract(content: str) -> dict[str, Any] | None:
     raw_fields = parsed.get("fields") if isinstance(parsed.get("fields"), dict) else parsed
     fields = {
         key: value
-        for key, value in raw_fields.items()
+        for key, value in dict(raw_fields).items()
         if key in ALLOWED_TEACHING_BRIEF_FIELDS
     }
     if not fields:
@@ -70,7 +70,7 @@ def detect_brief_summary_block(content: str) -> bool:
     if not matched:
         return False
 
-    body = (matched.group("body") or "").strip()
+    body = str(matched.group("body") or "").strip()
     if not body:
         return True
     try:
