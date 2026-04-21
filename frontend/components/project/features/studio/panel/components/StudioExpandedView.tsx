@@ -1,16 +1,44 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
+import { LockKeyhole } from "lucide-react";
 import type { ComponentProps, ComponentType } from "react";
 import type { GenerationToolType } from "@/lib/project-space/artifact-history";
 import { GenerationConfigPanel } from "@/components/project";
 import { cn } from "@/lib/utils";
-import { TOOL_LABELS } from "../../constants";
+import { LOCKED_STUDIO_TOOL_TYPES, TOOL_LABELS } from "../../constants";
 import type {
   StudioToolKey,
   ToolDraftState,
   ToolFlowContext,
 } from "../../tools";
+
+function StudioLockedToolNotice({ toolName }: { toolName: string }) {
+  return (
+    <div className="relative flex h-full min-h-[360px] items-center justify-center overflow-hidden rounded-[28px] border border-[var(--project-border)] bg-[var(--project-surface-muted)] p-4">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(251,191,36,0.20),transparent_34%),radial-gradient(circle_at_78%_78%,rgba(14,165,233,0.14),transparent_36%)]" />
+      <div className="pointer-events-none absolute inset-4 rounded-[24px] border border-white/60 bg-white/25 backdrop-blur-[2px]" />
+      <motion.div
+        role="alert"
+        aria-label={`${toolName}权限提示`}
+        initial={{ opacity: 0, y: 14, scale: 0.98 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ type: "spring", stiffness: 360, damping: 30 }}
+        className="relative w-full max-w-[360px] rounded-[24px] border border-amber-200 bg-[var(--project-surface)] px-5 py-6 text-center shadow-[0_24px_80px_rgba(15,23,42,0.16)]"
+      >
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border border-amber-200 bg-amber-50 text-amber-700 shadow-inner">
+          <LockKeyhole className="h-5 w-5" />
+        </div>
+        <h3 className="mt-4 text-base font-semibold text-[var(--project-text-primary)]">
+          {toolName}暂未开通
+        </h3>
+        <p className="mt-2 text-sm leading-6 text-[var(--project-text-secondary)]">
+          当前账号没有开通会员权限，请联系管理员
+        </p>
+      </motion.div>
+    </div>
+  );
+}
 
 interface StudioExpandedViewProps {
   isExpanded: boolean;
@@ -86,6 +114,14 @@ export function StudioExpandedView({
   onDraftChange,
   toolFlowContext,
 }: StudioExpandedViewProps) {
+  const isLockedTool =
+    expandedTool !== null &&
+    expandedTool !== "ppt" &&
+    LOCKED_STUDIO_TOOL_TYPES.has(expandedTool as StudioToolKey);
+  const expandedToolName = expandedTool
+    ? TOOL_LABELS[expandedTool] ?? expandedTool
+    : "";
+
   return (
     <AnimatePresence>
       {expandedTool && isExpanded ? (
@@ -117,11 +153,13 @@ export function StudioExpandedView({
                   onGenerate={onPptGenerate}
                 />
               </div>
+            ) : isLockedTool ? (
+              <StudioLockedToolNotice toolName={expandedToolName} />
             ) : ExpandedToolComponent ? (
               <div className="h-full">
                 <ExpandedToolComponent
                   toolId={expandedTool as StudioToolKey}
-                  toolName={TOOL_LABELS[expandedTool] ?? expandedTool}
+                  toolName={expandedToolName}
                   onDraftChange={onDraftChange}
                   flowContext={toolFlowContext}
                 />
