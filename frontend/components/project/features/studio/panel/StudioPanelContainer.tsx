@@ -48,6 +48,7 @@ import type {
   StudioGovernanceRubric,
   StudioWorkflowState,
 } from "../tools";
+import { parseGamePayload } from "../tools/game/GameSurfaceAdapter";
 
 function getBindingStatus(
   binding?: { status?: string | null } | null
@@ -130,8 +131,10 @@ function normalizeMindmapNode(
   };
 }
 
-function hasRenderableMindmapResult(flowContext?: ToolFlowContext): boolean {
-  const artifact = flowContext?.resolvedArtifact;
+function hasRenderableMindmapArtifact(artifact?: {
+  contentKind?: string;
+  content?: unknown;
+} | null): boolean {
   if (!artifact || artifact.contentKind !== "json") return false;
   const content =
     artifact.content && typeof artifact.content === "object"
@@ -152,6 +155,11 @@ function hasRenderableMindmapResult(flowContext?: ToolFlowContext): boolean {
       typeof node.parent_id === "string" ? node.parent_id.trim() : "";
     return parentId.length > 0;
   });
+}
+
+function hasRenderableInteractiveGameContent(content: unknown): boolean {
+  const parsed = parseGamePayload(content);
+  return Boolean(parsed.title && parsed.runtime.html);
 }
 
 export function StudioPanelContainer({
@@ -229,6 +237,7 @@ export function StudioPanelContainer({
   const [quizFocusedQuestion, setQuizFocusedQuestion] = useState<{
     index: number;
     total: number;
+    questionId: string | null;
   } | null>(null);
   const [managedToolRunSeedByType, setManagedToolRunSeedByType] = useState<
     Partial<
@@ -239,6 +248,9 @@ export function StudioPanelContainer({
     Partial<
       Record<StudioToolKey, { runId: string | null; sessionId: string | null }>
     >
+  >({});
+  const managedDraftAnchorsRef = useRef<
+    ManagedWorkbenchState["draftAnchors"]
   >({});
   const [managedWorkbenchState, setManagedWorkbenchState] =
     useState<ManagedWorkbenchState>({
@@ -284,14 +296,68 @@ export function StudioPanelContainer({
   useEffect(() => {
     managedToolRunSeedRef.current = managedToolRunSeedByType;
   }, [managedToolRunSeedByType]);
+  useEffect(() => {
+    managedDraftAnchorsRef.current = managedWorkbenchState.draftAnchors;
+  }, [managedWorkbenchState.draftAnchors]);
+  const managedWorkbenchTarget = useMemo(() => {
+    if (managedWorkbenchState.mode !== "history" || !managedWorkbenchState.target) {
+      return managedWorkbenchState.target;
+    }
+    const baseTarget = managedWorkbenchState.target;
+    const targetTool = baseTarget.toolType;
+    if (!targetTool) return baseTarget;
+    const toolItems =
+      groupedHistory.find(([toolType]) => toolType === targetTool)?.[1] ?? [];
+    const kind = baseTarget.kind ?? (baseTarget.artifactId ? "pinned_artifact" : "pinned_run");
+    const matched = toolItems.find((item) => {
+      if (baseTarget.toolType && item.toolType && item.toolType !== baseTarget.toolType) {
+        return false;
+      }
+      if (baseTarget.artifactId) {
+        return item.artifactId === baseTarget.artifactId;
+      }
+      if (kind === "pinned_run" && baseTarget.runId && baseTarget.sessionId) {
+        return item.runId === baseTarget.runId && item.sessionId === baseTarget.sessionId;
+      }
+      return false;
+    });
+    if (!matched) return baseTarget;
+    const nextTarget = {
+      ...baseTarget,
+      toolType: matched.toolType as StudioToolKey,
+      sessionId: matched.sessionId ?? baseTarget.sessionId,
+      runId: matched.runId ?? baseTarget.runId,
+      artifactId: matched.artifactId ?? baseTarget.artifactId,
+      status: matched.status,
+    };
+    if (
+      baseTarget.sessionId === nextTarget.sessionId &&
+      baseTarget.runId === nextTarget.runId &&
+      baseTarget.artifactId === nextTarget.artifactId &&
+      baseTarget.status === nextTarget.status
+    ) {
+      return baseTarget;
+    }
+    return nextTarget;
+  }, [groupedHistory, managedWorkbenchState.mode, managedWorkbenchState.target]);
+  const effectiveManagedWorkbenchState = useMemo(
+    () =>
+      managedWorkbenchState.mode === "history"
+        ? {
+            ...managedWorkbenchState,
+            target: managedWorkbenchTarget,
+          }
+        : managedWorkbenchState,
+    [managedWorkbenchState, managedWorkbenchTarget]
+  );
   const managedActiveRunId =
     expandedTool && expandedTool !== "ppt" ? seededRunIdForManagedTool : null;
   const isWordExpanded = expandedTool === "word";
   const isManagedHistoryMode =
     Boolean(expandedTool) &&
     expandedTool !== "ppt" &&
-    managedWorkbenchState.mode === "history" &&
-    managedWorkbenchState.target?.toolType === expandedTool;
+    effectiveManagedWorkbenchState.mode === "history" &&
+    effectiveManagedWorkbenchState.target?.toolType === expandedTool;
   const isWordHistoryMode = isWordExpanded && isManagedHistoryMode;
 
   const doesManagedArtifactMatchTarget = useCallback(
@@ -301,7 +367,7 @@ export function StudioPanelContainer({
       sessionId?: string | null;
       runId?: string | null;
     }) => {
-      const target = managedWorkbenchState.target;
+      const target = managedWorkbenchTarget;
       if (!target) return false;
       if (target.toolType && item.toolType && item.toolType !== target.toolType) {
         return false;
@@ -315,7 +381,7 @@ export function StudioPanelContainer({
       }
       return false;
     },
-    [managedWorkbenchState.target]
+    [managedWorkbenchTarget]
   );
 
   const resetManagedDraftAnchor = useCallback((toolType: StudioToolKey) => {
@@ -329,6 +395,7 @@ export function StudioPanelContainer({
           artifactId: null,
           runId: null,
           status: null,
+          pendingWorkflowId: null,
         },
       },
     }));
@@ -342,6 +409,7 @@ export function StudioPanelContainer({
         artifactId?: string | null;
         runId?: string | null;
         status?: StudioHistoryStatus | null;
+        pendingWorkflowId?: string | null;
       }
     ) => {
       setManagedWorkbenchState((prev) => ({
@@ -355,59 +423,16 @@ export function StudioPanelContainer({
               next.artifactId ?? prev.draftAnchors[toolType]?.artifactId ?? null,
             runId: next.runId ?? prev.draftAnchors[toolType]?.runId ?? null,
             status: next.status ?? prev.draftAnchors[toolType]?.status ?? null,
+            pendingWorkflowId:
+              next.pendingWorkflowId ??
+              prev.draftAnchors[toolType]?.pendingWorkflowId ??
+              null,
           },
         },
       }));
     },
     []
   );
-
-  useEffect(() => {
-    if (managedWorkbenchState.mode !== "history" || !managedWorkbenchState.target) {
-      return;
-    }
-    const targetTool = managedWorkbenchState.target.toolType;
-    if (!targetTool) return;
-    const toolItems =
-      groupedHistory.find(([toolType]) => toolType === targetTool)?.[1] ?? [];
-    const matched = toolItems.find((item) =>
-      doesManagedArtifactMatchTarget({
-        toolType: item.toolType,
-        artifactId: item.artifactId ?? null,
-        sessionId: item.sessionId ?? null,
-        runId: item.runId ?? null,
-      })
-    );
-    if (!matched) return;
-    setManagedWorkbenchState((prev) => {
-      if (prev.mode !== "history" || !prev.target) return prev;
-      const nextTarget = {
-        toolType: matched.toolType as StudioToolKey,
-        sessionId: matched.sessionId ?? prev.target.sessionId,
-        runId: matched.runId ?? prev.target.runId,
-        artifactId: matched.artifactId ?? prev.target.artifactId,
-        status: matched.status,
-      };
-      if (
-        prev.target.sessionId === nextTarget.sessionId &&
-        prev.target.runId === nextTarget.runId &&
-        prev.target.artifactId === nextTarget.artifactId &&
-        prev.target.status === nextTarget.status
-      ) {
-        return prev;
-      }
-      return {
-        mode: "history",
-        target: nextTarget,
-        draftAnchors: prev.draftAnchors,
-      };
-    });
-  }, [
-    doesManagedArtifactMatchTarget,
-    groupedHistory,
-    managedWorkbenchState.mode,
-    managedWorkbenchState.target,
-  ]);
 
   useEffect(() => {
     if (!expandedTool) return;
@@ -489,7 +514,7 @@ export function StudioPanelContainer({
     generationSession,
     artifactHistoryByTool,
     draftSourceArtifactId,
-    managedWorkbenchState,
+    managedWorkbenchState: effectiveManagedWorkbenchState,
   });
   const resolvedManagedTarget = capability.resolvedManagedTarget;
 
@@ -544,6 +569,46 @@ export function StudioPanelContainer({
       }
       const latestToolArtifact = capability.currentToolArtifacts[0];
       const isExplicitRunScoped = resolvedManagedTarget?.kind === "pinned_run";
+      const targetArtifactId =
+        resolvedManagedTarget?.artifactId ?? latestToolArtifact?.artifactId ?? null;
+      const configSnapshot =
+        managedTool === "quiz"
+          ? {
+              ...currentToolDraft,
+              chat_refine_scope: "full_quiz",
+              scope:
+                typeof currentToolDraft.scope === "string"
+                  ? currentToolDraft.scope
+                  : null,
+              question_count:
+                quizFocusedQuestion?.total ??
+                (typeof currentToolDraft.question_count === "number"
+                  ? currentToolDraft.question_count
+                  : typeof currentToolDraft.count === "number"
+                    ? currentToolDraft.count
+                    : null),
+              difficulty:
+                typeof currentToolDraft.difficulty === "string"
+                  ? currentToolDraft.difficulty
+                  : "medium",
+              question_type:
+                typeof currentToolDraft.question_type === "string"
+                  ? currentToolDraft.question_type
+                  : "single",
+              style_tags: Array.isArray(currentToolDraft.style_tags)
+                ? currentToolDraft.style_tags
+                : [],
+              current_question_id: quizFocusedQuestion?.questionId ?? null,
+              selection_anchor: quizFocusedQuestion?.questionId
+                ? {
+                    scope: "question",
+                    anchor_id: quizFocusedQuestion.questionId,
+                    artifact_id: targetArtifactId,
+                    label: `第 ${quizFocusedQuestion.index} 题`,
+                  }
+                : null,
+            }
+          : currentToolDraft;
       setStudioChatContext({
         projectId: project.id,
         sessionId: targetSessionId,
@@ -553,14 +618,13 @@ export function StudioPanelContainer({
         step,
         canRefine: canRefineBase,
         isRefineMode: step === "preview" && canRefineBase,
-        targetArtifactId:
-          resolvedManagedTarget?.artifactId ?? latestToolArtifact?.artifactId ?? null,
+        targetArtifactId,
         targetRunId: isExplicitRunScoped
           ? resolvedManagedTarget?.runId ?? latestToolArtifact?.runId ?? null
           : null,
         sourceArtifactId:
           effectiveSelectedSourceId ?? capability.draftSourceArtifactId ?? null,
-        configSnapshot: currentToolDraft,
+        configSnapshot,
       });
     },
     [
@@ -572,6 +636,7 @@ export function StudioPanelContainer({
       effectiveSelectedSourceId,
       currentToolDraft,
       project,
+      quizFocusedQuestion,
       resolvedManagedTarget,
       setStudioChatContext,
     ]
@@ -902,6 +967,7 @@ export function StudioPanelContainer({
     isWordHistoryMode,
     project,
     pushStudioStageHint,
+    quizFocusedQuestion,
     resolvedManagedTarget?.artifactId,
     resolvedManagedTarget?.status,
     setStudioChatContext,
@@ -952,6 +1018,24 @@ export function StudioPanelContainer({
     typeof resolvedArtifactMetadata.source_binding === "object"
       ? (resolvedArtifactMetadata.source_binding as Record<string, unknown>)
       : null;
+  const latestArtifactsSnapshot = (
+    isManagedHistoryMode ? effectiveManagedArtifacts : capability.currentToolArtifacts
+  ).map((item) => ({
+    artifactId: item.artifactId,
+    title: item.title,
+    status: item.status,
+    createdAt: item.createdAt,
+    sourceArtifactId: item.sourceArtifactId ?? null,
+    runId: item.runId ?? null,
+    runNo: item.runNo ?? null,
+  }));
+  const latestArtifactSnapshot = latestArtifactsSnapshot[0] ?? null;
+  const resolvedArtifactSnapshot = effectiveResolvedArtifact ?? null;
+  const resolvedArtifactContent = resolvedArtifactSnapshot?.content;
+  const resolvedArtifactContentRecord =
+    resolvedArtifactContent && typeof resolvedArtifactContent === "object"
+      ? (resolvedArtifactContent as Record<string, unknown>)
+      : null;
   const toolFlowContext: ToolFlowContext = {
     display:
       currentDisplayToolKey
@@ -984,17 +1068,7 @@ export function StudioPanelContainer({
     sourceOptions: capability.sourceOptions,
     selectedSourceId: effectiveSelectedSourceId,
     requestedStep: requestedHistoryStep,
-    latestArtifacts: (
-      isManagedHistoryMode ? effectiveManagedArtifacts : capability.currentToolArtifacts
-    ).map((item) => ({
-      artifactId: item.artifactId,
-      title: item.title,
-      status: item.status,
-      createdAt: item.createdAt,
-      sourceArtifactId: item.sourceArtifactId ?? null,
-      runId: item.runId ?? null,
-      runNo: item.runNo ?? null,
-    })),
+    latestArtifacts: latestArtifactsSnapshot,
     latestRunnableState: resolvedLatestRunnableState,
     provenance: resolvedProvenance,
     sourceBinding: resolvedSourceBinding,
@@ -1017,7 +1091,7 @@ export function StudioPanelContainer({
       const resolvedSessionId = result.effectiveSessionId ?? contextSessionId;
       if (!resolvedSessionId) return false;
 
-      recordWorkflowEntry({
+      const pendingWorkflowId = recordWorkflowEntry({
         toolType,
         title: TOOL_LABELS[toolType] + " - Draft",
         status: "draft",
@@ -1041,6 +1115,7 @@ export function StudioPanelContainer({
           runId: result.runId ?? null,
           artifactId: null,
           status: "draft",
+          pendingWorkflowId,
         });
       }
       managedToolRunSeedRef.current = {
@@ -1059,18 +1134,24 @@ export function StudioPanelContainer({
       const contextSessionId = activeSessionId ?? null;
       const seededRun =
         managedToolRunSeedRef.current[toolType as StudioToolKey] ?? null;
+      const seededSessionId = seededRun?.sessionId ?? null;
+      const executionSessionId = contextSessionId ?? seededSessionId;
+      const pendingWorkflowId =
+        managedDraftAnchorsRef.current[toolType as StudioToolKey]
+          ?.pendingWorkflowId ?? null;
       const seededRunId =
-        seededRun?.sessionId === contextSessionId
+        seededRun?.sessionId === executionSessionId
           ? seededRun.runId
           : null;
-      syncStudioChatContextByStep(toolType, "generate", contextSessionId);
-      if (contextSessionId) {
+      syncStudioChatContextByStep(toolType, "generate", executionSessionId);
+      if (executionSessionId) {
         recordWorkflowEntry({
+          workflowId: pendingWorkflowId,
           toolType,
           title: TOOL_LABELS[toolType] + " - Generating",
           status: "processing",
           step: "preview",
-          sessionId: contextSessionId,
+          sessionId: executionSessionId,
           runId: seededRunId ?? undefined,
           titleSource: buildWorkflowTitleSource(toolType, currentToolDraft),
           toolLabel: TOOL_LABELS[toolType],
@@ -1079,7 +1160,8 @@ export function StudioPanelContainer({
       const result = await execution.handleStudioExecute();
       const isLifecycleTool = isManagedLifecycleTool(toolType as StudioToolKey);
       if (result.ok) {
-        const resolvedSessionId = result.effectiveSessionId ?? contextSessionId;
+        const resolvedSessionId =
+          result.effectiveSessionId ?? executionSessionId;
         const resolvedStatus =
           result.status ??
           (result.artifactId ? "previewing" : result.resourceKind === "session"
@@ -1091,6 +1173,7 @@ export function StudioPanelContainer({
             runId: result.runId ?? seededRunId ?? null,
             artifactId: result.artifactId ?? null,
             status: resolvedStatus,
+            pendingWorkflowId: null,
           });
         } else {
           setManagedWorkbenchState((prev) => ({
@@ -1106,6 +1189,21 @@ export function StudioPanelContainer({
           }));
         }
         if (resolvedSessionId) {
+          if (isLifecycleTool && result.artifactId && pendingWorkflowId) {
+            recordWorkflowEntry({
+              workflowId: pendingWorkflowId,
+              toolType,
+              title: TOOL_LABELS[toolType],
+              status: "previewing",
+              step: "preview",
+              sessionId: resolvedSessionId,
+              artifactId: result.artifactId,
+              runId: result.runId ?? seededRunId ?? undefined,
+              runNo: result.runNo ?? undefined,
+              titleSource: buildWorkflowTitleSource(toolType, currentToolDraft),
+              toolLabel: TOOL_LABELS[toolType],
+            });
+          }
           if (!isLifecycleTool || !result.artifactId) {
             recordWorkflowEntry({
               toolType,
@@ -1133,20 +1231,21 @@ export function StudioPanelContainer({
         return true;
       }
       const fallbackRunId = result.runId ?? seededRunId ?? null;
-      if (contextSessionId || fallbackRunId) {
+      if (executionSessionId || fallbackRunId) {
         if (isLifecycleTool) {
           updateManagedDraftAnchor(toolType as StudioToolKey, {
-            sessionId: contextSessionId,
+            sessionId: executionSessionId,
             runId: fallbackRunId,
             artifactId: result.artifactId ?? null,
             status: result.status ?? "failed",
+            pendingWorkflowId: null,
           });
         } else {
           setManagedWorkbenchState((prev) => ({
             mode: "history",
             target: {
               toolType: toolType as StudioToolKey,
-              sessionId: contextSessionId,
+              sessionId: executionSessionId,
               runId: fallbackRunId,
               artifactId: result.artifactId ?? null,
               status: result.status ?? "failed",
@@ -1155,29 +1254,31 @@ export function StudioPanelContainer({
           }));
         }
       }
-      if (contextSessionId && fallbackRunId) {
+      if (executionSessionId && fallbackRunId) {
         recordWorkflowEntry({
+          workflowId: pendingWorkflowId,
           toolType,
           title: TOOL_LABELS[toolType] + " - Failed",
           status: result.status ?? "failed",
           step: "preview",
-          sessionId: contextSessionId,
+          sessionId: executionSessionId,
           artifactId: result.artifactId ?? undefined,
           runId: fallbackRunId ?? undefined,
           titleSource: buildWorkflowTitleSource(toolType, currentToolDraft),
           toolLabel: TOOL_LABELS[toolType],
         });
-        syncStudioChatContextByStep(toolType, "preview", contextSessionId);
-        pushStudioStageHint(toolType, "preview", contextSessionId);
+        syncStudioChatContextByStep(toolType, "preview", executionSessionId);
+        pushStudioStageHint(toolType, "preview", executionSessionId);
         return true;
       }
-      if (contextSessionId) {
+      if (executionSessionId) {
         recordWorkflowEntry({
+          workflowId: pendingWorkflowId,
           toolType,
           title: TOOL_LABELS[toolType] + " - Failed",
           status: "failed",
           step: "generate",
-          sessionId: contextSessionId,
+          sessionId: executionSessionId,
           runId: seededRunId ?? undefined,
           titleSource: buildWorkflowTitleSource(toolType, currentToolDraft),
           toolLabel: TOOL_LABELS[toolType],
@@ -1309,25 +1410,35 @@ export function StudioPanelContainer({
   );
   const isQuizExpanded = expandedTool === "quiz";
   const isQuizHistoryMode = isQuizExpanded && isManagedHistoryMode;
+  const isOutlineExpanded = expandedTool === "outline";
+  const isOutlineHistoryMode = isOutlineExpanded && isManagedHistoryMode;
   const isQuizProcessingTarget = Boolean(
     expandedTool === "quiz" &&
+      resolvedManagedTarget?.status === "processing" &&
+      !resolvedManagedTarget?.artifactId
+  );
+  const isOutlineProcessingTarget = Boolean(
+    expandedTool === "outline" &&
       resolvedManagedTarget?.status === "processing" &&
       !resolvedManagedTarget?.artifactId
   );
   const hasQuizResultAnchor = Boolean(
     expandedTool === "quiz" && resolvedManagedTarget?.artifactId
   );
-  const hasMindmapRenderableResult = hasRenderableMindmapResult(toolFlowContext);
+  const hasOutlineResultAnchor = Boolean(
+    expandedTool === "outline" && resolvedManagedTarget?.artifactId
+  );
+  const hasMindmapRenderableResult = hasRenderableMindmapArtifact(
+    resolvedArtifactSnapshot
+  );
+  const hasOutlineRenderableResult = hasRenderableInteractiveGameContent(
+    resolvedArtifactContent
+  );
   const hasQuizRenderableResult = Boolean(
     expandedTool === "quiz" &&
-      toolFlowContext.resolvedArtifact?.contentKind === "json" &&
-      Array.isArray(
-        (toolFlowContext.resolvedArtifact.content as Record<string, unknown> | undefined)
-          ?.questions
-      ) &&
-      (
-        (toolFlowContext.resolvedArtifact.content as Record<string, unknown>).questions as unknown[]
-      ).length > 0
+      resolvedArtifactSnapshot?.contentKind === "json" &&
+      Array.isArray(resolvedArtifactContentRecord?.questions) &&
+      (resolvedArtifactContentRecord.questions as unknown[]).length > 0
   );
   const isWordHeaderActionsVisible =
     isExpanded &&
@@ -1340,7 +1451,6 @@ export function StudioPanelContainer({
     (!hasWordResultAnchor || isWordProcessingTarget);
   useEffect(() => {
     if (!isWordHeaderActionsVisible && !isWordHeaderGenerateVisible) return;
-    setWordViewMode("preview");
     window.dispatchEvent(
       new CustomEvent("spectra:word:set-mode", {
         detail: { mode: "preview" },
@@ -1360,7 +1470,6 @@ export function StudioPanelContainer({
   );
   useEffect(() => {
     if (!isMindmapHeaderModeVisible && !isMindmapHeaderGenerateVisible) return;
-    setMindmapViewMode("preview");
     window.dispatchEvent(
       new CustomEvent("spectra:mindmap:set-mode", {
         detail: { mode: "preview" },
@@ -1373,6 +1482,11 @@ export function StudioPanelContainer({
       !isQuizProcessingTarget &&
       (isQuizHistoryMode || hasQuizResultAnchor || hasQuizRenderableResult)
   );
+  const isOutlineHeaderGenerateVisible = Boolean(
+    isExpanded &&
+      expandedTool === "outline" &&
+      (!hasOutlineResultAnchor || isOutlineProcessingTarget)
+  );
   const isQuizHeaderGenerateVisible = Boolean(
     isExpanded &&
       expandedTool === "quiz" &&
@@ -1380,7 +1494,6 @@ export function StudioPanelContainer({
   );
   useEffect(() => {
     if (!isQuizHeaderModeVisible && !isQuizHeaderGenerateVisible) return;
-    setQuizViewMode("browse");
     window.dispatchEvent(
       new CustomEvent("spectra:quiz:set-mode", {
         detail: { mode: "browse" },
@@ -1391,16 +1504,25 @@ export function StudioPanelContainer({
     const handleQuizQuestionFocus = (
       event: Event
     ) => {
-      const customEvent = event as CustomEvent<{ index?: number; total?: number }>;
+      const customEvent = event as CustomEvent<{
+        index?: number;
+        total?: number;
+        questionId?: string | null;
+      }>;
       const index =
         typeof customEvent.detail?.index === "number" ? customEvent.detail.index : 0;
       const total =
         typeof customEvent.detail?.total === "number" ? customEvent.detail.total : 0;
+      const questionId =
+        typeof customEvent.detail?.questionId === "string"
+          ? customEvent.detail.questionId
+          : null;
       setQuizFocusedQuestion(
         index > 0 && total > 0
           ? {
               index,
               total,
+              questionId,
             }
           : null
       );
@@ -1417,11 +1539,29 @@ export function StudioPanelContainer({
     };
   }, []);
 
+  useEffect(() => {
+    const handleQuizSetMode = (event: Event) => {
+      const customEvent = event as CustomEvent<{ mode?: "browse" | "edit" }>;
+      const nextMode = customEvent.detail?.mode;
+      if (nextMode === "browse" || nextMode === "edit") {
+        setQuizViewMode(nextMode);
+      }
+    };
+    window.addEventListener(
+      "spectra:quiz:set-mode",
+      handleQuizSetMode as EventListener
+    );
+    return () => {
+      window.removeEventListener(
+        "spectra:quiz:set-mode",
+        handleQuizSetMode as EventListener
+      );
+    };
+  }, []);
+
   const resolvedWordTitleFromContent = (() => {
     if (expandedTool !== "word") return null;
-    const content = toolFlowContext.resolvedArtifact?.content;
-    if (!content || typeof content !== "object") return null;
-    const value = (content as Record<string, unknown>).title;
+    const value = resolvedArtifactContentRecord?.title;
     return typeof value === "string" && value.trim() ? value.trim() : null;
   })();
   const resolvedWordHeaderTitle =
@@ -1429,16 +1569,14 @@ export function StudioPanelContainer({
       ? isWordProcessingTarget
         ? "教学文档（生成中）"
         : isWordHistoryMode || hasWordResultAnchor
-          ? toolFlowContext.latestArtifacts?.[0]?.title ||
-            resolvedWordTitleFromContent ||
-            "教学文档"
+          ? latestArtifactSnapshot?.title || resolvedWordTitleFromContent || "教学文档"
           : "教学文档"
       : null;
   const canWordHeaderSave = Boolean(
-    expandedTool === "word" && toolFlowContext.resolvedArtifact?.artifactId
+    expandedTool === "word" && resolvedArtifactSnapshot?.artifactId
   );
   const canWordHeaderExport = Boolean(
-    expandedTool === "word" && toolFlowContext.latestArtifacts?.[0]?.artifactId
+    expandedTool === "word" && latestArtifactSnapshot?.artifactId
   );
   const canWordHeaderGenerate = Boolean(
     expandedTool === "word" &&
@@ -1471,14 +1609,12 @@ export function StudioPanelContainer({
       ? isMindmapProcessingTarget
         ? "思维导图（生成中）"
         : isMindmapHistoryMode || hasMindmapResultAnchor
-          ? toolFlowContext.latestArtifacts?.[0]?.title || "思维导图"
+          ? latestArtifactSnapshot?.title || "思维导图"
           : "思维导图"
       : null;
   const resolvedQuizTitleFromContent = (() => {
     if (expandedTool !== "quiz") return null;
-    const content = toolFlowContext.resolvedArtifact?.content;
-    if (!content || typeof content !== "object") return null;
-    const value = (content as Record<string, unknown>).title;
+    const value = resolvedArtifactContentRecord?.title;
     return typeof value === "string" && value.trim() ? value.trim() : null;
   })();
   const resolvedQuizTitle =
@@ -1486,10 +1622,22 @@ export function StudioPanelContainer({
       ? isQuizProcessingTarget
         ? "随堂小测（生成中）"
         : isQuizHistoryMode || hasQuizResultAnchor || hasQuizRenderableResult
-          ? toolFlowContext.latestArtifacts?.[0]?.title ||
-            resolvedQuizTitleFromContent ||
-            "随堂小测"
+          ? latestArtifactSnapshot?.title || resolvedQuizTitleFromContent || "随堂小测"
           : "随堂小测"
+      : null;
+  const resolvedOutlineTitleFromContent = (() => {
+    if (expandedTool !== "outline") return null;
+    return parseGamePayload(resolvedArtifactContent).title;
+  })();
+  const resolvedOutlineTitle =
+    expandedTool === "outline"
+      ? isOutlineProcessingTarget
+        ? "互动游戏（生成中）"
+        : isOutlineHistoryMode ||
+            hasOutlineResultAnchor ||
+            hasOutlineRenderableResult
+          ? latestArtifactSnapshot?.title || resolvedOutlineTitleFromContent || "互动游戏"
+          : "互动游戏"
       : null;
   const resolvedQuizHeaderTitle =
     expandedTool === "quiz" && quizFocusedQuestion
@@ -1503,11 +1651,33 @@ export function StudioPanelContainer({
       !isQuizProcessingTarget &&
       !execution.isStudioActionRunning
   );
+  const canOutlineHeaderGenerate = Boolean(
+    expandedTool === "outline" &&
+      typeof currentToolDraft.topic === "string" &&
+      currentToolDraft.topic.trim() &&
+      !isOutlineProcessingTarget &&
+      !execution.isStudioActionRunning
+  );
   const isQuizHeaderGenerating = Boolean(
     expandedTool === "quiz" &&
       isQuizHeaderGenerateVisible &&
       execution.isStudioActionRunning
   );
+  const isOutlineHeaderGenerating = Boolean(
+    expandedTool === "outline" &&
+      isOutlineHeaderGenerateVisible &&
+      execution.isStudioActionRunning
+  );
+  const effectiveWordViewMode =
+    isWordHeaderActionsVisible || isWordHeaderGenerateVisible
+      ? "preview"
+      : wordViewMode;
+  const effectiveMindmapViewMode =
+    isMindmapHeaderModeVisible || isMindmapHeaderGenerateVisible
+      ? "preview"
+      : mindmapViewMode;
+  const effectiveQuizViewMode =
+    quizViewMode;
   const resolvedHeaderTitle =
     expandedTool === "word"
       ? resolvedWordHeaderTitle
@@ -1515,6 +1685,8 @@ export function StudioPanelContainer({
         ? resolvedMindmapTitle
         : expandedTool === "quiz"
           ? resolvedQuizHeaderTitle
+          : expandedTool === "outline"
+            ? resolvedOutlineTitle
         : null;
 
   return (
@@ -1540,19 +1712,20 @@ export function StudioPanelContainer({
             showHeaderPrimaryAction={
               isWordHeaderGenerateVisible ||
               isMindmapHeaderGenerateVisible ||
-              isQuizHeaderGenerateVisible
+              isQuizHeaderGenerateVisible ||
+              isOutlineHeaderGenerateVisible
             }
             showHeaderPersistenceActions={isWordHeaderActionsVisible}
             headerModeActionLabel={
               expandedTool === "word"
-                ? wordViewMode === "preview"
+                ? effectiveWordViewMode === "preview"
                   ? "编辑"
                   : "预览"
                 : expandedTool === "quiz"
-                  ? quizViewMode === "browse"
+                  ? effectiveQuizViewMode === "browse"
                     ? "编辑"
-                    : "浏览"
-                : mindmapViewMode === "preview"
+                    : "保存"
+                : effectiveMindmapViewMode === "preview"
                   ? "编辑"
                   : "完成"
             }
@@ -1561,6 +1734,10 @@ export function StudioPanelContainer({
                 ? isMindmapHeaderGenerating
                   ? "生成中"
                   : "一键生成导图"
+                : expandedTool === "outline"
+                  ? isOutlineHeaderGenerating
+                    ? "生成中"
+                    : "一键生成互动游戏"
                 : expandedTool === "quiz"
                   ? isQuizHeaderGenerating
                     ? "生成中"
@@ -1572,13 +1749,16 @@ export function StudioPanelContainer({
             primaryActionState={
               isWordHeaderGenerating ||
               isMindmapHeaderGenerating ||
-              isQuizHeaderGenerating
+              isQuizHeaderGenerating ||
+              isOutlineHeaderGenerating
                 ? "loading"
                 : "idle"
             }
             primaryActionDisabled={
               expandedTool === "mindmap"
                 ? !canMindmapHeaderGenerate
+                : expandedTool === "outline"
+                  ? !canOutlineHeaderGenerate
                 : expandedTool === "quiz"
                   ? !canQuizHeaderGenerate
                 : expandedTool === "word"
@@ -1588,7 +1768,7 @@ export function StudioPanelContainer({
             onHeaderSwitchMode={() => {
               if (expandedTool === "word") {
                 const nextMode =
-                  wordViewMode === "preview" ? "edit" : "preview";
+                  effectiveWordViewMode === "preview" ? "edit" : "preview";
                 setWordViewMode(nextMode);
                 window.dispatchEvent(
                   new CustomEvent("spectra:word:set-mode", {
@@ -1599,7 +1779,7 @@ export function StudioPanelContainer({
               }
               if (expandedTool === "mindmap") {
                 const nextMode =
-                  mindmapViewMode === "preview" ? "edit" : "preview";
+                  effectiveMindmapViewMode === "preview" ? "edit" : "preview";
                 setMindmapViewMode(nextMode);
                 window.dispatchEvent(
                   new CustomEvent("spectra:mindmap:set-mode", {
@@ -1609,12 +1789,16 @@ export function StudioPanelContainer({
                 return;
               }
               if (expandedTool === "quiz") {
-                const nextMode = quizViewMode === "browse" ? "edit" : "browse";
-                setQuizViewMode(nextMode);
+                if (effectiveQuizViewMode === "browse") {
+                  window.dispatchEvent(
+                    new CustomEvent("spectra:quiz:set-mode", {
+                      detail: { mode: "edit" },
+                    })
+                  );
+                  return;
+                }
                 window.dispatchEvent(
-                  new CustomEvent("spectra:quiz:set-mode", {
-                    detail: { mode: nextMode },
-                  })
+                  new CustomEvent("spectra:quiz:save-and-browse")
                 );
               }
             }}
@@ -1631,6 +1815,10 @@ export function StudioPanelContainer({
               }
               if (expandedTool === "quiz") {
                 window.dispatchEvent(new CustomEvent("spectra:quiz:generate"));
+                return;
+              }
+              if (expandedTool === "outline") {
+                window.dispatchEvent(new CustomEvent("spectra:outline:generate"));
               }
             }}
             canWordSave={canWordHeaderSave}
@@ -1657,7 +1845,7 @@ export function StudioPanelContainer({
               groupedHistory={groupedHistory}
               currentCardId={capability.currentCardId}
               selectedSourceId={effectiveSelectedSourceId}
-              latestArtifacts={toolFlowContext.latestArtifacts ?? []}
+              latestArtifacts={latestArtifactsSnapshot}
               projectId={project?.id ?? null}
               activeSessionId={activeSessionId}
               fetchArtifactHistory={fetchArtifactHistory}

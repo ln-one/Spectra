@@ -213,7 +213,7 @@ async def execute_studio_card_artifact_request(
             session_id=execution_session_id or payload.get("session_id"),
             based_on_version_id=payload.get("based_on_version_id"),
             content=artifact_content,
-            artifact_mode="replace",
+            artifact_mode=_resolve_initial_artifact_mode(card_id),
         )
         if card_id == "word_document" and source_artifact_id:
             await sync_word_source_metadata(
@@ -283,8 +283,13 @@ logger = logging.getLogger(__name__)
 UPDATE_IN_PLACE_CARDS = {
     "word_document",
     "knowledge_mindmap",
-    "interactive_quick_quiz",
+    "interactive_games",
 }
+
+
+def _resolve_initial_artifact_mode(card_id: str) -> str:
+    """Studio initial generation always creates a new artifact entry."""
+    return "create"
 
 
 async def execute_studio_card_structured_refine(

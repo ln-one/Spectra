@@ -169,6 +169,32 @@ export function QuizToolPanel({
   }, [hasRenderableResult, isGenerating, isHistoryResultMode]);
 
   useEffect(() => {
+    const resolvedTarget = flowContext?.resolvedTarget;
+    const enteringFreshDraft =
+      flowContext?.managedWorkbenchMode === "draft" &&
+      !isGenerating &&
+      !hasRenderableResult &&
+      !isHistoryResultMode &&
+      !flowContext?.resolvedArtifact &&
+      resolvedTarget?.kind === "draft" &&
+      !resolvedTarget.artifactId &&
+      !resolvedTarget.runId;
+    if (!enteringFreshDraft) return;
+    setHasActivatedResultSurface(false);
+    setStickyResolvedArtifact(null);
+  }, [
+    flowContext?.managedWorkbenchMode,
+    flowContext?.resolvedArtifact,
+    flowContext?.resolvedTarget,
+    flowContext?.resolvedTarget?.artifactId,
+    flowContext?.resolvedTarget?.kind,
+    flowContext?.resolvedTarget?.runId,
+    hasRenderableResult,
+    isGenerating,
+    isHistoryResultMode,
+  ]);
+
+  useEffect(() => {
     const resolvedArtifact = flowContext?.resolvedArtifact;
     if (!resolvedArtifact) return;
     if (!hasQuizResultArtifact(resolvedArtifact)) return;

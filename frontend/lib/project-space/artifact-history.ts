@@ -53,7 +53,7 @@ const TOOL_TITLE_MAP: Record<GenerationToolType, string> = {
   ppt: "PPT",
   word: "Word",
   mindmap: "Mindmap",
-  outline: "Game",
+  outline: "互动游戏",
   quiz: "Quiz",
   summary: "Speaker Notes",
   animation: "Animation",
@@ -174,6 +174,23 @@ function readQuizTitleFromMetadata(
   return null;
 }
 
+function readInteractiveGameTitleFromMetadata(
+  metadata: Artifact["metadata"]
+): string | null {
+  const snapshot = readMetadataSnapshot(metadata);
+  if (!snapshot) return null;
+
+  const directTitle =
+    readTrimmedString(snapshot.title) ??
+    readTrimmedString(snapshot.name) ??
+    readTrimmedString(snapshot.topic);
+  if (directTitle) return directTitle;
+
+  const teachingGoal = readTrimmedString(snapshot.teaching_goal);
+  if (teachingGoal) return `${teachingGoal} 互动游戏`;
+  return null;
+}
+
 function sanitizeWordDisplayTitle(raw: string): string {
   const normalized = raw.replace(/\s+/g, " ").trim();
   if (!normalized) return "";
@@ -271,6 +288,47 @@ function sanitizeQuizDisplayTitle(raw: string): string {
     cleaned === "随堂小测" ||
     cleaned === "课堂小测" ||
     cleanedCompact === "quiz生成记录"
+  ) {
+    return "";
+  }
+  return cleaned;
+}
+
+function sanitizeInteractiveGameDisplayTitle(raw: string): string {
+  const normalized = raw.replace(/\s+/g, " ").trim();
+  if (!normalized) return "";
+  const lowered = normalized.toLowerCase();
+  const compact = lowered.replace(/\s+/g, "");
+  const isPlaceholder =
+    lowered === "game" ||
+    lowered === "interactive game" ||
+    lowered === "interactivegame" ||
+    lowered === "互动游戏" ||
+    lowered === "课堂互动游戏" ||
+    lowered === "未命名互动游戏" ||
+    compact === "game生成记录" ||
+    compact === "互动游戏生成记录" ||
+    compact === "interactivegame生成记录" ||
+    compact === "game-preview" ||
+    compact === "互动游戏-preview" ||
+    compact === "interactivegame-preview";
+  if (isPlaceholder) return "";
+
+  const cleaned = normalized
+    .replace(/\s*[-·|｜:：]\s*preview$/i, "")
+    .replace(/\s*[-·|｜:：]\s*(?:game|interactive game|互动游戏)$/i, "")
+    .replace(/^(?:game|interactive game|互动游戏)\s*[-·|｜:：]\s*/i, "")
+    .replace(/[；;，,\s]+$/g, "")
+    .trim();
+
+  const cleanedCompact = cleaned.toLowerCase().replace(/\s+/g, "");
+  if (
+    !cleaned ||
+    cleaned.toLowerCase() === "game" ||
+    cleaned.toLowerCase() === "interactive game" ||
+    cleaned === "互动游戏" ||
+    cleanedCompact === "game生成记录" ||
+    cleanedCompact === "互动游戏生成记录"
   ) {
     return "";
   }
@@ -482,6 +540,9 @@ export function toArtifactHistoryItem(artifact: Artifact): ArtifactHistoryItem {
   const nestedTitle = readNestedTitleFromMetadata(artifact.metadata);
   const nestedMindmapTitle = readMindmapTitleFromMetadata(artifact.metadata);
   const nestedQuizTitle = readQuizTitleFromMetadata(artifact.metadata);
+  const nestedInteractiveGameTitle = readInteractiveGameTitleFromMetadata(
+    artifact.metadata
+  );
   const wordCandidates =
     toolType === "word"
       ? [
@@ -515,6 +576,17 @@ export function toArtifactHistoryItem(artifact: Artifact): ArtifactHistoryItem {
           .map(sanitizeQuizDisplayTitle)
           .filter((value) => Boolean(value))
       : [];
+  const interactiveGameCandidates =
+    toolType === "outline"
+      ? [
+          typeof metadataTitle === "string" ? metadataTitle.trim() : "",
+          typeof metadataName === "string" ? metadataName.trim() : "",
+          nestedInteractiveGameTitle ?? "",
+          typeof metadataRunTitle === "string" ? metadataRunTitle.trim() : "",
+        ]
+          .map(sanitizeInteractiveGameDisplayTitle)
+          .filter((value) => Boolean(value))
+      : [];
   const rawTitle =
     toolType === "word"
       ? (wordCandidates[0] ?? "未命名教案")
@@ -522,6 +594,8 @@ export function toArtifactHistoryItem(artifact: Artifact): ArtifactHistoryItem {
         ? (mindmapCandidates[0] ?? `${titlePrefix} 生成记录`)
         : toolType === "quiz"
           ? (quizCandidates[0] ?? `${titlePrefix} 生成记录`)
+          : toolType === "outline"
+            ? (interactiveGameCandidates[0] ?? `${titlePrefix} 生成记录`)
         : typeof metadataTitle === "string" && metadataTitle.trim()
           ? metadataTitle.trim()
           : typeof metadataName === "string" && metadataName.trim()
@@ -537,6 +611,8 @@ export function toArtifactHistoryItem(artifact: Artifact): ArtifactHistoryItem {
         ? rawTitle || "未命名导图"
         : toolType === "quiz"
           ? rawTitle || "未命名小测"
+          : toolType === "outline"
+            ? rawTitle || "未命名互动游戏"
         : rawTitle;
 
   return {

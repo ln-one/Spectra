@@ -362,6 +362,7 @@ export function PreviewStep({
         detail: {
           index: currentQuestion ? currentIndex + 1 : 0,
           total: backendQuestions.length,
+          questionId: currentQuestion?.id ?? null,
         },
       })
     );
@@ -509,6 +510,15 @@ export function PreviewStep({
                   onDirtyChange={handleDirtyChange}
                   onSave={async (values) => {
                     await saveEditedQuestion(values);
+                  }}
+                  onSaveAndPreview={async (values) => {
+                    const saved = await saveEditedQuestion(values);
+                    if (!saved) return;
+                    window.dispatchEvent(
+                      new CustomEvent("spectra:quiz:set-mode", {
+                        detail: { mode: "browse" },
+                      })
+                    );
                   }}
                   onPreviousQuestion={handleEditPrevious}
                   onNextQuestion={handleEditNext}

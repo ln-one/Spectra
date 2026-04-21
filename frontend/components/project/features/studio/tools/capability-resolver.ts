@@ -103,6 +103,7 @@ function extractHtmlFromJsonPayload(raw: string): string | null {
       row.content_html,
       row.preview_html,
       row.template_html,
+      isRecord(row.runtime) ? (row.runtime as Record<string, unknown>).html : null,
     ];
     for (const item of candidates) {
       if (typeof item === "string" && item.trim()) {
@@ -113,6 +114,10 @@ function extractHtmlFromJsonPayload(raw: string): string | null {
   } catch {
     return null;
   }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
 function extractAnimationSpecFromLegacyHtml(
@@ -408,8 +413,15 @@ export async function resolveCapabilityFromArtifact(params: {
 
     if (artifactType === "html") {
       if (toolId === "outline" && contentSnapshot) {
+        const runtime = isRecord(contentSnapshot.runtime)
+          ? (contentSnapshot.runtime as Record<string, unknown>)
+          : null;
         const html =
-          typeof contentSnapshot.html === "string" ? contentSnapshot.html.trim() : "";
+          typeof contentSnapshot.html === "string"
+            ? contentSnapshot.html.trim()
+            : typeof runtime?.html === "string"
+              ? runtime.html.trim()
+              : "";
         if (!html || normalizeHtml(html) === normalizeHtml(HTML_EMPTY_TEMPLATE)) {
           return buildResolution(
             "backend_placeholder",

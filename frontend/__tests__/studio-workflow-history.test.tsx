@@ -126,6 +126,57 @@ function WorkflowHistoryRunAwareProbe() {
   );
 }
 
+function WorkflowHistoryExplicitWorkflowProbe() {
+  const { groupedHistory, recordWorkflowEntry } = useStudioWorkflowHistory(
+    buildEmptyHistory(),
+    "sess-1",
+    "proj-1"
+  );
+  const wordItems = groupedHistory.find(([toolType]) => toolType === "word")?.[1] ?? [];
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => {
+          const workflowId = recordWorkflowEntry({
+            workflowId: "workflow:word:new-a",
+            toolType: "word",
+            title: "教案 A",
+            status: "draft",
+            step: "generate",
+            sessionId: "sess-1",
+            toolLabel: "教学文档",
+          });
+          recordWorkflowEntry({
+            workflowId,
+            toolType: "word",
+            title: "教案 A",
+            status: "processing",
+            step: "preview",
+            sessionId: "sess-1",
+            toolLabel: "教学文档",
+          });
+          recordWorkflowEntry({
+            workflowId: "workflow:word:new-b",
+            toolType: "word",
+            title: "教案 B",
+            status: "draft",
+            step: "generate",
+            sessionId: "sess-1",
+            toolLabel: "教学文档",
+          });
+        }}
+      >
+        record-explicit-workflows
+      </button>
+      <div data-testid="word-explicit-count">{String(wordItems.length)}</div>
+      <div data-testid="word-explicit-first-status">{wordItems[0]?.status ?? ""}</div>
+      <div data-testid="word-explicit-second-status">{wordItems[1]?.status ?? ""}</div>
+    </div>
+  );
+}
+
 function WorkflowHistoryWithArtifactProbe() {
   const artifactHistory = buildEmptyHistory();
   artifactHistory.word = [
@@ -172,6 +223,54 @@ function WorkflowHistoryWithArtifactProbe() {
       </button>
       <div data-testid="word-item-count">{String(wordItems.length)}</div>
       <div data-testid="word-item-title">{wordItems[0]?.title ?? ""}</div>
+    </div>
+  );
+}
+
+function WorkflowHistoryArtifactUpdateProbe() {
+  const artifactHistory = buildEmptyHistory();
+  artifactHistory.word = [
+    {
+      artifactId: "word-artifact-1",
+      sessionId: "sess-1",
+      toolType: "word",
+      artifactType: "docx",
+      title: "已有教案",
+      metadataTitle: "已有教案",
+      status: "completed",
+      createdAt: "2026-04-19T15:45:00.000Z",
+      basedOnVersionId: null,
+      runId: null,
+      runNo: null,
+    },
+  ];
+  const { groupedHistory, recordWorkflowEntry } = useStudioWorkflowHistory(
+    artifactHistory,
+    "sess-1",
+    "proj-1"
+  );
+  const wordItems = groupedHistory.find(([toolType]) => toolType === "word")?.[1] ?? [];
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() =>
+          recordWorkflowEntry({
+            toolType: "word",
+            title: "已有教案",
+            status: "processing",
+            step: "preview",
+            sessionId: "sess-1",
+            artifactId: "word-artifact-1",
+            toolLabel: "教学文档",
+          })
+        }
+      >
+        record-artifact-update
+      </button>
+      <div data-testid="word-artifact-update-count">{String(wordItems.length)}</div>
+      <div data-testid="word-artifact-update-title">{wordItems[0]?.title ?? ""}</div>
     </div>
   );
 }
@@ -273,6 +372,54 @@ function WorkflowHistoryWordReplacementProbe() {
   );
 }
 
+function WorkflowHistoryMultipleWordArtifactsProbe() {
+  const artifactHistory = buildEmptyHistory();
+  artifactHistory.word = [
+    {
+      artifactId: "word-artifact-1",
+      sessionId: "sess-1",
+      toolType: "word",
+      artifactType: "docx",
+      title: "教案 A",
+      metadataTitle: "教案 A",
+      status: "completed",
+      createdAt: "2026-04-19T15:45:00.000Z",
+      basedOnVersionId: null,
+      runId: null,
+      runNo: null,
+      isCurrent: false,
+    },
+    {
+      artifactId: "word-artifact-2",
+      sessionId: "sess-1",
+      toolType: "word",
+      artifactType: "docx",
+      title: "教案 B",
+      metadataTitle: "教案 B",
+      status: "completed",
+      createdAt: "2026-04-19T15:50:00.000Z",
+      basedOnVersionId: null,
+      runId: null,
+      runNo: null,
+      isCurrent: true,
+    },
+  ];
+  const { groupedHistory } = useStudioWorkflowHistory(
+    artifactHistory,
+    "sess-1",
+    "proj-1"
+  );
+  const wordItems = groupedHistory.find(([toolType]) => toolType === "word")?.[1] ?? [];
+
+  return (
+    <div>
+      <div data-testid="word-multi-count">{String(wordItems.length)}</div>
+      <div data-testid="word-multi-first-title">{wordItems[0]?.title ?? ""}</div>
+      <div data-testid="word-multi-second-title">{wordItems[1]?.title ?? ""}</div>
+    </div>
+  );
+}
+
 function WorkflowHistoryMindmapReplacementProbe() {
   const artifactHistory = buildEmptyHistory();
   artifactHistory.mindmap = [
@@ -357,6 +504,18 @@ describe("useStudioWorkflowHistory", () => {
     expect(screen.getByTestId("word-run-aware-run-id").textContent).toBe("run-1");
   });
 
+  it("keeps distinct new-artifact workflow rows when explicit workflow ids differ", () => {
+    render(<WorkflowHistoryExplicitWorkflowProbe />);
+
+    act(() => {
+      fireEvent.click(screen.getByText("record-explicit-workflows"));
+    });
+
+    expect(screen.getByTestId("word-explicit-count").textContent).toBe("2");
+    expect(screen.getByTestId("word-explicit-first-status").textContent).toBe("draft");
+    expect(screen.getByTestId("word-explicit-second-status").textContent).toBe("processing");
+  });
+
   it("builds the workflow title from lesson-plan fields instead of raw JSON keys", () => {
     render(<WorkflowHistoryProbe />);
 
@@ -383,6 +542,19 @@ describe("useStudioWorkflowHistory", () => {
     );
   });
 
+  it("does not create an extra workflow row when updating an existing artifact", () => {
+    render(<WorkflowHistoryArtifactUpdateProbe />);
+
+    act(() => {
+      fireEvent.click(screen.getByText("record-artifact-update"));
+    });
+
+    expect(screen.getByTestId("word-artifact-update-count").textContent).toBe("1");
+    expect(screen.getByTestId("word-artifact-update-title").textContent).toBe(
+      "已有教案"
+    );
+  });
+
   it("drops stale draft workflow rows once the completed word artifact lands", () => {
     render(<WorkflowHistoryDraftAndArtifactProbe />);
 
@@ -401,6 +573,14 @@ describe("useStudioWorkflowHistory", () => {
 
     expect(screen.getByTestId("word-replacement-count").textContent).toBe("2");
     expect(screen.getByTestId("word-replacement-title").textContent).toBe("教案 v2");
+  });
+
+  it("does not hide sibling word artifacts just because one is not current", () => {
+    render(<WorkflowHistoryMultipleWordArtifactsProbe />);
+
+    expect(screen.getByTestId("word-multi-count").textContent).toBe("2");
+    expect(screen.getByTestId("word-multi-first-title").textContent).toBe("教案 B");
+    expect(screen.getByTestId("word-multi-second-title").textContent).toBe("教案 A");
   });
 
   it("keeps only the current mindmap replacement head in history", () => {

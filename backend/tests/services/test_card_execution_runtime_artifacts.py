@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock
 import pytest
 
 from services.generation_session_service.card_execution_runtime_artifacts import (
+    _resolve_initial_artifact_mode,
     execute_studio_card_artifact_request,
     execute_studio_card_structured_refine,
 )
@@ -19,6 +20,7 @@ from services.generation_session_service.card_execution_runtime_word import (
     resolve_word_document_title,
 )
 from services.project_space_service.service import project_space_service
+from schemas.studio_cards import StudioCardResolvedRequest
 from utils.exceptions import APIException, ErrorCode
 
 
@@ -93,7 +95,6 @@ async def test_resolve_word_document_title_treats_untitled_document_as_placehold
     [
         ("word_document", "docx"),
         ("knowledge_mindmap", "mindmap"),
-        ("interactive_quick_quiz", "exercise"),
     ],
 )
 async def test_structured_refine_updates_managed_artifact_in_place(
@@ -189,6 +190,100 @@ async def test_structured_refine_updates_managed_artifact_in_place(
     assert result.artifact["id"] == "artifact-001"
     assert result.artifact["replaces_artifact_id"] is None
     assert result.latest_runnable_state["active_artifact_id"] == "artifact-001"
+
+
+@pytest.mark.anyio
+async def test_quiz_structured_refine_creates_replacement_artifact(
+    monkeypatch,
+):
+    source_artifact = SimpleNamespace(
+        id="artifact-001",
+        projectId="project-001",
+        sessionId="session-001",
+        type="exercise",
+        visibility="private",
+        basedOnVersionId="version-001",
+        metadata={"title": "旧小测"},
+    )
+    replacement_artifact = SimpleNamespace(
+        id="artifact-002",
+        projectId="project-001",
+        sessionId="session-001",
+        type="exercise",
+        visibility="private",
+        basedOnVersionId="version-001",
+        metadata={"title": "新小测"},
+    )
+    body = SimpleNamespace(
+        project_id="project-001",
+        session_id="session-001",
+        artifact_id="artifact-001",
+        source_artifact_id=None,
+        message="请更新内容",
+        config={"operation": "direct_edit_question"},
+        rag_source_ids=[],
+        selection_anchor=None,
+        refine_mode=SimpleNamespace(value="structured_refine"),
+        primary_source_id=None,
+        selected_source_ids=[],
+    )
+    preview = SimpleNamespace(
+        readiness="ready",
+        refine_request={
+            "method": "POST",
+            "endpoint": "/studio-cards/interactive_quick_quiz/refine",
+            "mode": "structured_refine",
+        },
+        execution_carrier="artifact",
+    )
+
+    validate_artifact_mock = AsyncMock(return_value=source_artifact)
+    build_content_mock = AsyncMock(return_value={"title": "新小测"})
+    update_existing_mock = AsyncMock()
+    create_replacement_mock = AsyncMock(return_value=replacement_artifact)
+    create_run_mock = AsyncMock(
+        return_value={"run_id": "run-002", "run_no": 2, "artifact_id": "artifact-002"}
+    )
+
+    monkeypatch.setattr(
+        "services.generation_session_service.card_execution_runtime_artifacts.validate_structured_refine_artifact",
+        validate_artifact_mock,
+    )
+    monkeypatch.setattr(
+        "services.generation_session_service.card_execution_runtime_artifacts.build_structured_refine_artifact_content",
+        build_content_mock,
+    )
+    monkeypatch.setattr(
+        "services.generation_session_service.card_execution_runtime_artifacts.update_existing_artifact",
+        update_existing_mock,
+    )
+    monkeypatch.setattr(
+        "services.generation_session_service.card_execution_runtime_artifacts.create_replacement_artifact",
+        create_replacement_mock,
+    )
+    monkeypatch.setattr(
+        "services.generation_session_service.card_execution_runtime_artifacts.create_artifact_run",
+        create_run_mock,
+    )
+    monkeypatch.setattr(
+        project_space_service,
+        "check_project_permission",
+        AsyncMock(return_value=True),
+    )
+
+    result = await execute_studio_card_structured_refine(
+        card_id="interactive_quick_quiz",
+        body=body,
+        user_id="user-001",
+        preview=preview,
+        load_content=AsyncMock(return_value={"title": "旧小测"}),
+    )
+
+    update_existing_mock.assert_not_awaited()
+    create_replacement_mock.assert_awaited_once()
+    assert result.artifact["id"] == "artifact-002"
+    assert result.latest_runnable_state["active_artifact_id"] == "artifact-002"
+    assert result.provenance["replaces_artifact_id"] == "artifact-001"
 
 
 def test_normalize_simulator_turn_result_backfills_required_fields() -> None:
@@ -329,3 +424,127 @@ async def test_execute_studio_card_artifact_request_marks_requested_run_failed_o
     assert mark_failed_mock.await_args.kwargs["card_id"] == "demonstration_animations"
     assert mark_failed_mock.await_args.kwargs["session_id"] == "session-001"
     create_artifact_mock.assert_not_awaited()
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    ("card_id", "artifact_type", "artifact_title"),
+    [
+        ("word_document", "docx", "牛顿第二定律教案"),
+        ("knowledge_mindmap", "mindmap", "牛顿第二定律导图"),
+        ("interactive_quick_quiz", "exercise", "牛顿第二定律小测"),
+    ],
+)
+async def test_execute_studio_card_artifact_request_creates_new_artifact_for_initial_generation(
+    monkeypatch,
+    card_id,
+    artifact_type,
+    artifact_title,
+):
+    body = SimpleNamespace(
+        project_id="project-001",
+        client_session_id="session-001",
+        run_id="run-quiz-001",
+        config={"scope": "牛顿第二定律"},
+        primary_source_id=None,
+        source_artifact_id=None,
+        selected_source_ids=[],
+        rag_source_ids=[],
+    )
+    preview = SimpleNamespace(
+        readiness="foundation_ready",
+        initial_request=StudioCardResolvedRequest(
+            method="POST",
+            endpoint="/api/v1/projects/project-001/artifacts",
+            payload={
+                "content": {
+                    "kind": "managed_artifact",
+                    "scope": "牛顿第二定律",
+                    "question_count": 5,
+                },
+                "type": artifact_type,
+                "visibility": "private",
+                "based_on_version_id": None,
+            },
+        ),
+        execution_carrier="artifact",
+    )
+    created_artifact = SimpleNamespace(
+        id="artifact-quiz-002",
+        type=artifact_type,
+        visibility="private",
+        sessionId="session-001",
+        metadata={"title": artifact_title},
+    )
+
+    create_artifact_mock = AsyncMock(return_value=created_artifact)
+
+    monkeypatch.setattr(
+        project_space_service,
+        "check_project_permission",
+        AsyncMock(),
+    )
+    monkeypatch.setattr(
+        "services.generation_session_service.card_execution_runtime_artifacts.resolve_execution_session_id",
+        AsyncMock(return_value="session-001"),
+    )
+    monkeypatch.setattr(
+        "services.generation_session_service.card_execution_runtime_artifacts.resolve_effective_source_artifact_id",
+        AsyncMock(return_value=None),
+    )
+    monkeypatch.setattr(
+        "services.generation_session_service.card_execution_runtime_artifacts.validate_source_artifact",
+        AsyncMock(),
+    )
+    monkeypatch.setattr(
+        "services.generation_session_service.card_execution_runtime_artifacts.promote_requested_run_to_generating",
+        AsyncMock(),
+    )
+    monkeypatch.setattr(
+        "services.generation_session_service.card_execution_runtime_artifacts.build_studio_tool_artifact_content",
+        AsyncMock(
+            return_value={
+                "title": artifact_title,
+                "scope": "牛顿第二定律",
+                "question_count": 5,
+                "questions": [],
+            }
+        ),
+    )
+    monkeypatch.setattr(
+        "services.generation_session_service.card_execution_runtime_artifacts.build_source_snapshot_payload",
+        AsyncMock(return_value={}),
+    )
+    monkeypatch.setattr(
+        project_space_service,
+        "create_artifact_with_file",
+        create_artifact_mock,
+    )
+    monkeypatch.setattr(
+        "services.generation_session_service.card_execution_runtime_artifacts.create_artifact_run",
+        AsyncMock(return_value={"run_id": "run-quiz-001", "run_no": 1}),
+    )
+
+    result = await execute_studio_card_artifact_request(
+        card_id=card_id,
+        body=body,
+        user_id="user-001",
+        preview=preview,
+    )
+
+    assert result.artifact["id"] == "artifact-quiz-002"
+    assert create_artifact_mock.await_args.kwargs["artifact_mode"] == "create"
+
+
+@pytest.mark.parametrize(
+    "card_id",
+    [
+        "word_document",
+        "knowledge_mindmap",
+        "interactive_quick_quiz",
+        "interactive_games",
+        "demonstration_animations",
+    ],
+)
+def test_resolve_initial_artifact_mode_always_creates_new_artifact(card_id: str) -> None:
+    assert _resolve_initial_artifact_mode(card_id) == "create"

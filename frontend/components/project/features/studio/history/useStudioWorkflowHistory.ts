@@ -28,11 +28,13 @@ const MANAGED_LIFECYCLE_TOOLS = new Set<GenerationToolType>([
   "word",
   "mindmap",
   "quiz",
+  "outline",
 ]);
 
 const WORKFLOW_HISTORY_STORAGE_VERSION = "run-v2";
 
 type WorkflowEntryInput = {
+  workflowId?: string | null;
   toolType: GenerationToolType;
   title: string;
   status: StudioHistoryStatus;
@@ -115,6 +117,7 @@ function toArtifactHistoryItem(item: ArtifactHistoryItem): StudioHistoryItem {
   return {
     id: `artifact:${item.artifactId}`,
     origin: "artifact",
+    workflowId: null,
     toolType: item.toolType,
     title: item.title,
     status: item.status,
@@ -131,6 +134,13 @@ function toArtifactHistoryItem(item: ArtifactHistoryItem): StudioHistoryItem {
 }
 
 function makeWorkflowId(input: WorkflowEntryInput): string {
+  const explicitWorkflowId =
+    typeof input.workflowId === "string" && input.workflowId.trim()
+      ? input.workflowId.trim()
+      : null;
+  if (explicitWorkflowId) {
+    return explicitWorkflowId;
+  }
   const normalizedRunId = normalizeRunId(input.runId);
   if (normalizedRunId) {
     return `workflow:${input.toolType}:${normalizedRunId}`;
@@ -323,11 +333,17 @@ export function useStudioWorkflowHistory(
   const recordWorkflowEntry = useCallback((input: WorkflowEntryInput) => {
     const normalizedInputRunId = normalizeRunId(input.runId);
     if (input.toolType === "ppt" && !normalizedInputRunId) {
-      return;
+      return "";
     }
+    const requestedWorkflowId =
+      typeof input.workflowId === "string" && input.workflowId.trim()
+        ? input.workflowId.trim()
+        : null;
+    const nextWorkflowId = makeWorkflowId(input);
     const nextItem: StudioHistoryItem = {
-      id: makeWorkflowId(input),
+      id: nextWorkflowId,
       origin: "workflow",
+      workflowId: nextWorkflowId,
       toolType: input.toolType,
       title: input.title,
       status: input.status,
@@ -340,8 +356,12 @@ export function useStudioWorkflowHistory(
       ppt_status: input.ppt_status,
     };
 
+    let finalWorkflowId = nextWorkflowId;
     setWorkflowItems((prev) => {
       let resolvedItemId = nextItem.id;
+      if (requestedWorkflowId) {
+        resolvedItemId = requestedWorkflowId;
+      }
       const sameSessionItems = input.sessionId
         ? prev.filter(
             (item) =>
@@ -351,7 +371,7 @@ export function useStudioWorkflowHistory(
           )
         : [];
       const activeSessionWorkflow = sameSessionItems.filter(isNonTerminalWorkflowItem);
-      if (normalizedInputRunId && input.sessionId) {
+      if (!requestedWorkflowId && normalizedInputRunId && input.sessionId) {
         const sameRunItem = sameSessionItems.find(
           (item) => normalizeRunId(item.runId) === normalizedInputRunId
         );
@@ -359,12 +379,13 @@ export function useStudioWorkflowHistory(
           sameRunItem?.id ??
           (activeSessionWorkflow.length === 1 ? activeSessionWorkflow[0]?.id : undefined) ??
           resolvedItemId;
-      } else if (input.sessionId) {
+      } else if (!requestedWorkflowId && input.sessionId) {
         const transientItem =
           activeSessionWorkflow.find((item) => !normalizeRunId(item.runId)) ??
           activeSessionWorkflow[0];
         resolvedItemId = transientItem?.id ?? resolvedItemId;
       }
+      finalWorkflowId = resolvedItemId;
       const index = prev.findIndex((item) => item.id === resolvedItemId);
       const itemWithResolvedId: StudioHistoryItem =
         resolvedItemId === nextItem.id
@@ -372,6 +393,7 @@ export function useStudioWorkflowHistory(
           : {
               ...nextItem,
               id: resolvedItemId,
+              workflowId: resolvedItemId,
             };
       if (index < 0) {
         return [itemWithResolvedId, ...prev].slice(0, 80);
@@ -390,13 +412,14 @@ export function useStudioWorkflowHistory(
           itemWithResolvedId.runNo ??
           (existing.runNo === undefined ? null : existing.runNo),
         artifactId: itemWithResolvedId.artifactId ?? existing.artifactId,
+        workflowId: resolvedItemId,
       };
       const stabilizedItem = pickPreferredWorkflowItem(existing, mergedItem);
       const rest = prev.filter((_, idx) => idx !== index);
       return [stabilizedItem, ...rest];
     });
 
-    if (!input.titleSource?.trim()) return;
+    if (!input.titleSource?.trim()) return finalWorkflowId;
     const rawTitleSource = input.titleSource.trim();
     const polishedTitle =
       summarizeTitleFromDraftJson(
@@ -404,7 +427,7 @@ export function useStudioWorkflowHistory(
         input.toolLabel || input.title
       ) ??
       summarizeTitleFromText(rawTitleSource, input.toolLabel || input.title);
-    if (!polishedTitle) return;
+    if (!polishedTitle) return finalWorkflowId;
     setWorkflowItems((prev) => {
       const resolvedItem =
         prev.find((item) => item.id === nextItem.id) ??
@@ -416,7 +439,7 @@ export function useStudioWorkflowHistory(
             normalizeRunId(item.runId) === normalizedInputRunId
         ) ??
         null;
-      const resolvedItemId = resolvedItem?.id ?? nextItem.id;
+      const resolvedItemId = resolvedItem?.id ?? finalWorkflowId;
       if (polishedTitleRequestedRef.current[resolvedItemId]) {
         return prev;
       }
@@ -425,6 +448,7 @@ export function useStudioWorkflowHistory(
         item.id === resolvedItemId ? { ...item, title: polishedTitle } : item
       );
     });
+    return finalWorkflowId;
   }, []);
 
   const trackStep = useCallback(
@@ -683,7 +707,7 @@ export function useStudioWorkflowHistory(
     const dedupedArtifacts = sessionScopedArtifacts.filter((item) => {
       if (
         MANAGED_LIFECYCLE_TOOLS.has(item.toolType) &&
-        (item.supersededByArtifactId || item.isCurrent === false)
+        item.supersededByArtifactId
       ) {
         return false;
       }

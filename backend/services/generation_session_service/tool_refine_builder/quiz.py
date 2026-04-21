@@ -43,7 +43,7 @@ def _resolve_quiz_refine_model() -> str | None:
 
 
 def _resolve_quiz_refine_max_tokens() -> int:
-    return _env_positive_int("QUIZ_REFINE_MAX_TOKENS", 2200)
+    return _env_positive_int("QUIZ_REFINE_MAX_TOKENS", 3400)
 
 
 def _normalize_rag_snippet(text: str) -> str:
@@ -51,6 +51,8 @@ def _normalize_rag_snippet(text: str) -> str:
     candidate = re.sub(r"\s+", " ", candidate.replace("\r", " ").replace("\n", " ")).strip()
     candidate = re.sub(r"\[[^\]]+\]", " ", candidate)
     candidate = re.sub(r"\b[\w.\-]+\.(?:pdf|pptx?|docx?|md|txt)\b", " ", candidate, flags=re.IGNORECASE)
+    candidate = re.sub(r"\bchunk\s*#?\s*\d+\b", " ", candidate, flags=re.IGNORECASE)
+    candidate = re.sub(r"\bpage\s*#?\s*\d+\b", " ", candidate, flags=re.IGNORECASE)
     candidate = re.sub(r"\s+", " ", candidate).strip(" -:;,.")
     return candidate
 
@@ -65,20 +67,19 @@ async def _load_refine_rag_snippets(
         project_id=project_id,
         query=query,
         rag_source_ids=rag_source_ids,
-        card_id="interactive_quick_quiz",
     )
     cleaned: list[str] = []
     seen: set[str] = set()
     for raw_snippet in raw_snippets:
         snippet = _normalize_rag_snippet(raw_snippet)
-        if len(snippet) < 8:
+        if len(snippet) < 12:
             continue
         dedupe_key = re.sub(r"\s+", "", snippet.lower())[:160]
         if dedupe_key in seen:
             continue
         seen.add(dedupe_key)
-        cleaned.append(snippet[:180])
-    return cleaned[:2]
+        cleaned.append(snippet[:260])
+    return cleaned[:4]
 
 
 def _resolve_target_id(current_content: dict[str, Any], config: dict[str, Any]) -> str:
@@ -99,10 +100,69 @@ def _resolve_target_id(current_content: dict[str, Any], config: dict[str, Any]) 
     )
 
 
+_COUNT_CN_MAP = {
+    "一": 1,
+    "二": 2,
+    "两": 2,
+    "三": 3,
+    "四": 4,
+    "五": 5,
+    "六": 6,
+    "七": 7,
+    "八": 8,
+    "九": 9,
+    "十": 10,
+}
+
+
+def _parse_explicit_requested_question_count(
+    message: str,
+    config: dict[str, Any],
+    current_content: dict[str, Any],
+) -> int | None:
+    raw_message = str(message or "").strip()
+    if raw_message:
+        digit_match = re.search(r"(\d{1,3})\s*道题", raw_message)
+        if digit_match:
+            try:
+                value = int(digit_match.group(1))
+                if value > 0:
+                    return value
+            except ValueError:
+                pass
+        cn_match = re.search(r"([一二两三四五六七八九十]{1,3})\s*道题", raw_message)
+        if cn_match:
+            token = cn_match.group(1)
+            if token == "十":
+                return 10
+            if token.startswith("十") and len(token) == 2:
+                return 10 + _COUNT_CN_MAP.get(token[1], 0)
+            if token.endswith("十") and len(token) == 2:
+                return _COUNT_CN_MAP.get(token[0], 0) * 10
+            if len(token) == 3 and token[1] == "十":
+                return _COUNT_CN_MAP.get(token[0], 0) * 10 + _COUNT_CN_MAP.get(token[2], 0)
+            return _COUNT_CN_MAP.get(token)
+
+    for candidate in (
+        config.get("question_count"),
+        config.get("count"),
+        current_content.get("question_count"),
+    ):
+        try:
+            value = int(candidate)
+            if value > 0:
+                return value
+        except (TypeError, ValueError):
+            continue
+    return None
+
+
 def _build_compact_snapshot(
     current_content: dict[str, Any],
     *,
     focus_question_id: str | None,
+    config: dict[str, Any],
+    requested_question_count: int | None,
 ) -> dict[str, Any]:
     questions_snapshot = []
     for item in current_content.get("questions") or []:
@@ -125,6 +185,14 @@ def _build_compact_snapshot(
         "title": str(current_content.get("title") or "").strip()[:64],
         "scope": str(current_content.get("scope") or "").strip()[:120],
         "question_count": len(questions_snapshot),
+        "requested_question_count": requested_question_count,
+        "difficulty": str(config.get("difficulty") or "").strip() or None,
+        "question_type": str(config.get("question_type") or "").strip() or None,
+        "style_tags": [
+            str(tag).strip()
+            for tag in (config.get("style_tags") or [])
+            if str(tag).strip()
+        ][:8],
         "focus_question_id": focus_question_id,
         "questions": questions_snapshot,
     }
@@ -139,14 +207,26 @@ async def _rewrite_full_quiz(
     rag_source_ids: list[str] | None,
 ) -> dict[str, Any]:
     focus_question_id = _resolve_target_id(current_content, config)
+    requested_question_count = _parse_explicit_requested_question_count(
+        message,
+        config,
+        current_content,
+    )
     compact_snapshot = _build_compact_snapshot(
         current_content,
         focus_question_id=focus_question_id,
+        config=config,
+        requested_question_count=requested_question_count,
     )
     rag_snippets = await _load_refine_rag_snippets(
         project_id=project_id,
         query=message or str(current_content.get("scope") or current_content.get("title") or "随堂小测改写"),
         rag_source_ids=rag_source_ids,
+    )
+    exact_count_requirement = (
+        f"- The user explicitly requested {requested_question_count} questions. Return exactly {requested_question_count} questions unless the source is unusable.\n"
+        if requested_question_count
+        else ""
     )
     prompt = (
         "You are rewriting an existing classroom quiz artifact.\n"
@@ -156,11 +236,16 @@ async def _rewrite_full_quiz(
         f"Compact quiz snapshot: {json.dumps(compact_snapshot, ensure_ascii=False)}\n"
         f"Optional evidence snippets: {json.dumps(rag_snippets, ensure_ascii=False)}\n"
         "Rewrite requirements:\n"
+        "- Rewrite from the current quiz first; evidence snippets are supporting signals, not the main structure.\n"
         "- Keep or improve total question count; do not obviously shrink the quiz.\n"
+        f"{exact_count_requirement}"
+        "- Preserve or improve topic coverage, distractor quality, and explanation completeness.\n"
         "- Keep question ids stable when rewriting existing questions whenever possible.\n"
-        "- Prioritize the focus question when the instruction is local, but still return the full quiz artifact.\n"
-        "- Remove prompt noise, source traces, filenames, chunk markers, and renderer/runtime metadata.\n"
-        "- Keep titles and questions concise, classroom-ready, and machine-addressable.\n"
+        "- If the instruction focuses on one current question, strengthen that question first but still return the full quiz artifact.\n"
+        "- Every question should feel classroom-ready, concise, and immediately usable.\n"
+        "- Explanations should be teaching-ready and specific, not generic filler.\n"
+        "- Remove prompt noise, source traces, filenames, chunk markers, page markers, and renderer/runtime metadata.\n"
+        "- Never return a chat reply, prose explanation, or partial patch.\n"
         "- Return a JSON object with shape: {title, scope, questions:[{id,question,options,answer,explanation}]}\n"
     )
     result = await ai_service.generate(
@@ -189,7 +274,15 @@ async def _rewrite_full_quiz(
     normalized = normalize_generated_card_payload(
         card_id="interactive_quick_quiz",
         payload=parsed,
-        config=current_content | config,
+        config={
+            **current_content,
+            **config,
+            **(
+                {"question_count": requested_question_count}
+                if requested_question_count
+                else {}
+            ),
+        },
     )
     validate_card_payload("interactive_quick_quiz", normalized)
     baseline_count = len(
@@ -197,6 +290,7 @@ async def _rewrite_full_quiz(
     )
     score, issues, metrics = evaluate_quiz_payload_quality(
         normalized,
+        requested_question_count=requested_question_count,
         baseline_question_count=baseline_count,
     )
     threshold = _env_positive_int("QUIZ_REFINE_QUALITY_THRESHOLD", 68)

@@ -205,6 +205,32 @@ describe("studio capability resolver", () => {
     expect(result.reason).toContain("legacy compatibility zone");
   });
 
+  it("treats interactive_game.v2 payload as backend_ready", async () => {
+    const artifact = makeArtifact({
+      toolType: "outline",
+      artifactType: "html",
+      metadata: {
+        content_snapshot: {
+          kind: "interactive_game",
+          schema_id: "interactive_game.v2",
+          title: "电路连线赛",
+          runtime: {
+            html: "<html><body><main><h1>demo</h1></main></body></html>",
+            sandbox_version: "interactive_game_sandbox.v1",
+          },
+        },
+      },
+    });
+    const result = await resolveCapabilityFromArtifact({
+      toolId: "outline",
+      artifact,
+      blob: new Blob(["placeholder"]),
+    });
+
+    expect(result.status).toBe("backend_ready");
+    expect(result.reason).toContain("interactive game");
+  });
+
   it("marks media as placeholder for tiny files and ready for real files", async () => {
     const artifact = makeArtifact({ artifactType: "gif" });
 

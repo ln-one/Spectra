@@ -39,20 +39,23 @@ def test_active_cards_expose_conservative_governance_snapshots():
     assert "node" in mindmap_card["supported_selection_scopes"]
 
 
-def test_interactive_games_is_marked_as_frozen_cleanup_target():
+def test_interactive_games_exposes_ready_sandbox_contract():
     cards = {card["id"]: card for card in get_studio_card_capabilities()}
 
-    assert cards["interactive_games"]["governance_tag"] == "freeze"
-    assert cards["interactive_games"]["cleanup_priority"] == "p0"
-    assert cards["interactive_games"]["frozen"] is True
-    assert cards["interactive_games"]["health_report"]["fallback_residue"] == 1
-    assert cards["interactive_games"]["supports_chat_refine"] is False
+    assert cards["interactive_games"]["governance_tag"] == "harden"
+    assert cards["interactive_games"]["cleanup_priority"] == "p1"
+    assert cards["interactive_games"]["frozen"] is False
+    assert cards["interactive_games"]["health_report"]["fallback_residue"] == 4
+    assert cards["interactive_games"]["supports_chat_refine"] is True
+    assert "chat_refine" in cards["interactive_games"]["supported_refine_modes"]
+    assert cards["interactive_games"]["source_binding_mode"] == "single_artifact"
 
     plan = get_studio_card_execution_plan("interactive_games")
     assert plan is not None
-    assert plan["initial_binding"]["status"] == "partial"
-    assert plan["refine_binding"]["status"] == "partial"
-    assert "legacy compatibility" in plan["initial_binding"]["notes"]
+    assert plan["initial_binding"]["status"] == "ready"
+    assert plan["refine_binding"]["status"] == "ready"
+    assert plan["source_binding"]["status"] == "ready"
+    assert "interactive_game.v2" in plan["initial_binding"]["notes"]
 
 
 def test_harden_cards_keep_surface_and_binding_contracts():

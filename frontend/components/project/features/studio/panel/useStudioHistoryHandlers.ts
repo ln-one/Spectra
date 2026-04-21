@@ -42,6 +42,7 @@ interface UseStudioHistoryHandlersArgs {
   requestStep: (tool: GenerationToolType, step: StudioHistoryStep) => void;
   acknowledgeStep: (tool: GenerationToolType, step?: StudioHistoryStep) => void;
   recordWorkflowEntry: (payload: {
+    workflowId?: string | null;
     toolType: GenerationToolType;
     title: string;
     status:
@@ -58,7 +59,7 @@ interface UseStudioHistoryHandlersArgs {
     runNo?: number;
     titleSource?: string;
     toolLabel?: string;
-  }) => void;
+  }) => string;
   syncStudioChatContextByStep: (
     toolType: GenerationToolType,
     step: "config" | "generate" | "preview",

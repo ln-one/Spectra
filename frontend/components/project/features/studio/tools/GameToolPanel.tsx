@@ -1,253 +1,340 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Gamepad2 } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { WorkflowStepper } from "@/components/project/shared";
-import { TOOL_COLORS } from "../constants";
-import type { ToolPanelProps } from "./types";
-import { ConfigStep } from "./game/ConfigStep";
-import { GAME_STEPS, getReadinessLabel } from "./game/constants";
-import { GenerateStep } from "./game/GenerateStep";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Gamepad2, Lightbulb, RefreshCw } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { DraftResultWorkbenchShell } from "./DraftResultWorkbenchShell";
+import type { ResolvedArtifactPayload, ToolPanelProps } from "./types";
 import { PreviewStep } from "./game/PreviewStep";
-import type { GameStep } from "./game/types";
-import { useStudioRagRecommendations } from "./useStudioRagRecommendations";
-import { useWorkflowStepSync } from "./useWorkflowStepSync";
+import { parseGamePayload } from "./game/GameSurfaceAdapter";
 
-function inferGamePattern(
-  creativeDirection: string,
-  mechanicsNotes: string
-):
-  | "timeline_sort"
-  | "concept_match"
-  | "term_pairing"
-  | "fill_in_blank"
-  | "quiz_run"
-  | "freeform" {
-  const text = `${creativeDirection} ${mechanicsNotes}`.toLowerCase();
-  if (/(时间轴|排序|顺序|timeline|sort)/i.test(text)) {
-    return "timeline_sort";
-  }
-  if (/(术语|名词|概念卡|pair|pairing)/i.test(text)) {
-    return "term_pairing";
-  }
-  if (/(连线|匹配|match|connect)/i.test(text)) {
-    return "concept_match";
-  }
-  if (/(填空|blank|cloze)/i.test(text)) {
-    return "fill_in_blank";
-  }
-  if (/(闯关|跑酷|连答|quiz|challenge|run)/i.test(text)) {
-    return "quiz_run";
-  }
-  return "freeform";
-}
+const GAME_DIRECTION_TAGS = [
+  "拖拽归类",
+  "流程排序",
+  "关系连线",
+];
 
-function buildIdeaTags(playerGoal: string, mechanicsNotes: string): string[] {
-  const raw = `${playerGoal}\n${mechanicsNotes}`;
-  const tokens = raw
-    .split(/[\n,，。；;、]/)
-    .map((item) => item.trim())
-    .filter((item) => item.length >= 2 && item.length <= 24);
-  return [...new Set(tokens)].slice(0, 4);
+const GAME_PROMPT_HINTS = [
+  "围绕一个明确知识点，做成 1 分钟内可完成的课堂小游戏。",
+  "不要做成选择题页面，要让学生通过拖拽、排序或连线完成判断。",
+  "偏向教师投屏操作，答错后给一句简洁反馈。",
+];
+
+function hasGameResultArtifact(
+  artifact?: ResolvedArtifactPayload | null
+): boolean {
+  const parsed = parseGamePayload(artifact?.content);
+  return Boolean(parsed.title && parsed.runtime.html);
 }
 
 export function GameToolPanel({
-  toolName,
+  toolName: _toolName,
   onDraftChange,
   flowContext,
 }: ToolPanelProps) {
-  const [activeStep, setActiveStep] = useState<GameStep>("config");
-  useWorkflowStepSync(activeStep, setActiveStep, flowContext);
-  const [topic, setTopic] = useState("");
-  const [creativeDirection, setCreativeDirection] = useState("");
-  const [playerGoal, setPlayerGoal] = useState("");
-  const [mechanicsNotes, setMechanicsNotes] = useState("");
-  const [isGenerating, setIsGenerating] = useState(false);
+  const existingDraft = flowContext?.currentDraft;
+  const [promptText, setPromptText] = useState(
+    typeof existingDraft?.topic === "string"
+      ? existingDraft.topic
+      : typeof existingDraft?.teaching_goal === "string"
+        ? existingDraft.teaching_goal
+        : ""
+  );
+  const [isGeneratingLocal, setIsGeneratingLocal] = useState(false);
   const [lastGeneratedAt, setLastGeneratedAt] = useState<string | null>(null);
-
-  const { suggestions, summary, isLoading } = useStudioRagRecommendations({
-    surface: "studio_game",
-    seedText: [topic, creativeDirection].filter(Boolean).join(" "),
-  });
-
-  useEffect(() => {
-    if (!topic.trim() && suggestions[0]) {
-      setTopic(suggestions[0]);
-    }
-  }, [suggestions, topic]);
+  const [hasActivatedResultSurface, setHasActivatedResultSurface] =
+    useState(false);
+  const [stickyResolvedArtifact, setStickyResolvedArtifact] =
+    useState<ResolvedArtifactPayload | null>(null);
 
   useEffect(() => {
-    if (!creativeDirection.trim() && summary) {
-      setCreativeDirection(summary);
-    }
-  }, [creativeDirection, summary]);
+    if (flowContext?.managedWorkbenchMode !== "draft") return;
+    const nextPrompt =
+      typeof flowContext?.currentDraft?.topic === "string"
+        ? flowContext.currentDraft.topic
+        : typeof flowContext?.currentDraft?.teaching_goal === "string"
+          ? flowContext.currentDraft.teaching_goal
+          : "";
+    setPromptText((prev) => (prev === nextPrompt ? prev : nextPrompt));
+  }, [flowContext?.currentDraft, flowContext?.managedWorkbenchMode]);
 
   useEffect(() => {
-    const gamePattern = inferGamePattern(creativeDirection, mechanicsNotes);
-    const creativeBrief = [creativeDirection, playerGoal, mechanicsNotes]
-      .map((item) => item.trim())
-      .filter(Boolean)
-      .join("\n");
-    const ideaTags = buildIdeaTags(playerGoal, mechanicsNotes);
+    const normalized = promptText.trim();
     onDraftChange?.({
-      topic,
-      creative_direction: creativeDirection,
-      player_goal: playerGoal,
-      mechanics_notes: mechanicsNotes,
-      game_pattern: gamePattern,
-      mode: gamePattern,
-      creative_brief: creativeBrief || creativeDirection,
-      countdown: 60,
-      life: 3,
-      idea_tags: ideaTags,
+      topic: normalized,
+      teaching_goal: normalized,
+      interaction_brief: normalized,
+      classroom_constraints: "",
       source_artifact_id: flowContext?.selectedSourceId ?? null,
     });
+  }, [flowContext?.selectedSourceId, onDraftChange, promptText]);
+
+  const sourceOptions = flowContext?.sourceOptions ?? [];
+  const sourceLabel =
+    (flowContext?.selectedSourceId &&
+      sourceOptions.find((item) => item.id === flowContext.selectedSourceId)?.title) ||
+    null;
+  const isHistoryResultMode = flowContext?.managedWorkbenchMode === "history";
+  const hasRenderableResult = hasGameResultArtifact(flowContext?.resolvedArtifact);
+  const isGenerating =
+    isGeneratingLocal ||
+    flowContext?.isActionRunning ||
+    flowContext?.workflowState === "executing" ||
+    flowContext?.managedResultTarget?.status === "processing";
+
+  useEffect(() => {
+    if (!hasRenderableResult) return;
+    if (!isHistoryResultMode && !hasActivatedResultSurface) return;
+    setStickyResolvedArtifact((previous) =>
+      previous?.artifactId === flowContext?.resolvedArtifact?.artifactId
+        ? previous
+        : (flowContext?.resolvedArtifact ?? null)
+    );
   }, [
-    creativeDirection,
-    flowContext?.selectedSourceId,
-    mechanicsNotes,
-    onDraftChange,
-    playerGoal,
-    topic,
+    flowContext?.resolvedArtifact,
+    hasActivatedResultSurface,
+    hasRenderableResult,
+    isHistoryResultMode,
   ]);
 
-  const handleGenerate = async () => {
-    setActiveStep("preview");
-
-    if (!flowContext?.onExecute) {
-      setLastGeneratedAt(new Date().toISOString());
-      return;
+  useEffect(() => {
+    if (isGenerating || isHistoryResultMode) {
+      setHasActivatedResultSurface(true);
     }
+  }, [isGenerating, isHistoryResultMode]);
 
-    setIsGenerating(true);
+  useEffect(() => {
+    const resolvedTarget = flowContext?.resolvedTarget;
+    const enteringFreshDraft =
+      flowContext?.managedWorkbenchMode === "draft" &&
+      !isGenerating &&
+      !hasRenderableResult &&
+      !isHistoryResultMode &&
+      !flowContext?.resolvedArtifact &&
+      resolvedTarget?.kind === "draft" &&
+      !resolvedTarget.artifactId &&
+      !resolvedTarget.runId;
+    if (!enteringFreshDraft) return;
+    setHasActivatedResultSurface(false);
+    setStickyResolvedArtifact(null);
+  }, [
+    flowContext?.managedWorkbenchMode,
+    flowContext?.resolvedArtifact,
+    flowContext?.resolvedTarget,
+    flowContext?.resolvedTarget?.artifactId,
+    flowContext?.resolvedTarget?.kind,
+    flowContext?.resolvedTarget?.runId,
+    hasRenderableResult,
+    isGenerating,
+    isHistoryResultMode,
+  ]);
+
+  const previewFlowContext = useMemo(() => {
+    if (isHistoryResultMode && flowContext?.resolvedArtifact) return flowContext;
+    if (hasRenderableResult && hasActivatedResultSurface) return flowContext;
+    if (!stickyResolvedArtifact) return flowContext;
+    return {
+      ...flowContext,
+      resolvedArtifact: stickyResolvedArtifact,
+    };
+  }, [
+    flowContext,
+    hasActivatedResultSurface,
+    hasRenderableResult,
+    isHistoryResultMode,
+    stickyResolvedArtifact,
+  ]);
+
+  const previewHasRenderableResult = hasGameResultArtifact(
+    previewFlowContext?.resolvedArtifact
+  );
+  const shouldShowResult = Boolean(
+    isHistoryResultMode ||
+      isGenerating ||
+      (hasActivatedResultSurface && previewHasRenderableResult)
+  );
+  const shouldShowDraft = !shouldShowResult;
+
+  const canGenerate = Boolean(
+    promptText.trim() &&
+      !isGenerating &&
+      !flowContext?.isLoadingProtocol &&
+      flowContext?.canExecute !== false
+  );
+
+  const handleGenerate = useCallback(async () => {
+    if (!flowContext?.onExecute || !canGenerate) return;
+    setIsGeneratingLocal(true);
     try {
       const executed = await flowContext.onExecute();
-      if (!executed) {
-        setActiveStep("generate");
-        return;
+      if (executed) {
+        setLastGeneratedAt(new Date().toISOString());
+        setHasActivatedResultSurface(true);
       }
-      setLastGeneratedAt(new Date().toISOString());
     } finally {
-      setIsGenerating(false);
+      setIsGeneratingLocal(false);
     }
-  };
+  }, [canGenerate, flowContext]);
 
-  const handlePrepareGenerate = async () => {
-    if (!flowContext?.onPrepareGenerate) {
-      setActiveStep("generate");
-      return;
-    }
-    const prepared = await flowContext.onPrepareGenerate();
-    if (!prepared) return;
-    setActiveStep("generate");
-  };
+  useEffect(() => {
+    const onGenerate = () => {
+      void handleGenerate();
+    };
+    window.addEventListener("spectra:outline:generate", onGenerate);
+    return () => {
+      window.removeEventListener("spectra:outline:generate", onGenerate);
+    };
+  }, [handleGenerate]);
 
-  const colors = TOOL_COLORS.game;
+  const sourceSummary = sourceLabel
+    ? `已绑定来源成果：${sourceLabel}`
+    : "来源成果默认可选，不绑定也能直接生成。";
 
   return (
-    <div
-      className="project-tool-workbench h-full overflow-hidden rounded-2xl border border-zinc-200/60 bg-white/80 backdrop-blur-xl shadow-2xl shadow-zinc-200/30 group/workbench"
-      style={{
-        ["--project-tool-accent" as any]: colors.primary,
-        ["--project-tool-accent-soft" as any]: colors.glow,
-        ["--project-tool-surface" as any]: colors.soft,
-      }}
-    >
-      {/* Tool Accent Tip */}
-      <div className={cn("h-1 w-full bg-gradient-to-r", colors.gradient)} />
+    <DraftResultWorkbenchShell
+      showDraft={shouldShowDraft}
+      showResult={shouldShowResult}
+      bodyClassName={shouldShowResult ? "h-full min-h-0 overflow-hidden p-0" : undefined}
+      draft={
+        <section className="overflow-hidden rounded-3xl border border-rose-100 bg-white shadow-[0_18px_48px_rgba(244,63,94,0.08)]">
+          <div className="grid gap-4 p-4 lg:grid-cols-[minmax(0,2fr)_320px]">
+            <div className="min-w-0 rounded-[28px] border border-rose-100 bg-white p-5">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <label
+                    htmlFor="interactive-game-prompt"
+                    className="text-sm font-semibold text-zinc-950"
+                  >
+                    互动游戏生成说明
+                  </label>
+                  <p className="mt-1 text-[11px] text-zinc-500">
+                    只写一次你的课堂目标和玩法想法，生成后再进入试玩面。
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-rose-100 bg-rose-50 p-2 text-rose-500">
+                  <Gamepad2 className="h-4 w-4" />
+                </div>
+              </div>
 
-      <div className="flex h-full min-h-0 flex-col">
-        <div className="border-b border-zinc-100/80 px-5 py-4 bg-zinc-50/30">
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-xl bg-white shadow-sm border border-zinc-100 group-hover/workbench:scale-110 transition-transform duration-500">
-                <Gamepad2
-                  className="w-5 h-5"
-                  style={{ color: colors.primary }}
+              <div className="mt-4">
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="text-xs font-semibold text-zinc-800">
+                    一句话描述你要的小游戏
+                  </span>
+                  <span className="text-[11px] text-zinc-400">
+                    {promptText.length} 字
+                  </span>
+                </div>
+                <Textarea
+                  id="interactive-game-prompt"
+                  value={promptText}
+                  onChange={(event) => setPromptText(event.target.value)}
+                  placeholder="例如：围绕串联与并联，做一个投屏操作的关系连线小游戏，让学生把电路类型和对应特征连起来，1 分钟内完成，答错后给简短反馈。"
+                  className="min-h-[280px] resize-none rounded-3xl border border-zinc-200 bg-zinc-50/30 px-4 py-4 text-sm leading-7 shadow-none"
                 />
               </div>
-              <div>
-                <h3 className="text-sm font-black text-zinc-900 tracking-tight">
-                  {toolName}智能工作台
-                </h3>
-                <p className="mt-0.5 text-[11px] font-medium leading-relaxed text-zinc-500">
-                  三步生成趣味课堂游戏 · 激发学生学习兴趣
-                </p>
+
+              <div className="mt-4">
+                <div className="mb-2 flex items-center gap-2 text-[11px] font-medium text-rose-700">
+                  <Lightbulb className="h-3.5 w-3.5" />
+                  <span>插入建议</span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {GAME_PROMPT_HINTS.map((hint) => (
+                    <button
+                      key={hint}
+                      type="button"
+                      onClick={() =>
+                        setPromptText((prev) => {
+                          const normalized = prev.trim();
+                          if (!normalized) return hint;
+                          if (normalized.includes(hint)) return prev;
+                          return `${normalized}\n${hint}`;
+                        })
+                      }
+                      className="rounded-full border border-rose-200 bg-rose-50 px-3 py-1.5 text-[11px] font-medium text-rose-700 transition-colors hover:border-rose-300 hover:bg-rose-100"
+                    >
+                      {hint}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="rounded-full border border-zinc-100 bg-white px-2.5 py-1 text-[10px] font-bold text-zinc-600 shadow-sm uppercase tracking-wider">
-                {getReadinessLabel(flowContext?.readiness)}
-              </span>
+
+            <div className="space-y-3">
+              <section className="rounded-[28px] border border-rose-100 bg-white p-4">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-xs font-semibold text-zinc-900">来源成果</p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-8 border-rose-200 px-2.5 text-[11px] text-rose-700 hover:bg-rose-50"
+                    onClick={() => void flowContext?.onLoadSources?.()}
+                    disabled={flowContext?.isLoadingProtocol || flowContext?.isActionRunning}
+                  >
+                    <RefreshCw className="mr-1 h-3.5 w-3.5" />
+                    刷新
+                  </Button>
+                </div>
+                {sourceOptions.length > 0 ? (
+                  <div className="mt-3 space-y-2">
+                    <Select
+                      value={flowContext?.selectedSourceId ?? ""}
+                      onValueChange={(value) =>
+                        flowContext?.onSelectedSourceChange?.(value || null)
+                      }
+                    >
+                      <SelectTrigger className="h-10 rounded-2xl border-zinc-200 bg-white text-xs">
+                        <SelectValue placeholder="可选：绑定一个已有成果" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {sourceOptions.map((item) => (
+                          <SelectItem key={item.id} value={item.id}>
+                            {(item.title || item.id.slice(0, 8)) +
+                              (item.type ? ` (${item.type})` : "")}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-[11px] text-zinc-500">{sourceSummary}</p>
+                  </div>
+                ) : (
+                  <p className="mt-3 text-[11px] text-zinc-500">{sourceSummary}</p>
+                )}
+              </section>
+
+              <section className="rounded-[28px] border border-rose-100 bg-rose-50/50 p-4">
+                <p className="text-xs font-semibold text-zinc-900">固定玩法</p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {GAME_DIRECTION_TAGS.map((item) => (
+                    <span
+                      key={item}
+                      className="rounded-full border border-rose-200 bg-white px-2.5 py-1 text-[11px] font-medium text-rose-700"
+                    >
+                      {item}
+                    </span>
+                  ))}
+                </div>
+              </section>
             </div>
           </div>
-        </div>
-
-        <div className="min-h-0 flex-1 overflow-hidden p-4">
-          <div className="grid h-full min-h-0 grid-cols-1 gap-3 lg:grid-cols-[176px_minmax(0,1fr)]">
-            <WorkflowStepper
-              className="hidden h-full min-h-0 overflow-y-auto lg:block"
-              layout="rail"
-              currentStep={activeStep}
-              steps={GAME_STEPS}
-              onStepChange={(stepId) => setActiveStep(stepId as GameStep)}
-              title="互动游戏流程"
-              subtitle="Workflow"
-            />
-            <div className="min-h-0 flex-1 overflow-y-auto pr-1">
-              <div className="mb-4 lg:hidden">
-                <WorkflowStepper
-                  layout="inline"
-                  currentStep={activeStep}
-                  steps={GAME_STEPS}
-                  onStepChange={(stepId) => setActiveStep(stepId as GameStep)}
-                  title="互动游戏流程"
-                  subtitle="Workflow"
-                />
-              </div>
-              {activeStep === "config" ? (
-                <ConfigStep
-                  topic={topic}
-                  creativeDirection={creativeDirection}
-                  playerGoal={playerGoal}
-                  mechanicsNotes={mechanicsNotes}
-                  topicSuggestions={suggestions}
-                  ideaSuggestion={summary}
-                  isRecommendationsLoading={isLoading}
-                  onTopicChange={setTopic}
-                  onCreativeDirectionChange={setCreativeDirection}
-                  onPlayerGoalChange={setPlayerGoal}
-                  onMechanicsNotesChange={setMechanicsNotes}
-                  onNext={() => {
-                    void handlePrepareGenerate();
-                  }}
-                />
-              ) : null}
-
-              {activeStep === "generate" ? (
-                <GenerateStep
-                  topic={topic}
-                  creativeDirection={creativeDirection}
-                  playerGoal={playerGoal}
-                  mechanicsNotes={mechanicsNotes}
-                  flowContext={flowContext}
-                  isGenerating={isGenerating}
-                  onBack={() => setActiveStep("config")}
-                  onGenerate={() => void handleGenerate()}
-                />
-              ) : null}
-
-              {activeStep === "preview" ? (
-                <PreviewStep
-                  lastGeneratedAt={lastGeneratedAt}
-                  flowContext={flowContext}
-                />
-              ) : null}
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+        </section>
+      }
+      result={
+        <PreviewStep
+          lastGeneratedAt={lastGeneratedAt}
+          flowContext={previewFlowContext}
+        />
+      }
+    />
   );
 }

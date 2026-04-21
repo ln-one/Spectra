@@ -3,8 +3,8 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from services.generation_session_service.interactive_games_legacy_adapter import (
-    resolve_interactive_game_schema_hint,
+from services.generation_session_service.interactive_game_normalizer import (
+    build_interactive_game_schema_hint,
 )
 from services.generation_session_service.mindmap_normalizer import (
     build_mindmap_schema_hint,
@@ -22,7 +22,7 @@ _PAYLOAD_REQUIREMENTS: dict[str, tuple[str, ...]] = {
     "word_document": ("title", "summary", "layout_payload"),
     "knowledge_mindmap": ("title", "nodes"),
     "interactive_quick_quiz": ("title", "questions"),
-    "interactive_games": ("title", "html"),
+    "interactive_games": ("schema_id", "title", "subtype", "spec", "instructions", "runtime"),
     "classroom_qa_simulator": ("title", "turns"),
     "demonstration_animations": (),
     "speaker_notes": ("title", "slides", "anchors"),
@@ -146,7 +146,21 @@ def validate_card_payload(card_id: str, payload: dict[str, Any]) -> None:
         require_non_empty_list(payload, "questions")
     elif card_id == "interactive_games":
         require_non_empty_str(payload, "title")
-        require_non_empty_str(payload, "html")
+        require_non_empty_str(payload, "schema_id")
+        require_non_empty_str(payload, "subtype")
+        require_non_empty_list(payload, "instructions")
+        spec = payload.get("spec")
+        if not isinstance(spec, dict) or not spec:
+            raise ValueError("field_spec_empty")
+        runtime = payload.get("runtime")
+        if not isinstance(runtime, dict) or not runtime:
+            raise ValueError("field_runtime_empty")
+        html = runtime.get("html") if isinstance(runtime, dict) else None
+        sandbox_version = runtime.get("sandbox_version") if isinstance(runtime, dict) else None
+        if not isinstance(html, str) or not html.strip():
+            raise ValueError("field_runtime_html_empty")
+        if not isinstance(sandbox_version, str) or not sandbox_version.strip():
+            raise ValueError("field_runtime_sandbox_version_empty")
     elif card_id == "classroom_qa_simulator":
         require_non_empty_str(payload, "title")
         require_non_empty_list(payload, "turns")
@@ -264,7 +278,7 @@ def parse_ai_object_payload(
 
 def build_schema_hint(card_id: str, config: dict[str, Any] | None = None) -> str | None:
     if card_id == "interactive_games":
-        return resolve_interactive_game_schema_hint(config)
+        return build_interactive_game_schema_hint(config)
 
     return {
         "courseware_ppt": (

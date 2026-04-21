@@ -17,6 +17,10 @@ from services.generation_session_service.mindmap_generation_support import (
 from services.generation_session_service.mindmap_normalizer import (
     evaluate_mindmap_payload_quality,
 )
+from services.generation_session_service.interactive_game_generation_support import (
+    enforce_interactive_game_quality_gate,
+    generate_interactive_game_reviewed_payload,
+)
 from services.generation_session_service.quiz_generation_support import (
     enforce_quiz_quality_gate,
     generate_quiz_reviewed_payload,
@@ -90,6 +94,8 @@ def _resolve_card_generation_max_tokens(card_id: str) -> int:
         return _env_positive_int("WORD_LESSON_PLAN_MAX_TOKENS", 50000)
     if card_id == "knowledge_mindmap":
         return _env_positive_int("MINDMAP_MAX_TOKENS", 18000)
+    if card_id == "interactive_games":
+        return _env_positive_int("INTERACTIVE_GAME_MAX_TOKENS", 22000)
     return _CARD_GENERATION_MAX_TOKENS.get(card_id, 16000)
 
 
@@ -316,6 +322,7 @@ async def generate_structured_artifact_content(
     source_hint: str | None,
 ) -> dict[str, Any]:
     quiz_generation_trace: dict[str, Any] | None = None
+    interactive_game_trace: dict[str, Any] | None = None
     if card_id == "word_document":
         payload = await _generate_word_document_markdown_first_payload(
             config=config,
@@ -348,6 +355,14 @@ async def generate_structured_artifact_content(
             rag_snippets=rag_snippets,
             source_hint=source_hint,
         )
+    elif card_id == "interactive_games":
+        payload, model_name, interactive_game_trace = (
+            await generate_interactive_game_reviewed_payload(
+                config=config,
+                rag_snippets=rag_snippets,
+                source_hint=source_hint,
+            )
+        )
     else:
         payload, model_name = await generate_card_json_payload(
             prompt=_build_structured_artifact_prompt(
@@ -372,7 +387,7 @@ async def generate_structured_artifact_content(
         if card_id == "word_document" and not failure_reason.startswith("field_"):
             failure_reason = f"field_{failure_reason}"
         error_message = {
-            "interactive_games": "Interactive game payload failed legacy compatibility validation.",
+            "interactive_games": "Interactive game payload failed interactive_game.v2 validation.",
             "word_document": "Word document payload failed legacy adapter validation.",
             "speaker_notes": "Speaker notes payload failed adapter validation.",
         }.get(card_id, "Studio card payload failed normalizer validation.")
@@ -393,6 +408,8 @@ async def generate_structured_artifact_content(
                     "rag_snippet_count": quiz_generation_trace.get("rag_snippet_count", 0),
                 }
                 if card_id == "interactive_quick_quiz" and quiz_generation_trace
+                else interactive_game_trace
+                if card_id == "interactive_games" and interactive_game_trace
                 else None
             ),
         )
@@ -416,6 +433,8 @@ async def generate_structured_artifact_content(
                     "rag_snippet_count": quiz_generation_trace.get("rag_snippet_count", 0),
                 }
                 if card_id == "interactive_quick_quiz" and quiz_generation_trace
+                else interactive_game_trace
+                if card_id == "interactive_games" and interactive_game_trace
                 else None
             ),
         )
@@ -452,5 +471,11 @@ async def generate_structured_artifact_content(
             config=config,
             model_name=model_name,
             generation_trace=quiz_generation_trace,
+        )
+    if card_id == "interactive_games":
+        enforce_interactive_game_quality_gate(
+            payload=payload,
+            model_name=model_name,
+            generation_trace=interactive_game_trace,
         )
     return payload

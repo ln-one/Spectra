@@ -6,6 +6,7 @@ const MANAGED_LIFECYCLE_TOOLS = new Set<StudioToolKey>([
   "word",
   "mindmap",
   "quiz",
+  "outline",
 ]);
 
 function readTrimmedString(value: unknown): string | null {

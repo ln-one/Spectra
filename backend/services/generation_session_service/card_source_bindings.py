@@ -8,11 +8,19 @@ CARD_SOURCE_ARTIFACT_TYPES: dict[str, tuple[str, ...]] = {
     "word_document": (ArtifactType.PPTX.value,),
     "speaker_notes": (ArtifactType.PPTX.value,),
     "demonstration_animations": (ArtifactType.PPTX.value,),
+    "interactive_games": (
+        ArtifactType.PPTX.value,
+        ArtifactType.DOCX.value,
+        ArtifactType.MINDMAP.value,
+        ArtifactType.EXERCISE.value,
+        ArtifactType.SUMMARY.value,
+    ),
 }
 
 OPTIONAL_SOURCE_CARD_IDS = {
     "word_document",
     "demonstration_animations",
+    "interactive_games",
 }
 
 

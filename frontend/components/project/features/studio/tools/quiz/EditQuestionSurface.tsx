@@ -39,6 +39,7 @@ interface EditQuestionSurfaceProps {
   saveError: string | null;
   onDirtyChange: (isDirty: boolean) => void;
   onSave: (values: EditQuestionFormValues) => Promise<void> | void;
+  onSaveAndPreview: (values: EditQuestionFormValues) => Promise<void> | void;
   onPreviousQuestion: (values: EditQuestionFormValues) => Promise<void> | void;
   onNextQuestion: (values: EditQuestionFormValues) => Promise<void> | void;
 }
@@ -63,6 +64,7 @@ export function EditQuestionSurface({
   saveError,
   onDirtyChange,
   onSave,
+  onSaveAndPreview,
   onPreviousQuestion,
   onNextQuestion,
 }: EditQuestionSurfaceProps) {
@@ -71,9 +73,12 @@ export function EditQuestionSurface({
     resolver: zodResolver(editQuestionSchema),
     defaultValues: question,
   });
-  const { fields, append, remove } = useFieldArray({
+  const { fields, append, remove } = useFieldArray<
+    EditQuestionFormValues,
+    "options"
+  >({
     control: form.control,
-    name: "options" as const,
+    name: "options",
   });
 
   useEffect(() => {
@@ -83,6 +88,24 @@ export function EditQuestionSurface({
   useEffect(() => {
     onDirtyChange(form.formState.isDirty);
   }, [form.formState.isDirty, onDirtyChange]);
+
+  useEffect(() => {
+    const handleSaveAndPreview = () => {
+      void form.handleSubmit(async (values) => {
+        await onSaveAndPreview(normalizeFormValues(values));
+      })();
+    };
+    window.addEventListener(
+      "spectra:quiz:save-and-browse",
+      handleSaveAndPreview
+    );
+    return () => {
+      window.removeEventListener(
+        "spectra:quiz:save-and-browse",
+        handleSaveAndPreview
+      );
+    };
+  }, [form, onSaveAndPreview]);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -254,17 +277,6 @@ export function EditQuestionSurface({
                 下一题
               </Button>
             </div>
-            <Button
-              type="button"
-              size="sm"
-              className="h-9 bg-violet-600 px-4 text-xs text-white hover:bg-violet-700"
-              onClick={form.handleSubmit(async (values) => {
-                await onSave(normalizeFormValues(values));
-              })}
-              disabled={isSaving}
-            >
-              {isSaving ? "保存中" : "保存"}
-            </Button>
           </div>
         </div>
       </div>

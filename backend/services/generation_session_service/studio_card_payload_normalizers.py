@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from .interactive_games_legacy_adapter import normalize_interactive_game_payload
+from .interactive_game_normalizer import normalize_interactive_game_v2_payload
 from .mindmap_normalizer import normalize_knowledge_mindmap_payload
 from .quiz_normalizer import normalize_interactive_quick_quiz_payload
 from .tool_content_builder_payloads import normalize_speaker_notes_payload
@@ -18,9 +18,7 @@ def normalize_generated_card_payload(
     if card_id == "word_document":
         return normalize_word_document_payload(payload, config)
     if card_id == "interactive_games":
-        # Freeze-mode card: keep the compatibility adapter explicit instead of
-        # letting template/runtime glue masquerade as formal product truth.
-        return normalize_interactive_game_payload(payload, config)
+        return normalize_interactive_game_v2_payload(payload, config)
     if card_id == "knowledge_mindmap":
         return normalize_knowledge_mindmap_payload(payload, config)
     if card_id == "interactive_quick_quiz":

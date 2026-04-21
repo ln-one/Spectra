@@ -1,5 +1,6 @@
 import type { ToolFlowContext } from "./types";
 import type { ArtifactWorkbenchViewModel } from "./ArtifactWorkbenchShell";
+import { parseGamePayload } from "./game/GameSurfaceAdapter";
 
 function readArtifactContent(flowContext?: ToolFlowContext): Record<string, unknown> | null {
   const content = flowContext?.resolvedArtifact?.content;
@@ -250,7 +251,7 @@ function getArtifactSummary(flowContext?: ToolFlowContext): string {
     case "speaker_notes":
       return "讲稿工作面已就绪，可按页查看并微调段落。";
     case "interactive_quick_quiz":
-      return "单题工作面已就绪，可答题、切题并微调当前题。";
+      return "单题工作面已就绪，可答题、切题，并通过右侧助手整体重写题集。";
     case "knowledge_mindmap":
       return "导图工作面已就绪，可选中节点并继续扩展结构。";
     case "classroom_qa_simulator":
@@ -273,6 +274,11 @@ function getArtifactSummary(flowContext?: ToolFlowContext): string {
 }
 
 function getCurrentArtifactTitle(flowContext?: ToolFlowContext): string {
+  const cardId = getCardId(flowContext);
+  if (cardId === "interactive_games") {
+    const parsed = parseGamePayload(flowContext?.resolvedArtifact?.content);
+    if (parsed.title?.trim()) return parsed.title.trim();
+  }
   const latestArtifact = flowContext?.latestArtifacts?.[0];
   const latestTitle = latestArtifact?.title?.trim();
   if (latestTitle) return latestTitle;
@@ -282,7 +288,7 @@ function getCurrentArtifactTitle(flowContext?: ToolFlowContext): string {
     content && typeof content.title === "string" ? content.title.trim() : "";
   if (contentTitle) return contentTitle;
 
-  return getProductTitle(getCardId(flowContext), flowContext);
+  return getProductTitle(cardId, flowContext);
 }
 
 function getCurrentSurfaceLabel(flowContext?: ToolFlowContext): string {
@@ -341,7 +347,9 @@ function getRecommendedAction(flowContext?: ToolFlowContext): string {
   const artifactType = getArtifactType(flowContext);
 
   if (nextAction === "follow_up_turn") return "继续追问，推进下一轮课堂预演。";
-  if (nextAction === "answer_or_refine") return "先答题，或继续微调当前题。";
+  if (nextAction === "answer_or_refine") {
+    return "先答题，或通过右侧助手整体重组题集、提升难度与覆盖面。";
+  }
   if (nextAction === "refine" && cardId === "word_document") {
     return "继续微调教案，或导出正式产物。";
   }
@@ -374,7 +382,9 @@ function getRecommendedAction(flowContext?: ToolFlowContext): string {
   }
   if (cardId === "word_document") return "继续微调教案，或导出正式产物。";
   if (cardId === "speaker_notes") return "继续微调讲稿。";
-  if (cardId === "interactive_quick_quiz") return "先答题，或继续微调当前题。";
+  if (cardId === "interactive_quick_quiz") {
+    return "先答题，或通过右侧助手整体重组题集、提升难度与覆盖面。";
+  }
   if (cardId === "knowledge_mindmap") return "选择节点后继续结构化编辑。";
   if (cardId === "classroom_qa_simulator") return "继续追问，推进下一轮课堂预演。";
   if (cardId === "interactive_games") return "继续试玩并微调玩法，或导出当前成果。";
@@ -402,7 +412,7 @@ function getNextStepSummary(flowContext?: ToolFlowContext): string {
     case "word_document":
       return "下一步可继续导出教案，或回到讲稿与课堂预演继续打磨表达。";
     case "interactive_quick_quiz":
-      return "下一步可继续微调当前题，或带着题目重点进入课堂预演。";
+      return "下一步可继续整体重写题集，或带着题目重点进入课堂预演。";
     case "knowledge_mindmap":
       return "下一步可继续扩展节点，或带着知识结构进入课堂预演。";
     case "classroom_qa_simulator":

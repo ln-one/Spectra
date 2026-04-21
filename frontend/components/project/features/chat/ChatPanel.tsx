@@ -72,6 +72,7 @@ const NO_SESSION_PLACEHOLDER = "请先在会话选择器中点击“新建会话
 const REFINE_PLACEHOLDER = "例如：再详细一点 / 增加案例 / 更简洁";
 const STUDIO_REFINE_PLACEHOLDERS: Partial<Record<string, string>> = {
   mindmap: "例如：把整张导图扩成更完整的大图 / 重组一级分支 / 压缩重复节点 / 换成更适合课堂讲解的结构",
+  quiz: "例如：把整份小测提升到更高难度 / 按当前题补强易错点并重写全卷 / 重组覆盖面 / 换成更适合课堂讲解的出题风格",
 };
 
 function normalizeMessageContent(content: string): string {

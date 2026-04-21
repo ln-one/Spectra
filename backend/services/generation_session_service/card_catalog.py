@@ -172,36 +172,53 @@ CARD_CAPABILITIES: tuple[StudioCardCapability, ...] = (
         readiness=StudioCardReadiness.FOUNDATION_READY,
         context_mode=StudioCardContextMode.ARTIFACT,
         execution_mode=StudioCardExecutionMode.ARTIFACT_CREATE,
-        primary_capabilities=["game", "html"],
-        related_capabilities=["summary", "mindmap"],
+        primary_capabilities=["game", "sandbox"],
+        related_capabilities=["mindmap", "word_document", "quiz"],
         artifact_types=["html"],
-        supports_chat_refine=False,
+        requires_source_artifact=False,
+        supports_chat_refine=True,
         config_fields=[
             StudioCardConfigField(
-                key="game_pattern",
-                label="游戏模式",
-                type=StudioCardFieldType.SELECT,
-                options=[
-                    StudioCardConfigOption(value="timeline_sort", label="时间轴排序"),
-                    StudioCardConfigOption(value="concept_match", label="概念连线"),
-                    StudioCardConfigOption(value="freeform", label="自由发挥"),
-                ],
-                default_value="freeform",
+                key="topic",
+                label="知识主题",
+                type=StudioCardFieldType.TEXT,
+                required=True,
+                placeholder="例如：电路串联与并联",
             ),
             StudioCardConfigField(
-                key="creative_brief",
-                label="灵感提示",
+                key="teaching_goal",
+                label="课堂目标",
                 type=StudioCardFieldType.TEXT,
-                placeholder="例如：围绕牛顿三定律设计一个拖拽排序小游戏",
+                required=True,
+                placeholder="例如：让学生通过操作区分串联和并联的关键特征",
+            ),
+            StudioCardConfigField(
+                key="interaction_brief",
+                label="互动偏好",
+                type=StudioCardFieldType.TEXT,
+                placeholder="例如：偏向拖拽归类，节奏快一点，适合投屏联动",
+            ),
+            StudioCardConfigField(
+                key="classroom_constraints",
+                label="课堂约束",
+                type=StudioCardFieldType.TEXT,
+                placeholder="例如：投屏 + 1 分钟 + 40 人班级 + 只能教师端操作",
+            ),
+            StudioCardConfigField(
+                key="source_artifact_id",
+                label="来源成果",
+                type=StudioCardFieldType.REFERENCE,
+                notes="默认可选；绑定来源后会增强小游戏与已有成果的一致性。",
             ),
         ],
         actions=[
-            StudioCardAction(type="generate", label="生成游戏原型"),
-            StudioCardAction(type="structured_refine", label="提交正式 replacement rewrite"),
+            StudioCardAction(type="generate", label="生成互动游戏"),
+            StudioCardAction(type="chat_refine", label="按当前小游戏上下文改写"),
+            StudioCardAction(type="structured_refine", label="轻量结构化微调"),
         ],
         notes=(
-            "HTML artifact 与 sandbox patch rewrite 已具备，"
-            "当前仍处于 legacy compatibility freeze 区，不开放 chat-based 热更新语义。"
+            "互动游戏已切换为 interactive_game.v2 + 受控 sandbox runtime，"
+            "固定支持拖拽归类、流程排序、关系连线三种课堂操作型玩法。"
         ),
     ),
     StudioCardCapability(

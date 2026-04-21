@@ -48,15 +48,53 @@ def _studio_generated_content(card_id: str) -> dict:
     if card_id == "interactive_games":
         return {
             "kind": "interactive_game",
+            "schema_id": "interactive_game.v2",
+            "subtype": "drag_classification",
             "title": "电路术语配对",
             "summary": "把关键术语和定义快速配对。",
-            "game_pattern": "term_pairing",
-            "html": "<html><body><main><h1>demo</h1></main></body></html>",
-            "compatibility_zone": {
-                "status": "protocol_limited",
-                "zone": "interactive_games_legacy_compatibility",
+            "subtitle": "通过拖拽完成归类",
+            "teaching_goal": "区分基础电路概念",
+            "teacher_notes": ["教师先口头说明分类标准。"],
+            "instructions": ["拖动卡片到正确区域。", "完成后点击检查答案。"],
+            "spec": {
+                "items": [
+                    {"id": "item-1", "label": "串联"},
+                    {"id": "item-2", "label": "并联"},
+                    {"id": "item-3", "label": "支路"},
+                ],
+                "zones": [
+                    {"id": "zone-1", "label": "连接方式"},
+                    {"id": "zone-2", "label": "结构特征"},
+                ],
+                "correct_mapping": {
+                    "item-1": "zone-1",
+                    "item-2": "zone-1",
+                    "item-3": "zone-2",
+                },
+                "feedback_copy": {
+                    "correct": "归类正确。",
+                    "incorrect": "还有卡片放错了位置。",
+                },
             },
-            "runtime_origin": "legacy_compatibility",
+            "score_policy": {"max_score": 100, "timer_seconds": 90},
+            "completion_rule": {
+                "pass_threshold": 1.0,
+                "success_copy": "完成得很漂亮。",
+                "failure_copy": "再试一次。",
+            },
+            "answer_key": {
+                "subtype": "drag_classification",
+                "correct_mapping": {
+                    "item-1": "zone-1",
+                    "item-2": "zone-1",
+                    "item-3": "zone-2",
+                },
+            },
+            "runtime": {
+                "html": "<html><body><main><h1>demo</h1></main></body></html>",
+                "sandbox_version": "interactive_game_sandbox.v1",
+                "assets": [],
+            },
         }
     return {
         "kind": "mindmap",
@@ -257,7 +295,9 @@ async def test_execute_word_document_requires_client_session_id(app, _as_user):
 
 
 @pytest.mark.anyio
-async def test_execute_interactive_games_persists_compatibility_snapshot(app, _as_user):
+async def test_execute_interactive_games_persists_interactive_game_v2_snapshot(
+    app, _as_user
+):
     client = TestClient(app)
     artifact = SimpleNamespace(
         id="a-game-001",
@@ -297,8 +337,8 @@ async def test_execute_interactive_games_persists_compatibility_snapshot(app, _a
                 "client_session_id": "s-001",
                 "config": {
                     "topic": "电路基础",
-                    "game_pattern": "term_pairing",
-                    "creative_brief": "把核心术语和定义配对",
+                    "teaching_goal": "让学生区分串联和并联",
+                    "interaction_brief": "更偏向拖拽归类",
                 },
             },
         )
@@ -306,8 +346,8 @@ async def test_execute_interactive_games_persists_compatibility_snapshot(app, _a
     assert response.status_code == 200
     kwargs = create_artifact_mock.await_args.kwargs
     assert kwargs["artifact_type"] == "html"
-    assert kwargs["content"]["compatibility_zone"]["status"] == "protocol_limited"
-    assert kwargs["content"]["runtime_origin"] == "legacy_compatibility"
+    assert kwargs["content"]["schema_id"] == "interactive_game.v2"
+    assert kwargs["content"]["runtime"]["sandbox_version"] == "interactive_game_sandbox.v1"
 
 
 @pytest.mark.anyio

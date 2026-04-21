@@ -329,11 +329,22 @@ def build_artifact_metadata(
     elif artifact_type == ArtifactType.HTML.value and kind == "interactive_game":
         metadata["content_snapshot"] = dict(content)
         for key in (
+            "schema_id",
             "title",
             "summary",
-            "game_pattern",
-            "compatibility_zone",
-            "runtime_origin",
+            "subtitle",
+            "subtype",
+            "teaching_goal",
+            "teacher_notes",
+            "instructions",
+            "spec",
+            "score_policy",
+            "completion_rule",
+            "answer_key",
+            "runtime",
+            "source_binding",
+            "latest_runnable_state",
+            "provenance",
         ):
             if key in content:
                 metadata[key] = content[key]

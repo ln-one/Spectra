@@ -55,6 +55,7 @@ export interface ManagedDraftAnchor {
   artifactId: string | null;
   runId: string | null;
   status: StudioHistoryStatus | null;
+  pendingWorkflowId?: string | null;
 }
 
 export interface ManagedWorkbenchState {

@@ -27,7 +27,7 @@ interface StudioPanelHeaderProps {
   showHeaderActions?: boolean;
   showHeaderPrimaryAction?: boolean;
   showHeaderPersistenceActions?: boolean;
-  headerModeActionLabel?: "编辑" | "预览" | "完成" | "答题" | "浏览";
+  headerModeActionLabel?: "编辑" | "预览" | "完成" | "答题" | "浏览" | "保存";
   primaryActionLabel?: string;
   primaryActionState?: "idle" | "loading";
   primaryActionDisabled?: boolean;
@@ -173,6 +173,8 @@ export function StudioPanelHeader({
                   >
                     {headerModeActionLabel === "编辑" || headerModeActionLabel === "答题" ? (
                       <PencilLine className="mr-1 h-3.5 w-3.5" />
+                    ) : headerModeActionLabel === "保存" ? (
+                      <Save className="mr-1 h-3.5 w-3.5" />
                     ) : headerModeActionLabel === "完成" ? (
                       <Check className="mr-1 h-3.5 w-3.5" />
                     ) : (

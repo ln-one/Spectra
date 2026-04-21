@@ -66,7 +66,7 @@ describe("quiz preview", () => {
     expect(onStructuredRefineArtifact).not.toHaveBeenCalled();
   });
 
-  it("switches to edit mode and saves the current question as a replacement artifact", async () => {
+  it("switches to edit mode and saves the current question from the header action flow", async () => {
     const onStructuredRefineArtifact = jest.fn().mockResolvedValue({ ok: true });
 
     render(
@@ -81,7 +81,9 @@ describe("quiz preview", () => {
     fireEvent.change(questionInput, {
       target: { value: "牛顿第二定律强调了什么关系？" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "保存" }));
+    await act(async () => {
+      window.dispatchEvent(new CustomEvent("spectra:quiz:save-and-browse"));
+    });
 
     await waitFor(() => {
       expect(onStructuredRefineArtifact).toHaveBeenCalledWith(

@@ -192,6 +192,68 @@ describe("quiz panel two-state workbench", () => {
     expect(screen.getByText("牛顿第二定律描述了什么关系？")).toBeInTheDocument();
   });
 
+  it("resets back to a new draft instead of reopening the previous quiz result", () => {
+    const { rerender } = render(
+      <QuizToolPanel
+        toolId="quiz"
+        toolName="随堂小测"
+        flowContext={buildFlowContext({
+          resolvedArtifact: {
+            artifactId: "quiz-artifact-1",
+            artifactType: "exercise",
+            contentKind: "json",
+            content: {
+              kind: "quiz",
+              title: "牛顿定律小测",
+              questions: [
+                {
+                  id: "q-1",
+                  question: "牛顿第二定律描述了什么关系？",
+                  options: ["力与加速度成正比", "速度与位移成正比"],
+                  answer: "力与加速度成正比",
+                },
+              ],
+            },
+          },
+          resolvedTarget: {
+            kind: "draft",
+            toolType: "quiz",
+            sessionId: "s-1",
+            artifactId: "quiz-artifact-1",
+            runId: "run-1",
+            status: "completed",
+            isHistorical: false,
+          },
+        })}
+      />
+    );
+
+    rerender(
+      <QuizToolPanel
+        toolId="quiz"
+        toolName="随堂小测"
+        flowContext={buildFlowContext({
+          currentDraft: {
+            scope: "",
+          },
+          resolvedArtifact: null,
+          resolvedTarget: {
+            kind: "draft",
+            toolType: "quiz",
+            sessionId: "s-1",
+            artifactId: null,
+            runId: null,
+            status: null,
+            isHistorical: false,
+          },
+        })}
+      />
+    );
+
+    expect(screen.getByLabelText("考查范围 / 出题主题")).toBeInTheDocument();
+    expect(screen.queryByText("牛顿第二定律描述了什么关系？")).not.toBeInTheDocument();
+  });
+
   it("responds to header mode events after a result is available", async () => {
     render(
       <QuizToolPanel

@@ -184,24 +184,26 @@ def test_courseware_preview_accepts_legacy_prompt_for_topic_compat():
     assert options["topic"] == "遗留字段主题"
 
 
-def test_interactive_games_preview_marks_legacy_compatibility_as_limited():
+def test_interactive_games_preview_uses_interactive_game_v2_contract():
     preview = build_studio_card_execution_preview(
         card_id="interactive_games",
         project_id="proj-1",
         config={
             "topic": "电路基础",
-            "game_pattern": "term_pairing",
-            "creative_brief": "把核心术语和定义配对",
+            "teaching_goal": "让学生区分串联和并联的特征",
+            "interaction_brief": "更偏向拖拽归类",
         },
     )
 
     assert preview is not None
     assert preview.initial_request.payload["type"] == "html"
-    assert "legacy compatibility" in (preview.initial_request.notes or "")
+    assert "interactive_game.v2" in (preview.initial_request.notes or "")
     assert (
-        preview.refine_request.payload["metadata"]["compatibility_zone"]
-        == "interactive_games_legacy_compatibility"
+        preview.initial_request.payload["content"]["schema_id"]
+        == "interactive_game.v2"
     )
+    assert preview.refine_request.refine_mode.value == "chat_refine"
+    assert preview.source_request is not None
 
 
 def test_diego_create_payload_uses_target_slide_count_and_mode_alias():

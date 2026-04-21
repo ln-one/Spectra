@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import {
   CheckCircle2,
@@ -21,7 +21,11 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { useProjectStore } from "@/stores/projectStore";
 import { DraftResultWorkbenchShell } from "./DraftResultWorkbenchShell";
-import type { ToolFlowContext, ToolPanelProps } from "./types";
+import type {
+  ResolvedArtifactPayload,
+  ToolFlowContext,
+  ToolPanelProps,
+} from "./types";
 import { PreviewStep } from "./mindmap/PreviewStep";
 
 type MindmapMode = "preview" | "edit";
@@ -101,6 +105,9 @@ export function MindmapToolPanel({
   const [selectedId, setSelectedId] = useState("root");
   const [lastGeneratedAt, setLastGeneratedAt] = useState<string | null>(null);
   const [activeMode, setActiveMode] = useState<MindmapMode>("preview");
+  const [hasActivatedResultSurface, setHasActivatedResultSurface] = useState(false);
+  const [stickyResolvedArtifact, setStickyResolvedArtifact] =
+    useState<ResolvedArtifactPayload | null>(null);
 
   const sourceOptions = flowContext?.sourceOptions ?? [];
   const requiresSourceArtifact = Boolean(flowContext?.requiresSourceArtifact);
@@ -127,7 +134,6 @@ export function MindmapToolPanel({
       topic: requirement || fallbackTopic,
       output_requirements: requirement,
       focus_scope: flowContext?.selectedSourceId ? "current_session" : "full_project",
-      selected_id: selectedId,
       source_artifact_id: flowContext?.selectedSourceId ?? null,
     });
   }, [
@@ -135,7 +141,6 @@ export function MindmapToolPanel({
     onDraftChange,
     project?.name,
     requirementText,
-    selectedId,
   ]);
 
   const hasRequirement = requirementText.trim().length > 0;
@@ -146,10 +151,63 @@ export function MindmapToolPanel({
     flowContext?.workflowState === "executing" ||
     flowContext?.managedResultTarget?.status === "processing";
   const isHistoryResultMode = flowContext?.managedWorkbenchMode === "history";
+  useEffect(() => {
+    if (hasRenderableResult || isGenerating || isHistoryResultMode) {
+      setHasActivatedResultSurface(true);
+    }
+  }, [hasRenderableResult, isGenerating, isHistoryResultMode]);
+
+  useEffect(() => {
+    const resolvedTarget = flowContext?.resolvedTarget;
+    const enteringFreshDraft =
+      flowContext?.managedWorkbenchMode === "draft" &&
+      !isGenerating &&
+      !hasRenderableResult &&
+      !isHistoryResultMode &&
+      !flowContext?.resolvedArtifact &&
+      resolvedTarget?.kind === "draft" &&
+      !resolvedTarget.artifactId &&
+      !resolvedTarget.runId;
+    if (!enteringFreshDraft) return;
+    setHasActivatedResultSurface(false);
+    setStickyResolvedArtifact(null);
+  }, [
+    flowContext?.managedWorkbenchMode,
+    flowContext?.resolvedArtifact,
+    flowContext?.resolvedTarget,
+    flowContext?.resolvedTarget?.artifactId,
+    flowContext?.resolvedTarget?.kind,
+    flowContext?.resolvedTarget?.runId,
+    hasRenderableResult,
+    isGenerating,
+    isHistoryResultMode,
+  ]);
+
+  useEffect(() => {
+    const resolvedArtifact = flowContext?.resolvedArtifact;
+    if (!resolvedArtifact) return;
+    if (!hasRenderableMindmapResult({ ...flowContext, resolvedArtifact })) return;
+    setStickyResolvedArtifact((previous) =>
+      previous?.artifactId === resolvedArtifact.artifactId ? previous : resolvedArtifact
+    );
+  }, [flowContext]);
+
   const shouldShowPreview = Boolean(
-    isHistoryResultMode || isGenerating || hasRenderableResult
+    isHistoryResultMode ||
+      isGenerating ||
+      hasRenderableResult ||
+      hasActivatedResultSurface
   );
   const shouldShowComposeCard = !shouldShowPreview;
+
+  const previewFlowContext = useMemo(() => {
+    if (!stickyResolvedArtifact) return flowContext;
+    if (hasRenderableResult || flowContext?.resolvedArtifact) return flowContext;
+    return {
+      ...flowContext,
+      resolvedArtifact: stickyResolvedArtifact,
+    };
+  }, [flowContext, hasRenderableResult, stickyResolvedArtifact]);
 
   const canGenerate = Boolean(
     hasRequirement &&
@@ -367,7 +425,7 @@ export function MindmapToolPanel({
           mode={activeMode}
           selectedId={selectedId}
           lastGeneratedAt={lastGeneratedAt}
-          flowContext={flowContext}
+          flowContext={previewFlowContext}
           onSelectNode={setSelectedId}
         />
       }

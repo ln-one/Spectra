@@ -71,6 +71,9 @@ async def test_build_studio_tool_artifact_content_strict_validates_minimum_field
     if card_id == "word_document":
         assert exc.details["phase"] == "quality_gate"
         assert str(exc.details["failure_reason"]).startswith("markdown_quality_low:")
+    elif card_id == "interactive_games":
+        assert exc.details["phase"] == "validate"
+        assert exc.details["failure_reason"] == "field_instructions_empty"
     else:
         assert exc.details["phase"] == "validate"
         assert exc.details["failure_reason"].startswith("field_")
@@ -161,12 +164,17 @@ def test_resolve_card_artifact_builder_uses_dedicated_animation_builder():
     )
 
 
-def test_animation_schema_hint_includes_title_field():
+def test_schema_hints_include_title_field():
     schema_hint = tool_content_builder_support.build_schema_hint(
         "demonstration_animations"
     )
     assert isinstance(schema_hint, str)
     assert '"title"' in schema_hint
+    interactive_game_schema_hint = tool_content_builder_support.build_schema_hint(
+        "interactive_games"
+    )
+    assert '"schema_id"' in interactive_game_schema_hint
+    assert '"interactive_game.v2"' in interactive_game_schema_hint
 
 
 def test_parse_ai_object_payload_recovers_json_object_from_prefixed_text():
@@ -371,8 +379,8 @@ async def test_build_studio_tool_artifact_content_quiz_uses_composite_rag_query(
         ),
         (
             "interactive_games",
-            '{"game_title":"排序挑战","instruction":"拖动排序","events":[{"id":"evt-1","label":"开始","year":"1910","hint":"提示"}],"correct_order":["evt-1"],"success_message":"完成","retry_message":"再试一次"}',
-            {"topic": "Forces", "game_pattern": "timeline_sort"},
+            '{"subtype":"sequence_sort","title":"排序挑战","summary":"拖动排序","teaching_goal":"梳理步骤顺序","teacher_notes":["教师先给学生30秒观察"],"instructions":["先看流程卡片","再调整顺序"],"spec":{"items":[{"id":"step-1","label":"提出问题","hint":"提示"},{"id":"step-2","label":"作出假设","hint":"提示"},{"id":"step-3","label":"设计实验","hint":"提示"},{"id":"step-4","label":"得出结论","hint":"提示"}],"correct_order":["step-1","step-2","step-3","step-4"],"completion_copy":"完成"},"score_policy":{"max_score":100},"completion_rule":{"success_copy":"完成","failure_copy":"再试一次"}}',
+            {"topic": "Forces", "teaching_goal": "梳理步骤顺序"},
             "排序挑战",
         ),
     ],
@@ -428,10 +436,10 @@ async def test_build_studio_tool_artifact_content_routes_cards_through_normalize
         assert "doc_source_html" in payload
     else:
         assert payload["kind"] == "interactive_game"
-        assert payload["game_pattern"] == "timeline_sort"
-        assert "html" in payload
-        assert payload["compatibility_zone"]["status"] == "protocol_limited"
-        assert payload["runtime_origin"] == "legacy_compatibility"
+        assert payload["schema_id"] == "interactive_game.v2"
+        assert payload["subtype"] == "sequence_sort"
+        assert payload["runtime"]["sandbox_version"] == "interactive_game_sandbox.v1"
+        assert "html" in payload["runtime"]
 
 
 @pytest.mark.asyncio

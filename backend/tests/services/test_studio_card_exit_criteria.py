@@ -39,7 +39,7 @@ def test_active_cards_keep_one_formal_refine_or_turn_entry_contract():
             "turn": "ready",
             "placement": None,
         },
-        "interactive_games": {"refine": "partial", "turn": None, "placement": None},
+        "interactive_games": {"refine": "ready", "turn": None, "placement": None},
         "demonstration_animations": {
             "refine": "ready",
             "turn": None,

@@ -75,14 +75,34 @@ function areConfigSnapshotsEqual(
 ): boolean {
   if (left === right) return true;
   if (!left || !right) return !left && !right;
-  const leftKeys = Object.keys(left);
-  const rightKeys = Object.keys(right);
-  if (leftKeys.length !== rightKeys.length) return false;
-  for (const key of leftKeys) {
-    if (!Object.prototype.hasOwnProperty.call(right, key)) return false;
-    if (!Object.is(left[key], right[key])) return false;
-  }
-  return true;
+  const areValuesEqual = (lhs: unknown, rhs: unknown): boolean => {
+    if (Object.is(lhs, rhs)) return true;
+    if (Array.isArray(lhs) || Array.isArray(rhs)) {
+      if (!Array.isArray(lhs) || !Array.isArray(rhs)) return false;
+      if (lhs.length !== rhs.length) return false;
+      return lhs.every((item, index) => areValuesEqual(item, rhs[index]));
+    }
+    if (
+      lhs &&
+      rhs &&
+      typeof lhs === "object" &&
+      typeof rhs === "object"
+    ) {
+      const lhsRecord = lhs as Record<string, unknown>;
+      const rhsRecord = rhs as Record<string, unknown>;
+      const lhsKeys = Object.keys(lhsRecord);
+      const rhsKeys = Object.keys(rhsRecord);
+      if (lhsKeys.length !== rhsKeys.length) return false;
+      return lhsKeys.every(
+        (key) =>
+          Object.prototype.hasOwnProperty.call(rhsRecord, key) &&
+          areValuesEqual(lhsRecord[key], rhsRecord[key])
+      );
+    }
+    return false;
+  };
+
+  return areValuesEqual(left, right);
 }
 
 function areStudioChatContextsEqual(
@@ -774,6 +794,13 @@ export function createChatActions({
             context.toolType &&
             (refinedArtifactId || refinedRunId)
           ) {
+            if (context.toolType === "quiz") {
+              window.dispatchEvent(
+                new CustomEvent("spectra:quiz:set-mode", {
+                  detail: { mode: "browse" },
+                })
+              );
+            }
             window.dispatchEvent(
               new CustomEvent("spectra:open-history-item", {
                 detail: {

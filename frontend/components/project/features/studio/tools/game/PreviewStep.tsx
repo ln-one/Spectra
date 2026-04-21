@@ -1,6 +1,6 @@
-import { ArtifactWorkbenchShell } from "../ArtifactWorkbenchShell";
+import { Loader2 } from "lucide-react";
 import type { ToolFlowContext } from "../types";
-import { buildArtifactWorkbenchViewModel } from "../workbenchViewModel";
+import { WorkbenchCenteredState } from "../WorkbenchCenteredState";
 import { GameSurfaceAdapter, parseGamePayload } from "./GameSurfaceAdapter";
 
 interface PreviewStepProps {
@@ -9,66 +9,46 @@ interface PreviewStepProps {
 }
 
 export function PreviewStep({
-  lastGeneratedAt,
+  lastGeneratedAt: _lastGeneratedAt,
   flowContext,
 }: PreviewStepProps) {
-  const capabilityStatus =
-    flowContext?.capabilityStatus ?? "backend_placeholder";
-  const capabilityReason =
-    flowContext?.capabilityReason ?? "正在等待后端返回真实游戏内容。";
-  const { html, title, instruction, gamePattern } =
-    capabilityStatus === "backend_ready" || capabilityStatus === "protocol_limited"
-      ? parseGamePayload(flowContext?.resolvedArtifact?.content)
-      : { html: null, title: null, instruction: null, gamePattern: null };
-  const latestArtifactId = flowContext?.latestArtifacts?.[0]?.artifactId ?? null;
-  const canStructuredRefine = Boolean(
-    latestArtifactId && flowContext?.onStructuredRefineArtifact
-  );
-  const viewModel = buildArtifactWorkbenchViewModel(
-    flowContext,
-    lastGeneratedAt,
-    instruction || "等待后端返回真实游戏内容。"
-  );
+  const payload = parseGamePayload(flowContext?.resolvedArtifact?.content);
+  const latestArtifactId =
+    flowContext?.resolvedArtifact?.artifactId ??
+    flowContext?.latestArtifacts?.[0]?.artifactId ??
+    null;
+  const isExecuting =
+    flowContext?.workflowState === "executing" ||
+    flowContext?.isActionRunning === true;
+  const hasRunnableRuntime = Boolean(payload.runtime.html);
+
+  if (!hasRunnableRuntime) {
+    return isExecuting ? (
+      <WorkbenchCenteredState
+        tone="rose"
+        icon={Loader2}
+        loading
+        title="正在生成互动游戏"
+        description="首个可试玩 sandbox 返回后，这里会直接切成正式工作面。"
+        minHeightClassName="min-h-[520px]"
+      />
+    ) : (
+      <WorkbenchCenteredState
+        tone="rose"
+        title="暂未收到可试玩小游戏"
+        description="生成完成后，这里只展示真实 sandbox 工作面。"
+        minHeightClassName="min-h-[520px]"
+      />
+    );
+  }
 
   return (
-    <ArtifactWorkbenchShell
-      flowContext={{
-        ...flowContext,
-        capabilityStatus,
-        capabilityReason,
-      }}
-      viewModel={viewModel}
-      emptyState={
-        <div className="rounded-2xl border border-dashed border-zinc-300 bg-zinc-50 px-4 py-12 text-center">
-          <p className="text-sm font-medium text-zinc-700">暂未收到后端真实游戏</p>
-          <p className="mt-1 text-[11px] text-zinc-500">
-            当前不会渲染前端假游戏。等待后端 HTML 返回后，这里会直接变成可试玩的课堂玩法。
-          </p>
-        </div>
-      }
-    >
+    <div className="h-full min-h-0 rounded-2xl border border-zinc-200 bg-white p-4">
       <GameSurfaceAdapter
-        html={html}
-        title={title}
-        instruction={instruction}
-        gamePattern={gamePattern}
+        payload={payload}
         latestArtifactId={latestArtifactId}
-        onStructuredRefine={
-          canStructuredRefine
-            ? async () => {
-                await flowContext?.onStructuredRefineArtifact?.({
-                  artifactId: latestArtifactId!,
-                  message: instruction || title || "继续完善当前互动玩法",
-                  refineMode: "structured_refine",
-                  config: {
-                    game_pattern: gamePattern ?? undefined,
-                  },
-                });
-              }
-            : undefined
-        }
         onExportArtifact={flowContext?.onExportArtifact}
       />
-    </ArtifactWorkbenchShell>
+    </div>
   );
 }

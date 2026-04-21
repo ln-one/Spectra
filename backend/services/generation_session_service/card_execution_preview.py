@@ -351,48 +351,50 @@ def build_studio_card_execution_preview(
                     "rag_source_ids": rag_source_ids or [],
                     "content": {
                         "kind": "interactive_game",
+                        "schema_id": "interactive_game.v2",
                         "topic": cfg.get("topic"),
-                        "game_pattern": cfg.get(
-                            "mode", cfg.get("game_pattern", "freeform")
-                        ),
-                        "creative_brief": (
-                            cfg.get("creative_brief") or cfg.get("topic")
-                        ),
-                        "countdown": cfg.get("countdown"),
-                        "life": cfg.get("life"),
-                        "idea_tags": cfg.get("idea_tags", []),
+                        "teaching_goal": cfg.get("teaching_goal"),
+                        "interaction_brief": cfg.get("interaction_brief"),
+                        "classroom_constraints": cfg.get("classroom_constraints"),
+                        "source_artifact_id": source_artifact_id
+                        or cfg.get("source_artifact_id"),
                     },
                 },
                 notes=(
-                    "互动游戏当前通过 HTML artifact 原型承托，"
-                    "但生成仍经 legacy compatibility 层收口，前端应按 protocol-limited 理解而非 fully ready。"
+                    "互动游戏以 interactive_game.v2 HTML artifact 承托，"
+                    "默认生成课堂操作型小游戏并返回受控 sandbox runtime。"
                 ),
             ),
             refine_request=StudioCardResolvedRequest(
                 method="POST",
                 endpoint="/api/v1/generate/studio-cards/interactive_games/refine",
-                refine_mode=RefineMode.STRUCTURED_REFINE,
+                refine_mode=RefineMode.CHAT_REFINE,
                 payload={
                     "project_id": project_id,
                     "message": "",
                     "artifact_id": cfg.get("artifact_id"),
+                    "source_artifact_id": source_artifact_id
+                    or cfg.get("source_artifact_id"),
                     "rag_source_ids": rag_source_ids or [],
                     "config": {
-                        "game_pattern": cfg.get(
-                            "mode", cfg.get("game_pattern", "freeform")
-                        ),
-                        "sandbox_patch": cfg.get("sandbox_patch"),
+                        "operation": cfg.get("operation"),
+                        "score_policy": cfg.get("score_policy"),
+                        "completion_rule": cfg.get("completion_rule"),
                     },
                     "metadata": {
                         "card_id": card_id,
-                        "game_pattern": cfg.get(
-                            "mode", cfg.get("game_pattern", "freeform")
-                        ),
-                        "sandbox_patch": cfg.get("sandbox_patch"),
-                        "compatibility_zone": "interactive_games_legacy_compatibility",
+                        "schema_id": "interactive_game.v2",
+                        "source_artifact_id": source_artifact_id
+                        or cfg.get("source_artifact_id"),
                     },
                 },
-                notes="游戏热更新通过 refine 触发 replacement artifact，但当前 rewrite 仍依赖 legacy compatibility adapter，应显式视为受限正式链路。",
+                notes="互动游戏 refine 返回新的 runnable artifact state，并维持同一 artifact 的当前可见状态。",
+            ),
+            source_request=StudioCardResolvedRequest(
+                method="GET",
+                endpoint=f"/api/v1/generate/studio-cards/{card_id}/sources",
+                payload={"project_id": project_id},
+                notes="来源成果默认可选；绑定后会增强课堂素材贴合度。",
             ),
         )
 

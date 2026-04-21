@@ -51,9 +51,12 @@ CARD_DISPLAY_SEMANTICS = {
         "artifact_surface_type": ArtifactSurfaceType.SANDBOX,
         "capability_engine": CapabilityEngine.SANDBOX_HTML,
         "execution_carrier": ExecutionCarrier.ARTIFACT,
-        "supported_refine_modes": [RefineMode.STRUCTURED_REFINE],
+        "supported_refine_modes": [
+            RefineMode.CHAT_REFINE,
+            RefineMode.STRUCTURED_REFINE,
+        ],
         "supported_selection_scopes": [SelectionScope.NONE],
-        "source_binding_mode": SourceBindingMode.NONE,
+        "source_binding_mode": SourceBindingMode.SINGLE_ARTIFACT,
     },
     "knowledge_mindmap": {
         "artifact_surface_type": ArtifactSurfaceType.GRAPH,

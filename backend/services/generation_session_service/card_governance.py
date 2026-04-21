@@ -54,18 +54,18 @@ CARD_GOVERNANCE: dict[str, dict] = {
         ),
     },
     "interactive_games": {
-        "governance_tag": StudioCardGovernanceTag.FREEZE,
-        "cleanup_priority": StudioCardCleanupPriority.P0,
-        "surface_strategy": "freeze_then_runtime_replacement",
-        "frozen": True,
+        "governance_tag": StudioCardGovernanceTag.HARDEN,
+        "cleanup_priority": StudioCardCleanupPriority.P1,
+        "surface_strategy": "sandbox_artifact_surface",
+        "frozen": False,
         "health_report": StudioCardHealthReport(
-            authority_integrity=2,
-            builder_thinness=1,
-            surface_maturity=2,
-            fallback_residue=1,
-            test_coverage=2,
-            replaceability=5,
-            summary="立即冻结模板/patch/fallback 扩张，后续只允许替换为真正的 sandbox runtime 方案。",
+            authority_integrity=4,
+            builder_thinness=4,
+            surface_maturity=4,
+            fallback_residue=4,
+            test_coverage=3,
+            replaceability=4,
+            summary="interactive_game.v2 已收口为受控 sandbox runtime 与 artifact rewrite 链，后续只继续加固课堂工作面与轻结构化 refine。",
         ),
     },
     "knowledge_mindmap": {
@@ -129,4 +129,3 @@ CARD_GOVERNANCE: dict[str, dict] = {
         ),
     },
 }
-

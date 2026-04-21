@@ -420,6 +420,62 @@ describe("chat session binding", () => {
     );
   });
 
+  it("sends quiz refine as chat_refine with full-quiz context", async () => {
+    const context: StudioChatContext = {
+      projectId: "p-001",
+      sessionId: "s-001",
+      toolType: "quiz",
+      toolLabel: "随堂小测",
+      cardId: "interactive_quick_quiz",
+      step: "preview",
+      canRefine: true,
+      isRefineMode: true,
+      targetArtifactId: "artifact-quiz-001",
+      configSnapshot: {
+        chat_refine_scope: "full_quiz",
+        scope: "牛顿第二定律",
+        question_count: 6,
+        difficulty: "hard",
+        question_type: "single",
+        style_tags: ["课堂讲解", "易错点"],
+        current_question_id: "q-2",
+        selection_anchor: {
+          scope: "question",
+          anchor_id: "q-2",
+          artifact_id: "artifact-quiz-001",
+          label: "第 2 题",
+        },
+      },
+    };
+    const { actions } = createRefineHarness(context);
+
+    await actions.sendStudioRefineMessage(
+      "p-001",
+      "围绕当前题补强易错点并重写整份小测"
+    );
+
+    expect(studioCardsApi.refine).toHaveBeenCalledWith(
+      "interactive_quick_quiz",
+      expect.objectContaining({
+        refine_mode: "chat_refine",
+        artifact_id: "artifact-quiz-001",
+        config: expect.objectContaining({
+          chat_refine_scope: "full_quiz",
+          scope: "牛顿第二定律",
+          question_count: 6,
+          difficulty: "hard",
+          question_type: "single",
+          current_question_id: "q-2",
+          selection_anchor: expect.objectContaining({
+            scope: "question",
+            anchor_id: "q-2",
+            artifact_id: "artifact-quiz-001",
+          }),
+        }),
+      })
+    );
+  });
+
   it("treats mindmap refine without artifact result as failure", async () => {
     const context: StudioChatContext = {
       projectId: "p-001",
@@ -518,6 +574,78 @@ describe("chat session binding", () => {
     actions.setStudioChatContext({
       ...context,
       configSnapshot: { ...context.configSnapshot },
+    });
+
+    expect(set).not.toHaveBeenCalled();
+  });
+
+  it("does not rewrite studio chat context when nested quiz snapshot is unchanged", () => {
+    const context: StudioChatContext = {
+      projectId: "p-001",
+      sessionId: "s-001",
+      toolType: "quiz",
+      toolLabel: "随堂小测",
+      cardId: "interactive_quick_quiz",
+      step: "preview",
+      canRefine: true,
+      isRefineMode: true,
+      targetArtifactId: "artifact-quiz-001",
+      configSnapshot: {
+        chat_refine_scope: "full_quiz",
+        scope: "牛顿定律",
+        question_count: 5,
+        style_tags: ["课堂讲解"],
+        selection_anchor: {
+          scope: "question",
+          anchor_id: "q-1",
+          artifact_id: "artifact-quiz-001",
+          label: "第 1 题",
+        },
+      },
+    };
+
+    type MutableState = Pick<ProjectState, "studioChatContext">;
+
+    let state: MutableState = {
+      studioChatContext: {
+        ...context,
+        configSnapshot: {
+          ...(context.configSnapshot ?? {}),
+          selection_anchor: {
+            scope: "question",
+            anchor_id: "q-1",
+            artifact_id: "artifact-quiz-001",
+            label: "第 1 题",
+          },
+        },
+      },
+    };
+
+    const set = jest.fn(
+      (
+        partial:
+          | Partial<MutableState>
+          | ((current: MutableState) => Partial<MutableState>)
+      ) => {
+        const next =
+          typeof partial === "function" ? partial(state) : (partial ?? {});
+        state = { ...state, ...next };
+      }
+    );
+    const get = jest.fn(() => state as unknown as ProjectState);
+    const actions = createChatActions({ set, get });
+
+    actions.setStudioChatContext({
+      ...context,
+      configSnapshot: {
+        ...(context.configSnapshot ?? {}),
+        selection_anchor: {
+          scope: "question",
+          anchor_id: "q-1",
+          artifact_id: "artifact-quiz-001",
+          label: "第 1 题",
+        },
+      },
     });
 
     expect(set).not.toHaveBeenCalled();

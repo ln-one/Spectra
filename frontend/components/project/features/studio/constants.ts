@@ -72,7 +72,7 @@ export const TOOL_DISPLAY_MODELS: Record<StudioToolKey, ToolDisplayModel> = {
   outline: {
     toolId: "outline",
     productTitle: TOOL_LABELS.outline,
-    productDescription: "接收真实后端 HTML 游戏结果，统一管理预检、执行与微调入口。",
+    productDescription: "统一承托 artifact-backed 课堂小游戏，结果态直接进入纯试玩 sandbox 工作面。",
     studioCardId: STUDIO_CARD_BY_TOOL.outline,
     actionLabels: {
       preview: "执行预检",
@@ -81,9 +81,9 @@ export const TOOL_DISPLAY_MODELS: Record<StudioToolKey, ToolDisplayModel> = {
       refine: "打开对话微调",
     },
     sourceBinding: {
-      required: "必选：请先绑定一个来源成果。",
-      optional: "可选：绑定已有成果后，游戏内容会更贴近当前项目上下文。",
-      empty: "当前还没有可绑定成果，点击上方按钮即可刷新。",
+      required: "当前无需强制绑定来源成果。",
+      optional: "可选：绑定已有成果后，小游戏内容会更贴近当前课堂上下文。",
+      empty: "没有来源成果也可以直接先生成互动游戏。",
     },
   },
   quiz: {

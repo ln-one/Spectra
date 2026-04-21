@@ -40,6 +40,7 @@ interface UseWordHistoryStatusSyncArgs {
     | undefined;
   fetchArtifactHistory: (projectId: string, sessionId: string | null) => Promise<void>;
   recordWorkflowEntry: (payload: {
+    workflowId?: string | null;
     toolType: GenerationToolType;
     title: string;
     status: StudioHistoryStatus;
@@ -49,7 +50,7 @@ interface UseWordHistoryStatusSyncArgs {
     runNo?: number;
     artifactId?: string;
     toolLabel?: string;
-  }) => void;
+  }) => string;
 }
 
 function readString(value: unknown): string | null {

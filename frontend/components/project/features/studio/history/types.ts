@@ -19,6 +19,7 @@ export type StudioHistoryStep = "config" | "generate" | "preview" | "outline";
 export interface StudioHistoryItem {
   id: string;
   origin: "workflow" | "artifact";
+  workflowId?: string | null;
   toolType: GenerationToolType;
   title: string;
   status: StudioHistoryStatus;
