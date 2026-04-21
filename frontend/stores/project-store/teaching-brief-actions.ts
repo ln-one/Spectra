@@ -7,6 +7,7 @@ import {
 } from "./courseware-run";
 import { resolveReadySelectedFileIds } from "./source-scope";
 import type {
+  ChatGenerationConfirmDraft,
   ProjectStoreContext,
   ProjectState,
   SessionStatePayloadWithBrief,
@@ -19,7 +20,9 @@ type TeachingBriefActionKeys =
   | "dismissTeachingBriefProposal"
   | "confirmTeachingBrief"
   | "confirmTeachingBriefFromChat"
-  | "startPptFromTeachingBrief";
+  | "startPptFromTeachingBrief"
+  | "startPptFromChatDraft"
+  | "setGenerationConfirmDraft";
 
 function resolveActiveSessionId(get: ProjectStoreContext["get"], sessionId?: string | null) {
   return sessionId ?? get().activeSessionId ?? get().generationSession?.session?.session_id ?? null;
@@ -175,10 +178,10 @@ export function createTeachingBriefActions({
       if (!effectiveSessionId || !projectId || !brief) {
         return null;
       }
-      if (brief.status !== "confirmed" || brief.readiness?.can_generate !== true) {
+      if (brief.readiness?.can_generate !== true) {
         toast({
-          title: "教学需求单尚未确认",
-          description: "请先补齐并确认教学需求单，再开始生成 PPT。",
+          title: "教学需求尚不完整",
+          description: "请先补齐教学需求中的关键字段，再开始生成 PPT。",
           variant: "destructive",
         });
         return null;
@@ -217,5 +220,70 @@ export function createTeachingBriefActions({
         throw error;
       }
     },
+
+    startPptFromChatDraft: async (sessionId, draft) => {
+      const state = get();
+      const projectId = state.project?.id;
+      if (!projectId) {
+        return null;
+      }
+
+      const readySelectedFileIds = resolveReadySelectedFileIds(
+        state.files,
+        state.selectedFileIds
+      );
+      const brief =
+        state.generationSession?.session?.session_id === sessionId
+          ? state.generationSession?.teaching_brief
+          : null;
+
+      try {
+        const result = await startCoursewarePptRun({
+          projectId,
+          clientSessionId: sessionId,
+          ragSourceIds: readySelectedFileIds,
+          selectedLibraryIds: state.selectedLibraryIds,
+          config: draft.config,
+          teachingBrief: brief,
+        });
+        await syncSessionSnapshot(set, get, result.sessionId, result.runId);
+        set((current) => {
+          const nextDrafts = { ...current.generationConfirmDraftBySession };
+          delete nextDrafts[sessionId];
+          return {
+            activeSessionId: result.sessionId,
+            activeRunId: result.runId,
+            generationConfirmDraftBySession: nextDrafts,
+          };
+        });
+        await get().fetchGenerationHistory(projectId);
+        await get().fetchArtifactHistory(projectId, result.sessionId);
+        toast({
+          title: "课件生成任务已启动",
+          description: "系统已创建新的 PPT run，后续仍需在大纲界面手动确认。",
+        });
+        return result;
+      } catch (error) {
+        toast({
+          title: "启动 PPT 生成失败",
+          description: getErrorMessage(error),
+          variant: "destructive",
+        });
+        throw error;
+      }
+    },
+
+    setGenerationConfirmDraft: (sessionId, draft) =>
+      set((state) => {
+        const nextDrafts = { ...state.generationConfirmDraftBySession };
+        if (draft) {
+          nextDrafts[sessionId] = draft;
+        } else {
+          delete nextDrafts[sessionId];
+        }
+        return {
+          generationConfirmDraftBySession: nextDrafts,
+        };
+      }),
   };
 }

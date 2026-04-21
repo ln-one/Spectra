@@ -485,7 +485,10 @@ def test_send_message_returns_generation_intent_hint(client, monkeypatch, _as_us
     assert hint["generation_intent"] is True
     assert hint["generation_ready"] is True
     assert hint["generation_blocked_reason"] == ""
-    assert hint["generation_action"] == "confirm_and_start_courseware"
+    assert hint["generation_action"] == "open_generation_confirm"
+    assert hint["session_id"] == "s-001"
+    assert hint["generation_confirm_draft"] is not None
+    assert hint["generation_confirm_draft"]["config"]["pageCount"] == 8
 
 
 def test_send_message_rejects_missing_session_id(client, monkeypatch, _as_user):

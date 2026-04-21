@@ -198,7 +198,7 @@ describe("chat session binding", () => {
     expect(toast).not.toHaveBeenCalled();
   });
 
-  it("auto confirms and starts courseware when chat returns generation action", async () => {
+  it("stores a session-bound generation confirm draft instead of auto starting", async () => {
     type MutableState = Pick<
       ProjectState,
       | "activeSessionId"
@@ -211,10 +211,11 @@ describe("chat session binding", () => {
       | "lastFailedInput"
       | "isSending"
       | "latestBriefHint"
+      | "generationConfirmDraftBySession"
       | "error"
       | "fetchGenerationHistory"
       | "refreshGenerationSession"
-      | "confirmTeachingBriefFromChat"
+      | "setGenerationConfirmDraft"
       | "startPptFromTeachingBrief"
     >;
 
@@ -229,10 +230,15 @@ describe("chat session binding", () => {
       lastFailedInput: null,
       isSending: false,
       latestBriefHint: null,
+      generationConfirmDraftBySession: {},
       error: null,
       fetchGenerationHistory: jest.fn().mockResolvedValue(undefined),
       refreshGenerationSession: jest.fn().mockResolvedValue(null),
-      confirmTeachingBriefFromChat: jest.fn().mockResolvedValue(undefined),
+      setGenerationConfirmDraft: jest.fn((sessionId: string, draft: unknown) => {
+        state.generationConfirmDraftBySession = draft
+          ? { ...state.generationConfirmDraftBySession, [sessionId]: draft as never }
+          : {};
+      }),
       startPptFromTeachingBrief: jest
         .fn()
         .mockResolvedValue({ sessionId: "s-001", runId: "run-001" }),
@@ -270,7 +276,20 @@ describe("chat session binding", () => {
           generation_intent: true,
           generation_ready: true,
           generation_blocked_reason: "",
-          generation_action: "confirm_and_start_courseware",
+          generation_action: "open_generation_confirm",
+          generation_confirm_draft: {
+            summary: "围绕图形学基础生成课件。",
+            prompt: "图形学基础",
+            config: {
+              prompt: "图形学基础",
+              pageCount: 8,
+              visualStyle: "free",
+              layoutMode: "smart",
+              templateId: null,
+              visualPolicy: "auto",
+            },
+            source_message_ids: [],
+          },
           extraction_scheduled: false,
         },
       },
@@ -278,11 +297,15 @@ describe("chat session binding", () => {
 
     await actions.sendMessage("p-001", "合理，开始吧");
 
-    expect(state.confirmTeachingBriefFromChat).toHaveBeenCalledWith("s-001");
-    expect(state.startPptFromTeachingBrief).toHaveBeenCalledWith("s-001");
-    expect(state.latestBriefHint?.generationAction).toBe(
-      "confirm_and_start_courseware"
+    expect(state.setGenerationConfirmDraft).toHaveBeenCalledWith(
+      "s-001",
+      expect.objectContaining({
+        sessionId: "s-001",
+        config: expect.objectContaining({ pageCount: 8 }),
+      })
     );
+    expect(state.startPptFromTeachingBrief).not.toHaveBeenCalled();
+    expect(state.latestBriefHint?.generationAction).toBe("open_generation_confirm");
   });
 
   it("ignores stale fetchMessages responses when switching sessions quickly", async () => {

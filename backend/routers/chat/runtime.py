@@ -60,6 +60,7 @@ from .runtime_helpers import (
 from .shared import logger, to_message, verify_project_ownership
 from .teaching_brief_evidence import build_recent_requirement_evidence
 from .teaching_brief_runtime import (
+    build_generation_confirm_draft,
     build_generation_intent_payload,
     plan_brief_extraction,
 )
@@ -415,7 +416,13 @@ async def process_chat_message(
                 content=body.content,
                 brief_raw=current_brief,
             )
+            generation_confirm_draft = await build_generation_confirm_draft(
+                content=body.content,
+                brief_raw=current_brief,
+                history_payload=history_payload,
+            )
             teaching_brief_hint_payload = {
+                "session_id": session_id,
                 "proposal_id": None,
                 "proposal_count": len(current_proposals),
                 "status": current_brief.get("status"),
@@ -433,6 +440,7 @@ async def process_chat_message(
                 "extraction_scheduled": bool(extraction_plan.get("should_run")),
                 "extraction_reason": extraction_plan.get("extraction_reason"),
                 "refresh_after_ms": extraction_plan.get("refresh_after_ms"),
+                "generation_confirm_draft": generation_confirm_draft,
                 **generation_intent_payload,
             }
             if extraction_plan.get("should_run"):

@@ -1,6 +1,9 @@
+import asyncio
+import time
+
 from routers.chat.teaching_brief_runtime import (
-    GENERATION_ACTION_CONFIRM_AND_START_COURSEWARE,
-    GENERATION_ACTION_START_COURSEWARE,
+    GENERATION_ACTION_OPEN_GENERATION_CONFIRM,
+    build_generation_confirm_draft,
     build_generation_intent_payload,
     detect_generation_intent,
     plan_brief_extraction,
@@ -15,7 +18,7 @@ def test_detect_generation_intent_matches_courseware_start_request():
     assert detect_generation_intent("先继续聊需求") is False
 
 
-def test_build_generation_intent_payload_confirms_review_pending_brief():
+def test_build_generation_intent_payload_opens_confirm_for_review_pending_brief():
     payload = build_generation_intent_payload(
         content="合理，开始吧",
         brief_raw={
@@ -30,13 +33,10 @@ def test_build_generation_intent_payload_confirms_review_pending_brief():
     assert payload["generation_intent"] is True
     assert payload["generation_ready"] is True
     assert payload["generation_blocked_reason"] == ""
-    assert (
-        payload["generation_action"]
-        == GENERATION_ACTION_CONFIRM_AND_START_COURSEWARE
-    )
+    assert payload["generation_action"] == GENERATION_ACTION_OPEN_GENERATION_CONFIRM
 
 
-def test_build_generation_intent_payload_starts_confirmed_brief():
+def test_build_generation_intent_payload_opens_confirm_for_confirmed_brief():
     payload = build_generation_intent_payload(
         content="开始生成 PPT",
         brief_raw={
@@ -49,7 +49,49 @@ def test_build_generation_intent_payload_starts_confirmed_brief():
     )
 
     assert payload["generation_ready"] is True
-    assert payload["generation_action"] == GENERATION_ACTION_START_COURSEWARE
+    assert payload["generation_action"] == GENERATION_ACTION_OPEN_GENERATION_CONFIRM
+
+
+def test_build_generation_confirm_draft_defaults_page_count_to_eight(monkeypatch):
+    async def _fake_generate(**_kwargs):
+        return {
+            "content": (
+                '{"summary":"已整理完成。","prompt":"围绕图形学基础生成教学课件。",'
+                '"config":{"prompt":"围绕图形学基础生成教学课件。","pageCount":8,'
+                '"visualStyle":"academic","layoutMode":"smart","templateId":null,'
+                '"visualPolicy":"auto"}}'
+            )
+        }
+
+    monkeypatch.setattr(
+        "routers.chat.teaching_brief_runtime.ai_service.generate",
+        _fake_generate,
+    )
+
+    draft = asyncio.run(
+        build_generation_confirm_draft(
+            content="开始生成 PPT",
+            brief_raw={
+                "status": "review_pending",
+                "topic": "图形学基础",
+                "audience": "软件工程大二学生",
+                "lesson_hours": 12,
+                "knowledge_points": ["直线生成算法"],
+                "target_pages": None,
+            },
+            history_payload=[
+                {"role": "user", "content": "生成一份教学大纲"},
+                {"role": "assistant", "content": "请补充受众和课时"},
+                {"role": "user", "content": "面向软件工程大二学生"},
+                {"role": "assistant", "content": "好的，再说一下课时安排"},
+                {"role": "user", "content": "用12个课时讲完"},
+            ],
+        )
+    )
+
+    assert draft is not None
+    assert draft["config"]["pageCount"] == 8
+    assert draft["config"]["layoutMode"] == "smart"
 
 
 def test_build_generation_intent_payload_blocks_when_brief_missing_fields():
@@ -183,9 +225,31 @@ def test_plan_brief_extraction_skips_when_brief_ready_to_start():
     assert plan["extraction_reason"] is None
 
 
-def test_plan_brief_extraction_debounces_recent_schedule():
+def test_plan_brief_extraction_debounces_interval_trigger_after_recent_schedule():
     plan = plan_brief_extraction(
-        options_raw={"_brief_extraction_last_scheduled_at": 9999999999},
+        options_raw={
+            "_brief_extraction_last_scheduled_at": 9999999999,
+            "_brief_extraction_turn_count": 3,
+        },
+        brief_raw={
+            "status": "draft",
+            "readiness": {
+                "missing_fields": ["audience"],
+                "can_generate": False,
+            },
+        },
+        latest_user_message="继续聊",
+    )
+
+    assert plan["should_run"] is False
+    assert plan["debounced"] is True
+    assert plan["detected_reason"] == "interval"
+    assert plan["extraction_reason"] is None
+
+
+def test_plan_brief_extraction_does_not_debounce_missing_field_answer():
+    plan = plan_brief_extraction(
+        options_raw={"_brief_extraction_last_scheduled_at": time.time()},
         brief_raw={
             "status": "draft",
             "readiness": {
@@ -196,10 +260,9 @@ def test_plan_brief_extraction_debounces_recent_schedule():
         latest_user_message="面向软件工程专业的大二学生",
     )
 
-    assert plan["should_run"] is False
-    assert plan["debounced"] is True
-    assert plan["detected_reason"] == "missing_field_answer"
-    assert plan["extraction_reason"] is None
+    assert plan["should_run"] is True
+    assert plan["debounced"] is False
+    assert plan["extraction_reason"] == "missing_field_answer"
 
 
 def test_plan_brief_extraction_triggers_early_when_message_fills_most_gaps():

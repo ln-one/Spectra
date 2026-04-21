@@ -16,6 +16,7 @@ import {
 } from "./studio-chat.helpers";
 import { resolveReadySelectedFileIds } from "./source-scope";
 import type {
+  ChatGenerationConfirmDraft,
   Message,
   ProjectStoreContext,
   ProjectState,
@@ -31,16 +32,13 @@ type ChatActionKeys =
   | "pushStudioHintMessage"
   | "focusChatComposer";
 
-type CoursewareGenerationAction =
-  | "start_courseware"
-  | "confirm_and_start_courseware";
+type CoursewareGenerationAction = "open_generation_confirm";
 
 function normalizeCoursewareGenerationAction(
   value: unknown
 ): CoursewareGenerationAction | null {
   if (
-    value === "start_courseware" ||
-    value === "confirm_and_start_courseware"
+    value === "open_generation_confirm"
   ) {
     return value;
   }
@@ -77,8 +75,6 @@ export function createChatActions({
   let latestFetchRequestId = 0;
   let refineQueue = Promise.resolve();
   let refinePendingCount = 0;
-  const generationActionInFlight = new Set<string>();
-
   const ensureProjectLocalState = (projectId: string) => {
     const state = get();
     if (
@@ -235,37 +231,6 @@ export function createChatActions({
       });
 
     await refineQueue;
-  };
-
-  const executeCoursewareGenerationAction = async (
-    projectId: string,
-    sessionId: string,
-    action: CoursewareGenerationAction
-  ) => {
-    const dedupeKey = `${sessionId}:${action}`;
-    if (generationActionInFlight.has(dedupeKey)) {
-      return;
-    }
-    generationActionInFlight.add(dedupeKey);
-    try {
-      if (action === "confirm_and_start_courseware") {
-        await get().confirmTeachingBriefFromChat(sessionId);
-      }
-      const result = await get().startPptFromTeachingBrief(sessionId);
-      if (result) {
-        await get().fetchGenerationHistory(projectId);
-      }
-    } catch (error) {
-      const message = getErrorMessage(error);
-      set({
-        error: createApiError({
-          code: "AUTO_START_COURSEWARE_FAILED",
-          message,
-        }),
-      });
-    } finally {
-      generationActionInFlight.delete(dedupeKey);
-    }
   };
 
   return {
@@ -443,8 +408,95 @@ export function createChatActions({
           const generationAction = normalizeCoursewareGenerationAction(
             teachingBriefHint.generation_action
           );
+          const generationDraftRaw =
+            teachingBriefHint.generation_confirm_draft &&
+            typeof teachingBriefHint.generation_confirm_draft === "object"
+              ? (teachingBriefHint.generation_confirm_draft as Record<
+                  string,
+                  unknown
+                >)
+              : null;
+          const actionSessionId = response?.data?.session_id ?? effectiveSessionId;
+          const generationConfirmDraft: ChatGenerationConfirmDraft | null =
+            actionSessionId &&
+            generationDraftRaw &&
+            typeof generationDraftRaw.summary === "string" &&
+            typeof generationDraftRaw.prompt === "string" &&
+            generationDraftRaw.config &&
+            typeof generationDraftRaw.config === "object"
+              ? {
+                  sessionId: actionSessionId,
+                  summary: generationDraftRaw.summary,
+                  prompt: generationDraftRaw.prompt,
+                  config: {
+                    prompt:
+                      typeof (
+                        generationDraftRaw.config as Record<string, unknown>
+                      ).prompt === "string"
+                        ? String(
+                            (
+                              generationDraftRaw.config as Record<
+                                string,
+                                unknown
+                              >
+                            ).prompt
+                          )
+                        : "",
+                    pageCount: Number(
+                      (
+                        generationDraftRaw.config as Record<string, unknown>
+                      ).pageCount
+                    ),
+                    visualStyle:
+                      typeof (
+                        generationDraftRaw.config as Record<string, unknown>
+                      ).visualStyle === "string"
+                        ? String(
+                            (
+                              generationDraftRaw.config as Record<
+                                string,
+                                unknown
+                              >
+                            ).visualStyle
+                          )
+                        : "free",
+                    layoutMode:
+                      (generationDraftRaw.config as Record<string, unknown>)
+                        .layoutMode === "classic"
+                        ? "classic"
+                        : "smart",
+                    templateId:
+                      typeof (
+                        generationDraftRaw.config as Record<string, unknown>
+                      ).templateId === "string"
+                        ? String(
+                            (
+                              generationDraftRaw.config as Record<
+                                string,
+                                unknown
+                              >
+                            ).templateId
+                          )
+                        : null,
+                    visualPolicy:
+                      (generationDraftRaw.config as Record<string, unknown>)
+                        .visualPolicy === "media_required"
+                        ? "media_required"
+                        : (generationDraftRaw.config as Record<string, unknown>)
+                              .visualPolicy === "basic_graphics_only"
+                          ? "basic_graphics_only"
+                          : "auto",
+                  },
+                  sourceMessageIds: Array.isArray(generationDraftRaw.source_message_ids)
+                    ? generationDraftRaw.source_message_ids
+                        .map((value) => String(value || "").trim())
+                        .filter(Boolean)
+                    : [],
+                }
+              : null;
           set({
             latestBriefHint: {
+              sessionId: actionSessionId,
               autoAppliedFields: teachingBriefHint.auto_applied_fields || [],
               aiRequestsConfirmation: teachingBriefHint.ai_requests_confirmation || false,
               missingFields: teachingBriefHint.missing_fields || [],
@@ -460,16 +512,11 @@ export function createChatActions({
                   ? teachingBriefHint.extraction_reason
                   : null,
               refreshAfterMs,
-            }
+            },
           });
 
-          const actionSessionId = response?.data?.session_id ?? effectiveSessionId;
-          if (generationAction && actionSessionId) {
-            await executeCoursewareGenerationAction(
-              projectId,
-              actionSessionId,
-              generationAction
-            );
+          if (actionSessionId) {
+            get().setGenerationConfirmDraft(actionSessionId, generationConfirmDraft);
           }
         }
 

@@ -68,6 +68,22 @@ export interface TeachingBriefProposal {
   requires_user_confirmation?: boolean;
   created_at?: string;
 }
+
+export interface ChatGenerationConfirmDraft {
+  sessionId: string;
+  summary: string;
+  prompt: string;
+  config: {
+    prompt: string;
+    pageCount: number;
+    visualStyle: string;
+    layoutMode: "smart" | "classic";
+    templateId: string | null;
+    visualPolicy: "auto" | "media_required" | "basic_graphics_only";
+  };
+  sourceMessageIds: string[];
+}
+
 export type SessionStatePayloadWithBrief = SessionStatePayload & {
   teaching_brief?: TeachingBrief;
   teaching_brief_proposals?: TeachingBriefProposal[];
@@ -184,6 +200,7 @@ export interface ProjectState {
   activeSourceFocusNonce: number;
 
   latestBriefHint: {
+    sessionId: string | null;
     autoAppliedFields: string[];
     aiRequestsConfirmation: boolean;
     missingFields: string[];
@@ -192,14 +209,12 @@ export interface ProjectState {
     generationIntent: boolean;
     generationReady: boolean;
     generationBlockedReason: string;
-    generationAction:
-      | "start_courseware"
-      | "confirm_and_start_courseware"
-      | null;
+    generationAction: "open_generation_confirm" | null;
     extractionScheduled: boolean;
     extractionReason: string | null;
     refreshAfterMs: number;
   } | null;
+  generationConfirmDraftBySession: Record<string, ChatGenerationConfirmDraft>;
 
   layoutMode: LayoutMode;
   expandedTool: ExpandedTool;
@@ -275,6 +290,14 @@ export interface ProjectState {
   startPptFromTeachingBrief: (
     sessionId?: string | null
   ) => Promise<{ sessionId: string; runId: string } | null>;
+  startPptFromChatDraft: (
+    sessionId: string,
+    draft: ChatGenerationConfirmDraft
+  ) => Promise<{ sessionId: string; runId: string } | null>;
+  setGenerationConfirmDraft: (
+    sessionId: string,
+    draft: ChatGenerationConfirmDraft | null
+  ) => void;
   fetchGenerationHistory: (projectId: string) => Promise<void>;
   fetchArtifactHistory: (
     projectId: string,
@@ -373,6 +396,8 @@ export const initialState = {
   activeSourceDetail: null as SourceDetail | null,
   activeSourceFocusNonce: 0,
   latestBriefHint: null as ProjectState["latestBriefHint"],
+  generationConfirmDraftBySession:
+    {} as ProjectState["generationConfirmDraftBySession"],
   layoutMode: "normal" as LayoutMode,
   expandedTool: null as ExpandedTool,
   isLoading: false,

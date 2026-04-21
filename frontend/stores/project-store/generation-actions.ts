@@ -469,6 +469,12 @@ export function createGenerationActions({
           sessionId && sessionId === state.activeSessionId
             ? state.activeRunId
             : null,
+        latestBriefHint:
+          sessionId &&
+          state.latestBriefHint?.sessionId &&
+          state.latestBriefHint.sessionId === sessionId
+            ? state.latestBriefHint
+            : null,
       })),
 
     setActiveRunId: (runId: string | null) => set({ activeRunId: runId }),

@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import json
 import os
 import re
 import time
 from typing import Any
 
+from services.ai import ModelRouteTask, ai_service
 from services.generation_session_service.teaching_brief import (
     compute_teaching_brief_readiness,
     normalize_teaching_brief,
@@ -35,8 +37,7 @@ _GENERATION_CONFIRMATION_PATTERNS = [
     r"(开始|生成|启动|做|出).{0,6}(吧|来吧|就这样)",
 ]
 
-GENERATION_ACTION_START_COURSEWARE = "start_courseware"
-GENERATION_ACTION_CONFIRM_AND_START_COURSEWARE = "confirm_and_start_courseware"
+GENERATION_ACTION_OPEN_GENERATION_CONFIRM = "open_generation_confirm"
 
 _DIRECT_OUTPUT_INTENT_RE = re.compile(
     r"(直接|现在|马上).{0,8}(给我|输出|生成|整理).{0,8}(完整)?(教学)?大纲|开始.{0,8}(生成|做|出)",
@@ -112,13 +113,9 @@ def build_generation_intent_payload(
     readiness = dict(brief.get("readiness") or compute_teaching_brief_readiness(brief))
     generation_intent = detect_generation_intent(content)
     can_generate = bool(readiness.get("can_generate"))
-    status = str(brief.get("status") or "")
     generation_action = None
     if generation_intent and can_generate:
-        if status == "confirmed":
-            generation_action = GENERATION_ACTION_START_COURSEWARE
-        elif status == "review_pending":
-            generation_action = GENERATION_ACTION_CONFIRM_AND_START_COURSEWARE
+        generation_action = GENERATION_ACTION_OPEN_GENERATION_CONFIRM
     generation_ready = generation_action is not None
     blocked_reason = ""
     if generation_intent and not generation_action:
@@ -136,6 +133,124 @@ def build_generation_intent_payload(
         "generation_ready": generation_ready,
         "generation_blocked_reason": blocked_reason,
         "generation_action": generation_action,
+    }
+
+
+def _normalize_recent_rounds(history_payload: list[dict[str, Any]]) -> list[dict[str, str]]:
+    recent_messages: list[dict[str, str]] = []
+    for item in history_payload[-6:]:
+        role = str(item.get("role") or "").strip().lower()
+        content = str(item.get("content") or "").strip()
+        if role not in {"user", "assistant"} or not content:
+            continue
+        recent_messages.append({"role": role, "content": content})
+    return recent_messages
+
+
+def _build_default_generation_config(brief_raw: Any) -> dict[str, Any]:
+    brief = normalize_teaching_brief(brief_raw)
+    style_profile = brief.get("style_profile") or {}
+    visual_tone = str(style_profile.get("visual_tone") or "").strip() or "free"
+    template_family = str(style_profile.get("template_family") or "").strip().lower()
+    layout_mode = "classic" if template_family and template_family != "auto" else "smart"
+    page_count = brief.get("target_pages")
+    try:
+        resolved_page_count = int(page_count)
+    except (TypeError, ValueError):
+        resolved_page_count = 8
+    resolved_page_count = max(1, min(resolved_page_count, 50))
+    prompt_segments = [
+        str(brief.get("topic") or "").strip(),
+        *[str(item).strip() for item in (brief.get("teaching_objectives") or [])[:2]],
+    ]
+    prompt = " | ".join(segment for segment in prompt_segments if segment) or "课程主题"
+    return {
+        "prompt": prompt,
+        "pageCount": resolved_page_count,
+        "visualStyle": visual_tone,
+        "layoutMode": layout_mode,
+        "templateId": (template_family or None) if layout_mode == "classic" else None,
+        "visualPolicy": "auto",
+    }
+
+
+async def build_generation_confirm_draft(
+    *,
+    content: str,
+    brief_raw: Any,
+    history_payload: list[dict[str, Any]],
+) -> dict[str, Any] | None:
+    intent_payload = build_generation_intent_payload(content=content, brief_raw=brief_raw)
+    if not intent_payload.get("generation_ready"):
+        return None
+
+    brief = normalize_teaching_brief(brief_raw)
+    recent_rounds = _normalize_recent_rounds(history_payload)
+    default_config = _build_default_generation_config(brief)
+    prompt = (
+        "你是 Spectra 的课件生成确认草稿助手。"
+        "请基于最近三轮对话和当前教学需求单，输出一个 JSON 对象，不要输出解释。"
+        "\n输出格式："
+        '\n{"summary":"...","prompt":"...","config":{"prompt":"...","pageCount":8,"visualStyle":"free","layoutMode":"smart","templateId":null,"visualPolicy":"auto"},"source_message_ids":["..."]}'
+        "\n要求："
+        "\n1. summary 用中文，4-6 句，概括教学主题、受众、范围、组织方式与生成目标。"
+        "\n2. prompt 用中文，直接可作为 Diego 的生成提示。"
+        "\n3. config.pageCount 若需求单没有明确页数，固定输出 8。"
+        "\n4. config.layoutMode 只能是 smart 或 classic。"
+        "\n5. config.visualPolicy 只能是 auto、media_required、basic_graphics_only。"
+        "\n6. source_message_ids 仅保留最近三轮中真实存在的 message id；拿不到时输出空数组。"
+        "\n7. 不要要求用户再次确认需求单，不要输出逐页 PPT 文本。"
+        "\n\n当前教学需求单：\n"
+        f"{json.dumps(brief, ensure_ascii=False, indent=2)}"
+        "\n\n最近三轮对话：\n"
+        f"{json.dumps(recent_rounds, ensure_ascii=False, indent=2)}"
+        "\n\n默认生成配置：\n"
+        f"{json.dumps(default_config, ensure_ascii=False, indent=2)}"
+    )
+    try:
+        result = await ai_service.generate(
+            prompt=prompt,
+            route_task=ModelRouteTask.SHORT_TEXT_POLISH,
+            max_tokens=4000,
+            response_format={"type": "json_object"},
+        )
+        parsed = json.loads(str(result.get("content") or "").strip() or "{}")
+    except Exception:
+        parsed = {}
+
+    if not isinstance(parsed, dict):
+        parsed = {}
+    config = parsed.get("config") if isinstance(parsed.get("config"), dict) else {}
+    try:
+        page_count = int(config.get("pageCount"))
+    except (TypeError, ValueError):
+        page_count = int(default_config["pageCount"])
+    page_count = max(1, min(page_count, 50))
+    layout_mode = "classic" if config.get("layoutMode") == "classic" else "smart"
+    visual_policy = str(config.get("visualPolicy") or "auto").strip().lower()
+    if visual_policy not in {"auto", "media_required", "basic_graphics_only"}:
+        visual_policy = "auto"
+
+    return {
+        "summary": str(parsed.get("summary") or "").strip()
+        or f"本次将围绕{brief.get('topic') or '当前主题'}生成课件，面向{brief.get('audience') or '目标受众'}，并结合最近对话整理教学重点与生成约束。",
+        "prompt": str(parsed.get("prompt") or "").strip()
+        or str(default_config["prompt"]),
+        "config": {
+            "prompt": str(config.get("prompt") or parsed.get("prompt") or default_config["prompt"]).strip()
+            or str(default_config["prompt"]),
+            "pageCount": page_count,
+            "visualStyle": str(config.get("visualStyle") or default_config["visualStyle"]).strip()
+            or str(default_config["visualStyle"]),
+            "layoutMode": layout_mode,
+            "templateId": (
+                str(config.get("templateId")).strip()
+                if config.get("templateId") is not None and str(config.get("templateId")).strip()
+                else default_config["templateId"]
+            ),
+            "visualPolicy": visual_policy,
+        },
+        "source_message_ids": [],
     }
 
 
@@ -286,7 +401,11 @@ def plan_brief_extraction(
         extraction_reason = "interval"
 
     should_run = extraction_reason is not None
-    debounced = bool(should_run and _recently_scheduled(options, now=now))
+    debounced = bool(
+        should_run
+        and extraction_reason not in {"missing_field_answer", "field_evidence"}
+        and _recently_scheduled(options, now=now)
+    )
     if debounced:
         should_run = False
 

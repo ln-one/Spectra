@@ -56,7 +56,7 @@ function mapVisualStyleToDiegoPreset(styleId: string): string {
 
 function normalizePageCount(value: unknown): number {
   const parsed = Number(value);
-  if (!Number.isFinite(parsed)) return 12;
+  if (!Number.isFinite(parsed)) return 8;
   return Math.min(50, Math.max(1, Math.round(parsed)));
 }
 
@@ -117,7 +117,7 @@ export function buildGenerationConfigFromTeachingBrief(
   ].filter(Boolean);
   return {
     prompt: promptSegments.join(" | ") || "课程主题",
-    pageCount: normalizePageCount(brief.target_pages ?? 12),
+    pageCount: normalizePageCount(brief.target_pages ?? 8),
     visualStyle: tone || "free",
     layoutMode,
     templateId: layoutMode === "classic" ? templateFamily || null : null,

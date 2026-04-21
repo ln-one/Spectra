@@ -22,7 +22,7 @@ import { SUGGESTIONS } from "./constants";
 import { MessageBubble } from "./components/MessageBubble";
 import { ThinkingBubble } from "./components/ThinkingBubble";
 import { TeachingBriefDialog } from "./components/TeachingBriefDialog";
-import { TeachingBriefInlineCard } from "./components/TeachingBriefInlineCard";
+import { ChatGenerationConfirmDialog } from "./components/ChatGenerationConfirmDialog";
 import { SelectedSourceScopeBadge } from "@/components/project/features/sources/components/SelectedSourceScopeBadge";
 import { TOOL_COLORS } from "@/components/project/features/studio/constants";
 import type { ChatMessage } from "./types";
@@ -96,7 +96,6 @@ export function ChatPanel({
     hydrateStudioLocalState,
     lastFailedInput,
     clearLastFailedInput,
-    latestBriefHint,
   } = useProjectStore(
     useShallow((state) => ({
       messages: state.messages,
@@ -112,7 +111,6 @@ export function ChatPanel({
       hydrateStudioLocalState: state.hydrateStudioLocalState,
       lastFailedInput: state.lastFailedInput,
       clearLastFailedInput: state.clearLastFailedInput,
-      latestBriefHint: state.latestBriefHint,
     }))
   );
 
@@ -606,6 +604,7 @@ export function ChatPanel({
           </div>
           <div className="flex items-center gap-2">
             <TeachingBriefDialog />
+            <ChatGenerationConfirmDialog projectId={projectId} />
             {showHeaderThinkingIndicator ? (
               <motion.div
                 initial={{ opacity: 0, x: 10 }}
@@ -701,7 +700,6 @@ export function ChatPanel({
                   {showGlobalThinkingBubble && (
                     <ThinkingBubble toolColor={toolColors} />
                   )}
-                  <TeachingBriefInlineCard />
                   <div
                     ref={messagesEndRef}
                     style={{ scrollMarginBottom: `${composerClearance}px` }}
@@ -815,12 +813,8 @@ export function ChatPanel({
                   placeholder={
                     activeSessionId
                       ? isStudioRefineMode
-                        ? refinePlaceholder
-                        : (latestBriefHint?.briefStatus === 'review_pending' || latestBriefHint?.aiRequestsConfirmation)
-                          ? '继续补充教学需求，或点击上方确认'
-                          : latestBriefHint?.briefStatus === 'confirmed'
-                            ? '输入"开始生成"启动课件生成，或继续对话修改需求'
-                            : '描述您的教学目标，例如"面向高一学生讲解牛顿第二定律，45分钟"'
+                        ? REFINE_PLACEHOLDER
+                        : '描述您的教学目标，例如"面向高一学生讲解牛顿第二定律，45分钟"'
                       : NO_SESSION_PLACEHOLDER
                   }
                   disabled={
