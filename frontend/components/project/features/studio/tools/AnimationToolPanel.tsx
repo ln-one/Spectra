@@ -41,6 +41,7 @@ const FOCUS_PRESETS = [
   "先讲结论再拆过程",
   "适合课堂演示节奏",
 ];
+const DEFAULT_ANIMATION_TOPIC = "冒泡排序";
 
 function normalizeDraftString(value: unknown): string {
   return typeof value === "string" ? value : "";
@@ -108,7 +109,9 @@ export function AnimationToolPanel({
   flowContext,
 }: ToolPanelProps) {
   const existingDraft = flowContext?.currentDraft;
-  const [topic, setTopic] = useState(normalizeDraftString(existingDraft?.topic));
+  const [topic, setTopic] = useState(
+    normalizeDraftString(existingDraft?.topic) || DEFAULT_ANIMATION_TOPIC
+  );
   const [focus, setFocus] = useState(
     normalizeDraftString(existingDraft?.motion_brief)
   );
@@ -180,7 +183,7 @@ export function AnimationToolPanel({
     const draft = flowContext.currentDraft;
     if (!draft) return;
 
-    const nextTopic = normalizeDraftString(draft.topic);
+    const nextTopic = normalizeDraftString(draft.topic) || DEFAULT_ANIMATION_TOPIC;
     const nextFocus = normalizeDraftString(draft.motion_brief);
     const nextDuration = normalizeDraftNumber(draft.duration_seconds, 6);
     const nextRhythm = normalizeRhythm(draft.rhythm);

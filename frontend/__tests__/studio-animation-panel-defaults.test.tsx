@@ -13,6 +13,41 @@ jest.mock(
 );
 
 describe("AnimationToolPanel defaults", () => {
+  test("defaults the teaching topic to bubble sort for empty drafts", async () => {
+    const onDraftChange = jest.fn();
+
+    render(
+      <AnimationToolPanel
+        toolId="animation"
+        toolName="演示动画"
+        onDraftChange={onDraftChange}
+        flowContext={
+          {
+            managedWorkbenchMode: "draft",
+            currentDraft: {},
+            latestArtifacts: [],
+            sourceOptions: [],
+            selectedSourceId: null,
+            canExecute: true,
+            isLoadingProtocol: false,
+            readiness: "ready",
+          } as never
+        }
+      />
+    );
+
+    expect(screen.getByDisplayValue("冒泡排序")).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(onDraftChange).toHaveBeenCalled();
+    });
+    const latestPayload = onDraftChange.mock.calls.at(-1)?.[0] as
+      | Record<string, unknown>
+      | undefined;
+    expect(latestPayload?.topic).toBe("冒泡排序");
+    expect(latestPayload?.animation_format).toBe("gif");
+  });
+
   test("promotes bubble sort requests to gif mock mode without changing animation duration", async () => {
     const onDraftChange = jest.fn();
 
