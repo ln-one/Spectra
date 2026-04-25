@@ -12,6 +12,37 @@ The repository has completed its first major structural convergence:
 - `services/` now follows clearer partitions such as `application`, `generation`, `media`, and `platform`
 - the architecture guard is active at `backend/scripts/architecture_guard.py`
 
+## Stable Deployment Baseline
+
+Status: `current` as of 2026-04-26.
+
+The branch `feat/theseus-render-service` is the current stable deployment
+baseline and has been promoted to `main`. Its production reference environment
+is the image-only deployment on `47.98.17.72`, using amd64 images and the
+six-authority service shape:
+
+- `backend`, `worker`, `worker_low`: `ghcr.io/ln-one/spectra-backend:deploy-20260425-sourcesfix-promptfast-amd64`
+- `frontend`: `ghcr.io/ln-one/spectra-frontend:deploy-20260425-bubblesort-default-amd64`
+- `diego`: `ghcr.io/ln-one/spectra-diego:deploy-20260425-pptfix-amd64`
+- `limora`: `ghcr.io/ln-one/spectra-limora:deploy-20260425-amd64`
+- `pagevra`: `ghcr.io/ln-one/pagevra:deploy-20260425-docx3-amd64`
+- `dualweave`: `ghcr.io/ln-one/dualweave-service:deploy-20260425-amd64`
+- `stratumind`: `ghcr.io/ln-one/stratumind:deploy-20260425-amd64`
+- `ourograph`: `ghcr.io/ln-one/ourograph:deploy-20260425-amd64`
+- infrastructure: `postgres:16-alpine`, `redis:7-alpine`, `qdrant/qdrant:v1.13.2`
+
+External handoff must use these refs, not floating `latest` tags. Before
+announcing a handoff as self-service, verify anonymous pull or manifest access
+for every GHCR image above; a private package is a release blocker, not a
+runtime fallback condition.
+
+The 47.98.17.72 deployment also includes the April 25 fixes for:
+
+- Qdrant-backed upload/indexing recovery
+- Diego/Pagevra PPTX final artifact reconciliation
+- frontend generation state reconciliation after transient Diego sync failures
+- default animation topic set to `冒泡排序` for the validated animation path
+
 ## Quick Entry Points
 
 - docs home: `/Users/ln1/Projects/Spectra/docs/README.md`
