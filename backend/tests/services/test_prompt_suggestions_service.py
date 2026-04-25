@@ -220,6 +220,7 @@ async def test_generate_ppt_pool_keeps_complete_and_open_prompts(monkeypatch):
         "制作一份讲解函数图像平移与伸缩核心方法的课堂课件，重点用对比例子呈现概念差异。",
     ]
     assert saved[-1]["status"] == "ready"
+    assert ai_service.generate.await_args.kwargs["timeout_seconds_override"] == 90.0
 
 
 def test_normalize_ppt_suggestions_mix_complete_and_open():

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 
 from fastapi import status
 
@@ -21,6 +22,30 @@ from .normalization import extract_json_object, normalize_suggestions, utc_now
 from .storage import build_project_source_fingerprint, upsert_cache
 
 logger = logging.getLogger(__name__)
+
+
+def _resolve_prompt_suggestion_max_tokens() -> int:
+    raw = (os.getenv("PROMPT_SUGGESTION_MAX_TOKENS") or "6000").strip()
+    try:
+        value = int(raw)
+    except ValueError:
+        logger.warning(
+            "Invalid PROMPT_SUGGESTION_MAX_TOKENS=%r; using default 6000", raw
+        )
+        return 6000
+    return max(1000, min(value, 12000))
+
+
+def _resolve_prompt_suggestion_timeout_seconds() -> float:
+    raw = (os.getenv("PROMPT_SUGGESTION_TIMEOUT_SECONDS") or "90").strip()
+    try:
+        value = float(raw)
+    except ValueError:
+        logger.warning(
+            "Invalid PROMPT_SUGGESTION_TIMEOUT_SECONDS=%r; using default 90", raw
+        )
+        return 90.0
+    return max(15.0, min(value, 300.0))
 
 
 async def generate_prompt_suggestion_pool(
@@ -71,7 +96,8 @@ async def generate_prompt_suggestion_pool(
             prompt=prompt,
             route_task=ModelRouteTask.PROMPT_SUGGESTION,
             has_rag_context=True,
-            max_tokens=50000,
+            max_tokens=_resolve_prompt_suggestion_max_tokens(),
+            timeout_seconds_override=_resolve_prompt_suggestion_timeout_seconds(),
         )
         payload = extract_json_object(ai_result.get("content", ""))
         suggestions, summary = normalize_suggestions(

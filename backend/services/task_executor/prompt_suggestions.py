@@ -9,6 +9,17 @@ from .common import run_async_entrypoint
 
 logger = logging.getLogger(__name__)
 
+SURFACE_PRIORITY = {
+    PromptSuggestionSurface.STUDIO_WORD: 0,
+    PromptSuggestionSurface.PPT_GENERATION_CONFIG: 1,
+    PromptSuggestionSurface.STUDIO_MINDMAP: 2,
+    PromptSuggestionSurface.STUDIO_QUIZ: 3,
+    PromptSuggestionSurface.STUDIO_ANIMATION: 4,
+    PromptSuggestionSurface.STUDIO_SIMULATION: 5,
+    PromptSuggestionSurface.STUDIO_GAME: 6,
+    PromptSuggestionSurface.STUDIO_SPEAKER_NOTES: 7,
+}
+
 
 def _coerce_surfaces(surfaces: list[str] | None) -> list[PromptSuggestionSurface]:
     result: list[PromptSuggestionSurface] = []
@@ -17,7 +28,7 @@ def _coerce_surfaces(surfaces: list[str] | None) -> list[PromptSuggestionSurface
             result.append(PromptSuggestionSurface(raw))
         except ValueError:
             logger.warning("prompt_suggestion_pool_unknown_surface: %s", raw)
-    return result
+    return sorted(result, key=lambda surface: SURFACE_PRIORITY.get(surface, 99))
 
 
 def run_prompt_suggestion_pool_task(
