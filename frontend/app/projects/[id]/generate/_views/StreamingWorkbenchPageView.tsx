@@ -329,6 +329,7 @@ export default function StreamingWorkbenchPageView() {
     previewOutline,
     previewPreambleLogs,
     currentArtifactId,
+    currentPptUrl,
     currentRenderVersion,
     diegoPreviewContext,
     currentRunDetail,
@@ -574,24 +575,16 @@ export default function StreamingWorkbenchPageView() {
       ) || resolveCachedCopilotOutline(activeSessionId, activeRunId),
     [activeRunId, activeSessionId, generationSession, previewOutline]
   );
-  const derivedRunStatus = useMemo(
-    () =>
-      derivePptStatus({
-        sessionState: sessionState ?? null,
-        runStatus: currentRunDetail?.run_status ?? null,
-        runStep: currentRunDetail?.run_step ?? null,
-        hasSlideReadyEvent: hasAnyRenderableSlide,
-        hasOutlineCompletedEvent: false,
-      }),
-    [
-      currentRunDetail?.run_status,
-      currentRunDetail?.run_step,
-      hasAnyRenderableSlide,
-      sessionState,
-    ]
-  );
+  const derivedRunStatus = derivePptStatus({
+    sessionState: sessionState ?? null,
+    runStatus: currentRunDetail?.run_status ?? null,
+    runStep: currentRunDetail?.run_step ?? null,
+    hasSlideReadyEvent: hasAnyRenderableSlide,
+    hasOutlineCompletedEvent: false,
+  });
   const showPreviewLoadingNotice = isLoading && !hasAnyRenderableSlide;
   const isRunCompleted = derivedRunStatus?.status === "completed";
+  const isRunFailed = derivedRunStatus?.status === "failed";
   const showGeneratingNotice =
     derivedRunStatus?.ppt_status === "slides_generating" &&
     !hasAnyRenderableSlide &&
@@ -630,7 +623,7 @@ export default function StreamingWorkbenchPageView() {
     !isSessionGenerating &&
     !hasAnyRenderableSlide;
 
-  const canExport = isRunCompleted;
+  const canExport = isRunCompleted || Boolean(currentArtifactId || currentPptUrl);
 
   return (
     <div
@@ -719,7 +712,13 @@ export default function StreamingWorkbenchPageView() {
               <Download className="h-5 w-5" />
             )}
             <span className="hidden sm:inline">
-              {isExporting ? "导出中" : !canExport ? "PPTX 生成中" : "导出"}
+              {isExporting
+                ? "导出中"
+                : isRunFailed
+                  ? "生成失败"
+                  : !canExport
+                    ? "PPTX 生成中"
+                    : "导出"}
             </span>
           </button>
         </div>
@@ -990,10 +989,16 @@ export default function StreamingWorkbenchPageView() {
                 <Loader2 className="h-10 w-10 animate-spin text-[var(--deck-accent)]" />
                 <p className="text-sm">正在读取 Pagevra 单页 SVG...</p>
               </div>
+            ) : isRunFailed && !hasAnyRenderableSlide ? (
+              <div className="flex flex-col items-center justify-center m-auto gap-3 px-6 text-center text-white/75">
+                <p className="text-lg font-semibold text-white">PPT 生成失败</p>
+                <p className="max-w-[520px] text-sm text-white/60">
+                  {sessionFailureMessage || "Diego 已返回失败状态，请重新生成或调整大纲后重试。"}
+                </p>
+              </div>
             ) : previewBlockedReason && !hasAnyRenderableSlide ? (
               <div className="flex flex-col items-center justify-center m-auto gap-3 text-white/70">
-                <Loader2 className="h-10 w-10 animate-spin text-[var(--deck-accent)]" />
-                <p className="text-sm">课程内容加载中，请稍候...</p>
+                <p className="text-sm">{previewBlockedReason}</p>
               </div>
             ) : showWaitingState ? (
               <div className="flex flex-col items-center justify-center m-auto gap-3 text-white/70">

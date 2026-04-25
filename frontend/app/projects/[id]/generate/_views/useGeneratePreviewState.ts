@@ -203,6 +203,51 @@ function readRunIdFromPayload(payload: RawPayload): string | null {
   return readStringField(payload, "run_id") || readRunIdFromTrace(payload);
 }
 
+function readFailureMessageFromEvent(event: GenerationEvent): string | null {
+  const payload = (event.payload ?? {}) as RawPayload;
+  const sectionPayload =
+    payload.section_payload && typeof payload.section_payload === "object"
+      ? (payload.section_payload as RawPayload)
+      : null;
+  const rawPayload =
+    sectionPayload?.raw_payload && typeof sectionPayload.raw_payload === "object"
+      ? (sectionPayload.raw_payload as RawPayload)
+      : null;
+  const failurePayload = rawPayload || payload;
+  const eventType = event.event_type;
+  const diegoEventType =
+    readStringField(sectionPayload || {}, "diego_event_type") || eventType;
+  const isFailure =
+    event.state === "FAILED" ||
+    eventType === "generation.failed" ||
+    eventType === "task.failed" ||
+    diegoEventType === "run.failed" ||
+    diegoEventType === "slide.failed";
+  if (!isFailure) return null;
+
+  const slideNo = readNumberField(failurePayload, "slide_no");
+  const errorCode = readStringField(failurePayload, "error_code");
+  const failedStage = readStringField(failurePayload, "failed_stage");
+  const message =
+    readStringField(failurePayload, "progress_message") ||
+    readStringField(failurePayload, "error_message") ||
+    readStringField(failurePayload, "reason") ||
+    readStringField(failurePayload, "state_reason") ||
+    readStringField(payload, "error_message") ||
+    readStringField(payload, "stateReason") ||
+    readStringField(event as RawPayload, "state_reason") ||
+    readStringField(event as RawPayload, "stateReason") ||
+    diegoEventType ||
+    eventType;
+  const parts = [
+    slideNo ? `第 ${slideNo} 页` : null,
+    errorCode,
+    failedStage,
+    message,
+  ].filter(Boolean);
+  return parts.join(" · ");
+}
+
 function resolvePptUrlFromSnapshot(value: unknown): string | null {
   if (!value || typeof value !== "object") return null;
   const source = value as Record<string, unknown>;
@@ -1122,7 +1167,9 @@ export function useGeneratePreviewState({
 
   useEffect(() => {
     if (!projectId) return;
-    fetchGenerationHistory(projectId);
+    fetchGenerationHistory(projectId, {
+      reason: "generate_preview_mount",
+    });
   }, [fetchGenerationHistory, projectId]);
 
   useEffect(() => {
@@ -1317,7 +1364,7 @@ export function useGeneratePreviewState({
     } finally {
       setIsLoading(false);
     }
-  }, [activeRunId, activeSessionId, currentArtifactId, artifactIdFromQuery]);
+  }, [activeRunId, activeSessionId, artifactIdFromQuery]);
 
   const loadPreviewCopilotContext = useCallback(async () => {
     if (!activeSessionId) {
@@ -1363,6 +1410,13 @@ export function useGeneratePreviewState({
       const eventList =
         ((eventListResponse?.data?.events ?? []) as GenerationEvent[]) || [];
       const nextPreambleLogs = extractPreviewPreambleLogs(eventList);
+      const failedEvent = [...eventList]
+        .reverse()
+        .find((event) => readFailureMessageFromEvent(event));
+      if (failedEvent) {
+        setPreviewSessionState("FAILED");
+        setSessionFailureMessage(readFailureMessageFromEvent(failedEvent));
+      }
 
       setCurrentPptUrl(
         resolvePptUrlFromSnapshot(runSnapshotResponse?.data ?? null) ||
@@ -1607,15 +1661,15 @@ export function useGeneratePreviewState({
       }
       if (
         diegoEventType === "run.failed" ||
-        diegoEventType === "slide.failed"
+        diegoEventType === "slide.failed" ||
+        eventType === "generation.failed" ||
+        eventType === "task.failed" ||
+        event.state === "FAILED"
       ) {
-        const failedMessage =
-          readStringField(payload, "progress_message") ||
-          readStringField(payload, "error_message") ||
-          readStringField(payload, "state_reason") ||
-          diegoEventType;
+        const failedMessage = readFailureMessageFromEvent(event) || diegoEventType;
+        setPreviewSessionState("FAILED");
         setSessionFailureMessage(failedMessage);
-        void loadSlides();
+        void Promise.all([loadSessionRuns(), loadSlides()]);
         continue;
       }
       if (eventType === "state.changed" && event.state) {
@@ -1656,7 +1710,10 @@ export function useGeneratePreviewState({
           command_type: "RESUME_SESSION",
         },
       });
-      await fetchGenerationHistory(projectId);
+      await fetchGenerationHistory(projectId, {
+        force: true,
+        reason: "resume_session",
+      });
       await Promise.all([
         loadSessionRuns(),
         loadSlides(),
