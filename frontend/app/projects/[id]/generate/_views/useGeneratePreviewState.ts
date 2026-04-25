@@ -248,6 +248,49 @@ function readFailureMessageFromEvent(event: GenerationEvent): string | null {
   return parts.join(" · ");
 }
 
+function readDiegoEventType(event: GenerationEvent): string {
+  const payload = (event.payload ?? {}) as RawPayload;
+  const sectionPayload =
+    payload.section_payload && typeof payload.section_payload === "object"
+      ? (payload.section_payload as RawPayload)
+      : null;
+  return (
+    readStringField(sectionPayload || {}, "diego_event_type") ||
+    String(event.event_type || "").trim()
+  );
+}
+
+function isCompletionEvent(event: GenerationEvent): boolean {
+  const eventType = String(event.event_type || "").trim();
+  const diegoEventType = readDiegoEventType(event);
+  return (
+    event.state === "SUCCESS" ||
+    eventType === "task.completed" ||
+    eventType === "generation.completed" ||
+    eventType === "ppt.completed" ||
+    diegoEventType === "run.completed" ||
+    diegoEventType === "compile.completed"
+  );
+}
+
+function resolveFinalFailureMessage(events: GenerationEvent[]): string | null {
+  const orderedEvents = [...events].sort((left, right) => {
+    const leftTime = Date.parse(left.timestamp || "");
+    const rightTime = Date.parse(right.timestamp || "");
+    if (Number.isNaN(leftTime) || Number.isNaN(rightTime)) return 0;
+    return leftTime - rightTime;
+  });
+  let failureMessage: string | null = null;
+  for (const event of orderedEvents) {
+    if (isCompletionEvent(event)) {
+      failureMessage = null;
+      continue;
+    }
+    failureMessage = readFailureMessageFromEvent(event) || failureMessage;
+  }
+  return failureMessage;
+}
+
 function resolvePptUrlFromSnapshot(value: unknown): string | null {
   if (!value || typeof value !== "object") return null;
   const source = value as Record<string, unknown>;
@@ -1308,6 +1351,9 @@ export function useGeneratePreviewState({
       const incomingSessionState = payload.session_state;
       if (typeof incomingSessionState === "string" && incomingSessionState) {
         setPreviewSessionState(incomingSessionState);
+        if (incomingSessionState === "SUCCESS") {
+          setSessionFailureMessage(null);
+        }
       }
       const incomingContext = normalizeDiegoPreviewContext(
         previewData.diego_preview_context,
@@ -1410,18 +1456,21 @@ export function useGeneratePreviewState({
       const eventList =
         ((eventListResponse?.data?.events ?? []) as GenerationEvent[]) || [];
       const nextPreambleLogs = extractPreviewPreambleLogs(eventList);
-      const failedEvent = [...eventList]
-        .reverse()
-        .find((event) => readFailureMessageFromEvent(event));
-      if (failedEvent) {
+      const nextPptUrl =
+        resolvePptUrlFromSnapshot(runSnapshotResponse?.data ?? null) ||
+        resolvePptUrlFromSnapshot(sessionSnapshotResponse?.data ?? null);
+      const finalFailureMessage = resolveFinalFailureMessage(eventList);
+      if (nextPptUrl || !finalFailureMessage) {
+        setSessionFailureMessage(null);
+        if (nextPptUrl) {
+          setPreviewSessionState("SUCCESS");
+        }
+      } else {
         setPreviewSessionState("FAILED");
-        setSessionFailureMessage(readFailureMessageFromEvent(failedEvent));
+        setSessionFailureMessage(finalFailureMessage);
       }
 
-      setCurrentPptUrl(
-        resolvePptUrlFromSnapshot(runSnapshotResponse?.data ?? null) ||
-          resolvePptUrlFromSnapshot(sessionSnapshotResponse?.data ?? null)
-      );
+      setCurrentPptUrl(nextPptUrl);
       setPreviewOutline(
         resolveOutlineFromSnapshot(runSnapshotResponse?.data ?? null) ||
           resolveOutlineFromSnapshot(sessionSnapshotResponse?.data ?? null) ||
@@ -1652,6 +1701,8 @@ export function useGeneratePreviewState({
         eventType === "ppt.completed" ||
         diegoEventType === "compile.completed"
       ) {
+        setPreviewSessionState("SUCCESS");
+        setSessionFailureMessage(null);
         void Promise.all([
           loadSessionRuns(),
           loadSlides(),
@@ -1674,8 +1725,12 @@ export function useGeneratePreviewState({
       }
       if (eventType === "state.changed" && event.state) {
         setPreviewSessionState(event.state);
+        if (event.state === "SUCCESS") {
+          setSessionFailureMessage(null);
+        }
       }
       if (eventType === "task.completed" || event.state === "SUCCESS") {
+        setSessionFailureMessage(null);
         void Promise.all([
           loadSessionRuns(),
           loadSlides(),
