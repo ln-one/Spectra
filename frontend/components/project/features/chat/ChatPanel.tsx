@@ -1,13 +1,14 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowUp, Loader2, Sparkles, Mic } from "lucide-react";
+import { ArrowUp, Loader2, Mic } from "lucide-react";
 import { toast } from "sonner";
+import { ThinkingMark } from "@/components/icons/status/ThinkingMark";
+import { BrandMark } from "@/components/icons/brand/BrandMark";
 import { useProjectStore } from "@/stores/projectStore";
 import { useShallow } from "zustand/react/shallow";
 import { cn } from "@/lib/utils";
-import { ragApi } from "@/lib/sdk/rag";
 import {
   Card,
   CardContent,
@@ -21,6 +22,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { SUGGESTIONS } from "./constants";
 import { MessageBubble } from "./components/MessageBubble";
 import { ThinkingBubble } from "./components/ThinkingBubble";
+import { TeachingBriefDialog } from "./components/TeachingBriefDialog";
+import { ChatGenerationConfirmDialog } from "./components/ChatGenerationConfirmDialog";
 import { SelectedSourceScopeBadge } from "@/components/project/features/sources/components/SelectedSourceScopeBadge";
 import { TOOL_COLORS } from "@/components/project/features/studio/constants";
 import type { ChatMessage } from "./types";
@@ -29,7 +32,7 @@ interface ChatPanelProps {
   projectId: string;
 }
 
-type VoiceInputState = "idle" | "listening" | "transcribing" | "failed";
+type VoiceInputState = "idle" | "listening" | "failed";
 
 type BrowserSpeechRecognition = {
   lang: string;
@@ -61,17 +64,6 @@ function getSpeechRecognitionCtor(): BrowserSpeechRecognitionCtor | null {
   return window.SpeechRecognition || window.webkitSpeechRecognition || null;
 }
 
-function getPreferredRecorderMimeType(): string | null {
-  if (typeof MediaRecorder === "undefined") return null;
-  const candidates = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4"];
-  for (const type of candidates) {
-    if (MediaRecorder.isTypeSupported(type)) {
-      return type;
-    }
-  }
-  return null;
-}
-
 const CHAT_DESCRIPTION = "AI 助手对话";
 const THINKING_LABEL = "Spectra 正在思考...";
 const EMPTY_TITLE = "开始对话";
@@ -79,6 +71,10 @@ const EMPTY_DESCRIPTION = "向 AI 助手提问关于项目的内容";
 const INPUT_PLACEHOLDER = "输入消息...";
 const NO_SESSION_PLACEHOLDER = "请先在会话选择器中点击“新建会话”";
 const REFINE_PLACEHOLDER = "例如：再详细一点 / 增加案例 / 更简洁";
+const STUDIO_REFINE_PLACEHOLDERS: Partial<Record<string, string>> = {
+  mindmap: "例如：把整张导图扩成更完整的大图 / 重组一级分支 / 压缩重复节点 / 换成更适合课堂讲解的结构",
+  quiz: "例如：把整份小测提升到更高难度 / 按当前题补强易错点并重写全卷 / 重组覆盖面 / 换成更适合课堂讲解的出题风格",
+};
 
 function normalizeMessageContent(content: string): string {
   return content.replace(/\s+/g, " ").trim();
@@ -124,6 +120,8 @@ export function ChatPanel({
   const [isFocused, setIsFocused] = useState(false);
   const [voiceState, setVoiceState] = useState<VoiceInputState>("idle");
   const [loadingTimedOut, setLoadingTimedOut] = useState(false);
+  const [awaitingFirstLoadTimedOut, setAwaitingFirstLoadTimedOut] =
+    useState(false);
   const [loadedSessionId, setLoadedSessionId] = useState<string | null>(null);
   const [isSessionTransitioning, setIsSessionTransitioning] = useState(true);
   const [hasResolvedInitialLoad, setHasResolvedInitialLoad] = useState(false);
@@ -145,9 +143,6 @@ export function ChatPanel({
   const voiceSegmentEndRef = useRef<number | null>(null);
   const speechFinalTextRef = useRef("");
   const liveInterimTextRef = useRef("");
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const mediaStreamRef = useRef<MediaStream | null>(null);
-  const mediaChunksRef = useRef<Blob[]>([]);
 
   const localSessionMessages = useMemo(() => {
     if (!activeSessionId) return [];
@@ -221,6 +216,10 @@ export function ChatPanel({
       ? TOOL_COLORS[studioChatContext.toolType]
       : undefined;
   const refineToolLabel = studioChatContext?.toolLabel ?? "工具微调";
+  const refinePlaceholder =
+    (studioChatContext?.toolType
+      ? STUDIO_REFINE_PLACEHOLDERS[studioChatContext.toolType]
+      : null) ?? REFINE_PLACEHOLDER;
   const isAIGenerating = isSending || isStudioRefining;
   const showHeaderThinkingIndicator = isSending && !isStudioRefineMode;
   const hasInlineRefineThinkingMessage =
@@ -365,13 +364,31 @@ export function ChatPanel({
     !!activeSessionId &&
     mergedMessages.length === 0 &&
     loadedSessionId !== activeSessionId;
+  const shouldShowAwaitingFirstLoad =
+    awaitingSessionFirstLoad && !awaitingFirstLoadTimedOut;
   const shouldBlockEmptyState =
-    !hasResolvedInitialLoad && mergedMessages.length === 0;
+    !hasResolvedInitialLoad &&
+    mergedMessages.length === 0 &&
+    (isSessionTransitioning ||
+      isMessagesLoading ||
+      shouldShowAwaitingFirstLoad);
   const showLoading =
     isSessionTransitioning ||
     shouldBlockEmptyState ||
     (isMessagesLoading && !loadingTimedOut) ||
-    awaitingSessionFirstLoad;
+    shouldShowAwaitingFirstLoad;
+
+  useEffect(() => {
+    if (!awaitingSessionFirstLoad) {
+      setAwaitingFirstLoadTimedOut(false);
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      setAwaitingFirstLoadTimedOut(true);
+    }, 1800);
+    return () => clearTimeout(timer);
+  }, [awaitingSessionFirstLoad]);
 
   const handleSend = async () => {
     if (!input.trim() || !activeSessionId) return;
@@ -413,21 +430,6 @@ export function ChatPanel({
     }
     speechRecognitionRef.current = null;
     hasSpeechRecognitionRef.current = false;
-
-    const recorder = mediaRecorderRef.current;
-    if (recorder) {
-      recorder.ondataavailable = null;
-      recorder.onstop = null;
-      recorder.onerror = null;
-    }
-    mediaRecorderRef.current = null;
-    mediaChunksRef.current = [];
-
-    const stream = mediaStreamRef.current;
-    if (stream) {
-      stream.getTracks().forEach((track) => track.stop());
-    }
-    mediaStreamRef.current = null;
   };
 
   const finalizeVoiceAsFailure = (message: string) => {
@@ -441,98 +443,26 @@ export function ChatPanel({
     setTimeout(() => setVoiceState("idle"), 0);
   };
 
-  const transcribeCapturedAudio = async (requestId: number) => {
-    const recorder = mediaRecorderRef.current;
-    if (!recorder) {
-      finalizeVoiceAsFailure("语音转写失败，请重试");
-      return;
-    }
-
-    const blob = new Blob(mediaChunksRef.current, {
-      type: recorder.mimeType || "audio/webm",
-    });
-    if (blob.size === 0) {
-      finalizeVoiceAsFailure("未检测到语音内容，请重试");
-      return;
-    }
-
-    const ext = blob.type.includes("mp4") ? "m4a" : "webm";
-    const file = new File([blob], `chat-voice-${Date.now()}.${ext}`, {
-      type: blob.type || "audio/webm",
-    });
-
-    try {
-      const response = await ragApi.transcribeAudio(file, {
-        project_id: projectId,
-        auto_index: false,
-        language: "zh",
-      });
-      if (activeVoiceRequestIdRef.current !== requestId) {
-        return;
-      }
-      const transcript = response.data?.text?.trim() ?? "";
-      if (!transcript) {
-        finalizeVoiceAsFailure("未识别到语音内容，请重试或改用文字输入");
-        return;
-      }
-      applyVoiceSegment(transcript);
-      releaseVoiceResources();
-      activeVoiceRequestIdRef.current = null;
-      liveInterimTextRef.current = "";
-      voiceSegmentStartRef.current = null;
-      voiceSegmentEndRef.current = null;
-      setVoiceState("idle");
-    } catch (error) {
-      if (activeVoiceRequestIdRef.current !== requestId) {
-        return;
-      }
-      const message =
-        error instanceof Error ? error.message : "语音转写失败，请重试";
-      finalizeVoiceAsFailure(message);
-    }
-  };
-
-  const startMediaRecorder = async (requestId: number) => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      if (activeVoiceRequestIdRef.current !== requestId) {
-        stream.getTracks().forEach((track) => track.stop());
-        return false;
-      }
-      mediaStreamRef.current = stream;
-      mediaChunksRef.current = [];
-
-      const mimeType = getPreferredRecorderMimeType();
-      const recorder = mimeType
-        ? new MediaRecorder(stream, { mimeType })
-        : new MediaRecorder(stream);
-
-      recorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          mediaChunksRef.current.push(event.data);
-        }
-      };
-
-      recorder.onerror = () => {
-        if (activeVoiceRequestIdRef.current !== requestId) return;
-        finalizeVoiceAsFailure("录音失败，请检查麦克风权限");
-      };
-
-      mediaRecorderRef.current = recorder;
-      recorder.start();
-      return true;
-    } catch {
-      if (activeVoiceRequestIdRef.current !== requestId) return false;
-      finalizeVoiceAsFailure("无法访问麦克风，请检查浏览器权限");
-      return false;
-    }
+  const finalizeVoiceAsSuccess = () => {
+    releaseVoiceResources();
+    activeVoiceRequestIdRef.current = null;
+    liveInterimTextRef.current = "";
+    voiceSegmentStartRef.current = null;
+    voiceSegmentEndRef.current = null;
+    setVoiceState("idle");
   };
 
   const startVoiceCapture = async () => {
     if (!activeSessionId || isSending || isStudioRefining) {
       return;
     }
-    if (voiceState === "listening" || voiceState === "transcribing") {
+    if (voiceState === "listening") {
+      return;
+    }
+
+    const RecognitionCtor = getSpeechRecognitionCtor();
+    if (!RecognitionCtor) {
+      finalizeVoiceAsFailure("当前浏览器不支持实时语音输入");
       return;
     }
 
@@ -545,19 +475,7 @@ export function ChatPanel({
     voiceSegmentStartRef.current = null;
     voiceSegmentEndRef.current = null;
     releaseVoiceResources();
-
-    const recorderStarted = await startMediaRecorder(requestId);
-    if (!recorderStarted) {
-      return;
-    }
-
     setVoiceState("listening");
-
-    const RecognitionCtor = getSpeechRecognitionCtor();
-    if (!RecognitionCtor) {
-      hasSpeechRecognitionRef.current = false;
-      return;
-    }
 
     try {
       const recognition = new RecognitionCtor();
@@ -592,9 +510,7 @@ export function ChatPanel({
 
       recognition.onerror = () => {
         if (activeVoiceRequestIdRef.current !== requestId) return;
-        hasSpeechRecognitionRef.current = false;
-        speechRecognitionRef.current = null;
-        toast.info("实时识别不可用，将在结束后使用后端转写校正");
+        finalizeVoiceAsFailure("实时语音识别不可用，请重试");
       };
 
       recognition.onend = () => {
@@ -604,16 +520,13 @@ export function ChatPanel({
 
       recognition.start();
     } catch {
-      hasSpeechRecognitionRef.current = false;
-      speechRecognitionRef.current = null;
+      finalizeVoiceAsFailure("无法启动实时语音输入，请检查麦克风权限");
     }
   };
 
   const stopVoiceCapture = async () => {
     const requestId = activeVoiceRequestIdRef.current;
     if (!requestId) return;
-
-    setVoiceState("transcribing");
 
     const recognition = speechRecognitionRef.current;
     if (recognition && hasSpeechRecognitionRef.current) {
@@ -623,21 +536,7 @@ export function ChatPanel({
         speechRecognitionRef.current = null;
       }
     }
-
-    const recorder = mediaRecorderRef.current;
-    if (!recorder) {
-      finalizeVoiceAsFailure("录音设备不可用，请重试");
-      return;
-    }
-
-    if (recorder.state !== "inactive") {
-      await new Promise<void>((resolve) => {
-        recorder.onstop = () => resolve();
-        recorder.stop();
-      });
-    }
-
-    await transcribeCapturedAudio(requestId);
+    finalizeVoiceAsSuccess();
   };
   useEffect(() => {
     return () => {
@@ -662,9 +561,8 @@ export function ChatPanel({
 
   const hasInput = Boolean(input.trim());
   const isVoiceListening = voiceState === "listening";
-  const isVoiceTranscribing = voiceState === "transcribing";
-  const showVoiceStatus = isVoiceListening || isVoiceTranscribing;
-  const canSend = hasInput && !isVoiceListening && !isVoiceTranscribing;
+  const showVoiceStatus = isVoiceListening;
+  const canSend = hasInput && !isVoiceListening;
 
   return (
     <div
@@ -706,28 +604,32 @@ export function ChatPanel({
               {CHAT_DESCRIPTION}
             </CardDescription>
           </div>
-          {showHeaderThinkingIndicator ? (
-            <motion.div
-              initial={{ opacity: 0, x: 10 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 10 }}
-              className="flex items-center gap-2 rounded-full border border-[var(--project-border)] bg-[var(--project-surface-muted)] px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-[var(--project-text-muted)] shadow-sm"
-            >
+          <div className="flex items-center gap-2">
+            <TeachingBriefDialog />
+            <ChatGenerationConfirmDialog projectId={projectId} />
+            {showHeaderThinkingIndicator ? (
               <motion.div
-                animate={{
-                  scale: [1, 1.2, 1],
-                  opacity: [0.5, 1, 0.5],
-                }}
-                transition={{
-                  duration: 2,
-                  repeat: Infinity,
-                  ease: "easeInOut",
-                }}
-                className="h-1.5 w-1.5 rounded-full bg-[var(--project-accent)]"
-              />
-              <span>{THINKING_LABEL}</span>
-            </motion.div>
-          ) : null}
+                initial={{ opacity: 0, x: 10 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 10 }}
+                className="flex items-center gap-2 rounded-full border border-[var(--project-border)] bg-[var(--project-surface-muted)] px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-[var(--project-text-muted)] shadow-sm"
+              >
+                <motion.div
+                  animate={{
+                    scale: [1, 1.2, 1],
+                    opacity: [0.5, 1, 0.5],
+                  }}
+                  transition={{
+                    duration: 2,
+                    repeat: Infinity,
+                    ease: "easeInOut",
+                  }}
+                  className="h-1.5 w-1.5 rounded-full bg-[var(--project-accent)]"
+                />
+                <span>{THINKING_LABEL}</span>
+              </motion.div>
+            ) : null}
+          </div>
         </CardHeader>
 
         <CardContent className="relative h-[calc(100%-52px)] overflow-hidden p-0">
@@ -756,7 +658,7 @@ export function ChatPanel({
                     transition={{ type: "spring", stiffness: 300, damping: 20 }}
                     className="project-empty-icon mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--project-surface-muted)] shadow-sm"
                   >
-                    <Sparkles className="h-7 w-7 text-[var(--project-text-muted)]" />
+                    <BrandMark className="h-8 w-8" />
                   </motion.div>
                   <p className="text-sm font-semibold text-[var(--project-text-primary)]">
                     {EMPTY_TITLE}
@@ -875,7 +777,7 @@ export function ChatPanel({
                     }}
                   >
                     <span className="truncate flex items-center gap-1.5">
-                      <Sparkles className="h-3.5 w-3.5" />
+                      <BrandMark className="h-3.5 w-3.5" />
                       正在微调：{refineToolLabel}
                     </span>
                     {isStudioRefining ? (
@@ -899,14 +801,8 @@ export function ChatPanel({
                   >
                     {isVoiceListening ? (
                       <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
-                    ) : (
-                      <Loader2 className="h-3 w-3 animate-spin text-[var(--project-accent)]" />
-                    )}
-                    <span>
-                      {isVoiceListening
-                        ? "正在语音输入，点击麦克风结束"
-                        : "正在校正语音文本..."}
-                    </span>
+                    ) : null}
+                    <span>正在语音输入，点击麦克风结束</span>
                   </motion.div>
                 ) : null}
               </AnimatePresence>
@@ -920,11 +816,11 @@ export function ChatPanel({
                     activeSessionId
                       ? isStudioRefineMode
                         ? REFINE_PLACEHOLDER
-                        : INPUT_PLACEHOLDER
+                        : '描述您的教学目标，例如"面向高一学生讲解牛顿第二定律，45分钟"'
                       : NO_SESSION_PLACEHOLDER
                   }
                   disabled={
-                    !activeSessionId || isVoiceListening || isVoiceTranscribing
+                    !activeSessionId || isVoiceListening
                   }
                   onFocus={() => setIsFocused(true)}
                   onBlur={() => setIsFocused(false)}
@@ -952,8 +848,7 @@ export function ChatPanel({
                     }
                     if (
                       !activeSessionId ||
-                      isAIGenerating ||
-                      isVoiceTranscribing
+                      isAIGenerating
                     ) {
                       return;
                     }
@@ -963,7 +858,7 @@ export function ChatPanel({
                     !activeSessionId ||
                     (canSend
                       ? !isStudioRefineMode && isSending
-                      : isAIGenerating || isVoiceTranscribing)
+                      : isAIGenerating)
                   }
                   className={cn(
                     "project-chat-send-btn relative h-10 w-10 shrink-0 rounded-[var(--project-input-radius)] overflow-hidden transition-all duration-300",

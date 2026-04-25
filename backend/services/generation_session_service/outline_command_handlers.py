@@ -44,6 +44,7 @@ async def handle_update_outline(
     conflict_error_cls,
 ) -> None:
     base_version = int(command.get("base_version", 0) or 0)
+    run_id = str(command.get("run_id") or "").strip() or None
     outline_data = command.get("outline", {}) or {}
     change_reason = command.get("change_reason")
     effective_version = await get_effective_outline_version(db, session)
@@ -102,7 +103,11 @@ async def handle_update_outline(
         session_id=session.id,
         event_type=GenerationEventType.OUTLINE_UPDATED.value,
         state=new_state,
-        payload={"version": new_version, "change_reason": change_reason},
+        payload={
+            "version": new_version,
+            "change_reason": change_reason,
+            "run_id": run_id,
+        },
     )
 
 

@@ -1,15 +1,19 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Check, ChevronUp, Sparkles, Trash2 } from "lucide-react";
+import { ArrowUpRight, Check, ChevronUp, Trash2 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
+import rehypeRaw from "rehype-raw";
+import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
 import remarkGfm from "remark-gfm";
 import { ragApi } from "@/lib/sdk";
+import { SummaryMark } from "@/components/icons/status/SummaryMark";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { FILE_TYPE_CONFIG, STATUS_CONFIG } from "../constants";
 import type { SourceFocusDetail, UploadedFile } from "../types";
+import { TOOL_COLORS, TOOL_ICONS } from "../../studio/constants";
 import {
   getFileStatusText,
   getFileTypeFromExtension,
@@ -24,12 +28,27 @@ function normalizeRelativeImagePath(src: string | undefined): string | null {
   const normalized = src.trim().replace(/\\/g, "/").replace(/^\.\//, "");
   if (
     !normalized ||
+    normalized.startsWith("/") ||
+    normalized.startsWith("../") ||
+    normalized.includes("/../") ||
+    normalized.split("/").includes("..") ||
+    /^[a-zA-Z]:\//.test(normalized) ||
     normalized.startsWith("http://") ||
     normalized.startsWith("https://")
   ) {
     return null;
   }
-  return normalized.startsWith("images/") ? normalized : null;
+  return normalized;
+}
+
+function shouldSilenceImageError(message: string | null): boolean {
+  const normalized = (message || "").trim();
+  return (
+    !normalized ||
+    normalized.includes("当前来源无可用图片") ||
+    normalized.includes("来源图片不存在") ||
+    normalized.includes("仅支持 images/ 相对路径")
+  );
 }
 
 function SourceChunkImage({
@@ -44,16 +63,34 @@ function SourceChunkImage({
   const relativePath = useMemo(() => normalizeRelativeImagePath(src), [src]);
   const [objectUrl, setObjectUrl] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const objectUrlRef = useRef<string | null>(null);
   const isAbsoluteUrl = Boolean(
     src?.startsWith("http://") || src?.startsWith("https://")
   );
   const shouldFetch = Boolean(!isAbsoluteUrl && chunkId && relativePath);
 
+  const updateObjectUrl = useCallback((nextUrl: string | null) => {
+    if (objectUrlRef.current && objectUrlRef.current !== nextUrl) {
+      URL.revokeObjectURL(objectUrlRef.current);
+    }
+    objectUrlRef.current = nextUrl;
+    setObjectUrl(nextUrl);
+  }, []);
+
+  useEffect(
+    () => () => {
+      if (objectUrlRef.current) {
+        URL.revokeObjectURL(objectUrlRef.current);
+        objectUrlRef.current = null;
+      }
+    },
+    []
+  );
+
   useEffect(() => {
     if (!shouldFetch || !chunkId || !relativePath) {
       return;
     }
-    let revokedUrl: string | null = null;
     let active = true;
 
     ragApi
@@ -62,8 +99,8 @@ function SourceChunkImage({
         if (!active) {
           return;
         }
-        revokedUrl = URL.createObjectURL(blob);
-        setObjectUrl(revokedUrl);
+        setLoadError(null);
+        updateObjectUrl(URL.createObjectURL(blob));
       })
       .catch((error: unknown) => {
         if (!active) {
@@ -75,11 +112,8 @@ function SourceChunkImage({
 
     return () => {
       active = false;
-      if (revokedUrl) {
-        URL.revokeObjectURL(revokedUrl);
-      }
     };
-  }, [chunkId, relativePath, shouldFetch]);
+  }, [chunkId, relativePath, shouldFetch, updateObjectUrl]);
 
   if (isAbsoluteUrl) {
     return (
@@ -92,14 +126,13 @@ function SourceChunkImage({
   }
 
   if (!chunkId || !relativePath) {
-    return (
-      <span className="my-2 block text-[10px] text-[var(--project-text-muted)]">
-        图片路径不支持
-      </span>
-    );
+    return null;
   }
 
   if (loadError) {
+    if (shouldSilenceImageError(loadError)) {
+      return null;
+    }
     return (
       <span className="my-2 block text-[10px] text-[var(--project-text-muted)]">
         {loadError}
@@ -124,10 +157,68 @@ function SourceChunkImage({
   );
 }
 
+const sourceMarkdownSanitizeSchema = {
+  ...defaultSchema,
+  tagNames: [
+    ...(defaultSchema.tagNames || []),
+    "table",
+    "thead",
+    "tbody",
+    "tfoot",
+    "tr",
+    "th",
+    "td",
+    "img",
+    "div",
+    "span",
+    "figure",
+    "figcaption",
+  ],
+  attributes: {
+    ...(defaultSchema.attributes || {}),
+    a: [
+      ...((defaultSchema.attributes && defaultSchema.attributes.a) || []),
+      "href",
+      "target",
+      "rel",
+      "title",
+    ],
+    img: [
+      ...((defaultSchema.attributes && defaultSchema.attributes.img) || []),
+      "src",
+      "alt",
+      "title",
+      "width",
+      "height",
+    ],
+    table: [
+      ...((defaultSchema.attributes && defaultSchema.attributes.table) || []),
+      "className",
+    ],
+    th: [
+      ...((defaultSchema.attributes && defaultSchema.attributes.th) || []),
+      "colspan",
+      "rowspan",
+      "align",
+    ],
+    td: [
+      ...((defaultSchema.attributes && defaultSchema.attributes.td) || []),
+      "colspan",
+      "rowspan",
+      "align",
+    ],
+    "*": [
+      ...((defaultSchema.attributes && defaultSchema.attributes["*"]) || []),
+      "className",
+    ],
+  },
+};
+
 interface FileItemProps {
   file: UploadedFile;
   isSelected: boolean;
   onToggle: () => void;
+  onOpen?: () => void;
   onDelete?: () => void;
   isCompact: boolean;
   isFocused: boolean;
@@ -138,12 +229,14 @@ interface FileItemProps {
   hideDeleteAction?: boolean;
   displayName?: string;
   iconTypeOverride?: string;
+  studioArtifactToolType?: string | null;
 }
 
 export function FileItem({
   file,
   isSelected,
   onToggle,
+  onOpen,
   onDelete,
   isCompact,
   isFocused,
@@ -154,6 +247,7 @@ export function FileItem({
   hideDeleteAction = false,
   displayName,
   iconTypeOverride,
+  studioArtifactToolType = null,
 }: FileItemProps) {
   const resolvedDisplayName = displayName?.trim() || file.filename;
   const fileType = iconTypeOverride || getFileTypeFromExtension(file.filename);
@@ -162,6 +256,14 @@ export function FileItem({
   const resolvedStatusText = statusText || getFileStatusText(file);
   const Icon = config.icon;
   const focusTimestampSeconds = toSeconds(focusDetail?.source?.timestamp);
+  const StudioIcon =
+    iconTypeOverride === "artifact" && studioArtifactToolType
+      ? TOOL_ICONS[studioArtifactToolType]
+      : null;
+  const studioColor =
+    iconTypeOverride === "artifact" && studioArtifactToolType
+      ? TOOL_COLORS[studioArtifactToolType] ?? TOOL_COLORS.ppt
+      : null;
 
   if (isCompact) {
     const compactHint = `${resolvedDisplayName}\n${resolvedStatusText}`;
@@ -188,18 +290,68 @@ export function FileItem({
         <div
           className={cn(
             "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-transform duration-200 group-hover:scale-105",
-            config.bgGradient
+            !StudioIcon && config.bgGradient,
+            StudioIcon &&
+              "project-tool-icon rounded-[var(--project-chip-radius)] border border-white/40 backdrop-blur-md"
           )}
+          style={
+            StudioIcon && studioColor
+              ? {
+                  background: `linear-gradient(135deg, ${studioColor.glow}, transparent)`,
+                  boxShadow: `0 8px 22px ${studioColor.glow}, inset 0 1px 0 rgba(255, 255, 255, 0.6)`,
+                }
+              : undefined
+          }
         >
-          <Icon className={cn("h-4 w-4 transition-colors", config.color)} />
+          {StudioIcon ? (
+            <StudioIcon
+              className="h-4 w-4 transition-colors"
+              style={{ color: studioColor?.primary }}
+            />
+          ) : (
+            <Icon className={cn("h-4 w-4 transition-colors", config.color)} />
+          )}
         </div>
+
+        {onOpen ? (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={(event) => {
+              event.stopPropagation();
+              onOpen();
+            }}
+            className="absolute -left-1 -top-1 z-10 h-4 w-4 rounded-full bg-white/92 text-zinc-400 opacity-0 shadow-sm ring-1 ring-zinc-200 transition-all hover:bg-sky-50 hover:text-sky-600 group-hover:opacity-100"
+            aria-label="打开成果"
+          >
+            <ArrowUpRight className="h-2.5 w-2.5" />
+          </Button>
+        ) : null}
+
+        {!hideDeleteAction && onDelete ? (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={(event) => {
+              event.stopPropagation();
+              onDelete();
+            }}
+            className="absolute -right-1 -top-1 z-10 h-4 w-4 rounded-full bg-white/92 text-zinc-400 opacity-0 shadow-sm ring-1 ring-zinc-200 transition-all hover:bg-red-50 hover:text-red-500 group-hover:opacity-100"
+            aria-label="删除来源"
+          >
+            <Trash2 className="h-2.5 w-2.5" />
+          </Button>
+        ) : null}
 
         {isSelected ? (
           <motion.div
             initial={{ scale: 0, rotate: -180 }}
             animate={{ scale: 1, rotate: 0 }}
             transition={{ type: "spring", stiffness: 400, damping: 25 }}
-            className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-[var(--project-accent)] text-[var(--project-accent-text)] shadow-lg"
+            className={cn(
+              "absolute flex h-4 w-4 items-center justify-center rounded-full bg-[var(--project-accent)] text-[var(--project-accent-text)] shadow-lg",
+              !hideDeleteAction && onDelete ? "-left-1 -top-1" : "-right-1 -top-1"
+            )}
           >
             <Check className="h-2.5 w-2.5" strokeWidth={3} />
           </motion.div>
@@ -241,14 +393,65 @@ export function FileItem({
         />
       ) : null}
 
-      <div
-        className={cn(
-          "flex h-8 w-8 items-center justify-center rounded-lg transition-transform duration-200 group-hover:scale-105",
-          config.bgGradient
-        )}
-      >
-        <Icon className={cn("h-4 w-4 transition-colors", config.color)} />
-      </div>
+      {onOpen ? (
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            onOpen();
+          }}
+          className={cn(
+            "flex h-8 w-8 items-center justify-center rounded-lg transition-transform duration-200 group-hover:scale-105 hover:brightness-95",
+            !StudioIcon && config.bgGradient,
+            StudioIcon &&
+              "project-tool-icon rounded-[var(--project-chip-radius)] border border-white/40 backdrop-blur-md"
+          )}
+          style={
+            StudioIcon && studioColor
+              ? {
+                  background: `linear-gradient(135deg, ${studioColor.glow}, transparent)`,
+                  boxShadow: `0 8px 22px ${studioColor.glow}, inset 0 1px 0 rgba(255, 255, 255, 0.6)`,
+                }
+              : undefined
+          }
+          aria-label="打开成果"
+        >
+          {StudioIcon ? (
+            <StudioIcon
+              className="h-4 w-4 transition-colors"
+              style={{ color: studioColor?.primary }}
+            />
+          ) : (
+            <Icon className={cn("h-4 w-4 transition-colors", config.color)} />
+          )}
+        </button>
+      ) : (
+        <div
+          className={cn(
+            "flex h-8 w-8 items-center justify-center rounded-lg transition-transform duration-200 group-hover:scale-105",
+            !StudioIcon && config.bgGradient,
+            StudioIcon &&
+              "project-tool-icon rounded-[var(--project-chip-radius)] border border-white/40 backdrop-blur-md"
+          )}
+          style={
+            StudioIcon && studioColor
+              ? {
+                  background: `linear-gradient(135deg, ${studioColor.glow}, transparent)`,
+                  boxShadow: `0 8px 22px ${studioColor.glow}, inset 0 1px 0 rgba(255, 255, 255, 0.6)`,
+                }
+              : undefined
+          }
+        >
+          {StudioIcon ? (
+            <StudioIcon
+              className="h-4 w-4 transition-colors"
+              style={{ color: studioColor?.primary }}
+            />
+          ) : (
+            <Icon className={cn("h-4 w-4 transition-colors", config.color)} />
+          )}
+        </div>
+      )}
 
       <div className="min-w-0 flex flex-col justify-center">
         <p
@@ -284,6 +487,21 @@ export function FileItem({
             statusConfig.pulse && "animate-pulse"
           )}
         />
+
+        {onOpen ? (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={(event) => {
+              event.stopPropagation();
+              onOpen();
+            }}
+            className="h-6 w-6 shrink-0 rounded-md bg-[var(--project-surface-muted)] text-[var(--project-text-muted)] transition-colors hover:bg-sky-50 hover:text-sky-600"
+            aria-label="打开成果"
+          >
+            <ArrowUpRight className="h-3 w-3" />
+          </Button>
+        ) : null}
 
         {!hideDeleteAction ? (
           <Button
@@ -323,7 +541,7 @@ export function FileItem({
           >
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2 text-[10px] text-[var(--project-text-muted)]">
-                <Sparkles className="h-3 w-3" />
+                <SummaryMark className="h-3 w-3" />
                 <span>文件解析摘要</span>
               </div>
 
@@ -352,7 +570,7 @@ export function FileItem({
       <AnimatePresence>
         {isExpanded && isFocused && focusDetail?.content ? (
           <motion.div
-            key={`focus-${focusDetail.chunk_id}`}
+            key={`focus-${file.id}`}
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -6 }}
@@ -392,10 +610,10 @@ export function FileItem({
             <div className="text-[var(--project-text-primary)]">
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
+                rehypePlugins={[rehypeRaw, [rehypeSanitize, sourceMarkdownSanitizeSchema]]}
                 components={{
                   img: ({ src, alt }) => (
                     <SourceChunkImage
-                      key={`${focusDetail.chunk_id || "chunk"}:${src || ""}`}
                       src={src}
                       alt={alt}
                       chunkId={focusDetail.chunk_id}

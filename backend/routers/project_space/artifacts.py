@@ -5,7 +5,7 @@ import time
 from pathlib import Path
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Response
 from fastapi.responses import FileResponse
 
 from schemas.project_space import (
@@ -37,6 +37,7 @@ logger = logging.getLogger(__name__)
 )
 async def get_project_artifacts(
     project_id: str,
+    response: Response,
     user_id: str = Depends(get_current_user),
     type: Optional[ArtifactType] = Query(None, description="Artifact type filter"),
     visibility: Optional[ArtifactVisibility] = Query(
@@ -49,6 +50,9 @@ async def get_project_artifacts(
     session_id: Optional[str] = Query(None, description="Session ID filter"),
 ):
     try:
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
         await project_space_service.check_project_permission(
             project_id, user_id, ProjectPermission.VIEW
         )
@@ -77,9 +81,13 @@ async def get_project_artifacts(
 async def get_artifact(
     project_id: str,
     artifact_id: str,
+    response: Response,
     user_id: str = Depends(get_current_user),
 ):
     try:
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
         await project_space_service.check_project_permission(
             project_id, user_id, ProjectPermission.VIEW
         )
@@ -195,7 +203,14 @@ async def download_artifact(
             },
         )
         return FileResponse(
-            path=str(file_path), media_type=media_type, filename=filename
+            path=str(file_path),
+            media_type=media_type,
+            filename=filename,
+            headers={
+                "Cache-Control": "no-store, no-cache, must-revalidate",
+                "Pragma": "no-cache",
+                "Expires": "0",
+            },
         )
     except (NotFoundException, Exception) as exc:
         logger.error(f"download_artifact error: {exc}")

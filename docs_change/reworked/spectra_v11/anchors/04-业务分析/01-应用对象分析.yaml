@@ -1,0 +1,34 @@
+section_id: "04-01"
+title: "应用对象分析"
+purpose: "约束本节只描述当前作品直接面向的使用对象、典型任务和操作面，不把场景拔高成机构治理系统。"
+source_doc_parts:
+  - "imported/spectra/chapters/04-业务与需求分析.md"
+  - "source/04-业务分析/01-应用对象分析.md"
+code_paths:
+  - "frontend/components/project/features/studio/StudioPanel.tsx"
+  - "frontend/components/project/features/chat/ChatPanel.tsx"
+  - "frontend/components/project/features/sources/SourcesPanel.tsx"
+  - "frontend/components/project/features/library/LibraryDrawer.tsx"
+api_routes:
+  - "GET /api/v1/projects"
+  - "POST /api/v1/generate/sessions"
+  - "POST /api/v1/rag/search"
+frontend_surfaces:
+  - "Studio 工作台"
+  - "Chat 面板"
+  - "Sources 资料面板"
+  - "Library 结果与版本抽屉"
+tests_or_metrics:
+  - "frontend/__tests__/studio-panel-workflow-guards.test.tsx"
+  - "frontend/__tests__/library-references-tab.test.tsx"
+figures:
+  - "fig-image2-02"
+  - "fig-image3-03"
+allowed_claims:
+  - "作品当前主要面向教师备课、资料整理、内容生成与结果复用场景。"
+  - "同一工作台内可以看到资料、生成流程、预览与结果管理。"
+forbidden_claims:
+  - "学校/机构治理已经成立"
+  - "采购沟通条件已经具备"
+  - "面向全量教学组织的正式平台已经落地"
+last_checked: "2026-04-18"

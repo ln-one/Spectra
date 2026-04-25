@@ -32,7 +32,9 @@ async def generate_with_routing(
     model: Optional[str] = None,
     route_task: Optional[ModelRouteTask | str] = None,
     has_rag_context: bool = False,
-    max_tokens: Optional[int] = 500,
+    max_tokens: Optional[int] = 5000,
+    response_format: Optional[dict] = None,
+    timeout_seconds_override: Optional[float] = None,
 ) -> dict:
     started_at = time.perf_counter()
 
@@ -50,7 +52,11 @@ async def generate_with_routing(
     resolved_model = requested_model
     fallback_triggered = False
     fallback_model = route_decision.fallback_model if route_decision else None
-    timeout_seconds = service._resolve_timeout_seconds(route_task)
+    timeout_seconds = (
+        float(timeout_seconds_override)
+        if timeout_seconds_override is not None and float(timeout_seconds_override) > 0
+        else service._resolve_timeout_seconds(route_task)
+    )
     retry_attempts = 0
     fallback_target = None
 
@@ -69,6 +75,7 @@ async def generate_with_routing(
             prompt=prompt,
             max_tokens=max_tokens,
             timeout_seconds=timeout_seconds,
+            response_format=response_format,
         )
         content, tokens_used = extract_completion_payload(response)
         latency_ms = _elapsed_ms()
@@ -103,6 +110,7 @@ async def generate_with_routing(
                     prompt=prompt,
                     max_tokens=max_tokens,
                     timeout_seconds=timeout_seconds,
+                    response_format=response_format,
                 )
                 content, tokens_used = extract_completion_payload(response)
                 fallback_triggered = True
@@ -172,6 +180,7 @@ async def generate_with_routing(
                     prompt=prompt,
                     max_tokens=max_tokens,
                     timeout_seconds=timeout_seconds,
+                    response_format=response_format,
                     retry_attempts=service.upstream_retry_attempts,
                     retry_delay_seconds=service.upstream_retry_delay_seconds,
                     logger=logger,
@@ -218,6 +227,7 @@ async def generate_with_routing(
                     prompt=prompt,
                     max_tokens=max_tokens,
                     timeout_seconds=timeout_seconds,
+                    response_format=response_format,
                 )
                 content, tokens_used = extract_completion_payload(response)
                 fallback_triggered = True

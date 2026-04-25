@@ -4,7 +4,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Plus,
   Search,
-  Grid3X3,
   List,
   Settings,
   Grid,
@@ -35,6 +34,8 @@ import {
   ProjectSkeleton,
 } from "./ProjectItems";
 import { useProjectsPageState } from "./useProjectsPageState";
+import { SpectraLogo } from "@/components/icons/SpectraLogo";
+
 
 export default function ProjectsPage() {
   const {
@@ -55,7 +56,7 @@ export default function ProjectsPage() {
   } = useProjectsPageState();
 
   // Simulate featured projects (e.g., first 3)
-  const featuredProjects = projects.slice(0, 4);
+  const featuredProjects = projects.filter(p => p.visibility === 'public').slice(0, 4);
 
   if (isLoading) {
     return (
@@ -80,7 +81,7 @@ export default function ProjectsPage() {
           </p>
           <div className="mt-8 flex items-center justify-center gap-4">
             <Button
-              onClick={fetchProjects}
+              onClick={() => void fetchProjects()}
               className="rounded-full px-8 py-6 bg-zinc-900 hover:bg-zinc-800 transition-all"
             >
               尝试重连
@@ -101,12 +102,11 @@ export default function ProjectsPage() {
               className="flex items-center gap-2 cursor-pointer"
               onClick={() => router.push("/")}
             >
-              <div className="w-10 h-10 rounded-xl bg-zinc-900 flex items-center justify-center">
-                <div className="w-5 h-5 rounded-full border-2 border-white" />
-              </div>
+              <SpectraLogo className="w-10 h-10" />
               <span className="text-xl font-black tracking-tight text-zinc-900">
                 Spectra
               </span>
+              <span className="text-sm font-bold text-zinc-500 ml-2 border-l border-zinc-300 pl-2">知识棱镜</span>
             </div>
           </div>
 
@@ -176,10 +176,10 @@ export default function ProjectsPage() {
               全部
             </button>
             <button className="px-6 py-2.5 rounded-xl text-zinc-500 hover:text-zinc-800 text-sm font-bold transition-all">
-              我的笔记本
+              我的棱镜库
             </button>
             <button className="px-6 py-2.5 rounded-xl text-zinc-500 hover:text-zinc-800 text-sm font-bold transition-all">
-              精选笔记本
+              精选棱镜库
             </button>
           </div>
 
@@ -253,7 +253,7 @@ export default function ProjectsPage() {
               onClick={() => router.push("/projects/new")}
               className="h-14 px-10 rounded-2xl bg-zinc-900 hover:bg-zinc-800 text-base font-bold shadow-2xl hover:scale-105 transition-all"
             >
-              创建第一个笔记本
+              创建第一个棱镜库
             </Button>
           </motion.div>
         ) : (
@@ -263,7 +263,7 @@ export default function ProjectsPage() {
               <section className="space-y-8">
                 <div className="flex items-center justify-between">
                   <h2 className="text-3xl font-black tracking-tight text-zinc-900">
-                    精选笔记本
+                    精选棱镜库
                   </h2>
                   <Button
                     variant="ghost"
@@ -290,7 +290,7 @@ export default function ProjectsPage() {
                 <h2 className="text-3xl font-black tracking-tight text-zinc-900">
                   {searchQuery
                     ? `搜索结果 (${filteredProjects.length})`
-                    : "最近打开过的笔记本"}
+                    : "最近打开的库"}
                 </h2>
               </div>
 

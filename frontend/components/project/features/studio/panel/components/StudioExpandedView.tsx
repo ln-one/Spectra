@@ -1,19 +1,44 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
+import { LockKeyhole } from "lucide-react";
 import type { ComponentProps, ComponentType } from "react";
 import type { GenerationToolType } from "@/lib/project-space/artifact-history";
-import type { StudioCardCapability } from "@/lib/sdk/studio-cards";
-import { Button } from "@/components/ui/button";
 import { GenerationConfigPanel } from "@/components/project";
 import { cn } from "@/lib/utils";
-import { TOOL_LABELS } from "../../constants";
+import { LOCKED_STUDIO_TOOL_TYPES, TOOL_LABELS } from "../../constants";
 import type {
   StudioToolKey,
   ToolDraftState,
   ToolFlowContext,
 } from "../../tools";
-import { SelectedSourceScopeBadge } from "@/components/project/features/sources/components/SelectedSourceScopeBadge";
+
+function StudioLockedToolNotice({ toolName }: { toolName: string }) {
+  return (
+    <div className="relative flex h-full min-h-[360px] items-center justify-center overflow-hidden rounded-[28px] border border-[var(--project-border)] bg-[var(--project-surface-muted)] p-4">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(251,191,36,0.20),transparent_34%),radial-gradient(circle_at_78%_78%,rgba(14,165,233,0.14),transparent_36%)]" />
+      <div className="pointer-events-none absolute inset-4 rounded-[24px] border border-white/60 bg-white/25 backdrop-blur-[2px]" />
+      <motion.div
+        role="alert"
+        aria-label={`${toolName}权限提示`}
+        initial={{ opacity: 0, y: 14, scale: 0.98 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ type: "spring", stiffness: 360, damping: 30 }}
+        className="relative w-full max-w-[360px] rounded-[24px] border border-amber-200 bg-[var(--project-surface)] px-5 py-6 text-center shadow-[0_24px_80px_rgba(15,23,42,0.16)]"
+      >
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border border-amber-200 bg-amber-50 text-amber-700 shadow-inner">
+          <LockKeyhole className="h-5 w-5" />
+        </div>
+        <h3 className="mt-4 text-base font-semibold text-[var(--project-text-primary)]">
+          {toolName}暂未开通
+        </h3>
+        <p className="mt-2 text-sm leading-6 text-[var(--project-text-secondary)]">
+          当前账号没有开通会员权限，请联系管理员
+        </p>
+      </motion.div>
+    </div>
+  );
+}
 
 interface StudioExpandedViewProps {
   isExpanded: boolean;
@@ -37,7 +62,7 @@ interface StudioExpandedViewProps {
     layoutMode: "smart" | "classic";
     templateId: string | null;
     visualPolicy: "auto" | "media_required" | "basic_graphics_only";
-  }) => Promise<string | null | undefined>;
+  }) => Promise<{ sessionId: string; runId: string } | null | undefined>;
   isCardManagedFlowExpanded: boolean;
   currentCardId: string | null;
   isStudioActionRunning: boolean;
@@ -52,7 +77,7 @@ interface StudioExpandedViewProps {
   onLoadSources: () => Promise<void> | void;
   onExecute: () => Promise<void> | void;
   currentReadiness: string | null;
-  currentCapability: StudioCardCapability | null;
+  currentCapability: unknown | null;
   supportsChatRefine: boolean;
   requiresSourceArtifact: boolean;
   hasSourceBinding: boolean;
@@ -68,27 +93,35 @@ export function StudioExpandedView({
   pptResumeSignal,
   onPptWorkflowStageChange,
   onPptGenerate,
-  isCardManagedFlowExpanded,
-  currentCardId,
-  isStudioActionRunning,
-  isLoadingCardProtocol,
-  sourceOptions,
-  selectedSourceId,
-  onSelectedSourceChange,
-  canRefine,
-  canExecute,
-  onOpenChatRefine,
-  onPreviewExecution,
-  onLoadSources,
-  onExecute,
-  currentReadiness,
-  currentCapability,
-  supportsChatRefine,
-  requiresSourceArtifact,
-  hasSourceBinding,
+  isCardManagedFlowExpanded: _isCardManagedFlowExpanded,
+  currentCardId: _currentCardId,
+  isStudioActionRunning: _isStudioActionRunning,
+  isLoadingCardProtocol: _isLoadingCardProtocol,
+  sourceOptions: _sourceOptions,
+  selectedSourceId: _selectedSourceId,
+  onSelectedSourceChange: _onSelectedSourceChange,
+  canRefine: _canRefine,
+  canExecute: _canExecute,
+  onOpenChatRefine: _onOpenChatRefine,
+  onPreviewExecution: _onPreviewExecution,
+  onLoadSources: _onLoadSources,
+  onExecute: _onExecute,
+  currentReadiness: _currentReadiness,
+  currentCapability: _currentCapability,
+  supportsChatRefine: _supportsChatRefine,
+  requiresSourceArtifact: _requiresSourceArtifact,
+  hasSourceBinding: _hasSourceBinding,
   onDraftChange,
   toolFlowContext,
 }: StudioExpandedViewProps) {
+  const isLockedTool =
+    expandedTool !== null &&
+    expandedTool !== "ppt" &&
+    LOCKED_STUDIO_TOOL_TYPES.has(expandedTool as StudioToolKey);
+  const expandedToolName = expandedTool
+    ? TOOL_LABELS[expandedTool] ?? expandedTool
+    : "";
+
   return (
     <AnimatePresence>
       {expandedTool && isExpanded ? (
@@ -120,135 +153,16 @@ export function StudioExpandedView({
                   onGenerate={onPptGenerate}
                 />
               </div>
+            ) : isLockedTool ? (
+              <StudioLockedToolNotice toolName={expandedToolName} />
             ) : ExpandedToolComponent ? (
-              <div className="h-full flex flex-col gap-2">
-                {!isCardManagedFlowExpanded ? (
-                  <>
-                    <div className="project-studio-protocol-bar rounded-[var(--project-chip-radius)] border border-[var(--project-control-border)] bg-[var(--project-control-bg)] px-2 py-2 flex min-w-0 flex-wrap items-center gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="project-studio-protocol-btn h-8 shrink-0 text-xs"
-                        onClick={() => {
-                          void onPreviewExecution();
-                        }}
-                        disabled={
-                          !currentCardId ||
-                          isStudioActionRunning ||
-                          isLoadingCardProtocol
-                        }
-                      >
-                        预览协议
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="project-studio-protocol-btn h-8 shrink-0 text-xs"
-                        onClick={() => {
-                          void onLoadSources();
-                        }}
-                        disabled={
-                          !currentCardId ||
-                          isStudioActionRunning ||
-                          isLoadingCardProtocol
-                        }
-                      >
-                        加载来源
-                      </Button>
-                      {currentCardId && sourceOptions.length > 0 ? (
-                        <select
-                          value={selectedSourceId ?? ""}
-                          onChange={(event) =>
-                            onSelectedSourceChange(event.target.value || null)
-                          }
-                          className="project-studio-protocol-select h-8 min-w-0 max-w-[180px] flex-1 basis-[140px] rounded-[var(--project-chip-radius)] border border-[var(--project-control-border)] bg-[var(--project-surface-elevated)] px-2 text-xs text-[var(--project-text-primary)]"
-                        >
-                          {sourceOptions.map((item) => (
-                            <option key={item.id} value={item.id}>
-                              {(() => {
-                                const baseTitle =
-                                  item.title || item.id.slice(0, 8);
-                                const compactTitle =
-                                  baseTitle.length > 18
-                                    ? `${baseTitle.slice(0, 18)}...`
-                                    : baseTitle;
-                                return (
-                                  compactTitle +
-                                  (item.type ? ` (${item.type})` : "")
-                                );
-                              })()}
-                            </option>
-                          ))}
-                        </select>
-                      ) : null}
-                      <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-2">
-                        <SelectedSourceScopeBadge />
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="project-studio-protocol-btn h-8 shrink-0 text-xs"
-                          onClick={onOpenChatRefine}
-                          disabled={!canRefine || isLoadingCardProtocol}
-                        >
-                          Refine
-                        </Button>
-                        <Button
-                          size="sm"
-                          className="project-studio-protocol-btn project-studio-protocol-btn-primary h-8 shrink-0 text-xs"
-                          onClick={() => {
-                            void onExecute();
-                          }}
-                          disabled={!canExecute || isLoadingCardProtocol}
-                        >
-                          执行
-                        </Button>
-                      </div>
-                    </div>
-                    {currentCardId ? (
-                      <div className="project-studio-protocol-meta rounded-[var(--project-chip-radius)] border border-[var(--project-control-border)] bg-[var(--project-surface-muted)] px-3 py-2 text-[11px] text-[var(--project-control-muted)]">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="project-studio-meta-chip rounded-[var(--project-chip-radius)] bg-[var(--project-surface-elevated)] px-2 py-0.5 border border-[var(--project-control-border)]">
-                            readiness: {currentReadiness ?? "loading"}
-                          </span>
-                          <span className="project-studio-meta-chip rounded-[var(--project-chip-radius)] bg-[var(--project-surface-elevated)] px-2 py-0.5 border border-[var(--project-control-border)]">
-                            context:{" "}
-                            {currentCapability?.context_mode ?? "unknown"}
-                          </span>
-                          <span className="project-studio-meta-chip rounded-[var(--project-chip-radius)] bg-[var(--project-surface-elevated)] px-2 py-0.5 border border-[var(--project-control-border)]">
-                            mode:{" "}
-                            {currentCapability?.execution_mode ?? "unknown"}
-                          </span>
-                          <span className="project-studio-meta-chip rounded-[var(--project-chip-radius)] bg-[var(--project-surface-elevated)] px-2 py-0.5 border border-[var(--project-control-border)]">
-                            refine: {supportsChatRefine ? "on" : "off"}
-                          </span>
-                          <span className="project-studio-meta-chip rounded-[var(--project-chip-radius)] bg-[var(--project-surface-elevated)] px-2 py-0.5 border border-[var(--project-control-border)]">
-                            source:{" "}
-                            {requiresSourceArtifact ? "required" : "optional"}
-                          </span>
-                        </div>
-                        {requiresSourceArtifact && !hasSourceBinding ? (
-                          <p className="mt-1 text-amber-700">
-                            当前卡片执行需要先绑定源成果。
-                          </p>
-                        ) : null}
-                        {toolFlowContext.isProtocolPending ? (
-                          <p className="mt-1 text-amber-700">
-                            当前卡片协议处于protocol_pending，执行/refine
-                            已禁用。
-                          </p>
-                        ) : null}
-                      </div>
-                    ) : null}
-                  </>
-                ) : null}
-                <div className="min-h-0 flex-1">
-                  <ExpandedToolComponent
-                    toolId={expandedTool as StudioToolKey}
-                    toolName={TOOL_LABELS[expandedTool] ?? expandedTool}
-                    onDraftChange={onDraftChange}
-                    flowContext={toolFlowContext}
-                  />
-                </div>
+              <div className="h-full">
+                <ExpandedToolComponent
+                  toolId={expandedTool as StudioToolKey}
+                  toolName={expandedToolName}
+                  onDraftChange={onDraftChange}
+                  flowContext={toolFlowContext}
+                />
               </div>
             ) : null}
           </motion.div>

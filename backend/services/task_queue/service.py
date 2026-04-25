@@ -6,6 +6,7 @@ from redis import Redis
 from rq import Queue
 
 from services.task_queue.enqueue import (
+    enqueue_prompt_suggestion_pool_task,
     enqueue_rag_indexing_task,
     enqueue_remote_parse_reconcile_task,
 )
@@ -66,6 +67,23 @@ class TaskQueueService:
             session_id=session_id,
             priority=priority,
             delay_seconds=delay_seconds,
+            timeout=timeout,
+        )
+
+    def enqueue_prompt_suggestion_pool_task(
+        self,
+        project_id: str,
+        surfaces: list[str],
+        source_fingerprint: str,
+        priority: str = "low",
+        timeout: int = 600,
+    ):
+        return enqueue_prompt_suggestion_pool_task(
+            self,
+            project_id=project_id,
+            surfaces=surfaces,
+            source_fingerprint=source_fingerprint,
+            priority=priority,
             timeout=timeout,
         )
 

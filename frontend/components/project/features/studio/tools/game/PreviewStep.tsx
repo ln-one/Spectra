@@ -1,87 +1,55 @@
-﻿import { Gamepad2 } from "lucide-react";
-import { CapabilityNotice } from "../CapabilityNotice";
+import { Loader2 } from "lucide-react";
 import type { ToolFlowContext } from "../types";
+import { WorkbenchCenteredState } from "../WorkbenchCenteredState";
+import { GameSurfaceAdapter, parseGamePayload } from "./GameSurfaceAdapter";
 
 interface PreviewStepProps {
   lastGeneratedAt: string | null;
   flowContext?: ToolFlowContext;
 }
 
-function resolveBackendHtml(flowContext?: ToolFlowContext): string | null {
-  if (!flowContext?.resolvedArtifact) return null;
-  if (flowContext.resolvedArtifact.contentKind !== "text") return null;
-  if (typeof flowContext.resolvedArtifact.content !== "string") return null;
-  const raw = flowContext.resolvedArtifact.content.trim();
-  if (!raw) return null;
-  if (raw.startsWith("{") || raw.startsWith("[")) {
-    try {
-      const parsed = JSON.parse(raw) as Record<string, unknown>;
-      if (typeof parsed.html === "string" && parsed.html.trim()) {
-        return parsed.html.trim();
-      }
-      if (
-        typeof parsed.content_html === "string" &&
-        parsed.content_html.trim()
-      ) {
-        return parsed.content_html.trim();
-      }
-    } catch {
-      return raw;
-    }
-  }
-  return raw;
-}
-
 export function PreviewStep({
-  lastGeneratedAt,
+  lastGeneratedAt: _lastGeneratedAt,
   flowContext,
 }: PreviewStepProps) {
-  const capabilityStatus =
-    flowContext?.capabilityStatus ?? "backend_placeholder";
-  const capabilityReason =
-    flowContext?.capabilityReason ?? "正在等待后端返回真实游戏内容。";
-  const backendHtml =
-    capabilityStatus === "backend_ready"
-      ? resolveBackendHtml(flowContext)
-      : null;
+  const payload = parseGamePayload(flowContext?.resolvedArtifact?.content);
+  const latestArtifactId =
+    flowContext?.resolvedArtifact?.artifactId ??
+    flowContext?.latestArtifacts?.[0]?.artifactId ??
+    null;
+  const isExecuting =
+    flowContext?.workflowState === "executing" ||
+    flowContext?.isActionRunning === true;
+  const hasRunnableRuntime = Boolean(payload.runtime.html);
+
+  if (!hasRunnableRuntime) {
+    return isExecuting ? (
+      <WorkbenchCenteredState
+        tone="rose"
+        icon={Loader2}
+        loading
+        title="正在生成互动游戏"
+        description="首个可试玩 sandbox 返回后，这里会直接切成正式工作面。"
+        minHeightClassName="min-h-[520px]"
+      />
+    ) : (
+      <WorkbenchCenteredState
+        tone="rose"
+        title="暂未收到可试玩小游戏"
+        description="生成完成后，这里只展示真实 sandbox 工作面。"
+        minHeightClassName="min-h-[520px]"
+      />
+    );
+  }
 
   return (
-    <div className="space-y-4">
-      <section className="rounded-xl border border-zinc-200 bg-white p-4">
-        <CapabilityNotice status={capabilityStatus} reason={capabilityReason} />
-
-        <div className="mt-4 flex items-center justify-between gap-3">
-          <div>
-            <p className="text-sm font-semibold text-zinc-900">实时游戏预览</p>
-            <p className="mt-1 text-[11px] text-zinc-500">
-              {lastGeneratedAt
-                ? `最近一次生成：${new Date(lastGeneratedAt).toLocaleString()}`
-                : "这里只显示后端返回的真实可玩游戏。"}
-            </p>
-          </div>
-        </div>
-
-        {backendHtml ? (
-          <div className="mt-4 overflow-hidden rounded-2xl border border-zinc-200 bg-white">
-            <iframe
-              title="backend-game-preview"
-              srcDoc={backendHtml}
-              sandbox="allow-scripts allow-same-origin"
-              className="h-[560px] w-full bg-white"
-            />
-          </div>
-        ) : (
-          <div className="mt-4 rounded-2xl border border-dashed border-zinc-300 bg-zinc-50 px-4 py-12 text-center">
-            <Gamepad2 className="mx-auto h-8 w-8 text-zinc-400" />
-            <p className="mt-3 text-sm font-medium text-zinc-700">
-              暂未收到后端真实游戏
-            </p>
-            <p className="mt-1 text-[11px] text-zinc-500">
-              当前不再渲染前端示意沙箱，等待后端 HTML 返回后会直接可玩。
-            </p>
-          </div>
-        )}
-      </section>
+    <div className="h-full min-h-0 overflow-hidden rounded-2xl border border-zinc-200 bg-white">
+      <GameSurfaceAdapter
+        key={payload.runtime.html ?? "interactive-game-empty"}
+        payload={payload}
+        latestArtifactId={latestArtifactId}
+        onExportArtifact={flowContext?.onExportArtifact}
+      />
     </div>
   );
 }

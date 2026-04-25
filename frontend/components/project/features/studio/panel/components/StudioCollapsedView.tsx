@@ -8,6 +8,7 @@ import { TOOL_LABELS, type StudioTool } from "../../constants";
 import { SessionArtifacts } from "../../components/SessionArtifacts";
 import { ToolGrid } from "../../components/ToolGrid";
 import type { StudioHistoryItem } from "../../history/types";
+import type { ToolArtifactPreviewItem } from "../../tools";
 
 interface StudioCollapsedViewProps {
   isExpanded: boolean;
@@ -16,6 +17,9 @@ interface StudioCollapsedViewProps {
   onToolClick: (tool: StudioTool) => void;
   hasHistory: boolean;
   groupedHistory: ComponentProps<typeof SessionArtifacts>["groupedHistory"];
+  currentCardId: string | null;
+  selectedSourceId: string | null;
+  latestArtifacts: ToolArtifactPreviewItem[];
   projectId: string | null;
   activeSessionId: string | null;
   fetchArtifactHistory: (
@@ -51,8 +55,8 @@ export function StudioCollapsedView({
       }}
       transition={{ duration: 0.4 }}
     >
-      <ScrollArea className="h-full">
-        <div className="p-3">
+      <ScrollArea className="h-full [&_[data-radix-scroll-area-viewport]>div]:!block [&_[data-radix-scroll-area-viewport]>div]:w-full [&_[data-radix-scroll-area-viewport]>div]:min-w-0">
+        <div className="w-full min-w-0 p-3">
           <ToolGrid
             isExpanded={isExpanded}
             hoveredToolId={hoveredToolId}

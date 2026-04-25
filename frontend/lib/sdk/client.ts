@@ -29,6 +29,13 @@ const REQUEST_TIMEOUT_MS = Number(
 const CHAT_REQUEST_TIMEOUT_MS = Number(
   process.env.NEXT_PUBLIC_CHAT_TIMEOUT_MS ?? 300000
 );
+const STUDIO_GENERATION_TIMEOUT_MS = Number(
+  process.env.NEXT_PUBLIC_STUDIO_GENERATION_TIMEOUT_MS ?? 600000
+);
+const WORD_STUDIO_GENERATION_TIMEOUT_MS = Number(
+  process.env.NEXT_PUBLIC_STUDIO_WORD_GENERATION_TIMEOUT_MS ??
+    STUDIO_GENERATION_TIMEOUT_MS
+);
 
 function generateUuidFallback(): string {
   const template = "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx";
@@ -155,6 +162,19 @@ function resolveTimeoutMs(request: Request): number {
   if (request.method === "POST" && pathname === "/api/v1/chat/messages") {
     return CHAT_REQUEST_TIMEOUT_MS;
   }
+  if (
+    request.method === "POST" &&
+    pathname.startsWith("/api/v1/generate/studio-cards/word_document/")
+  ) {
+    return WORD_STUDIO_GENERATION_TIMEOUT_MS;
+  }
+  if (
+    request.method === "POST" &&
+    (pathname === "/api/v1/generate/sessions" ||
+      pathname.startsWith("/api/v1/generate/studio-cards/"))
+  ) {
+    return STUDIO_GENERATION_TIMEOUT_MS;
+  }
   return REQUEST_TIMEOUT_MS;
 }
 
@@ -274,6 +294,17 @@ export async function apiFetch(
 ): Promise<Response> {
   const url = buildApiUrl(path);
   return fetchWithAuth(url, init);
+}
+
+export async function apiFetchSameOrigin(
+  path: string,
+  init?: RequestInit
+): Promise<Response> {
+  if (typeof window === "undefined" || /^https?:\/\//i.test(path)) {
+    return apiFetch(path, init);
+  }
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  return fetchWithAuth(`${window.location.origin}${normalizedPath}`, init);
 }
 
 export async function unwrap<T>(result: {

@@ -1,0 +1,36 @@
+section_id: "06-03"
+title: "结果预览与导出技术"
+purpose: "只写当前预览、导出和结果绑定的实现，不重新引入本地第二渲染权威叙事。"
+source_doc_parts:
+  - "source/06-核心技术/03-渲染导出.md"
+  - "source/05-系统设计/02-模块设计.md"
+code_paths:
+  - "backend/services/preview_helpers/rendered_preview.py"
+  - "backend/services/generation_session_service/card_execution_preview.py"
+  - "backend/services/project_space_service/artifact_rendering.py"
+  - "frontend/lib/sdk/preview.ts"
+  - "docs/project/pagevra.md"
+api_routes:
+  - "GET /api/v1/generate/sessions/{session_id}/preview"
+  - "GET /api/v1/generate/sessions/{session_id}/preview/slides/{slide_id}"
+  - "POST /api/v1/generate/sessions/{session_id}/preview/export"
+frontend_surfaces:
+  - "预览页面"
+  - "导出与下载"
+  - "细粒度 slide 预览"
+tests_or_metrics:
+  - "backend/tests/services/test_preview_content.py"
+  - "backend/tests/services/test_phase4_preview.py"
+  - "backend/tests/api/test_generate_session_preview_contract_api.py"
+  - "backend/tests/services/test_project_space_service_artifacts.py"
+figures:
+  - "fig-image4-04"
+  - "fig-image13-08"
+  - "fig-image14-09"
+allowed_claims:
+  - "当前预览与导出属于同一套结果流程。"
+  - "预览接口会返回 artifact 与版本字段。"
+  - "用户可以基于 preview 继续修改、查看历史并导出结果。"
+forbidden_claims:
+  - "渲染链已完成所有 Office 级格式兼容验证"
+last_checked: "2026-04-20"

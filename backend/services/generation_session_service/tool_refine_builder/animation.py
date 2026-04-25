@@ -5,7 +5,38 @@ from __future__ import annotations
 import copy
 from typing import Any
 
+from services.generation_session_service.animation_contract import (
+    resolve_animation_contract,
+)
+from utils.exceptions import APIException, ErrorCode
+
 from .common import _load_rag_snippets
+
+
+def _ensure_runtime_snapshot_compiled(snapshot: dict[str, Any]) -> None:
+    compile_status = str(snapshot.get("compile_status") or "").strip().lower()
+    compile_errors = snapshot.get("compile_errors")
+    runtime_validation_report = snapshot.get("runtime_validation_report")
+    has_compile_errors = isinstance(compile_errors, list) and len(compile_errors) > 0
+    if compile_status != "error" and not has_compile_errors:
+        return
+    raise APIException(
+        status_code=422,
+        error_code=ErrorCode.INVALID_INPUT,
+        message="Animation runtime graph compile/validation failed.",
+        details={
+            "error_code": "ANIMATION_RUNTIME_COMPILE_FAILED",
+            "invalid_field": "runtime_graph",
+            "invalid_value": "compile_error",
+            "compile_status": compile_status or "error",
+            "compile_errors": compile_errors if isinstance(compile_errors, list) else [],
+            "runtime_validation_report": (
+                runtime_validation_report
+                if isinstance(runtime_validation_report, list)
+                else []
+            ),
+        },
+    )
 
 
 async def refine_animation_content(
@@ -16,6 +47,9 @@ async def refine_animation_content(
     project_id: str,
     rag_source_ids: list[str] | None,
 ) -> dict[str, Any]:
+    from services.artifact_generator.animation_runtime import (
+        enrich_animation_runtime_snapshot_async,
+    )
     from services.artifact_generator.animation_spec import normalize_animation_spec
     from services.artifact_generator.animation_spec_llm import (
         generate_animation_spec_with_llm,
@@ -24,15 +58,23 @@ async def refine_animation_content(
 
     updated = copy.deepcopy(current_content)
 
-    render_mode = str(
-        config.get("render_mode") or current_content.get("render_mode") or "gif"
-    ).strip()
-    updated["render_mode"] = render_mode
-    updated["format"] = "mp4" if render_mode == "cloud_video_wan" else "gif"
-    if render_mode == "cloud_video_wan":
-        updated["cloud_video_provider"] = "aliyun_wan"
-    else:
-        updated.pop("cloud_video_provider", None)
+    resolved_contract = resolve_animation_contract(
+        config=config,
+        payload=current_content,
+        default_format="html5",
+    )
+    updated["render_mode"] = resolved_contract.render_mode
+    updated["format"] = resolved_contract.animation_format
+    updated["animation_format"] = resolved_contract.animation_format
+    updated["placement_supported"] = resolved_contract.placement_supported
+    updated["runtime_preview_mode"] = "local_preview_only"
+    for legacy_key in (
+        "cloud_video_provider",
+        "cloud_video_model",
+        "cloud_video_resolution",
+        "cloud_video_watermark",
+    ):
+        updated.pop(legacy_key, None)
 
     updated["duration_seconds"] = int(
         config.get("duration_seconds") or current_content.get("duration_seconds") or 6
@@ -95,5 +137,14 @@ async def refine_animation_content(
             updated["focus"] = spec["focus"] or updated.get("focus", "")
             updated["objects"] = spec.get("objects", [])
             updated["object_details"] = spec.get("object_details", [])
+            updated["title"] = spec.get("title", updated.get("title"))
+            updated["summary"] = spec.get("summary", updated.get("summary"))
+            updated["animation_family"] = spec.get(
+                "animation_family", updated.get("animation_family")
+            )
 
-    return updated
+    enriched = await enrich_animation_runtime_snapshot_async(updated)
+    _ensure_runtime_snapshot_compiled(enriched)
+    enriched["placement_supported"] = resolved_contract.placement_supported
+    enriched["runtime_preview_mode"] = "local_preview_only"
+    return enriched

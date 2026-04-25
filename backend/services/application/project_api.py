@@ -10,13 +10,32 @@ from schemas.project_semantics import (
 from schemas.project_space import ReferenceRelationType
 from schemas.project_vocabulary import ProjectReferenceMode
 from services.application.access import get_owned_project
+from services.application.project_artifact_source_api import (
+    create_artifact_source_response,
+    delete_artifact_source_response,
+    list_artifact_sources_response,
+)
 from services.database import db_service
 from services.file_upload_service import serialize_upload
 from services.project_space_service.service import project_space_service
+from services.title_service import request_project_title_generation
+from services.generation_session_service.run_constants import (
+    PROJECT_TITLE_SOURCE_DEFAULT,
+    PROJECT_TITLE_SOURCE_MANUAL,
+    build_numbered_default_project_title,
+)
 from utils.exceptions import InternalServerException, ValidationException
 from utils.responses import success_response
 
 logger = logging.getLogger(__name__)
+
+
+async def _resolve_next_default_project_title(user_id: str) -> str:
+    count_projects = getattr(db_service, "count_projects_by_user", None)
+    if not callable(count_projects):
+        return build_numbered_default_project_title(1)
+    existing_count = await count_projects(user_id)
+    return build_numbered_default_project_title(int(existing_count) + 1)
 
 
 async def _bootstrap_default_session(project_id: str, user_id: str) -> None:
@@ -85,6 +104,8 @@ async def _create_base_reference_if_needed(project, body, user_id: str) -> None:
     )
 
 
+
+
 async def create_project_response(
     project, user_id: str, idempotency_key: Optional[str]
 ):
@@ -100,7 +121,18 @@ async def create_project_response(
             )
             return cached_response
 
-    new_project = await db_service.create_project(project, user_id=user_id)
+    manual_name = str(getattr(project, "name", "") or "").strip()
+    resolved_name = manual_name or await _resolve_next_default_project_title(user_id)
+    name_source = (
+        PROJECT_TITLE_SOURCE_MANUAL if manual_name else PROJECT_TITLE_SOURCE_DEFAULT
+    )
+
+    new_project = await db_service.create_project(
+        project,
+        user_id=user_id,
+        name_override=resolved_name,
+        name_source=name_source,
+    )
     formal_project_created = False
     try:
         await _create_formal_project(new_project, user_id)
@@ -129,6 +161,20 @@ async def create_project_response(
         "project_created",
         extra={"user_id": user_id, "project_id": new_project.id},
     )
+
+    if name_source == PROJECT_TITLE_SOURCE_DEFAULT:
+        try:
+            await request_project_title_generation(
+                db=db_service.db,
+                project_id=new_project.id,
+                description=str(getattr(project, "description", "") or ""),
+            )
+        except Exception:
+            logger.warning(
+                "project_title_generation_request_failed",
+                extra={"user_id": user_id, "project_id": new_project.id},
+                exc_info=True,
+            )
 
     response_payload = success_response(
         data={"project": new_project}, message="项目创建成功"
@@ -170,6 +216,7 @@ async def update_project_response(
         grade_level=body.grade_level,
         visibility=body.visibility,
         is_referenceable=body.is_referenceable,
+        name_source=PROJECT_TITLE_SOURCE_MANUAL,
     )
     try:
         await project_space_service.update_project_governance(
@@ -187,6 +234,7 @@ async def update_project_response(
             grade_level=getattr(existing_project, "gradeLevel", None),
             visibility=getattr(existing_project, "visibility", None),
             is_referenceable=getattr(existing_project, "isReferenceable", None),
+            name_source=getattr(existing_project, "nameSource", None),
         )
         logger.error(
             "project_update_failed",

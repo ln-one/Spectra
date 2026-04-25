@@ -57,7 +57,7 @@ def build_game_fallback_data(
         validate_game_data(pattern, payload)
         return payload
 
-    if pattern == "concept_match":
+    if pattern in {"concept_match", "term_pairing"}:
         pairs = [
             {
                 "id": "pair-1",
@@ -78,16 +78,24 @@ def build_game_fallback_data(
         if source:
             pairs[2]["definition"] = source
         payload = {
-            "game_title": f"{topic}概念连线",
+            "game_title": f"{topic}{'术语配对' if pattern == 'term_pairing' else '概念连线'}",
             "instruction": base_instruction,
             "pairs": pairs,
-            "success_message": "连线全部正确，概念关联清晰。",
-            "retry_message": "仍有连线错误，请先复习概念定义。",
+            "success_message": (
+                "全部配对正确，术语和含义已经建立清晰对应。"
+                if pattern == "term_pairing"
+                else "连线全部正确，概念关联清晰。"
+            ),
+            "retry_message": (
+                "还有术语没有配对成功，先回看定义再试一次。"
+                if pattern == "term_pairing"
+                else "仍有连线错误，请先复习概念定义。"
+            ),
         }
         validate_game_data(pattern, payload)
         return payload
 
-    if pattern == "quiz_challenge":
+    if pattern in {"quiz_challenge", "quiz_run"}:
         levels = [
             {
                 "id": "level-1",
@@ -105,12 +113,20 @@ def build_game_fallback_data(
             },
         ]
         payload = {
-            "game_title": f"{topic}知识闯关",
+            "game_title": f"{topic}{'极速问答跑酷' if pattern == 'quiz_run' else '知识闯关'}",
             "instruction": base_instruction,
             "total_lives": max(1, min(int(config.get("life") or 3), 5)),
             "levels": levels,
-            "victory_message": "恭喜通关，已完成全部关卡。",
-            "game_over_message": "生命值耗尽，请回看解析后重试。",
+            "victory_message": (
+                "连续答对全部关卡，顺利完成这一轮课堂冲刺。"
+                if pattern == "quiz_run"
+                else "恭喜通关，已完成全部关卡。"
+            ),
+            "game_over_message": (
+                "本轮冲刺已结束，请根据解析调整后重新出发。"
+                if pattern == "quiz_run"
+                else "生命值耗尽，请回看解析后重试。"
+            ),
         }
         validate_game_data(pattern, payload)
         return payload

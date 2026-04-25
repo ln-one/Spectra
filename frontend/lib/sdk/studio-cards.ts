@@ -1,4 +1,4 @@
-import { apiFetch, toApiError } from "./client";
+import { apiFetch, apiFetchSameOrigin, toApiError } from "./client";
 
 export type StudioCardId =
   | "courseware_ppt"
@@ -15,6 +15,56 @@ export type StudioCardReadiness =
   | "foundation_ready"
   | "protocol_pending";
 
+export type ArtifactSurfaceType =
+  | "document"
+  | "teleprompter"
+  | "graph"
+  | "flashcard"
+  | "simulator"
+  | "sandbox"
+  | "animation";
+
+export type CapabilityEngine =
+  | "rich_text"
+  | "node_graph"
+  | "single_item"
+  | "simulation_loop"
+  | "sandbox_html"
+  | "media_timeline";
+
+export type RefineMode =
+  | "chat_refine"
+  | "structured_refine"
+  | "follow_up_turn";
+
+export type SelectionScope =
+  | "none"
+  | "page"
+  | "paragraph"
+  | "node"
+  | "question"
+  | "scene";
+
+export type ExecutionCarrier = "session" | "artifact" | "hybrid";
+export type GovernanceTag =
+  | "harden"
+  | "borrow"
+  | "freeze"
+  | "defer"
+  | "separate-track";
+
+export type CleanupPriority = "p0" | "p1" | "p2" | "p3";
+
+export interface StudioCardHealthReport {
+  authority_integrity: number;
+  builder_thinness: number;
+  surface_maturity: number;
+  fallback_residue: number;
+  test_coverage: number;
+  replaceability: number;
+  summary: string;
+}
+
 export interface StudioCardAction {
   type: string;
   label: string;
@@ -25,6 +75,11 @@ export interface StudioCardCapability {
   id: string;
   title: string;
   readiness: StudioCardReadiness;
+  governance_tag?: GovernanceTag;
+  cleanup_priority?: CleanupPriority;
+  surface_strategy?: string;
+  frozen?: boolean;
+  health_report?: StudioCardHealthReport;
   context_mode: "session" | "artifact" | "hybrid";
   execution_mode: "session_command" | "artifact_create" | "composite";
   primary_capabilities?: string[];
@@ -34,12 +89,23 @@ export interface StudioCardCapability {
   requires_source_artifact: boolean;
   supports_chat_refine: boolean;
   supports_selection_context: boolean;
+  artifact_surface_type?: ArtifactSurfaceType;
+  capability_engine?: CapabilityEngine;
+  execution_carrier?: ExecutionCarrier;
+  render_contract?: string;
+  placement_supported?: boolean;
+  runtime_preview_mode?: string;
+  cloud_render_mode?: string;
+  supported_refine_modes?: RefineMode[];
+  supported_selection_scopes?: SelectionScope[];
+  source_binding_mode?: "none" | "single_artifact" | "multi_artifact";
   config_fields?: Array<Record<string, unknown>>;
   actions: StudioCardAction[];
   notes?: string;
 }
 
 export interface StudioCardExecutionBinding {
+  status?: "ready" | "partial" | "pending";
   command?: string;
   endpoint?: string;
   bound_config_keys?: string[];
@@ -51,9 +117,24 @@ export interface StudioCardExecutionBinding {
 export interface StudioCardExecutionPlan {
   card_id: string;
   readiness: StudioCardReadiness;
+  execution_carrier?: ExecutionCarrier;
+  supported_refine_modes?: RefineMode[];
+  supported_selection_scopes?: SelectionScope[];
   initial_binding: StudioCardExecutionBinding;
   refine_binding?: StudioCardExecutionBinding;
+  follow_up_turn_binding?: StudioCardExecutionBinding;
   source_binding?: StudioCardExecutionBinding;
+  placement_binding?: StudioCardExecutionBinding;
+}
+
+export interface StudioSelectionAnchor {
+  scope: SelectionScope;
+  anchor_id: string;
+  artifact_id?: string;
+  version_id?: string;
+  label?: string;
+  path?: Array<string | number>;
+  range?: { start: number; end: number };
 }
 
 export interface StudioCardExecutionPreviewRequest {
@@ -61,8 +142,12 @@ export interface StudioCardExecutionPreviewRequest {
   config?: Record<string, unknown>;
   template_config?: Record<string, unknown>;
   visibility?: "private" | "project-visible" | "shared";
+  primary_source_id?: string;
+  selected_source_ids?: string[];
   source_artifact_id?: string;
+  selected_file_ids?: string[];
   rag_source_ids?: string[];
+  selected_library_ids?: string[];
   client_session_id?: string;
   run_id?: string;
 }
@@ -72,10 +157,16 @@ export interface StudioCardRefineRequest {
   artifact_id?: string;
   session_id?: string;
   message?: string;
+  refine_mode?: RefineMode;
+  selection_anchor?: StudioSelectionAnchor;
   config?: Record<string, unknown>;
   visibility?: "private" | "project-visible" | "shared";
+  primary_source_id?: string;
+  selected_source_ids?: string[];
   source_artifact_id?: string;
+  selected_file_ids?: string[];
   rag_source_ids?: string[];
+  selected_library_ids?: string[];
 }
 
 export interface StudioCardSourceArtifact {
@@ -89,12 +180,25 @@ export interface StudioCardSourceArtifact {
   updated_at?: string;
 }
 
+export interface StudioCardSourceBindingCandidate {
+  required: boolean;
+  mode: "none" | "single_artifact" | "multi_artifact";
+  accepted_types: string[];
+  selected_ids: string[];
+  visibility_scope?: string;
+  status?: string;
+  sources: StudioCardSourceArtifact[];
+}
+
 export interface StudioCardTurnRequest {
   project_id: string;
   artifact_id: string;
+  session_id?: string;
   teacher_answer: string;
   config?: Record<string, unknown>;
+  selected_file_ids?: string[];
   rag_source_ids?: string[];
+  selected_library_ids?: string[];
   turn_anchor?: string;
 }
 
@@ -105,6 +209,14 @@ export interface StudioCardTurnResult {
   teacher_answer: string;
   feedback: string;
   score: number;
+  next_focus?: string;
+}
+
+export interface StudioCardTurnResponseData {
+  artifact: Record<string, unknown>;
+  turn_result: StudioCardTurnResult;
+  latest_runnable_state?: Record<string, unknown>;
+  turn_anchor?: string;
   next_focus?: string;
 }
 
@@ -148,7 +260,7 @@ export const studioCardsApi = {
   async getCatalog(): Promise<
     ApiEnvelope<{ studio_cards: StudioCardCapability[] }>
   > {
-    const response = await apiFetch("/api/v1/generate/studio-cards");
+    const response = await apiFetchSameOrigin("/api/v1/generate/studio-cards");
     return parseResponse<ApiEnvelope<{ studio_cards: StudioCardCapability[] }>>(
       response,
       "获取 Studio 卡片目录失败"
@@ -158,7 +270,7 @@ export const studioCardsApi = {
   async getCard(
     cardId: string
   ): Promise<ApiEnvelope<{ studio_card: StudioCardCapability }>> {
-    const response = await apiFetch(
+    const response = await apiFetchSameOrigin(
       `/api/v1/generate/studio-cards/${encodeURIComponent(cardId)}`
     );
     return parseResponse<ApiEnvelope<{ studio_card: StudioCardCapability }>>(
@@ -170,7 +282,7 @@ export const studioCardsApi = {
   async getExecutionPlan(
     cardId: string
   ): Promise<ApiEnvelope<{ execution_plan: StudioCardExecutionPlan }>> {
-    const response = await apiFetch(
+    const response = await apiFetchSameOrigin(
       `/api/v1/generate/studio-cards/${encodeURIComponent(cardId)}/execution-plan`
     );
     return parseResponse<
@@ -182,7 +294,7 @@ export const studioCardsApi = {
     cardId: string,
     body: StudioCardExecutionPreviewRequest
   ): Promise<ApiEnvelope<{ execution_preview: Record<string, unknown> }>> {
-    const response = await apiFetch(
+    const response = await apiFetchSameOrigin(
       `/api/v1/generate/studio-cards/${encodeURIComponent(cardId)}/execution-preview`,
       {
         method: "POST",
@@ -268,27 +380,31 @@ export const studioCardsApi = {
     cardId: string,
     projectId: string,
     sessionId?: string | null
-  ): Promise<ApiEnvelope<{ sources: StudioCardSourceArtifact[] }>> {
+  ): Promise<
+    ApiEnvelope<{
+      sources: StudioCardSourceArtifact[];
+      source_binding_candidates?: StudioCardSourceBindingCandidate;
+    }>
+  > {
     const params = new URLSearchParams({ project_id: projectId });
     if (sessionId?.trim()) {
       params.set("session_id", sessionId.trim());
     }
-    const response = await apiFetch(
+    const response = await apiFetchSameOrigin(
       `/api/v1/generate/studio-cards/${encodeURIComponent(cardId)}/sources?${params.toString()}`
     );
-    return parseResponse<ApiEnvelope<{ sources: StudioCardSourceArtifact[] }>>(
-      response,
-      "获取 Studio 卡片源成果失败"
-    );
+    return parseResponse<
+      ApiEnvelope<{
+        sources: StudioCardSourceArtifact[];
+        source_binding_candidates?: StudioCardSourceBindingCandidate;
+      }>
+    >(response, "获取 Studio 卡片源成果失败");
   },
 
   async turn(body: StudioCardTurnRequest): Promise<
-    ApiEnvelope<{
-      artifact: Record<string, unknown>;
-      turn_result: StudioCardTurnResult;
-    }>
+    ApiEnvelope<StudioCardTurnResponseData>
   > {
-    const response = await apiFetch(
+    const response = await apiFetchSameOrigin(
       "/api/v1/generate/studio-cards/classroom_qa_simulator/turn",
       {
         method: "POST",
@@ -296,12 +412,10 @@ export const studioCardsApi = {
         body: JSON.stringify(body),
       }
     );
-    return parseResponse<
-      ApiEnvelope<{
-        artifact: Record<string, unknown>;
-        turn_result: StudioCardTurnResult;
-      }>
-    >(response, "推进课堂问答模拟失败");
+    return parseResponse<ApiEnvelope<StudioCardTurnResponseData>>(
+      response,
+      "推进课堂问答模拟失败"
+    );
   },
 
   async recommendAnimationPlacement(
@@ -312,7 +426,7 @@ export const studioCardsApi = {
       artifact: Record<string, unknown>;
     }>
   > {
-    const response = await apiFetch(
+    const response = await apiFetchSameOrigin(
       "/api/v1/generate/studio-cards/demonstration_animations/recommend-placement",
       {
         method: "POST",
@@ -337,7 +451,7 @@ export const studioCardsApi = {
       ppt_artifact?: Record<string, unknown>;
     }>
   > {
-    const response = await apiFetch(
+    const response = await apiFetchSameOrigin(
       "/api/v1/generate/studio-cards/demonstration_animations/confirm-placement",
       {
         method: "POST",

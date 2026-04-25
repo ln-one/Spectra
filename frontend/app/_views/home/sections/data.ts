@@ -1,35 +1,35 @@
-﻿import {
-  BookOpen,
-  Clock,
-  FileText,
-  Layers,
-  Palette,
-  Star,
-  Users,
-  Wand2,
-} from "lucide-react";
+import {
+  HomeMarketingAIGenerationIcon,
+  HomeMarketingCreateProjectIcon,
+  HomeMarketingModularEditorIcon,
+  HomeMarketingMultiFormatIcon,
+  HomeMarketingSatisfactionIcon,
+  HomeMarketingSupportIcon,
+  HomeMarketingTemplateIcon,
+  HomeMarketingUsersIcon,
+} from "@/components/icons/marketing/HomeMarketingIcons";
 
 export const features = [
   {
-    icon: Wand2,
+    icon: HomeMarketingAIGenerationIcon,
     title: "AI 智能生成",
     description: "基于先进的 Qwen 大模型，理解教学内容自动生成结构化课件",
     color: "from-violet-500 to-purple-500",
   },
   {
-    icon: FileText,
+    icon: HomeMarketingMultiFormatIcon,
     title: "多格式支持",
     description: "一键导出 PPT、Word 等多种格式，满足不同教学场景需求",
     color: "from-blue-500 to-cyan-500",
   },
   {
-    icon: Layers,
+    icon: HomeMarketingModularEditorIcon,
     title: "模块化编辑",
     description: "灵活的章节编辑功能，支持自由调整内容结构和样式",
     color: "from-emerald-500 to-green-500",
   },
   {
-    icon: Palette,
+    icon: HomeMarketingTemplateIcon,
     title: "精美模板",
     description: "内置多种专业设计的教学模板，让课件更加美观专业",
     color: "from-orange-500 to-amber-500",
@@ -41,33 +41,33 @@ export const steps = [
     number: "01",
     title: "创建项目",
     description: "输入课程主题和基本信息",
-    icon: BookOpen,
+    icon: HomeMarketingCreateProjectIcon,
   },
   {
     number: "02",
     title: "AI 生成",
     description: "AI 分析需求生成大纲",
-    icon: Wand2,
+    icon: HomeMarketingAIGenerationIcon,
   },
   {
     number: "03",
     title: "编辑优化",
     description: "可视化编辑器调整内容",
-    icon: Layers,
+    icon: HomeMarketingModularEditorIcon,
   },
   {
     number: "04",
     title: "导出使用",
     description: "导出为 PPT 或 Word 格式",
-    icon: FileText,
+    icon: HomeMarketingMultiFormatIcon,
   },
 ];
 
 export const stats = [
-  { value: "10K+", label: "活跃用户", icon: Users },
-  { value: "50K+", label: "生成课件", icon: FileText },
-  { value: "99%", label: "满意度", icon: Star },
-  { value: "24/7", label: "AI 支持", icon: Clock },
+  { value: "10K+", label: "活跃用户", icon: HomeMarketingUsersIcon },
+  { value: "50K+", label: "生成课件", icon: HomeMarketingMultiFormatIcon },
+  { value: "99%", label: "满意度", icon: HomeMarketingSatisfactionIcon },
+  { value: "24/7", label: "AI 支持", icon: HomeMarketingSupportIcon },
 ];
 
 export const testimonials = [

@@ -1,7 +1,6 @@
-﻿import { chatApi, studioCardsApi } from "@/lib/sdk";
+import { chatApi, studioCardsApi } from "@/lib/sdk";
 import {
   createApiError,
-  getChatLatencyNotice,
   getChatRequestErrorMessage,
   getErrorMessage,
 } from "@/lib/sdk/errors";
@@ -17,9 +16,11 @@ import {
 } from "./studio-chat.helpers";
 import { resolveReadySelectedFileIds } from "./source-scope";
 import type {
+  ChatGenerationConfirmDraft,
   Message,
   ProjectStoreContext,
   ProjectState,
+  StudioChatContext,
   StudioHintMessagePayload,
 } from "./types";
 
@@ -32,11 +33,98 @@ type ChatActionKeys =
   | "pushStudioHintMessage"
   | "focusChatComposer";
 
+type CoursewareGenerationAction = "open_generation_confirm";
+
+function normalizeCoursewareGenerationAction(
+  value: unknown
+): CoursewareGenerationAction | null {
+  if (
+    value === "open_generation_confirm"
+  ) {
+    return value;
+  }
+  return null;
+}
+
 function hasProjectLocalState(
   map: Record<string, unknown>,
   projectId: string
 ): boolean {
   return Object.prototype.hasOwnProperty.call(map, projectId);
+}
+
+function readFailureReason(error: unknown): string {
+  if (!error || typeof error !== "object") return "";
+  const details = (error as { details?: Record<string, unknown> }).details;
+  const directFailure = details?.failure_reason;
+  if (typeof directFailure === "string") return directFailure;
+  const nestedFailure = details?.details;
+  if (
+    nestedFailure &&
+    typeof nestedFailure === "object" &&
+    typeof (nestedFailure as Record<string, unknown>).failure_reason === "string"
+  ) {
+    return String((nestedFailure as Record<string, unknown>).failure_reason);
+  }
+  return "";
+}
+
+function areConfigSnapshotsEqual(
+  left: Record<string, unknown> | undefined,
+  right: Record<string, unknown> | undefined
+): boolean {
+  if (left === right) return true;
+  if (!left || !right) return !left && !right;
+  const areValuesEqual = (lhs: unknown, rhs: unknown): boolean => {
+    if (Object.is(lhs, rhs)) return true;
+    if (Array.isArray(lhs) || Array.isArray(rhs)) {
+      if (!Array.isArray(lhs) || !Array.isArray(rhs)) return false;
+      if (lhs.length !== rhs.length) return false;
+      return lhs.every((item, index) => areValuesEqual(item, rhs[index]));
+    }
+    if (
+      lhs &&
+      rhs &&
+      typeof lhs === "object" &&
+      typeof rhs === "object"
+    ) {
+      const lhsRecord = lhs as Record<string, unknown>;
+      const rhsRecord = rhs as Record<string, unknown>;
+      const lhsKeys = Object.keys(lhsRecord);
+      const rhsKeys = Object.keys(rhsRecord);
+      if (lhsKeys.length !== rhsKeys.length) return false;
+      return lhsKeys.every(
+        (key) =>
+          Object.prototype.hasOwnProperty.call(rhsRecord, key) &&
+          areValuesEqual(lhsRecord[key], rhsRecord[key])
+      );
+    }
+    return false;
+  };
+
+  return areValuesEqual(left, right);
+}
+
+function areStudioChatContextsEqual(
+  left: StudioChatContext | null,
+  right: StudioChatContext | null
+): boolean {
+  if (left === right) return true;
+  if (!left || !right) return left === right;
+  return (
+    left.projectId === right.projectId &&
+    left.sessionId === right.sessionId &&
+    left.toolType === right.toolType &&
+    left.toolLabel === right.toolLabel &&
+    left.cardId === right.cardId &&
+    left.step === right.step &&
+    left.canRefine === right.canRefine &&
+    left.isRefineMode === right.isRefineMode &&
+    left.targetArtifactId === right.targetArtifactId &&
+    left.targetRunId === right.targetRunId &&
+    left.sourceArtifactId === right.sourceArtifactId &&
+    areConfigSnapshotsEqual(left.configSnapshot, right.configSnapshot)
+  );
 }
 
 export function createChatActions({
@@ -46,7 +134,6 @@ export function createChatActions({
   let latestFetchRequestId = 0;
   let refineQueue = Promise.resolve();
   let refinePendingCount = 0;
-
   const ensureProjectLocalState = (projectId: string) => {
     const state = get();
     if (
@@ -212,6 +299,9 @@ export function createChatActions({
     },
 
     setStudioChatContext: (context) => {
+      if (areStudioChatContextsEqual(get().studioChatContext, context)) {
+        return;
+      }
       set({ studioChatContext: context });
     },
 
@@ -289,19 +379,29 @@ export function createChatActions({
         };
         set((state) => ({ messages: [...state.messages, userMessage] }));
 
-        const { selectedFileIds, files } = get();
+        const {
+          selectedFileIds,
+          selectedLibraryIds,
+          selectedArtifactSourceIds,
+          files,
+        } = get();
         const effectiveRagSourceIds = resolveReadySelectedFileIds(
           files,
           selectedFileIds
+        );
+        const effectiveSelectedSourceIds = Array.from(
+          new Set([...effectiveRagSourceIds, ...selectedArtifactSourceIds])
         );
         const response = await chatApi.sendMessage({
           project_id: projectId,
           session_id: effectiveSessionId,
           content,
+          selected_file_ids: effectiveSelectedSourceIds,
           rag_source_ids:
-            effectiveRagSourceIds.length > 0
-              ? effectiveRagSourceIds
+            effectiveSelectedSourceIds.length > 0
+              ? effectiveSelectedSourceIds
               : undefined,
+          selected_library_ids: selectedLibraryIds,
         });
 
         if (
@@ -338,16 +438,6 @@ export function createChatActions({
 
         await get().fetchGenerationHistory(projectId);
 
-        const latencyNotice = getChatLatencyNotice(
-          response?.data?.observability ?? null
-        );
-        if (latencyNotice) {
-          toast({
-            title: "聊天响应较慢",
-            description: latencyNotice,
-          });
-        }
-
         if (response?.data?.message) {
           set((state) => ({
             messages: [
@@ -356,6 +446,174 @@ export function createChatActions({
               response.data!.message!,
             ],
           }));
+        }
+
+        const refreshedSnapshot = await get().refreshGenerationSession(
+          response?.data?.session_id ?? effectiveSessionId
+        );
+
+        const observability =
+          responseData.observability &&
+          typeof responseData.observability === "object"
+            ? (responseData.observability as Record<string, unknown>)
+            : null;
+        const teachingBriefHint = (
+          responseData.teaching_brief_hint || observability?.teaching_brief_hint
+        ) as Record<string, any> | undefined;
+
+        
+        if (teachingBriefHint) {
+          const refreshAfterMs =
+            typeof teachingBriefHint.refresh_after_ms === "number"
+              ? teachingBriefHint.refresh_after_ms
+              : Number(teachingBriefHint.refresh_after_ms) || 3000;
+          const generationAction = normalizeCoursewareGenerationAction(
+            teachingBriefHint.generation_action
+          );
+          const generationDraftRaw =
+            teachingBriefHint.generation_confirm_draft &&
+            typeof teachingBriefHint.generation_confirm_draft === "object"
+              ? (teachingBriefHint.generation_confirm_draft as Record<
+                  string,
+                  unknown
+                >)
+              : null;
+          const actionSessionId = response?.data?.session_id ?? effectiveSessionId;
+          const generationConfirmDraft: ChatGenerationConfirmDraft | null =
+            actionSessionId &&
+            generationDraftRaw &&
+            typeof generationDraftRaw.summary === "string" &&
+            typeof generationDraftRaw.prompt === "string" &&
+            generationDraftRaw.config &&
+            typeof generationDraftRaw.config === "object"
+              ? {
+                  sessionId: actionSessionId,
+                  summary: generationDraftRaw.summary,
+                  prompt: generationDraftRaw.prompt,
+                  config: {
+                    prompt:
+                      typeof (
+                        generationDraftRaw.config as Record<string, unknown>
+                      ).prompt === "string"
+                        ? String(
+                            (
+                              generationDraftRaw.config as Record<
+                                string,
+                                unknown
+                              >
+                            ).prompt
+                          )
+                        : "",
+                    pageCount: Number(
+                      (
+                        generationDraftRaw.config as Record<string, unknown>
+                      ).pageCount
+                    ),
+                    visualStyle:
+                      typeof (
+                        generationDraftRaw.config as Record<string, unknown>
+                      ).visualStyle === "string"
+                        ? String(
+                            (
+                              generationDraftRaw.config as Record<
+                                string,
+                                unknown
+                              >
+                            ).visualStyle
+                          )
+                        : "free",
+                    layoutMode:
+                      (generationDraftRaw.config as Record<string, unknown>)
+                        .layoutMode === "classic"
+                        ? "classic"
+                        : "smart",
+                    templateId:
+                      typeof (
+                        generationDraftRaw.config as Record<string, unknown>
+                      ).templateId === "string"
+                        ? String(
+                            (
+                              generationDraftRaw.config as Record<
+                                string,
+                                unknown
+                              >
+                            ).templateId
+                          )
+                        : null,
+                    visualPolicy:
+                      (generationDraftRaw.config as Record<string, unknown>)
+                        .visualPolicy === "media_required"
+                        ? "media_required"
+                        : (generationDraftRaw.config as Record<string, unknown>)
+                              .visualPolicy === "basic_graphics_only"
+                          ? "basic_graphics_only"
+                          : "auto",
+                  },
+                  sourceMessageIds: Array.isArray(generationDraftRaw.source_message_ids)
+                    ? generationDraftRaw.source_message_ids
+                        .map((value) => String(value || "").trim())
+                        .filter(Boolean)
+                    : [],
+                }
+              : null;
+          set({
+            latestBriefHint: {
+              sessionId: actionSessionId,
+              autoAppliedFields: teachingBriefHint.auto_applied_fields || [],
+              missingFields: teachingBriefHint.missing_fields || [],
+              status: teachingBriefHint.status || "live",
+              briefSnapshot: teachingBriefHint.brief_snapshot || null,
+              generationIntent: teachingBriefHint.generation_intent || false,
+              generationReady: teachingBriefHint.generation_ready || false,
+              generationBlockedReason: teachingBriefHint.generation_blocked_reason || "",
+              generationAction,
+              extractionScheduled: teachingBriefHint.extraction_scheduled === true,
+              extractionReason:
+                typeof teachingBriefHint.extraction_reason === "string"
+                  ? teachingBriefHint.extraction_reason
+                  : null,
+              refreshAfterMs,
+            },
+          });
+
+          if (actionSessionId) {
+            get().setGenerationConfirmDraft(actionSessionId, generationConfirmDraft);
+          }
+        }
+
+        const generationAction = normalizeCoursewareGenerationAction(
+          teachingBriefHint?.generation_action
+        );
+        const shouldDelayedRefresh = !!(
+          !generationAction &&
+          (teachingBriefHint?.extraction_scheduled ||
+            teachingBriefHint?.generation_intent ||
+            (teachingBriefHint?.auto_applied_fields?.length > 0))
+        );
+        
+        if (shouldDelayedRefresh) {
+          const refreshDelayMs =
+            typeof teachingBriefHint?.refresh_after_ms === "number"
+              ? teachingBriefHint.refresh_after_ms
+              : Number(teachingBriefHint?.refresh_after_ms) || 3000;
+          const prevVersion =
+            refreshedSnapshot?.teaching_brief?.version ??
+            get().generationSession?.teaching_brief?.version ??
+            0;
+          setTimeout(() => {
+            const sid = response?.data?.session_id ?? effectiveSessionId;
+            if (sid) {
+              void get().refreshGenerationSession(sid).then((snapshot) => {
+                const newVersion = snapshot?.teaching_brief?.version ?? 0;
+                if (newVersion > prevVersion) {
+                  toast({
+                    title: "需求单自动提取成功",
+                    description: "AI 已从刚才的对话中自动提取并更新了教学需求。",
+                  });
+                }
+              });
+            }
+          }, refreshDelayMs);
         }
       } catch (error) {
         const message = getChatRequestErrorMessage(error);
@@ -420,7 +678,7 @@ export function createChatActions({
         return;
       }
 
-      const initialRunId = context.targetRunId || get().activeRunId || null;
+      const initialRunId = context.targetRunId || null;
       const userRefineMessage = createLocalMessage("user", normalizedContent, {
         kind: "studio_refine_user",
         refineToolType: context.toolType,
@@ -444,10 +702,18 @@ export function createChatActions({
       appendLocalMessage(projectId, effectiveSessionId, userRefineMessage);
       appendLocalMessage(projectId, effectiveSessionId, refineStatusMessage);
 
-      const { selectedFileIds, files } = get();
+      const {
+        selectedFileIds,
+        selectedLibraryIds,
+        selectedArtifactSourceIds,
+        files,
+      } = get();
       const effectiveRagSourceIds = resolveReadySelectedFileIds(
         files,
         selectedFileIds
+      );
+      const effectiveSelectedSourceIds = Array.from(
+        new Set([...effectiveRagSourceIds, ...selectedArtifactSourceIds])
       );
 
       await enqueueRefineTask(async () => {
@@ -457,12 +723,18 @@ export function createChatActions({
             session_id: effectiveSessionId,
             artifact_id: context.targetArtifactId || undefined,
             message: normalizedContent,
+            refine_mode:
+              context.cardId === "word_document"
+                ? "structured_refine"
+                : "chat_refine",
             source_artifact_id: context.sourceArtifactId || undefined,
             config: context.configSnapshot,
+            selected_file_ids: effectiveSelectedSourceIds,
             rag_source_ids:
-              effectiveRagSourceIds.length > 0
-                ? effectiveRagSourceIds
+              effectiveSelectedSourceIds.length > 0
+                ? effectiveSelectedSourceIds
                 : undefined,
+            selected_library_ids: selectedLibraryIds,
           });
           const executionResult =
             (response?.data as { execution_result?: Record<string, unknown> })
@@ -496,7 +768,6 @@ export function createChatActions({
             (typeof runPayload?.run_id === "string" && runPayload.run_id) ||
             (typeof runPayload?.id === "string" && runPayload.id) ||
             (response?.data as { run_id?: string } | undefined)?.run_id ||
-            get().activeRunId ||
             initialRunId;
           const refinedArtifactId =
             (typeof artifactPayload?.id === "string" && artifactPayload.id) ||
@@ -506,14 +777,44 @@ export function createChatActions({
               ?.artifact_id ||
             null;
 
+          if (
+            context.cardId === "knowledge_mindmap" &&
+            !refinedArtifactId
+          ) {
+            throw new Error("未生成新版导图");
+          }
+
           if (refinedSessionId !== get().activeSessionId) {
             set({ activeSessionId: refinedSessionId });
           }
-          if (refinedRunId && refinedRunId !== get().activeRunId) {
-            set({ activeRunId: refinedRunId });
-          }
 
           await get().fetchArtifactHistory(projectId, refinedSessionId);
+          if (
+            typeof window !== "undefined" &&
+            context.toolType &&
+            (refinedArtifactId || refinedRunId)
+          ) {
+            if (context.toolType === "quiz") {
+              window.dispatchEvent(
+                new CustomEvent("spectra:quiz:set-mode", {
+                  detail: { mode: "browse" },
+                })
+              );
+            }
+            window.dispatchEvent(
+              new CustomEvent("spectra:open-history-item", {
+                detail: {
+                  origin: "workflow",
+                  toolType: context.toolType,
+                  step: "preview",
+                  status: "completed",
+                  sessionId: refinedSessionId,
+                  runId: refinedRunId,
+                  artifactId: refinedArtifactId,
+                },
+              })
+            );
+          }
 
           updateLocalMessage(
             projectId,
@@ -539,16 +840,19 @@ export function createChatActions({
           );
         } catch (error) {
           const message = getErrorMessage(error);
+          const failureReason = readFailureReason(error);
+          const failureDescription = buildRefineFailureMessage(
+            context.toolType,
+            context.toolLabel,
+            failureReason
+          );
           updateLocalMessage(
             projectId,
             effectiveSessionId,
             refineStatusMessage.id,
             (prevMessage) => ({
               ...prevMessage,
-              content: buildRefineFailureMessage(
-                context.toolType,
-                context.toolLabel
-              ),
+              content: failureDescription,
               localMeta: {
                 ...prevMessage.localMeta,
                 kind: "studio_refine_status",
@@ -562,7 +866,12 @@ export function createChatActions({
           );
           toast({
             title: "微调失败",
-            description: message,
+            description:
+              failureReason &&
+              (failureReason.includes("timeout") ||
+                failureReason.includes("mindmap_refine_quality_low"))
+                ? failureDescription
+                : message,
             variant: "destructive",
           });
         }

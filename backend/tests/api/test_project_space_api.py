@@ -25,6 +25,7 @@ def _fake_reference():
         id="r-001",
         projectId=_PROJECT_ID,
         targetProjectId="p-target-001",
+        targetProjectName="示例资料库",
         relationType="base",
         mode="follow",
         pinnedVersionId=None,
@@ -60,6 +61,40 @@ def _fake_artifact():
         visibility="private",
         storagePath="uploads/artifacts/p-ps-001/summary/a-001.json",
         metadata='{"kind":"outline"}',
+        createdAt=_NOW,
+        updatedAt=_NOW,
+    )
+
+
+def _fake_artifact_with_namespace_metadata():
+    return SimpleNamespace(
+        id="a-002",
+        projectId=_PROJECT_ID,
+        sessionId="s-002",
+        basedOnVersionId="v-002",
+        ownerUserId=_USER_ID,
+        type="docx",
+        visibility="private",
+        storagePath="uploads/artifacts/p-ps-001/docx/a-002.docx",
+        metadata=SimpleNamespace(
+            kind="teaching_document",
+            legacy_kind="word_document",
+            schema_id="lesson_plan_v1",
+            content_snapshot=SimpleNamespace(
+                title="牛顿第一定律教案",
+                document_content=SimpleNamespace(
+                    type="doc",
+                    content=[
+                        SimpleNamespace(
+                            type="paragraph",
+                            content=[
+                                SimpleNamespace(type="text", text="物体会保持原有运动状态")
+                            ],
+                        )
+                    ],
+                ),
+            ),
+        ),
         createdAt=_NOW,
         updatedAt=_NOW,
     )
@@ -115,6 +150,7 @@ def test_get_project_references_returns_thin_ourograph_shape(
     body = resp.json()
     assert body["references"][0]["projectId"] == _PROJECT_ID
     assert body["references"][0]["targetProjectId"] == "p-target-001"
+    assert body["references"][0]["targetProjectName"] == "示例资料库"
     assert "success" not in body
 
 
@@ -160,6 +196,35 @@ def test_get_project_artifacts_returns_thin_ourograph_shape(
     body = resp.json()
     assert body["artifacts"][0]["basedOnVersionId"] == "v-001"
     assert body["artifacts"][0]["metadata"] == {"kind": "outline"}
+
+
+def test_get_project_artifact_preserves_namespace_metadata_from_ourograph(
+    client, monkeypatch, _as_user
+):
+    monkeypatch.setattr(
+        project_space_service,
+        "check_project_permission",
+        AsyncMock(return_value=True),
+    )
+    monkeypatch.setattr(
+        project_space_service,
+        "get_artifact",
+        AsyncMock(return_value=_fake_artifact_with_namespace_metadata()),
+    )
+
+    resp = client.get(f"/api/v1/projects/{_PROJECT_ID}/artifacts/a-002")
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["artifact"]["metadata"]["kind"] == "teaching_document"
+    assert body["artifact"]["metadata"]["legacy_kind"] == "word_document"
+    assert body["artifact"]["metadata"]["schema_id"] == "lesson_plan_v1"
+    assert (
+        body["artifact"]["metadata"]["content_snapshot"]["document_content"]["content"][0][
+            "content"
+        ][0]["text"]
+        == "物体会保持原有运动状态"
+    )
 
 
 def test_get_project_members_returns_thin_ourograph_shape(

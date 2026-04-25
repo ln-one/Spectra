@@ -45,7 +45,11 @@ async def load_snapshot_runtime_components(
 
 
 def build_snapshot_result(session) -> dict | None:
-    if session.state != GenerationState.SUCCESS.value:
+    has_bound_output = bool(
+        str(getattr(session, "pptUrl", "") or "").strip()
+        or str(getattr(session, "wordUrl", "") or "").strip()
+    )
+    if session.state != GenerationState.SUCCESS.value and not has_bound_output:
         return None
     return build_generation_result_payload(
         ppt_url=session.pptUrl,

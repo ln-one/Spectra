@@ -14,13 +14,15 @@ from services.generation_session_service.diego_runtime import (
     should_use_diego_for_courseware,
     start_diego_outline_workflow,
 )
+from services.generation_session_service.event_store import (
+    persist_session_update_and_events,
+)
 from services.generation_session_service.session_history import (
     RUN_STATUS_PENDING,
     RUN_STEP_OUTLINE,
     create_session_run,
-    generate_semantic_run_title,
+    request_run_title_generation,
     serialize_session_run,
-    spawn_background_task,
     update_session_run,
 )
 from services.platform.generation_event_constants import GenerationEventType
@@ -48,6 +50,7 @@ async def execute_studio_card_session_request(
     await validate_source_artifact(
         project_id=body.project_id,
         card_id=card_id,
+        user_id=user_id,
         source_artifact_id=source_artifact_id,
     )
     if not body.client_session_id:
@@ -89,9 +92,11 @@ async def execute_studio_card_session_request(
         card_id=card_id,
         run_id=body.run_id,
     )
-    await session_service._db.generationsession.update(
-        where={"id": session_ref["session_id"]},
-        data={
+    await persist_session_update_and_events(
+        db=session_service._db,
+        schema_version=session_service.SCHEMA_VERSION,
+        session_id=session_ref["session_id"],
+        session_data={
             "state": GenerationState.DRAFTING_OUTLINE.value,
             "stateReason": SessionLifecycleReason.SESSION_REUSED.value,
             "progress": 0,
@@ -100,25 +105,26 @@ async def execute_studio_card_session_request(
             "errorRetryable": False,
             "resumable": True,
         },
-    )
-    await session_service._append_event(
-        session_id=session_ref["session_id"],
-        event_type=GenerationEventType.STATE_CHANGED.value,
-        state=GenerationState.DRAFTING_OUTLINE.value,
-        state_reason=SessionLifecycleReason.SESSION_REUSED.value,
-        progress=0,
-        payload={
-            "reason": SessionLifecycleReason.SESSION_REUSED.value,
-            **(
-                {
-                    "run_id": run.id,
-                    "run_no": run.runNo,
-                    "tool_type": run.toolType,
-                }
-                if run is not None
-                else {}
-            ),
-        },
+        events=[
+            {
+                "event_type": GenerationEventType.STATE_CHANGED.value,
+                "state": GenerationState.DRAFTING_OUTLINE.value,
+                "state_reason": SessionLifecycleReason.SESSION_REUSED.value,
+                "progress": 0,
+                "payload": {
+                    "reason": SessionLifecycleReason.SESSION_REUSED.value,
+                    **(
+                        {
+                            "run_id": run.id,
+                            "run_no": run.runNo,
+                            "tool_type": run.toolType,
+                        }
+                        if run is not None
+                        else {}
+                    ),
+                },
+            }
+        ],
     )
     if not should_use_diego_for_courseware(card_id=card_id):
         raise APIException(
@@ -131,6 +137,7 @@ async def execute_studio_card_session_request(
     try:
         await start_diego_outline_workflow(
             db=session_service._db,
+            project_id=body.project_id,
             session_id=session_ref["session_id"],
             run=run,
             options=(
@@ -154,9 +161,11 @@ async def execute_studio_card_session_request(
                 status="failed",
                 step=RUN_STEP_OUTLINE,
             )
-        await session_service._db.generationsession.update(
-            where={"id": session_ref["session_id"]},
-            data={
+        await persist_session_update_and_events(
+            db=session_service._db,
+            schema_version=session_service.SCHEMA_VERSION,
+            session_id=session_ref["session_id"],
+            session_data={
                 "state": GenerationState.FAILED.value,
                 "stateReason": "diego_bootstrap_failed",
                 "errorCode": "DIEGO_CREATE_RUN_FAILED",
@@ -164,19 +173,20 @@ async def execute_studio_card_session_request(
                 "errorRetryable": True,
                 "resumable": True,
             },
-        )
-        await session_service._append_event(
-            session_id=session_ref["session_id"],
-            event_type=GenerationEventType.STATE_CHANGED.value,
-            state=GenerationState.FAILED.value,
-            state_reason="diego_bootstrap_failed",
-            payload={
-                "reason": "diego_bootstrap_failed",
-                "error_code": "DIEGO_CREATE_RUN_FAILED",
-                "error_message": str(exc),
-                "retryable": True,
-                "run_id": getattr(run, "id", None),
-            },
+            events=[
+                {
+                    "event_type": GenerationEventType.STATE_CHANGED.value,
+                    "state": GenerationState.FAILED.value,
+                    "state_reason": "diego_bootstrap_failed",
+                    "payload": {
+                        "reason": "diego_bootstrap_failed",
+                        "error_code": "DIEGO_CREATE_RUN_FAILED",
+                        "error_message": str(exc),
+                        "retryable": True,
+                        "run_id": getattr(run, "id", None),
+                    },
+                }
+            ],
         )
         raise APIException(
             status_code=502,
@@ -198,14 +208,11 @@ async def execute_studio_card_session_request(
         }
     )
     if run:
-        spawn_background_task(
-            generate_semantic_run_title(
-                db=session_service._db,
-                run_id=run.id,
-                tool_type=run.toolType,
-                snapshot=body.config,
-            ),
-            label=f"studio-card-run:{run.id}",
+        await request_run_title_generation(
+            db=session_service._db,
+            run_id=run.id,
+            tool_type=run.toolType,
+            snapshot=body.config,
         )
     return StudioCardExecutionResult(
         card_id=card_id,

@@ -56,6 +56,9 @@ model Project {
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   name        String   // 项目名称，如"五年级数学-分数加减法"
+  nameSource  String   @default("default")
+  nameUpdatedAt DateTime?
+  nameGenerationRequestedAt DateTime?
   description String?  // 项目描述
 
   // 教学信息
@@ -84,6 +87,7 @@ model Project {
   candidateChanges   CandidateChange[]
   members            ProjectMember[]
   runs               SessionRun[]
+  promptSuggestionCaches PromptSuggestionCache[]
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -333,6 +337,7 @@ model GenerationSession {
   displayTitle    String?
   displayTitleSource String? @default("default")
   displayTitleUpdatedAt DateTime?
+  displayTitleGenerationRequestedAt DateTime?
 
   // 能力降级记录（JSON 数组）
   fallbacksJson   String?  // JSON: ExternalFallbackInfo[]
@@ -368,6 +373,7 @@ model SessionRun {
   title           String
   titleSource     String   @default("pending")
   titleUpdatedAt  DateTime?
+  titleGenerationRequestedAt DateTime?
   status          String   @default("pending")
   step            String   @default("config")
   artifactId      String?
@@ -380,6 +386,37 @@ model SessionRun {
   @@index([projectId, updatedAt])
   @@index([artifactId])
   @@unique([runScopeKey, toolType, runNo])
+}
+
+/// Pagevra authority preview manifest cache.
+/// Keyed by run/artifact id; content is JSON text shaped by Spectra preview contracts.
+model PreviewCache {
+  key       String   @id
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/// Tool-scoped prompt suggestion pool generated from project RAG material.
+model PromptSuggestionCache {
+  id                 String   @id @default(uuid())
+  projectId          String
+  project            Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  surface            String
+  status             String   @default("generating")
+  suggestionsJson    String?
+  summary            String?
+  sourceFingerprint  String?
+  errorCode          String?
+  errorMessage       String?
+  generatedAt        DateTime?
+  refreshRequestedAt DateTime?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@unique([projectId, surface])
+  @@index([projectId, status])
+  @@index([projectId, updatedAt])
 }
 
 /// 大纲版本 - 每次用户或 AI 修改大纲时追加一条

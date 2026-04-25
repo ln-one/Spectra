@@ -1,17 +1,10 @@
-﻿import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+﻿import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { ChatPanel } from "@/components/project/features/chat/ChatPanel";
 import { useProjectStore } from "@/stores/projectStore";
-import { ragApi } from "@/lib/sdk/rag";
 
 jest.mock("@/stores/projectStore", () => ({
   ...jest.requireActual("@/stores/projectStore"),
   useProjectStore: jest.fn(),
-}));
-
-jest.mock("@/lib/sdk/rag", () => ({
-  ragApi: {
-    transcribeAudio: jest.fn(),
-  },
 }));
 
 jest.mock("sonner", () => ({
@@ -85,37 +78,8 @@ class MockSpeechRecognition {
   }
 }
 
-class MockMediaRecorder {
-  static isTypeSupported() {
-    return true;
-  }
-
-  mimeType: string;
-  state: "inactive" | "recording" = "inactive";
-  ondataavailable: ((event: { data: Blob }) => void) | null = null;
-  onstop: (() => void) | null = null;
-  onerror: (() => void) | null = null;
-
-  constructor(_stream: MediaStream, options?: { mimeType?: string }) {
-    this.mimeType = options?.mimeType ?? "audio/webm";
-  }
-
-  start() {
-    this.state = "recording";
-  }
-
-  stop() {
-    this.state = "inactive";
-    this.ondataavailable?.({
-      data: new Blob(["audio"], { type: this.mimeType }),
-    });
-    this.onstop?.();
-  }
-}
-
 describe("ChatPanel voice live transcript", () => {
   const mockedStore = useProjectStore as unknown as jest.Mock;
-  const mockedTranscribeAudio = ragApi.transcribeAudio as jest.Mock;
   const sendMessage = jest.fn();
 
   beforeAll(() => {
@@ -137,36 +101,15 @@ describe("ChatPanel voice live transcript", () => {
       value: MockSpeechRecognition,
     });
 
-    Object.defineProperty(globalThis, "MediaRecorder", {
-      writable: true,
-      configurable: true,
-      value: MockMediaRecorder,
-    });
-
     Object.defineProperty(window.HTMLElement.prototype, "scrollIntoView", {
       writable: true,
       configurable: true,
       value: jest.fn(),
     });
-
-    Object.defineProperty(navigator, "mediaDevices", {
-      writable: true,
-      configurable: true,
-      value: {
-        getUserMedia: jest.fn().mockResolvedValue({
-          getTracks: () => [{ stop: jest.fn() }],
-        }),
-      },
-    });
   });
 
   beforeEach(() => {
     sendMessage.mockReset();
-    mockedTranscribeAudio.mockReset();
-    mockedTranscribeAudio.mockResolvedValue({
-      success: true,
-      data: { text: "你好，世界" },
-    });
 
     mockedStore.mockReturnValue({
       messages: [],
@@ -185,7 +128,7 @@ describe("ChatPanel voice live transcript", () => {
     });
   });
 
-  it("updates live transcript and replaces with backend corrected text on stop", async () => {
+  it("keeps live transcript when stopping voice capture", async () => {
     render(<ChatPanel projectId="proj_1" />);
 
     const voiceButton = screen.getByRole("button", { name: "语音输入" });
@@ -198,17 +141,21 @@ describe("ChatPanel voice live transcript", () => {
     });
     expect(MockSpeechRecognition.activeInstance).not.toBeNull();
 
-    MockSpeechRecognition.activeInstance?.emit([
-      { isFinal: false, 0: { transcript: "你好" } },
-    ]);
+    act(() => {
+      MockSpeechRecognition.activeInstance?.emit([
+        { isFinal: false, 0: { transcript: "你好" } },
+      ]);
+    });
 
     await waitFor(() => {
       expect(textarea.value).toBe("你好");
     });
 
-    MockSpeechRecognition.activeInstance?.emit([
-      { isFinal: true, 0: { transcript: "你好 同学" } },
-    ]);
+    act(() => {
+      MockSpeechRecognition.activeInstance?.emit([
+        { isFinal: true, 0: { transcript: "你好 同学" } },
+      ]);
+    });
 
     await waitFor(() => {
       expect(textarea.value).toBe("你好 同学");
@@ -217,8 +164,7 @@ describe("ChatPanel voice live transcript", () => {
     fireEvent.click(voiceButton);
 
     await waitFor(() => {
-      expect(mockedTranscribeAudio).toHaveBeenCalledTimes(1);
-      expect(textarea.value).toBe("你好，世界");
+      expect(textarea.value).toBe("你好 同学");
     });
 
     expect(sendMessage).not.toHaveBeenCalled();
@@ -238,28 +184,25 @@ describe("ChatPanel voice live transcript", () => {
       ).toBeInTheDocument();
     });
 
-    MockSpeechRecognition.activeInstance?.emit([
-      { isFinal: false, 0: { transcript: "追加" } },
-    ]);
+    act(() => {
+      MockSpeechRecognition.activeInstance?.emit([
+        { isFinal: false, 0: { transcript: "追加" } },
+      ]);
+    });
 
     await waitFor(() => {
       expect(textarea.value).toBe("追加");
     });
 
-    mockedTranscribeAudio.mockResolvedValueOnce({
-      success: true,
-      data: { text: "后端修正" },
-    });
-
     fireEvent.click(screen.getByRole("button", { name: "结束语音输入" }));
 
     await waitFor(() => {
-      expect(textarea.value).toBe("后端修正");
+      expect(textarea.value).toBe("追加");
       expect(sendMessage).not.toHaveBeenCalled();
     });
   });
 
-  it("falls back to recorder-only flow when browser speech recognition is unavailable", async () => {
+  it("shows unavailable when browser speech recognition is unavailable", async () => {
     const originalSpeech = (window as Window & { SpeechRecognition?: unknown })
       .SpeechRecognition;
     const originalWebkit = (
@@ -278,18 +221,10 @@ describe("ChatPanel voice live transcript", () => {
 
     fireEvent.click(voiceButton);
     await waitFor(() => {
-      expect(textarea).toBeDisabled();
-      expect(
-        screen.getByRole("button", { name: "结束语音输入" })
-      ).toBeInTheDocument();
-    });
-
-    fireEvent.click(screen.getByRole("button", { name: "结束语音输入" }));
-
-    await waitFor(() => {
-      expect(mockedTranscribeAudio).toHaveBeenCalledTimes(1);
-      expect(textarea.value).toBe("你好，世界");
       expect(textarea).not.toBeDisabled();
+      expect(
+        screen.queryByRole("button", { name: "结束语音输入" })
+      ).not.toBeInTheDocument();
     });
 
     (window as Window & { SpeechRecognition?: unknown }).SpeechRecognition =
@@ -297,5 +232,27 @@ describe("ChatPanel voice live transcript", () => {
     (
       window as Window & { webkitSpeechRecognition?: unknown }
     ).webkitSpeechRecognition = originalWebkit;
+  });
+
+  it("does not keep loading overlay forever when first-load marker is unresolved", async () => {
+    jest.useFakeTimers();
+
+    const { container } = render(<ChatPanel projectId="proj_1" />);
+
+    expect(
+      container.querySelector(".project-chat-loading-overlay")
+    ).toBeInTheDocument();
+
+    act(() => {
+      jest.advanceTimersByTime(2200);
+    });
+
+    await waitFor(() => {
+      expect(
+        container.querySelector(".project-chat-loading-overlay")
+      ).not.toBeInTheDocument();
+    });
+
+    jest.useRealTimers();
   });
 });

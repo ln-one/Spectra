@@ -240,3 +240,65 @@ async def test_load_rag_context_marks_rag_no_match_when_retrieval_empty_without_
     assert rag_hit is False
     assert rag_payload is None
     assert rag_failure == "rag_no_match"
+
+
+@pytest.mark.asyncio
+async def test_load_rag_context_citations_keep_attached_library_metadata(monkeypatch):
+    rag_item = SimpleNamespace(
+        content="来自资料库的内容",
+        score=0.88,
+        source=SimpleNamespace(
+            chunk_id="chunk-lib-1",
+            source_type="document",
+            filename="library.pdf",
+            page_number=2,
+        ),
+        metadata={
+            "source_scope": "attached_library",
+            "source_library_id": "lib-1",
+            "source_library_name": "物理资料库",
+        },
+    )
+    monkeypatch.setattr(rag_service, "search", AsyncMock(return_value=[rag_item]))
+
+    _, citations, rag_hit, _, rag_payload, rag_failure = await message_flow.load_rag_context(
+        project_id="proj-1",
+        query="牛顿第二定律",
+        session_id="sess-1",
+        rag_source_ids=None,
+        selected_library_ids=["lib-1"],
+    )
+
+    assert rag_hit is True
+    assert rag_failure is None
+    assert citations[0]["source_scope"] == "attached_library"
+    assert citations[0]["source_library_id"] == "lib-1"
+    assert citations[0]["source_library_name"] == "物理资料库"
+    assert rag_payload and rag_payload[0]["content"] == "来自资料库的内容"
+
+
+@pytest.mark.asyncio
+async def test_load_rag_context_skips_local_project_when_selected_files_empty(
+    monkeypatch,
+):
+    monkeypatch.setattr(rag_service, "search", AsyncMock(return_value=[]))
+
+    await message_flow.load_rag_context(
+        project_id="proj-1",
+        query="query",
+        session_id="sess-1",
+        rag_source_ids=[],
+        selected_library_ids=[],
+        search_local_project=False,
+    )
+
+    rag_service.search.assert_awaited_once_with(
+        project_id="proj-1",
+        query="query",
+        top_k=5,
+        score_threshold=0.3,
+        session_id="sess-1",
+        filters=None,
+        selected_library_ids=[],
+        search_local_project=False,
+    )

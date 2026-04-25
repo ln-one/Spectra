@@ -25,9 +25,21 @@ def test_normalize_image_relative_path_accepts_images_prefix():
     )
 
 
+def test_normalize_image_relative_path_accepts_safe_relative_path():
+    assert source_images.normalize_image_relative_path("./assets/figure/a.png") == (
+        "assets/figure/a.png"
+    )
+
+
 @pytest.mark.parametrize(
     "value",
-    ["", "/images/a.jpg", "../images/a.jpg", "notes/a.jpg", "images/../a.jpg"],
+    [
+        "",
+        "/images/a.jpg",
+        "../images/a.jpg",
+        "images/../a.jpg",
+        "http://example.com/a.jpg",
+    ],
 )
 def test_normalize_image_relative_path_rejects_invalid_inputs(value):
     with pytest.raises(ValidationException):
@@ -66,3 +78,20 @@ async def test_load_source_image_payload_uses_cache_and_avoids_duplicate_downloa
     assert second.content == b"binary-jpg"
     assert first.media_type == "image/jpeg"
     assert download_mock.await_count == 1
+
+
+def test_extract_source_archive_url_accepts_legacy_and_nested_fields():
+    parse_result = {
+        "processing_artifact": {"result_url": "https://example.com/a.zip"},
+        "source_archive_url": "https://example.com/b.zip",
+    }
+    assert (
+        source_images._extract_source_archive_url(parse_result)
+        == "https://example.com/b.zip"
+    )
+
+    nested_only = {"processing_artifact": {"result_url": "https://example.com/c.zip"}}
+    assert (
+        source_images._extract_source_archive_url(nested_only)
+        == "https://example.com/c.zip"
+    )

@@ -5,7 +5,9 @@ RAG Indexing Service
 """
 
 import logging
+import re
 import time
+from hashlib import sha1
 from typing import Any, Optional
 
 from schemas.common import normalize_source_type
@@ -21,6 +23,25 @@ logger = logging.getLogger(__name__)
 def _sanitize_text_for_postgres(value: str) -> str:
     # PostgreSQL text/varchar cannot store NUL bytes.
     return str(value or "").replace("\x00", "")
+
+
+_INVALID_CONTROL_CHAR_RE = re.compile(r"[\x01-\x08\x0b\x0c\x0e-\x1f\x7f]")
+
+
+def _normalize_text_for_chunking(value: str) -> str:
+    """Normalize parser output before chunking for better source readability."""
+    text = _sanitize_text_for_postgres(value)
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
+    text = text.replace("\t", " ")
+    text = _INVALID_CONTROL_CHAR_RE.sub("", text)
+    text = re.sub(r"[ ]+\n", "\n", text)
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    return text
+
+
+def _chunk_reuse_signature(*, chunk_index: int, content: str) -> str:
+    digest = sha1(str(content or "").encode("utf-8")).hexdigest()
+    return f"{chunk_index}:{digest}"
 
 
 async def index_upload_file_for_rag(
@@ -135,14 +156,14 @@ async def index_upload_file_for_rag(
         parse_details["capability_status"] = merged_capability_status
         capability_status = merged_capability_status
 
-    text = _sanitize_text_for_postgres(text)
+    text = _normalize_text_for_chunking(text)
     if not text.strip():
         logger.info(
             "empty_text_fallback: upload_id=%s filename=%s",
             upload.id,
             upload.filename,
         )
-        text = _sanitize_text_for_postgres(
+        text = _normalize_text_for_chunking(
             (
                 f"资料名称：{upload.filename}\n"
                 f"资料类型：{upload.fileType}\n"
@@ -155,7 +176,7 @@ async def index_upload_file_for_rag(
 
     chunk_started_at = time.perf_counter()
     chunks = split_text(text, chunk_size=chunk_size, chunk_overlap=chunk_overlap)
-    chunks = [_sanitize_text_for_postgres(chunk) for chunk in chunks]
+    chunks = [_normalize_text_for_chunking(chunk) for chunk in chunks]
     chunks = [chunk for chunk in chunks if chunk.strip()]
     if not chunks:
         chunks = [text]
@@ -165,8 +186,18 @@ async def index_upload_file_for_rag(
     )
 
     db = db or db_service
+    existing_chunk_ids_by_signature: dict[str, str] = {}
 
     if reindex:
+        existing_chunks = await db.list_parsed_chunks(upload.id)
+        existing_chunk_ids_by_signature = {
+            _chunk_reuse_signature(
+                chunk_index=int(getattr(chunk, "chunkIndex", 0) or 0),
+                content=str(getattr(chunk, "content", "") or ""),
+            ): str(getattr(chunk, "id", "") or "")
+            for chunk in existing_chunks
+            if str(getattr(chunk, "id", "") or "").strip()
+        }
         logger.info(
             "reindex_requested: upload_id=%s project_id=%s",
             upload.id,
@@ -188,6 +219,9 @@ async def index_upload_file_for_rag(
 
     chunk_payloads = [
         {
+            "id": existing_chunk_ids_by_signature.get(
+                _chunk_reuse_signature(chunk_index=idx, content=chunk)
+            ),
             "chunk_index": idx,
             "content": chunk,
             "metadata": dict(base_metadata),

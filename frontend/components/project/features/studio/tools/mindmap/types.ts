@@ -5,6 +5,8 @@ export type MindmapFocus = "concept" | "process" | "comparison";
 export interface MindNode {
   id: string;
   label: string;
+  parentId?: string | null;
+  summary?: string;
   children?: MindNode[];
 }
 

@@ -11,12 +11,14 @@ async def resolve_based_on_version_id(
     *,
     service,
     project_id: str,
+    user_id: str,
     based_on_version_id: Optional[str],
 ) -> Optional[str]:
     if based_on_version_id:
         version, _ = await service.get_project_version_with_context(
             project_id,
             based_on_version_id,
+            user_id,
         )
         if not version or getattr(version, "projectId", None) != project_id:
             raise ValidationException(
@@ -25,12 +27,14 @@ async def resolve_based_on_version_id(
             )
         return based_on_version_id
 
-    current_version_id = await service.get_project_current_version_id(project_id)
+    current_version_id = await service.get_project_current_version_id(project_id, user_id)
     if not current_version_id:
         return None
 
     version, _ = await service.get_project_version_with_context(
-        project_id, current_version_id
+        project_id,
+        current_version_id,
+        user_id,
     )
     if not version or getattr(version, "projectId", None) != project_id:
         raise ConflictException(

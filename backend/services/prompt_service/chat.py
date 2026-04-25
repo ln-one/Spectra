@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+import json
 import re
-from typing import Optional
+from typing import Any, Optional
 
 from .constants import CHAT_NATURAL_FEW_SHOT
 from .escaping import escape_prompt_text
@@ -34,12 +35,90 @@ def contains_mechanical_option_pattern(text: str) -> bool:
     )
 
 
+def _build_teaching_brief_protocol_section(
+    teaching_brief_context: dict[str, Any] | None,
+) -> str:
+    if not teaching_brief_context:
+        return ""
+
+    can_generate = bool(teaching_brief_context.get("can_generate"))
+    missing_fields = list(teaching_brief_context.get("missing_fields") or [])
+    current_brief = dict(teaching_brief_context.get("brief") or {})
+    recent_evidence = dict(teaching_brief_context.get("recent_evidence") or {})
+
+    protocol_parts = [
+        "你当前必须把教学需求单当作本轮会话的前置工作面，而不是可有可无的补充信息。",
+        "优先围绕教学需求单推进对话，再考虑是否进入课件生成建议。",
+        "追问前必须同时检查 current_brief、recent_requirement_evidence 和 conversation_history；老师已经说过的信息不要重复追问。",
+    ]
+    if can_generate:
+        protocol_parts.extend(
+            [
+                "当前需求字段已齐备，教学需求单应被视为持续更新的 live 上下文，而不是等待老师手动确认的表单。",
+                "如果老师还在补充、修正或细化需求，直接吸收这些信息并继续推进，不要强调需求单需要重新确认。",
+                "如果老师明确表示“开始吧 / 按这个来 / 合理，开始生成”，只简短确认系统将进入课件生成确认流程；不要在聊天正文里继续输出逐页 PPT 文本、完整 PPT 文案或 Markdown 幻灯片。",
+                "如果老师尚未表达开始生成，可以简要总结当前收集到的教学信息，并自然引导继续细化，而不是要求确认需求单。",
+            ]
+        )
+    else:
+        protocol_parts.extend(
+            [
+                "你的首要任务是帮助老师逐步完善教学需求单。",
+                "每轮回复末尾最多追问 missing_fields 中当前最紧迫且最近对话尚未回答的 1 个字段，不要一次追问多个散乱问题。",
+                "如果某个 missing_fields 字段已出现在 recent_requirement_evidence 中，先把它当作临时已回答事实，不要再次追问该字段。",
+                "不要直接建议“开始生成 PPT”或“现在生成课件”，除非 missing_fields 已为空。",
+            ]
+        )
+        if not any(
+            current_brief.get(field_name)
+            for field_name in (
+                "topic",
+                "audience",
+                "knowledge_points",
+                "duration_minutes",
+                "lesson_hours",
+                "target_pages",
+            )
+        ):
+            protocol_parts.extend(
+                [
+                    "如果当前需求单几乎为空，优先自然引导老师说出教学主题、受众、课时或页数中的一个基础锚点。",
+                    "问题要像助教对话，不要问成表单。",
+                ]
+            )
+
+    current_brief_json = escape_prompt_text(
+        json.dumps(current_brief, ensure_ascii=False, indent=2)
+    )
+    missing_fields_json = escape_prompt_text(
+        json.dumps(missing_fields, ensure_ascii=False)
+    )
+    recent_evidence_json = escape_prompt_text(
+        json.dumps(recent_evidence, ensure_ascii=False, indent=2)
+    )
+    behavior_rules = escape_prompt_text(
+        "\n".join(f"- {part}" for part in protocol_parts)
+    )
+
+    return f"""
+<teaching_brief_protocol status="live" can_generate="{str(can_generate).lower()}">
+  <current_brief>{current_brief_json}</current_brief>
+  <missing_fields>{missing_fields_json}</missing_fields>
+  <recent_requirement_evidence>{recent_evidence_json}</recent_requirement_evidence>
+  <behavior_rules>
+{behavior_rules}
+  </behavior_rules>
+</teaching_brief_protocol>
+"""
+
+
 def build_chat_response_prompt(
     user_message: str,
     intent: str,
     session_id: Optional[str] = None,
     rag_context: Optional[list[dict]] = None,
     conversation_history: Optional[list[dict]] = None,
+    teaching_brief_context: Optional[dict[str, Any]] = None,
 ) -> str:
     """Build prompt for general chat responses."""
     rag_section = build_rag_reference_section(
@@ -47,6 +126,9 @@ def build_chat_response_prompt(
     )
     history_section = build_conversation_history_section(conversation_history)
     session_section = build_session_scope_section(session_id)
+    teaching_brief_section = _build_teaching_brief_protocol_section(
+        teaching_brief_context
+    )
 
     return f"""你是 Spectra 教学助教。你的任务是与老师自然共创，帮助老师推进教学设计，而不是机械应答。
 
@@ -54,7 +136,7 @@ def build_chat_response_prompt(
   <intent>{escape_prompt_text(intent)}</intent>
   <teacher_message>{escape_prompt_text(user_message)}</teacher_message>
 </task_context>
-{history_section}{session_section}{rag_section}
+{history_section}{session_section}{rag_section}{teaching_brief_section}
 <response_contract>
 1. 严禁使用机械的 A/B/C 选项格式（例如“请选择 A/B/C”“以下三种方式”）。
 2. 优先直接回应老师此刻最需要推进的问题，先给 1-2 个具体切入点，再决定是否追问。

@@ -104,3 +104,35 @@ def enqueue_remote_parse_reconcile_task(
         delay_seconds,
     )
     return job
+
+
+def enqueue_prompt_suggestion_pool_task(
+    service,
+    project_id: str,
+    surfaces: list[str],
+    source_fingerprint: str,
+    priority: str = "low",
+    timeout: int = 600,
+) -> Job:
+    if timeout < 30:
+        raise ValueError("Timeout must be at least 30 seconds")
+
+    from services.task_executor import run_prompt_suggestion_pool_task
+
+    job = _resolve_queue(service, priority).enqueue(
+        run_prompt_suggestion_pool_task,
+        project_id=project_id,
+        surfaces=surfaces,
+        source_fingerprint=source_fingerprint,
+        job_timeout=timeout,
+        retry=Retry(max=2, interval=[30, 120]),
+        result_ttl=RESULT_TTL,
+        failure_ttl=FAILURE_TTL,
+    )
+    logger.info(
+        "Enqueued prompt suggestion pool task: project_id=%s surfaces=%s job_id=%s",
+        project_id,
+        surfaces,
+        job.id,
+    )
+    return job

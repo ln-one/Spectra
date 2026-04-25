@@ -1,0 +1,54 @@
+source_file: 侬要有腔调队—项目详细方案.pdf
+input_format: pdf
+pdf_split_mode: chapter_primary
+provider_used: mineru_cloud
+requested_provider: mineru_cloud
+fallback_used: false
+quality_grade: A
+quality_score: 1.0
+chapters:
+- ordinal: 1
+  title: 前言
+  source_heading: 1. 前言
+  output_file: 01-前言.md
+  source_page: 6
+- ordinal: 2
+  title: 项目综述
+  source_heading: 2. 项目综述
+  output_file: 02-项目综述.md
+  source_page: 9
+- ordinal: 3
+  title: 可行性分析
+  source_heading: 3. 可行性分析
+  output_file: 03-可行性分析.md
+  source_page: 11
+- ordinal: 4
+  title: 业务分析
+  source_heading: 4. 业务分析
+  output_file: 04-业务分析.md
+  source_page: 13
+- ordinal: 5
+  title: 系统设计
+  source_heading: 5. 系统设计
+  output_file: 05-系统设计.md
+  source_page: 17
+- ordinal: 6
+  title: 关键技术
+  source_heading: 6. 关键技术
+  output_file: 06-关键技术.md
+  source_page: null
+- ordinal: 7
+  title: 项目测试及成果展示
+  source_heading: 7. 项目测试及成果展示
+  output_file: 07-项目测试及成果展示.md
+  source_page: null
+- ordinal: 8
+  title: 组织管理
+  source_heading: 8. 组织管理
+  output_file: 08-组织管理.md
+  source_page: 87
+- ordinal: 9
+  title: 商业企划
+  source_heading: 9. 商业企划
+  output_file: 09-商业企划.md
+  source_page: 89

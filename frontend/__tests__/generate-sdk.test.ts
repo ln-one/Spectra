@@ -1,5 +1,5 @@
 import { generateApi } from "@/lib/sdk/generate";
-import { sdkClient } from "@/lib/sdk/client";
+import { apiFetch, sdkClient } from "@/lib/sdk/client";
 
 jest.mock("@/lib/sdk/client", () => {
   const POST = jest.fn();
@@ -21,10 +21,12 @@ jest.mock("@/lib/sdk/client", () => {
 describe("generate sdk createSession compatibility", () => {
   const mockedPost = sdkClient.POST as jest.Mock;
   const mockedGet = sdkClient.GET as jest.Mock;
+  const mockedApiFetch = apiFetch as jest.Mock;
 
   beforeEach(() => {
     mockedPost.mockReset();
     mockedGet.mockReset();
+    mockedApiFetch.mockReset();
   });
 
   test("injects bootstrap_only=false when omitted", async () => {
@@ -100,5 +102,26 @@ describe("generate sdk createSession compatibility", () => {
     });
 
     expect(response.data.run?.run_id).toBe("run_3");
+  });
+
+  test("listEvents enforces JSON polling mode", async () => {
+    mockedApiFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        success: true,
+        data: { events: [] },
+        message: "ok",
+      }),
+    });
+
+    await generateApi.listEvents("sess_1", {
+      limit: 200,
+      run_id: "run_1",
+    });
+
+    expect(mockedApiFetch).toHaveBeenCalledTimes(1);
+    const [requestedUrl] = mockedApiFetch.mock.calls[0];
+    expect(String(requestedUrl)).toContain("accept=application%2Fjson");
+    expect(String(requestedUrl)).toContain("run_id=run_1");
   });
 });

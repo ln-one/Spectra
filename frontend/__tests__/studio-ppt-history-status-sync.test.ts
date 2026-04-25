@@ -11,6 +11,7 @@ describe("studio ppt history status sync", () => {
         runStatus: "pending",
         runStep: "outline",
         hasSlideReadyEvent: false,
+        hasOutlineCompletedEvent: false,
       })
     ).toMatchObject({
       status: "draft",
@@ -25,6 +26,7 @@ describe("studio ppt history status sync", () => {
         runStatus: "pending",
         runStep: "outline",
         hasSlideReadyEvent: false,
+        hasOutlineCompletedEvent: false,
       })
     ).toMatchObject({
       status: "draft",
@@ -41,6 +43,7 @@ describe("studio ppt history status sync", () => {
         runStatus: "processing",
         runStep: "generate",
         hasSlideReadyEvent: false,
+        hasOutlineCompletedEvent: false,
       })
     ).toMatchObject({
       status: "processing",
@@ -57,6 +60,7 @@ describe("studio ppt history status sync", () => {
         runStatus: "processing",
         runStep: "generate",
         hasSlideReadyEvent: true,
+        hasOutlineCompletedEvent: false,
       })
     ).toMatchObject({
       status: "previewing",
@@ -73,6 +77,7 @@ describe("studio ppt history status sync", () => {
         runStatus: "completed",
         runStep: "completed",
         hasSlideReadyEvent: true,
+        hasOutlineCompletedEvent: false,
       })
     ).toMatchObject({
       status: "completed",
@@ -86,6 +91,7 @@ describe("studio ppt history status sync", () => {
         runStatus: "failed",
         runStep: "generate",
         hasSlideReadyEvent: true,
+        hasOutlineCompletedEvent: false,
       })
     ).toMatchObject({
       status: "failed",
@@ -97,13 +103,43 @@ describe("studio ppt history status sync", () => {
   it("matches slide-ready event only for the same run id", () => {
     const matchingEvent = {
       event_type: "ppt.slide.generated",
-      payload: { run_id: "run-1", slide_no: 1 },
+      payload: {
+        run_id: "run-1",
+        slide_no: 1,
+        svg_data_url: "data:image/svg+xml;base64,AAA",
+      },
     };
     const otherRunEvent = {
       event_type: "ppt.slide.generated",
-      payload: { run_id: "run-2", slide_no: 1 },
+      payload: {
+        run_id: "run-2",
+        slide_no: 1,
+        svg_data_url: "data:image/svg+xml;base64,AAA",
+      },
+    };
+    const noSvgEvent = {
+      event_type: "ppt.slide.generated",
+      payload: { run_id: "run-1", slide_no: 1 },
     };
     expect(isMatchingSlideReadyEvent(matchingEvent, "run-1")).toBe(true);
     expect(isMatchingSlideReadyEvent(otherRunEvent, "run-1")).toBe(false);
+    expect(isMatchingSlideReadyEvent(noSvgEvent, "run-1")).toBe(false);
+  });
+
+  it("maps outline.completed event to outline_pending_confirm for same run", () => {
+    expect(
+      derivePptStatus({
+        sessionState: "DRAFTING_OUTLINE",
+        runStatus: "processing",
+        runStep: "outline",
+        hasSlideReadyEvent: false,
+        hasOutlineCompletedEvent: true,
+      })
+    ).toMatchObject({
+      status: "draft",
+      step: "outline",
+      ppt_status: "outline_pending_confirm",
+      terminal: false,
+    });
   });
 });

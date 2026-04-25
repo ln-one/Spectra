@@ -1,0 +1,3 @@
+display_name: Personal Doc Engine
+short_description: Reusable Chinese DOCX/PDF document engine with profile-driven templates and AI task briefs.
+default_prompt: Build or adapt a long-document workflow using the personal doc engine, choosing the right profile and keeping content generation separate from Word layout rules.

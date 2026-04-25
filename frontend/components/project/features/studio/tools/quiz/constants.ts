@@ -1,26 +1,4 @@
-import type { WorkflowStepItem } from "@/components/project/shared";
 import type { QuizDifficulty, QuizQuestionType } from "./types";
-
-export const QUIZ_STEPS: WorkflowStepItem[] = [
-  {
-    id: "config",
-    title: "配置",
-    description: "先设定考察范围和题目风格。",
-    caption: "准备参数",
-  },
-  {
-    id: "generate",
-    title: "生成",
-    description: "确认参数并生成随堂小测。",
-    caption: "开始生成",
-  },
-  {
-    id: "preview",
-    title: "预览",
-    description: "在面板里一题一题试做并看解析。",
-    caption: "闪卡试玩",
-  },
-];
 
 export const DIFFICULTY_OPTIONS: Array<{
   value: QuizDifficulty;

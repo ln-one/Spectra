@@ -23,6 +23,7 @@ type PptDerivedStatus = {
 
 interface UsePptHistoryStatusSyncArgs {
   activeSessionId: string | null;
+  activeRunId: string | null;
   groupedHistory: Array<[GenerationToolType | string, StudioHistoryItem[]]>;
   resolvePptRunId: (fallback?: string | null) => string | null;
   recordWorkflowEntry: (payload: {
@@ -45,6 +46,13 @@ function readString(value: unknown): string | null {
   return trimmed ? trimmed : null;
 }
 
+function isRenderableSvgDataUrl(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    value.trim().startsWith("data:image/svg+xml")
+  );
+}
+
 export function isMatchingSlideReadyEvent(
   event: { event_type?: unknown; payload?: unknown },
   runId: string
@@ -62,6 +70,32 @@ export function isMatchingSlideReadyEvent(
     readString(
       (payload?.section_payload as { run_id?: unknown } | undefined)?.run_id
     );
+  if (payloadRunId !== runId) return false;
+  const sectionPayload =
+    payload?.section_payload && typeof payload.section_payload === "object"
+      ? (payload.section_payload as Record<string, unknown>)
+      : null;
+  return (
+    isRenderableSvgDataUrl(payload?.svg_data_url) ||
+    isRenderableSvgDataUrl(sectionPayload?.svg_data_url)
+  );
+}
+
+function isMatchingOutlineCompletedEvent(
+  event: { event_type?: unknown; payload?: unknown },
+  runId: string
+): boolean {
+  const eventType = readString(event.event_type);
+  if (eventType !== "outline.completed") return false;
+  const payload =
+    event.payload && typeof event.payload === "object"
+      ? (event.payload as Record<string, unknown>)
+      : null;
+  const payloadRunId =
+    readString(payload?.run_id) ||
+    readString(
+      (payload?.section_payload as { run_id?: unknown } | undefined)?.run_id
+    );
   return payloadRunId === runId;
 }
 
@@ -70,6 +104,7 @@ export function derivePptStatus(params: {
   runStatus: string | null;
   runStep: string | null;
   hasSlideReadyEvent: boolean;
+  hasOutlineCompletedEvent: boolean;
 }): PptDerivedStatus | null {
   const sessionState = readString(params.sessionState)?.toUpperCase() ?? null;
   const runStatus = readString(params.runStatus)?.toLowerCase() ?? null;
@@ -100,6 +135,15 @@ export function derivePptStatus(params: {
       status: "previewing",
       step: "preview",
       ppt_status: "slide_preview_ready",
+      terminal: false,
+    };
+  }
+
+  if (runStep === "outline" && params.hasOutlineCompletedEvent) {
+    return {
+      status: "draft",
+      step: "outline",
+      ppt_status: "outline_pending_confirm",
       terminal: false,
     };
   }
@@ -158,34 +202,40 @@ export function derivePptStatus(params: {
 
 export function usePptHistoryStatusSync({
   activeSessionId,
+  activeRunId,
   groupedHistory,
   resolvePptRunId,
   recordWorkflowEntry,
 }: UsePptHistoryStatusSyncArgs) {
   const cursorRef = useRef<string | null>(null);
   const hasSlideReadyEventRef = useRef(false);
+  const hasOutlineCompletedEventRef = useRef(false);
   const syncingRef = useRef(false);
   const runKeyRef = useRef<string | null>(null);
 
   const activePptItem = useMemo(() => {
-    if (!activeSessionId) return null;
+    if (!activeSessionId || !activeRunId) return null;
     const pptGroup = groupedHistory.find(([toolType]) => toolType === "ppt");
     const items = pptGroup?.[1] ?? [];
-    return (
-      items.find(
-        (item) =>
-          item.toolType === "ppt" &&
-          item.origin === "workflow" &&
-          item.sessionId === activeSessionId
-      ) ?? null
+    const workflowItems = items.filter(
+      (item) =>
+        item.toolType === "ppt" &&
+        item.origin === "workflow" &&
+        Boolean(item.sessionId)
     );
-  }, [activeSessionId, groupedHistory]);
+    if (!workflowItems.length) return null;
+    const matchedRunItem = workflowItems.find(
+      (item) => item.sessionId === activeSessionId && item.runId === activeRunId
+    );
+    return matchedRunItem ?? null;
+  }, [activeRunId, activeSessionId, groupedHistory]);
 
-  const sessionId = activeSessionId;
-  const runId = useMemo(() => {
-    if (!activePptItem || !sessionId) return null;
+  const sessionId = activePptItem?.sessionId ?? null;
+  const seedRunId = useMemo(() => {
+    if (!activePptItem || !sessionId || !activePptItem.runId) return null;
     return resolvePptRunId(activePptItem.runId ?? null);
   }, [activePptItem, resolvePptRunId, sessionId]);
+  const runId = seedRunId;
 
   useEffect(() => {
     if (!sessionId || !activePptItem || !runId) return;
@@ -195,23 +245,31 @@ export function usePptHistoryStatusSync({
       runKeyRef.current = runKey;
       cursorRef.current = null;
       hasSlideReadyEventRef.current = false;
+      hasOutlineCompletedEventRef.current = false;
     }
 
     let cancelled = false;
     let timer: number | null = null;
 
-    const pullEvents = async (fullCatchup: boolean) => {
+    const pullEvents = async (
+      fullCatchup: boolean,
+      eventRunId: string
+    ) => {
       let pageCount = 0;
       while (pageCount < EVENT_PAGE_CAP) {
         const response = await generateApi.listEvents(sessionId, {
           cursor: cursorRef.current,
           limit: EVENT_PAGE_LIMIT,
+          run_id: eventRunId,
         });
         const events = response?.data?.events ?? [];
         if (!events.length) return;
         for (const event of events) {
-          if (isMatchingSlideReadyEvent(event, runId)) {
+          if (isMatchingSlideReadyEvent(event, eventRunId)) {
             hasSlideReadyEventRef.current = true;
+          }
+          if (isMatchingOutlineCompletedEvent(event, eventRunId)) {
+            hasOutlineCompletedEventRef.current = true;
           }
           const cursor = readString(event.cursor);
           if (cursor) cursorRef.current = cursor;
@@ -225,7 +283,14 @@ export function usePptHistoryStatusSync({
       if (syncingRef.current) return false;
       syncingRef.current = true;
       try {
-        await pullEvents(false);
+        const snapshot = await generateApi.getSessionSnapshot(sessionId, {
+          run_id: runId,
+        });
+        const currentRun = snapshot?.data?.current_run as
+          | { run_status?: unknown; run_step?: unknown }
+          | null
+          | undefined;
+        await pullEvents(false, runId);
         let runResponse: Awaited<ReturnType<typeof generateApi.getRun>> | null =
           null;
         try {
@@ -237,14 +302,7 @@ export function usePptHistoryStatusSync({
           | { run_status?: unknown; run_step?: unknown }
           | null
           | undefined;
-        const snapshot = await generateApi.getSessionSnapshot(sessionId, {
-          run_id: runId,
-        });
         const sessionState = readString(snapshot?.data?.session?.state);
-        const currentRun = snapshot?.data?.current_run as
-          | { run_status?: unknown; run_step?: unknown }
-          | null
-          | undefined;
         const runStatus =
           readString(runRecord?.run_status) ||
           readString(currentRun?.run_status);
@@ -255,6 +313,7 @@ export function usePptHistoryStatusSync({
           runStatus,
           runStep,
           hasSlideReadyEvent: hasSlideReadyEventRef.current,
+          hasOutlineCompletedEvent: hasOutlineCompletedEventRef.current,
         });
         if (!derived) return false;
 
@@ -285,7 +344,7 @@ export function usePptHistoryStatusSync({
 
     const start = async () => {
       try {
-        await pullEvents(true);
+        await pullEvents(true, runId);
       } catch {
         // Ignore event catchup error and keep running sync loop.
       }

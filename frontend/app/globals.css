@@ -1,4 +1,4 @@
-﻿@import "./styles/project-theme/common.css";
+@import "./styles/project-theme/common.css";
 @import "./styles/project-theme/ocean-cyan.css";
 @import "./styles/project-theme/forest-emerald.css";
 @import "./styles/project-theme/graphite-blue.css";
@@ -42,6 +42,16 @@
     --sidebar-accent-foreground: 0 0% 9%;
     --sidebar-border: 0 0% 89.8%;
     --sidebar-ring: 0 0% 3.9%;
+
+    /* Spectra Brand Colors */
+    --spectra-1-start: #FF3B30;
+    --spectra-1-end: #FF9500;
+    --spectra-2-start: #FFCC00;
+    --spectra-2-end: #4CD964;
+    --spectra-3-start: #5AC8FA;
+    --spectra-3-end: #007AFF;
+    --spectra-4-start: #5856D6;
+    --spectra-4-end: #AF52DE;
   }
 
   .dark {
@@ -75,6 +85,16 @@
     --sidebar-accent-foreground: 0 0% 98%;
     --sidebar-border: 0 0% 14.9%;
     --sidebar-ring: 0 0% 83.1%;
+
+    /* Spectra Brand Colors (Dark mode can adjust these if needed, keeping same for now) */
+    --spectra-1-start: #FF3B30;
+    --spectra-1-end: #FF9500;
+    --spectra-2-start: #FFCC00;
+    --spectra-2-end: #4CD964;
+    --spectra-3-start: #5AC8FA;
+    --spectra-3-end: #007AFF;
+    --spectra-4-start: #5856D6;
+    --spectra-4-end: #AF52DE;
   }
 
   * {
@@ -112,6 +132,50 @@
 @layer utilities {
   .text-balance {
     text-wrap: balance;
+  }
+
+  /* Glassmorphism Utilities */
+  .glass {
+    @apply bg-background/60 backdrop-blur-xl border border-white/10 shadow-[0_8px_32px_0_rgba(0,0,0,0.05)];
+  }
+  
+  .dark .glass {
+    @apply bg-background/40 border-white/5 shadow-[0_8px_32px_0_rgba(0,0,0,0.2)];
+  }
+
+  .glass-edge {
+    position: relative;
+  }
+  
+  .glass-edge::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.4) 0%,
+      rgba(255, 255, 255, 0.1) 20%,
+      rgba(255, 255, 255, 0) 50%,
+      rgba(255, 255, 255, 0.05) 80%,
+      rgba(255, 255, 255, 0.2) 100%
+    );
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+
+  .dark .glass-edge::before {
+    background: linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.2) 0%,
+      rgba(255, 255, 255, 0.05) 20%,
+      rgba(255, 255, 255, 0) 50%,
+      rgba(255, 255, 255, 0.02) 80%,
+      rgba(255, 255, 255, 0.1) 100%
+    );
   }
 }
 

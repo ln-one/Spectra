@@ -1,7 +1,7 @@
-﻿"use client";
+"use client";
 
 import { motion } from "framer-motion";
-import { Sparkles } from "lucide-react";
+import { ThinkingMark } from "@/components/icons/status/ThinkingMark";
 import { cn } from "@/lib/utils";
 
 interface ThinkingBubbleProps {
@@ -60,17 +60,17 @@ export function ThinkingBubble({ toolColor }: ThinkingBubbleProps) {
                 rotate: [0, 90, 180, 270, 360],
               }}
               transition={{
-                duration: 6,
+                duration: 3,
                 repeat: Infinity,
                 ease: "linear",
               }}
-              className="flex h-6 w-6 items-center justify-center rounded-lg bg-[var(--project-surface-muted)]"
+              className="flex h-8 w-8 items-center justify-center rounded-xl bg-[var(--project-surface-muted)]"
               style={
                 toolColor ? { backgroundColor: toolColor.soft } : undefined
               }
             >
-              <Sparkles
-                className="h-3.5 w-3.5"
+              <ThinkingMark
+                className="h-5.5 w-5.5"
                 style={{
                   color: toolColor
                     ? toolColor.primary

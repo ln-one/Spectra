@@ -7,11 +7,20 @@ from typing import Any
 
 import httpx
 
+from services.runtime_env import normalize_internal_service_base_url, running_inside_container
 from utils.exceptions import ExternalServiceException
 
 
 def diego_base_url() -> str:
-    return os.getenv("DIEGO_BASE_URL", "").strip().rstrip("/")
+    return (
+        normalize_internal_service_base_url(
+            os.getenv("DIEGO_BASE_URL"),
+            service_name="diego",
+            inside_container=running_inside_container(),
+            local_override=os.getenv("DIEGO_BASE_URL_LOCAL"),
+        )
+        or ""
+    )
 
 
 def diego_enabled() -> bool:
@@ -64,13 +73,13 @@ class DiegoClient:
         except httpx.TimeoutException as exc:
             raise ExternalServiceException(
                 message="Diego request timeout",
-                details={"url": url},
+                details={"url": url, "base_url": self.base_url},
                 retryable=True,
             ) from exc
         except httpx.HTTPError as exc:
             raise ExternalServiceException(
                 message="Diego service unreachable",
-                details={"url": url, "error": str(exc)},
+                details={"url": url, "error": str(exc), "base_url": self.base_url},
                 retryable=True,
             ) from exc
 
@@ -83,6 +92,7 @@ class DiegoClient:
                     "url": url,
                     "status_code": response.status_code,
                     "body_preview": response.text[:300],
+                    "base_url": self.base_url,
                 },
                 retryable=False,
             ) from exc
@@ -97,6 +107,7 @@ class DiegoClient:
                     "url": url,
                     "status_code": response.status_code,
                     "body": body if isinstance(body, dict) else {},
+                    "base_url": self.base_url,
                 },
                 retryable=response.status_code >= 500,
             )
@@ -104,27 +115,37 @@ class DiegoClient:
         if not isinstance(body, dict):
             raise ExternalServiceException(
                 message="Diego returned non-object payload",
-                details={"url": url, "status_code": response.status_code},
+                details={
+                    "url": url,
+                    "status_code": response.status_code,
+                    "base_url": self.base_url,
+                },
                 retryable=False,
             )
         return body
 
-    async def _request_bytes(self, method: str, path: str) -> bytes:
+    async def _request_bytes(
+        self,
+        method: str,
+        path: str,
+        *,
+        params: dict[str, Any] | None = None,
+    ) -> bytes:
         timeout = httpx.Timeout(self.timeout_seconds)
         url = f"{self.base_url}{path}"
         try:
             async with httpx.AsyncClient(timeout=timeout) as client:
-                response = await client.request(method, url)
+                response = await client.request(method, url, params=params)
         except httpx.TimeoutException as exc:
             raise ExternalServiceException(
                 message="Diego artifact download timeout",
-                details={"url": url},
+                details={"url": url, "base_url": self.base_url},
                 retryable=True,
             ) from exc
         except httpx.HTTPError as exc:
             raise ExternalServiceException(
                 message="Diego artifact download failed",
-                details={"url": url, "error": str(exc)},
+                details={"url": url, "error": str(exc), "base_url": self.base_url},
                 retryable=True,
             ) from exc
 
@@ -150,6 +171,7 @@ class DiegoClient:
                 details={
                     "url": url,
                     "status_code": response.status_code,
+                    "base_url": self.base_url,
                 },
                 retryable=response.status_code >= 500,
             )
@@ -186,6 +208,52 @@ class DiegoClient:
         return await self._request_json(
             "GET",
             f"/v1/ppt/runs/{run_id}/slides/{int(slide_no)}/preview",
+        )
+
+    async def get_slide_scene(
+        self,
+        run_id: str,
+        slide_no: int,
+    ) -> dict[str, Any]:
+        return await self._request_json(
+            "GET",
+            f"/v1/ppt/runs/{run_id}/slides/{int(slide_no)}/scene",
+        )
+
+    async def save_slide_scene(
+        self,
+        run_id: str,
+        slide_no: int,
+        payload: dict[str, Any],
+    ) -> dict[str, Any]:
+        return await self._request_json(
+            "POST",
+            f"/v1/ppt/runs/{run_id}/slides/{int(slide_no)}/scene/save",
+            payload=payload,
+        )
+
+    async def regenerate_slide(
+        self,
+        run_id: str,
+        slide_no: int,
+        payload: dict[str, Any],
+    ) -> dict[str, Any]:
+        return await self._request_json(
+            "POST",
+            f"/v1/ppt/runs/{run_id}/slides/{int(slide_no)}/regenerate",
+            payload=payload,
+        )
+
+    async def get_slide_asset(
+        self,
+        run_id: str,
+        slide_no: int,
+        asset_path: str,
+    ) -> bytes:
+        return await self._request_bytes(
+            "GET",
+            f"/v1/ppt/runs/{run_id}/slides/{int(slide_no)}/asset",
+            params={"path": asset_path},
         )
 
 

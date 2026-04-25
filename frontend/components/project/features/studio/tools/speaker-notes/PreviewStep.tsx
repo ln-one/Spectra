@@ -1,8 +1,16 @@
+import { useState } from "react";
 import { Mic2 } from "lucide-react";
-import { CapabilityNotice } from "../CapabilityNotice";
+import { ArtifactWorkbenchShell } from "../ArtifactWorkbenchShell";
 import type { ToolFlowContext } from "../types";
-import { ACTION_HINT_STYLE } from "./constants";
-import type { SlideScriptItem, SourcePptSlidePreview } from "./types";
+import { WorkbenchCenteredState } from "../WorkbenchCenteredState";
+import { buildArtifactWorkbenchViewModel } from "../workbenchViewModel";
+import { SpeakerNotesSurfaceAdapter } from "./SpeakerNotesSurfaceAdapter";
+import type {
+  SlideScriptItem,
+  SourcePptSlidePreview,
+  SpeakerNotesParagraph,
+  SpeakerNotesSection,
+} from "./types";
 
 interface PreviewStepProps {
   activePage: number;
@@ -11,11 +19,6 @@ interface PreviewStepProps {
   sourceSlides?: SourcePptSlidePreview[];
   flowContext?: ToolFlowContext;
   onSelectPage: (page: number) => void;
-}
-
-interface BackendSummaryPayload {
-  summary: string;
-  keyPoints: string[];
 }
 
 function parseBackendScripts(flowContext?: ToolFlowContext): SlideScriptItem[] {
@@ -44,54 +47,117 @@ function parseBackendScripts(flowContext?: ToolFlowContext): SlideScriptItem[] {
     const title =
       typeof row.title === "string" && row.title.trim()
         ? row.title.trim()
-        : `Slide ${index + 1}`;
-    const script =
-      typeof row.script === "string" && row.script.trim()
-        ? row.script.trim()
-        : typeof row.summary === "string" && row.summary.trim()
-          ? row.summary.trim()
-          : "";
-    const actionHint =
-      typeof row.action_hint === "string" && row.action_hint.trim()
-        ? row.action_hint.trim()
-        : undefined;
+        : `第 ${index + 1} 页`;
+    const sectionsRaw = Array.isArray(row.sections) ? row.sections : [];
+    let sections: SpeakerNotesSection[] = sectionsRaw
+      .map((section, sectionIndex) => {
+        if (!section || typeof section !== "object") return null;
+        const sectionRow = section as Record<string, unknown>;
+        const paragraphsRaw = Array.isArray(sectionRow.paragraphs)
+          ? sectionRow.paragraphs
+          : [];
+        const paragraphs: SpeakerNotesParagraph[] = paragraphsRaw
+          .map((paragraph, paragraphIndex) => {
+            if (!paragraph || typeof paragraph !== "object") return null;
+            const paragraphRow = paragraph as Record<string, unknown>;
+            const text =
+              typeof paragraphRow.text === "string"
+                ? paragraphRow.text.trim()
+                : "";
+            const anchorId =
+              typeof paragraphRow.anchor_id === "string"
+                ? paragraphRow.anchor_id.trim()
+                : "";
+            if (!text || !anchorId) return null;
+            return {
+              id:
+                typeof paragraphRow.id === "string" && paragraphRow.id.trim()
+                  ? paragraphRow.id.trim()
+                  : `${page}-paragraph-${paragraphIndex + 1}`,
+              anchorId,
+              text,
+              role:
+                typeof paragraphRow.role === "string" && paragraphRow.role.trim()
+                  ? paragraphRow.role.trim()
+                  : "script",
+            };
+          })
+          .filter((item): item is SpeakerNotesParagraph => Boolean(item));
+        if (paragraphs.length === 0) return null;
+        return {
+          id:
+            typeof sectionRow.id === "string" && sectionRow.id.trim()
+              ? sectionRow.id.trim()
+              : `${page}-section-${sectionIndex + 1}`,
+          title:
+            typeof sectionRow.title === "string" && sectionRow.title.trim()
+              ? sectionRow.title.trim()
+              : `段落 ${sectionIndex + 1}`,
+          paragraphs,
+        };
+      })
+      .filter((item): item is SpeakerNotesSection => Boolean(item));
 
-    if (!Number.isFinite(page) || !script) continue;
-    scripts.push({ page, title, script, actionHint });
+    if (sections.length === 0) {
+      const fallbackParagraphs: SpeakerNotesParagraph[] = [];
+      const script =
+        typeof row.script === "string" && row.script.trim()
+          ? row.script.trim()
+          : typeof row.summary === "string" && row.summary.trim()
+            ? row.summary.trim()
+            : "";
+      const actionHint =
+        typeof row.action_hint === "string" ? row.action_hint.trim() : "";
+      const transitionLine =
+        typeof row.transition_line === "string"
+          ? row.transition_line.trim()
+          : "";
+      if (script) {
+        fallbackParagraphs.push({
+          id: `${page}-paragraph-1`,
+          anchorId: `speaker_notes:v2:slide-${page}:paragraph-1`,
+          text: script,
+          role: "script",
+        });
+      }
+      if (actionHint) {
+        fallbackParagraphs.push({
+          id: `${page}-paragraph-2`,
+          anchorId: `speaker_notes:v2:slide-${page}:paragraph-2`,
+          text: actionHint,
+          role: "action_hint",
+        });
+      }
+      if (transitionLine) {
+        fallbackParagraphs.push({
+          id: `${page}-paragraph-3`,
+          anchorId: `speaker_notes:v2:slide-${page}:paragraph-3`,
+          text: transitionLine,
+          role: "transition",
+        });
+      }
+      if (fallbackParagraphs.length > 0) {
+        sections = [
+          {
+            id: `${page}-section-1`,
+            title: "讲解内容",
+            paragraphs: fallbackParagraphs,
+          },
+        ];
+      }
+    }
+
+    if (!Number.isFinite(page) || sections.length === 0) continue;
+    scripts.push({
+      page,
+      title,
+      slideId:
+        typeof row.id === "string" && row.id.trim() ? row.id.trim() : undefined,
+      sections,
+    });
   }
 
   return scripts;
-}
-
-function parseBackendSummary(
-  flowContext?: ToolFlowContext
-): BackendSummaryPayload | null {
-  if (!flowContext?.resolvedArtifact) return null;
-  if (flowContext.resolvedArtifact.contentKind !== "json") return null;
-  if (
-    !flowContext.resolvedArtifact.content ||
-    typeof flowContext.resolvedArtifact.content !== "object"
-  ) {
-    return null;
-  }
-
-  const content = flowContext.resolvedArtifact.content as Record<
-    string,
-    unknown
-  >;
-  const summary =
-    typeof content.summary === "string" ? content.summary.trim() : "";
-  const keyPoints = Array.isArray(content.key_points)
-    ? content.key_points
-        .filter(
-          (item): item is string =>
-            typeof item === "string" && item.trim().length > 0
-        )
-        .map((item) => item.trim())
-    : [];
-
-  if (!summary && keyPoints.length === 0) return null;
-  return { summary, keyPoints };
 }
 
 export function PreviewStep({
@@ -105,122 +171,88 @@ export function PreviewStep({
   const capabilityStatus =
     flowContext?.capabilityStatus ?? "backend_placeholder";
   const capabilityReason =
-    flowContext?.capabilityReason ??
-    "Waiting for backend speaker notes content.";
+    flowContext?.capabilityReason ?? "正在等待后端返回真实讲稿内容。";
   const backendScripts = parseBackendScripts(flowContext);
-  const backendSummary = parseBackendSummary(flowContext);
-  const activeScript =
-    backendScripts.find((item) => item.page === activePage) ??
-    backendScripts[0] ??
-    null;
+  const artifactContent =
+    flowContext?.resolvedArtifact?.content &&
+    typeof flowContext.resolvedArtifact.content === "object"
+      ? (flowContext.resolvedArtifact.content as Record<string, unknown>)
+      : null;
+  const summary =
+    artifactContent && typeof artifactContent.summary === "string"
+      ? artifactContent.summary
+      : "";
   const sourceSlideByPage = new Map(
     sourceSlides.map((item) => [item.page, item])
   );
+  const [selectedAnchorId, setSelectedAnchorId] = useState<string | null>(null);
+  const artifactId = flowContext?.resolvedArtifact?.artifactId ?? null;
+  const canRefineParagraph = Boolean(
+    artifactId && flowContext?.onStructuredRefineArtifact
+  );
+  const viewModel = buildArtifactWorkbenchViewModel(
+    flowContext,
+    lastGeneratedAt,
+    summary || "已生成逐页讲稿。"
+  );
 
   return (
-    <div className="space-y-4">
-      <section className="rounded-xl border border-zinc-200 bg-white p-4">
-        <CapabilityNotice status={capabilityStatus} reason={capabilityReason} />
-
+    <ArtifactWorkbenchShell
+      flowContext={{
+        ...flowContext,
+        capabilityStatus,
+        capabilityReason,
+      }}
+      viewModel={viewModel}
+      emptyState={
         <div className="mt-4">
-          <p className="text-sm font-semibold text-zinc-900">
-            Real-time Speaker Notes
-          </p>
-          <p className="mt-1 text-[11px] text-zinc-500">
-            {lastGeneratedAt
-              ? `Last generated: ${new Date(lastGeneratedAt).toLocaleString()}`
-              : "Only real backend content is rendered in this view."}
-          </p>
+          <WorkbenchCenteredState
+            tone="sky"
+            icon={Mic2}
+            title="暂未收到后端真实说课讲稿"
+            description="当前只展示后端真实返回结果，不再渲染前端示意讲稿。"
+          />
         </div>
-
-        {activeScript ? (
-          <div className="mt-4 space-y-3 rounded-2xl border border-zinc-200 bg-zinc-50/70 p-4">
-            {backendScripts.map((item) => {
-              const sourceSlide = sourceSlideByPage.get(item.page);
-              const thumbnailUrl =
-                sourceSlide?.thumbnailUrl ?? sourceSlide?.imageUrl ?? "";
-              const isActive = activePage === item.page;
-              return (
-                <button
-                  key={item.page}
-                  type="button"
-                  onClick={() => onSelectPage(item.page)}
-                  className={`w-full rounded-xl border text-left transition ${
-                    isActive
-                      ? "border-zinc-900 bg-white shadow-sm"
-                      : "border-zinc-200 bg-white/80"
-                  }`}
-                >
-                  <div className="grid grid-cols-[160px_minmax(0,1fr)] gap-3 p-3">
-                    <div className="overflow-hidden rounded-lg border border-zinc-200 bg-white">
-                      <div className="aspect-[16/10]">
-                        {thumbnailUrl ? (
-                          <img
-                            src={thumbnailUrl}
-                            alt={`P${item.page} ${item.title}`}
-                            className="h-full w-full object-cover"
-                          />
-                        ) : (
-                          <div className="flex h-full items-center justify-center text-xs text-zinc-500">
-                            P{item.page}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2 text-zinc-800">
-                        <Mic2 className="h-4 w-4" />
-                        <p className="truncate text-sm font-semibold">
-                          第 {item.page} 页 · {item.title}
-                        </p>
-                      </div>
-                      <p className="mt-2 whitespace-pre-wrap text-[14px] leading-6 text-zinc-800">
-                        {item.script}
-                      </p>
-                      {item.actionHint ? (
-                        <p
-                          className={`mt-2 inline-flex rounded px-2 py-1 text-xs ${ACTION_HINT_STYLE} ${
-                            highlightTransition && isActive
-                              ? "ring-2 ring-violet-200"
-                              : ""
-                          }`}
-                        >
-                          {item.actionHint}
-                        </p>
-                      ) : null}
-                    </div>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        ) : backendSummary ? (
-          <div className="mt-4 rounded-2xl border border-zinc-200 bg-zinc-50/70 p-4">
-            {backendSummary.summary ? (
-              <p className="text-sm leading-6 text-zinc-800">
-                {backendSummary.summary}
-              </p>
-            ) : null}
-            {backendSummary.keyPoints.length > 0 ? (
-              <ul className="mt-3 list-disc space-y-1 pl-5 text-xs text-zinc-700">
-                {backendSummary.keyPoints.map((point, index) => (
-                  <li key={`${point}-${index}`}>{point}</li>
-                ))}
-              </ul>
-            ) : null}
-          </div>
-        ) : (
-          <div className="mt-4 rounded-2xl border border-dashed border-zinc-300 bg-zinc-50 px-4 py-12 text-center">
-            <Mic2 className="mx-auto h-8 w-8 text-zinc-400" />
-            <p className="mt-3 text-sm font-medium text-zinc-700">
-              暂未收到后端真实说课讲稿
-            </p>
-            <p className="mt-1 text-[11px] text-zinc-500">
-              This panel no longer renders frontend mock data.
-            </p>
-          </div>
-        )}
-      </section>
-    </div>
+      }
+    >
+      {backendScripts.length > 0 ? (
+        <>
+            <SpeakerNotesSurfaceAdapter
+              slides={backendScripts}
+              activePage={activePage}
+              selectedAnchorId={selectedAnchorId}
+              onSelectPage={onSelectPage}
+              onSelectParagraph={(paragraph, slide) => {
+                setSelectedAnchorId(paragraph.anchorId);
+                const sourceSlide = sourceSlideByPage.get(slide.page);
+                if (sourceSlide?.page && sourceSlide.page !== activePage) {
+                  onSelectPage(sourceSlide.page);
+                }
+              }}
+              onRefineParagraph={(paragraph, slide, nextText) => {
+                if (!artifactId || !flowContext?.onStructuredRefineArtifact) {
+                  return;
+                }
+                void flowContext.onStructuredRefineArtifact({
+                  artifactId,
+                  message: nextText || paragraph.text,
+                  refineMode: "structured_refine",
+                  selectionAnchor: {
+                    scope: "paragraph",
+                    anchor_id: paragraph.anchorId,
+                    artifact_id: artifactId,
+                    label: `${slide.title} / ${paragraph.role}`,
+                  },
+                  config: {
+                    active_page: slide.page,
+                    highlight_transition: highlightTransition,
+                  },
+                });
+              }}
+              canRefineParagraph={canRefineParagraph}
+            />
+        </>
+      ) : null}
+    </ArtifactWorkbenchShell>
   );
 }

@@ -52,4 +52,8 @@ def test_ourograph_transport_maps_validation_error():
     from services.ourograph_client_support.transport import _raise_service_error
 
     with pytest.raises(ValidationException):
-        _raise_service_error(400, {"message": "bad input"})
+        _raise_service_error(
+            400,
+            {"message": "bad input"},
+            base_url="http://127.0.0.1:8101",
+        )

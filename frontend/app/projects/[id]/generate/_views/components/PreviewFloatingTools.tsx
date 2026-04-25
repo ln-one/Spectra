@@ -1,5 +1,6 @@
 ﻿import { motion } from "framer-motion";
-import { Edit3, Image as ImageIcon, Layout, Sparkles } from "lucide-react";
+import { Edit3, Image as ImageIcon, Layout } from "lucide-react";
+import { ThinkingMark } from "@/components/icons/status/ThinkingMark";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -60,7 +61,7 @@ export function PreviewFloatingTools() {
               size="icon"
               className="rounded-full text-violet-500 hover:text-violet-600 hover:bg-violet-50 w-10 h-10"
             >
-              <Sparkles className="w-4 h-4" />
+              <ThinkingMark className="w-4 h-4" />
             </Button>
           </TooltipTrigger>
           <TooltipContent

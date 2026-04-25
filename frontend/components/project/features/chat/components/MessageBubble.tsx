@@ -6,7 +6,10 @@ import { CheckCircle2, CircleX, Loader2 } from "lucide-react";
 import { useProjectStore } from "@/stores/projectStore";
 import { useShallow } from "zustand/react/shallow";
 import { cn } from "@/lib/utils";
-import { toCitationViewModels } from "@/lib/chat/citation-view-model";
+import {
+  stripInlineCitationTags,
+  toCitationViewModels,
+} from "@/lib/chat/citation-view-model";
 import { TOOL_COLORS } from "@/components/project/features/studio/constants";
 import type { ChatMessage } from "../types";
 import { CitationBadge } from "./CitationBadge";
@@ -46,6 +49,56 @@ function dispatchOpenHistoryItem(message: ChatMessage): void {
   );
 }
 
+function dispatchOpenLibraryCitation(citation: {
+  sourceLibraryId: string;
+  sourceLibraryName?: string;
+  filename?: string;
+  chunkId: string;
+  pageNumber?: number;
+  timestamp?: number;
+}): void {
+  window.dispatchEvent(
+    new CustomEvent("spectra:open-library-citation", {
+      detail: citation,
+    })
+  );
+}
+
+function dispatchOpenArtifactCitation(citation: {
+  sourceArtifactId: string;
+  sourceArtifactTitle?: string;
+  sourceArtifactToolType?: string;
+  sourceArtifactSessionId?: string;
+}): void {
+  const rawToolType = String(citation.sourceArtifactToolType || "").trim();
+  const toolType =
+    rawToolType === "ppt" ||
+    rawToolType === "word" ||
+    rawToolType === "mindmap" ||
+    rawToolType === "outline" ||
+    rawToolType === "quiz" ||
+    rawToolType === "summary" ||
+    rawToolType === "animation" ||
+    rawToolType === "handout"
+      ? rawToolType
+      : "summary";
+  window.dispatchEvent(
+    new CustomEvent("spectra:open-history-item", {
+      detail: {
+        id: `artifact:${citation.sourceArtifactId}`,
+        origin: "artifact",
+        toolType,
+        title: citation.sourceArtifactTitle || "沉淀成果",
+        status: "completed",
+        createdAt: new Date().toISOString(),
+        sessionId: citation.sourceArtifactSessionId || null,
+        step: "preview",
+        artifactId: citation.sourceArtifactId,
+      },
+    })
+  );
+}
+
 export function MessageBubble({
   message,
   index,
@@ -77,11 +130,35 @@ export function MessageBubble({
       focusSourceByChunk: state.focusSourceByChunk,
     }))
   );
-  const { body } = splitContentAndSources(message.content);
+  const visibleContent = stripInlineCitationTags(message.content);
+  const { body } = splitContentAndSources(visibleContent);
   const citations = useMemo(
     () => toCitationViewModels(message.citations),
     [message.citations]
   );
+  const handleCitationClick = (citation: (typeof citations)[number]) => {
+    if (citation.sourceScope === "attached_library" && citation.sourceLibraryId) {
+      dispatchOpenLibraryCitation({
+        sourceLibraryId: citation.sourceLibraryId,
+        sourceLibraryName: citation.sourceLibraryName,
+        filename: citation.filename,
+        chunkId: citation.chunkId,
+        pageNumber: citation.pageNumber,
+        timestamp: citation.timestamp,
+      });
+      return;
+    }
+    if (citation.sourceScope === "project_deposit" && citation.sourceArtifactId) {
+      dispatchOpenArtifactCitation({
+        sourceArtifactId: citation.sourceArtifactId,
+        sourceArtifactTitle: citation.sourceArtifactTitle,
+        sourceArtifactToolType: citation.sourceArtifactToolType,
+        sourceArtifactSessionId: citation.sourceArtifactSessionId,
+      });
+      return;
+    }
+    void focusSourceByChunk(citation.chunkId, projectId, citation);
+  };
 
   if (isInlineThinkingMessage) {
     return <ThinkingBubble toolColor={messageToolColor} />;
@@ -127,7 +204,7 @@ export function MessageBubble({
           ) : (
             <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
           )}
-          <span className="whitespace-pre-wrap">{message.content}</span>
+          <span className="whitespace-pre-wrap">{visibleContent}</span>
         </button>
       </motion.div>
     );
@@ -171,28 +248,10 @@ export function MessageBubble({
           }
         >
           {isUser ? (
-            <span className="whitespace-pre-wrap">{message.content}</span>
+            <span className="whitespace-pre-wrap">{visibleContent}</span>
           ) : (
             <div className="relative">
               <MarkdownContent content={body} isUser={isUser} />
-              {citations.length > 0 && (
-                <div className="mt-1.5 flex flex-wrap gap-1">
-                  {citations.map((citation, i) => (
-                    <button
-                      key={`${citation.chunkId}-${i}`}
-                      onClick={() =>
-                        focusSourceByChunk(citation.chunkId, projectId)
-                      }
-                      className="text-[10px] leading-none text-[var(--project-text-muted)] transition-colors hover:text-[var(--project-text-primary)]"
-                      aria-label={`引用 ${i + 1}`}
-                    >
-                      <sup className="rounded border border-[var(--project-border)] bg-[var(--project-surface-muted)] px-1 py-0.5">
-                        {i + 1}
-                      </sup>
-                    </button>
-                  ))}
-                </div>
-              )}
             </div>
           )}
         </motion.div>
@@ -204,16 +263,16 @@ export function MessageBubble({
             transition={{ delay: index * 0.03 + 0.15 }}
             className="mt-0.5 flex flex-wrap gap-1.5"
           >
-            {citations.map((citation, i) => (
-              <CitationBadge
-                key={`${citation.chunkId}-${i}`}
-                citation={citation}
-                index={i}
-                onClick={() => focusSourceByChunk(citation.chunkId, projectId)}
-              />
-            ))}
-          </motion.div>
-        )}
+              {citations.map((citation, i) => (
+                <CitationBadge
+                  key={`${citation.chunkId}-${i}`}
+                  citation={citation}
+                  index={i}
+                  onClick={() => handleCitationClick(citation)}
+                />
+              ))}
+            </motion.div>
+          )}
 
         <span className="px-1 text-[10px] font-medium text-[var(--project-text-muted)]">
           {new Date(message.timestamp).toLocaleTimeString("zh-CN", {

@@ -15,6 +15,15 @@ def resolve_timeout_seconds(
     )
     if normalized_route_task == ModelRouteTask.CHAT_RESPONSE.value:
         return chat_request_timeout_seconds
+    if normalized_route_task == ModelRouteTask.LESSON_PLAN_REASONING.value:
+        raw_override = os.getenv("WORD_LESSON_PLAN_TIMEOUT_SECONDS", "").strip()
+        if raw_override:
+            try:
+                override = float(raw_override)
+                if override > 0:
+                    return override
+            except ValueError:
+                pass
     return request_timeout_seconds
 
 

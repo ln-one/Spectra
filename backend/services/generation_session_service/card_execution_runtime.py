@@ -14,13 +14,13 @@ from services.generation_session_service.session_history import (
     RUN_STATUS_PENDING,
     RUN_STEP_OUTLINE,
     create_session_run,
-    generate_semantic_run_title,
+    request_run_title_generation,
     serialize_session_run,
-    spawn_background_task,
 )
 from utils.exceptions import APIException, ErrorCode
 
 from . import card_execution_runtime_helpers as _runtime_helpers
+from .card_source_bindings import get_card_source_artifact_types
 from .card_execution_preview import build_studio_card_execution_preview
 from .card_execution_runtime_artifacts import (
     execute_classroom_simulator_turn_artifact,
@@ -33,8 +33,14 @@ from .card_execution_runtime_sessions import (
 )
 
 _load_artifact_content = _runtime_helpers.load_artifact_content
+_build_latest_runnable_state = _runtime_helpers.build_latest_runnable_state
+_build_provenance_payload = _runtime_helpers.build_provenance_payload
+_build_source_binding_payload = _runtime_helpers.build_source_binding_payload
 supports_structured_refine = _runtime_helpers.supports_structured_refine
 validate_source_artifact = _runtime_helpers.validate_source_artifact
+resolve_effective_source_artifact_id = (
+    _runtime_helpers.resolve_effective_source_artifact_id
+)
 
 
 def _build_foundation_ready_preview(
@@ -44,6 +50,8 @@ def _build_foundation_ready_preview(
     config,
     template_config=None,
     visibility=None,
+    primary_source_id=None,
+    selected_source_ids=None,
     source_artifact_id=None,
     rag_source_ids=None,
     not_found_message: str = "Studio 卡片不存在",
@@ -55,6 +63,8 @@ def _build_foundation_ready_preview(
         config=config,
         template_config=template_config,
         visibility=visibility,
+        primary_source_id=primary_source_id,
+        selected_source_ids=selected_source_ids,
         source_artifact_id=source_artifact_id,
         rag_source_ids=rag_source_ids,
     )
@@ -86,6 +96,8 @@ async def execute_studio_card_draft_request(
         config=body.config,
         template_config=body.template_config,
         visibility=body.visibility,
+        primary_source_id=body.primary_source_id,
+        selected_source_ids=body.selected_source_ids,
         source_artifact_id=body.source_artifact_id,
         rag_source_ids=body.rag_source_ids,
         not_ready_message="请等待 Studio 卡片执行协议就绪后再试",
@@ -97,12 +109,18 @@ async def execute_studio_card_draft_request(
             message="请先在会话管理器中创建或选择会话，再执行 Studio 卡片。",
         )
 
-    draft_source_artifact_id = body.source_artifact_id or (
-        preview.initial_request.payload.get("options") or {}
-    ).get("source_artifact_id")
+    draft_source_artifact_id = await resolve_effective_source_artifact_id(
+        project_id=body.project_id,
+        primary_source_id=body.primary_source_id,
+        source_artifact_id=body.source_artifact_id
+        or (preview.initial_request.payload.get("options") or {}).get(
+            "source_artifact_id"
+        ),
+    )
     await validate_source_artifact(
         project_id=body.project_id,
         card_id=card_id,
+        user_id=user_id,
         source_artifact_id=draft_source_artifact_id,
     )
     existing_session = await resolve_bound_session(
@@ -122,14 +140,11 @@ async def execute_studio_card_draft_request(
         status=RUN_STATUS_PENDING,
     )
     if run:
-        spawn_background_task(
-            generate_semantic_run_title(
-                db=session_service._db,
-                run_id=run.id,
-                tool_type=run.toolType,
-                snapshot=body.config,
-            ),
-            label=f"studio-card-draft-run:{run.id}",
+        await request_run_title_generation(
+            db=session_service._db,
+            run_id=run.id,
+            tool_type=run.toolType,
+            snapshot=body.config,
         )
     return StudioCardExecutionResult(
         card_id=card_id,
@@ -139,6 +154,25 @@ async def execute_studio_card_draft_request(
         session={"session_id": existing_session.id},
         run=serialize_session_run(run),
         request_preview=preview.initial_request,
+        execution_carrier=getattr(preview, "execution_carrier", None),
+        latest_runnable_state=_build_latest_runnable_state(
+            card_id=card_id,
+            artifact_id=None,
+            session_id=existing_session.id,
+            source_binding_valid=True,
+        ),
+        provenance=_build_provenance_payload(
+            card_id=card_id,
+            session_id=existing_session.id,
+            source_artifact_id=draft_source_artifact_id,
+            request_snapshot={"config": body.config},
+        ),
+        source_binding=_build_source_binding_payload(
+            card_id=card_id,
+            source_artifact_id=draft_source_artifact_id,
+            accepted_types=get_card_source_artifact_types(card_id),
+        ),
+        selection_anchor_schema_version="studio.selection_anchor.v1",
     )
 
 
@@ -156,6 +190,8 @@ async def execute_studio_card_initial_request(
         config=body.config,
         template_config=body.template_config,
         visibility=body.visibility,
+        primary_source_id=body.primary_source_id,
+        selected_source_ids=body.selected_source_ids,
         source_artifact_id=body.source_artifact_id,
         rag_source_ids=body.rag_source_ids,
     )
@@ -214,6 +250,8 @@ async def execute_studio_card_refine_request(
         project_id=body.project_id,
         config=body.config,
         visibility=body.visibility,
+        primary_source_id=body.primary_source_id,
+        selected_source_ids=body.selected_source_ids,
         source_artifact_id=body.source_artifact_id,
         rag_source_ids=body.rag_source_ids,
     )

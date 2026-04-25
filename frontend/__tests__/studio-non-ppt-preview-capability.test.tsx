@@ -15,6 +15,11 @@ jest.mock("remark-gfm", () => ({
   default: () => undefined,
 }));
 
+jest.mock("rehype-sanitize", () => ({
+  __esModule: true,
+  default: () => undefined,
+}));
+
 beforeAll(() => {
   class ResizeObserverMock {
     observe() {
@@ -75,8 +80,7 @@ describe("non-ppt preview capability notice", () => {
       />
     );
 
-    expect(screen.getByText("后端等待中")).toBeInTheDocument();
-    expect(screen.getByText("暂未收到后端真实文档内容")).toBeInTheDocument();
+    expect(screen.getByText("文档内容同步中")).toBeInTheDocument();
     expect(
       screen.queryByText("以下为前端临时占位/示意内容")
     ).not.toBeInTheDocument();
@@ -92,7 +96,6 @@ describe("non-ppt preview capability notice", () => {
       />
     );
 
-    expect(screen.getByText("后端等待中")).toBeInTheDocument();
     expect(screen.getByText("暂未收到后端真实导图")).toBeInTheDocument();
     expect(
       screen.queryByText("以下为前端临时占位/示意内容")
@@ -107,7 +110,6 @@ describe("non-ppt preview capability notice", () => {
       />
     );
 
-    expect(screen.getByText("后端等待中")).toBeInTheDocument();
     expect(screen.getByText("暂未收到后端真实题目")).toBeInTheDocument();
     expect(
       screen.queryByText("以下为前端临时占位/示意内容")
@@ -122,7 +124,6 @@ describe("non-ppt preview capability notice", () => {
       />
     );
 
-    expect(screen.getByText("后端等待中")).toBeInTheDocument();
     expect(screen.getByText("暂未收到后端真实游戏")).toBeInTheDocument();
     expect(
       screen.queryByText("以下为前端临时占位/示意内容")
@@ -137,7 +138,6 @@ describe("non-ppt preview capability notice", () => {
       />
     );
 
-    expect(screen.getByText("后端等待中")).toBeInTheDocument();
     expect(screen.getByText("暂未收到后端真实动画")).toBeInTheDocument();
     expect(
       screen.queryByText("以下为前端临时占位/示意内容")
@@ -155,7 +155,6 @@ describe("non-ppt preview capability notice", () => {
       />
     );
 
-    expect(screen.getByText("后端等待中")).toBeInTheDocument();
     expect(screen.getByText("暂未收到后端真实说课讲稿")).toBeInTheDocument();
     expect(
       screen.queryByText("以下为前端临时占位/示意内容")
@@ -174,7 +173,6 @@ describe("non-ppt preview capability notice", () => {
       />
     );
 
-    expect(screen.getByText("后端等待中")).toBeInTheDocument();
     expect(screen.getByText("暂未收到后端真实预演内容")).toBeInTheDocument();
     expect(
       screen.queryByText("以下为前端临时占位/示意内容")

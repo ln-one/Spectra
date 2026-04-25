@@ -25,6 +25,7 @@ class GenerationState(str, Enum):
     IDLE = "IDLE"
     CONFIGURING = "CONFIGURING"
     ANALYZING = "ANALYZING"
+    AWAITING_REQUIREMENTS_CONFIRM = "AWAITING_REQUIREMENTS_CONFIRM"
     DRAFTING_OUTLINE = "DRAFTING_OUTLINE"
     AWAITING_OUTLINE_CONFIRM = "AWAITING_OUTLINE_CONFIRM"
     GENERATING_CONTENT = "GENERATING_CONTENT"
@@ -37,6 +38,10 @@ class GenerationCommandType(str, Enum):
     UPDATE_OUTLINE = "UPDATE_OUTLINE"
     REDRAFT_OUTLINE = "REDRAFT_OUTLINE"
     CONFIRM_OUTLINE = "CONFIRM_OUTLINE"
+    UPDATE_TEACHING_BRIEF_DRAFT = "UPDATE_TEACHING_BRIEF_DRAFT"
+    APPLY_TEACHING_BRIEF_PROPOSAL = "APPLY_TEACHING_BRIEF_PROPOSAL"
+    DISMISS_TEACHING_BRIEF_PROPOSAL = "DISMISS_TEACHING_BRIEF_PROPOSAL"
+    CONFIRM_TEACHING_BRIEF = "CONFIRM_TEACHING_BRIEF"
     REGENERATE_SLIDE = "REGENERATE_SLIDE"
     RESUME_SESSION = "RESUME_SESSION"
     SET_SESSION_TITLE = "SET_SESSION_TITLE"
@@ -54,6 +59,66 @@ VALID_COMMANDS = {command.value for command in GenerationCommandType}
 
 # 每个命令允许从哪些状态发起 -> 转移后的新状态
 _TRANSITION_TABLE: dict[tuple[str, str], str] = {
+    (
+        GenerationCommandType.UPDATE_TEACHING_BRIEF_DRAFT.value,
+        GenerationState.IDLE.value,
+    ): GenerationState.AWAITING_REQUIREMENTS_CONFIRM.value,
+    (
+        GenerationCommandType.UPDATE_TEACHING_BRIEF_DRAFT.value,
+        GenerationState.CONFIGURING.value,
+    ): GenerationState.AWAITING_REQUIREMENTS_CONFIRM.value,
+    (
+        GenerationCommandType.UPDATE_TEACHING_BRIEF_DRAFT.value,
+        GenerationState.ANALYZING.value,
+    ): GenerationState.AWAITING_REQUIREMENTS_CONFIRM.value,
+    (
+        GenerationCommandType.UPDATE_TEACHING_BRIEF_DRAFT.value,
+        GenerationState.AWAITING_REQUIREMENTS_CONFIRM.value,
+    ): GenerationState.AWAITING_REQUIREMENTS_CONFIRM.value,
+    (
+        GenerationCommandType.APPLY_TEACHING_BRIEF_PROPOSAL.value,
+        GenerationState.IDLE.value,
+    ): GenerationState.AWAITING_REQUIREMENTS_CONFIRM.value,
+    (
+        GenerationCommandType.APPLY_TEACHING_BRIEF_PROPOSAL.value,
+        GenerationState.CONFIGURING.value,
+    ): GenerationState.AWAITING_REQUIREMENTS_CONFIRM.value,
+    (
+        GenerationCommandType.APPLY_TEACHING_BRIEF_PROPOSAL.value,
+        GenerationState.ANALYZING.value,
+    ): GenerationState.AWAITING_REQUIREMENTS_CONFIRM.value,
+    (
+        GenerationCommandType.APPLY_TEACHING_BRIEF_PROPOSAL.value,
+        GenerationState.AWAITING_REQUIREMENTS_CONFIRM.value,
+    ): GenerationState.AWAITING_REQUIREMENTS_CONFIRM.value,
+    (
+        GenerationCommandType.DISMISS_TEACHING_BRIEF_PROPOSAL.value,
+        GenerationState.IDLE.value,
+    ): GenerationState.IDLE.value,
+    (
+        GenerationCommandType.DISMISS_TEACHING_BRIEF_PROPOSAL.value,
+        GenerationState.CONFIGURING.value,
+    ): GenerationState.CONFIGURING.value,
+    (
+        GenerationCommandType.DISMISS_TEACHING_BRIEF_PROPOSAL.value,
+        GenerationState.ANALYZING.value,
+    ): GenerationState.ANALYZING.value,
+    (
+        GenerationCommandType.DISMISS_TEACHING_BRIEF_PROPOSAL.value,
+        GenerationState.AWAITING_REQUIREMENTS_CONFIRM.value,
+    ): GenerationState.AWAITING_REQUIREMENTS_CONFIRM.value,
+    (
+        GenerationCommandType.CONFIRM_TEACHING_BRIEF.value,
+        GenerationState.IDLE.value,
+    ): GenerationState.CONFIGURING.value,
+    (
+        GenerationCommandType.CONFIRM_TEACHING_BRIEF.value,
+        GenerationState.CONFIGURING.value,
+    ): GenerationState.CONFIGURING.value,
+    (
+        GenerationCommandType.CONFIRM_TEACHING_BRIEF.value,
+        GenerationState.AWAITING_REQUIREMENTS_CONFIRM.value,
+    ): GenerationState.CONFIGURING.value,
     # UPDATE_OUTLINE：允许在等待确认或已有草稿时修改
     (
         GenerationCommandType.UPDATE_OUTLINE.value,
@@ -77,7 +142,7 @@ _TRANSITION_TABLE: dict[tuple[str, str], str] = {
         GenerationCommandType.CONFIRM_OUTLINE.value,
         GenerationState.AWAITING_OUTLINE_CONFIRM.value,
     ): GenerationState.GENERATING_CONTENT.value,
-    # REGENERATE_SLIDE：局部重绘，仅在 SUCCESS 或 RENDERING 后允许
+    # REGENERATE_SLIDE：局部重绘，允许在已有可编辑预览的终态继续发起
     (
         GenerationCommandType.REGENERATE_SLIDE.value,
         GenerationState.SUCCESS.value,
@@ -85,6 +150,10 @@ _TRANSITION_TABLE: dict[tuple[str, str], str] = {
     (
         GenerationCommandType.REGENERATE_SLIDE.value,
         GenerationState.RENDERING.value,
+    ): GenerationState.RENDERING.value,
+    (
+        GenerationCommandType.REGENERATE_SLIDE.value,
+        GenerationState.FAILED.value,
     ): GenerationState.RENDERING.value,
     # RESUME_SESSION：从 FAILED 或任意中断态恢复
     (
@@ -121,6 +190,10 @@ _TRANSITION_TABLE: dict[tuple[str, str], str] = {
     ): GenerationState.ANALYZING.value,
     (
         GenerationCommandType.SET_SESSION_TITLE.value,
+        GenerationState.AWAITING_REQUIREMENTS_CONFIRM.value,
+    ): GenerationState.AWAITING_REQUIREMENTS_CONFIRM.value,
+    (
+        GenerationCommandType.SET_SESSION_TITLE.value,
         GenerationState.DRAFTING_OUTLINE.value,
     ): GenerationState.DRAFTING_OUTLINE.value,
     (
@@ -147,11 +220,28 @@ _TRANSITION_TABLE: dict[tuple[str, str], str] = {
 
 # 每个状态允许的下一步动作（用于 allowed_actions 响应字段）
 _ALLOWED_ACTIONS: dict[str, list[str]] = {
-    GenerationState.IDLE.value: ["configure", "set_session_title"],
-    GenerationState.CONFIGURING.value: ["analyze", "cancel", "set_session_title"],
+    GenerationState.IDLE.value: [
+        "configure",
+        "update_teaching_brief",
+        "confirm_teaching_brief",
+        "set_session_title",
+    ],
+    GenerationState.CONFIGURING.value: [
+        "analyze",
+        "update_teaching_brief",
+        "confirm_teaching_brief",
+        "cancel",
+        "set_session_title",
+    ],
     GenerationState.ANALYZING.value: [
         "resume_session",
+        "update_teaching_brief",
         "cancel",
+        "set_session_title",
+    ],
+    GenerationState.AWAITING_REQUIREMENTS_CONFIRM.value: [
+        "update_teaching_brief",
+        "confirm_teaching_brief",
         "set_session_title",
     ],
     GenerationState.DRAFTING_OUTLINE.value: [
@@ -177,7 +267,11 @@ _ALLOWED_ACTIONS: dict[str, list[str]] = {
         "set_session_title",
     ],
     GenerationState.SUCCESS.value: ["regenerate_slide", "export", "set_session_title"],
-    GenerationState.FAILED.value: ["resume_session", "set_session_title"],
+    GenerationState.FAILED.value: [
+        "regenerate_slide",
+        "resume_session",
+        "set_session_title",
+    ],
 }
 
 

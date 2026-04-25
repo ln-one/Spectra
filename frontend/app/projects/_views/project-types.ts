@@ -1,9 +1,12 @@
-﻿export interface Project {
+export interface Project {
   id: string;
   name: string;
+  nameSource?: string;
+  name_source?: string;
   subject?: string;
   grade_level?: string;
   status: string;
+  visibility?: string;
   created_at: string;
 }
 
@@ -15,7 +18,9 @@ export const statusConfig: Record<string, { label: string; color: string }> = {
 };
 
 export function formatDate(dateString: string) {
+  if (!dateString) return "未知时间";
   const date = new Date(dateString);
+  if (isNaN(date.getTime())) return "未知时间";
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));

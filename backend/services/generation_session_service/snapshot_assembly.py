@@ -2,6 +2,10 @@ from __future__ import annotations
 
 from services.generation_session_service.capability_helpers import _default_capabilities
 from services.generation_session_service.serialization_helpers import _to_session_ref
+from services.generation_session_service.teaching_brief import (
+    load_teaching_brief,
+    load_teaching_brief_proposals,
+)
 from services.platform.state_transition_guard import GenerationState
 
 
@@ -36,6 +40,10 @@ def build_session_snapshot_payload(
         "session_artifacts": artifact_history["session_artifacts"],
         "session_artifact_groups": artifact_history["session_artifact_groups"],
         "allowed_actions": guard.get_allowed_actions(session.state),
+        "teaching_brief": load_teaching_brief(getattr(session, "options", None)),
+        "teaching_brief_proposals": load_teaching_brief_proposals(
+            getattr(session, "options", None)
+        ),
         "current_run": current_run,
         "result": result,
         "error": (

@@ -4,6 +4,11 @@ import re
 import uuid
 from typing import Optional
 
+from services.generation_session_service.teaching_brief_projection import (
+    build_brief_prompt_hint,
+    extract_brief_fields_from_options,
+)
+
 _SLIDE_FOCUS_SUFFIX = ("知识地图", "关键例题", "易错点澄清", "互动提问")
 _SLIDE_FOCUS_POINTS = {
     "知识地图": "知识地图结构化梳理",
@@ -172,6 +177,7 @@ def _build_outline_requirements(
     options: Optional[dict],
 ) -> str:
     parts = []
+    brief_fields = extract_brief_fields_from_options(options or {})
     if project:
         if getattr(project, "name", None):
             parts.append(f"项目名称：{project.name}")
@@ -185,15 +191,23 @@ def _build_outline_requirements(
             parts.append(f"用户需求：{options['system_prompt_tone']}")
         if options.get("pages"):
             parts.append(f"目标页数：{options['pages']}")
-        if options.get("audience"):
-            parts.append(f"目标受众：{options['audience']}")
-        if options.get("target_duration_minutes"):
-            parts.append(f"目标时长：{options['target_duration_minutes']} 分钟")
+        audience = options.get("audience") or brief_fields.get("audience")
+        if audience:
+            parts.append(f"目标受众：{audience}")
+        duration_minutes = options.get("target_duration_minutes") or brief_fields.get(
+            "target_duration_minutes"
+        )
+        if duration_minutes:
+            parts.append(f"目标时长：{duration_minutes} 分钟")
         outline_style = _extract_outline_style(options)
         if outline_style:
             parts.append(f"大纲风格ID：{outline_style}")
             parts.append("大纲风格硬约束（必须遵循）：")
             parts.append(_OUTLINE_STYLE_RULES[outline_style])
+        brief_hint = build_brief_prompt_hint(options)
+        if brief_hint:
+            parts.append("教学需求单：")
+            parts.append(brief_hint)
 
     return "\n".join(parts).strip() or "生成课件大纲"
 

@@ -11,5 +11,4 @@ export { GenerationConfigPanel } from "./features/generation/GenerationConfigPan
 export type { GenerationConfig } from "./features/generation/GenerationConfigPanel";
 export { OutlineEditorPanel } from "./features/outline-editor/OutlineEditorPanel";
 export type { OutlineEditorConfig } from "./features/outline-editor/OutlineEditorPanel";
-export { LibraryDrawer } from "./features/library/LibraryDrawer";
 export { OnboardingTour } from "./OnboardingTour";

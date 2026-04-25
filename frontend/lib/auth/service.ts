@@ -102,12 +102,30 @@ export const authService = {
     }
   },
 
-  async hasActiveSession(): Promise<boolean> {
+  async hasActiveSession(options?: { timeoutMs?: number }): Promise<boolean> {
+    const timeoutMs = Number(options?.timeoutMs ?? 0);
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
     try {
-      await authApi.getCurrentUser();
+      if (Number.isFinite(timeoutMs) && timeoutMs > 0) {
+        await Promise.race([
+          authApi.getCurrentUser(),
+          new Promise<never>((_, reject) => {
+            timeoutId = setTimeout(() => {
+              reject(new Error("AUTH_SESSION_CHECK_TIMEOUT"));
+            }, timeoutMs);
+          }),
+        ]);
+      } else {
+        await authApi.getCurrentUser();
+      }
       return true;
     } catch {
       return false;
+    } finally {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
     }
   },
 };

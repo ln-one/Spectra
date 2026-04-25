@@ -1,16 +1,25 @@
 ﻿"use client";
 
 import { motion } from "framer-motion";
-import { ArchiveRestore, X } from "lucide-react";
+import { ArchiveRestore, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { TOOL_LABELS } from "../../constants";
 import type { StudioHistoryItem } from "../../history/types";
+import {
+  resolveHistoryStatusBadgeClass,
+  resolveHistoryStatusText,
+  resolveHistoryStatusVisual,
+  resolveHistoryTypeColor,
+  resolveHistoryTypeIcon,
+} from "../../history/display";
 
 interface StudioArchiveHistoryDialogProps {
   isOpen: boolean;
   onClose: () => void;
   archivedHistory: StudioHistoryItem[];
   onUnarchiveHistoryItem: (id: string) => void;
+  onDeleteHistoryItem: (id: string) => void;
 }
 
 export function StudioArchiveHistoryDialog({
@@ -18,8 +27,42 @@ export function StudioArchiveHistoryDialog({
   onClose,
   archivedHistory,
   onUnarchiveHistoryItem,
+  onDeleteHistoryItem,
 }: StudioArchiveHistoryDialogProps) {
   if (!isOpen) return null;
+
+  const renderHistoryLeadingVisual = (item: StudioHistoryItem) => {
+    const TypeIcon = resolveHistoryTypeIcon(item.toolType);
+    const typeColor = resolveHistoryTypeColor(item.toolType);
+    const statusVisual = resolveHistoryStatusVisual(item);
+    const StatusIcon = statusVisual.icon;
+
+    return (
+      <div className="relative shrink-0">
+        <div
+          className="project-tool-icon flex h-9 w-9 items-center justify-center rounded-[var(--project-chip-radius)] border border-white/40 backdrop-blur-md"
+          style={{
+            background: `linear-gradient(135deg, ${typeColor.glow}, transparent)`,
+            boxShadow: `0 8px 22px ${typeColor.glow}, inset 0 1px 0 rgba(255, 255, 255, 0.6)`,
+          }}
+        >
+          <TypeIcon className="h-4 w-4" style={{ color: typeColor.primary }} />
+        </div>
+        <div
+          className={cn(
+            "absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full border",
+            statusVisual.className
+          )}
+        >
+          {StatusIcon ? (
+            <StatusIcon className={statusVisual.iconClassName} />
+          ) : (
+            <span className={statusVisual.dotClassName} />
+          )}
+        </div>
+      </div>
+    );
+  };
 
   return (
     <>
@@ -65,24 +108,50 @@ export function StudioArchiveHistoryDialog({
                     key={`archive-panel-${item.id}`}
                     className="flex items-center gap-3 rounded-[var(--project-chip-radius)] border border-[var(--project-control-border)] bg-[var(--project-surface-elevated)] px-3 py-2"
                   >
+                    {renderHistoryLeadingVisual(item)}
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium text-[var(--project-text-primary)]">
                         {item.title}
                       </p>
-                      <p className="truncate text-xs text-[var(--project-text-muted)]">
-                        {TOOL_LABELS[item.toolType] ?? item.toolType} ·{" "}
-                        {new Date(item.createdAt).toLocaleString("zh-CN")}
-                      </p>
+                      <div className="mt-1 flex min-w-0 items-center gap-1.5 text-xs text-[var(--project-text-muted)]">
+                        <span className="truncate">
+                          {TOOL_LABELS[item.toolType] ?? item.toolType}
+                        </span>
+                        <span className="shrink-0">·</span>
+                        <span
+                          className={cn(
+                            "shrink-0 rounded-full px-1.5 py-0.5 whitespace-nowrap",
+                            resolveHistoryStatusBadgeClass(item)
+                          )}
+                        >
+                          {resolveHistoryStatusText(item)}
+                        </span>
+                        <span className="shrink-0">·</span>
+                        <span className="truncate">
+                          {new Date(item.createdAt).toLocaleString("zh-CN")}
+                        </span>
+                      </div>
                     </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-8 gap-1 rounded-[var(--project-chip-radius)] border-[var(--project-control-border)] bg-[var(--project-surface)] text-xs text-[var(--project-text-muted)] hover:bg-[var(--project-surface-muted)] hover:text-[var(--project-text-primary)]"
-                      onClick={() => onUnarchiveHistoryItem(item.id)}
-                    >
-                      <ArchiveRestore className="h-3.5 w-3.5" />
-                      取消归档
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 gap-1 rounded-[var(--project-chip-radius)] border-[var(--project-control-border)] bg-[var(--project-surface)] text-xs text-[var(--project-text-muted)] hover:bg-[var(--project-surface-muted)] hover:text-[var(--project-text-primary)]"
+                        onClick={() => onUnarchiveHistoryItem(item.id)}
+                      >
+                        <ArchiveRestore className="h-3.5 w-3.5" />
+                        取消归档
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 gap-1 rounded-[var(--project-chip-radius)] border-red-200 bg-red-50 text-xs text-red-700 hover:bg-red-100 hover:text-red-800"
+                        onClick={() => onDeleteHistoryItem(item.id)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        删除
+                      </Button>
+                    </div>
                   </div>
                 ))}
               </div>

@@ -52,15 +52,13 @@ def normalize_image_relative_path(raw_path: str) -> str:
         candidate = candidate[2:]
     if not candidate:
         raise ValidationException(message="图片路径不能为空")
+    lowered = candidate.lower()
+    if lowered.startswith("http://") or lowered.startswith("https://"):
+        raise ValidationException(message="图片路径非法", details={"path": raw_path})
     if candidate.startswith("/") or candidate.startswith("../"):
         raise ValidationException(message="图片路径非法", details={"path": raw_path})
     if "/../" in f"/{candidate}" or ".." in candidate.split("/"):
         raise ValidationException(message="图片路径非法", details={"path": raw_path})
-    if not candidate.startswith("images/"):
-        raise ValidationException(
-            message="仅支持 images/ 相对路径",
-            details={"path": raw_path},
-        )
     return candidate
 
 
@@ -91,6 +89,34 @@ def _safe_parse_result(upload: Any) -> Optional[dict]:
             return None
         return parsed if isinstance(parsed, dict) else None
     return None
+
+
+def _extract_source_archive_url(parse_result: Optional[dict]) -> str:
+    if not isinstance(parse_result, dict):
+        return ""
+
+    direct_keys = (
+        "source_archive_url",
+        "dualweave_result_url",
+        "result_url",
+        "full_zip_url",
+    )
+    nested_keys = ("processing_artifact", "delivery_artifact", "dualweave")
+
+    for key in direct_keys:
+        value = parse_result.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+
+    for parent_key in nested_keys:
+        nested = parse_result.get(parent_key)
+        if not isinstance(nested, dict):
+            continue
+        for key in direct_keys:
+            value = nested.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+    return ""
 
 
 def _extract_image_entry(zip_bytes: bytes, relative_path: str) -> bytes:
@@ -188,12 +214,15 @@ async def load_source_image_payload(
     *,
     chunk_id: str,
     image_path: str,
+    project_id: Optional[str] = None,
     parsed=None,
 ) -> SourceImagePayload:
     relative_path = normalize_image_relative_path(image_path)
     upload = await _load_chunk_upload(chunk_id, parsed=parsed)
+    if project_id and str(getattr(upload, "projectId", "") or "") != project_id:
+        raise NotFoundException(message=f"分块不存在: {chunk_id}")
     parse_result = _safe_parse_result(upload)
-    result_url = str((parse_result or {}).get("dualweave_result_url") or "").strip()
+    result_url = _extract_source_archive_url(parse_result)
     if not result_url:
         raise NotFoundException(
             message="当前来源无可用图片",

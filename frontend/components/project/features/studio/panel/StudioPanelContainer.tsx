@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { LayoutGroup } from "framer-motion";
 import { Sparkles } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
@@ -9,17 +9,29 @@ import { toast } from "@/hooks/use-toast";
 import { studioCardsApi } from "@/lib/sdk/studio-cards";
 import { cn } from "@/lib/utils";
 import { useProjectStore, GENERATION_TOOLS } from "@/stores/projectStore";
+import { startCoursewarePptRun } from "@/stores/project-store/courseware-run";
 import { resolveReadySelectedFileIds } from "@/stores/project-store/source-scope";
 import type { GenerationToolType } from "@/lib/project-space/artifact-history";
 import { STUDIO_TOOL_COMPONENTS } from "../tools";
 import type { StudioToolKey, ToolDraftState, ToolFlowContext } from "../tools";
-import { TOOL_COLORS, TOOL_ICONS, TOOL_LABELS } from "../constants";
+import {
+  getToolDisplayModel,
+  TOOL_COLORS,
+  TOOL_ICONS,
+  TOOL_LABELS,
+} from "../constants";
 import { useStudioWorkflowHistory } from "../history/useStudioWorkflowHistory";
 import { useStudioCapabilityState } from "./useStudioCapabilityState";
 import { useStudioExecutionHandlers } from "./useStudioExecutionHandlers";
 import { useStudioHistoryHandlers } from "./useStudioHistoryHandlers";
 import { usePptHistoryStatusSync } from "./usePptHistoryStatusSync";
-import type { StudioPanelProps } from "./types";
+import { useManagedHistoryStatusSync } from "./useManagedHistoryStatusSync";
+import {
+  doesArtifactMatchResolvedTarget,
+  isManagedLifecycleTool,
+} from "./managed-target-resolver";
+import { shouldForcePreviewChatStep } from "./chat-preview-step";
+import type { ManagedWorkbenchState, StudioPanelProps } from "./types";
 import {
   isDraftStateEqual,
   isPptStep2Stage,
@@ -30,101 +42,125 @@ import { StudioPanelHeader } from "./components/StudioPanelHeader";
 import { StudioCollapsedView } from "./components/StudioCollapsedView";
 import { StudioExpandedView } from "./components/StudioExpandedView";
 import { StudioArchiveHistoryDialog } from "./components/StudioArchiveHistoryDialog";
-import type { StudioHistoryItem } from "../history/types";
+import type { StudioHistoryItem, StudioHistoryStatus } from "../history/types";
+import type {
+  CapabilityStatus,
+  StudioGovernanceRubric,
+  StudioWorkflowState,
+} from "../tools";
+import { isBubbleSortMockRequest } from "../tools/animation/bubbleSortMock";
+import { parseGamePayload } from "../tools/game/GameSurfaceAdapter";
 
-function extractSessionIdFromExecutionResult(
-  executionResult: Record<string, unknown>
-): string | null {
-  const session =
-    typeof executionResult.session === "object" &&
-    executionResult.session !== null
-      ? (executionResult.session as Record<string, unknown>)
-      : null;
-  return (
-    (typeof session?.session_id === "string" && session.session_id) ||
-    (typeof session?.id === "string" && session.id) ||
-    null
-  );
+function getBindingStatus(
+  binding?: { status?: string | null } | null
+): "ready" | "partial" | "pending" {
+  if (binding?.status === "ready") return "ready";
+  if (binding?.status === "partial") return "partial";
+  return "pending";
 }
 
-function extractRunIdFromExecutionResult(
-  executionResult: Record<string, unknown>
-): string | null {
-  const directRunId = executionResult.run_id;
-  if (typeof directRunId === "string" && directRunId.trim()) {
-    return directRunId;
-  }
-
-  const run =
-    typeof executionResult.run === "object" && executionResult.run !== null
-      ? (executionResult.run as Record<string, unknown>)
-      : null;
-  const runRunId =
-    (typeof run?.run_id === "string" && run.run_id) ||
-    (typeof run?.id === "string" && run.id) ||
-    null;
-  if (runRunId && runRunId.trim()) {
-    return runRunId;
-  }
-
-  const currentRun =
-    typeof executionResult.current_run === "object" &&
-    executionResult.current_run !== null
-      ? (executionResult.current_run as Record<string, unknown>)
-      : null;
-  const currentRunId =
-    (typeof currentRun?.run_id === "string" && currentRun.run_id) ||
-    (typeof currentRun?.id === "string" && currentRun.id) ||
-    null;
-  if (currentRunId && currentRunId.trim()) {
-    return currentRunId;
-  }
-
-  const session =
-    typeof executionResult.session === "object" &&
-    executionResult.session !== null
-      ? (executionResult.session as Record<string, unknown>)
-      : null;
-  const sessionCurrentRun =
-    typeof session?.current_run === "object" && session.current_run !== null
-      ? (session.current_run as Record<string, unknown>)
-      : null;
-  const sessionCurrentRunId =
-    (typeof sessionCurrentRun?.run_id === "string" &&
-      sessionCurrentRun.run_id) ||
-    (typeof sessionCurrentRun?.id === "string" && sessionCurrentRun.id) ||
-    null;
-  return sessionCurrentRunId && sessionCurrentRunId.trim()
-    ? sessionCurrentRunId
-    : null;
+function supportsRefineMode(
+  modes: string[] | undefined,
+  target: "chat_refine" | "structured_refine" | "follow_up_turn"
+): boolean {
+  if (!Array.isArray(modes) || modes.length === 0) return false;
+  return modes.includes(target);
 }
 
-function mapVisualStyleToDiegoPreset(styleId: string): string {
-  const normalized = String(styleId || "")
-    .trim()
-    .toLowerCase();
-  const mapping: Record<string, string> = {
-    free: "auto",
-    wabi: "wabi-sabi",
-    brutalist: "neo-brutalism",
-    electro: "electro-pop",
-    geometric: "geo-bold",
-    modernacademic: "contemporary-academic",
-    curatorial: "academic-curation",
-    warmvc: "warm-vc",
-    coolblue: "rational-blue",
-    nordic: "nordic-research",
-    fluid: "emotional-flow",
-    cinema: "cinema-minimal",
-    "8bit": "8bit",
+function getAuthorityBoundaryRisk(cardId: string | null): "low" | "medium" | "high" {
+  switch (cardId) {
+    case "courseware_ppt":
+    case "word_document":
+    case "interactive_games":
+    case "demonstration_animations":
+      return "high";
+    case "speaker_notes":
+    case "classroom_qa_simulator":
+      return "medium";
+    case "interactive_quick_quiz":
+    case "knowledge_mindmap":
+      return "low";
+    default:
+      return "medium";
+  }
+}
+
+function buildWorkflowTitleSource(
+  toolType: GenerationToolType,
+  draft: ToolDraftState
+): string {
+  if (toolType === "word") {
+    const topic = typeof draft.topic === "string" ? draft.topic.trim() : "";
+    const outputRequirements =
+      typeof draft.output_requirements === "string"
+        ? draft.output_requirements.trim()
+        : "";
+    return JSON.stringify({
+      topic,
+      output_requirements: outputRequirements,
+    });
+  }
+  if (toolType === "mindmap") {
+    const topic = typeof draft.topic === "string" ? draft.topic.trim() : "";
+    const outputRequirements =
+      typeof draft.output_requirements === "string"
+        ? draft.output_requirements.trim()
+        : "";
+    const sourceArtifactId =
+      typeof draft.source_artifact_id === "string"
+        ? draft.source_artifact_id.trim()
+        : "";
+    return JSON.stringify({
+      topic,
+      output_requirements: outputRequirements,
+      source_artifact_id: sourceArtifactId,
+    });
+  }
+  return JSON.stringify(draft);
+}
+
+function normalizeMindmapNode(
+  raw: unknown
+): { id: string; children: unknown[] } | null {
+  if (!raw || typeof raw !== "object") return null;
+  const obj = raw as Record<string, unknown>;
+  const rawId = typeof obj.id === "string" ? obj.id.trim() : "";
+  if (!rawId) return null;
+  return {
+    id: rawId,
+    children: Array.isArray(obj.children) ? obj.children : [],
   };
-  return mapping[normalized] || normalized || "auto";
 }
 
-function normalizePageCount(value: unknown): number {
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed)) return 12;
-  return Math.min(50, Math.max(1, Math.round(parsed)));
+function hasRenderableMindmapArtifact(artifact?: {
+  contentKind?: string;
+  content?: unknown;
+} | null): boolean {
+  if (!artifact || artifact.contentKind !== "json") return false;
+  const content =
+    artifact.content && typeof artifact.content === "object"
+      ? (artifact.content as Record<string, unknown>)
+      : null;
+  if (!content) return false;
+  const nodes = Array.isArray(content.nodes) ? content.nodes : [];
+  if (nodes.length === 0) return false;
+
+  const firstNode = normalizeMindmapNode(nodes[0]);
+  if (!firstNode) return false;
+  if (nodes.length === 1) return true;
+  if (firstNode.children.length > 0) return true;
+
+  return nodes.some((item) => {
+    const node = item as Record<string, unknown>;
+    const parentId =
+      typeof node.parent_id === "string" ? node.parent_id.trim() : "";
+    return parentId.length > 0;
+  });
+}
+
+function hasRenderableInteractiveGameContent(content: unknown): boolean {
+  const parsed = parseGamePayload(content);
+  return Boolean(parsed.title && parsed.runtime.html);
 }
 
 export function StudioPanelContainer({
@@ -141,6 +177,8 @@ export function StudioPanelContainer({
     expandedTool,
     artifactHistoryByTool,
     selectedFileIds,
+    selectedLibraryIds,
+    selectedArtifactSourceIds,
     activeSessionId,
     activeRunId,
     generationSession,
@@ -161,6 +199,8 @@ export function StudioPanelContainer({
       expandedTool: state.expandedTool,
       artifactHistoryByTool: state.artifactHistoryByTool,
       selectedFileIds: state.selectedFileIds,
+      selectedLibraryIds: state.selectedLibraryIds,
+      selectedArtifactSourceIds: state.selectedArtifactSourceIds,
       activeSessionId: state.activeSessionId,
       activeRunId: state.activeRunId,
       generationSession: state.generationSession,
@@ -186,11 +226,40 @@ export function StudioPanelContainer({
   const [pptResumeSignal, setPptResumeSignal] = useState(0);
   const [isArchiveHistoryPanelOpen, setIsArchiveHistoryPanelOpen] =
     useState(false);
+  const [wordViewMode, setWordViewMode] = useState<"edit" | "preview">(
+    "preview"
+  );
+  const [mindmapViewMode, setMindmapViewMode] = useState<"edit" | "preview">(
+    "preview"
+  );
+  const [quizViewMode, setQuizViewMode] = useState<"browse" | "edit">(
+    "browse"
+  );
+  const [quizFocusedQuestion, setQuizFocusedQuestion] = useState<{
+    index: number;
+    total: number;
+    questionId: string | null;
+  } | null>(null);
   const [managedToolRunSeedByType, setManagedToolRunSeedByType] = useState<
     Partial<
       Record<StudioToolKey, { runId: string | null; sessionId: string | null }>
     >
   >({});
+  const managedToolRunSeedRef = useRef<
+    Partial<
+      Record<StudioToolKey, { runId: string | null; sessionId: string | null }>
+    >
+  >({});
+  const managedDraftAnchorsRef = useRef<
+    ManagedWorkbenchState["draftAnchors"]
+  >({});
+  const [managedWorkbenchState, setManagedWorkbenchState] =
+    useState<ManagedWorkbenchState>({
+      mode: "draft",
+      target: null,
+      draftAnchors: {},
+    });
+  const [wordSaveState, setWordSaveState] = useState<"idle" | "saving">("idle");
 
   const isExpanded = layoutMode === "expanded";
   const {
@@ -204,6 +273,7 @@ export function StudioPanelContainer({
     recordWorkflowEntry,
     archiveHistoryItem,
     unarchiveHistoryItem,
+    deleteArchivedHistoryItem,
   } = useStudioWorkflowHistory(
     artifactHistoryByTool,
     activeSessionId,
@@ -223,8 +293,147 @@ export function StudioPanelContainer({
     }
     return null;
   }, [activeSessionId, expandedTool, managedToolRunSeedByType]);
+
+  useEffect(() => {
+    managedToolRunSeedRef.current = managedToolRunSeedByType;
+  }, [managedToolRunSeedByType]);
+  useEffect(() => {
+    managedDraftAnchorsRef.current = managedWorkbenchState.draftAnchors;
+  }, [managedWorkbenchState.draftAnchors]);
+  const managedWorkbenchTarget = useMemo(() => {
+    if (managedWorkbenchState.mode !== "history" || !managedWorkbenchState.target) {
+      return managedWorkbenchState.target;
+    }
+    const baseTarget = managedWorkbenchState.target;
+    const targetTool = baseTarget.toolType;
+    if (!targetTool) return baseTarget;
+    const toolItems =
+      groupedHistory.find(([toolType]) => toolType === targetTool)?.[1] ?? [];
+    const kind = baseTarget.kind ?? (baseTarget.artifactId ? "pinned_artifact" : "pinned_run");
+    const matched = toolItems.find((item) => {
+      if (baseTarget.toolType && item.toolType && item.toolType !== baseTarget.toolType) {
+        return false;
+      }
+      if (baseTarget.artifactId) {
+        return item.artifactId === baseTarget.artifactId;
+      }
+      if (kind === "pinned_run" && baseTarget.runId && baseTarget.sessionId) {
+        return item.runId === baseTarget.runId && item.sessionId === baseTarget.sessionId;
+      }
+      return false;
+    });
+    if (!matched) return baseTarget;
+    const nextTarget = {
+      ...baseTarget,
+      toolType: matched.toolType as StudioToolKey,
+      sessionId: matched.sessionId ?? baseTarget.sessionId,
+      runId: matched.runId ?? baseTarget.runId,
+      artifactId: matched.artifactId ?? baseTarget.artifactId,
+      status: matched.status,
+    };
+    if (
+      baseTarget.sessionId === nextTarget.sessionId &&
+      baseTarget.runId === nextTarget.runId &&
+      baseTarget.artifactId === nextTarget.artifactId &&
+      baseTarget.status === nextTarget.status
+    ) {
+      return baseTarget;
+    }
+    return nextTarget;
+  }, [groupedHistory, managedWorkbenchState.mode, managedWorkbenchState.target]);
+  const effectiveManagedWorkbenchState = useMemo(
+    () =>
+      managedWorkbenchState.mode === "history"
+        ? {
+            ...managedWorkbenchState,
+            target: managedWorkbenchTarget,
+          }
+        : managedWorkbenchState,
+    [managedWorkbenchState, managedWorkbenchTarget]
+  );
   const managedActiveRunId =
     expandedTool && expandedTool !== "ppt" ? seededRunIdForManagedTool : null;
+  const isWordExpanded = expandedTool === "word";
+  const isManagedHistoryMode =
+    Boolean(expandedTool) &&
+    expandedTool !== "ppt" &&
+    effectiveManagedWorkbenchState.mode === "history" &&
+    effectiveManagedWorkbenchState.target?.toolType === expandedTool;
+  const isWordHistoryMode = isWordExpanded && isManagedHistoryMode;
+
+  const doesManagedArtifactMatchTarget = useCallback(
+    (item: {
+      toolType?: string | null;
+      artifactId?: string | null;
+      sessionId?: string | null;
+      runId?: string | null;
+    }) => {
+      const target = managedWorkbenchTarget;
+      if (!target) return false;
+      if (target.toolType && item.toolType && item.toolType !== target.toolType) {
+        return false;
+      }
+      const kind = target.kind ?? (target.artifactId ? "pinned_artifact" : "pinned_run");
+      if (target.artifactId) {
+        return item.artifactId === target.artifactId;
+      }
+      if (kind === "pinned_run" && target.runId && target.sessionId) {
+        return item.runId === target.runId && item.sessionId === target.sessionId;
+      }
+      return false;
+    },
+    [managedWorkbenchTarget]
+  );
+
+  const resetManagedDraftAnchor = useCallback((toolType: StudioToolKey) => {
+    setManagedWorkbenchState((prev) => ({
+      mode: "draft",
+      target: null,
+      draftAnchors: {
+        ...prev.draftAnchors,
+        [toolType]: {
+          sessionId: activeSessionId ?? null,
+          artifactId: null,
+          runId: null,
+          status: null,
+          pendingWorkflowId: null,
+        },
+      },
+    }));
+  }, [activeSessionId]);
+
+  const updateManagedDraftAnchor = useCallback(
+    (
+      toolType: StudioToolKey,
+      next: {
+        sessionId?: string | null;
+        artifactId?: string | null;
+        runId?: string | null;
+        status?: StudioHistoryStatus | null;
+        pendingWorkflowId?: string | null;
+      }
+    ) => {
+      setManagedWorkbenchState((prev) => ({
+        mode: "draft",
+        target: prev.mode === "history" ? prev.target : null,
+        draftAnchors: {
+          ...prev.draftAnchors,
+          [toolType]: {
+            sessionId: next.sessionId ?? prev.draftAnchors[toolType]?.sessionId ?? null,
+            artifactId:
+              next.artifactId ?? prev.draftAnchors[toolType]?.artifactId ?? null,
+            runId: next.runId ?? prev.draftAnchors[toolType]?.runId ?? null,
+            status: next.status ?? prev.draftAnchors[toolType]?.status ?? null,
+            pendingWorkflowId:
+              next.pendingWorkflowId ??
+              prev.draftAnchors[toolType]?.pendingWorkflowId ??
+              null,
+          },
+        },
+      }));
+    },
+    []
+  );
 
   useEffect(() => {
     if (!expandedTool) return;
@@ -234,6 +443,23 @@ export function StudioPanelContainer({
   useEffect(() => {
     trackStep("ppt", "config");
   }, [trackStep]);
+
+  useEffect(() => {
+    const handleWordSaveState = (event: Event) => {
+      const customEvent = event as CustomEvent<{ status?: "idle" | "saving" }>;
+      setWordSaveState(customEvent.detail?.status === "saving" ? "saving" : "idle");
+    };
+    window.addEventListener(
+      "spectra:word:save-state",
+      handleWordSaveState as EventListener
+    );
+    return () => {
+      window.removeEventListener(
+        "spectra:word:save-state",
+        handleWordSaveState as EventListener
+      );
+    };
+  }, []);
 
   useEffect(() => {
     if (!onPptStep2LayoutChange) return;
@@ -286,15 +512,41 @@ export function StudioPanelContainer({
     activeSessionId,
     activeRunId: managedActiveRunId,
     expandedTool: (expandedTool as GenerationToolType | null) ?? null,
+    generationSession,
     artifactHistoryByTool,
     draftSourceArtifactId,
+    managedWorkbenchState: effectiveManagedWorkbenchState,
   });
+  const resolvedManagedTarget = capability.resolvedManagedTarget;
 
+  const effectiveSelectedSourceId =
+    capability.currentCardId === "word_document"
+      ? selectedArtifactSourceIds[0] ?? capability.selectedSourceId
+      : capability.selectedSourceId;
+  const effectiveHasSourceBinding =
+    !capability.requiresSourceArtifact ||
+    Boolean(effectiveSelectedSourceId || capability.draftSourceArtifactId);
+  const allowSourcelessWordHistoryRefine =
+    capability.currentCardId === "word_document" &&
+    isWordHistoryMode &&
+    capability.activeCapabilityState.status === "backend_ready" &&
+    Boolean(capability.activeCapabilityState.resolvedArtifact?.artifactId);
   const canRefineBase =
     Boolean(capability.currentCardId) &&
     !capability.isProtocolPending &&
-    capability.supportsChatRefine &&
-    (!capability.requiresSourceArtifact || capability.hasSourceBinding);
+    getBindingStatus(capability.currentExecutionPlan?.refine_binding) !==
+      "pending" &&
+    Boolean(
+      capability.currentExecutionPlan?.supported_refine_modes?.length ??
+        capability.supportsChatRefine
+    ) &&
+    (allowSourcelessWordHistoryRefine ||
+      !capability.requiresSourceArtifact ||
+      effectiveHasSourceBinding);
+  const supportedRefineModes =
+    capability.currentExecutionPlan?.supported_refine_modes ??
+    capability.currentCapability?.supported_refine_modes ??
+    [];
 
   const syncStudioChatContextByStep = useCallback(
     (
@@ -317,6 +569,47 @@ export function StudioPanelContainer({
         return;
       }
       const latestToolArtifact = capability.currentToolArtifacts[0];
+      const isExplicitRunScoped = resolvedManagedTarget?.kind === "pinned_run";
+      const targetArtifactId =
+        resolvedManagedTarget?.artifactId ?? latestToolArtifact?.artifactId ?? null;
+      const configSnapshot =
+        managedTool === "quiz"
+          ? {
+              ...currentToolDraft,
+              chat_refine_scope: "full_quiz",
+              scope:
+                typeof currentToolDraft.scope === "string"
+                  ? currentToolDraft.scope
+                  : null,
+              question_count:
+                quizFocusedQuestion?.total ??
+                (typeof currentToolDraft.question_count === "number"
+                  ? currentToolDraft.question_count
+                  : typeof currentToolDraft.count === "number"
+                    ? currentToolDraft.count
+                    : null),
+              difficulty:
+                typeof currentToolDraft.difficulty === "string"
+                  ? currentToolDraft.difficulty
+                  : "medium",
+              question_type:
+                typeof currentToolDraft.question_type === "string"
+                  ? currentToolDraft.question_type
+                  : "single",
+              style_tags: Array.isArray(currentToolDraft.style_tags)
+                ? currentToolDraft.style_tags
+                : [],
+              current_question_id: quizFocusedQuestion?.questionId ?? null,
+              selection_anchor: quizFocusedQuestion?.questionId
+                ? {
+                    scope: "question",
+                    anchor_id: quizFocusedQuestion.questionId,
+                    artifact_id: targetArtifactId,
+                    label: `第 ${quizFocusedQuestion.index} 题`,
+                  }
+                : null,
+            }
+          : currentToolDraft;
       setStudioChatContext({
         projectId: project.id,
         sessionId: targetSessionId,
@@ -326,13 +619,13 @@ export function StudioPanelContainer({
         step,
         canRefine: canRefineBase,
         isRefineMode: step === "preview" && canRefineBase,
-        targetArtifactId: latestToolArtifact?.artifactId ?? null,
-        targetRunId: latestToolArtifact?.runId ?? null,
+        targetArtifactId,
+        targetRunId: isExplicitRunScoped
+          ? resolvedManagedTarget?.runId ?? latestToolArtifact?.runId ?? null
+          : null,
         sourceArtifactId:
-          capability.selectedSourceId ??
-          capability.draftSourceArtifactId ??
-          null,
-        configSnapshot: currentToolDraft,
+          effectiveSelectedSourceId ?? capability.draftSourceArtifactId ?? null,
+        configSnapshot,
       });
     },
     [
@@ -341,9 +634,11 @@ export function StudioPanelContainer({
       capability.currentCardId,
       capability.currentToolArtifacts,
       capability.draftSourceArtifactId,
-      capability.selectedSourceId,
+      effectiveSelectedSourceId,
       currentToolDraft,
       project,
+      quizFocusedQuestion,
+      resolvedManagedTarget,
       setStudioChatContext,
     ]
   );
@@ -354,29 +649,102 @@ export function StudioPanelContainer({
     currentCardId: capability.currentCardId,
     seedRunId: seededRunIdForManagedTool,
     currentToolDraft,
-    selectedSourceId: capability.selectedSourceId,
+    selectedSourceId: effectiveSelectedSourceId,
     selectedFileIds,
+    selectedLibraryIds,
+    selectedArtifactSourceIds,
     draftSourceArtifactId: capability.draftSourceArtifactId,
     activeSessionId,
-    activeRunId,
+    activeRunId:
+      expandedTool === "ppt" ? activeRunId : seededRunIdForManagedTool,
     generationSession,
     isProtocolPending: capability.isProtocolPending,
     requiresSourceArtifact: capability.requiresSourceArtifact,
-    hasSourceBinding: capability.hasSourceBinding,
+    hasSourceBinding: effectiveHasSourceBinding,
     canRefine: canRefineBase,
-    setActiveSessionId,
     fetchArtifactHistory,
     focusChatComposer,
     syncStudioChatContextByStep,
     upsertCurrentCardSources: capability.upsertCurrentCardSources,
     appendRuntimeArtifact: capability.appendRuntimeArtifact,
   });
+  const currentDisplayToolKey =
+    expandedTool && expandedTool !== "ppt"
+      ? (expandedTool as StudioToolKey)
+      : null;
 
   const canExecute =
     Boolean(capability.currentCardId) &&
     !capability.isProtocolPending &&
-    (!capability.requiresSourceArtifact || capability.hasSourceBinding);
+    getBindingStatus(capability.currentExecutionPlan?.initial_binding) !==
+      "pending" &&
+    effectiveHasSourceBinding;
   const canRefine = canRefineBase;
+  const canFollowUpTurn =
+    supportsRefineMode(supportedRefineModes, "follow_up_turn") &&
+    capability.activeCapabilityState.status === "backend_ready" &&
+    Boolean(capability.activeCapabilityState.resolvedArtifact?.artifactId) &&
+    getBindingStatus(capability.currentExecutionPlan?.follow_up_turn_binding) !==
+      "pending";
+  const canRecommendPlacement =
+    capability.currentCapability?.placement_supported === true &&
+    capability.activeCapabilityState.status === "backend_ready" &&
+    Boolean(capability.activeCapabilityState.resolvedArtifact?.artifactId) &&
+    getBindingStatus(capability.currentExecutionPlan?.placement_binding) !==
+      "pending";
+  const canConfirmPlacement = canRecommendPlacement && Boolean(capability.selectedSourceId);
+  const protocolReady =
+    !capability.isProtocolPending &&
+    getBindingStatus(capability.currentExecutionPlan?.initial_binding) !==
+      "pending";
+  const surfaceReady = capability.activeCapabilityState.status === "backend_ready";
+  const executeReady = canExecute;
+  const refineReady = canRefine;
+  const sourceBindingReady = effectiveHasSourceBinding;
+  const governanceRubric: StudioGovernanceRubric | null =
+    capability.currentCardId
+      ? {
+          protocol_ready: protocolReady,
+          surface_ready: surfaceReady,
+          execute_ready: executeReady,
+          refine_ready: refineReady,
+          source_binding_ready: sourceBindingReady,
+          authority_boundary_risk: getAuthorityBoundaryRisk(
+            capability.currentCardId
+          ),
+        }
+      : null;
+  const workflowState: StudioWorkflowState = capability.isLoadingCardProtocol
+    ? "idle"
+    : execution.isStudioActionRunning
+      ? execution.currentCardActionKind === "follow_up_turn"
+        ? "continuing"
+        : execution.currentCardActionKind === "refine"
+          ? "refining"
+          : "executing"
+      : capability.activeCapabilityState.status === "backend_error"
+        ? "failed"
+        : !sourceBindingReady
+          ? "missing_requirements"
+          : capability.activeCapabilityState.status === "backend_ready"
+            ? "result_available"
+            : protocolReady
+              ? "ready_to_execute"
+              : "idle";
+  const effectiveCapabilityStatus: CapabilityStatus =
+    execution.isStudioActionRunning
+      ? workflowState === "continuing"
+        ? "continuing"
+        : capability.activeCapabilityState.status === "backend_ready" && canRefine
+          ? "refining"
+          : "executing"
+      : capability.activeCapabilityState.status === "backend_error"
+        ? "backend_error"
+        : !sourceBindingReady
+          ? "missing_requirements"
+          : !protocolReady
+            ? "protocol_limited"
+            : capability.activeCapabilityState.status;
 
   const requestedHistoryStep = expandedTool
     ? (requestedStepByTool[expandedTool as GenerationToolType] ?? null)
@@ -434,12 +802,37 @@ export function StudioPanelContainer({
     recordWorkflowEntry,
     syncStudioChatContextByStep,
     pushStudioStageHint,
+    onManagedOpenHistoryResult: (target) => {
+      setManagedWorkbenchState((prev) => ({
+        mode: "history",
+        target,
+        draftAnchors: prev.draftAnchors,
+      }));
+    },
+    onManagedStartNewDraft: (toolType) => {
+      resetManagedDraftAnchor(toolType as StudioToolKey);
+    },
   });
 
   usePptHistoryStatusSync({
     activeSessionId,
+    activeRunId,
     groupedHistory,
     resolvePptRunId: execution.resolvePptRunId,
+    recordWorkflowEntry,
+  });
+
+  useManagedHistoryStatusSync({
+    projectId: project?.id ?? null,
+    activeSessionId,
+    groupedHistory,
+    resolvedTarget:
+      expandedTool && expandedTool !== "ppt" && isManagedLifecycleTool(expandedTool as StudioToolKey)
+        ? resolvedManagedTarget
+        : isManagedHistoryMode
+          ? resolvedManagedTarget
+          : null,
+    fetchArtifactHistory,
     recordWorkflowEntry,
   });
 
@@ -461,6 +854,45 @@ export function StudioPanelContainer({
       );
     };
   }, [historyHandlers]);
+
+  const handleArchiveHistoryItem = useCallback(
+    (item: Parameters<typeof archiveHistoryItem>[0]) => {
+      archiveHistoryItem(item);
+      if (
+        item.toolType !== "ppt" &&
+        managedWorkbenchState.mode === "history" &&
+        doesManagedArtifactMatchTarget({
+          toolType: item.toolType,
+          artifactId: item.artifactId ?? null,
+          sessionId: item.sessionId ?? null,
+          runId: item.runId ?? null,
+        })
+      ) {
+        setManagedWorkbenchState((prev) => ({
+          mode: "draft",
+          target: null,
+          draftAnchors: prev.draftAnchors,
+        }));
+        setManagedToolRunSeedByType((prev) => ({
+          ...prev,
+          [item.toolType as StudioToolKey]: {
+            runId: null,
+            sessionId: activeSessionId ?? null,
+          },
+        }));
+        requestStep(item.toolType as GenerationToolType, "config");
+        trackStep(item.toolType as GenerationToolType, "config");
+      }
+    },
+    [
+      activeSessionId,
+      archiveHistoryItem,
+      doesManagedArtifactMatchTarget,
+      requestStep,
+      trackStep,
+      managedWorkbenchState.mode,
+    ]
+  );
 
   const handleExpandedToolDraftChange = useMemo(() => {
     if (!expandedTool || expandedTool === "ppt") {
@@ -499,8 +931,19 @@ export function StudioPanelContainer({
     const trackedStep = normalizeHistoryStep(
       currentStepByTool[currentManagedToolType] ?? "config"
     );
-    const normalizedStep =
-      trackedStep === "preview"
+    const shouldForcePreviewStep = shouldForcePreviewChatStep({
+      toolType: currentManagedToolType,
+      isWordHistoryMode,
+      isManagedHistoryMode,
+      expandedTool,
+      resolvedArtifactId:
+        capability.activeCapabilityState.resolvedArtifact?.artifactId ?? null,
+      managedTargetArtifactId: resolvedManagedTarget?.artifactId ?? null,
+      managedTargetStatus: resolvedManagedTarget?.status,
+    });
+    const normalizedStep = shouldForcePreviewStep
+      ? "preview"
+      : trackedStep === "preview"
         ? "preview"
         : trackedStep === "generate"
           ? "generate"
@@ -517,11 +960,17 @@ export function StudioPanelContainer({
   }, [
     activeSessionId,
     capability.currentCardId,
+    capability.activeCapabilityState.resolvedArtifact?.artifactId,
     currentStepByTool,
     expandedTool,
     isExpanded,
+    isManagedHistoryMode,
+    isWordHistoryMode,
     project,
     pushStudioStageHint,
+    quizFocusedQuestion,
+    resolvedManagedTarget?.artifactId,
+    resolvedManagedTarget?.status,
     setStudioChatContext,
     syncStudioChatContextByStep,
   ]);
@@ -534,9 +983,69 @@ export function StudioPanelContainer({
     expandedTool === "summary" ||
     expandedTool === "animation" ||
     expandedTool === "handout";
-
+  const effectiveManagedArtifacts = isManagedHistoryMode
+    ? capability.currentToolArtifacts.filter((item) =>
+        doesArtifactMatchResolvedTarget(item, resolvedManagedTarget)
+      )
+    : [];
+  const effectiveResolvedArtifact =
+    isManagedHistoryMode &&
+    capability.activeCapabilityState.resolvedArtifact &&
+    !doesArtifactMatchResolvedTarget(
+      {
+        toolType: expandedTool as GenerationToolType,
+        artifactId: capability.activeCapabilityState.resolvedArtifact.artifactId,
+        sessionId: resolvedManagedTarget?.sessionId ?? activeSessionId,
+        runId: resolvedManagedTarget?.runId ?? managedActiveRunId,
+      },
+      resolvedManagedTarget
+    )
+      ? null
+      : capability.activeCapabilityState.resolvedArtifact;
+  const resolvedArtifactMetadata =
+    effectiveResolvedArtifact?.artifactMetadata ?? null;
+  const resolvedLatestRunnableState =
+    resolvedArtifactMetadata &&
+    typeof resolvedArtifactMetadata.latest_runnable_state === "object"
+      ? (resolvedArtifactMetadata.latest_runnable_state as Record<string, unknown>)
+      : null;
+  const resolvedProvenance =
+    resolvedArtifactMetadata &&
+    typeof resolvedArtifactMetadata.provenance === "object"
+      ? (resolvedArtifactMetadata.provenance as Record<string, unknown>)
+      : null;
+  const resolvedSourceBinding =
+    resolvedArtifactMetadata &&
+    typeof resolvedArtifactMetadata.source_binding === "object"
+      ? (resolvedArtifactMetadata.source_binding as Record<string, unknown>)
+      : null;
+  const latestArtifactsSnapshot = (
+    isManagedHistoryMode ? effectiveManagedArtifacts : capability.currentToolArtifacts
+  ).map((item) => ({
+    artifactId: item.artifactId,
+    title: item.title,
+    status: item.status,
+    createdAt: item.createdAt,
+    sourceArtifactId: item.sourceArtifactId ?? null,
+    runId: item.runId ?? null,
+    runNo: item.runNo ?? null,
+  }));
+  const latestArtifactSnapshot = latestArtifactsSnapshot[0] ?? null;
+  const resolvedArtifactSnapshot = effectiveResolvedArtifact ?? null;
+  const resolvedArtifactContent = resolvedArtifactSnapshot?.content;
+  const resolvedArtifactContentRecord =
+    resolvedArtifactContent && typeof resolvedArtifactContent === "object"
+      ? (resolvedArtifactContent as Record<string, unknown>)
+      : null;
   const toolFlowContext: ToolFlowContext = {
+    display:
+      currentDisplayToolKey
+        ? getToolDisplayModel(currentDisplayToolKey)
+        : undefined,
+    cardCapability: capability.currentCapability,
     readiness: capability.currentReadiness,
+    workflowState,
+    governanceRubric,
     isLoadingProtocol: capability.isLoadingCardProtocol,
     isActionRunning: execution.isStudioActionRunning,
     isProtocolPending: capability.isProtocolPending,
@@ -544,22 +1053,30 @@ export function StudioPanelContainer({
     supportsChatRefine: capability.supportsChatRefine,
     canExecute,
     canRefine,
-    capabilityStatus: capability.activeCapabilityState.status,
-    capabilityReason: capability.activeCapabilityState.reason,
+    canFollowUpTurn,
+    canRecommendPlacement,
+    canConfirmPlacement,
+    followUpTurnLabel: canFollowUpTurn ? "继续追问" : undefined,
+    capabilityStatus: effectiveCapabilityStatus,
+    capabilityReason:
+      !sourceBindingReady && capability.requiresSourceArtifact
+        ? "当前卡片要求先在右侧资料来源中选择一个来源成果。"
+        : !protocolReady
+          ? "当前卡片协议仍有缺口，Studio 只允许显示真实可走的正式链路。"
+          : capability.activeCapabilityState.reason,
     isCapabilityLoading: capability.activeCapabilityState.isLoading,
-    resolvedArtifact: capability.activeCapabilityState.resolvedArtifact,
+    resolvedArtifact: effectiveResolvedArtifact,
     sourceOptions: capability.sourceOptions,
-    selectedSourceId: capability.selectedSourceId,
+    selectedSourceId: effectiveSelectedSourceId,
     requestedStep: requestedHistoryStep,
-    latestArtifacts: capability.currentToolArtifacts.map((item) => ({
-      artifactId: item.artifactId,
-      title: item.title,
-      status: item.status,
-      createdAt: item.createdAt,
-      sourceArtifactId: item.sourceArtifactId ?? null,
-      runId: item.runId ?? null,
-      runNo: item.runNo ?? null,
-    })),
+    latestArtifacts: latestArtifactsSnapshot,
+    latestRunnableState: resolvedLatestRunnableState,
+    provenance: resolvedProvenance,
+    sourceBinding: resolvedSourceBinding,
+    currentDraft: currentToolDraft,
+    managedWorkbenchMode: isManagedHistoryMode ? "history" : "draft",
+    managedResultTarget: isManagedHistoryMode ? managedWorkbenchState.target : null,
+    resolvedTarget: resolvedManagedTarget,
     onStepChange: historyHandlers.handleManagedToolStepChange,
     onSelectedSourceChange: (sourceId) => {
       capability.setSelectedSourceForCurrentCard(sourceId);
@@ -575,7 +1092,7 @@ export function StudioPanelContainer({
       const resolvedSessionId = result.effectiveSessionId ?? contextSessionId;
       if (!resolvedSessionId) return false;
 
-      recordWorkflowEntry({
+      const pendingWorkflowId = recordWorkflowEntry({
         toolType,
         title: TOOL_LABELS[toolType] + " - Draft",
         status: "draft",
@@ -583,7 +1100,7 @@ export function StudioPanelContainer({
         sessionId: resolvedSessionId,
         runId: result.runId ?? undefined,
         runNo: result.runNo ?? undefined,
-        titleSource: JSON.stringify(currentToolDraft),
+        titleSource: buildWorkflowTitleSource(toolType, currentToolDraft),
         toolLabel: TOOL_LABELS[toolType],
       });
       setManagedToolRunSeedByType((prev) => ({
@@ -593,45 +1110,170 @@ export function StudioPanelContainer({
           sessionId: resolvedSessionId,
         },
       }));
+      if (isManagedLifecycleTool(toolType as StudioToolKey)) {
+        updateManagedDraftAnchor(toolType as StudioToolKey, {
+          sessionId: resolvedSessionId,
+          runId: result.runId ?? null,
+          artifactId: null,
+          status: "draft",
+          pendingWorkflowId,
+        });
+      }
+      managedToolRunSeedRef.current = {
+        ...managedToolRunSeedRef.current,
+        [toolType as StudioToolKey]: {
+          runId: result.runId ?? null,
+          sessionId: resolvedSessionId,
+        },
+      };
       syncStudioChatContextByStep(toolType, "generate", resolvedSessionId);
       return true;
     },
     onExecute: async () => {
       if (!expandedTool || expandedTool === "ppt") return false;
       const toolType = expandedTool as GenerationToolType;
+      const isLocalBubbleSortAnimation =
+        toolType === "animation" &&
+        isBubbleSortMockRequest(
+          typeof currentToolDraft.topic === "string" ? currentToolDraft.topic : null,
+          typeof currentToolDraft.motion_brief === "string"
+            ? currentToolDraft.motion_brief
+            : null
+        );
       const contextSessionId = activeSessionId ?? null;
       const seededRun =
-        managedToolRunSeedByType[toolType as StudioToolKey] ?? null;
+        managedToolRunSeedRef.current[toolType as StudioToolKey] ?? null;
+      const seededSessionId = seededRun?.sessionId ?? null;
+      const executionSessionId = contextSessionId ?? seededSessionId;
+      const pendingWorkflowId =
+        managedDraftAnchorsRef.current[toolType as StudioToolKey]
+          ?.pendingWorkflowId ?? null;
       const seededRunId =
-        seededRun?.sessionId === contextSessionId ? seededRun.runId : null;
-      syncStudioChatContextByStep(toolType, "generate", contextSessionId);
-      if (contextSessionId) {
+        seededRun?.sessionId === executionSessionId
+          ? seededRun.runId
+          : null;
+      if (isLocalBubbleSortAnimation) {
+        const createdAt = new Date().toISOString();
+        const localTitle =
+          (typeof currentToolDraft.topic === "string" &&
+            currentToolDraft.topic.trim()) ||
+          TOOL_LABELS[toolType];
+        const workflowId = recordWorkflowEntry({
+          workflowId: pendingWorkflowId,
+          toolType,
+          title: localTitle,
+          status: "processing",
+          step: "preview",
+          sessionId: executionSessionId,
+          createdAt,
+          titleSource: buildWorkflowTitleSource(toolType, currentToolDraft),
+          toolLabel: TOOL_LABELS[toolType],
+        });
         recordWorkflowEntry({
+          workflowId,
+          toolType,
+          title: localTitle,
+          status: "previewing",
+          step: "preview",
+          sessionId: executionSessionId,
+          createdAt,
+          titleSource: buildWorkflowTitleSource(toolType, currentToolDraft),
+          toolLabel: TOOL_LABELS[toolType],
+        });
+        setManagedWorkbenchState((prev) => ({
+          mode: "history",
+          target: {
+            toolType: toolType as StudioToolKey,
+            sessionId: executionSessionId,
+            runId: null,
+            artifactId: null,
+            title: localTitle,
+            createdAt,
+            status: "previewing",
+          },
+          draftAnchors: prev.draftAnchors,
+        }));
+        if (executionSessionId) {
+          syncStudioChatContextByStep(toolType, "preview", executionSessionId);
+          pushStudioStageHint(toolType, "preview", executionSessionId);
+        }
+        return true;
+      }
+      syncStudioChatContextByStep(toolType, "generate", executionSessionId);
+      if (executionSessionId) {
+        recordWorkflowEntry({
+          workflowId: pendingWorkflowId,
           toolType,
           title: TOOL_LABELS[toolType] + " - Generating",
           status: "processing",
           step: "preview",
-          sessionId: contextSessionId,
+          sessionId: executionSessionId,
           runId: seededRunId ?? undefined,
-          titleSource: JSON.stringify(currentToolDraft),
+          titleSource: buildWorkflowTitleSource(toolType, currentToolDraft),
           toolLabel: TOOL_LABELS[toolType],
         });
       }
       const result = await execution.handleStudioExecute();
+      const isLifecycleTool = isManagedLifecycleTool(toolType as StudioToolKey);
       if (result.ok) {
-        const resolvedSessionId = result.effectiveSessionId ?? contextSessionId;
-        if (resolvedSessionId) {
-          recordWorkflowEntry({
-            toolType,
-            title: TOOL_LABELS[toolType] + " - Preview",
-            status: "previewing",
-            step: "preview",
-            sessionId: resolvedSessionId,
-            runId: result.runId ?? seededRunId ?? undefined,
-            runNo: result.runNo ?? undefined,
-            titleSource: JSON.stringify(currentToolDraft),
-            toolLabel: TOOL_LABELS[toolType],
+        const resolvedSessionId =
+          result.effectiveSessionId ?? executionSessionId;
+        const resolvedStatus =
+          result.status ??
+          (result.artifactId ? "previewing" : result.resourceKind === "session"
+            ? "processing"
+            : "previewing");
+        if (isLifecycleTool) {
+          updateManagedDraftAnchor(toolType as StudioToolKey, {
+            sessionId: resolvedSessionId ?? null,
+            runId: result.runId ?? seededRunId ?? null,
+            artifactId: result.artifactId ?? null,
+            status: resolvedStatus,
+            pendingWorkflowId: null,
           });
+        } else {
+          setManagedWorkbenchState((prev) => ({
+            mode: "history",
+            target: {
+              toolType: toolType as StudioToolKey,
+              sessionId: resolvedSessionId ?? null,
+              runId: result.runId ?? seededRunId ?? null,
+              artifactId: result.artifactId ?? null,
+              status: resolvedStatus,
+            },
+            draftAnchors: prev.draftAnchors,
+          }));
+        }
+        if (resolvedSessionId) {
+          if (isLifecycleTool && result.artifactId && pendingWorkflowId) {
+            recordWorkflowEntry({
+              workflowId: pendingWorkflowId,
+              toolType,
+              title: TOOL_LABELS[toolType],
+              status: "previewing",
+              step: "preview",
+              sessionId: resolvedSessionId,
+              artifactId: result.artifactId,
+              runId: result.runId ?? seededRunId ?? undefined,
+              runNo: result.runNo ?? undefined,
+              titleSource: buildWorkflowTitleSource(toolType, currentToolDraft),
+              toolLabel: TOOL_LABELS[toolType],
+            });
+          }
+          if (!isLifecycleTool || !result.artifactId) {
+            recordWorkflowEntry({
+              toolType,
+              title: TOOL_LABELS[toolType] + " - Preview",
+              status: resolvedStatus,
+              step: "preview",
+              sessionId: resolvedSessionId,
+              artifactId: result.artifactId ?? undefined,
+              runId: result.runId ?? seededRunId ?? undefined,
+              runNo: result.runNo ?? undefined,
+              titleSource: buildWorkflowTitleSource(toolType, currentToolDraft),
+              toolLabel: TOOL_LABELS[toolType],
+            });
+          }
           setManagedToolRunSeedByType((prev) => ({
             ...prev,
             [toolType as StudioToolKey]: {
@@ -645,26 +1287,69 @@ export function StudioPanelContainer({
         return true;
       }
       const fallbackRunId = result.runId ?? seededRunId ?? null;
-      if (contextSessionId && fallbackRunId) {
-        syncStudioChatContextByStep(toolType, "preview", contextSessionId);
-        pushStudioStageHint(toolType, "preview", contextSessionId);
+      if (executionSessionId || fallbackRunId) {
+        if (isLifecycleTool) {
+          updateManagedDraftAnchor(toolType as StudioToolKey, {
+            sessionId: executionSessionId,
+            runId: fallbackRunId,
+            artifactId: result.artifactId ?? null,
+            status: result.status ?? "failed",
+            pendingWorkflowId: null,
+          });
+        } else {
+          setManagedWorkbenchState((prev) => ({
+            mode: "history",
+            target: {
+              toolType: toolType as StudioToolKey,
+              sessionId: executionSessionId,
+              runId: fallbackRunId,
+              artifactId: result.artifactId ?? null,
+              status: result.status ?? "failed",
+            },
+            draftAnchors: prev.draftAnchors,
+          }));
+        }
+      }
+      if (executionSessionId && fallbackRunId) {
+        recordWorkflowEntry({
+          workflowId: pendingWorkflowId,
+          toolType,
+          title: TOOL_LABELS[toolType] + " - Failed",
+          status: result.status ?? "failed",
+          step: "preview",
+          sessionId: executionSessionId,
+          artifactId: result.artifactId ?? undefined,
+          runId: fallbackRunId ?? undefined,
+          titleSource: buildWorkflowTitleSource(toolType, currentToolDraft),
+          toolLabel: TOOL_LABELS[toolType],
+        });
+        syncStudioChatContextByStep(toolType, "preview", executionSessionId);
+        pushStudioStageHint(toolType, "preview", executionSessionId);
         return true;
       }
-      if (contextSessionId) {
+      if (executionSessionId) {
         recordWorkflowEntry({
+          workflowId: pendingWorkflowId,
           toolType,
           title: TOOL_LABELS[toolType] + " - Failed",
           status: "failed",
           step: "generate",
-          sessionId: contextSessionId,
+          sessionId: executionSessionId,
           runId: seededRunId ?? undefined,
-          titleSource: JSON.stringify(currentToolDraft),
+          titleSource: buildWorkflowTitleSource(toolType, currentToolDraft),
           toolLabel: TOOL_LABELS[toolType],
         });
       }
       return false;
     },
     onRefine: () => execution.handleOpenChatRefine(),
+    onFollowUpTurn: (payload) =>
+      execution.handleFollowUpTurn({
+        artifactId: payload.artifactId,
+        teacherAnswer: payload.teacherAnswer,
+        turnAnchor: payload.turnAnchor,
+        config: payload.config,
+      }),
     onStructuredRefine: async (payload) => {
       const result = await execution.handleStructuredRefineArtifact({
         artifactId: payload.artifactId,
@@ -679,8 +1364,25 @@ export function StudioPanelContainer({
       }
       return result.ok;
     },
-    onStructuredRefineArtifact: (payload) =>
-      execution.handleStructuredRefineArtifact(payload),
+    onStructuredRefineArtifact: async (payload) => {
+      const result = await execution.handleStructuredRefineArtifact(payload);
+      if (
+        result.ok &&
+        expandedTool &&
+        expandedTool !== "ppt" &&
+        isManagedLifecycleTool(expandedTool as StudioToolKey)
+      ) {
+        updateManagedDraftAnchor(expandedTool as StudioToolKey, {
+          sessionId: result.effectiveSessionId ?? activeSessionId ?? null,
+          artifactId: result.artifactId ?? payload.artifactId,
+          runId:
+            managedToolRunSeedRef.current[expandedTool as StudioToolKey]?.runId ??
+            null,
+          status: "previewing",
+        });
+      }
+      return result;
+    },
     onRecommendAnimationPlacement: async (payload) => {
       if (!project) return null;
       try {
@@ -744,6 +1446,318 @@ export function StudioPanelContainer({
     onExportArtifact: (artifactId) => exportArtifact(artifactId),
   };
 
+  const isWordProcessingTarget = Boolean(
+    expandedTool === "word" &&
+      resolvedManagedTarget?.status === "processing" &&
+      !resolvedManagedTarget?.artifactId
+  );
+  const isMindmapExpanded = expandedTool === "mindmap";
+  const isMindmapHistoryMode = isMindmapExpanded && isManagedHistoryMode;
+  const isMindmapProcessingTarget = Boolean(
+    expandedTool === "mindmap" &&
+      resolvedManagedTarget?.status === "processing" &&
+      !resolvedManagedTarget?.artifactId
+  );
+  const hasWordResultAnchor = Boolean(
+    expandedTool === "word" && resolvedManagedTarget?.artifactId
+  );
+  const hasMindmapResultAnchor = Boolean(
+    expandedTool === "mindmap" && resolvedManagedTarget?.artifactId
+  );
+  const isQuizExpanded = expandedTool === "quiz";
+  const isQuizHistoryMode = isQuizExpanded && isManagedHistoryMode;
+  const isOutlineExpanded = expandedTool === "outline";
+  const isOutlineHistoryMode = isOutlineExpanded && isManagedHistoryMode;
+  const isQuizProcessingTarget = Boolean(
+    expandedTool === "quiz" &&
+      resolvedManagedTarget?.status === "processing" &&
+      !resolvedManagedTarget?.artifactId
+  );
+  const isOutlineProcessingTarget = Boolean(
+    expandedTool === "outline" &&
+      resolvedManagedTarget?.status === "processing" &&
+      !resolvedManagedTarget?.artifactId
+  );
+  const hasQuizResultAnchor = Boolean(
+    expandedTool === "quiz" && resolvedManagedTarget?.artifactId
+  );
+  const hasOutlineResultAnchor = Boolean(
+    expandedTool === "outline" && resolvedManagedTarget?.artifactId
+  );
+  const hasMindmapRenderableResult = hasRenderableMindmapArtifact(
+    resolvedArtifactSnapshot
+  );
+  const hasOutlineRenderableResult = hasRenderableInteractiveGameContent(
+    resolvedArtifactContent
+  );
+  const hasQuizRenderableResult = Boolean(
+    expandedTool === "quiz" &&
+      resolvedArtifactSnapshot?.contentKind === "json" &&
+      Array.isArray(resolvedArtifactContentRecord?.questions) &&
+      (resolvedArtifactContentRecord.questions as unknown[]).length > 0
+  );
+  const isWordHeaderActionsVisible =
+    isExpanded &&
+    expandedTool === "word" &&
+    (isWordHistoryMode || hasWordResultAnchor) &&
+    !isWordProcessingTarget;
+  const isWordHeaderGenerateVisible =
+    isExpanded &&
+    expandedTool === "word" &&
+    (!hasWordResultAnchor || isWordProcessingTarget);
+  useEffect(() => {
+    if (!isWordHeaderActionsVisible && !isWordHeaderGenerateVisible) return;
+    window.dispatchEvent(
+      new CustomEvent("spectra:word:set-mode", {
+        detail: { mode: "preview" },
+      })
+    );
+  }, [isWordHeaderActionsVisible, isWordHeaderGenerateVisible]);
+  useEffect(() => {
+    const onWordModeChanged = (event: Event) => {
+      const customEvent = event as CustomEvent<{ mode?: "edit" | "preview" }>;
+      const nextMode = customEvent.detail?.mode;
+      if (nextMode === "edit" || nextMode === "preview") {
+        setWordViewMode((prev) => (prev === nextMode ? prev : nextMode));
+      }
+    };
+    window.addEventListener(
+      "spectra:word:mode-changed",
+      onWordModeChanged as EventListener
+    );
+    return () => {
+      window.removeEventListener(
+        "spectra:word:mode-changed",
+        onWordModeChanged as EventListener
+      );
+    };
+  }, []);
+  const isMindmapHeaderModeVisible = Boolean(
+    isExpanded &&
+      expandedTool === "mindmap" &&
+      !isMindmapProcessingTarget &&
+      (isMindmapHistoryMode || hasMindmapResultAnchor || hasMindmapRenderableResult)
+  );
+  const isMindmapHeaderGenerateVisible = Boolean(
+    isExpanded &&
+      expandedTool === "mindmap" &&
+      !isMindmapHeaderModeVisible
+  );
+  useEffect(() => {
+    if (!isMindmapHeaderModeVisible && !isMindmapHeaderGenerateVisible) return;
+    window.dispatchEvent(
+      new CustomEvent("spectra:mindmap:set-mode", {
+        detail: { mode: "preview" },
+      })
+    );
+  }, [isMindmapHeaderGenerateVisible, isMindmapHeaderModeVisible]);
+  const isQuizHeaderModeVisible = Boolean(
+    isExpanded &&
+      expandedTool === "quiz" &&
+      !isQuizProcessingTarget &&
+      (isQuizHistoryMode || hasQuizResultAnchor || hasQuizRenderableResult)
+  );
+  const isOutlineHeaderGenerateVisible = Boolean(
+    isExpanded &&
+      expandedTool === "outline" &&
+      (!hasOutlineResultAnchor || isOutlineProcessingTarget)
+  );
+  const isQuizHeaderGenerateVisible = Boolean(
+    isExpanded &&
+      expandedTool === "quiz" &&
+      !isQuizHeaderModeVisible
+  );
+  useEffect(() => {
+    if (!isQuizHeaderModeVisible && !isQuizHeaderGenerateVisible) return;
+    window.dispatchEvent(
+      new CustomEvent("spectra:quiz:set-mode", {
+        detail: { mode: "browse" },
+      })
+    );
+  }, [isQuizHeaderGenerateVisible, isQuizHeaderModeVisible]);
+  useEffect(() => {
+    const handleQuizQuestionFocus = (
+      event: Event
+    ) => {
+      const customEvent = event as CustomEvent<{
+        index?: number;
+        total?: number;
+        questionId?: string | null;
+      }>;
+      const index =
+        typeof customEvent.detail?.index === "number" ? customEvent.detail.index : 0;
+      const total =
+        typeof customEvent.detail?.total === "number" ? customEvent.detail.total : 0;
+      const questionId =
+        typeof customEvent.detail?.questionId === "string"
+          ? customEvent.detail.questionId
+          : null;
+      setQuizFocusedQuestion(
+        index > 0 && total > 0
+          ? {
+              index,
+              total,
+              questionId,
+            }
+          : null
+      );
+    };
+    window.addEventListener(
+      "spectra:quiz:question-focus",
+      handleQuizQuestionFocus as EventListener
+    );
+    return () => {
+      window.removeEventListener(
+        "spectra:quiz:question-focus",
+        handleQuizQuestionFocus as EventListener
+      );
+    };
+  }, []);
+
+  useEffect(() => {
+    const handleQuizSetMode = (event: Event) => {
+      const customEvent = event as CustomEvent<{ mode?: "browse" | "edit" }>;
+      const nextMode = customEvent.detail?.mode;
+      if (nextMode === "browse" || nextMode === "edit") {
+        setQuizViewMode(nextMode);
+      }
+    };
+    window.addEventListener(
+      "spectra:quiz:set-mode",
+      handleQuizSetMode as EventListener
+    );
+    return () => {
+      window.removeEventListener(
+        "spectra:quiz:set-mode",
+        handleQuizSetMode as EventListener
+      );
+    };
+  }, []);
+
+  const resolvedWordTitleFromContent = (() => {
+    if (expandedTool !== "word") return null;
+    const value = resolvedArtifactContentRecord?.title;
+    return typeof value === "string" && value.trim() ? value.trim() : null;
+  })();
+  const resolvedWordHeaderTitle =
+    expandedTool === "word"
+      ? isWordProcessingTarget
+        ? "教学文档（生成中）"
+        : isWordHistoryMode || hasWordResultAnchor
+          ? latestArtifactSnapshot?.title || resolvedWordTitleFromContent || "教学文档"
+          : "教学文档"
+      : null;
+  const canWordHeaderSave = Boolean(
+    expandedTool === "word" && resolvedArtifactSnapshot?.artifactId
+  );
+  const canWordHeaderExport = Boolean(
+    expandedTool === "word" && latestArtifactSnapshot?.artifactId
+  );
+  const canWordHeaderGenerate = Boolean(
+    expandedTool === "word" &&
+      (effectiveSelectedSourceId ||
+        (typeof currentToolDraft.output_requirements === "string" &&
+          currentToolDraft.output_requirements.trim())) &&
+      !isWordProcessingTarget &&
+      !execution.isStudioActionRunning
+  );
+  const isWordHeaderGenerating = Boolean(
+    expandedTool === "word" &&
+      isWordHeaderGenerateVisible &&
+      execution.isStudioActionRunning
+  );
+  const canMindmapHeaderGenerate = Boolean(
+    expandedTool === "mindmap" &&
+      (effectiveSelectedSourceId ||
+        (typeof currentToolDraft.output_requirements === "string" &&
+          currentToolDraft.output_requirements.trim())) &&
+      !isMindmapProcessingTarget &&
+      !execution.isStudioActionRunning
+  );
+  const isMindmapHeaderGenerating = Boolean(
+    expandedTool === "mindmap" &&
+      isMindmapHeaderGenerateVisible &&
+      execution.isStudioActionRunning
+  );
+  const resolvedMindmapTitle =
+    expandedTool === "mindmap"
+      ? isMindmapProcessingTarget
+        ? "思维导图（生成中）"
+        : isMindmapHistoryMode || hasMindmapResultAnchor
+          ? latestArtifactSnapshot?.title || "思维导图"
+          : "思维导图"
+      : null;
+  const resolvedQuizTitleFromContent = (() => {
+    if (expandedTool !== "quiz") return null;
+    const value = resolvedArtifactContentRecord?.title;
+    return typeof value === "string" && value.trim() ? value.trim() : null;
+  })();
+  const resolvedQuizTitle =
+    expandedTool === "quiz"
+      ? isQuizProcessingTarget
+        ? "随堂小测（生成中）"
+        : isQuizHistoryMode || hasQuizResultAnchor || hasQuizRenderableResult
+          ? latestArtifactSnapshot?.title || resolvedQuizTitleFromContent || "随堂小测"
+          : "随堂小测"
+      : null;
+  const resolvedOutlineTitleFromContent = (() => {
+    if (expandedTool !== "outline") return null;
+    return parseGamePayload(resolvedArtifactContent).title;
+  })();
+  const resolvedOutlineTitle =
+    expandedTool === "outline"
+      ? isOutlineProcessingTarget
+        ? "互动游戏（生成中）"
+        : isOutlineHistoryMode ||
+            hasOutlineResultAnchor ||
+            hasOutlineRenderableResult
+          ? latestArtifactSnapshot?.title || resolvedOutlineTitleFromContent || "互动游戏"
+          : "互动游戏"
+      : null;
+  const resolvedQuizHeaderTitle =
+    expandedTool === "quiz" && quizFocusedQuestion
+      ? `${resolvedQuizTitle ?? "随堂小测"} · 第 ${quizFocusedQuestion.index} / ${quizFocusedQuestion.total} 题`
+      : resolvedQuizTitle;
+  const canQuizHeaderGenerate = Boolean(
+    expandedTool === "quiz" &&
+      (effectiveSelectedSourceId ||
+        (typeof currentToolDraft.scope === "string" &&
+          currentToolDraft.scope.trim())) &&
+      !isQuizProcessingTarget &&
+      !execution.isStudioActionRunning
+  );
+  const canOutlineHeaderGenerate = Boolean(
+    expandedTool === "outline" &&
+      typeof currentToolDraft.topic === "string" &&
+      currentToolDraft.topic.trim() &&
+      !isOutlineProcessingTarget &&
+      !execution.isStudioActionRunning
+  );
+  const isQuizHeaderGenerating = Boolean(
+    expandedTool === "quiz" &&
+      isQuizHeaderGenerateVisible &&
+      execution.isStudioActionRunning
+  );
+  const isOutlineHeaderGenerating = Boolean(
+    expandedTool === "outline" &&
+      isOutlineHeaderGenerateVisible &&
+      execution.isStudioActionRunning
+  );
+  const effectiveWordViewMode = wordViewMode;
+  const effectiveMindmapViewMode = mindmapViewMode;
+  const effectiveQuizViewMode =
+    quizViewMode;
+  const resolvedHeaderTitle =
+    expandedTool === "word"
+      ? resolvedWordHeaderTitle
+      : expandedTool === "mindmap"
+        ? resolvedMindmapTitle
+        : expandedTool === "quiz"
+          ? resolvedQuizHeaderTitle
+          : expandedTool === "outline"
+            ? resolvedOutlineTitle
+        : null;
+
   return (
     <div
       className={cn("project-panel-root h-full bg-transparent", className)}
@@ -758,8 +1772,139 @@ export function StudioPanelContainer({
             onClose={historyHandlers.handleClose}
             currentIcon={CurrentIcon}
             currentColor={currentColor}
+            customTitle={resolvedHeaderTitle}
+            showHeaderActions={
+              isWordHeaderActionsVisible ||
+              isMindmapHeaderModeVisible ||
+              isQuizHeaderModeVisible
+            }
+            showHeaderPrimaryAction={
+              isWordHeaderGenerateVisible ||
+              isMindmapHeaderGenerateVisible ||
+              isQuizHeaderGenerateVisible ||
+              isOutlineHeaderGenerateVisible
+            }
+            showHeaderPersistenceActions={isWordHeaderActionsVisible}
+            headerModeActionLabel={
+              expandedTool === "word"
+                ? effectiveWordViewMode === "preview"
+                  ? "编辑"
+                  : "预览"
+                : expandedTool === "quiz"
+                  ? effectiveQuizViewMode === "browse"
+                    ? "编辑"
+                    : "保存"
+                : effectiveMindmapViewMode === "preview"
+                  ? "编辑"
+                  : "完成"
+            }
+            primaryActionLabel={
+              expandedTool === "mindmap"
+                ? isMindmapHeaderGenerating
+                  ? "生成中"
+                  : "一键生成导图"
+                : expandedTool === "outline"
+                  ? isOutlineHeaderGenerating
+                    ? "生成中"
+                    : "一键生成互动游戏"
+                : expandedTool === "quiz"
+                  ? isQuizHeaderGenerating
+                    ? "生成中"
+                    : "一键生成小测"
+                : isWordHeaderGenerating
+                  ? "生成中"
+                  : "生成"
+            }
+            primaryActionState={
+              isWordHeaderGenerating ||
+              isMindmapHeaderGenerating ||
+              isQuizHeaderGenerating ||
+              isOutlineHeaderGenerating
+                ? "loading"
+                : "idle"
+            }
+            primaryActionDisabled={
+              expandedTool === "mindmap"
+                ? !canMindmapHeaderGenerate
+                : expandedTool === "outline"
+                  ? !canOutlineHeaderGenerate
+                : expandedTool === "quiz"
+                  ? !canQuizHeaderGenerate
+                : expandedTool === "word"
+                  ? !canWordHeaderGenerate
+                  : true
+            }
+            onHeaderSwitchMode={() => {
+              if (expandedTool === "word") {
+                const nextMode =
+                  effectiveWordViewMode === "preview" ? "edit" : "preview";
+                setWordViewMode(nextMode);
+                window.dispatchEvent(
+                  new CustomEvent("spectra:word:set-mode", {
+                    detail: { mode: nextMode },
+                  })
+                );
+                return;
+              }
+              if (expandedTool === "mindmap") {
+                const nextMode =
+                  effectiveMindmapViewMode === "preview" ? "edit" : "preview";
+                setMindmapViewMode(nextMode);
+                window.dispatchEvent(
+                  new CustomEvent("spectra:mindmap:set-mode", {
+                    detail: { mode: nextMode },
+                  })
+                );
+                return;
+              }
+              if (expandedTool === "quiz") {
+                if (effectiveQuizViewMode === "browse") {
+                  window.dispatchEvent(
+                    new CustomEvent("spectra:quiz:set-mode", {
+                      detail: { mode: "edit" },
+                    })
+                  );
+                  return;
+                }
+                window.dispatchEvent(
+                  new CustomEvent("spectra:quiz:save-and-browse")
+                );
+              }
+            }}
+            onHeaderPrimaryAction={() => {
+              if (expandedTool === "word") {
+                window.dispatchEvent(new CustomEvent("spectra:word:generate"));
+                return;
+              }
+              if (expandedTool === "mindmap") {
+                window.dispatchEvent(
+                  new CustomEvent("spectra:mindmap:generate")
+                );
+                return;
+              }
+              if (expandedTool === "quiz") {
+                window.dispatchEvent(new CustomEvent("spectra:quiz:generate"));
+                return;
+              }
+              if (expandedTool === "outline") {
+                window.dispatchEvent(new CustomEvent("spectra:outline:generate"));
+              }
+            }}
+            canWordSave={canWordHeaderSave}
+            canWordExport={canWordHeaderExport}
+            wordSaveState={wordSaveState}
+            onWordSave={() => {
+              window.dispatchEvent(new CustomEvent("spectra:word:save"));
+            }}
+            onWordExport={() => {
+              window.dispatchEvent(new CustomEvent("spectra:word:export"));
+            }}
           />
-          <CardContent className="relative h-[calc(100%-52px)] overflow-hidden p-0">
+          <CardContent
+            className={cn(
+              "relative h-[calc(100%-52px)] overflow-hidden p-0"
+            )}
+          >
             <StudioCollapsedView
               isExpanded={isExpanded}
               hoveredToolId={hoveredToolId}
@@ -767,11 +1912,14 @@ export function StudioPanelContainer({
               onToolClick={historyHandlers.handleToolClick}
               hasHistory={hasHistory}
               groupedHistory={groupedHistory}
+              currentCardId={capability.currentCardId}
+              selectedSourceId={effectiveSelectedSourceId}
+              latestArtifacts={latestArtifactsSnapshot}
               projectId={project?.id ?? null}
               activeSessionId={activeSessionId}
               fetchArtifactHistory={fetchArtifactHistory}
               onOpenHistoryItem={historyHandlers.handleOpenHistoryItem}
-              onArchiveHistoryItem={archiveHistoryItem}
+              onArchiveHistoryItem={handleArchiveHistoryItem}
             />
             <StudioExpandedView
               isExpanded={isExpanded}
@@ -791,11 +1939,12 @@ export function StudioPanelContainer({
                     payload?.sessionId ?? activeSessionId ?? null;
                   if (!resolvedSessionId) return;
                   const runId = payload?.runId || undefined;
+                  if (!runId) return;
                   trackStep("ppt", "outline");
                   acknowledgeStep("ppt", "outline");
                   recordWorkflowEntry({
                     toolType: "ppt",
-                    title: "PPT Outline Draft",
+                    title: "课件大纲",
                     status: "draft",
                     step: "outline",
                     ppt_status: "outline_generating",
@@ -810,16 +1959,13 @@ export function StudioPanelContainer({
                   const resolvedSessionId =
                     payload?.sessionId ?? activeSessionId ?? null;
                   if (!resolvedSessionId) return;
+                  const runId = payload?.runId || undefined;
+                  if (!runId) return;
                   trackStep("ppt", "preview");
                   acknowledgeStep("ppt", "preview");
-                  const runId =
-                    payload?.runId ||
-                    useProjectStore.getState().activeRunId ||
-                    execution.resolvePptRunId() ||
-                    undefined;
                   recordWorkflowEntry({
                     toolType: "ppt",
-                    title: "PPT Generating",
+                    title: "课件生成",
                     status: "processing",
                     step: "preview",
                     ppt_status: "slides_generating",
@@ -832,9 +1978,10 @@ export function StudioPanelContainer({
                 trackStep("ppt", "outline");
                 acknowledgeStep("ppt", "outline");
                 const runId = payload?.runId || undefined;
+                if (!runId) return;
                 recordWorkflowEntry({
                   toolType: "ppt",
-                  title: "PPT Outline Draft",
+                  title: "课件大纲",
                   status: "draft",
                   step: "outline",
                   sessionId: payload?.sessionId ?? activeSessionId ?? null,
@@ -843,88 +1990,97 @@ export function StudioPanelContainer({
                   toolLabel: TOOL_LABELS.ppt,
                 });
               }}
-              onPptGenerate={async (config) => {
-                const tool = GENERATION_TOOLS.find(
-                  (item) => item.type === expandedTool
-                );
-                if (!project || !tool) return null;
+	              onPptGenerate={async (config) => {
+	                const tool = GENERATION_TOOLS.find(
+	                  (item) => item.type === expandedTool
+	                );
+	                if (!project || !tool) return null;
 
                 let sessionId: string | null = null;
                 let runId: string | null = null;
                 const liveStoreState = useProjectStore.getState();
-                const liveSessionId =
-                  liveStoreState.activeSessionId ??
-                  activeSessionId ??
-                  undefined;
-                const liveRunId = liveStoreState.activeRunId ?? undefined;
+	                const liveSessionId =
+	                  liveStoreState.activeSessionId ??
+	                  activeSessionId ??
+	                  undefined;
+	                if (!liveSessionId) {
+	                  toast({
+	                    title: "请先选择会话",
+	                    description:
+	                      "执行 Studio 卡片前，请先在会话选择器中创建或切换到目标会话。",
+	                    variant: "destructive",
+	                  });
+	                  throw new Error("Missing active session for courseware execution");
+	                }
                 const readySelectedFileIds = resolveReadySelectedFileIds(
                   files,
                   selectedFileIds
                 );
-                const generationMode =
-                  config.layoutMode === "classic" ? "template" : "scratch";
-                const normalizedPageCount = normalizePageCount(
-                  config.pageCount
-                );
-                const templateId =
-                  generationMode === "template"
-                    ? (config.templateId ?? undefined)
-                    : undefined;
-                const stylePreset =
-                  generationMode === "scratch"
-                    ? mapVisualStyleToDiegoPreset(config.visualStyle)
-                    : "auto";
-                const executeResponse = await studioCardsApi.execute(
-                  "courseware_ppt",
-                  {
-                    project_id: project.id,
-                    client_session_id: liveSessionId,
-                    run_id: liveRunId,
-                    rag_source_ids:
-                      readySelectedFileIds.length > 0
-                        ? readySelectedFileIds
-                        : undefined,
-                    config: {
-                      topic: config.prompt,
-                      pages: normalizedPageCount,
-                      target_slide_count: normalizedPageCount,
-                      generation_mode: generationMode,
-                      template_id: templateId,
-                      style_preset: stylePreset,
-                      visual_policy: config.visualPolicy,
-                    },
-                  }
-                );
-                const executionResult =
-                  (executeResponse?.data?.execution_result as Record<
-                    string,
-                    unknown
-                  >) ?? {};
-                sessionId =
-                  extractSessionIdFromExecutionResult(executionResult);
-                runId = extractRunIdFromExecutionResult(executionResult);
+                const execution = await startCoursewarePptRun({
+                  projectId: project.id,
+                  clientSessionId: liveSessionId,
+                  ragSourceIds: readySelectedFileIds,
+                  selectedLibraryIds,
+                  config,
+                  teachingBrief: generationSession?.teaching_brief ?? undefined,
+                });
+                sessionId = execution.sessionId;
+                runId = execution.runId;
 
-                if (!sessionId) {
-                  throw new Error(
-                    "Missing session_id in courseware execution result"
-                  );
-                }
+	                if (!sessionId) {
+	                  throw new Error(
+	                    "Missing session_id in courseware execution result"
+	                  );
+	                }
+	                if (sessionId !== liveSessionId) {
+	                  console.warn("[studio.session_mismatch]", {
+	                    card_id: "courseware_ppt",
+	                    action: "execute",
+	                    expected_session_id: liveSessionId,
+	                    returned_session_id: sessionId,
+	                    mismatch_reason:
+	                      "response_session_differs_from_active_session",
+	                  });
+	                  toast({
+	                    title: "会话不一致，已阻断执行",
+	                    description: "返回会话与当前会话不一致，请刷新后重试。",
+	                    variant: "destructive",
+	                  });
+	                  throw new Error("Session mismatch in courseware execution result");
+	                }
 
-                if (sessionId) {
-                  setActiveSessionId(sessionId);
-                  if (runId) {
-                    setActiveRunId(runId);
-                  }
-                  void fetchArtifactHistory(project.id, sessionId);
-                }
-                return sessionId;
+	                if (!runId) {
+	                  throw new Error(
+	                    "Missing run.run_id in courseware execution result"
+	                  );
+	                }
+	                const resolvedRunId = runId;
+
+	                useProjectStore.setState({
+	                  activeRunId: resolvedRunId,
+	                });
+                recordWorkflowEntry({
+                  toolType: "ppt",
+                  title: "课件大纲",
+                  status: "draft",
+                  step: "outline",
+                  ppt_status: "outline_generating",
+                  sessionId,
+                  runId: resolvedRunId,
+                  toolLabel: TOOL_LABELS.ppt,
+                });
+                void fetchArtifactHistory(project.id, sessionId);
+                return {
+                  sessionId,
+                  runId: resolvedRunId,
+                };
               }}
               isCardManagedFlowExpanded={isCardManagedFlowExpanded}
               currentCardId={capability.currentCardId}
               isStudioActionRunning={execution.isStudioActionRunning}
               isLoadingCardProtocol={capability.isLoadingCardProtocol}
               sourceOptions={capability.sourceOptions}
-              selectedSourceId={capability.selectedSourceId}
+              selectedSourceId={effectiveSelectedSourceId}
               onSelectedSourceChange={
                 capability.setSelectedSourceForCurrentCard
               }
@@ -955,6 +2111,7 @@ export function StudioPanelContainer({
         onClose={() => setIsArchiveHistoryPanelOpen(false)}
         archivedHistory={archivedHistory}
         onUnarchiveHistoryItem={unarchiveHistoryItem}
+        onDeleteHistoryItem={deleteArchivedHistoryItem}
       />
     </div>
   );

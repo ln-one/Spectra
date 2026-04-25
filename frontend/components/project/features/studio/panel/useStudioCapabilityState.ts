@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useRef, useState } from "react";
 import { projectSpaceApi, studioCardsApi } from "@/lib/sdk";
 import { getErrorMessage } from "@/lib/sdk/errors";
 import type {
@@ -6,6 +6,7 @@ import type {
   ArtifactHistoryItem,
   GenerationToolType,
 } from "@/lib/project-space/artifact-history";
+import { toArtifactHistoryItem } from "@/lib/project-space/artifact-history";
 import { toast } from "@/hooks/use-toast";
 import type { StudioToolKey } from "../tools";
 import {
@@ -16,7 +17,12 @@ import {
   DEFAULT_CAPABILITY_PENDING_REASON,
   STUDIO_CARD_BY_TOOL,
 } from "./constants";
+import {
+  doesArtifactMatchResolvedTarget,
+  resolveManagedTarget,
+} from "./managed-target-resolver";
 import type {
+  ManagedWorkbenchState,
   CapabilityStateByCardId,
   CardCapabilityMap,
   ExecutionPlanMap,
@@ -32,8 +38,10 @@ interface UseStudioCapabilityStateArgs {
   activeSessionId: string | null;
   activeRunId: string | null;
   expandedTool: GenerationToolType | null;
+  generationSession?: unknown;
   artifactHistoryByTool: ArtifactHistoryByTool;
   draftSourceArtifactId: string | null;
+  managedWorkbenchState?: ManagedWorkbenchState | null;
 }
 
 export function useStudioCapabilityState({
@@ -41,8 +49,10 @@ export function useStudioCapabilityState({
   activeSessionId,
   activeRunId,
   expandedTool,
+  generationSession,
   artifactHistoryByTool,
   draftSourceArtifactId,
+  managedWorkbenchState = null,
 }: UseStudioCapabilityStateArgs) {
   const [selectedSourceByCard, setSelectedSourceByCard] =
     useState<SelectedSourceByCard>({});
@@ -57,6 +67,7 @@ export function useStudioCapabilityState({
     useState<CapabilityStateByCardId>({});
   const [runtimeArtifactsByTool, setRuntimeArtifactsByTool] =
     useState<RuntimeArtifactsByTool>({});
+  const resolvedArtifactIdsByCardRef = useRef<Record<string, string>>({});
 
   const runtimeArtifactStorageKey = buildRuntimeArtifactStorageKey(
     projectId,
@@ -80,37 +91,74 @@ export function useStudioCapabilityState({
     : null;
   const requiresSourceArtifact =
     currentCapability?.requires_source_artifact ?? false;
-  const supportsChatRefine = currentCapability?.supports_chat_refine ?? true;
+  const supportsChatRefine = currentCapability?.supports_chat_refine ?? false;
   const currentReadiness =
     currentExecutionPlan?.readiness ?? currentCapability?.readiness ?? null;
   const isProtocolPending = currentReadiness === "protocol_pending";
   const hasSourceBinding = Boolean(selectedSourceId || draftSourceArtifactId);
 
-  const currentToolArtifacts = useMemo(() => {
+  const mergedToolArtifacts = useMemo(() => {
     if (!expandedToolKey) return [];
     const fromStore = artifactHistoryByTool[expandedToolKey] ?? [];
-    const merged = mergeToolArtifacts(
+    return mergeToolArtifacts(
       expandedToolKey,
       fromStore,
       runtimeArtifactsByTool
     );
+  }, [artifactHistoryByTool, expandedToolKey, runtimeArtifactsByTool]);
+
+  const resolvedManagedTarget = useMemo(
+    () =>
+      resolveManagedTarget({
+        toolType: expandedToolKey,
+        managedWorkbenchState,
+        activeSessionId,
+        activeRunId,
+        currentToolArtifacts: mergedToolArtifacts,
+      }),
+    [
+      activeRunId,
+      activeSessionId,
+      expandedToolKey,
+      managedWorkbenchState,
+      mergedToolArtifacts,
+    ]
+  );
+
+  const currentToolArtifacts = useMemo(() => {
+    if (!expandedToolKey) return [];
+    if (resolvedManagedTarget?.toolType === expandedToolKey) {
+      if (resolvedManagedTarget.kind === "draft") {
+        if (!resolvedManagedTarget.artifactId) {
+          return [];
+        }
+        return mergedToolArtifacts.filter((item) =>
+          doesArtifactMatchResolvedTarget(item, resolvedManagedTarget)
+        );
+      }
+      return mergedToolArtifacts.filter((item) =>
+        doesArtifactMatchResolvedTarget(item, resolvedManagedTarget)
+      );
+    }
     const normalizedRunId = activeRunId?.trim() || null;
     if (!normalizedRunId) {
-      return merged;
+      return mergedToolArtifacts;
     }
-    return merged.filter(
+    return mergedToolArtifacts.filter(
       (item) => (item.runId?.trim() || null) === normalizedRunId
     );
   }, [
     activeRunId,
-    artifactHistoryByTool,
     expandedToolKey,
-    runtimeArtifactsByTool,
+    mergedToolArtifacts,
+    resolvedManagedTarget,
   ]);
 
   const completedPptHistorySources = useMemo<StudioSourceOption[]>(() => {
     const requiresPptSources =
-      currentCardId === "word_document" || currentCardId === "speaker_notes";
+      currentCardId === "word_document" ||
+      currentCardId === "speaker_notes" ||
+      currentCardId === "demonstration_animations";
     if (!requiresPptSources) return [];
     const pptHistory = artifactHistoryByTool.ppt ?? [];
     const seen = new Set<string>();
@@ -149,6 +197,8 @@ export function useStudioCapabilityState({
   }, [expandedToolKey]);
   const activeCapabilityState =
     currentCapabilityState ?? fallbackCapabilityState;
+  const latestToolArtifact = currentToolArtifacts[0] ?? null;
+  const latestToolArtifactId = latestToolArtifact?.artifactId ?? null;
 
   useEffect(() => {
     if (!runtimeArtifactStorageKey) {
@@ -239,7 +289,7 @@ export function useStudioCapabilityState({
 
   useEffect(() => {
     if (!currentCardId || !expandedToolKey) return;
-    const latestArtifact = currentToolArtifacts[0];
+    const latestArtifact = latestToolArtifact;
     let cancelled = false;
 
     const applyResolution = (
@@ -264,6 +314,7 @@ export function useStudioCapabilityState({
       };
     }
     if (!projectId || !latestArtifact) {
+      delete resolvedArtifactIdsByCardRef.current[currentCardId];
       applyResolution(defaultResolution);
       return () => {
         cancelled = true;
@@ -281,17 +332,47 @@ export function useStudioCapabilityState({
 
     const loadCapability = async () => {
       try {
+        let artifactForResolution = latestArtifact;
+        const metadataMissing =
+          !latestArtifact.metadata ||
+          Object.keys(latestArtifact.metadata).length === 0;
+        const needsArtifactDetail =
+          metadataMissing || latestArtifact.artifactType === "docx";
+
+        if (needsArtifactDetail) {
+          const detailResponse = await projectSpaceApi.getArtifact(
+            projectId,
+            latestArtifact.artifactId
+          );
+          if (detailResponse?.artifact) {
+            const detailItem = toArtifactHistoryItem(detailResponse.artifact);
+            artifactForResolution = {
+              ...latestArtifact,
+              ...detailItem,
+              runId: latestArtifact.runId ?? detailItem.runId ?? null,
+              runNo: latestArtifact.runNo ?? detailItem.runNo ?? null,
+              metadata:
+                detailItem.metadata ??
+                latestArtifact.metadata ??
+                null,
+            };
+          }
+        }
+
         const blob = await projectSpaceApi.downloadArtifact(
           projectId,
-          latestArtifact.artifactId
+          artifactForResolution.artifactId
         );
         const resolved = await resolveCapabilityFromArtifact({
           toolId: expandedToolKey,
-          artifact: latestArtifact,
+          artifact: artifactForResolution,
           blob,
         });
+        resolvedArtifactIdsByCardRef.current[currentCardId] =
+          artifactForResolution.artifactId;
         applyResolution(resolved);
       } catch (error) {
+        delete resolvedArtifactIdsByCardRef.current[currentCardId];
         applyResolution({
           status: "backend_error",
           reason: `Failed to read backend artifact: ${getErrorMessage(error)}.`,
@@ -304,7 +385,13 @@ export function useStudioCapabilityState({
     return () => {
       cancelled = true;
     };
-  }, [currentCardId, currentToolArtifacts, expandedToolKey, projectId]);
+  }, [
+    currentCardId,
+    expandedToolKey,
+    latestToolArtifact,
+    latestToolArtifactId,
+    projectId,
+  ]);
 
   const sourceOptions = useMemo(() => {
     if (!currentCardId) return [];
@@ -360,12 +447,13 @@ export function useStudioCapabilityState({
   ) => {
     setRuntimeArtifactsByTool((prev) => {
       const existing = prev[toolKey] ?? [];
-      if (existing.some((item) => item.artifactId === runtimeItem.artifactId)) {
-        return prev;
-      }
+      const nextItems = [
+        runtimeItem,
+        ...existing.filter((item) => item.artifactId !== runtimeItem.artifactId),
+      ];
       return {
         ...prev,
-        [toolKey]: [runtimeItem, ...existing],
+        [toolKey]: nextItems,
       };
     });
   };
@@ -382,6 +470,7 @@ export function useStudioCapabilityState({
     supportsChatRefine,
     hasSourceBinding,
     currentToolArtifacts,
+    resolvedManagedTarget,
     activeCapabilityState,
     isLoadingCardProtocol,
     upsertCurrentCardSources,

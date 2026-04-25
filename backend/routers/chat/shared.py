@@ -52,6 +52,7 @@ def to_message(conv) -> dict:
             content=content,
             timestamp=conv.createdAt,
             citations=citations,
+            metadata=parsed_metadata or None,
         ).model_dump(mode="json")
     except Exception as exc:
         logger.debug("to_message_fallback_used: id=%s error=%s", conv.id, exc)
@@ -61,6 +62,7 @@ def to_message(conv) -> dict:
             content=content,
             timestamp=conv.createdAt,
             citations=[] if role == "assistant" else None,
+            metadata=parsed_metadata or None,
         ).model_dump(mode="json")
 
 

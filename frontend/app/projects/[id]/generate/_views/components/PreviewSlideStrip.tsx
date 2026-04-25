@@ -1,16 +1,16 @@
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { SvgPreviewSurface } from "./SvgPreviewSurface";
+import { isRenderableSvgDataUrl } from "../svgPreview";
 
 type SlideItem = {
   id?: string;
   index: number;
   title?: string;
-  thumbnail_url?: string;
-  rendered_html_preview?: string | null;
+  thumbnail_url?: string | null;
   rendered_previews?: Array<{
     split_index: number;
-    image_url?: string | null;
-    html_preview?: string | null;
+    svg_data_url?: string | null;
   }>;
 };
 
@@ -25,9 +25,19 @@ export function PreviewSlideStrip({
   activeSlideIndex,
   onScrollToSlide,
 }: PreviewSlideStripProps) {
-  const hasStructuredPreview = (slide: SlideItem): boolean =>
-    Array.isArray(slide.rendered_previews) &&
-    slide.rendered_previews.some((preview) => Boolean(preview?.image_url));
+  const resolveSlideSvgDataUrl = (slide: SlideItem): string | null => {
+    if (Array.isArray(slide.rendered_previews)) {
+      const firstRenderablePreview =
+        [...slide.rendered_previews]
+          .sort((left, right) => (left.split_index ?? 0) - (right.split_index ?? 0))
+          .find((preview) => isRenderableSvgDataUrl(preview?.svg_data_url))
+          ?.svg_data_url ?? null;
+      if (firstRenderablePreview) {
+        return firstRenderablePreview;
+      }
+    }
+    return isRenderableSvgDataUrl(slide.thumbnail_url) ? slide.thumbnail_url : null;
+  };
 
   return (
     <motion.div
@@ -39,6 +49,7 @@ export function PreviewSlideStrip({
       <div className="flex items-center gap-3 overflow-x-auto scrollbar-hide py-3 px-4 max-w-full">
         {slides.map((slide) => {
           const isActive = activeSlideIndex === slide.index;
+          const slideSvgDataUrl = resolveSlideSvgDataUrl(slide);
           return (
             <div
               key={`thumb-${slide.id || slide.index}`}
@@ -58,14 +69,17 @@ export function PreviewSlideStrip({
                   : "w-20 border-border/50 bg-muted/50 hover:border-primary/40 hover:bg-muted"
               )}
             >
-              {slide.thumbnail_url ? (
-                <img
-                  src={slide.thumbnail_url}
-                  alt={slide.title || `第 ${slide.index + 1} 页`}
-                  className="absolute inset-0 h-full w-full object-cover"
-                  loading="lazy"
-                />
-              ) : hasStructuredPreview(slide) || slide.rendered_html_preview ? (
+              {slideSvgDataUrl ? (
+                <div className="absolute inset-0">
+                  <SvgPreviewSurface
+                    svgDataUrl={slideSvgDataUrl}
+                    alt={slide.title || `第 ${slide.index + 1} 页`}
+                    className="h-full w-full"
+                    objectClassName="pointer-events-none h-full w-full"
+                    errorClassName="text-[10px]"
+                  />
+                </div>
+              ) : Array.isArray(slide.rendered_previews) && slide.rendered_previews.length > 0 ? (
                 <div className="absolute inset-0 bg-gradient-to-br from-zinc-50 via-white to-zinc-100" />
               ) : null}
               <div className="absolute inset-0 bg-gradient-to-t from-background/90 via-background/40 to-transparent pointer-events-none" />

@@ -42,6 +42,51 @@ ErrorResponse:
       type: string
       description: 根级错误摘要，通常为“请求失败”或业务级失败说明
 
+ProblemDetails:
+  type: object
+  required: [type, title, status, detail, instance]
+  properties:
+    type:
+      type: string
+      format: uri
+    title:
+      type: string
+    status:
+      type: integer
+      minimum: 100
+      maximum: 599
+    detail:
+      type: string
+    instance:
+      type: string
+      description: 本次错误对应的请求路径
+  additionalProperties: true
+
+AnimationFormatProblemDetails:
+  allOf:
+    - $ref: '#/ProblemDetails'
+    - type: object
+      required: [error_code, allowed_formats, invalid_field, invalid_value]
+      properties:
+        error_code:
+          type: string
+          enum:
+            [
+              INVALID_ANIMATION_FORMAT,
+              ANIMATION_FORMAT_MISMATCH,
+              ANIMATION_PLACEMENT_FORMAT_NOT_SUPPORTED,
+            ]
+        allowed_formats:
+          type: array
+          items:
+            type: string
+            enum: [gif, html5]
+        invalid_field:
+          type: string
+          enum: [animation_format, render_mode]
+        invalid_value:
+          type: string
+
 CapabilityStatus:
   type: object
   description: 能力执行状态与降级信息（统一字段，适用于解析/视频/语音）

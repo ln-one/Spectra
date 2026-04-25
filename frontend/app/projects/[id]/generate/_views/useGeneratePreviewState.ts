@@ -1,62 +1,156 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { previewApi, type ModifySessionRequest } from "@/lib/sdk/preview";
-import { generateApi, type SessionRun } from "@/lib/sdk/generate";
-import { projectSpaceApi } from "@/lib/sdk/project-space";
-import { ApiError } from "@/lib/sdk/client";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { previewApi } from "@/lib/sdk/preview";
+import {
+  generateApi,
+  type GenerationEvent,
+  type SessionRun,
+} from "@/lib/sdk/generate";
+import { ApiError, apiFetch, toApiError } from "@/lib/sdk/client";
 import { useGenerationEvents } from "@/hooks/useGenerationEvents";
 import { useProjectStore } from "@/stores/projectStore";
 import { toast } from "@/hooks/use-toast";
 import type { components } from "@/lib/sdk/types";
+import { buildArtifactDownloadFilename } from "@/lib/project-space/download-filename";
+import {
+  parseEventPayloadObject,
+  readOutlineRunCache,
+  resolveEventLog,
+} from "@/components/project/features/outline-editor/utils";
 import { useShallow } from "zustand/react/shallow";
 import {
-  buildArtifactDownloadFilename,
-  inferArtifactDownloadExt,
-  resolveArtifactTitleFromMetadata,
-} from "@/lib/project-space/download-filename";
+  isRenderableSvgDataUrl,
+  normalizeSvgPreviewFrame,
+  normalizeSvgPreviewManifest,
+} from "./svgPreview";
 
 type Slide = components["schemas"]["Slide"] & {
-  rendered_html_preview?: string | null;
   rendered_previews?: RenderedPreviewFrame[];
 };
+
+type PreviewResponseData = components["schemas"]["PreviewResponse"]["data"];
+
 type RenderedPreviewFrame = {
   index: number;
   slide_id: string;
-  image_url?: string | null;
-  html_preview?: string | null;
+  format?: "svg" | string | null;
+  svg_data_url?: string | null;
+  preview?: SvgPreviewManifest | null;
   status?: string | null;
   split_index: number;
   split_count: number;
   width?: number | null;
   height?: number | null;
 };
+
 type RenderedPreview = {
   format?: string;
   page_count?: number;
   pages?: RenderedPreviewFrame[];
 };
-type SessionStatePayload = components["schemas"]["SessionStatePayloadTarget"];
-type ArtifactType = components["schemas"]["Artifact"]["type"];
-type SessionStatePayloadWithRun = SessionStatePayload & {
-  current_run?: {
-    run_id?: string;
+
+type DiegoPreviewContext = {
+  provider: "diego";
+  run_id?: string;
+  palette?: string;
+  style?: string;
+  style_dna_id?: string;
+  effective_template_style?: string;
+  source_event_seq?: number;
+  theme?: {
+    primary?: string;
+    secondary?: string;
+    accent?: string;
+    light?: string;
+    bg?: string;
+  };
+  fonts?: {
+    title?: string;
+    body?: string;
   };
 };
 
-type ModifyTargetSlide = Pick<Slide, "id" | "index">;
+type SvgPreviewManifest = {
+  index?: number | null;
+  slide_id?: string | null;
+  format?: "svg" | string | null;
+  svg_data_url?: string | null;
+  width?: number | null;
+  height?: number | null;
+};
 
-type ModifyRetryContext = {
-  slide: ModifyTargetSlide;
-  instruction: string;
+export type AuthorityPreviewBlock = {
+  block_id: string;
+  kind: "heading" | "paragraph" | "bullet_list" | "image";
+  text?: string;
+  items?: string[];
+  src?: string;
+  alt?: string;
+};
+
+export type AuthorityPreviewFrame = {
+  slide_id: string;
+  index: number;
+  split_index: number;
+  split_count: number;
+  status?: string;
+  format?: "svg" | string | null;
+  svg_data_url?: string | null;
+  html_preview?: string | null;
+  preview?: SvgPreviewManifest | null;
+  width?: number | null;
+  height?: number | null;
+};
+
+export type AuthorityPreviewSlide = {
+  slide_id: string;
+  index: number;
+  title?: string;
+  status?: string;
+  layout_kind?: string;
+  render_version?: number | null;
+  format?: "svg" | string | null;
+  svg_data_url?: string | null;
+  html_preview?: string | null;
+  preview?: SvgPreviewManifest | null;
+  width?: number | null;
+  height?: number | null;
+  frames?: AuthorityPreviewFrame[];
+  editable_block_ids?: string[];
+  blocks?: AuthorityPreviewBlock[];
+};
+
+export type AuthorityPreview = {
+  provider: "pagevra" | "diego";
+  run_id?: string | null;
+  render_version?: number | null;
+  viewport?: {
+    width?: number | null;
+    height?: number | null;
+  };
+  compile_context_version?: number | null;
+  compile_context?: DiegoPreviewContext | null;
+  theme?: DiegoPreviewContext["theme"];
+  fonts?: DiegoPreviewContext["fonts"];
+  slides: AuthorityPreviewSlide[];
+};
+
+export type PreviewPreambleLog = {
+  id: string;
+  title: string;
+  detail?: string;
+  tone?: "info" | "success" | "warn" | "error";
+  ts?: string;
 };
 
 type SessionIdentity = {
   session?: {
     session_id?: string;
   } | null;
-  current_run?: {
-    run_id?: string;
-  } | null;
 } | null;
+
+type RawPayload = Record<string, unknown>;
+const RUN_TITLE_POLL_INTERVAL_MS = 2500;
+const BAD_RUN_TITLE_RE = /[A-Za-z]{4,}_[A-Za-z0-9_]+/;
 
 function resolveEventKey(event: {
   event_id?: string;
@@ -69,19 +163,30 @@ function resolveEventKey(event: {
   return `fallback:${event.timestamp ?? ""}:${event.event_type ?? ""}`;
 }
 
-function readStringField(
-  payload: Record<string, unknown>,
-  key: string
-): string | null {
+function readStringField(payload: RawPayload, key: string): string | null {
   const value = payload[key];
-  return typeof value === "string" && value.trim() ? value : null;
+  return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
-function readRunIdFromTrace(payload: Record<string, unknown>): string | null {
+function readNumberField(payload: RawPayload, key: string): number | null {
+  const value = payload[key];
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+  return null;
+}
+
+function readRunIdFromTrace(payload: RawPayload): string | null {
   const trace = payload.run_trace;
   if (!trace || typeof trace !== "object") return null;
   const runId = (trace as { run_id?: unknown }).run_id;
-  if (typeof runId === "string" && runId.trim()) return runId;
+  if (typeof runId === "string" && runId.trim()) return runId.trim();
   const traceRun = (trace as { run?: { run_id?: unknown } }).run;
   if (
     traceRun &&
@@ -89,27 +194,449 @@ function readRunIdFromTrace(payload: Record<string, unknown>): string | null {
     typeof traceRun.run_id === "string" &&
     traceRun.run_id.trim()
   ) {
-    return traceRun.run_id;
+    return traceRun.run_id.trim();
   }
   return null;
 }
 
-export function shouldAdoptStudioArtifactForPptPreview(
-  payload: Record<string, unknown>
-): boolean {
-  const cardId = readStringField(payload, "card_id");
-  const artifactType = readStringField(payload, "artifact_type");
-  if (cardId === "courseware_ppt") return true;
-  if (artifactType === "pptx") return true;
-  return false;
+function readRunIdFromPayload(payload: RawPayload): string | null {
+  return readStringField(payload, "run_id") || readRunIdFromTrace(payload);
 }
 
-function readBooleanField(
-  payload: Record<string, unknown>,
-  key: string
-): boolean | null {
-  const value = payload[key];
-  return typeof value === "boolean" ? value : null;
+function readFailureMessageFromEvent(event: GenerationEvent): string | null {
+  const payload = (event.payload ?? {}) as RawPayload;
+  const sectionPayload =
+    payload.section_payload && typeof payload.section_payload === "object"
+      ? (payload.section_payload as RawPayload)
+      : null;
+  const rawPayload =
+    sectionPayload?.raw_payload && typeof sectionPayload.raw_payload === "object"
+      ? (sectionPayload.raw_payload as RawPayload)
+      : null;
+  const failurePayload = rawPayload || payload;
+  const eventType = event.event_type;
+  const diegoEventType =
+    readStringField(sectionPayload || {}, "diego_event_type") || eventType;
+  const isFailure =
+    event.state === "FAILED" ||
+    eventType === "generation.failed" ||
+    eventType === "task.failed" ||
+    diegoEventType === "run.failed" ||
+    diegoEventType === "slide.failed";
+  if (!isFailure) return null;
+
+  const slideNo = readNumberField(failurePayload, "slide_no");
+  const errorCode = readStringField(failurePayload, "error_code");
+  const failedStage = readStringField(failurePayload, "failed_stage");
+  const message =
+    readStringField(failurePayload, "progress_message") ||
+    readStringField(failurePayload, "error_message") ||
+    readStringField(failurePayload, "reason") ||
+    readStringField(failurePayload, "state_reason") ||
+    readStringField(payload, "error_message") ||
+    readStringField(payload, "stateReason") ||
+    readStringField(event as RawPayload, "state_reason") ||
+    readStringField(event as RawPayload, "stateReason") ||
+    diegoEventType ||
+    eventType;
+  const parts = [
+    slideNo ? `第 ${slideNo} 页` : null,
+    errorCode,
+    failedStage,
+    message,
+  ].filter(Boolean);
+  return parts.join(" · ");
+}
+
+function readDiegoEventType(event: GenerationEvent): string {
+  const payload = (event.payload ?? {}) as RawPayload;
+  const sectionPayload =
+    payload.section_payload && typeof payload.section_payload === "object"
+      ? (payload.section_payload as RawPayload)
+      : null;
+  return (
+    readStringField(sectionPayload || {}, "diego_event_type") ||
+    String(event.event_type || "").trim()
+  );
+}
+
+function isCompletionEvent(event: GenerationEvent): boolean {
+  const eventType = String(event.event_type || "").trim();
+  const diegoEventType = readDiegoEventType(event);
+  return (
+    event.state === "SUCCESS" ||
+    eventType === "task.completed" ||
+    eventType === "generation.completed" ||
+    eventType === "ppt.completed" ||
+    diegoEventType === "run.completed" ||
+    diegoEventType === "compile.completed"
+  );
+}
+
+function resolveFinalFailureMessage(events: GenerationEvent[]): string | null {
+  const orderedEvents = [...events].sort((left, right) => {
+    const leftTime = Date.parse(left.timestamp || "");
+    const rightTime = Date.parse(right.timestamp || "");
+    if (Number.isNaN(leftTime) || Number.isNaN(rightTime)) return 0;
+    return leftTime - rightTime;
+  });
+  let failureMessage: string | null = null;
+  for (const event of orderedEvents) {
+    if (isCompletionEvent(event)) {
+      failureMessage = null;
+      continue;
+    }
+    failureMessage = readFailureMessageFromEvent(event) || failureMessage;
+  }
+  return failureMessage;
+}
+
+function resolvePptUrlFromSnapshot(value: unknown): string | null {
+  if (!value || typeof value !== "object") return null;
+  const source = value as Record<string, unknown>;
+  const direct =
+    readStringField(source, "ppt_url") || readStringField(source, "pptUrl");
+  if (direct) return direct;
+
+  const session =
+    source.session && typeof source.session === "object"
+      ? (source.session as Record<string, unknown>)
+      : null;
+  if (session) {
+    const sessionDirect =
+      readStringField(session, "ppt_url") || readStringField(session, "pptUrl");
+    if (sessionDirect) return sessionDirect;
+
+    const sessionResult =
+      session.result && typeof session.result === "object"
+        ? (session.result as Record<string, unknown>)
+        : null;
+    if (sessionResult) {
+      const sessionResultUrl =
+        readStringField(sessionResult, "ppt_url") ||
+        readStringField(sessionResult, "pptUrl");
+      if (sessionResultUrl) return sessionResultUrl;
+    }
+  }
+
+  const result =
+    source.result && typeof source.result === "object"
+      ? (source.result as Record<string, unknown>)
+      : null;
+  if (result) {
+    const resultUrl =
+      readStringField(result, "ppt_url") || readStringField(result, "pptUrl");
+    if (resultUrl) return resultUrl;
+  }
+
+  const currentRun =
+    source.current_run && typeof source.current_run === "object"
+      ? (source.current_run as Record<string, unknown>)
+      : null;
+  if (currentRun) {
+    const outputUrls =
+      currentRun.output_urls && typeof currentRun.output_urls === "object"
+        ? (currentRun.output_urls as Record<string, unknown>)
+        : null;
+    if (outputUrls) {
+      return readStringField(outputUrls, "pptx");
+    }
+  }
+
+  return null;
+}
+
+function triggerBlobDownload(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+async function downloadPptFromUrl(
+  pptUrl: string,
+  options?: { title?: string | null; runId?: string | null }
+): Promise<void> {
+  const downloadUrl = new URL(
+    pptUrl,
+    typeof window !== "undefined" ? window.location.origin : undefined
+  );
+  downloadUrl.searchParams.set("ts", Date.now().toString());
+
+  const response = await apiFetch(downloadUrl.toString(), {
+    cache: "no-store",
+  });
+  if (!response.ok) {
+    let payload: unknown = { message: "下载 PPT 失败" };
+    try {
+      payload = await response.json();
+    } catch {
+      // Keep the default payload when the body is not JSON.
+    }
+    throw toApiError(payload, response.status);
+  }
+
+  const blob = await response.blob();
+  triggerBlobDownload(
+    blob,
+    buildArtifactDownloadFilename({
+      title: options?.title,
+      artifactId: options?.runId,
+      artifactType: "pptx",
+      ext: "pptx",
+    })
+  );
+}
+
+function isOutlineLike(value: unknown): boolean {
+  if (!value || typeof value !== "object") return false;
+  const source = value as Record<string, unknown>;
+  return (
+    Array.isArray(source.nodes) ||
+    Array.isArray(source.sections) ||
+    Array.isArray(source.slides)
+  );
+}
+
+function resolveOutlineFromSnapshot(
+  value: unknown
+): Record<string, unknown> | null {
+  if (!value || typeof value !== "object") return null;
+  const source = value as Record<string, unknown>;
+  if (isOutlineLike(source)) return source;
+
+  const containers: Array<Record<string, unknown> | null> = [
+    source,
+    source.session && typeof source.session === "object"
+      ? (source.session as Record<string, unknown>)
+      : null,
+    source.result && typeof source.result === "object"
+      ? (source.result as Record<string, unknown>)
+      : null,
+  ];
+
+  for (const container of containers) {
+    const outline = container?.outline;
+    if (isOutlineLike(outline)) {
+      return outline as Record<string, unknown>;
+    }
+  }
+  return null;
+}
+
+function extractPreviewOutline(
+  events: GenerationEvent[]
+): Record<string, unknown> | null {
+  for (let index = events.length - 1; index >= 0; index -= 1) {
+    const event = events[index];
+    const eventType = String(event.event_type || "").trim();
+    if (
+      eventType !== "outline.ready" &&
+      eventType !== "outline.updated" &&
+      eventType !== "outline.completed" &&
+      eventType !== "progress.updated"
+    ) {
+      continue;
+    }
+
+    const payloadObject = parseEventPayloadObject(event.payload);
+    const payload = payloadObject as {
+      outline?: unknown;
+      section_payload?: {
+        outline?: unknown;
+        diego_event_type?: string;
+        raw_payload?: Record<string, unknown>;
+      };
+    };
+    const sectionPayload =
+      payload.section_payload && typeof payload.section_payload === "object"
+        ? payload.section_payload
+        : null;
+    const diegoEventType = sectionPayload?.diego_event_type || eventType;
+    if (
+      diegoEventType !== "outline.ready" &&
+      diegoEventType !== "outline.updated" &&
+      diegoEventType !== "outline.completed"
+    ) {
+      continue;
+    }
+
+    const rawPayload =
+      sectionPayload?.raw_payload &&
+      typeof sectionPayload.raw_payload === "object"
+        ? sectionPayload.raw_payload
+        : (payload as Record<string, unknown>);
+    const candidates = [
+      payload.outline,
+      sectionPayload?.outline,
+      rawPayload.outline,
+      rawPayload,
+      rawPayload.result && typeof rawPayload.result === "object"
+        ? (rawPayload.result as Record<string, unknown>).outline
+        : null,
+      rawPayload.session && typeof rawPayload.session === "object"
+        ? (rawPayload.session as Record<string, unknown>).outline
+        : null,
+    ];
+    const outline = candidates.find(isOutlineLike);
+    if (outline && typeof outline === "object") {
+      return outline as Record<string, unknown>;
+    }
+  }
+  return null;
+}
+
+function normalizeTheme(
+  value: unknown
+): DiegoPreviewContext["theme"] | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const source = value as RawPayload;
+  const theme: DiegoPreviewContext["theme"] = {};
+  for (const key of [
+    "primary",
+    "secondary",
+    "accent",
+    "light",
+    "bg",
+  ] as const) {
+    const parsed = readStringField(source, key);
+    if (parsed) theme[key] = parsed;
+  }
+  return Object.keys(theme).length > 0 ? theme : undefined;
+}
+
+function normalizeFonts(
+  value: unknown
+): DiegoPreviewContext["fonts"] | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const source = value as RawPayload;
+  const fonts: DiegoPreviewContext["fonts"] = {};
+  const title = readStringField(source, "title");
+  const body = readStringField(source, "body");
+  if (title) fonts.title = title;
+  if (body) fonts.body = body;
+  return Object.keys(fonts).length > 0 ? fonts : undefined;
+}
+
+function normalizeDiegoPreviewContext(
+  value: unknown,
+  runIdFallback: string | null
+): DiegoPreviewContext | null {
+  if (!value || typeof value !== "object") return null;
+  const source = value as RawPayload;
+  const normalized: DiegoPreviewContext = {
+    provider: "diego",
+  };
+
+  const runId = readStringField(source, "run_id") || runIdFallback || undefined;
+  if (runId) normalized.run_id = runId;
+  const palette = readStringField(source, "palette");
+  if (palette) normalized.palette = palette;
+  const style = readStringField(source, "style");
+  if (style) normalized.style = style;
+  const styleDnaId = readStringField(source, "style_dna_id");
+  if (styleDnaId) normalized.style_dna_id = styleDnaId;
+  const templateStyle = readStringField(source, "effective_template_style");
+  if (templateStyle) normalized.effective_template_style = templateStyle;
+  const sourceSeq = readNumberField(source, "source_event_seq");
+  if (sourceSeq !== null) normalized.source_event_seq = sourceSeq;
+
+  normalized.theme = normalizeTheme(source.theme);
+  normalized.fonts = normalizeFonts(source.fonts);
+
+  return normalized;
+}
+
+function buildDiegoContextUpdateFromEvent(
+  eventType: string,
+  rawPayload: RawPayload,
+  runId: string | null,
+  seq: number | null
+): DiegoPreviewContext | null {
+  if (
+    eventType !== "plan.completed" &&
+    eventType !== "requirements.analyzed" &&
+    eventType !== "requirements.analyzing.completed"
+  ) {
+    return null;
+  }
+
+  const update: DiegoPreviewContext = {
+    provider: "diego",
+    ...(runId ? { run_id: runId } : {}),
+    ...(seq !== null ? { source_event_seq: seq } : {}),
+  };
+
+  if (eventType === "plan.completed") {
+    const palette = readStringField(rawPayload, "palette");
+    const style = readStringField(rawPayload, "style");
+    const styleDnaId = readStringField(rawPayload, "style_dna_id");
+    if (palette) update.palette = palette;
+    if (style) update.style = style;
+    if (styleDnaId) update.style_dna_id = styleDnaId;
+    update.theme = normalizeTheme(rawPayload.theme);
+    update.fonts = normalizeFonts(rawPayload.fonts);
+    return update;
+  }
+
+  const palette = readStringField(rawPayload, "palette_name");
+  const style =
+    readStringField(rawPayload, "style_recipe") ||
+    readStringField(rawPayload, "style_intent");
+  const styleDnaId = readStringField(rawPayload, "style_dna_id");
+  const templateStyle = readStringField(rawPayload, "effective_template_style");
+  if (palette) update.palette = palette;
+  if (style) update.style = style;
+  if (styleDnaId) update.style_dna_id = styleDnaId;
+  if (templateStyle) update.effective_template_style = templateStyle;
+  return update;
+}
+
+function mergeDiegoPreviewContext(
+  current: DiegoPreviewContext | null,
+  update: DiegoPreviewContext | null,
+  runIdFallback: string | null
+): DiegoPreviewContext | null {
+  if (!current && !update && !runIdFallback) return null;
+  const base: DiegoPreviewContext = {
+    provider: "diego",
+    ...(current ?? {}),
+  };
+  if (runIdFallback && !base.run_id) {
+    base.run_id = runIdFallback;
+  }
+  if (!update) return base;
+
+  const merged: DiegoPreviewContext = {
+    ...base,
+    ...update,
+    provider: "diego",
+  };
+
+  if (base.theme || update.theme) {
+    merged.theme = {
+      ...(base.theme ?? {}),
+      ...(update.theme ?? {}),
+    };
+  }
+  if (base.fonts || update.fonts) {
+    merged.fonts = {
+      ...(base.fonts ?? {}),
+      ...(update.fonts ?? {}),
+    };
+  }
+  if (
+    typeof base.source_event_seq === "number" ||
+    typeof update.source_event_seq === "number"
+  ) {
+    merged.source_event_seq = Math.max(
+      base.source_event_seq ?? 0,
+      update.source_event_seq ?? 0
+    );
+  }
+  return merged;
 }
 
 function buildSlidesContentMarkdown(slides: Slide[]): string {
@@ -124,26 +651,457 @@ function buildSlidesContentMarkdown(slides: Slide[]): string {
   return sections.join("\n\n---\n\n").trim();
 }
 
+function normalizeAuthorityBlocks(value: unknown): AuthorityPreviewBlock[] {
+  if (!Array.isArray(value)) return [];
+  const blocks: AuthorityPreviewBlock[] = [];
+  for (const item of value) {
+    if (!item || typeof item !== "object") continue;
+    const record = item as Record<string, unknown>;
+    const blockId = readStringField(record, "block_id");
+    const kindRaw = readStringField(record, "kind");
+    if (!blockId || !kindRaw) continue;
+    const kind = kindRaw as AuthorityPreviewBlock["kind"];
+    if (!["heading", "paragraph", "bullet_list", "image"].includes(kind)) {
+      continue;
+    }
+    blocks.push({
+      block_id: blockId,
+      kind,
+      ...(typeof record.text === "string" && record.text.trim()
+        ? { text: record.text.trim() }
+        : {}),
+      ...(Array.isArray(record.items)
+        ? {
+            items: record.items
+              .map((entry) => String(entry || "").trim())
+              .filter(Boolean),
+          }
+        : {}),
+      ...(typeof record.src === "string" && record.src.trim()
+        ? { src: record.src.trim() }
+        : {}),
+      ...(typeof record.alt === "string" && record.alt.trim()
+        ? { alt: record.alt.trim() }
+        : {}),
+    });
+  }
+  return blocks;
+}
+
+function normalizeAuthorityFrames(value: unknown): AuthorityPreviewFrame[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter(
+      (item): item is Record<string, unknown> =>
+        !!item && typeof item === "object"
+    )
+    .map((item) =>
+      normalizeSvgPreviewFrame(item, {
+        status: readStringField(item, "status") || undefined,
+      })
+    )
+    .filter(
+      (
+        frame
+      ): frame is NonNullable<ReturnType<typeof normalizeSvgPreviewFrame>> =>
+        Boolean(frame)
+    )
+    .sort((left, right) => {
+      const slideDiff = left.index - right.index;
+      if (slideDiff !== 0) return slideDiff;
+      return left.split_index - right.split_index;
+    });
+}
+
+function buildHtmlAuthorityPreview(
+  slides: Slide[],
+  renderedPreview: RenderedPreview | null | undefined,
+  runId: string | null,
+  renderVersion: number | null,
+  context: DiegoPreviewContext | null
+): AuthorityPreview {
+  const renderedPages = normalizeAuthorityFrames(renderedPreview?.pages);
+  const framesByKey = new Map<string, AuthorityPreviewFrame[]>();
+  renderedPages.forEach((frame) => {
+    const key = `${frame.slide_id}:${frame.index}`;
+    framesByKey.set(key, [...(framesByKey.get(key) ?? []), frame]);
+  });
+  const slideMap = new Map<string, AuthorityPreviewSlide>();
+  slides.forEach((slide) => {
+    const slideId = slide.id || `slide-${slide.index}`;
+    const key = `${slideId}:${slide.index}`;
+    const frames = framesByKey.get(key) ?? [];
+    const firstFrame = frames[0];
+    slideMap.set(key, {
+      slide_id: slideId,
+      index: slide.index,
+      title: String(slide.title || "").trim() || undefined,
+      status: firstFrame?.status || (frames.length > 0 ? "ready" : "pending"),
+      render_version: renderVersion,
+      format: firstFrame ? "svg" : null,
+      svg_data_url: firstFrame?.svg_data_url,
+      preview: firstFrame?.preview,
+      width: firstFrame?.width ?? renderedPages[0]?.width ?? 1280,
+      height: firstFrame?.height ?? renderedPages[0]?.height ?? 720,
+      frames,
+      editable_block_ids: [],
+      blocks: [],
+    });
+  });
+  renderedPages.forEach((frame) => {
+    const key = `${frame.slide_id}:${frame.index}`;
+    if (slideMap.has(key)) return;
+    slideMap.set(key, {
+      slide_id: frame.slide_id,
+      index: frame.index,
+      title: `Slide ${frame.index + 1}`,
+      status: frame.status || "ready",
+      render_version: renderVersion,
+      format: "svg",
+      svg_data_url: frame.svg_data_url,
+      preview: frame.preview,
+      width: frame.width ?? renderedPages[0]?.width ?? 1280,
+      height: frame.height ?? renderedPages[0]?.height ?? 720,
+      frames: framesByKey.get(key) ?? [frame],
+      editable_block_ids: [],
+      blocks: [],
+    });
+  });
+  const normalizedSlides = [...slideMap.values()].sort(
+    (a, b) => a.index - b.index
+  );
+  const viewportWidth =
+    renderedPages.find((frame) => typeof frame.width === "number")?.width ??
+    1280;
+  const viewportHeight =
+    renderedPages.find((frame) => typeof frame.height === "number")?.height ??
+    720;
+  return {
+    provider: "pagevra",
+    run_id: runId,
+    render_version: renderVersion,
+    viewport: { width: viewportWidth, height: viewportHeight },
+    compile_context_version: context?.source_event_seq ?? null,
+    compile_context: context,
+    theme: context?.theme,
+    fonts: context?.fonts,
+    slides: normalizedSlides,
+  };
+}
+
+function normalizeAuthorityPreview(
+  value: unknown,
+  slides: Slide[],
+  renderedPreview: RenderedPreview | null | undefined,
+  runId: string | null,
+  renderVersion: number | null,
+  context: DiegoPreviewContext | null
+): AuthorityPreview {
+  if (!value || typeof value !== "object") {
+    return buildHtmlAuthorityPreview(
+      slides,
+      renderedPreview,
+      runId,
+      renderVersion,
+      context
+    );
+  }
+  const source = value as Record<string, unknown>;
+  const normalizedSlides = Array.isArray(source.slides)
+    ? source.slides
+        .filter(
+          (item): item is Record<string, unknown> =>
+            !!item && typeof item === "object"
+        )
+        .map((item) => {
+          const frames = normalizeAuthorityFrames(item.frames);
+          const previewSource =
+            item.preview && typeof item.preview === "object"
+              ? (item.preview as Record<string, unknown>)
+              : {};
+          const index =
+            readNumberField(item, "index") ??
+            readNumberField(previewSource, "index") ??
+            0;
+          const slideId =
+            readStringField(item, "slide_id") ||
+            readStringField(previewSource, "slide_id") ||
+            `slide-${index}`;
+          const normalizedPreview =
+            normalizeSvgPreviewManifest(item, {
+              index,
+              slideId,
+            }) ??
+            normalizeSvgPreviewManifest(previewSource, {
+              index,
+              slideId,
+            }) ??
+            frames[0]?.preview ??
+            null;
+          const primaryFrame =
+            frames[0] ??
+            (normalizedPreview
+              ? {
+                  slide_id: slideId,
+                  index,
+                  split_index: 0,
+                  split_count: 1,
+                  status: readStringField(item, "status") || "ready",
+                  format: "svg",
+                  svg_data_url: normalizedPreview.svg_data_url,
+                  preview: normalizedPreview,
+                  width: normalizedPreview.width,
+                  height: normalizedPreview.height,
+                }
+              : null);
+          return {
+            slide_id: slideId,
+            index,
+            ...(readStringField(item, "title")
+              ? { title: readStringField(item, "title") || undefined }
+              : {}),
+            ...(readStringField(item, "status")
+              ? { status: readStringField(item, "status") || undefined }
+              : {}),
+            ...(readStringField(item, "layout_kind")
+              ? {
+                  layout_kind:
+                    readStringField(item, "layout_kind") || undefined,
+                }
+              : {}),
+            render_version:
+              readNumberField(item, "render_version") ??
+              renderVersion ??
+              undefined,
+            format: primaryFrame ? "svg" : null,
+            svg_data_url: primaryFrame?.svg_data_url ?? null,
+            preview: normalizedPreview,
+            ...(typeof readNumberField(item, "width") === "number"
+              ? { width: readNumberField(item, "width") }
+              : typeof readNumberField(previewSource, "width") === "number"
+                ? { width: readNumberField(previewSource, "width") }
+                : typeof primaryFrame?.width === "number"
+                  ? { width: primaryFrame.width }
+                  : {}),
+            ...(typeof readNumberField(item, "height") === "number"
+              ? { height: readNumberField(item, "height") }
+              : typeof readNumberField(previewSource, "height") === "number"
+                ? { height: readNumberField(previewSource, "height") }
+                : typeof primaryFrame?.height === "number"
+                  ? { height: primaryFrame.height }
+                  : {}),
+            frames:
+              frames.length > 0 ? frames : primaryFrame ? [primaryFrame] : [],
+            editable_block_ids: Array.isArray(item.editable_block_ids)
+              ? item.editable_block_ids
+                  .map((entry) => String(entry || "").trim())
+                  .filter(Boolean)
+              : [],
+            blocks: normalizeAuthorityBlocks(item.blocks),
+          };
+        })
+        .filter(
+          (slide) =>
+            isRenderableSvgDataUrl(slide.svg_data_url) ||
+            slide.frames.some((frame) =>
+              isRenderableSvgDataUrl(frame.svg_data_url)
+            )
+        )
+        .sort((left, right) => left.index - right.index)
+    : [];
+  if (normalizedSlides.length === 0) {
+    return buildHtmlAuthorityPreview(
+      slides,
+      renderedPreview,
+      runId,
+      renderVersion,
+      context
+    );
+  }
+  const viewportRaw =
+    source.viewport && typeof source.viewport === "object"
+      ? (source.viewport as Record<string, unknown>)
+      : {};
+  return {
+    provider: "pagevra",
+    run_id: readStringField(source, "run_id") || runId,
+    render_version: readNumberField(source, "render_version") ?? renderVersion,
+    viewport: {
+      width: readNumberField(viewportRaw, "width") ?? 1280,
+      height: readNumberField(viewportRaw, "height") ?? 720,
+    },
+    compile_context_version:
+      readNumberField(source, "compile_context_version") ??
+      context?.source_event_seq ??
+      null,
+    compile_context:
+      normalizeDiegoPreviewContext(source.compile_context, runId) ??
+      context ??
+      null,
+    theme: normalizeTheme(source.theme) ?? context?.theme,
+    fonts: normalizeFonts(source.fonts) ?? context?.fonts,
+    slides: normalizedSlides,
+  };
+}
+
+function extractPreviewPreambleLogs(
+  events: GenerationEvent[]
+): PreviewPreambleLog[] {
+  const collected: PreviewPreambleLog[] = [];
+  const seen = new Set<string>();
+  for (const event of events) {
+    const id = resolveEventKey(event);
+    if (seen.has(id)) continue;
+    seen.add(id);
+
+    const eventType = String(event.event_type || "").trim();
+    if (!eventType) continue;
+
+    const payloadObject = parseEventPayloadObject(event.payload);
+    const payload = payloadObject as {
+      progress_message?: string;
+      section_payload?: {
+        diego_event_type?: string;
+        raw_payload?: Record<string, unknown>;
+      };
+    };
+
+    const sectionPayload =
+      payload.section_payload && typeof payload.section_payload === "object"
+        ? payload.section_payload
+        : null;
+
+    const diegoEventType = sectionPayload?.diego_event_type || eventType;
+    const rawPayload =
+      sectionPayload?.raw_payload &&
+      typeof sectionPayload.raw_payload === "object"
+        ? sectionPayload.raw_payload
+        : (payload as Record<string, unknown>);
+
+    // Only collect whitelisted event types to avoid internal noise and raw JSON display
+    if (
+      diegoEventType === "outline.token" ||
+      diegoEventType === "slide.token" ||
+      diegoEventType === "compile.token"
+    ) {
+      continue;
+    }
+
+    if (
+      diegoEventType !== "requirements.analyzing.started" &&
+      diegoEventType !== "requirements.analyzing.completed" &&
+      diegoEventType !== "requirements.analyzed" &&
+      diegoEventType !== "plan.completed" &&
+      diegoEventType !== "outline.completed" &&
+      diegoEventType !== "research.completed" &&
+      diegoEventType !== "outline.repair.started" &&
+      diegoEventType !== "outline.repair.completed" &&
+      diegoEventType !== "outline.repair.failed" &&
+      diegoEventType !== "llm.request.timeout" &&
+      diegoEventType !== "llm.request.retry" &&
+      diegoEventType !== "rag.retrieval.started" &&
+      diegoEventType !== "rag.retrieval.completed" &&
+      diegoEventType !== "rag.retrieval.failed" &&
+      // Also allow generic progress updates ONLY if they have a non-empty progress_message
+      !(
+        eventType === "progress.updated" &&
+        typeof payload.progress_message === "string" &&
+        payload.progress_message.trim()
+      )
+    ) {
+      continue;
+    }
+
+    const normalized = resolveEventLog(diegoEventType, rawPayload);
+    // Double check that we aren't showing the raw eventType or a JSON-like string as the title
+    if (
+      !normalized.title ||
+      normalized.title === eventType ||
+      normalized.title.startsWith("{")
+    ) {
+      continue;
+    }
+
+    // Content-based de-duplication: skip if the last added log has the same title and detail
+    const last = collected[collected.length - 1];
+    if (
+      last &&
+      last.title === normalized.title &&
+      last.detail === normalized.detail
+    ) {
+      continue;
+    }
+
+    collected.push({
+      id,
+      title: normalized.title,
+      detail: normalized.detail,
+      tone: normalized.tone,
+      ts: event.timestamp,
+    });
+  }
+  return collected;
+}
+
+function resolveCachedPreviewPreambleLogs(
+  sessionId: string | null,
+  runId: string | null
+): PreviewPreambleLog[] {
+  const cached = readOutlineRunCache(sessionId, runId);
+  if (!cached?.streamLogs.length) return [];
+  return cached.streamLogs.map((log) => ({
+    id: log.id,
+    title: log.title,
+    detail: log.detail,
+    tone: log.tone,
+    ts: log.ts,
+  }));
+}
+
+function mergePreviewPreambleLogs(
+  current: PreviewPreambleLog[],
+  incoming: PreviewPreambleLog[]
+): PreviewPreambleLog[] {
+  if (incoming.length === 0) return current;
+  const merged: PreviewPreambleLog[] = [];
+  const seen = new Set<string>();
+  for (const item of [...current, ...incoming]) {
+    const key =
+      item.id.trim() ||
+      `${item.title.trim()}::${String(item.detail || "").trim()}`;
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    merged.push(item);
+  }
+  return merged;
+}
+
 function hasRenderablePreviewFrame(
   page: RenderedPreviewFrame | null | undefined
 ): boolean {
   if (!page) return false;
-  return Boolean(page.image_url);
-}
-
-function hasRenderablePreview(slide: Slide | null | undefined): boolean {
-  if (!slide) return false;
-  const pages = Array.isArray(slide.rendered_previews)
-    ? slide.rendered_previews
-    : [];
-  if (pages.some((page) => hasRenderablePreviewFrame(page))) {
-    return true;
-  }
-  return Boolean(slide.thumbnail_url);
+  return isRenderableSvgDataUrl(page.svg_data_url);
 }
 
 function isGeneratingState(state: string | null | undefined): boolean {
-  return state === "GENERATING_CONTENT" || state === "RENDERING";
+  return (
+    state === "DRAFTING_OUTLINE" ||
+    state === "AWAITING_OUTLINE_CONFIRM" ||
+    state === "GENERATING_CONTENT" ||
+    state === "RENDERING"
+  );
+}
+
+function isBadRunTitle(value: string | null | undefined): boolean {
+  const title = String(value || "").trim();
+  if (!title) return true;
+  const lowered = title.toLowerCase();
+  return (
+    BAD_RUN_TITLE_RE.test(title) ||
+    lowered.includes("generation_mode") ||
+    lowered.includes("style_preset") ||
+    lowered.includes("visual_policy")
+  );
 }
 
 export function resolveActivePreviewRunId({
@@ -159,22 +1117,21 @@ export function resolveActivePreviewRunId({
   storeActiveRunId: string | null;
   generationSession: SessionIdentity;
 }): string | null {
-  if (runIdFromQuery) return runIdFromQuery;
-  if (
-    activeSessionId &&
-    storeActiveSessionId === activeSessionId &&
-    storeActiveRunId
-  ) {
-    return storeActiveRunId;
-  }
-  if (
-    activeSessionId &&
-    generationSession?.session?.session_id === activeSessionId &&
-    generationSession.current_run?.run_id
-  ) {
-    return generationSession.current_run.run_id;
-  }
-  return null;
+  void activeSessionId;
+  void storeActiveSessionId;
+  void storeActiveRunId;
+  void generationSession;
+  return runIdFromQuery ? runIdFromQuery : null;
+}
+
+export function shouldAdoptStudioArtifactForPptPreview(
+  payload: Record<string, unknown>
+): boolean {
+  const cardId = readStringField(payload, "card_id");
+  const artifactType = readStringField(payload, "artifact_type");
+  if (cardId === "courseware_ppt") return true;
+  if (artifactType === "pptx") return true;
+  return false;
 }
 
 export function useGeneratePreviewState({
@@ -191,20 +1148,14 @@ export function useGeneratePreviewState({
   const [slides, setSlides] = useState<Slide[]>([]);
   const [sessionRuns, setSessionRuns] = useState<SessionRun[]>([]);
   const [currentArtifactId, setCurrentArtifactId] = useState<string | null>(
-    null
+    artifactIdFromQuery
   );
   const [currentRenderVersion, setCurrentRenderVersion] = useState<
     number | null
   >(null);
-  const [previewMode, setPreviewMode] = useState<"rendered" | "markdown">(
-    "markdown"
-  );
   const [isLoading, setIsLoading] = useState(true);
   const [isExporting, setIsExporting] = useState(false);
   const [isResuming, setIsResuming] = useState(false);
-  const [regeneratingSlideId, setRegeneratingSlideId] = useState<string | null>(
-    null
-  );
   const [previewBlockedReason, setPreviewBlockedReason] = useState<
     string | null
   >(null);
@@ -215,29 +1166,34 @@ export function useGeneratePreviewState({
   const [previewSessionState, setPreviewSessionState] = useState<string | null>(
     null
   );
+  const [diegoPreviewContext, setDiegoPreviewContext] =
+    useState<DiegoPreviewContext | null>(null);
+  const [authorityPreview, setAuthorityPreview] =
+    useState<AuthorityPreview | null>(null);
+  const [previewOutline, setPreviewOutline] = useState<Record<
+    string,
+    unknown
+  > | null>(null);
+  const [previewPreambleLogs, setPreviewPreambleLogs] = useState<
+    PreviewPreambleLog[]
+  >([]);
+  const [currentPptUrl, setCurrentPptUrl] = useState<string | null>(null);
 
   const processedEventKeysRef = useRef<Set<string>>(new Set());
-  const eventsCursorRef = useRef<string | null>(null);
-  const pendingModifyRetryRef = useRef<ModifyRetryContext | null>(null);
-  const eventsSnapshotReadyRef = useRef(false);
 
   const {
     generationSession,
     generationHistory,
-    activeSessionId: activeSessionIdInStore,
-    activeRunId: activeRunIdInStore,
     fetchGenerationHistory,
+    exportArtifact,
     setActiveSessionId,
-    setActiveRunId,
   } = useProjectStore(
     useShallow((state) => ({
       generationSession: state.generationSession,
       generationHistory: state.generationHistory,
-      activeSessionId: state.activeSessionId,
-      activeRunId: state.activeRunId,
       fetchGenerationHistory: state.fetchGenerationHistory,
+      exportArtifact: state.exportArtifact,
       setActiveSessionId: state.setActiveSessionId,
-      setActiveRunId: state.setActiveRunId,
     }))
   );
 
@@ -245,30 +1201,19 @@ export function useGeneratePreviewState({
     sessionIdFromQuery ||
     generationSession?.session.session_id ||
     (generationHistory.length > 0 ? generationHistory[0].id : null);
-
-  const activeRunId = resolveActivePreviewRunId({
-    activeSessionId,
-    runIdFromQuery,
-    storeActiveSessionId: activeSessionIdInStore,
-    storeActiveRunId: activeRunIdInStore,
-    generationSession: generationSession as SessionStatePayloadWithRun | null,
-  });
-  const hasPinnedPreviewAnchor = Boolean(runIdFromQuery || artifactIdFromQuery);
+  const activeRunId = runIdFromQuery?.trim() || null;
 
   useEffect(() => {
-    if (!sessionIdFromQuery) return;
-    setActiveSessionId(sessionIdFromQuery);
-  }, [sessionIdFromQuery, setActiveSessionId]);
-
-  useEffect(() => {
-    if (!activeSessionId || activeSessionId === activeSessionIdInStore) return;
+    if (!activeSessionId) return;
     setActiveSessionId(activeSessionId);
-  }, [activeSessionId, activeSessionIdInStore, setActiveSessionId]);
+  }, [activeSessionId, setActiveSessionId]);
 
   useEffect(() => {
-    if (!runIdFromQuery) return;
-    setActiveRunId(runIdFromQuery);
-  }, [runIdFromQuery, setActiveRunId]);
+    if (!projectId) return;
+    fetchGenerationHistory(projectId, {
+      reason: "generate_preview_mount",
+    });
+  }, [fetchGenerationHistory, projectId]);
 
   useEffect(() => {
     if (artifactIdFromQuery) {
@@ -277,10 +1222,9 @@ export function useGeneratePreviewState({
   }, [artifactIdFromQuery]);
 
   useEffect(() => {
-    if (projectId) {
-      fetchGenerationHistory(projectId);
-    }
-  }, [projectId, fetchGenerationHistory]);
+    setCurrentArtifactId(artifactIdFromQuery ?? null);
+    setCurrentPptUrl(null);
+  }, [activeRunId, artifactIdFromQuery]);
 
   const loadSessionRuns = useCallback(async () => {
     if (!activeSessionId) {
@@ -289,9 +1233,10 @@ export function useGeneratePreviewState({
     }
     try {
       const response = await generateApi.listRuns(activeSessionId, {
-        limit: 30,
+        limit: 50,
       });
-      setSessionRuns(response?.data?.runs ?? []);
+      const runs = response?.data?.runs ?? [];
+      setSessionRuns(runs);
     } catch {
       setSessionRuns([]);
     }
@@ -301,237 +1246,249 @@ export function useGeneratePreviewState({
     if (!activeSessionId) {
       setSlides([]);
       setSlidesContentMarkdown("");
+      setPreviewBlockedReason("未找到可预览的会话。");
       setSessionFailureMessage(null);
+      setPreviewSessionState(null);
+      setAuthorityPreview(null);
+      setPreviewOutline(null);
+      setPreviewPreambleLogs([]);
+      setCurrentPptUrl(null);
+      setIsLoading(false);
+      return;
+    }
+    if (!activeRunId) {
+      setSlides([]);
+      setSlidesContentMarkdown("");
+      setPreviewBlockedReason("请选择一个 Diego run 后再加载预览。");
+      setSessionFailureMessage(null);
+      setPreviewSessionState(null);
+      setAuthorityPreview(null);
+      setPreviewOutline(null);
+      setPreviewPreambleLogs([]);
+      setCurrentPptUrl(null);
+      setCurrentArtifactId(artifactIdFromQuery ?? null);
+      setDiegoPreviewContext((current) =>
+        mergeDiegoPreviewContext(current, null, null)
+      );
       setIsLoading(false);
       return;
     }
 
-    const applyPreviewResponse = (
-      response: Awaited<ReturnType<typeof previewApi.getSessionPreview>>
-    ): {
-      renderedCount: number;
-      markdownReady: boolean;
-    } => {
-      const previewData = (response.data ?? null) as {
-        slides?: Slide[];
-        rendered_preview?: RenderedPreview | null;
-      } | null;
-      if (response.success && previewData?.slides) {
-        const renderedPreview = previewData.rendered_preview as
-          | RenderedPreview
-          | undefined;
-        const renderedPages = (
-          (renderedPreview?.pages ?? []) as RenderedPreviewFrame[]
-        )
-          .filter(
-            (page) =>
-              page &&
-              typeof page.index === "number" &&
-              hasRenderablePreviewFrame(page)
-          )
-          .sort((a, b) => {
-            const indexDiff = a.index - b.index;
-            if (indexDiff !== 0) return indexDiff;
-            return (a.split_index ?? 0) - (b.split_index ?? 0);
-          });
-        const pagesBySlideId = new Map<string, RenderedPreviewFrame[]>();
-        const pagesByIndex = new Map<number, RenderedPreviewFrame[]>();
-        for (const page of renderedPages) {
-          if (page.slide_id) {
-            const existing = pagesBySlideId.get(page.slide_id) ?? [];
-            existing.push(page);
-            pagesBySlideId.set(page.slide_id, existing);
-          }
-          const existingByIndex = pagesByIndex.get(page.index) ?? [];
-          existingByIndex.push(page);
-          pagesByIndex.set(page.index, existingByIndex);
-        }
-        const nextSlides = previewData.slides
-          .map((slide) => {
-            const matchedPages =
-              (slide.id ? pagesBySlideId.get(slide.id) : undefined) ??
-              pagesByIndex.get(slide.index) ??
-              [];
-            const primaryPage = matchedPages[0];
-            return {
-              ...slide,
-              ...(primaryPage?.image_url
-                ? { thumbnail_url: primaryPage.image_url }
-                : {}),
-              ...(typeof primaryPage?.html_preview === "string" &&
-              primaryPage.html_preview.trim()
-                ? { rendered_html_preview: primaryPage.html_preview }
-                : {}),
-              ...(matchedPages.length > 0
-                ? { rendered_previews: matchedPages }
-                : {}),
-            };
-          })
-          .sort((a, b) => a.index - b.index);
-        const payload = previewData as Record<string, unknown>;
-        const incomingSlidesContent = payload.slides_content_markdown;
-        const markdown =
-          typeof incomingSlidesContent === "string" &&
-          incomingSlidesContent.trim()
-            ? incomingSlidesContent
-            : buildSlidesContentMarkdown(nextSlides);
-        const incomingSessionState = payload.session_state;
-        if (typeof incomingSessionState === "string" && incomingSessionState) {
-          setPreviewSessionState(incomingSessionState);
-        }
-        setPreviewBlockedReason(null);
-        setSlides(nextSlides);
-        setSlidesContentMarkdown(markdown);
-        setCurrentArtifactId(response.data.artifact_id ?? null);
-        setCurrentRenderVersion(response.data.render_version ?? null);
-        setPreviewMode(
-          previewData.slides.some((slide) => hasRenderablePreview(slide))
-            ? "rendered"
-            : "markdown"
-        );
-        return {
-          renderedCount: renderedPages.length,
-          markdownReady: Boolean(markdown.trim()),
-        };
-      }
-      return { renderedCount: 0, markdownReady: false };
-    };
-
     try {
+      setIsLoading(true);
       setPreviewBlockedReason(null);
+
       const response = await previewApi.getSessionPreview(activeSessionId, {
-        artifact_id: currentArtifactId ?? undefined,
-        run_id: activeRunId ?? undefined,
+        run_id: activeRunId,
       });
-      const applied = applyPreviewResponse(response);
+      const previewData = (response.data ?? null) as PreviewResponseData | null;
 
-      const shouldFallbackToSessionAnchor =
-        !hasPinnedPreviewAnchor &&
-        Boolean(activeRunId || currentArtifactId) &&
-        applied.renderedCount === 0 &&
-        !applied.markdownReady;
-
-      if (shouldFallbackToSessionAnchor) {
-        const fallbackResponse =
-          await previewApi.getSessionPreview(activeSessionId);
-        setActiveRunId(null);
-        setCurrentArtifactId(fallbackResponse.data?.artifact_id ?? null);
-        applyPreviewResponse(fallbackResponse);
-      } else if (
-        hasPinnedPreviewAnchor &&
-        applied.renderedCount === 0 &&
-        !applied.markdownReady
-      ) {
-        setPreviewBlockedReason("该历史记录关联的预览内容不存在或已失效。");
+      if (!response.success || !previewData?.slides) {
+        setSlides([]);
+        setSlidesContentMarkdown("");
+        setPreviewBlockedReason("当前 run 暂无可展示预览。");
+        setAuthorityPreview(null);
+        return;
       }
-    } catch (error) {
-      if (
-        error instanceof ApiError &&
-        error.status === 404 &&
-        activeRunId &&
-        !runIdFromQuery &&
-        error.message.includes("不属于会话")
-      ) {
-        try {
-          setActiveRunId(null);
-          const fallbackResponse = await previewApi.getSessionPreview(
-            activeSessionId,
-            {
-              artifact_id: currentArtifactId ?? undefined,
-            }
-          );
-          applyPreviewResponse(fallbackResponse);
-          return;
-        } catch (fallbackError) {
-          console.error(
-            "Failed to reload slides preview after clearing stale run:",
-            fallbackError
-          );
+
+      const renderedPreview = previewData.rendered_preview as
+        | RenderedPreview
+        | undefined;
+      const renderedPages = (
+        (renderedPreview?.pages ?? []) as RenderedPreviewFrame[]
+      )
+        .filter(
+          (page) =>
+            page &&
+            typeof page.index === "number" &&
+            hasRenderablePreviewFrame(page)
+        )
+        .sort((a, b) => {
+          const indexDiff = a.index - b.index;
+          if (indexDiff !== 0) return indexDiff;
+          return (a.split_index ?? 0) - (b.split_index ?? 0);
+        });
+
+      const pagesBySlideId = new Map<string, RenderedPreviewFrame[]>();
+      const pagesByIndex = new Map<number, RenderedPreviewFrame[]>();
+      for (const page of renderedPages) {
+        if (page.slide_id) {
+          const existing = pagesBySlideId.get(page.slide_id) ?? [];
+          existing.push(page);
+          pagesBySlideId.set(page.slide_id, existing);
+        }
+        const existingByIndex = pagesByIndex.get(page.index) ?? [];
+        existingByIndex.push(page);
+        pagesByIndex.set(page.index, existingByIndex);
+      }
+
+      const nextSlides = previewData.slides
+        .map((slide) => {
+          const matchedPages =
+            (slide.id ? pagesBySlideId.get(slide.id) : undefined) ??
+            pagesByIndex.get(slide.index) ??
+            [];
+          const primaryPage = matchedPages[0];
+          return {
+            ...slide,
+            ...(primaryPage?.svg_data_url
+              ? { thumbnail_url: primaryPage.svg_data_url }
+              : {}),
+            ...(matchedPages.length > 0
+              ? { rendered_previews: matchedPages }
+              : {}),
+          };
+        })
+        .sort((a, b) => a.index - b.index) as Slide[];
+
+      const payload = previewData as RawPayload;
+      const incomingSlidesContent = payload.slides_content_markdown;
+      const markdown =
+        typeof incomingSlidesContent === "string" &&
+        incomingSlidesContent.trim()
+          ? incomingSlidesContent
+          : buildSlidesContentMarkdown(nextSlides);
+      const incomingSessionState = payload.session_state;
+      if (typeof incomingSessionState === "string" && incomingSessionState) {
+        setPreviewSessionState(incomingSessionState);
+        if (incomingSessionState === "SUCCESS") {
+          setSessionFailureMessage(null);
         }
       }
+      const incomingContext = normalizeDiegoPreviewContext(
+        previewData.diego_preview_context,
+        activeRunId
+      );
+      setDiegoPreviewContext((current) =>
+        mergeDiegoPreviewContext(current, incomingContext, activeRunId)
+      );
+      setSlides(nextSlides);
+      setSlidesContentMarkdown(markdown);
+      setCurrentArtifactId(response.data.artifact_id ?? null);
+      setCurrentRenderVersion(response.data.render_version ?? null);
+      setAuthorityPreview(
+        normalizeAuthorityPreview(
+          previewData.authority_preview,
+          nextSlides,
+          renderedPreview,
+          activeRunId,
+          response.data.render_version ?? null,
+          incomingContext
+        )
+      );
+      setPreviewBlockedReason(
+        nextSlides.length === 0 ? "当前 run 暂无可展示预览。" : null
+      );
+    } catch (error) {
+      const shouldPreserveExistingPreview =
+        error instanceof ApiError && error.status === 409;
       if (error instanceof ApiError && error.status === 409) {
         const reason =
           typeof error.details?.reason === "string"
             ? error.details.reason
             : null;
         if (reason === "run_not_ready") {
-          setPreviewBlockedReason("当前运行尚未生成可预览内容，请稍后再试。");
-          return;
-        }
-        toast({
-          title: "版本已变化",
-          description: "版本已变化，请刷新后重试。",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      if (error instanceof ApiError && error.message.includes("不支持预览")) {
-        try {
-          const sessionResp = await generateApi.getSessionSnapshot(
-            activeSessionId,
-            { run_id: activeRunId ?? undefined }
+          setPreviewBlockedReason("当前 run 仍在生成中，请稍后刷新。");
+        } else {
+          setPreviewBlockedReason(
+            error.message || "预览版本冲突，请稍后重试。"
           );
-          const state = sessionResp?.data?.session?.state;
-          const sessionRecord = (sessionResp?.data?.session ?? {}) as Record<
-            string,
-            unknown
-          >;
-          const errorMessage =
-            sessionRecord.error_message ?? sessionRecord.errorMessage;
-          if (typeof errorMessage === "string" && errorMessage.trim()) {
-            setSessionFailureMessage(errorMessage);
-          }
-          if (state === "AWAITING_OUTLINE_CONFIRM") {
-            setPreviewBlockedReason(
-              "当前会话仍在大纲确认阶段，请先确认后再预览。"
-            );
-          } else {
-            setPreviewBlockedReason(error.message);
-          }
-        } catch {
-          setPreviewBlockedReason(error.message);
         }
+      } else if (error instanceof ApiError && error.status === 404) {
+        setPreviewBlockedReason("该 run 不存在或不属于当前会话。");
+      } else if (error instanceof ApiError) {
+        setPreviewBlockedReason(error.message);
       } else {
-        console.error("Failed to load slides preview:", error);
+        setPreviewBlockedReason("预览加载失败，请稍后重试。");
+      }
+      if (!shouldPreserveExistingPreview) {
+        setSlides([]);
+        setSlidesContentMarkdown("");
+        setAuthorityPreview(null);
+        setCurrentPptUrl(null);
       }
     } finally {
       setIsLoading(false);
     }
-  }, [
-    activeRunId,
-    activeSessionId,
-    hasPinnedPreviewAnchor,
-    currentArtifactId,
-    runIdFromQuery,
-    setActiveRunId,
-  ]);
+  }, [activeRunId, activeSessionId, artifactIdFromQuery]);
 
-  const loadEventsSnapshot = useCallback(async () => {
-    if (!activeSessionId) return;
-    try {
-      const response = await generateApi.listEvents(activeSessionId, {
-        cursor: eventsCursorRef.current,
-        limit: 200,
-      });
-      const list = response?.data?.events ?? [];
-      for (const event of list) {
-        const key = resolveEventKey(event as never);
-        if (processedEventKeysRef.current.has(key)) continue;
-        processedEventKeysRef.current.add(key);
-        if (event.cursor) {
-          eventsCursorRef.current = event.cursor;
-        }
-      }
-    } catch {
-      // keep SSE-only mode when snapshot fetch fails
-    } finally {
-      eventsSnapshotReadyRef.current = true;
+  const loadPreviewCopilotContext = useCallback(async () => {
+    if (!activeSessionId) {
+      setPreviewOutline(null);
+      setPreviewPreambleLogs([]);
+      setCurrentPptUrl(null);
+      return;
     }
-  }, [activeSessionId]);
+    if (!activeRunId) {
+      setPreviewOutline(null);
+      setPreviewPreambleLogs([]);
+      setCurrentPptUrl(null);
+      return;
+    }
+
+    const cachedPreambleLogs = resolveCachedPreviewPreambleLogs(
+      activeSessionId,
+      activeRunId
+    );
+    if (cachedPreambleLogs.length > 0) {
+      setPreviewPreambleLogs((current) =>
+        current.length > 0
+          ? mergePreviewPreambleLogs(current, cachedPreambleLogs)
+          : cachedPreambleLogs
+      );
+    }
+
+    try {
+      const [runSnapshotResponse, sessionSnapshotResponse, eventListResponse] =
+        await Promise.all([
+          generateApi
+            .getSessionSnapshot(activeSessionId, { run_id: activeRunId })
+            .catch(() => null),
+          generateApi.getSessionSnapshot(activeSessionId).catch(() => null),
+          generateApi
+            .listEvents(activeSessionId, {
+              run_id: activeRunId,
+              limit: 200,
+            })
+            .catch(() => null),
+        ]);
+
+      const eventList =
+        ((eventListResponse?.data?.events ?? []) as GenerationEvent[]) || [];
+      const nextPreambleLogs = extractPreviewPreambleLogs(eventList);
+      const nextPptUrl =
+        resolvePptUrlFromSnapshot(runSnapshotResponse?.data ?? null) ||
+        resolvePptUrlFromSnapshot(sessionSnapshotResponse?.data ?? null);
+      const finalFailureMessage = resolveFinalFailureMessage(eventList);
+      if (nextPptUrl || !finalFailureMessage) {
+        setSessionFailureMessage(null);
+        if (nextPptUrl) {
+          setPreviewSessionState("SUCCESS");
+        }
+      } else {
+        setPreviewSessionState("FAILED");
+        setSessionFailureMessage(finalFailureMessage);
+      }
+
+      setCurrentPptUrl(nextPptUrl);
+      setPreviewOutline(
+        resolveOutlineFromSnapshot(runSnapshotResponse?.data ?? null) ||
+          resolveOutlineFromSnapshot(sessionSnapshotResponse?.data ?? null) ||
+          extractPreviewOutline(eventList)
+      );
+      setPreviewPreambleLogs(
+        nextPreambleLogs.length > 0 ? nextPreambleLogs : cachedPreambleLogs
+      );
+    } catch {
+      if (cachedPreambleLogs.length > 0) {
+        setPreviewPreambleLogs(cachedPreambleLogs);
+      }
+    }
+  }, [activeRunId, activeSessionId]);
 
   const { events } = useGenerationEvents({
-    sessionId: activeSessionId || null,
+    sessionId: activeSessionId && activeRunId ? activeSessionId : null,
+    runId: activeRunId,
   });
 
   const latestEvent = events.length > 0 ? events[events.length - 1] : null;
@@ -539,11 +1496,265 @@ export function useGeneratePreviewState({
     (generationSession as { session?: { state?: string } } | null)?.session
       ?.state ?? null;
   const sessionState = previewSessionState || snapshotSessionState;
-  const hasSnapshotState =
-    typeof sessionState === "string" && sessionState.length > 0;
-  const isSessionGenerating = hasSnapshotState
-    ? isGeneratingState(sessionState)
-    : isGeneratingState(latestEvent?.state);
+  const isSessionGenerating = isGeneratingState(
+    sessionState || latestEvent?.state
+  );
+
+  useEffect(() => {
+    setPreviewPreambleLogs(
+      resolveCachedPreviewPreambleLogs(activeSessionId, activeRunId)
+    );
+  }, [activeRunId, activeSessionId]);
+
+  useEffect(() => {
+    processedEventKeysRef.current.clear();
+    setSessionFailureMessage(null);
+    setPreviewSessionState(null);
+    setDiegoPreviewContext((current) =>
+      mergeDiegoPreviewContext(current, null, activeRunId)
+    );
+    void Promise.all([
+      loadSessionRuns(),
+      loadSlides(),
+      loadPreviewCopilotContext(),
+    ]);
+  }, [
+    activeRunId,
+    activeSessionId,
+    loadPreviewCopilotContext,
+    loadSessionRuns,
+    loadSlides,
+  ]);
+
+  useEffect(() => {
+    if (!activeRunId || events.length === 0) return;
+    const livePreambleLogs = extractPreviewPreambleLogs(events);
+    if (livePreambleLogs.length === 0) return;
+    setPreviewPreambleLogs((current) =>
+      mergePreviewPreambleLogs(current, livePreambleLogs)
+    );
+  }, [activeRunId, events]);
+
+  useEffect(() => {
+    const currentRun =
+      sessionRuns.find((run) => run.run_id === activeRunId) || null;
+    const needsTitleRefresh = Boolean(
+      activeSessionId &&
+      activeRunId &&
+      currentRun &&
+      (currentRun.run_title_source === "pending" ||
+        isBadRunTitle(currentRun.run_title))
+    );
+    if (!needsTitleRefresh) return;
+    const timer = window.setInterval(() => {
+      void loadSessionRuns();
+    }, RUN_TITLE_POLL_INTERVAL_MS);
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, [activeRunId, activeSessionId, loadSessionRuns, sessionRuns]);
+
+  useEffect(() => {
+    if (!activeRunId) return;
+    for (const event of events) {
+      const key = resolveEventKey(event as never);
+      if (processedEventKeysRef.current.has(key)) continue;
+      processedEventKeysRef.current.add(key);
+
+      const eventType = event.event_type as string;
+      const payload = (event.payload ?? {}) as RawPayload;
+      const eventRunId = readRunIdFromPayload(payload);
+      if (eventRunId && eventRunId !== activeRunId) {
+        continue;
+      }
+
+      const sectionPayload =
+        payload.section_payload && typeof payload.section_payload === "object"
+          ? (payload.section_payload as RawPayload)
+          : null;
+      const diegoEventType =
+        typeof sectionPayload?.diego_event_type === "string"
+          ? sectionPayload.diego_event_type
+          : eventType;
+      const rawPayload =
+        sectionPayload?.raw_payload &&
+        typeof sectionPayload.raw_payload === "object"
+          ? (sectionPayload.raw_payload as RawPayload)
+          : null;
+      const diegoSeq = sectionPayload
+        ? readNumberField(sectionPayload, "diego_seq")
+        : null;
+
+      if (rawPayload) {
+        const update = buildDiegoContextUpdateFromEvent(
+          diegoEventType,
+          rawPayload,
+          activeRunId,
+          diegoSeq
+        );
+        if (update) {
+          setDiegoPreviewContext((current) =>
+            mergeDiegoPreviewContext(current, update, activeRunId)
+          );
+        }
+      }
+
+      if (
+        eventType === "ppt.slide.generated" ||
+        diegoEventType === "slide.generated"
+      ) {
+        const slideNo = readNumberField(rawPayload || payload, "slide_no");
+        const source = rawPayload || payload;
+        const rawPreview = source.preview;
+        const preview =
+          rawPreview && typeof rawPreview === "object"
+            ? (rawPreview as RawPayload)
+            : {};
+        const svgDataUrl =
+          readStringField(source, "svg_data_url") ||
+          readStringField(preview, "svg_data_url");
+        const isFinal = (rawPayload || payload).is_final === true;
+
+        const slideIndex = slideNo !== null ? slideNo - 1 : null;
+        const slideId =
+          slideNo !== null
+            ? readStringField(source, "slide_id") ||
+              readStringField(preview, "slide_id") ||
+              `slide-${slideNo}`
+            : null;
+        const previewWidth =
+          readNumberField(source, "preview_width") ??
+          readNumberField(preview, "width");
+        const previewHeight =
+          readNumberField(source, "preview_height") ??
+          readNumberField(preview, "height");
+        const frame =
+          slideIndex !== null && slideId
+            ? normalizeSvgPreviewFrame(
+                {
+                  ...source,
+                  index: slideIndex,
+                  slide_id: slideId,
+                  split_index: 0,
+                  split_count: 1,
+                  status: readStringField(source, "status") || "ready",
+                  width: previewWidth,
+                  height: previewHeight,
+                  preview: {
+                    ...preview,
+                    index: slideIndex,
+                    slide_id: slideId,
+                    format: "svg",
+                    svg_data_url: svgDataUrl,
+                    width: previewWidth,
+                    height: previewHeight,
+                  },
+                },
+                {
+                  index: slideIndex,
+                  slideId,
+                  splitIndex: 0,
+                  splitCount: 1,
+                  status: readStringField(source, "status") || "ready",
+                }
+              )
+            : null;
+
+        if (slideNo !== null && frame && isFinal) {
+          const frameSvgDataUrl = frame.svg_data_url;
+          setSlides((prev) => {
+            const updated = [...prev];
+            const existingIndex = updated.findIndex(
+              (s) => s.index === slideNo - 1
+            );
+            if (existingIndex >= 0) {
+              updated[existingIndex] = {
+                ...updated[existingIndex],
+                thumbnail_url: frameSvgDataUrl,
+                rendered_previews: [frame],
+              };
+            } else {
+              updated.push({
+                id: `slide-${slideNo}`,
+                index: slideNo - 1,
+                title: `Slide ${slideNo}`,
+                content: "",
+                sources: [],
+                thumbnail_url: frameSvgDataUrl,
+                rendered_previews: [frame],
+              });
+            }
+            return updated.sort((a, b) => a.index - b.index);
+          });
+          continue;
+        }
+      }
+
+      if (
+        eventType === "ppt.slide.generated" ||
+        diegoEventType === "slide.generated"
+      ) {
+        void loadSlides();
+        continue;
+      }
+      if (
+        eventType === "ppt.completed" ||
+        diegoEventType === "compile.completed"
+      ) {
+        setPreviewSessionState("SUCCESS");
+        setSessionFailureMessage(null);
+        void Promise.all([
+          loadSessionRuns(),
+          loadSlides(),
+          loadPreviewCopilotContext(),
+        ]);
+        continue;
+      }
+      if (
+        diegoEventType === "run.failed" ||
+        diegoEventType === "slide.failed" ||
+        eventType === "generation.failed" ||
+        eventType === "task.failed" ||
+        event.state === "FAILED"
+      ) {
+        const failedMessage = readFailureMessageFromEvent(event) || diegoEventType;
+        setPreviewSessionState("FAILED");
+        setSessionFailureMessage(failedMessage);
+        void Promise.all([loadSessionRuns(), loadSlides()]);
+        continue;
+      }
+      if (eventType === "state.changed" && event.state) {
+        setPreviewSessionState(event.state);
+        if (event.state === "SUCCESS") {
+          setSessionFailureMessage(null);
+        }
+      }
+      if (eventType === "task.completed" || event.state === "SUCCESS") {
+        setSessionFailureMessage(null);
+        void Promise.all([
+          loadSessionRuns(),
+          loadSlides(),
+          loadPreviewCopilotContext(),
+        ]);
+      }
+    }
+  }, [
+    activeRunId,
+    events,
+    loadPreviewCopilotContext,
+    loadSessionRuns,
+    loadSlides,
+  ]);
+
+  useEffect(() => {
+    if (!activeRunId || !isSessionGenerating) return;
+    const timer = window.setInterval(() => {
+      void loadSlides();
+    }, 30000);
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, [activeRunId, isSessionGenerating, loadSlides]);
 
   const handleResume = useCallback(async () => {
     if (!activeSessionId || isResuming) return;
@@ -554,11 +1765,18 @@ export function useGeneratePreviewState({
           command_type: "RESUME_SESSION",
         },
       });
-      await fetchGenerationHistory(projectId);
-      await Promise.all([loadSessionRuns(), loadSlides()]);
+      await fetchGenerationHistory(projectId, {
+        force: true,
+        reason: "resume_session",
+      });
+      await Promise.all([
+        loadSessionRuns(),
+        loadSlides(),
+        loadPreviewCopilotContext(),
+      ]);
       toast({
         title: "会话恢复成功",
-        description: "已尝试恢复会话并刷新预览。",
+        description: "已触发恢复并刷新 Diego 预览。",
       });
     } catch (error) {
       const message =
@@ -575,413 +1793,165 @@ export function useGeneratePreviewState({
     activeSessionId,
     fetchGenerationHistory,
     isResuming,
+    loadPreviewCopilotContext,
     loadSessionRuns,
     loadSlides,
     projectId,
   ]);
 
-  useEffect(() => {
-    if (sessionState !== "FAILED") return;
-    const message =
-      (generationSession as { session?: { error_message?: string } } | null)
-        ?.session?.error_message ||
-      (generationSession as { session?: { errorMessage?: string } } | null)
-        ?.session?.errorMessage ||
-      null;
-    if (typeof message === "string" && message.trim()) {
-      setSessionFailureMessage(message);
-    }
-  }, [generationSession, sessionState]);
-
-  useEffect(() => {
-    if (!activeSessionId || !isSessionGenerating) return;
-    const timer = window.setInterval(() => {
-      void loadSlides();
-    }, 2500);
-    return () => {
-      window.clearInterval(timer);
-    };
-  }, [activeSessionId, isSessionGenerating, loadSlides]);
-
-  useEffect(() => {
-    processedEventKeysRef.current.clear();
-    eventsCursorRef.current = null;
-    pendingModifyRetryRef.current = null;
-    eventsSnapshotReadyRef.current = false;
-    setSlidesContentMarkdown("");
-    setSessionFailureMessage(null);
-    setPreviewSessionState(null);
-    void Promise.all([loadEventsSnapshot(), loadSessionRuns(), loadSlides()]);
-  }, [loadEventsSnapshot, loadSessionRuns, loadSlides]);
-
-  useEffect(() => {
-    for (const event of events) {
-      const key = resolveEventKey(event as never);
-      if (processedEventKeysRef.current.has(key)) continue;
-      processedEventKeysRef.current.add(key);
-      if (event.cursor) {
-        eventsCursorRef.current = event.cursor;
-      }
-
-      const eventType = event.event_type as string;
-      const payload = (event.payload ?? {}) as Record<string, unknown>;
-      const sectionPayload =
-        payload.section_payload && typeof payload.section_payload === "object"
-          ? (payload.section_payload as Record<string, unknown>)
-          : null;
-      const diegoEventType =
-        typeof sectionPayload?.diego_event_type === "string"
-          ? sectionPayload.diego_event_type
-          : eventType;
-
-      if (eventType === "ppt.started") {
-        setPreviewBlockedReason(null);
-        setPreviewSessionState("RENDERING");
-        void loadSlides();
-        continue;
-      }
-      if (
-        eventType === "ppt.slide.generated" ||
-        diegoEventType === "slide.generated"
-      ) {
-        void loadSlides();
-        continue;
-      }
-      if (
-        eventType === "ppt.completed" ||
-        diegoEventType === "compile.completed"
-      ) {
-        void loadSlides();
-        continue;
-      }
-      if (
-        diegoEventType === "run.failed" ||
-        diegoEventType === "slide.failed"
-      ) {
-        const failedMessage =
-          readStringField(payload, "progress_message") ||
-          readStringField(payload, "error_message") ||
-          readStringField(payload, "state_reason") ||
-          diegoEventType;
-        setSessionFailureMessage(failedMessage);
-      }
-      if (
-        eventType === "slide.modify.started" ||
-        eventType === "slide.modify.processing"
-      ) {
-        const eventSlideId =
-          typeof payload.slide_id === "string" ? payload.slide_id : null;
-        if (eventSlideId) {
-          setRegeneratingSlideId(eventSlideId);
-        }
-        continue;
-      }
-      if (eventType === "slide.modify.failed") {
-        setRegeneratingSlideId(null);
-        if (eventsSnapshotReadyRef.current) {
-          const message =
-            typeof payload.error_message === "string"
-              ? payload.error_message
-              : "单页修改失败";
-          toast({
-            title: "单页修改失败",
-            description: message,
-            variant: "destructive",
-          });
-        }
-        continue;
-      }
-      if (
-        (eventType === "task.completed" || eventType === "state.changed") &&
-        readStringField(payload, "tool_type") === "slide_modify"
-      ) {
-        const eventSlideId =
-          typeof payload.slide_id === "string" ? payload.slide_id : null;
-        const previewReady = readBooleanField(payload, "preview_ready");
-        if (event.state === "SUCCESS" || previewReady === true) {
-          setRegeneratingSlideId((current) => {
-            if (!current) return null;
-            if (!eventSlideId) return null;
-            return current === eventSlideId ? null : current;
-          });
-        }
-      }
-      if (eventType === "slide.updated" && payload.slide) {
-        const updatedSlide = payload.slide as Slide;
-        setSlides((prev) => {
-          const idx = prev.findIndex(
-            (s) =>
-              (s.id && s.id === updatedSlide.id) ||
-              s.index === updatedSlide.index
-          );
-          if (idx !== -1) {
-            const next = [...prev];
-            next[idx] = { ...next[idx], ...updatedSlide };
-            return next.sort((a, b) => a.index - b.index);
-          }
-          return [...prev, updatedSlide].sort((a, b) => a.index - b.index);
-        });
-        if (updatedSlide.id) {
-          setRegeneratingSlideId((current) =>
-            current === updatedSlide.id ? null : current
-          );
-        } else {
-          setRegeneratingSlideId(null);
-        }
-        void loadSessionRuns();
-        continue;
-      }
-      if (eventType === "task.failed") {
-        const stage = readStringField(payload, "stage");
-        const cardId = readStringField(payload, "card_id");
-        const artifactId = readStringField(payload, "artifact_id");
-        const runId = readRunIdFromTrace(payload);
-        const failedMessage =
-          readStringField(payload, "error_message") ||
-          readStringField(payload, "error") ||
-          readStringField(payload, "state_reason") ||
-          readStringField(payload, "message");
-        if (failedMessage) {
-          setSessionFailureMessage(failedMessage);
-        }
-
-        if (stage === "studio_card_execute") {
-          if (artifactId) setCurrentArtifactId(artifactId);
-          if (runId) setActiveRunId(runId);
-
-          const studioFailedMessage =
-            failedMessage || "Studio execution task failed.";
-
-          const runLabel = runId ? `run ${runId}` : "unknown run";
-          const cardLabel = cardId ?? "unknown card";
-          toast({
-            title: "Studio task failed",
-            description: `${cardLabel}, ${runLabel}: ${studioFailedMessage}`,
-            variant: "destructive",
-          });
-          void Promise.all([loadSlides(), loadSessionRuns()]);
-          continue;
-        }
-
-        const failedRunMatchesActive =
-          !runId || !activeRunId || runId === activeRunId;
-        if (artifactId) setCurrentArtifactId(artifactId);
-        if (runId) setActiveRunId(runId);
-        if (failedRunMatchesActive) {
-          void Promise.all([loadSlides(), loadSessionRuns()]);
-          continue;
-        }
-      }
-      if (eventType === "task.completed") {
-        const stage = readStringField(payload, "stage");
-        const cardId = readStringField(payload, "card_id");
-        const artifactId = readStringField(payload, "artifact_id");
-        const runId = readRunIdFromTrace(payload);
-
-        if (stage === "studio_card_execute") {
-          if (artifactId) setCurrentArtifactId(artifactId);
-          if (runId) setActiveRunId(runId);
-
-          const runLabel = runId ? `run ${runId}` : "unknown run";
-          const cardLabel = cardId ?? "unknown card";
-          toast({
-            title: "Studio task completed",
-            description: `${cardLabel}, ${runLabel}. Preview is refreshing.`,
-          });
-          void Promise.all([loadSlides(), loadSessionRuns()]);
-          continue;
-        }
-      }
-      if (eventType === "task.completed" || event.state === "SUCCESS") {
-        if (event.state === "SUCCESS") {
-          setRegeneratingSlideId(null);
-        }
-        void Promise.all([loadSlides(), loadSessionRuns()]);
-      }
-    }
-  }, [events, loadSessionRuns, loadSlides, setActiveRunId]);
-
   const handleExport = useCallback(async () => {
-    if (!activeSessionId || isExporting) return;
+    if (!activeSessionId || !activeRunId || isExporting) return;
     try {
       setIsExporting(true);
 
-      if (projectId && currentArtifactId) {
-        try {
-          const [artifactResponse, artifactBlob] = await Promise.all([
-            projectSpaceApi.getArtifact(projectId, currentArtifactId),
-            projectSpaceApi.downloadArtifact(projectId, currentArtifactId),
-          ]);
-          const artifactType = artifactResponse.artifact?.type;
-          const artifactTitle = resolveArtifactTitleFromMetadata(
-            artifactResponse.artifact?.metadata
-          );
-          const url = URL.createObjectURL(artifactBlob);
-          const link = document.createElement("a");
-          link.href = url;
-          link.download = buildArtifactDownloadFilename({
-            title: artifactTitle,
-            artifactId: currentArtifactId,
-            artifactType: artifactType as ArtifactType | undefined,
-            ext: inferArtifactDownloadExt(artifactType),
-          });
-          link.click();
-          URL.revokeObjectURL(url);
-          toast({
-            title: "导出成功",
-            description: "已通过 artifact 下载文件。",
-          });
-          return;
-        } catch {
-          // Fall back to preview export for artifacts not ready in project space.
-        }
+      const currentRun =
+        sessionRuns.find((run) => run.run_id === activeRunId) || null;
+      const sessionTitle =
+        generationHistory
+          .find((item) => item.id === activeSessionId)
+          ?.title?.trim() || null;
+      const exportTitle =
+        currentRun?.run_title?.trim() || sessionTitle || "未命名演示文稿";
+
+      let exportArtifactId =
+        currentRun?.artifact_id ||
+        currentArtifactId ||
+        null;
+      if (!exportArtifactId) {
+        const runResponse = await generateApi.getRun(
+          activeSessionId,
+          activeRunId
+        );
+        exportArtifactId = runResponse?.data?.run?.artifact_id || null;
+      }
+      if (exportArtifactId) {
+        await exportArtifact(exportArtifactId);
+        return;
       }
 
-      const response = await previewApi.exportSessionPreview(activeSessionId, {
-        artifact_id: currentArtifactId ?? undefined,
-        run_id: activeRunId ?? undefined,
-        format: "html",
-        include_sources: true,
-      });
-      const content = response?.data?.content ?? "";
-      if (!content) return;
-
-      const blob = new Blob([content], { type: "text/html;charset=utf-8" });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `preview-${activeSessionId.slice(0, 8)}.html`;
-      link.click();
-      URL.revokeObjectURL(url);
-      toast({
-        title: "导出成功",
-        description: "已回退为预览 HTML 导出。",
-      });
-    } catch (error) {
-      if (error instanceof ApiError && error.status === 409) {
+      if (currentPptUrl) {
+        await downloadPptFromUrl(currentPptUrl, {
+          title: exportTitle,
+          runId: activeRunId,
+        });
         toast({
-          title: "版本已变化",
-          description: "版本已变化，请刷新后重试。",
-          variant: "destructive",
+          title: "导出成功",
+          description: "文件已开始下载",
         });
         return;
       }
-      console.error("Failed to export preview:", error);
+
+      toast({
+        title: "导出失败",
+        description: "当前 run 尚未绑定 artifact，且会话也未返回可下载的 PPTX 地址",
+        variant: "destructive",
+      });
+    } catch (error) {
+      toast({
+        title: "导出失败",
+        description: error instanceof Error ? error.message : "导出异常",
+        variant: "destructive",
+      });
     } finally {
       setIsExporting(false);
     }
-  }, [activeRunId, activeSessionId, currentArtifactId, isExporting, projectId]);
-
-  const submitModifyRequest = useCallback(
-    async (slide: ModifyTargetSlide, instruction: string) => {
-      if (!activeSessionId) return;
-      const slideId = slide.id || `slide-${slide.index}`;
-      setRegeneratingSlideId(slideId);
-      const requestBody: ModifySessionRequest = {
-        artifact_id: currentArtifactId ?? undefined,
-        run_id: activeRunId ?? undefined,
-        slide_id: slide.id ?? undefined,
-        slide_index: slide.index + 1,
-        instruction,
-        base_render_version: currentRenderVersion ?? undefined,
-        scope: "current_slide_only",
-        preserve_style: true,
-        preserve_layout: true,
-        preserve_deck_consistency: true,
-        patch: {
-          schema_version: 1,
-          operations: [],
-        },
-      };
-      await previewApi.modifySessionPreview(activeSessionId, requestBody);
-    },
-    [activeRunId, activeSessionId, currentArtifactId, currentRenderVersion]
-  );
-
-  const handleRegenerateSlide = useCallback(
-    async (slide: ModifyTargetSlide) => {
-      if (!activeSessionId || regeneratingSlideId) return;
-      const instruction = window.prompt("请输入这一页的修改要求");
-      const normalizedInstruction = instruction?.trim() ?? "";
-      if (!normalizedInstruction) {
-        toast({
-          title: "未提交修改",
-          description: "修改要求不能为空。",
-          variant: "destructive",
-        });
-        return;
-      }
-      try {
-        await submitModifyRequest(slide, normalizedInstruction);
-        await loadSlides();
-        toast({
-          title: "单页修改已提交",
-          description: `第 ${slide.index + 1} 页已进入修改队列。`,
-        });
-      } catch (error) {
-        if (error instanceof ApiError && error.status === 409) {
-          pendingModifyRetryRef.current = {
-            slide,
-            instruction: normalizedInstruction,
-          };
-          await loadSlides();
-          const shouldRetry = window.confirm(
-            "检测到版本冲突，已拉取最新 render version。是否立即重试？"
-          );
-          if (shouldRetry && pendingModifyRetryRef.current) {
-            const pending = pendingModifyRetryRef.current;
-            pendingModifyRetryRef.current = null;
-            await submitModifyRequest(pending.slide, pending.instruction);
-            await loadSlides();
-            toast({
-              title: "重试已提交",
-              description: "已使用最新 render version 重新提交。",
-            });
-            return;
-          }
-          toast({
-            title: "版本冲突",
-            description: "已刷新到最新版本，可再次点击单页修改。",
-            variant: "destructive",
-          });
-          return;
-        }
-        const message =
-          error instanceof ApiError
-            ? error.message
-            : "单页修改失败，请稍后重试";
-        toast({
-          title: "单页修改失败",
-          description: message,
-          variant: "destructive",
-        });
-      } finally {
-        setRegeneratingSlideId(null);
-      }
-    },
-    [activeSessionId, loadSlides, regeneratingSlideId, submitModifyRequest]
-  );
-
-  return {
-    slides,
-    sessionRuns,
-    isLoading,
-    isExporting,
-    isResuming,
-    regeneratingSlideId,
-    previewBlockedReason,
-    previewMode,
-    isSessionGenerating,
-    sessionState,
-    sessionFailureMessage,
-    slidesContentMarkdown,
+  }, [
     activeSessionId,
     activeRunId,
+    isExporting,
+    exportArtifact,
+    sessionRuns,
     currentArtifactId,
-    handleExport,
-    handleResume,
-    handleRegenerateSlide,
-    loadSlides,
-    loadSessionRuns,
-  };
+    currentPptUrl,
+    generationHistory,
+  ]);
+
+  const currentRunDetail = useMemo(() => {
+    return sessionRuns.find((run) => run.run_id === activeRunId) || null;
+  }, [sessionRuns, activeRunId]);
+
+  const generationModeLabel = useMemo(() => {
+    if (!currentRunDetail) return "PPT";
+    if (currentRunDetail.tool_type === "ppt_scratch") return "智能布局";
+    if (currentRunDetail.tool_type === "ppt_template") return "经典模板";
+    return "PPT";
+  }, [currentRunDetail]);
+
+  const runTitle = useMemo(() => {
+    const currentRunTitle = currentRunDetail?.run_title?.trim() || "";
+    if (currentRunTitle && !isBadRunTitle(currentRunTitle)) {
+      return currentRunTitle;
+    }
+    const sessionTitle = generationHistory
+      .find((item) => item.id === activeSessionId)
+      ?.title?.trim();
+    if (sessionTitle) {
+      return sessionTitle;
+    }
+    if (currentRunTitle) {
+      return currentRunTitle;
+    }
+    return "未命名演示文稿";
+  }, [activeSessionId, currentRunDetail, generationHistory]);
+
+  return useMemo(
+    () => ({
+      slides,
+      sessionRuns,
+      isLoading,
+      isExporting,
+      isResuming,
+      previewBlockedReason,
+      isSessionGenerating,
+      generationSession,
+      sessionState,
+      sessionFailureMessage,
+      slidesContentMarkdown,
+      authorityPreview,
+      previewOutline,
+      previewPreambleLogs,
+      activeSessionId,
+      activeRunId,
+      currentArtifactId,
+      currentRenderVersion,
+      diegoPreviewContext,
+      currentRunDetail,
+      generationModeLabel,
+      runTitle,
+      handleExport,
+      handleResume,
+      loadSlides,
+      loadSessionRuns,
+      currentPptUrl,
+    }),
+    [
+      slides,
+      sessionRuns,
+      isLoading,
+      isExporting,
+      isResuming,
+      previewBlockedReason,
+      isSessionGenerating,
+      generationSession,
+      sessionState,
+      sessionFailureMessage,
+      slidesContentMarkdown,
+      authorityPreview,
+      previewOutline,
+      previewPreambleLogs,
+      activeSessionId,
+      activeRunId,
+      currentArtifactId,
+      currentRenderVersion,
+      diegoPreviewContext,
+      currentRunDetail,
+      generationModeLabel,
+      runTitle,
+      handleExport,
+      handleResume,
+      loadSlides,
+      loadSessionRuns,
+      currentPptUrl,
+    ]
+  );
 }

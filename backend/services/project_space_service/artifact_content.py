@@ -1,6 +1,7 @@
 """Artifact content normalization and metadata helpers."""
 
 import html
+import json
 from typing import Any, Dict, Optional
 
 from schemas.project_space import ArtifactType
@@ -129,27 +130,97 @@ def derive_artifact_upload_filename(
     return f"{prefix[:48]}-{artifact_id[:8]}.{artifact_type}"
 
 
+def _build_runtime_animation_html(content: Dict[str, Any]) -> str:
+    from services.artifact_generator.html_animation_renderer import _HTML_TEMPLATE
+
+    debug_spec_json = json.dumps(content, ensure_ascii=False)
+    bootstrap_script = (
+        "<script>"
+        f"window.__SPECTRA_DEBUG_SPEC__ = {debug_spec_json};"
+        "(function bootstrapSpectraAnimation(){"
+        "const spec = window.__SPECTRA_DEBUG_SPEC__ || {};"
+        "const scenes = Array.isArray(spec.scenes) && spec.scenes.length"
+        " ? spec.scenes : [{title: '镜头 1', description: spec.summary || ''}];"
+        "const rhythm = String(spec.rhythm || 'balanced').toLowerCase();"
+        "const fps = ({slow:6, balanced:8, fast:10})[rhythm] || 8;"
+        "const duration = Math.max(3, Math.min(Number(spec.duration_seconds) || 6, 20));"
+        "const totalFrames = Math.max(scenes.length * 10, Math.min(Math.floor(duration * fps), 160));"
+        "let start = null;"
+        "function tick(now){"
+        " if (!window.__spectraRendererReady || typeof window.__spectraRenderFrame !== 'function'){"
+        "   requestAnimationFrame(tick); return;"
+        " }"
+        " if (start === null) start = now;"
+        " const elapsedSeconds = ((now - start) / 1000) % duration;"
+        " const globalProgress = Math.max(0, Math.min(elapsedSeconds / duration, 0.999999));"
+        " const sceneFloat = globalProgress * scenes.length;"
+        " const sceneIndex = Math.min(scenes.length - 1, Math.floor(sceneFloat));"
+        " const sceneProgress = sceneFloat - sceneIndex;"
+        " window.__spectraRenderFrame(spec, sceneIndex, sceneProgress, globalProgress);"
+        " requestAnimationFrame(tick);"
+        "}"
+        "requestAnimationFrame(tick);"
+        "window.__SPECTRA_TOTAL_FRAMES__ = totalFrames;"
+        "})();"
+        "</script>"
+    )
+    return _HTML_TEMPLATE.replace("</body>", f"{bootstrap_script}</body>", 1)
+
+
 def build_animation_storyboard_html(content: Dict[str, Any]) -> str:
-    title = html.escape(content.get("title", "Animation Storyboard"))
+    title = html.escape(str(content.get("title") or "Animation Storyboard"))
+    summary = html.escape(str(content.get("summary") or "").strip())
     scenes = content.get("scenes") or [
         {
             "title": "Scene 1",
             "description": content.get("summary") or "待补充镜头说明",
         }
     ]
-    scene_blocks = []
+    scene_blocks: list[str] = []
     for idx, scene in enumerate(scenes, start=1):
+        if not isinstance(scene, dict):
+            continue
         scene_title = html.escape(str(scene.get("title") or f"Scene {idx}"))
         scene_description = html.escape(str(scene.get("description") or ""))
         scene_blocks.append(
-            "<section>"
+            "<section class=\"scene\">"
             f"<h2>Scene {idx}: {scene_title}</h2>"
             f"<p>{scene_description}</p>"
             "</section>"
         )
+    if not scene_blocks:
+        scene_blocks.append(
+            "<section class=\"scene\"><h2>Scene 1</h2><p>待补充镜头说明</p></section>"
+        )
+
+    subtitle = (
+        f"<p class=\"summary\">{summary}</p>"
+        if summary
+        else "<p class=\"summary\">请在 Studio 运行时预览中播放该动画。</p>"
+    )
     return (
-        "<!doctype html><html><body>"
-        f"<h1>{title}</h1>" + "".join(scene_blocks) + "</body></html>"
+        "<!doctype html>"
+        "<html><head><meta charset=\"utf-8\" />"
+        "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />"
+        f"<title>{title}</title>"
+        "<style>"
+        "body{margin:0;padding:0;background:#ffffff;color:#111827;"
+        "font-family:'Noto Sans CJK SC','PingFang SC','Microsoft YaHei',sans-serif;}"
+        ".wrap{max-width:920px;margin:32px auto;padding:0 24px;}"
+        "h1{font-size:28px;line-height:1.25;margin:0 0 10px;}"
+        ".summary{margin:0 0 20px;color:#4b5563;font-size:14px;line-height:1.6;}"
+        ".hint{margin:0 0 20px;padding:10px 12px;border:1px solid #e5e7eb;"
+        "background:#f9fafb;border-radius:10px;color:#374151;font-size:13px;}"
+        ".scene{padding:14px 16px;border:1px solid #e5e7eb;border-radius:12px;"
+        "margin-bottom:12px;background:#ffffff;}"
+        ".scene h2{margin:0 0 8px;font-size:16px;line-height:1.4;color:#111827;}"
+        ".scene p{margin:0;color:#4b5563;font-size:13px;line-height:1.6;}"
+        "</style></head><body><main class=\"wrap\">"
+        f"<h1>{title}</h1>"
+        f"{subtitle}"
+        "<p class=\"hint\">该 HTML 为导出说明页，实际播放请使用 Studio Runtime 预览。</p>"
+        + "".join(scene_blocks)
+        + "</main></body></html>"
     )
 
 
@@ -175,8 +246,14 @@ def normalize_artifact_content(
         normalized["nodes"] = normalized.get("nodes") or []
     elif (
         artifact_type == ArtifactType.HTML.value
-        and mode == ArtifactMetadataKind.ANIMATION_STORYBOARD.value
+        and incoming.get("kind") == "interactive_game"
     ):
+        normalized["kind"] = "interactive_game"
+    elif artifact_type == ArtifactType.HTML.value and (
+        mode == ArtifactMetadataKind.ANIMATION_STORYBOARD.value
+        or incoming.get("kind") == "animation_storyboard"
+    ):
+        normalized["kind"] = "animation_storyboard"
         normalized["html"] = incoming.get("html") or build_animation_storyboard_html(
             normalized
         )
@@ -205,7 +282,14 @@ def build_artifact_metadata(
             "format",
             "render_mode",
             "cloud_video_provider",
+            "cloud_video_model",
+            "cloud_video_task_id",
+            "cloud_video_status",
+            "cloud_video_result_url",
+            "cloud_video_error",
+            "first_frame_asset_url",
             "cloud_video_prompt",
+            "video_prompt",
             "duration_seconds",
             "rhythm",
             "focus",
@@ -214,6 +298,53 @@ def build_artifact_metadata(
             "summary",
             "placements",
             "render_spec",
+            "runtime_version",
+            "runtime_graph_version",
+            "runtime_graph",
+            "runtime_draft_version",
+            "runtime_draft",
+            "runtime_attempt_count",
+            "runtime_provider",
+            "runtime_model",
+            "runtime_validation_report",
+            "component_code",
+            "compile_status",
+            "compile_errors",
+            "family_hint",
+            "scene_outline",
+            "used_primitives",
+            "generation_prompt_digest",
+            "runtime_source",
+            "runtime_contract",
+        ):
+            if key in content:
+                metadata[key] = content[key]
+    elif artifact_type in {
+        ArtifactType.DOCX.value,
+        ArtifactType.MINDMAP.value,
+        ArtifactType.SUMMARY.value,
+        ArtifactType.EXERCISE.value,
+    }:
+        metadata["content_snapshot"] = dict(content)
+    elif artifact_type == ArtifactType.HTML.value and kind == "interactive_game":
+        metadata["content_snapshot"] = dict(content)
+        for key in (
+            "schema_id",
+            "title",
+            "summary",
+            "subtitle",
+            "subtype",
+            "teaching_goal",
+            "teacher_notes",
+            "instructions",
+            "spec",
+            "score_policy",
+            "completion_rule",
+            "answer_key",
+            "runtime",
+            "source_binding",
+            "latest_runnable_state",
+            "provenance",
         ):
             if key in content:
                 metadata[key] = content[key]

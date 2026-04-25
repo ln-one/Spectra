@@ -82,6 +82,30 @@ async def index_upload_for_rag(
             parse_result=parse_result,
             error_message=None,
         )
+        try:
+            from services.prompt_suggestion_pool import (
+                ALL_PROMPT_SUGGESTION_SURFACES,
+                build_project_source_fingerprint,
+                enqueue_project_prompt_suggestion_refresh,
+            )
+
+            source_fingerprint, _ = await build_project_source_fingerprint(
+                project_id,
+                db=db_service,
+            )
+            enqueue_project_prompt_suggestion_refresh(
+                task_queue_service=task_queue_service,
+                project_id=project_id,
+                surfaces=ALL_PROMPT_SUGGESTION_SURFACES,
+                source_fingerprint=source_fingerprint,
+            )
+        except Exception as exc:
+            logger.warning(
+                "prompt_suggestion_pool_enqueue_failed: project_id=%s error=%s",
+                project_id,
+                exc,
+                exc_info=True,
+            )
     except Exception as exc:
         logger.error(
             "Failed to parse/index file %s: %s",

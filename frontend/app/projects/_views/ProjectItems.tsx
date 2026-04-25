@@ -1,18 +1,13 @@
 import { motion } from "framer-motion";
 import {
-  Clock,
   ChevronRight,
-  FolderOpen,
   MoreVertical,
   Settings,
   Trash2,
   Plus,
-  Sparkles,
-  Globe,
-  Laptop,
-  FileText,
-  Beaker,
 } from "lucide-react";
+import { ProjectFeaturedMark } from "@/components/icons/project/ProjectFeaturedMark";
+import { getProjectKindVisuals } from "@/components/icons/project/ProjectKindIcons";
 import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
@@ -20,7 +15,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { formatDate, Project, statusConfig } from "./project-types";
+import { formatDate, Project } from "./project-types";
 
 interface ProjectCardProps {
   project: Project;
@@ -29,18 +24,97 @@ interface ProjectCardProps {
   isDeleting?: boolean;
 }
 
+function getRandomLogoGradient(seedStr: string) {
+  const logoColors = [
+    "#FF3B30",
+    "#FF5230",
+    "#FF6830",
+    "#FF7F18",
+    "#FF9500",
+    "#FFA300",
+    "#FFB100",
+    "#FFBF00",
+    "#FFCC00",
+    "#D2D919",
+    "#A6D632",
+    "#79D44B",
+    "#4CD964",
+    "#4FD58B",
+    "#53D1AF",
+    "#56CDD4",
+    "#5AC8FA",
+    "#43B1FC",
+    "#2DA4FA",
+    "#168FFF",
+    "#007AFF",
+    "#166EF3",
+    "#2C68EB",
+    "#425FE0",
+    "#5856D6",
+    "#6B54D9",
+    "#844FC2",
+    "#9951D0",
+    "#AF52DE",
+  ];
+
+  let hash = 0;
+  for (let i = 0; i < seedStr.length; i++) {
+    hash = seedStr.charCodeAt(i) + ((hash << 5) - hash);
+  }
+
+  const random = () => {
+    const x = Math.sin(hash++) * 10000;
+    return x - Math.floor(x);
+  };
+
+  const colorCount = random() > 0.5 ? 3 : 2;
+  const selectedColors: string[] = [];
+  const availableColors = [...logoColors];
+
+  for (let i = 0; i < colorCount; i++) {
+    const idx = Math.floor(random() * availableColors.length);
+    selectedColors.push(availableColors[idx]);
+    availableColors.splice(idx, 1);
+  }
+
+  const hexToRgba = (hex: string, alpha: number) => {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  };
+
+  const bgBase = hexToRgba("#ffffff", 1);
+
+
+  if (colorCount === 2) {
+    return `
+      radial-gradient(circle at 0% 0%, ${hexToRgba(selectedColors[0], 0.6)} 0%, transparent 70%),
+      radial-gradient(circle at 100% 100%, ${hexToRgba(selectedColors[1], 0.4)} 0%, transparent 90%),
+      ${bgBase}
+    `;
+  } else {
+    return `
+      radial-gradient(circle at 0% 0%, ${hexToRgba(selectedColors[0], 0.7)} 0%, transparent 70%),
+      radial-gradient(circle at 100% 100%, ${hexToRgba(selectedColors[1], 0.6)} 0%, transparent 80%),
+      radial-gradient(circle at 100% 0%, ${hexToRgba(selectedColors[2], 0.5)} 0%, transparent 90%),
+      ${bgBase}
+    `;
+  }
+}
+
 export function NewProjectCard({ onClick }: { onClick: () => void }) {
   return (
     <motion.div
       whileHover={{ y: -4 }}
       transition={{ type: "spring", stiffness: 400, damping: 30 }}
       onClick={onClick}
-      className="flex flex-col items-center justify-center p-8 bg-white rounded-[2rem] border-2 border-dashed border-zinc-100 cursor-pointer hover:border-blue-200 transition-all min-h-[220px]"
+      className="flex flex-col items-center justify-center p-8 bg-white rounded-[2rem] border-2 border-dashed border-zinc-100 cursor-pointer hover:border-blue-200 transition-all min-h-[160px]"
     >
       <div className="w-14 h-14 rounded-full bg-blue-50 flex items-center justify-center mb-4 text-blue-500 shadow-sm">
         <Plus className="w-8 h-8" />
       </div>
-      <span className="text-sm font-semibold text-zinc-600">新建笔记本</span>
+      <span className="text-sm font-semibold text-zinc-600">新建棱镜库</span>
     </motion.div>
   );
 }
@@ -52,14 +126,7 @@ export function FeaturedProjectCard({
   project: Project;
   onClick: () => void;
 }) {
-  // Use a pseudo-random gradient based on project ID
-  const gradients = [
-    "from-purple-600 to-indigo-700",
-    "from-blue-600 to-cyan-700",
-    "from-emerald-600 to-teal-700",
-    "from-orange-600 to-rose-700",
-  ];
-  const gradient = gradients[project.id.length % gradients.length];
+  const bgGradient = getRandomLogoGradient(project.id);
 
   return (
     <motion.div
@@ -68,15 +135,15 @@ export function FeaturedProjectCard({
       onClick={onClick}
       className={cn(
         "relative aspect-[16/10] rounded-[2rem] overflow-hidden cursor-pointer shadow-xl group",
-        "bg-gradient-to-br",
-        gradient
+        "border border-white/20"
       )}
+      style={{ background: bgGradient }}
     >
       <div className="absolute inset-0 bg-black/10 group-hover:bg-black/0 transition-colors" />
       <div className="absolute bottom-0 inset-x-0 p-6 bg-gradient-to-t from-black/80 via-black/40 to-transparent">
         <div className="flex items-center gap-2 mb-2">
           <div className="w-6 h-6 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center">
-            <Sparkles className="w-3.5 h-3.5 text-white" />
+            <ProjectFeaturedMark className="w-3.5 h-3.5 text-white" />
           </div>
           <span className="text-[10px] font-bold text-white/70 uppercase tracking-widest">
             Featured
@@ -86,14 +153,12 @@ export function FeaturedProjectCard({
           {project.name}
         </h3>
         <div className="flex items-center gap-3 text-xs text-white/60">
-          <span>{formatDate(project.created_at)}</span>
-          <span className="w-1 h-1 rounded-full bg-white/30" />
-          <span>7 个来源</span>
+          <span>{formatDate(project.created_at || (project as any).createdAt || (project as any).updatedAt)}</span>
         </div>
       </div>
       <div className="absolute top-4 right-4">
         <div className="w-8 h-8 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity">
-          <Globe className="w-4 h-4" />
+          {getProjectKindVisuals("w-4 h-4")[0].icon}
         </div>
       </div>
     </motion.div>
@@ -106,49 +171,35 @@ export function ProjectCard({
   onDelete,
   isDeleting = false,
 }: ProjectCardProps) {
-  const pastelColors = [
-    {
-      bg: "bg-emerald-50 text-emerald-600",
-      icon: <Globe className="w-6 h-6" />,
-    },
-    { bg: "bg-blue-50 text-blue-600", icon: <Laptop className="w-6 h-6" /> },
-    {
-      bg: "bg-purple-50 text-purple-600",
-      icon: <FolderOpen className="w-6 h-6" />,
-    },
-    {
-      bg: "bg-orange-50 text-orange-600",
-      icon: <FileText className="w-6 h-6" />,
-    },
-    { bg: "bg-rose-50 text-rose-600", icon: <Beaker className="w-6 h-6" /> },
-  ];
-  const color = pastelColors[project.id.length % pastelColors.length];
+  const bgGradient = getRandomLogoGradient(project.id);
 
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
-      whileHover={{ y: -4 }}
+      whileHover={{ y: -4, scale: 1.02, boxShadow: "0 20px 40px -10px rgba(0,0,0,0.15)" }}
       transition={{ type: "spring", stiffness: 400, damping: 30 }}
       onClick={onClick}
-      className="group relative bg-white rounded-[2rem] border border-zinc-50 p-6 cursor-pointer hover:border-zinc-100 transition-all min-h-[220px] flex flex-col"
+      className={cn(
+        "group relative rounded-[2rem] p-6 cursor-pointer transition-all min-h-[180px] flex flex-col justify-between overflow-hidden",
+        "border border-zinc-100/50 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)]"
+      )}
+      style={{ background: bgGradient }}
     >
-      <div className="flex items-start justify-between mb-auto">
-        <div
-          className={cn(
-            "w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm",
-            color.bg
-          )}
-        >
-          {color.icon}
+      <div className="flex items-start justify-between relative z-10">
+        <div className="bg-white/60 backdrop-blur-md border border-white/40 px-3 py-1.5 rounded-full shadow-sm">
+          <p className="text-xs text-zinc-600 font-semibold tracking-wide">
+            {formatDate(project.created_at || (project as any).createdAt || (project as any).updatedAt)}
+          </p>
         </div>
+
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
               type="button"
               disabled={isDeleting}
               onClick={(event) => event.stopPropagation()}
-              className="p-2 rounded-xl opacity-0 group-hover:opacity-100 hover:bg-zinc-50 transition-all text-zinc-400"
+              className="p-2 -mr-2 -mt-2 rounded-xl opacity-0 group-hover:opacity-100 hover:bg-black/5 transition-all text-zinc-400"
             >
               <MoreVertical className="w-5 h-5" />
             </button>
@@ -177,13 +228,15 @@ export function ProjectCard({
         </DropdownMenu>
       </div>
 
-      <div className="mt-6">
-        <h3 className="font-bold text-zinc-900 text-lg mb-1 truncate leading-tight">
+      <div className="relative z-10 mt-4">
+        <h3 className="font-bold text-zinc-900 text-xl line-clamp-2 leading-tight">
           {project.name}
         </h3>
-        <p className="text-xs text-zinc-400 font-medium">
-          {formatDate(project.created_at)} · 12 个来源
-        </p>
+        {(project as any).description && (
+          <p className="text-sm text-zinc-500 mt-2 line-clamp-2 leading-relaxed">
+            {(project as any).description}
+          </p>
+        )}
       </div>
     </motion.div>
   );
@@ -225,22 +278,7 @@ export function ProjectListItem({
   project: Project;
   onClick: () => void;
 }) {
-  const pastelColors = [
-    {
-      bg: "bg-emerald-50 text-emerald-600",
-      icon: <Globe className="w-5 h-5" />,
-    },
-    { bg: "bg-blue-50 text-blue-600", icon: <Laptop className="w-5 h-5" /> },
-    {
-      bg: "bg-purple-50 text-purple-600",
-      icon: <FolderOpen className="w-5 h-5" />,
-    },
-    {
-      bg: "bg-orange-50 text-orange-600",
-      icon: <FileText className="w-5 h-5" />,
-    },
-    { bg: "bg-rose-50 text-rose-600", icon: <Beaker className="w-5 h-5" /> },
-  ];
+  const pastelColors = getProjectKindVisuals("w-5 h-5");
   const color = pastelColors[project.id.length % pastelColors.length];
 
   return (
@@ -266,7 +304,7 @@ export function ProjectListItem({
           {project.name}
         </h3>
         <p className="text-xs text-zinc-400 font-medium mt-1">
-          {formatDate(project.created_at)} · 12 个来源
+          {formatDate(project.created_at || (project as any).createdAt || (project as any).updatedAt)}
         </p>
       </div>
 

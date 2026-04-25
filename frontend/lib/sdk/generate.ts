@@ -119,7 +119,10 @@ export const generateApi = {
   async getSession(sessionId: string): Promise<GenerationSessionResponse> {
     const result = await sdkClient.GET(
       "/api/v1/generate/sessions/{session_id}",
-      { params: { path: { session_id: sessionId } } }
+      {
+        params: { path: { session_id: sessionId } },
+        cache: "no-store",
+      }
     );
     return unwrap<GenerationSessionResponse>(result);
   },
@@ -136,7 +139,10 @@ export const generateApi = {
       `${API_BASE_URL}/api/v1/generate/sessions/${encodeURIComponent(sessionId)}`
     );
     url.searchParams.set("run_id", runId);
-    const response = await apiFetch(url.toString(), { method: "GET" });
+    const response = await apiFetch(url.toString(), {
+      method: "GET",
+      cache: "no-store",
+    });
     const payload = await response.json();
     if (!response.ok) {
       throw toApiError(payload, response.status);
@@ -204,16 +210,21 @@ export const generateApi = {
 
   async listEvents(
     sessionId: string,
-    params?: { cursor?: string | null; limit?: number }
+    params?: { cursor?: string | null; limit?: number; run_id?: string | null }
   ): Promise<GenerationEventListResponse> {
     const url = new URL(
       `${API_BASE_URL}/api/v1/generate/sessions/${encodeURIComponent(sessionId)}/events`
     );
+    // listEvents is always short-poll JSON, never SSE stream.
+    url.searchParams.set("accept", "application/json");
     if (params?.cursor) {
       url.searchParams.set("cursor", params.cursor);
     }
     if (params?.limit) {
       url.searchParams.set("limit", String(params.limit));
+    }
+    if (params?.run_id) {
+      url.searchParams.set("run_id", params.run_id);
     }
     const response = await apiFetch(url.toString(), { method: "GET" });
     const payload = await response.json();
@@ -279,11 +290,16 @@ export const generateApi = {
     return unwrap<CandidateChangeResponse>(result);
   },
 
-  getEventStream(sessionId: string, cursor?: string): string {
+  getEventStream(
+    sessionId: string,
+    cursor?: string,
+    runId?: string | null
+  ): string {
     const url = new URL(
       `${API_BASE_URL}/api/v1/generate/sessions/${sessionId}/events`
     );
     if (cursor) url.searchParams.set("cursor", cursor);
+    if (runId) url.searchParams.set("run_id", runId);
     return url.toString();
   },
 };

@@ -9,7 +9,6 @@ import { toast } from "@/hooks/use-toast";
 import {
   Loader2,
   ArrowLeft,
-  Sparkles,
   Paperclip,
   X,
   ChevronDown,
@@ -19,18 +18,19 @@ import {
   Settings,
   Library,
 } from "lucide-react";
+import { BrandMark } from "@/components/icons/brand/BrandMark";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { useProjectStore } from "@/stores/projectStore";
-import { FILE_TYPE_CONFIG } from "@/components/project/features/sources/constants";
-import { getFileTypeFromExtension } from "@/components/project/features/sources/utils";
 import {
   AddLibraryDialog,
-  type NewProjectLibrary,
-} from "./_components/AddLibraryDialog";
+  type SelectableLibrary as NewProjectLibrary,
+} from "@/components/project/features/library/AddLibraryDialog";
+import { FILE_TYPE_CONFIG } from "@/components/project/features/sources/constants";
+import { getFileTypeFromExtension } from "@/components/project/features/sources/utils";
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -90,7 +90,7 @@ export default function NewProjectPage() {
     base_project_id: "",
     reference_mode: "follow" as "follow" | "pinned",
     visibility: "private" as "private" | "shared",
-    is_referenceable: false,
+    is_referenceable: true,
   });
 
   const fetchLibraries = useCallback(async () => {
@@ -156,19 +156,8 @@ export default function NewProjectPage() {
 
   const handleSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault();
-    if (!prompt.trim() && !formData.name.trim()) {
+    if (!prompt.trim()) {
       toast({ title: "请输入项目描述", variant: "destructive" });
-      return;
-    }
-    if (formData.visibility === "private" && formData.is_referenceable) {
-      const message =
-        "私有项目不能允许其他项目引用，请改成共享项目或关闭可引用选项。";
-      setSubmitError(message);
-      toast({
-        title: "创建项目失败",
-        description: message,
-        variant: "destructive",
-      });
       return;
     }
     if (
@@ -176,8 +165,7 @@ export default function NewProjectPage() {
       formData.base_project_id.trim() &&
       !selectedBaseLibrary.isReferenceable
     ) {
-      const message =
-        "所选父项目当前不可引用，请改选标记为“可引用”的项目。";
+      const message = "所选资料库当前不可导入，请改选其他资料库。";
       setSubmitError(message);
       toast({
         title: "创建项目失败",
@@ -190,21 +178,19 @@ export default function NewProjectPage() {
     setSubmitError(null);
     setIsLoading(true);
     try {
-      // Use prompt as name if name is empty
+      const promptText = prompt.trim();
       const projectName =
-        formData.name.trim() ||
-        prompt.trim().split("\n")[0].substring(0, 20) ||
-        "新项目";
-
-      const response = await projectsApi.createProject({
-        name: projectName,
-        description: prompt,
+        formData.name.trim() || promptText.split("\n")[0].substring(0, 20);
+      const createPayload = {
+        description: promptText,
         grade_level: formData.grade_level,
         base_project_id: formData.base_project_id || undefined,
         reference_mode: formData.reference_mode,
         visibility: formData.visibility,
         is_referenceable: formData.is_referenceable,
-      });
+        ...(projectName ? { name: projectName } : {}),
+      };
+      const response = await projectsApi.createProject(createPayload);
 
       const projectId = response?.data?.project?.id;
       if (projectId) {
@@ -262,10 +248,10 @@ export default function NewProjectPage() {
           <motion.div
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-zinc-900 text-white shadow-xl shadow-zinc-200"
+            className="inline-flex items-center gap-3 px-6 py-2.5 rounded-full bg-zinc-900 text-white shadow-xl shadow-zinc-200"
           >
-            <Sparkles className="w-4 h-4" />
-            <span className="text-[10px] font-black uppercase tracking-[0.2em]">
+            <BrandMark className="w-8 h-8" />
+            <span className="text-xs font-black uppercase tracking-[0.2em]">
               Spectra Agent
             </span>
           </motion.div>
@@ -297,11 +283,11 @@ export default function NewProjectPage() {
           <div className="absolute -inset-1 bg-gradient-to-r from-blue-500 to-purple-600 rounded-[2.5rem] blur opacity-15 group-focus-within:opacity-40 transition duration-500" />
           <div className="relative bg-white rounded-[2.5rem] shadow-2xl shadow-zinc-200/50 border border-zinc-100 p-8 space-y-8">
             <div className="space-y-4">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center">
-                  <Sparkles className="w-4 h-4 text-blue-600" />
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center">
+                  <BrandMark className="w-8 h-8" />
                 </div>
-                <h2 className="text-xl font-black text-zinc-900 tracking-tight">
+                <h2 className="text-2xl font-black text-zinc-900 tracking-tight">
                   教学构想{" "}
                   <span className="text-blue-600">(AI Agent 核心输入)</span>
                 </h2>
@@ -323,7 +309,7 @@ export default function NewProjectPage() {
                   className="rounded-2xl h-12 px-6 gap-2 text-zinc-500 hover:text-blue-600 hover:bg-blue-50 transition-all font-bold"
                 >
                   <Paperclip className="w-5 h-5" />
-                  添加课程资源 ({pendingFiles.length})
+                  导入资料 ({pendingFiles.length})
                 </Button>
                 <input
                   type="file"
@@ -339,23 +325,19 @@ export default function NewProjectPage() {
                   className="rounded-2xl h-12 px-6 gap-2 text-zinc-500 hover:text-purple-600 hover:bg-purple-50 transition-all font-bold"
                 >
                   <Library className="w-5 h-5" />
-                  添加库
+                  导入资料库
                 </Button>
               </div>
 
               <Button
                 onClick={handleSubmit}
-                disabled={
-                  isLoading || (!prompt.trim() && !formData.name.trim())
-                }
+                disabled={isLoading || !prompt.trim()}
                 className="h-14 px-10 rounded-[1.5rem] bg-zinc-900 hover:bg-zinc-800 text-lg font-black shadow-2xl hover:scale-[1.03] transition-all active:scale-95 disabled:scale-100"
               >
                 {isLoading ? (
                   <div className="flex items-center gap-3">
                     <Loader2 className="w-5 h-5 animate-spin" />
-                    <span>
-                      {isUploadingFiles ? "正在上传素材..." : "构思中..."}
-                    </span>
+                    <span>{isUploadingFiles ? "正在处理资料..." : "构思中..."}</span>
                   </div>
                 ) : (
                   <div className="flex items-center gap-3">
@@ -389,7 +371,7 @@ export default function NewProjectPage() {
                           selectedBaseLibrary?.name || formData.base_project_id
                         }
                       >
-                        已选库：
+                        已选资料库：
                         {selectedBaseLibrary?.name || formData.base_project_id}
                       </span>
                       <button
@@ -523,7 +505,6 @@ export default function NewProjectPage() {
                           setFormData((prev) => ({
                             ...prev,
                             visibility: "private",
-                            is_referenceable: false,
                           }))
                         }
                         className={cn(
@@ -575,14 +556,13 @@ export default function NewProjectPage() {
                             允许被其他项目引用
                           </p>
                           <p className="text-[11px] text-zinc-500">
-                            开启后可作为其他项目的父项目/基底项目。
+                            开启后可作为其他项目的资料库被接入。
                           </p>
                         </div>
                         <Switch
                           id="is_referenceable_new"
                           className="relative z-10 shrink-0 pointer-events-auto"
                           checked={formData.is_referenceable}
-                          disabled={formData.visibility === "private"}
                           onCheckedChange={(checked) =>
                             setFormData((prev) => ({
                               ...prev,
@@ -591,11 +571,9 @@ export default function NewProjectPage() {
                           }
                         />
                       </div>
-                      {formData.visibility === "private" ? (
-                        <p className="mt-2 text-[11px] font-semibold text-zinc-500">
-                          私有项目下该选项自动关闭，切换到共享后可开启。
-                        </p>
-                      ) : null}
+                      <p className="mt-2 text-[11px] font-semibold text-zinc-500">
+                        默认开启，私有资料库也可以被你自己的项目接入复用。
+                      </p>
                     </div>
                   </div>
                   {submitError ? (
@@ -618,14 +596,7 @@ export default function NewProjectPage() {
         libraries={visibleLibraries}
         keyword={libraryKeyword}
         onKeywordChange={setLibraryKeyword}
-        baseProjectId={formData.base_project_id}
-        onBaseProjectIdChange={(value) =>
-          setFormData((prev) => ({ ...prev, base_project_id: value }))
-        }
-        referenceMode={formData.reference_mode}
-        onReferenceModeChange={(value) =>
-          setFormData((prev) => ({ ...prev, reference_mode: value }))
-        }
+        selectedLibraryId={formData.base_project_id}
         onSelectLibrary={handleSelectLibrary}
         onReload={() => {
           void fetchLibraries();

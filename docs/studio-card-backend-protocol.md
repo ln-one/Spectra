@@ -1,7 +1,8 @@
 # Studio 卡片后端协议
 
-> 更新时间：2026-03-19
-> 目标：让前端卡片分支与后端语义主线在同一套协议上收口。
+> 更新时间：2026-04-22
+> 状态：`current`
+> 目标：让 Studio 卡片前后端在同一套执行与 artifact 生命周期协议上收口。
 
 ## 1. 当前入口
 
@@ -98,9 +99,9 @@
 
 ### `interactive_games`
 
-- `readiness`: `protocol_pending`
+- `readiness`: `foundation_ready`
 - `execution_mode`: `artifact_create`
-- 说明：HTML artifact 可承载，但专用 game 协议尚未正式落地
+- 说明：`interactive_game.v2` HTML artifact 已是当前正式承载
 
 ### `speaker_notes`
 
@@ -166,6 +167,7 @@
 - `interactive_quick_quiz`
 - `knowledge_mindmap`
 - `demonstration_animations`
+- `interactive_games`
 
 这意味着前端现在不只是知道“卡片存在”，还知道：
 
@@ -204,10 +206,8 @@
 
 同时：
 
-- `interactive_quick_quiz / knowledge_mindmap / demonstration_animations`
-  现在可以把卡片配置正式写入 artifact `content`
-- `word_document`
-  现在可以把文档细分配置正式写入 create-session `options`
+- `word_document / interactive_quick_quiz / knowledge_mindmap / demonstration_animations / interactive_games`
+  现在都可以把卡片配置正式映射到 artifact 创建或 refine 请求
 
 同时：
 
@@ -228,26 +228,36 @@
 
 ## 9. Refine 执行
 
-`refine` 用来把卡片从“知道如何改”推进到“后端帮你通过统一 chat 通道真正执行改写”。
+`refine` 用来把卡片从“知道如何改”推进到“后端帮你通过正式协议真正执行更新”。
 
 当前已经支持：
 
 - `POST /api/v1/generate/studio-cards/{card_id}/refine`
 
-它的原则是：
+当前四张核心 managed 卡片要遵守同一条生命周期原则：
 
-- 卡片先通过 `execution-preview` 生成正式 `refine_request`
-- 后端再把其中的 `metadata`
-  作为正式上下文送入 `/api/v1/chat/messages`
-- 因此 refine 不再只是前端拼 prompt，而是进入系统自己的语义回环
+- `new draft -> new artifact`
+- `history click -> pinned artifact`
+- `refine / save -> same artifact`
+- `run` 只用于处理中恢复、轮询、审计，不决定默认结果
 
-这意味着：
+其中 refine 载体分两类：
 
-- `speaker_notes`
-  的段落改写现在已经不只是“有预览”，而是能真正走 refine 执行通道
+- `word_document`
+  - 直接编辑保存属于 direct edit，更新原 artifact
+  - chat refine 仍可走 AI rewrite / RAG，但也必须绑定原 artifact
+- `interactive_quick_quiz`
+  - 单题修改/保存更新原 quiz artifact
+- `knowledge_mindmap`
+  - 节点编辑/删改/扩展更新原 mindmap artifact
 - `interactive_games`
-  现在也已经具备正式 `refine_request`，游戏规则热更新可以走统一 refine 通道
-- 其他带 `refine_request` 的卡片，也可以沿同一路径继续收口
+  - 游戏规则与交互参数 refine 更新原 `interactive_game.v2` artifact
+
+这意味着前端不应再把这四张卡理解成：
+
+- refine 产生 replacement artifact
+- `{session_id, tool_type}` 推导唯一 current result
+- history click 可以退回 session latest / run latest
 
 执行结果会明确返回：
 

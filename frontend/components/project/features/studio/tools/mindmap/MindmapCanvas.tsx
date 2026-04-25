@@ -1,284 +1,527 @@
-import { useMemo, useState } from "react";
-import { Minus, Plus, ScanLine } from "lucide-react";
+"use client";
+
+import { hierarchy, tree as createTreeLayout } from "d3-hierarchy";
+import { memo, useCallback, useEffect, useMemo, useRef } from "react";
+import ReactFlow, {
+  Background,
+  BaseEdge,
+  Controls,
+  Handle,
+  NodeToolbar,
+  Position,
+  getBezierPath,
+  useUpdateNodeInternals,
+} from "reactflow";
+import type {
+  Edge,
+  EdgeProps,
+  EdgeTypes,
+  Node,
+  NodeProps,
+  ReactFlowInstance,
+} from "reactflow";
+import { Pencil, Plus, Trash2 } from "lucide-react";
+import "reactflow/dist/style.css";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import type { MindNode } from "./types";
+
+type MindmapCanvasMode = "preview" | "edit";
 
 interface MindmapCanvasProps {
   tree: MindNode;
+  mode: MindmapCanvasMode;
   selectedId: string;
   onSelectNode: (id: string) => void;
+  onCanvasClick: () => void;
+  canStructuredEdit: boolean;
+  isSubmitting: boolean;
+  onRequestRename: (nodeId: string) => void;
+  onRequestAddChild: (nodeId: string) => void;
+  onRequestDelete: (nodeId: string) => void;
+  collapsedNodeIds?: string[];
 }
 
-interface PositionedNode {
-  id: string;
-  label: string;
-  x: number;
-  y: number;
+type FlowNodeData = {
+  nodeId: string;
+  rawLabel: string;
+  summary?: string;
+  childCount: number;
+  depth: number;
+  isRoot: boolean;
+  hasIncoming: boolean;
+  hasOutgoing: boolean;
+  canStructuredEdit: boolean;
+  isSubmitting: boolean;
+  mode: MindmapCanvasMode;
+  onRequestRename: (nodeId: string) => void;
+  onRequestAddChild: (nodeId: string) => void;
+  onRequestDelete: (nodeId: string) => void;
+};
+
+const NODE_WIDTH = 300;
+const NODE_HEIGHT = 120;
+const HORIZONTAL_GAP = 240;
+const VERTICAL_GAP = 84;
+const HANDLE_SIZE = 10;
+const HANDLE_OVERHANG = 5;
+const EDGE_CURVATURE = 0.3;
+const EDGE_COLOR = "#94a3b8";
+const EDGE_STROKE_WIDTH = 2.1;
+const EDGE_DOT_RADIUS = 4.5;
+const INCOMING_HANDLE_ID = "incoming";
+const OUTGOING_HANDLE_ID = "outgoing";
+
+const HANDLE_BASE_STYLE = {
+  width: HANDLE_SIZE,
+  height: HANDLE_SIZE,
+  border: "none",
+  borderRadius: "9999px",
+  background: "transparent",
+  opacity: 0,
+  pointerEvents: "none" as const,
+  zIndex: 2,
+};
+
+function shouldHideNode(
+  _node: MindNode,
+  collapsedNodeIds: Set<string>,
+  ancestors: string[]
+): boolean {
+  return ancestors.some((ancestorId) => collapsedNodeIds.has(ancestorId));
 }
 
-interface Link {
-  from: { x: number; y: number };
-  to: { x: number; y: number };
-}
+function buildFlow(
+  root: MindNode,
+  collapsedNodeIds: Set<string>,
+  handlers: Pick<
+    FlowNodeData,
+    | "canStructuredEdit"
+    | "isSubmitting"
+    | "mode"
+    | "onRequestRename"
+    | "onRequestAddChild"
+    | "onRequestDelete"
+  >
+): { nodes: Node<FlowNodeData>[]; edges: Edge[] } {
+  const edges: Edge[] = [];
+  const incomingNodeIds = new Set<string>();
+  const outgoingNodeIds = new Set<string>();
+  const nodeDepths = new Map<string, number>();
+  const branchOrder = new Map<string, number>();
+  const subtreeSizeCache = new Map<string, number>();
 
-interface MindmapLayout {
-  nodes: PositionedNode[];
-  links: Link[];
-  width: number;
-  height: number;
-}
-
-const MIN_SCALE = 0.55;
-const MAX_SCALE = 1.75;
-const LEVEL_GAP = 220;
-const ROW_GAP = 72;
-
-function clampScale(value: number): number {
-  return Math.min(MAX_SCALE, Math.max(MIN_SCALE, value));
-}
-
-function nodeWidth(label: string): number {
-  return Math.min(220, Math.max(90, label.length * 12 + 26));
-}
-
-function buildLayout(root: MindNode): MindmapLayout {
-  let rowCursor = 0;
-  let maxDepth = 0;
-  const nodes: PositionedNode[] = [];
-  const links: Link[] = [];
-
-  const walk = (
-    node: MindNode,
-    depth: number,
-    parent: { x: number; y: number } | null
-  ): { x: number; y: number } => {
-    maxDepth = Math.max(maxDepth, depth);
-    const x = depth * LEVEL_GAP;
-    const children = node.children ?? [];
-
-    if (children.length === 0) {
-      const y = rowCursor * ROW_GAP;
-      rowCursor += 1;
-      const current = { x, y };
-      nodes.push({ id: node.id, label: node.label, ...current });
-      if (parent) {
-        links.push({ from: parent, to: current });
-      }
-      return current;
+  const buildVisibleTree = (node: MindNode, ancestors: string[]): MindNode | null => {
+    if (shouldHideNode(node, collapsedNodeIds, ancestors)) return null;
+    if (collapsedNodeIds.has(node.id)) {
+      return { ...node, children: [] };
     }
+    const visibleChildren = (node.children ?? [])
+      .map((child) => buildVisibleTree(child, [...ancestors, node.id]))
+      .filter(Boolean) as MindNode[];
+    return { ...node, children: visibleChildren };
+  };
 
-    const childCenters = children.map((child) => walk(child, depth + 1, null));
-    const y =
-      childCenters.reduce((sum, item) => sum + item.y, 0) / childCenters.length;
-    const current = { x, y };
-    nodes.push({ id: node.id, label: node.label, ...current });
-    if (parent) {
-      links.push({ from: parent, to: current });
-    }
-    childCenters.forEach((childCenter) => {
-      links.push({ from: current, to: childCenter });
+  const visibleRoot = buildVisibleTree(root, []);
+  if (!visibleRoot) {
+    return { nodes: [], edges: [] };
+  }
+
+  const countSubtree = (node: MindNode): number => {
+    const cached = subtreeSizeCache.get(node.id);
+    if (cached) return cached;
+    const size =
+      1 + (node.children ?? []).reduce((sum, child) => sum + countSubtree(child), 0);
+    subtreeSizeCache.set(node.id, size);
+    return size;
+  };
+
+  const hierarchyRoot = hierarchy<MindNode>(visibleRoot, (node) => node.children ?? []);
+  countSubtree(visibleRoot);
+  const layout = createTreeLayout<MindNode>()
+    .nodeSize([NODE_HEIGHT + VERTICAL_GAP, NODE_WIDTH + HORIZONTAL_GAP])
+    .separation((left, right) => {
+      const leftSize = subtreeSizeCache.get(left.data.id) ?? 1;
+      const rightSize = subtreeSizeCache.get(right.data.id) ?? 1;
+      const siblingFactor = left.parent === right.parent ? 1 : 1.35;
+      const densityFactor = 1 + Math.min(1.35, (leftSize + rightSize) / 10);
+      const shallowBias = left.depth <= 1 || right.depth <= 1 ? 1.16 : 1;
+      return siblingFactor * densityFactor * shallowBias;
     });
-    return current;
+
+  const laidOutRoot = layout(hierarchyRoot);
+  const firstLevelChildren = laidOutRoot.children ?? [];
+  firstLevelChildren.forEach((branch, index) => {
+    branchOrder.set(branch.data.id, index);
+  });
+
+  const resolveBranchIndex = (node: typeof laidOutRoot): number => {
+    if (node.depth <= 0) return 0;
+    const anchor = node.ancestors().find((ancestor) => ancestor.depth === 1);
+    return anchor ? branchOrder.get(anchor.data.id) ?? 0 : 0;
   };
 
-  walk(root, 0, null);
-
-  return {
-    nodes,
-    links,
-    width: Math.max((maxDepth + 1) * LEVEL_GAP + 180, 560),
-    height: Math.max(rowCursor * ROW_GAP + 100, 260),
+  const computeVerticalBias = (node: typeof laidOutRoot): number => {
+    if (node.depth === 0) return 0;
+    const branchIndex = resolveBranchIndex(node);
+    const branchDirection = branchIndex % 2 === 0 ? -1 : 1;
+    const branchMagnitude = branchIndex === 0 ? 0 : Math.min(54, 12 + branchIndex * 8);
+    const depthBias = node.depth <= 1 ? 0 : branchDirection * branchMagnitude;
+    const siblingSpread = node.parent?.children?.length ?? 1;
+    const localOffset =
+      node.depth <= 1 ? 0 : ((node.parent?.children?.findIndex((child) => child === node) ?? 0) - (siblingSpread - 1) / 2) * 14;
+    return depthBias + localOffset;
   };
+
+  laidOutRoot.each((layoutNode) => {
+    const node = layoutNode.data;
+    nodeDepths.set(node.id, layoutNode.depth);
+
+    for (const child of node.children ?? []) {
+      edges.push({
+        id: `${node.id}-${child.id}`,
+        source: node.id,
+        sourceHandle: OUTGOING_HANDLE_ID,
+        target: child.id,
+        targetHandle: INCOMING_HANDLE_ID,
+        type: "mindmapEdge",
+        data: {
+          sourceDepth: layoutNode.depth,
+          targetDepth: layoutNode.depth + 1,
+        },
+        style: {
+          stroke: EDGE_COLOR,
+          strokeWidth: layoutNode.depth <= 1 ? 2.5 : EDGE_STROKE_WIDTH,
+          opacity: layoutNode.depth <= 1 ? 0.98 : 0.82,
+          strokeLinecap: "round" as const,
+          strokeLinejoin: "round" as const,
+        },
+      });
+      outgoingNodeIds.add(node.id);
+      incomingNodeIds.add(child.id);
+    }
+  });
+
+  const nodes = laidOutRoot.descendants().map((layoutNode) => {
+    const node = layoutNode.data;
+    const depth = nodeDepths.get(node.id) ?? 0;
+    const verticalBias = computeVerticalBias(layoutNode);
+    return {
+      id: node.id,
+      type: "mindNode",
+      width: NODE_WIDTH,
+      height: NODE_HEIGHT,
+      position: {
+        x: layoutNode.y - NODE_WIDTH / 2,
+        y: layoutNode.x + verticalBias - NODE_HEIGHT / 2,
+      },
+      draggable: false,
+      selectable: true,
+      data: {
+        nodeId: node.id,
+        rawLabel: node.label,
+        summary: node.summary,
+        childCount: node.children?.length ?? 0,
+        isRoot: !node.parentId || node.parentId === node.id,
+        hasIncoming: incomingNodeIds.has(node.id),
+        hasOutgoing: outgoingNodeIds.has(node.id),
+        depth,
+        canStructuredEdit: handlers.canStructuredEdit,
+        isSubmitting: handlers.isSubmitting,
+        mode: handlers.mode,
+        onRequestRename: handlers.onRequestRename,
+        onRequestAddChild: handlers.onRequestAddChild,
+        onRequestDelete: handlers.onRequestDelete,
+      },
+    } satisfies Node<FlowNodeData>;
+  });
+
+  return { nodes, edges };
 }
 
-export function MindmapCanvas({
-  tree,
-  selectedId,
-  onSelectNode,
-}: MindmapCanvasProps) {
-  const layout = useMemo(() => buildLayout(tree), [tree]);
-  const [scale, setScale] = useState(1);
-  const [offset, setOffset] = useState({ x: 60, y: 42 });
-  const [dragState, setDragState] = useState<{
-    pointerId: number;
-    x: number;
-    y: number;
-  } | null>(null);
+const MindmapNode = memo(function MindmapNode({
+  data,
+  selected,
+}: NodeProps<FlowNodeData>) {
+  const updateNodeInternals = useUpdateNodeInternals();
 
-  const handleZoom = (next: number) => {
-    setScale(clampScale(next));
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => {
+      updateNodeInternals(data.nodeId);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [data.hasIncoming, data.hasOutgoing, data.nodeId, updateNodeInternals]);
+
+  const summaryText = data.summary
+    ? data.summary.length > 80
+      ? `${data.summary.slice(0, 80)}...`
+      : data.summary
+    : null;
+  const disableActions = !data.canStructuredEdit || data.isSubmitting;
+  const showToolbar = selected && data.mode === "edit";
+  const leftHandleStyle = {
+    ...HANDLE_BASE_STYLE,
+    left: -HANDLE_OVERHANG,
+    top: "50%",
+    transform: "translate(0, -50%)",
+  };
+  const rightHandleStyle = {
+    ...HANDLE_BASE_STYLE,
+    right: -HANDLE_OVERHANG,
+    top: "50%",
+    transform: "translate(0, -50%)",
   };
 
   return (
-    <div className="rounded-xl border border-zinc-200 bg-white p-2">
-      <div className="mb-2 flex items-center justify-between gap-2 px-1">
-        <p className="text-[11px] text-zinc-500">
-          拖拽平移，滚轮缩放，点击节点后可在 Chat 里继续扩展
-        </p>
-        <div className="flex items-center gap-1">
+    <>
+      {data.hasIncoming ? (
+        <Handle
+          id={INCOMING_HANDLE_ID}
+          type="target"
+          position={Position.Left}
+          isConnectable={false}
+          style={leftHandleStyle}
+        />
+      ) : null}
+      <NodeToolbar
+        isVisible={showToolbar}
+        position={Position.Top}
+        offset={12}
+        className="nodrag nopan nowheel"
+      >
+        <div className="flex items-center gap-1 rounded-full border border-zinc-200 bg-white/96 px-1.5 py-1 shadow-lg backdrop-blur">
           <Button
             type="button"
-            variant="outline"
-            size="sm"
-            className="h-7 px-2 text-xs"
-            onClick={() => handleZoom(scale - 0.12)}
+            size="icon"
+            variant="ghost"
+            className="nodrag nopan h-8 w-8 rounded-full"
+            disabled={disableActions}
+            onClick={() => data.onRequestRename(data.nodeId)}
+            aria-label="重命名"
+            title="重命名"
           >
-            <Minus className="h-3.5 w-3.5" />
+            <Pencil className="h-3.5 w-3.5" />
           </Button>
           <Button
             type="button"
-            variant="outline"
-            size="sm"
-            className="h-7 px-2 text-xs"
-            onClick={() => handleZoom(scale + 0.12)}
+            size="icon"
+            variant="ghost"
+            className="nodrag nopan h-8 w-8 rounded-full"
+            disabled={disableActions}
+            onClick={() => data.onRequestAddChild(data.nodeId)}
+            aria-label="新增子节点"
+            title="新增子节点"
           >
             <Plus className="h-3.5 w-3.5" />
           </Button>
           <Button
             type="button"
-            variant="outline"
-            size="sm"
-            className="h-7 px-2 text-xs"
-            onClick={() => {
-              setScale(1);
-              setOffset({ x: 60, y: 42 });
-            }}
+            size="icon"
+            variant="ghost"
+            className="nodrag nopan h-8 w-8 rounded-full text-rose-600 hover:text-rose-700"
+            disabled={disableActions || data.isRoot}
+            onClick={() => data.onRequestDelete(data.nodeId)}
+            aria-label="删除节点"
+            title={data.isRoot ? "根节点不可删除" : "删除节点"}
           >
-            <ScanLine className="mr-1 h-3.5 w-3.5" />
-            重置
+            <Trash2 className="h-3.5 w-3.5" />
           </Button>
         </div>
-      </div>
-      <svg
-        className="h-[340px] w-full cursor-grab rounded-lg border border-zinc-200 bg-zinc-50/70 active:cursor-grabbing"
-        viewBox={`0 0 ${layout.width} ${layout.height}`}
-        onWheel={(event) => {
-          event.preventDefault();
-          const svg = event.currentTarget;
-          const rect = svg.getBoundingClientRect();
-          const px = event.clientX - rect.left;
-          const py = event.clientY - rect.top;
-          const nextScale = clampScale(
-            scale * (event.deltaY < 0 ? 1.08 : 1 / 1.08)
-          );
-          const worldX = (px - offset.x) / scale;
-          const worldY = (py - offset.y) / scale;
-          setScale(nextScale);
-          setOffset({
-            x: px - worldX * nextScale,
-            y: py - worldY * nextScale,
-          });
-        }}
-        onPointerDown={(event) => {
-          if (event.target !== event.currentTarget) {
-            return;
-          }
-          if (typeof event.currentTarget.setPointerCapture === "function") {
-            event.currentTarget.setPointerCapture(event.pointerId);
-          }
-          setDragState({
-            pointerId: event.pointerId,
-            x: event.clientX,
-            y: event.clientY,
-          });
-        }}
-        onPointerMove={(event) => {
-          if (!dragState || dragState.pointerId !== event.pointerId) {
-            return;
-          }
-          const dx = event.clientX - dragState.x;
-          const dy = event.clientY - dragState.y;
-          setOffset((prev) => ({ x: prev.x + dx, y: prev.y + dy }));
-          setDragState({
-            pointerId: event.pointerId,
-            x: event.clientX,
-            y: event.clientY,
-          });
-        }}
-        onPointerUp={(event) => {
-          if (dragState?.pointerId === event.pointerId) {
-            setDragState(null);
-          }
-          if (
-            typeof event.currentTarget.hasPointerCapture === "function" &&
-            event.currentTarget.hasPointerCapture(event.pointerId) &&
-            typeof event.currentTarget.releasePointerCapture === "function"
-          ) {
-            event.currentTarget.releasePointerCapture(event.pointerId);
-          }
-        }}
-      >
-        <g transform={`translate(${offset.x} ${offset.y}) scale(${scale})`}>
-          {layout.links.map((link, index) => {
-            const controlOffset = Math.abs(link.to.x - link.from.x) * 0.44;
-            const path = `M ${link.from.x} ${link.from.y} C ${link.from.x + controlOffset} ${link.from.y}, ${link.to.x - controlOffset} ${link.to.y}, ${link.to.x} ${link.to.y}`;
-            return (
-              <path
-                key={`${index}-${link.from.x}-${link.to.x}`}
-                d={path}
-                fill="none"
-                stroke="rgba(20, 184, 166, 0.45)"
-                strokeWidth={2}
-              />
-            );
-          })}
+      </NodeToolbar>
 
-          {layout.nodes.map((node) => {
-            const isSelected = node.id === selectedId;
-            const width = nodeWidth(node.label);
-            return (
-              <g
-                key={node.id}
-                transform={`translate(${node.x} ${node.y})`}
-                onPointerDown={(event) => {
-                  event.stopPropagation();
-                }}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onSelectNode(node.id);
-                }}
-                className="cursor-pointer"
-              >
-                {isSelected ? (
-                  <rect
-                    x={-width / 2 - 8}
-                    y={-26}
-                    width={width + 16}
-                    height={52}
-                    rx={16}
-                    fill="rgba(20, 184, 166, 0.12)"
-                    stroke="rgba(13, 148, 136, 0.38)"
-                    strokeWidth={1.4}
-                  />
-                ) : null}
-                <rect
-                  x={-width / 2}
-                  y={-18}
-                  width={width}
-                  height={36}
-                  rx={10}
-                  fill={isSelected ? "rgba(20, 184, 166, 0.24)" : "white"}
-                  stroke={isSelected ? "#0f766e" : "rgba(82, 82, 91, 0.35)"}
-                  strokeWidth={isSelected ? 2.8 : 1.2}
-                />
-                {isSelected ? (
-                  <circle cx={0} cy={-24} r={4.5} fill="#0f766e" />
-                ) : null}
-                <text
-                  x={0}
-                  y={4}
-                  textAnchor="middle"
-                  fontSize={isSelected ? 12.5 : 12}
-                  fontWeight={isSelected ? 700 : 500}
-                  fill={isSelected ? "#115e59" : "#334155"}
-                >
-                  {node.label}
-                </text>
-              </g>
-            );
-          })}
-        </g>
-      </svg>
+      <div
+        className={cn(
+          "rounded-2xl border bg-white p-3 shadow-sm transition-colors",
+          selected
+            ? "border-emerald-600 bg-emerald-50/80"
+            : "border-zinc-300 hover:border-zinc-400"
+        )}
+        style={{ width: NODE_WIDTH, height: NODE_HEIGHT }}
+      >
+        <p
+          className={cn(
+            "text-sm font-semibold",
+            selected ? "text-emerald-900" : "text-zinc-900"
+          )}
+        >
+          {data.rawLabel}
+        </p>
+        {summaryText ? (
+          <p className="mt-1 line-clamp-2 text-xs leading-5 text-zinc-600">{summaryText}</p>
+        ) : null}
+        <p className="mt-1 text-xs text-zinc-500">子节点：{data.childCount}</p>
+      </div>
+      {data.hasOutgoing ? (
+        <Handle
+          id={OUTGOING_HANDLE_ID}
+          type="source"
+          position={Position.Right}
+          isConnectable={false}
+          style={rightHandleStyle}
+        />
+      ) : null}
+    </>
+  );
+});
+
+const MindmapEdge = memo(function MindmapEdge({
+  sourceX,
+  sourceY,
+  targetX,
+  targetY,
+  sourcePosition,
+  targetPosition,
+  sourceHandleId,
+  targetHandleId,
+  markerEnd,
+  style,
+  id,
+}: EdgeProps) {
+  const sourceXAdjusted =
+    sourceHandleId === OUTGOING_HANDLE_ID ? sourceX + 1 : sourceX;
+  const targetXAdjusted =
+    targetHandleId === INCOMING_HANDLE_ID ? targetX - 1 : targetX;
+
+  const [edgePath] = getBezierPath({
+    sourceX: sourceXAdjusted,
+    sourceY,
+    targetX: targetXAdjusted,
+    targetY,
+    sourcePosition,
+    targetPosition,
+    curvature: EDGE_CURVATURE,
+  });
+
+  return (
+    <>
+      <BaseEdge id={id} path={edgePath} markerEnd={markerEnd} style={style} />
+      <circle
+        cx={sourceXAdjusted}
+        cy={sourceY}
+        r={EDGE_DOT_RADIUS}
+        fill={EDGE_COLOR}
+      />
+      <circle
+        cx={targetXAdjusted}
+        cy={targetY}
+        r={EDGE_DOT_RADIUS}
+        fill={EDGE_COLOR}
+      />
+    </>
+  );
+});
+
+export function MindmapCanvas({
+  tree,
+  mode,
+  selectedId,
+  onSelectNode,
+  onCanvasClick,
+  canStructuredEdit,
+  isSubmitting,
+  onRequestRename,
+  onRequestAddChild,
+  onRequestDelete,
+  collapsedNodeIds = [],
+}: MindmapCanvasProps) {
+  const reactFlowRef = useRef<ReactFlowInstance | null>(null);
+  const collapsedSet = useMemo(() => new Set(collapsedNodeIds), [collapsedNodeIds]);
+  const flow = useMemo(
+    () =>
+      buildFlow(tree, collapsedSet, {
+        canStructuredEdit,
+        isSubmitting,
+        mode,
+        onRequestRename,
+        onRequestAddChild,
+        onRequestDelete,
+      }),
+    [
+      tree,
+      collapsedSet,
+      canStructuredEdit,
+      isSubmitting,
+      mode,
+      onRequestRename,
+      onRequestAddChild,
+      onRequestDelete,
+    ]
+  );
+  const nodes = useMemo(
+    () =>
+      flow.nodes.map((node) => ({
+        ...node,
+        selected: node.id === selectedId,
+      })),
+    [flow.nodes, selectedId]
+  );
+  const defaultEdgeOptions = useMemo(
+    () => ({
+      type: "mindmapEdge",
+      style: {
+        stroke: EDGE_COLOR,
+        strokeWidth: EDGE_STROKE_WIDTH,
+        strokeLinecap: "round" as const,
+        strokeLinejoin: "round" as const,
+      },
+    }),
+    []
+  );
+  const nodeTypes = useMemo(() => ({ mindNode: MindmapNode }), []);
+  const edgeTypes = useMemo<EdgeTypes>(() => ({ mindmapEdge: MindmapEdge }), []);
+  const layoutSignature = useMemo(
+    () =>
+      [
+        flow.nodes
+          .map(
+            (node) =>
+              `${node.id}:${Math.round(node.position.x)}:${Math.round(node.position.y)}`
+          )
+          .join("|"),
+        flow.edges.map((edge) => edge.id).join("|"),
+      ].join("::"),
+    [flow.edges, flow.nodes]
+  );
+
+  const fitToView = useCallback(() => {
+    reactFlowRef.current?.fitView({
+      padding: 0.16,
+      maxZoom: 1.15,
+      duration: 280,
+    });
+  }, []);
+
+  useEffect(() => {
+    fitToView();
+  }, [fitToView, layoutSignature]);
+
+  return (
+    <div className="h-full min-h-0 w-full overflow-hidden rounded-none border-0 bg-white">
+      <ReactFlow
+        nodes={nodes}
+        edges={flow.edges}
+        nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
+        defaultEdgeOptions={defaultEdgeOptions}
+        fitView
+        fitViewOptions={{ padding: 0.16, duration: 280, maxZoom: 1.15 }}
+        onInit={(instance) => {
+          reactFlowRef.current = instance;
+        }}
+        nodesDraggable={false}
+        nodesConnectable={false}
+        elementsSelectable
+        panOnDrag
+        zoomOnScroll
+        minZoom={0.3}
+        maxZoom={1.8}
+        proOptions={{ hideAttribution: true }}
+        onNodeClick={(_, node) => onSelectNode(node.id)}
+        onPaneClick={onCanvasClick}
+      >
+        <Controls className="!shadow-md" position="bottom-left" />
+        <Background color="#e2e8f0" gap={16} size={1} />
+      </ReactFlow>
     </div>
   );
 }

@@ -7,6 +7,13 @@ import { getErrorMessage } from "@/lib/sdk/errors";
 import { useAuthStore } from "@/stores/authStore";
 import type { Project } from "./project-types";
 
+const SESSION_CHECK_TIMEOUT_MS = 8_000;
+const PROJECT_TITLE_POLL_MS = 2_500;
+
+function readProjectNameSource(project: Project): string {
+  return String(project.nameSource || project.name_source || "").trim();
+}
+
 export function useProjectsPageState() {
   const router = useRouter();
   const { user, logout } = useAuthStore();
@@ -19,18 +26,25 @@ export function useProjectsPageState() {
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
 
-  const fetchProjects = useCallback(async () => {
-    setIsLoading(true);
-    setErrorMessage(null);
+  const fetchProjects = useCallback(async (options?: { silent?: boolean }) => {
+    const silent = Boolean(options?.silent);
+    if (!silent) {
+      setIsLoading(true);
+      setErrorMessage(null);
+    }
     try {
       const response = await projectsApi.getProjects();
       setProjects(response?.data?.projects ?? []);
     } catch (error) {
       console.error("Failed to fetch projects:", error);
       const message = error instanceof Error ? error.message : "加载项目失败";
-      setErrorMessage(message);
+      if (!silent) {
+        setErrorMessage(message);
+      }
     } finally {
-      setIsLoading(false);
+      if (!silent) {
+        setIsLoading(false);
+      }
     }
   }, []);
 
@@ -38,12 +52,24 @@ export function useProjectsPageState() {
     let cancelled = false;
 
     const bootstrap = async () => {
-      if (!(await authService.hasActiveSession())) {
-        router.push("/auth/login");
-        return;
-      }
+      setIsLoading(true);
+      try {
+        const hasSession = await authService.hasActiveSession({
+          timeoutMs: SESSION_CHECK_TIMEOUT_MS,
+        });
+        if (cancelled) return;
+        if (!hasSession) {
+          setIsLoading(false);
+          router.replace("/auth/login");
+          return;
+        }
 
-      await fetchProjects();
+        await fetchProjects();
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false);
+        }
+      }
     };
 
     void bootstrap();
@@ -51,6 +77,20 @@ export function useProjectsPageState() {
       cancelled = true;
     };
   }, [router, fetchProjects]);
+
+  useEffect(() => {
+    const hasPendingTitles = projects.some(
+      (project) => readProjectNameSource(project) === "default"
+    );
+    if (!hasPendingTitles) return;
+
+    const timer = window.setInterval(() => {
+      void fetchProjects({ silent: true });
+    }, PROJECT_TITLE_POLL_MS);
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, [fetchProjects, projects]);
 
   const filteredProjects = useMemo(
     () =>

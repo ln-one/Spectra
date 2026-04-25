@@ -1,30 +1,109 @@
 from __future__ import annotations
 
 import json
+import logging
+import os
+import re
 from typing import Any
 
-from services.ai import ai_service
 from services.ai.model_router import ModelRouteTask
-from services.generation_session_service.game_template_engine import (
-    is_template_game_pattern,
-    render_game_html,
-    resolve_game_pattern,
-    validate_game_data,
+from services.generation_session_service.mindmap_generation_support import (
+    build_mindmap_review_prompt as _build_mindmap_review_prompt,
+    generate_mindmap_reviewed_payload as _generate_mindmap_reviewed_payload,
+    resolve_mindmap_model as _resolve_mindmap_model,
+    resolve_mindmap_review_timeout_seconds as _resolve_mindmap_review_timeout_seconds,
+    resolve_mindmap_timeout_seconds as _resolve_mindmap_timeout_seconds,
+)
+from services.generation_session_service.mindmap_normalizer import (
+    evaluate_mindmap_payload_quality,
+)
+from services.generation_session_service.interactive_game_generation_support import (
+    enforce_interactive_game_quality_gate,
+    generate_interactive_game_reviewed_payload,
+)
+from services.generation_session_service.quiz_generation_support import (
+    enforce_quiz_quality_gate,
+    generate_quiz_reviewed_payload,
 )
 from services.generation_session_service.word_template_engine import (
-    build_word_payload,
+    build_word_markdown_prompt,
+    build_word_markdown_reviewer_prompt,
     resolve_word_document_variant,
 )
-from utils.exceptions import APIException, ErrorCode
+from utils.exceptions import ErrorCode
 
+from .tool_content_builder_ai import (
+    ai_service,
+    generate_card_json_payload,
+    generate_card_text_payload,
+)
+from .studio_card_payload_normalizers import normalize_generated_card_payload
 from .tool_content_builder_support import (
-    build_error_details,
     build_schema_hint,
-    parse_ai_object_payload,
     raise_generation_error,
     validate_card_payload,
-    validate_simulator_turn_payload,
 )
+from .word_document_normalizer import (
+    build_word_payload_from_markdown,
+    sanitize_word_title,
+)
+
+logger = logging.getLogger(__name__)
+
+
+_CARD_GENERATION_MAX_TOKENS: dict[str, int] = {
+    "speaker_notes": 48000,
+    "word_document": 50000,
+    "knowledge_mindmap": 18000,
+    "interactive_quick_quiz": 18000,
+    "interactive_games": 22000,
+    "classroom_qa_simulator": 24000,
+}
+
+
+def _env_positive_int(name: str, default: int) -> int:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    try:
+        value = int(raw.strip())
+        return value if value > 0 else default
+    except ValueError:
+        return default
+
+
+def _resolve_word_model() -> str | None:
+    tier = (
+        str(os.getenv("WORD_LESSON_PLAN_MODEL_TIER", "quality") or "").strip().lower()
+    )
+    explicit_quality_model = str(
+        os.getenv("WORD_LESSON_PLAN_QUALITY_MODEL", "")
+    ).strip()
+    shared_quality_model = str(os.getenv("QUALITY_MODEL", "")).strip()
+    if tier == "quality":
+        return explicit_quality_model or shared_quality_model or ai_service.large_model
+    if tier == "default":
+        return ai_service.default_model
+    if tier == "small":
+        return ai_service.small_model
+    return ai_service.large_model
+
+
+def _resolve_card_generation_max_tokens(card_id: str) -> int:
+    if card_id == "word_document":
+        return _env_positive_int("WORD_LESSON_PLAN_MAX_TOKENS", 50000)
+    if card_id == "knowledge_mindmap":
+        return _env_positive_int("MINDMAP_MAX_TOKENS", 18000)
+    if card_id == "interactive_games":
+        return _env_positive_int("INTERACTIVE_GAME_MAX_TOKENS", 22000)
+    return _CARD_GENERATION_MAX_TOKENS.get(card_id, 16000)
+
+
+def _env_bool(name: str, default: bool) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
 
 
 def _build_structured_artifact_prompt(
@@ -61,91 +140,178 @@ def _build_structured_artifact_prompt(
     )
 
 
-def _build_simulator_turn_prompt(
+_NOISE_TOKEN_RE = re.compile(
+    r"\b(?:standard|detail[_ -]?level|schema|json|markdown\s+fence)\b",
+    flags=re.IGNORECASE,
+)
+
+
+def _evaluate_markdown_quality(markdown: str) -> tuple[int, list[str], dict[str, int]]:
+    text = str(markdown or "").strip()
+    issues: list[str] = []
+    metrics = {
+        "h1": len(re.findall(r"^#\s+", text, flags=re.MULTILINE)),
+        "h2": len(re.findall(r"^##\s+", text, flags=re.MULTILINE)),
+        "h3": len(re.findall(r"^###\s+", text, flags=re.MULTILINE)),
+        "bullet_list": len(re.findall(r"^\s*[-*+]\s+\S", text, flags=re.MULTILINE)),
+        "ordered_list": len(re.findall(r"^\s*\d+\.\s+\S", text, flags=re.MULTILINE)),
+        "table_rows": len(re.findall(r"^\|.*\|$", text, flags=re.MULTILINE)),
+        "char_count": len(text),
+    }
+    score = 100
+
+    if metrics["h1"] < 1:
+        issues.append("missing_h1")
+        score -= 20
+    if metrics["h2"] < 4:
+        issues.append("insufficient_h2")
+        score -= 18
+    if metrics["h3"] < 2:
+        issues.append("insufficient_h3")
+        score -= 10
+    if metrics["bullet_list"] < 2:
+        issues.append("insufficient_bullet_list")
+        score -= 10
+    if metrics["ordered_list"] < 1:
+        issues.append("insufficient_ordered_list")
+        score -= 8
+    if metrics["char_count"] < 900:
+        issues.append("content_too_short")
+        score -= 20
+    if _NOISE_TOKEN_RE.search(text):
+        issues.append("contains_prompt_noise_tokens")
+        score -= 18
+    if "教师活动" not in text or "学生活动" not in text:
+        issues.append("missing_teaching_activity_roles")
+        score -= 8
+    if "产出" not in text and "证据" not in text:
+        issues.append("missing_learning_output_signal")
+        score -= 8
+
+    score = max(0, min(100, score))
+    return score, issues, metrics
+
+
+async def _review_word_markdown(
     *,
-    current_content: dict[str, Any],
-    teacher_answer: str,
+    topic: str,
+    markdown: str,
+    rag_snippets: list[str],
+    model: str | None,
+) -> tuple[str, str | None]:
+    if not _env_bool("WORD_MARKDOWN_REVIEW_ENABLED", True):
+        return markdown, None
+    review_max_tokens = _env_positive_int("WORD_MARKDOWN_REVIEW_MAX_TOKENS", 32000)
+    reviewed_markdown, reviewed_model, _meta = await generate_card_text_payload(
+        prompt=build_word_markdown_reviewer_prompt(topic=topic, markdown=markdown),
+        card_id="word_document",
+        phase="review_markdown",
+        rag_snippets=rag_snippets,
+        max_tokens=review_max_tokens,
+        route_task=ModelRouteTask.LESSON_PLAN_REASONING,
+        model=model,
+    )
+    return reviewed_markdown, reviewed_model
+
+
+async def _generate_word_document_markdown_first_payload(
+    *,
     config: dict[str, Any],
     rag_snippets: list[str],
-) -> str:
-    return (
-        "You are a classroom QA simulator generator.\n"
-        "Return ONLY a JSON object with keys: turn_result, updated_content.\n"
-        "Do not include markdown fences.\n"
-        f"Current artifact content: {json.dumps(current_content, ensure_ascii=False)}\n"
-        f"Teacher answer: {teacher_answer}\n"
-        f"Config: {json.dumps(config, ensure_ascii=False)}\n"
-        f"RAG snippets: {json.dumps(rag_snippets, ensure_ascii=False)}\n"
-        "Constraints:\n"
-        "- updated_content must be a complete artifact payload.\n"
-        "- turn_result must include turn_anchor, student_profile, "
-        "student_question, feedback.\n"
-        "- Do not output empty strings for required fields.\n"
-    )
-
-
-async def _generate_json_payload(
-    *,
-    prompt: str,
-    card_id: str,
-    phase: str,
-    rag_snippets: list[str],
-    max_tokens: int,
-) -> tuple[dict[str, Any], str]:
-    try:
-        response = await ai_service.generate(
-            prompt=prompt,
+    source_hint: str | None,
+) -> dict[str, Any]:
+    variant = resolve_word_document_variant(str(config.get("document_variant") or ""))
+    if variant != "layered_lesson_plan":
+        payload, _model_name = await generate_card_json_payload(
+            prompt=_build_structured_artifact_prompt(
+                card_id="word_document",
+                config=config,
+                rag_snippets=rag_snippets,
+                source_hint=source_hint,
+            ),
+            card_id="word_document",
+            phase="generate",
+            rag_snippets=rag_snippets,
+            max_tokens=_resolve_card_generation_max_tokens("word_document"),
             route_task=ModelRouteTask.LESSON_PLAN_REASONING,
-            has_rag_context=bool(rag_snippets),
-            max_tokens=max_tokens,
+            model=_resolve_word_model(),
         )
-    except APIException as exc:
-        details = dict(exc.details or {})
-        model_name = str(
-            details.get("resolved_model")
-            or details.get("requested_model")
-            or ai_service.large_model
-            or ""
-        )
-        details.update(
-            build_error_details(
-                card_id=card_id,
-                model=model_name,
-                phase=phase,
-                failure_reason=str(details.get("failure_type") or "upstream_error"),
-                retryable=bool(exc.retryable),
-            )
-        )
-        raise APIException(
-            status_code=exc.status_code,
-            error_code=exc.error_code,
-            message=exc.message,
-            details=details,
-            retryable=exc.retryable,
-        ) from exc
-    except Exception as exc:
-        raise_generation_error(
-            status_code=502,
-            error_code=ErrorCode.EXTERNAL_SERVICE_ERROR,
-            message="AI generation failed with an unexpected runtime error.",
-            card_id=card_id,
-            model=ai_service.large_model,
-            phase=phase,
-            failure_reason="unexpected_runtime_error",
-            retryable=True,
-            extra={"raw_error": str(exc)[:300]},
-        )
+        return payload
 
-    model_name = str(response.get("model") or ai_service.large_model or "")
-    return (
-        parse_ai_object_payload(
-            card_id=card_id,
-            ai_raw=str(response.get("content") or ""),
-            model=model_name,
-            phase="parse" if phase == "generate" else "parse_turn",
+    raw_markdown, model_name, generation_meta = await generate_card_text_payload(
+        prompt=build_word_markdown_prompt(
+            document_variant=variant,
+            config=config,
+            rag_snippets=rag_snippets,
+            source_hint=source_hint,
         ),
-        model_name,
+        card_id="word_document",
+        phase="generate_markdown",
+        rag_snippets=rag_snippets,
+        max_tokens=_resolve_card_generation_max_tokens("word_document"),
+        route_task=ModelRouteTask.LESSON_PLAN_REASONING,
+        model=_resolve_word_model(),
     )
+    topic = str(config.get("topic") or config.get("title") or "教学教案").strip()
+    reviewed_markdown, reviewed_model_name = await _review_word_markdown(
+        topic=topic,
+        markdown=raw_markdown,
+        rag_snippets=rag_snippets,
+        model=_resolve_word_model(),
+    )
+    quality_threshold = _env_positive_int("WORD_MARKDOWN_QUALITY_THRESHOLD", 70)
+    score, issues, metrics = _evaluate_markdown_quality(reviewed_markdown)
+    quality_ok = score >= quality_threshold
+    tokens_used = int(generation_meta.get("tokens_used") or 0)
+    max_tokens = _resolve_card_generation_max_tokens("word_document")
+    logger.info(
+        "word_document quality metadata: model=%s review_model=%s tokens_used=%s "
+        "max_tokens=%s likely_truncated=%s score=%s threshold=%s issues=%s metrics=%s",
+        model_name,
+        reviewed_model_name or "disabled",
+        tokens_used,
+        max_tokens,
+        tokens_used >= int(max_tokens * 0.95),
+        score,
+        quality_threshold,
+        ",".join(issues),
+        metrics,
+    )
+    if not quality_ok:
+        raise_generation_error(
+            status_code=422,
+            error_code=ErrorCode.INVALID_INPUT,
+            message="Generated lesson-plan markdown failed quality score checks.",
+            card_id="word_document",
+            model=reviewed_model_name or model_name,
+            phase="quality_gate",
+            failure_reason="markdown_quality_low:" + ",".join(issues[:6]),
+            retryable=False,
+            extra={
+                "markdown_quality_score": score,
+                "markdown_quality_threshold": quality_threshold,
+            },
+        )
+    try:
+        payload = build_word_payload_from_markdown(
+            markdown=reviewed_markdown,
+            config=config,
+        )
+        payload["title"] = (
+            sanitize_word_title(payload.get("title") or "") or payload["title"]
+        )
+        return payload
+    except ValueError as exc:
+        raise_generation_error(
+            status_code=422,
+            error_code=ErrorCode.INVALID_INPUT,
+            message="Generated lesson-plan markdown cannot be mapped to document payload.",
+            card_id="word_document",
+            model=model_name,
+            phase="markdown_map",
+            failure_reason=str(exc),
+            retryable=False,
+        )
 
 
 async def generate_structured_artifact_content(
@@ -155,68 +321,98 @@ async def generate_structured_artifact_content(
     rag_snippets: list[str],
     source_hint: str | None,
 ) -> dict[str, Any]:
-    payload, model_name = await _generate_json_payload(
-        prompt=_build_structured_artifact_prompt(
-            card_id=card_id,
+    quiz_generation_trace: dict[str, Any] | None = None
+    interactive_game_trace: dict[str, Any] | None = None
+    if card_id == "word_document":
+        payload = await _generate_word_document_markdown_first_payload(
             config=config,
             rag_snippets=rag_snippets,
             source_hint=source_hint,
-        ),
-        card_id=card_id,
-        phase="generate",
-        rag_snippets=rag_snippets,
-        max_tokens=1600,
-    )
-    if card_id == "interactive_games":
-        pattern = resolve_game_pattern(config)
-        if is_template_game_pattern(pattern):
-            game_data = (
-                payload.get("game_data")
-                if isinstance(payload.get("game_data"), dict)
-                else payload
-            )
-            try:
-                validate_game_data(pattern, game_data)
-            except ValueError as exc:
-                raise_generation_error(
-                    status_code=400,
-                    error_code=ErrorCode.INVALID_INPUT,
-                    message="Interactive game data failed schema validation.",
-                    card_id=card_id,
-                    model=model_name,
-                    phase="validate",
-                    failure_reason=str(exc),
-                    retryable=False,
-                )
-            payload = {
-                "kind": "interactive_game",
-                "title": str(
-                    game_data.get("game_title") or config.get("topic") or "互动游戏"
-                ).strip(),
-                "summary": str(game_data.get("instruction") or "").strip(),
-                "game_pattern": pattern,
-                "game_data": game_data,
-                "html": render_game_html(pattern, game_data),
-            }
-    elif card_id == "word_document":
-        try:
-            payload = build_word_payload(
-                document_variant=resolve_word_document_variant(
-                    payload.get("document_variant") or config.get("document_variant")
-                ),
-                payload=payload,
-            )
-        except ValueError as exc:
+        )
+        model_name = _resolve_word_model() or ai_service.large_model
+    elif card_id == "knowledge_mindmap":
+        payload, model_name = await _generate_mindmap_reviewed_payload(
+            config=config,
+            rag_snippets=rag_snippets,
+            source_hint=source_hint,
+            resolve_card_generation_max_tokens=_resolve_card_generation_max_tokens,
+        )
+        raw_nodes = payload.get("nodes")
+        if not isinstance(raw_nodes, list) or not raw_nodes:
             raise_generation_error(
                 status_code=400,
                 error_code=ErrorCode.INVALID_INPUT,
-                message="Word document payload failed schema validation.",
+                message="AI payload failed studio card schema validation.",
                 card_id=card_id,
                 model=model_name,
                 phase="validate",
-                failure_reason=f"field_{exc}",
+                failure_reason="field_nodes_empty",
                 retryable=False,
             )
+    elif card_id == "interactive_quick_quiz":
+        payload, model_name, quiz_generation_trace = await generate_quiz_reviewed_payload(
+            config=config,
+            rag_snippets=rag_snippets,
+            source_hint=source_hint,
+        )
+    elif card_id == "interactive_games":
+        payload, model_name, interactive_game_trace = (
+            await generate_interactive_game_reviewed_payload(
+                config=config,
+                rag_snippets=rag_snippets,
+                source_hint=source_hint,
+            )
+        )
+    else:
+        payload, model_name = await generate_card_json_payload(
+            prompt=_build_structured_artifact_prompt(
+                card_id=card_id,
+                config=config,
+                rag_snippets=rag_snippets,
+                source_hint=source_hint,
+            ),
+            card_id=card_id,
+            phase="generate",
+            rag_snippets=rag_snippets,
+            max_tokens=_resolve_card_generation_max_tokens(card_id),
+        )
+    try:
+        payload = normalize_generated_card_payload(
+            card_id=card_id,
+            payload=payload,
+            config=config,
+        )
+    except ValueError as exc:
+        failure_reason = str(exc)
+        if card_id == "word_document" and not failure_reason.startswith("field_"):
+            failure_reason = f"field_{failure_reason}"
+        error_message = {
+            "interactive_games": "Interactive game payload failed interactive_game.v2 validation.",
+            "word_document": "Word document payload failed legacy adapter validation.",
+            "speaker_notes": "Speaker notes payload failed adapter validation.",
+        }.get(card_id, "Studio card payload failed normalizer validation.")
+        raise_generation_error(
+            status_code=400,
+            error_code=ErrorCode.INVALID_INPUT,
+            message=error_message,
+            card_id=card_id,
+            model=model_name,
+            phase="validate",
+            failure_reason=failure_reason,
+            retryable=False,
+            extra=(
+                {
+                    "resolved_model": quiz_generation_trace.get("resolved_model"),
+                    "max_tokens": quiz_generation_trace.get("review_max_tokens")
+                    or quiz_generation_trace.get("generation_max_tokens"),
+                    "rag_snippet_count": quiz_generation_trace.get("rag_snippet_count", 0),
+                }
+                if card_id == "interactive_quick_quiz" and quiz_generation_trace
+                else interactive_game_trace
+                if card_id == "interactive_games" and interactive_game_trace
+                else None
+            ),
+        )
     try:
         validate_card_payload(card_id, payload)
     except ValueError as exc:
@@ -229,40 +425,57 @@ async def generate_structured_artifact_content(
             phase="validate",
             failure_reason=str(exc),
             retryable=False,
+            extra=(
+                {
+                    "resolved_model": quiz_generation_trace.get("resolved_model"),
+                    "max_tokens": quiz_generation_trace.get("review_max_tokens")
+                    or quiz_generation_trace.get("generation_max_tokens"),
+                    "rag_snippet_count": quiz_generation_trace.get("rag_snippet_count", 0),
+                }
+                if card_id == "interactive_quick_quiz" and quiz_generation_trace
+                else interactive_game_trace
+                if card_id == "interactive_games" and interactive_game_trace
+                else None
+            ),
+        )
+    if card_id == "knowledge_mindmap":
+        quality_threshold = _env_positive_int("MINDMAP_QUALITY_THRESHOLD", 70)
+        score, issues, metrics = evaluate_mindmap_payload_quality(payload)
+        logger.info(
+            "knowledge_mindmap quality metadata: model=%s score=%s threshold=%s issues=%s metrics=%s",
+            model_name,
+            score,
+            quality_threshold,
+            ",".join(issues),
+            metrics,
+        )
+        if score < quality_threshold:
+            raise_generation_error(
+                status_code=422,
+                error_code=ErrorCode.INVALID_INPUT,
+                message="Generated mindmap payload failed quality score checks.",
+                card_id=card_id,
+                model=model_name,
+                phase="quality_gate",
+                failure_reason="mindmap_quality_low:" + ",".join(issues[:6]),
+                retryable=False,
+                extra={
+                    "mindmap_quality_score": score,
+                    "mindmap_quality_threshold": quality_threshold,
+                    "mindmap_quality_metrics": metrics,
+                },
+            )
+    if card_id == "interactive_quick_quiz":
+        enforce_quiz_quality_gate(
+            payload=payload,
+            config=config,
+            model_name=model_name,
+            generation_trace=quiz_generation_trace,
+        )
+    if card_id == "interactive_games":
+        enforce_interactive_game_quality_gate(
+            payload=payload,
+            model_name=model_name,
+            generation_trace=interactive_game_trace,
         )
     return payload
-
-
-async def generate_simulator_turn_update(
-    *,
-    current_content: dict[str, Any],
-    teacher_answer: str,
-    config: dict[str, Any],
-    rag_snippets: list[str],
-) -> tuple[dict[str, Any], dict[str, Any]]:
-    payload, model_name = await _generate_json_payload(
-        prompt=_build_simulator_turn_prompt(
-            current_content=current_content,
-            teacher_answer=teacher_answer,
-            config=config,
-            rag_snippets=rag_snippets,
-        ),
-        card_id="classroom_qa_simulator",
-        phase="generate_turn",
-        rag_snippets=rag_snippets,
-        max_tokens=1800,
-    )
-    try:
-        validate_simulator_turn_payload(payload)
-    except ValueError as exc:
-        raise_generation_error(
-            status_code=400,
-            error_code=ErrorCode.INVALID_INPUT,
-            message="AI payload failed simulator turn schema validation.",
-            card_id="classroom_qa_simulator",
-            model=model_name,
-            phase="validate_turn",
-            failure_reason=str(exc),
-            retryable=False,
-        )
-    return payload["updated_content"], payload["turn_result"]

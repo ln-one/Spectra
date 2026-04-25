@@ -58,6 +58,8 @@ async def _search_rag_with_timeout(
     query: str,
     session_id: str | None,
     rag_filters,
+    selected_library_ids,
+    search_local_project,
 ):
     timeout_seconds = system_settings_service.resolve_chat_rag_timeout_seconds()
     search_coro = rag_service.search(
@@ -67,6 +69,8 @@ async def _search_rag_with_timeout(
         score_threshold=0.3,
         session_id=session_id,
         filters=rag_filters,
+        selected_library_ids=selected_library_ids,
+        search_local_project=search_local_project,
     )
     if timeout_seconds <= 0:
         return await search_coro, None
@@ -86,7 +90,12 @@ async def _search_rag_with_timeout(
 
 
 async def load_rag_context(
-    project_id: str, query: str, session_id: str | None, rag_source_ids
+    project_id: str,
+    query: str,
+    session_id: str | None,
+    rag_source_ids,
+    selected_library_ids=None,
+    search_local_project=True,
 ):
     requested_source_ids = _normalize_requested_source_ids(rag_source_ids)
     rag_results = []
@@ -129,6 +138,8 @@ async def load_rag_context(
             query=query,
             session_id=session_id,
             rag_filters=rag_filters,
+            selected_library_ids=selected_library_ids,
+            search_local_project=search_local_project,
         )
 
         selected_uploads = []
@@ -211,6 +222,32 @@ async def load_rag_context(
                     page_number=result.source.page_number,
                     timestamp=getattr(result.source, "timestamp", None),
                     score=result.score,
+                    content_preview=getattr(result, "content", "")[:240],
+                    source_scope=(getattr(result, "metadata", None) or {}).get(
+                        "source_scope"
+                    ),
+                    source_library_id=(getattr(result, "metadata", None) or {}).get(
+                        "source_library_id"
+                    ),
+                    source_library_name=(getattr(result, "metadata", None) or {}).get(
+                        "source_library_name"
+                    ),
+                    source_artifact_id=(getattr(result, "metadata", None) or {}).get(
+                        "source_artifact_id"
+                    ),
+                    source_artifact_title=(getattr(result, "metadata", None) or {}).get(
+                        "source_artifact_title"
+                    ),
+                    source_artifact_tool_type=(
+                        (getattr(result, "metadata", None) or {}).get(
+                            "source_artifact_tool_type"
+                        )
+                    ),
+                    source_artifact_session_id=(
+                        (getattr(result, "metadata", None) or {}).get(
+                            "source_artifact_session_id"
+                        )
+                    ),
                 )
                 for result in rag_results
             ]

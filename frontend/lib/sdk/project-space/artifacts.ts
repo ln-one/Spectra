@@ -22,6 +22,7 @@ export async function getArtifacts(
     "/api/v1/projects/{project_id}/artifacts",
     {
       params: { path: { project_id: projectId }, query: params },
+      cache: "no-store",
     }
   );
   return await unwrap<ArtifactsResponse>(result);
@@ -41,6 +42,7 @@ export async function getArtifact(
     "/api/v1/projects/{project_id}/artifacts/{artifact_id}",
     {
       params: { path: { project_id: projectId, artifact_id: artifactId } },
+      cache: "no-store",
     }
   );
   return await unwrap<ArtifactResponse>(result);
@@ -92,7 +94,10 @@ export async function downloadArtifact(
     );
   }
   const response = await apiFetch(
-    `/api/v1/projects/${encodeURIComponent(projectId)}/artifacts/${encodeURIComponent(artifactId)}/download`
+    `/api/v1/projects/${encodeURIComponent(projectId)}/artifacts/${encodeURIComponent(artifactId)}/download?ts=${encodeURIComponent(Date.now().toString())}`,
+    {
+      cache: "no-store",
+    }
   );
   if (!response.ok) {
     let payload: unknown = { message: "下载工件失败" };

@@ -8,7 +8,9 @@ from typing import Any
 TEMPLATE_GAME_PATTERNS: tuple[str, ...] = (
     "timeline_sort",
     "concept_match",
+    "term_pairing",
     "quiz_challenge",
+    "quiz_run",
     "fill_in_blank",
 )
 
@@ -16,6 +18,17 @@ TEMPLATE_GAME_PATTERNS: tuple[str, ...] = (
 def resolve_game_pattern(config: dict[str, Any] | None) -> str:
     cfg = dict(config or {})
     raw = str(cfg.get("mode") or cfg.get("game_pattern") or "freeform").strip().lower()
+    aliases = {
+        "match": "concept_match",
+        "matching": "concept_match",
+        "pairing": "term_pairing",
+        "term_pairing": "term_pairing",
+        "term-pairing": "term_pairing",
+        "quiz_run": "quiz_run",
+        "quiz-run": "quiz_run",
+        "quiz": "quiz_challenge",
+    }
+    raw = aliases.get(raw, raw)
     return raw or "freeform"
 
 
@@ -36,7 +49,18 @@ def build_game_schema_hint(pattern: str) -> str:
             '"pairs":[{"id":"pair-1","concept":"","definition":""}],'
             '"success_message":"","retry_message":""}'
         ),
+        "term_pairing": (
+            '{"game_title":"","instruction":"",'
+            '"pairs":[{"id":"pair-1","concept":"","definition":""}],'
+            '"success_message":"","retry_message":""}'
+        ),
         "quiz_challenge": (
+            '{"game_title":"","instruction":"","total_lives":3,'
+            '"levels":[{"id":"level-1","question":"","options":["A","B","C","D"],'
+            '"correct_index":0,"explanation":""}],'
+            '"victory_message":"","game_over_message":""}'
+        ),
+        "quiz_run": (
             '{"game_title":"","instruction":"","total_lives":3,'
             '"levels":[{"id":"level-1","question":"","options":["A","B","C","D"],'
             '"correct_index":0,"explanation":""}],'
@@ -121,7 +145,7 @@ def validate_game_data(pattern: str, data: dict[str, Any]) -> None:
                 raise ValueError("field_correct_order_item_empty")
             if event_id not in event_ids:
                 raise ValueError("field_correct_order_unknown_id")
-    elif pattern == "concept_match":
+    elif pattern in {"concept_match", "term_pairing"}:
         _require_non_empty_list(data, "pairs")
         _require_non_empty_str(data, "success_message")
         _require_non_empty_str(data, "retry_message")
@@ -132,7 +156,7 @@ def validate_game_data(pattern: str, data: dict[str, Any]) -> None:
                 value = item.get(key)
                 if not isinstance(value, str) or not value.strip():
                     raise ValueError(f"field_pairs_{key}_empty")
-    elif pattern == "quiz_challenge":
+    elif pattern in {"quiz_challenge", "quiz_run"}:
         _require_non_empty_list(data, "levels")
         _require_non_empty_str(data, "victory_message")
         _require_non_empty_str(data, "game_over_message")

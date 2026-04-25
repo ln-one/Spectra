@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { authService } from "@/lib/auth";
 import { generateApi, projectSpaceApi } from "@/lib/sdk";
@@ -19,6 +19,33 @@ import {
   useProjectPanelLayout,
 } from "./useProjectPanelLayout";
 
+const SESSION_CHECK_TIMEOUT_MS = 8_000;
+const PROJECT_BOOTSTRAP_TIMEOUT_MS = 12_000;
+const TITLE_POLL_INTERVAL_MS = 2_500;
+
+async function withTimeout<T>(
+  task: Promise<T>,
+  timeoutMs: number,
+  onTimeout?: () => void
+): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+  try {
+    return await Promise.race([
+      task,
+      new Promise<T>((_, reject) => {
+        timeoutId = setTimeout(() => {
+          onTimeout?.();
+          reject(new Error("PROJECT_BOOTSTRAP_TIMEOUT"));
+        }, timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+  }
+}
+
 function readRecordFromStorage<T extends Record<string, unknown>>(
   raw: string | null
 ): T {
@@ -36,11 +63,9 @@ function readRecordFromStorage<T extends Record<string, unknown>>(
 
 function mapRunStatusLabel(runStatus?: string, runStep?: string): string {
   if (runStatus === "completed" && runStep === "completed") return "已完成";
-  if (
-    runStatus === "processing" &&
-    (runStep === "outline" || runStep === "generate")
-  ) {
-    return "进行中";
+  if (runStatus === "processing") {
+    if (runStep === "outline" || runStep === "generate") return "课件生成中";
+    if (runStep === "preview") return "单页可预览";
   }
   if (runStatus === "failed") return "失败";
   return runStatus || "processing";
@@ -66,13 +91,21 @@ function extractCurrentRunId(
   return typeof runId === "string" && runId.trim() ? runId : null;
 }
 
+function readProjectNameSource(
+  project:
+    | ({ nameSource?: string; name_source?: string } & Record<string, unknown>)
+    | null
+    | undefined
+): string {
+  return String(project?.nameSource || project?.name_source || "").trim();
+}
+
 export function useProjectDetailController() {
   const params = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
   const projectId = params.id as string;
   const querySessionId = searchParams.get("session");
-  const queryRunId = searchParams.get("run");
 
   const {
     project,
@@ -85,6 +118,7 @@ export function useProjectDetailController() {
     fetchGenerationHistory,
     fetchArtifactHistory,
     setActiveSessionId,
+    setSelectedLibraryIds,
     generationHistory,
     activeSessionId,
     activeRunId,
@@ -101,6 +135,7 @@ export function useProjectDetailController() {
       fetchGenerationHistory: state.fetchGenerationHistory,
       fetchArtifactHistory: state.fetchArtifactHistory,
       setActiveSessionId: state.setActiveSessionId,
+      setSelectedLibraryIds: state.setSelectedLibraryIds,
       generationHistory: state.generationHistory,
       activeSessionId: state.activeSessionId,
       activeRunId: state.activeRunId,
@@ -108,7 +143,6 @@ export function useProjectDetailController() {
     }))
   );
 
-  const [isLibraryOpen, setIsLibraryOpen] = useState(false);
   const [isCreatingSession, setIsCreatingSession] = useState(false);
   const [isBootstrapping, setIsBootstrapping] = useState(true);
   const [sessionRunSummaryById, setSessionRunSummaryById] = useState<
@@ -123,6 +157,11 @@ export function useProjectDetailController() {
   const [activeReferences, setActiveReferences] = useState<ProjectReference[]>(
     []
   );
+  const lastFetchedMessagesSessionRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    lastFetchedMessagesSessionRef.current = null;
+  }, [projectId]);
 
   const panelLayout = useProjectPanelLayout({ layoutMode, isLoading });
 
@@ -131,17 +170,20 @@ export function useProjectDetailController() {
       const response = await projectSpaceApi.getReferences(projectId);
       const references = (response.references ?? [])
         .filter((reference) => reference.status === "active")
-        .sort((a, b) => {
-          if (a.relationType !== b.relationType) {
-            return a.relationType === "base" ? -1 : 1;
-          }
-          return (a.priority ?? 999) - (b.priority ?? 999);
-        });
+        .sort((a, b) => (a.priority ?? 999) - (b.priority ?? 999));
       setActiveReferences(references);
+      setSelectedLibraryIds(
+        references
+          .map((reference) => reference.targetProjectId)
+          .filter((targetProjectId): targetProjectId is string =>
+            typeof targetProjectId === "string" && targetProjectId.trim().length > 0
+          )
+      );
     } catch {
       setActiveReferences([]);
+      setSelectedLibraryIds([]);
     }
-  }, [projectId]);
+  }, [projectId, setSelectedLibraryIds]);
 
   const handleReferencesChanged = useCallback(() => {
     void loadActiveReferences();
@@ -172,6 +214,7 @@ export function useProjectDetailController() {
     }
 
     const loadRunSummary = async () => {
+      let hasPendingRunTitles = false;
       const entries = await Promise.all(
         visibleGenerationHistory.map(async (item) => {
           try {
@@ -179,6 +222,9 @@ export function useProjectDetailController() {
             const runs = response?.data?.runs ?? [];
             const latestRun = runs[0];
             if (!latestRun) return [item.id, null] as const;
+            if (latestRun.run_title_source === "pending") {
+              hasPendingRunTitles = true;
+            }
             const previousRun = runs[1];
             const latestSummary = formatRunSummaryLine(latestRun);
             const previousSummary = previousRun
@@ -211,6 +257,11 @@ export function useProjectDetailController() {
         }
       }
       setSessionRunSummaryById(nextMap);
+      if (hasPendingRunTitles) {
+        window.setTimeout(() => {
+          void loadRunSummary();
+        }, TITLE_POLL_INTERVAL_MS);
+      }
     };
 
     void loadRunSummary();
@@ -235,17 +286,12 @@ export function useProjectDetailController() {
   }, [hiddenSessionIds, projectId]);
 
   const updateSessionInUrl = useCallback(
-    (sessionId: string, runId?: string | null) => {
+    (sessionId: string) => {
       const nextSearch = new URLSearchParams(
         typeof window !== "undefined" ? window.location.search : ""
       );
       nextSearch.set("session", sessionId);
-      const normalizedRunId = String(runId || "").trim();
-      if (normalizedRunId) {
-        nextSearch.set("run", normalizedRunId);
-      } else {
-        nextSearch.delete("run");
-      }
+      nextSearch.delete("run");
       router.replace(`/projects/${projectId}?${nextSearch.toString()}`, {
         scroll: false,
       });
@@ -254,22 +300,15 @@ export function useProjectDetailController() {
   );
 
   const loadSessionSnapshot = useCallback(
-    async (sessionId: string, runId?: string | null) => {
-      const normalizedRunId = String(runId || "").trim();
-      const response = normalizedRunId
-        ? await generateApi.getSessionByRun(sessionId, {
-            run_id: normalizedRunId,
-          })
-        : await generateApi.getSession(sessionId);
+    async (sessionId: string) => {
+      const response = await generateApi.getSession(sessionId);
       const snapshot = response?.data ?? null;
       return {
         snapshot,
         runId:
           extractCurrentRunId(
             snapshot as { current_run?: { run_id?: string } } | null
-          ) ||
-          normalizedRunId ||
-          null,
+          ) || null,
       };
     },
     []
@@ -292,16 +331,29 @@ export function useProjectDetailController() {
     const bootstrap = async () => {
       reset();
       setIsBootstrapping(true);
-      if (!(await authService.hasActiveSession())) {
-        router.push("/auth/login");
+      const hasSession = await authService.hasActiveSession({
+        timeoutMs: SESSION_CHECK_TIMEOUT_MS,
+      });
+      if (!hasSession) {
+        useProjectStore.setState({ isLoading: false });
+        router.replace("/auth/login");
         return;
       }
 
-      await Promise.all([
-        fetchProject(projectId),
-        fetchFiles(projectId),
-        fetchGenerationHistory(projectId),
-        loadActiveReferences(),
+      await Promise.allSettled([
+        withTimeout(
+          fetchProject(projectId),
+          PROJECT_BOOTSTRAP_TIMEOUT_MS,
+          () => {
+            useProjectStore.setState({ isLoading: false });
+          }
+        ),
+        withTimeout(fetchFiles(projectId), PROJECT_BOOTSTRAP_TIMEOUT_MS),
+        withTimeout(
+          fetchGenerationHistory(projectId),
+          PROJECT_BOOTSTRAP_TIMEOUT_MS
+        ),
+        withTimeout(loadActiveReferences(), PROJECT_BOOTSTRAP_TIMEOUT_MS),
       ]);
 
       if (cancelled) return;
@@ -325,6 +377,7 @@ export function useProjectDetailController() {
       // Do not auto-create bootstrap sessions. Session creation should be explicit.
       setActiveSessionId(null);
       useProjectStore.setState({ generationSession: null });
+      lastFetchedMessagesSessionRef.current = null;
       void fetchMessages(projectId, null);
       void fetchArtifactHistory(projectId, null);
     };
@@ -353,6 +406,34 @@ export function useProjectDetailController() {
   ]);
 
   useEffect(() => {
+    if (!project || project.id !== projectId) return;
+    if (readProjectNameSource(project as Record<string, unknown>) !== "default") {
+      return;
+    }
+
+    const timer = window.setInterval(() => {
+      void fetchProject(projectId, { silent: true });
+    }, TITLE_POLL_INTERVAL_MS);
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, [fetchProject, project, projectId]);
+
+  useEffect(() => {
+    const hasPendingSessionTitles = visibleGenerationHistory.some(
+      (item) => item.titleSource === "default"
+    );
+    if (!hasPendingSessionTitles) return;
+
+    const timer = window.setInterval(() => {
+      void fetchGenerationHistory(projectId);
+    }, TITLE_POLL_INTERVAL_MS);
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, [fetchGenerationHistory, projectId, visibleGenerationHistory]);
+
+  useEffect(() => {
     let cancelled = false;
     if (!project || project.id !== projectId) {
       return;
@@ -367,7 +448,8 @@ export function useProjectDetailController() {
       if (activeSessionId !== null) {
         setActiveSessionId(null);
       }
-      useProjectStore.setState({ generationSession: null });
+      useProjectStore.setState({ generationSession: null, activeRunId: null });
+      lastFetchedMessagesSessionRef.current = null;
       void fetchMessages(projectId, null);
       void fetchArtifactHistory(projectId, null);
       return;
@@ -380,10 +462,7 @@ export function useProjectDetailController() {
       void fetchArtifactHistory(projectId, nextSessionId);
       void (async () => {
         try {
-          const { snapshot, runId } = await loadSessionSnapshot(
-            nextSessionId,
-            queryRunId
-          );
+          const { snapshot, runId } = await loadSessionSnapshot(nextSessionId);
           if (cancelled) return;
           useProjectStore.setState({
             generationSession: snapshot,
@@ -399,35 +478,22 @@ export function useProjectDetailController() {
       })();
     }
 
-    if (nextSessionId) {
+    if (
+      nextSessionId &&
+      lastFetchedMessagesSessionRef.current !== nextSessionId
+    ) {
+      lastFetchedMessagesSessionRef.current = nextSessionId;
       void fetchMessages(projectId, nextSessionId);
     }
 
-    if (
-      nextSessionId &&
-      nextSessionId === activeSessionId &&
-      queryRunId &&
-      queryRunId !== activeRunId
-    ) {
-      void (async () => {
-        try {
-          const { snapshot, runId } = await loadSessionSnapshot(
-            nextSessionId,
-            queryRunId
-          );
-          if (cancelled) return;
-          useProjectStore.setState({
-            generationSession: snapshot,
-            activeRunId: runId,
-          });
-        } catch {
-          // keep current snapshot when run-scoped sync fails
-        }
-      })();
-    }
-
     if (nextSessionId && querySessionId !== nextSessionId) {
-      updateSessionInUrl(nextSessionId, null);
+      updateSessionInUrl(nextSessionId);
+    } else if (
+      nextSessionId &&
+      typeof window !== "undefined" &&
+      new URLSearchParams(window.location.search).has("run")
+    ) {
+      updateSessionInUrl(nextSessionId);
     }
 
     return () => {
@@ -436,9 +502,7 @@ export function useProjectDetailController() {
   }, [
     visibleGenerationHistory,
     querySessionId,
-    queryRunId,
     activeSessionId,
-    activeRunId,
     fetchArtifactHistory,
     fetchMessages,
     loadSessionSnapshot,
@@ -456,7 +520,8 @@ export function useProjectDetailController() {
     async (sessionId: string) => {
       if (!sessionId || sessionId === "empty") return;
       setActiveSessionId(sessionId);
-      updateSessionInUrl(sessionId, null);
+      lastFetchedMessagesSessionRef.current = sessionId;
+      updateSessionInUrl(sessionId);
       const [messagesResult, artifactsResult, sessionResult] =
         await Promise.allSettled([
           fetchMessages(projectId, sessionId),
@@ -599,7 +664,7 @@ export function useProjectDetailController() {
       }
 
       toast({
-        title: "会话已隐藏",
+        title: "会话已归档",
       });
     },
     [
@@ -621,8 +686,6 @@ export function useProjectDetailController() {
     sessionOptions,
     activeSessionId,
     isCreatingSession,
-    isLibraryOpen,
-    setIsLibraryOpen,
     activeReferences,
     handleReferencesChanged,
     selectedThemePreset,
@@ -646,3 +709,4 @@ export function useProjectDetailController() {
     handleToggleExpandedSources: panelLayout.handleToggleExpandedSources,
   };
 }
+

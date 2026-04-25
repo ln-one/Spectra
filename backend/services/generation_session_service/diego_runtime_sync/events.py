@@ -79,6 +79,31 @@ def _extract_new_slide_numbers(
     return next_seq, slide_numbers
 
 
+def _extract_new_slide_payloads(
+    *,
+    diego_events: list[dict[str, object]],
+    last_seq: int,
+) -> tuple[int, dict[int, dict[str, object]]]:
+    next_seq = last_seq
+    slide_payloads: dict[int, dict[str, object]] = {}
+    for item in diego_events:
+        seq = int(item.get("seq") or 0)
+        if seq <= next_seq:
+            continue
+        event_type = str(item.get("event") or "").strip()
+        if event_type == _DIEGO_EVENT_SLIDE_GENERATED:
+            payload = item.get("payload")
+            payload_obj = payload if isinstance(payload, dict) else {}
+            try:
+                slide_no = int(payload_obj.get("slide_no") or 0)
+            except (TypeError, ValueError):
+                slide_no = 0
+            if slide_no >= 1:
+                slide_payloads[slide_no] = dict(payload_obj)
+        next_seq = seq
+    return next_seq, slide_payloads
+
+
 def _extract_slide_numbers_from_run_detail(detail: dict[str, object]) -> set[int]:
     raw = detail.get("slides")
     if not isinstance(raw, list):

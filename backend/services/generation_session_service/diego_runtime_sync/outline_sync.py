@@ -112,16 +112,28 @@ async def sync_diego_outline_until_ready(
                 return
 
             if status == _DIEGO_STATUS_FAILED:
+                error_details_raw = detail.get("error_details")
+                error_details = (
+                    error_details_raw if isinstance(error_details_raw, dict) else {}
+                )
+                error_reason = str(
+                    error_details.get("reason")
+                    or error_details.get("message")
+                    or detail.get("error_message")
+                    or ""
+                ).strip()
+                error_message = (
+                    f"Diego outline drafting failed: {error_reason}"
+                    if error_reason
+                    else "Diego outline drafting failed"
+                )
                 await active("mark_diego_failed")(
                     db=db,
                     session_id=session_id,
                     run_id=spectra_run_id,
                     diego_run_id=diego_run_id,
                     error_code=str(detail.get("error_code") or "DIEGO_OUTLINE_FAILED"),
-                    error_message=str(
-                        (detail.get("error_details") or {}).get("message")
-                        or "Diego outline drafting failed"
-                    ),
+                    error_message=error_message,
                     retryable=bool(detail.get("retryable")),
                 )
                 return

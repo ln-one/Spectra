@@ -17,8 +17,12 @@
 [submodule "diego"]
 	path = diego
 	url = https://github.com/watermelon551/ppt-agent-service.git
-	branch = master
+	branch = main
 [submodule "limora"]
 	path = limora
-	url = git@github.com:ln-one/Limora.git
+	url = https://github.com/ln-one/Limora.git
+	branch = main
+[submodule "docs_change/CompoundBreaker"]
+	path = docs_change/CompoundBreaker
+	url = git@github.com:ln-one/CompoundBreaker.git
 	branch = main

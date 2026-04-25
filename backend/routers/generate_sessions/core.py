@@ -371,6 +371,7 @@ async def get_generation_session(
 async def get_session_events(
     request: Request,
     session_id: str,
+    run_id: Optional[str] = Query(None, description="Run ID for run-scoped events"),
     cursor: Optional[str] = Query(None, description="断线续传游标"),
     limit: int = Query(50, ge=1, le=500, description="返回事件数量上限"),
     accept: Optional[str] = Query(None),
@@ -395,12 +396,18 @@ async def get_session_events(
             user_id,
             cursor=cursor,
             limit=limit,
+            run_id=run_id,
         )
         return success_response(data={"events": events}, message="获取事件成功")
 
     async def sse_generator():
         last_cursor = cursor
-        history = await svc.get_events(session_id, user_id, cursor=last_cursor)
+        history = await svc.get_events(
+            session_id,
+            user_id,
+            cursor=last_cursor,
+            run_id=run_id,
+        )
         for ev in history:
             last_cursor = ev["cursor"]
             yield f"id: {last_cursor}\ndata: {json.dumps(ev, ensure_ascii=False)}\n\n"
@@ -408,7 +415,11 @@ async def get_session_events(
         while True:
             await asyncio.sleep(1)
             new_events = await svc.get_events(
-                session_id, user_id, cursor=last_cursor, limit=20
+                session_id,
+                user_id,
+                cursor=last_cursor,
+                limit=20,
+                run_id=run_id,
             )
             for ev in new_events:
                 last_cursor = ev["cursor"]

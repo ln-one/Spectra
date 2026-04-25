@@ -19,6 +19,7 @@ import {
   getVisualTypeLabel,
 } from "./constants";
 import type {
+  AnimationOutputFormat,
   AnimationRhythm,
   AnimationStylePack,
   AnimationVisualType,
@@ -30,6 +31,7 @@ interface GenerateStepProps {
   topic: string;
   focus: string;
   durationSeconds: number;
+  animationFormat: AnimationOutputFormat;
   rhythm: AnimationRhythm;
   stylePack: AnimationStylePack;
   visualType: AnimationVisualType | null;
@@ -40,6 +42,7 @@ interface GenerateStepProps {
   flowContext?: ToolFlowContext;
   isGenerating: boolean;
   onDurationChange: (value: number) => void;
+  onAnimationFormatChange: (value: AnimationOutputFormat) => void;
   onRhythmChange: (value: AnimationRhythm) => void;
   onStylePackChange: (value: AnimationStylePack) => void;
   onVisualTypeChange: (value: AnimationVisualType | null) => void;
@@ -51,6 +54,7 @@ export function GenerateStep({
   topic,
   focus,
   durationSeconds,
+  animationFormat,
   rhythm,
   stylePack,
   visualType,
@@ -61,6 +65,7 @@ export function GenerateStep({
   flowContext,
   isGenerating,
   onDurationChange,
+  onAnimationFormatChange,
   onRhythmChange,
   onStylePackChange,
   onVisualTypeChange,
@@ -138,6 +143,36 @@ export function GenerateStep({
       ? serverSpecPreview.duration_warning.trim()
       : null;
 
+  const predictedRenderMode =
+    typeof serverSpecPreview?.render_mode === "string"
+      ? serverSpecPreview.render_mode
+      : animationFormat;
+  const predictedArtifactType =
+    typeof serverSpecPreview?.artifact_type === "string"
+      ? serverSpecPreview.artifact_type
+      : animationFormat === "html5"
+        ? "html"
+        : animationFormat;
+  const placementSupported =
+    typeof serverSpecPreview?.placement_supported === "boolean"
+      ? serverSpecPreview.placement_supported
+      : predictedArtifactType === "gif";
+  const placementPrerequisites = Array.isArray(
+    serverSpecPreview?.placement_prerequisites
+  )
+    ? (serverSpecPreview?.placement_prerequisites as string[])
+    : placementSupported
+      ? ["bind_ppt_artifact"]
+      : ["bind_ppt_artifact", "placement_ready_artifact"];
+  const generateLabel =
+    predictedArtifactType === "html"
+      ? "按规格生成 HTML 动画"
+      : "按规格生成 GIF 动画";
+  const generatingLabel =
+    predictedArtifactType === "html"
+      ? "正在生成规格化 HTML 动画..."
+      : "正在生成规格化 GIF 动画...";
+
   return (
     <div className="space-y-4">
       <section className="rounded-xl border border-zinc-200 bg-white p-4">
@@ -147,7 +182,33 @@ export function GenerateStep({
           <p>当前时长：{durationSeconds} 秒</p>
           <p>当前节奏：{getRhythmLabel(rhythm)}</p>
           <p>视觉主题：{getStylePackLabel(stylePack)}</p>
-          <p>渲染链路：HTML/SVG/Canvas 模板导出 GIF</p>
+          <p>正式输出：{predictedArtifactType.toUpperCase()}</p>
+          <p>
+            渲染链路：
+            {predictedRenderMode === "gif"
+                ? "本地 GIF 导出"
+                : "HTML runtime 导出"}
+          </p>
+        </div>
+        <div className="mt-3 space-y-1.5">
+          <Label className="text-xs text-zinc-600">正式输出格式</Label>
+          <Select
+            value={animationFormat}
+            onValueChange={(value) =>
+              onAnimationFormatChange(value as AnimationOutputFormat)
+            }
+          >
+            <SelectTrigger className="h-9 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="html5">HTML（本地 runtime 导出）</SelectItem>
+              <SelectItem value="gif">GIF（支持后续 placement）</SelectItem>
+            </SelectContent>
+          </Select>
+          <p className="text-[11px] text-zinc-500">
+            生成本身不依赖 PPT；只有 GIF 成果满足后续 placement 前提。
+          </p>
         </div>
         <div className="mt-3">
           <p className="text-[11px] font-medium text-zinc-800">模板类型</p>
@@ -201,6 +262,27 @@ export function GenerateStep({
             </div>
           </div>
         ) : null}
+        <div
+          className={`mt-3 rounded-lg px-3 py-2 text-[11px] ${
+            placementSupported
+              ? "border border-emerald-200 bg-emerald-50 text-emerald-900"
+              : "border border-amber-200 bg-amber-50 text-amber-900"
+          }`}
+        >
+          <p className="font-medium">
+            {placementSupported
+              ? "本次生成后可进入 PPT placement"
+              : "本次生成后可预览/导出，但不可直接 placement"}
+          </p>
+          <p className="mt-1">
+            {placementSupported
+              ? "生成完成后，如已绑定 PPT，可继续推荐投放位置并确认插入。"
+              : "若后续要插入 PPT，请改用 GIF 正式输出。"}
+          </p>
+          <p className="mt-1">
+            placement 前提：{placementPrerequisites.join(" + ")}
+          </p>
+        </div>
         <div className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50/70 p-3 text-[11px] text-zinc-700">
           <p className="font-medium text-zinc-900">动画规格卡</p>
           <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -466,12 +548,12 @@ export function GenerateStep({
           {isGenerating ? (
             <>
               <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-              正在生成规格化 GIF 动画...
+              {generatingLabel}
             </>
           ) : (
             <>
               <Sparkles className="mr-1.5 h-3.5 w-3.5" />
-              按规格生成 GIF 动画
+              {generateLabel}
             </>
           )}
         </Button>

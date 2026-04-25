@@ -30,6 +30,63 @@ function parseJsonSafely(raw: string): unknown {
   return JSON.parse(raw);
 }
 
+function readArtifactMetadata(
+  artifact: ArtifactHistoryItem
+): Record<string, unknown> | null {
+  if (!artifact.metadata || typeof artifact.metadata !== "object") {
+    return null;
+  }
+  return artifact.metadata as Record<string, unknown>;
+}
+
+function readContentSnapshot(
+  artifact: ArtifactHistoryItem
+): Record<string, unknown> | null {
+  const metadata = readArtifactMetadata(artifact);
+  const snapshot = metadata?.content_snapshot;
+  if (snapshot && typeof snapshot === "object" && !Array.isArray(snapshot)) {
+    return snapshot as Record<string, unknown>;
+  }
+  if (typeof snapshot === "string" && snapshot.trim()) {
+    try {
+      const parsed = parseJsonSafely(snapshot);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        return parsed as Record<string, unknown>;
+      }
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+function parseJsonObjectSafely(raw: string): Record<string, unknown> | null {
+  const trimmed = raw.trim();
+  if (!trimmed.startsWith("{")) return null;
+  try {
+    const parsed = parseJsonSafely(trimmed);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return null;
+    }
+    return parsed as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
+function isAnimationRuntimePayload(
+  payload: Record<string, unknown> | null
+): boolean {
+  if (!payload) return false;
+  if (payload.kind === "animation_storyboard") return true;
+  if (typeof payload.runtime_version === "string") return true;
+  if (typeof payload.runtime_graph_version === "string") return true;
+  if (typeof payload.runtime_contract === "string") return true;
+  if (typeof payload.component_code === "string") return true;
+  if (payload.runtime_graph && typeof payload.runtime_graph === "object") return true;
+  return false;
+}
+
 function extractHtmlFromJsonPayload(raw: string): string | null {
   const trimmed = raw.trim();
   if (!trimmed) return null;
@@ -46,6 +103,7 @@ function extractHtmlFromJsonPayload(raw: string): string | null {
       row.content_html,
       row.preview_html,
       row.template_html,
+      isRecord(row.runtime) ? (row.runtime as Record<string, unknown>).html : null,
     ];
     for (const item of candidates) {
       if (typeof item === "string" && item.trim()) {
@@ -53,6 +111,37 @@ function extractHtmlFromJsonPayload(raw: string): string | null {
       }
     }
     return null;
+  } catch {
+    return null;
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function extractAnimationSpecFromLegacyHtml(
+  rawHtml: string
+): Record<string, unknown> | null {
+  if (!rawHtml || typeof rawHtml !== "string") return null;
+  const marker = "window.__SPECTRA_DEBUG_SPEC__";
+  const markerIndex = rawHtml.indexOf(marker);
+  if (markerIndex < 0) return null;
+  const equalsIndex = rawHtml.indexOf("=", markerIndex);
+  if (equalsIndex < 0) return null;
+  const bootstrapIndex = rawHtml.indexOf(
+    ";(function bootstrapSpectraAnimation",
+    equalsIndex
+  );
+  if (bootstrapIndex < 0) return null;
+  const candidate = rawHtml.slice(equalsIndex + 1, bootstrapIndex).trim();
+  if (!candidate.startsWith("{")) return null;
+  try {
+    const parsed = parseJsonSafely(candidate);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return null;
+    }
+    return parsed as Record<string, unknown>;
   } catch {
     return null;
   }
@@ -95,6 +184,17 @@ function isNonEmptyArray(value: unknown): boolean {
 
 function hasNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
+}
+
+function readInteractiveGameCompatibilityStatus(
+  payload: Record<string, unknown> | null
+): "protocol_limited" | null {
+  if (!payload) return null;
+  const compatibility = payload.compatibility_zone;
+  if (!compatibility || typeof compatibility !== "object") return null;
+  const status = (compatibility as Record<string, unknown>).status;
+  if (status === "protocol_limited") return "protocol_limited";
+  return null;
 }
 
 function readSummaryText(parsed: Record<string, unknown>): string {
@@ -212,21 +312,52 @@ export async function resolveCapabilityFromArtifact(params: {
   const defaultResolution = resolveDefaultCapabilityByTool(params.toolId);
   const { toolId, artifact, blob } = params;
   const artifactType = artifact.artifactType;
+  const artifactMetadata = readArtifactMetadata(artifact);
+  const contentSnapshot = readContentSnapshot(artifact);
+  const metadataAsPayload =
+    artifactMetadata && isAnimationRuntimePayload(artifactMetadata)
+      ? artifactMetadata
+      : null;
 
   try {
     if (artifactType === "docx") {
-      return buildResolution("backend_ready", "Loaded backend Word document.", {
-        artifactId: artifact.artifactId,
-        artifactType,
-        contentKind: "binary",
-        content: null,
-        blob,
-      });
+      const hasStructuredDocument =
+        contentSnapshot &&
+        typeof contentSnapshot.document_content === "object" &&
+        contentSnapshot.document_content !== null;
+      if (hasStructuredDocument) {
+        return buildResolution(
+          "backend_ready",
+          "Loaded backend Word document content.",
+          {
+            artifactId: artifact.artifactId,
+            artifactType,
+            contentKind: "json",
+            content: contentSnapshot,
+            blob,
+            artifactMetadata,
+          }
+        );
+      }
+      return buildResolution(
+        "backend_ready",
+        "Loaded backend Word document.",
+        {
+          artifactId: artifact.artifactId,
+          artifactType,
+          contentKind: "binary",
+          content: null,
+          blob,
+          artifactMetadata,
+        }
+      );
     }
 
     if (artifactType === "mindmap") {
-      const raw = await readBlobText(blob);
-      const parsed = parseJsonSafely(raw) as Record<string, unknown>;
+      const parsed =
+        contentSnapshot ??
+        ((parseJsonSafely(await readBlobText(blob)) as Record<string, unknown>) ??
+          null);
       const nodes = parsed?.nodes;
       if (isNonEmptyArray(nodes)) {
         return buildResolution("backend_ready", "Loaded backend mindmap.", {
@@ -234,6 +365,7 @@ export async function resolveCapabilityFromArtifact(params: {
           artifactType,
           contentKind: "json",
           content: parsed,
+          artifactMetadata,
         });
       }
       return buildResolution(
@@ -243,8 +375,10 @@ export async function resolveCapabilityFromArtifact(params: {
     }
 
     if (artifactType === "exercise") {
-      const raw = await readBlobText(blob);
-      const parsed = parseJsonSafely(raw) as Record<string, unknown>;
+      const parsed =
+        contentSnapshot ??
+        ((parseJsonSafely(await readBlobText(blob)) as Record<string, unknown>) ??
+          null);
       const questions = parsed?.questions;
       if (isNonEmptyArray(questions)) {
         return buildResolution(
@@ -255,6 +389,7 @@ export async function resolveCapabilityFromArtifact(params: {
             artifactType,
             contentKind: "json",
             content: parsed,
+            artifactMetadata,
           }
         );
       }
@@ -265,13 +400,98 @@ export async function resolveCapabilityFromArtifact(params: {
     }
 
     if (artifactType === "summary") {
-      const raw = await readBlobText(blob);
-      const parsed = parseJsonSafely(raw) as Record<string, unknown>;
-      return resolveSummaryPayload(toolId, artifact, parsed);
+      const parsed =
+        contentSnapshot ??
+        ((parseJsonSafely(await readBlobText(blob)) as Record<string, unknown>) ??
+          null);
+      const resolution = resolveSummaryPayload(toolId, artifact, parsed);
+      if (resolution.resolvedArtifact) {
+        resolution.resolvedArtifact.artifactMetadata = artifactMetadata;
+      }
+      return resolution;
     }
 
     if (artifactType === "html") {
+      if (toolId === "outline" && contentSnapshot) {
+        const runtime = isRecord(contentSnapshot.runtime)
+          ? (contentSnapshot.runtime as Record<string, unknown>)
+          : null;
+        const html =
+          typeof contentSnapshot.html === "string"
+            ? contentSnapshot.html.trim()
+            : typeof runtime?.html === "string"
+              ? runtime.html.trim()
+              : "";
+        if (!html || normalizeHtml(html) === normalizeHtml(HTML_EMPTY_TEMPLATE)) {
+          return buildResolution(
+            "backend_placeholder",
+            "Interactive game HTML is still placeholder."
+          );
+        }
+        const compatibilityStatus =
+          readInteractiveGameCompatibilityStatus(contentSnapshot);
+        return buildResolution(
+          compatibilityStatus ?? "backend_ready",
+          compatibilityStatus
+            ? "Loaded backend interactive game HTML through legacy compatibility zone."
+            : "Loaded backend interactive game HTML.",
+          {
+            artifactId: artifact.artifactId,
+            artifactType,
+            contentKind: "json",
+            content: contentSnapshot,
+            artifactMetadata,
+          }
+        );
+      }
+      if (
+        toolId === "animation" &&
+        (isAnimationRuntimePayload(contentSnapshot) ||
+          isAnimationRuntimePayload(metadataAsPayload))
+      ) {
+        return buildResolution(
+          "backend_ready",
+          "Loaded backend animation runtime storyboard.",
+          {
+            artifactId: artifact.artifactId,
+            artifactType,
+            contentKind: "json",
+            content: contentSnapshot ?? metadataAsPayload,
+            artifactMetadata,
+          }
+        );
+      }
       const rawHtml = await readBlobText(blob);
+      if (toolId === "animation") {
+        const parsedJson = parseJsonObjectSafely(rawHtml);
+        if (isAnimationRuntimePayload(parsedJson)) {
+          return buildResolution(
+            "backend_ready",
+            "Loaded backend animation runtime storyboard.",
+            {
+              artifactId: artifact.artifactId,
+              artifactType,
+              contentKind: "json",
+              content: parsedJson,
+              artifactMetadata,
+            }
+          );
+        }
+        const legacyEmbeddedSpec = extractAnimationSpecFromLegacyHtml(rawHtml);
+        if (isAnimationRuntimePayload(legacyEmbeddedSpec)) {
+          return buildResolution(
+            "backend_ready",
+            "Loaded backend animation runtime storyboard from legacy HTML payload.",
+            {
+              artifactId: artifact.artifactId,
+              artifactType,
+              contentKind: "json",
+              content: legacyEmbeddedSpec,
+              artifactMetadata,
+            }
+          );
+        }
+      }
       const extractedHtml = extractHtmlFromJsonPayload(rawHtml);
       const html = extractedHtml ?? rawHtml;
       const normalized = normalizeHtml(html);
@@ -293,6 +513,7 @@ export async function resolveCapabilityFromArtifact(params: {
           artifactType,
           contentKind: "text",
           content: html,
+          artifactMetadata,
         }
       );
     }
@@ -313,6 +534,7 @@ export async function resolveCapabilityFromArtifact(params: {
           contentKind: "media",
           content: null,
           blob,
+          artifactMetadata,
         }
       );
     }

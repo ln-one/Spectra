@@ -71,15 +71,15 @@ CARD_CAPABILITIES: tuple[StudioCardCapability, ...] = (
         primary_capabilities=["word", "handout"],
         related_capabilities=["outline", "summary", "quiz"],
         artifact_types=["docx", "summary", "exercise"],
-        requires_source_artifact=True,
+        requires_source_artifact=False,
         supports_chat_refine=True,
         config_fields=[
             StudioCardConfigField(
                 key="source_artifact_id",
                 label="对应 PPT",
                 type=StudioCardFieldType.REFERENCE,
-                required=True,
-                notes="必须绑定一个已生成的 PPT artifact。",
+                required=False,
+                notes="可选绑定一个已生成的 PPT artifact，未绑定时基于课题与资料来源生成。",
             ),
             StudioCardConfigField(
                 key="document_variant",
@@ -172,36 +172,53 @@ CARD_CAPABILITIES: tuple[StudioCardCapability, ...] = (
         readiness=StudioCardReadiness.FOUNDATION_READY,
         context_mode=StudioCardContextMode.ARTIFACT,
         execution_mode=StudioCardExecutionMode.ARTIFACT_CREATE,
-        primary_capabilities=["game", "html"],
-        related_capabilities=["summary", "mindmap"],
+        primary_capabilities=["game", "sandbox"],
+        related_capabilities=["mindmap", "word_document", "quiz"],
         artifact_types=["html"],
+        requires_source_artifact=False,
         supports_chat_refine=True,
         config_fields=[
             StudioCardConfigField(
-                key="game_pattern",
-                label="游戏模式",
-                type=StudioCardFieldType.SELECT,
-                options=[
-                    StudioCardConfigOption(value="timeline_sort", label="时间轴排序"),
-                    StudioCardConfigOption(value="concept_match", label="概念连线"),
-                    StudioCardConfigOption(value="freeform", label="自由发挥"),
-                ],
-                default_value="freeform",
+                key="topic",
+                label="知识主题",
+                type=StudioCardFieldType.TEXT,
+                required=True,
+                placeholder="例如：电路串联与并联",
             ),
             StudioCardConfigField(
-                key="creative_brief",
-                label="灵感提示",
+                key="teaching_goal",
+                label="课堂目标",
                 type=StudioCardFieldType.TEXT,
-                placeholder="例如：围绕牛顿三定律设计一个拖拽排序小游戏",
+                required=True,
+                placeholder="例如：让学生通过操作区分串联和并联的关键特征",
+            ),
+            StudioCardConfigField(
+                key="interaction_brief",
+                label="互动偏好",
+                type=StudioCardFieldType.TEXT,
+                placeholder="例如：偏向拖拽归类，节奏快一点，适合投屏联动",
+            ),
+            StudioCardConfigField(
+                key="classroom_constraints",
+                label="课堂约束",
+                type=StudioCardFieldType.TEXT,
+                placeholder="例如：投屏 + 1 分钟 + 40 人班级 + 只能教师端操作",
+            ),
+            StudioCardConfigField(
+                key="source_artifact_id",
+                label="来源成果",
+                type=StudioCardFieldType.REFERENCE,
+                notes="默认可选；绑定来源后会增强小游戏与已有成果的一致性。",
             ),
         ],
         actions=[
-            StudioCardAction(type="generate", label="生成游戏原型"),
-            StudioCardAction(type="chat_refine", label="在游戏上下文中热更新规则"),
+            StudioCardAction(type="generate", label="生成互动游戏"),
+            StudioCardAction(type="chat_refine", label="按当前小游戏上下文改写"),
+            StudioCardAction(type="structured_refine", label="轻量结构化微调"),
         ],
         notes=(
-            "HTML artifact 与 sandbox patch 热更新已具备，"
-            "refine 结果通过 replacement artifact 收口。"
+            "互动游戏已切换为 interactive_game.v2 + 受控 sandbox runtime，"
+            "固定支持拖拽归类、流程排序、关系连线三种课堂操作型玩法。"
         ),
     ),
     StudioCardCapability(
@@ -229,9 +246,9 @@ CARD_CAPABILITIES: tuple[StudioCardCapability, ...] = (
         ],
         actions=[
             StudioCardAction(type="generate", label="生成导图"),
-            StudioCardAction(type="chat_refine", label="按选中节点扩展分支"),
+            StudioCardAction(type="chat_refine", label="对话微调整张导图"),
         ],
-        notes="导图 artifact 与节点级 refine 已具备，节点扩展通过 replacement artifact 收口。",
+        notes="导图 artifact 已具备；整图对话 refine 与节点级 replacement refine 可并行使用。",
     ),
     StudioCardCapability(
         id="demonstration_animations",
@@ -241,7 +258,7 @@ CARD_CAPABILITIES: tuple[StudioCardCapability, ...] = (
         execution_mode=StudioCardExecutionMode.ARTIFACT_CREATE,
         primary_capabilities=["animation"],
         related_capabilities=["summary", "outline"],
-        artifact_types=["html", "gif", "mp4"],
+        artifact_types=["html", "gif"],
         supports_chat_refine=True,
         config_fields=[
             StudioCardConfigField(
@@ -249,9 +266,8 @@ CARD_CAPABILITIES: tuple[StudioCardCapability, ...] = (
                 label="动画格式",
                 type=StudioCardFieldType.SELECT,
                 options=[
-                    StudioCardConfigOption(value="gif", label="GIF"),
-                    StudioCardConfigOption(value="mp4", label="MP4"),
                     StudioCardConfigOption(value="html5", label="HTML5"),
+                    StudioCardConfigOption(value="gif", label="GIF"),
                 ],
                 default_value="html5",
             ),
@@ -264,9 +280,10 @@ CARD_CAPABILITIES: tuple[StudioCardCapability, ...] = (
         ],
         actions=[
             StudioCardAction(type="generate", label="生成动画"),
-            StudioCardAction(type="chat_refine", label="热更新动画参数"),
+            StudioCardAction(type="structured_refine", label="按规格生成新版"),
+            StudioCardAction(type="chat_refine", label="讨论动画策略"),
         ],
-        notes="动画统一以 storyboard 为源内容，现已正式支持 HTML5、GIF 与 MP4 输出。",
+        notes="动画统一以 storyboard artifact 为正式真相；runtime 仅作预览辅助，placement 作为独立二阶段动作。",
     ),
     StudioCardCapability(
         id="speaker_notes",

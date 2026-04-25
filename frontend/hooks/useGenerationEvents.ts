@@ -12,6 +12,8 @@ import type { GenerationEvent } from "@/lib/sdk/generate";
 export interface UseGenerationEventsOptions {
   /** 会话 ID，为空时不连接 */
   sessionId: string | null;
+  /** 绑定 run ID，传入后服务端按 run 过滤事件 */
+  runId?: string | null;
   /** 事件回调 */
   onEvent?: (event: GenerationEvent) => void;
   /** 错误回调 */
@@ -44,6 +46,7 @@ export function useGenerationEvents(
 ): UseGenerationEventsReturn {
   const {
     sessionId,
+    runId = null,
     onEvent,
     onError,
     onOpen,
@@ -94,7 +97,7 @@ export function useGenerationEvents(
     cleanup();
     setError(null);
 
-    const url = generateApi.getEventStream(sessionId, cursorRef.current);
+    const url = generateApi.getEventStream(sessionId, cursorRef.current, runId);
     const es = new EventSource(url, { withCredentials: true });
     eventSourceRef.current = es;
 
@@ -139,7 +142,7 @@ export function useGenerationEvents(
       setError(err);
       onErrorRef.current?.(err);
     };
-  }, [sessionId, autoReconnect, maxRetries, cleanup]);
+  }, [sessionId, runId, autoReconnect, maxRetries, cleanup]);
 
   useEffect(() => {
     connectRef.current = connect;
@@ -156,7 +159,7 @@ export function useGenerationEvents(
     connect();
   }, [connect]);
 
-  // sessionId 变化时自动连接/断开
+  // sessionId/runId 变化时自动连接/断开
   useEffect(() => {
     if (sessionId) {
       cursorRef.current = undefined; // 新会话重置 cursor
@@ -179,7 +182,7 @@ export function useGenerationEvents(
     }
 
     return cleanup;
-  }, [sessionId, connect, cleanup]);
+  }, [sessionId, runId, connect, cleanup]);
 
   return { isConnected, events, error, disconnect, reconnect };
 }

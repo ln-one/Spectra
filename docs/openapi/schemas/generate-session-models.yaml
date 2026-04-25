@@ -134,6 +134,107 @@ RunTracePayload:
     error:
       type: string
 
+TeachingBriefReadiness:
+  type: object
+  properties:
+    missing_fields:
+      type: array
+      items:
+        type: string
+    can_generate:
+      type: boolean
+
+TeachingBriefKnowledgePoint:
+  type: object
+  properties:
+    id:
+      type: string
+    title:
+      type: string
+    sequence:
+      type: integer
+    importance:
+      type: string
+      enum: [core, normal]
+    difficulty:
+      type: string
+      enum: [high, normal, low]
+    teaching_method:
+      type: string
+    notes:
+      type: string
+
+TeachingBrief:
+  type: object
+  properties:
+    status:
+      type: string
+      enum: [draft, review_pending, confirmed, stale]
+    version:
+      type: integer
+    last_confirmed_at:
+      type: string
+      format: date-time
+    topic:
+      type: string
+    audience:
+      type: string
+    duration_minutes:
+      type: integer
+    lesson_hours:
+      type: integer
+    target_pages:
+      type: integer
+    teaching_objectives:
+      type: array
+      items:
+        type: string
+    knowledge_points:
+      type: array
+      items:
+        $ref: '#/TeachingBriefKnowledgePoint'
+    global_emphasis:
+      type: array
+      items:
+        type: string
+    global_difficulties:
+      type: array
+      items:
+        type: string
+    teaching_strategy:
+      type: string
+    style_profile:
+      type: object
+      properties:
+        template_family:
+          type: string
+        visual_tone:
+          type: string
+        notes:
+          type: string
+    readiness:
+      $ref: '#/TeachingBriefReadiness'
+
+TeachingBriefProposal:
+  type: object
+  properties:
+    proposal_id:
+      type: string
+    source_message_id:
+      type: string
+    proposed_changes:
+      type: object
+      additionalProperties: true
+    reasoning_summary:
+      type: string
+    confidence:
+      type: number
+    requires_user_confirmation:
+      type: boolean
+    created_at:
+      type: string
+      format: date-time
+
 SessionStatePayload:
   type: object
   required: [session]
@@ -162,6 +263,12 @@ SessionStatePayload:
       items:
         type: string
         example: update_outline
+    teaching_brief:
+      $ref: '#/TeachingBrief'
+    teaching_brief_proposals:
+      type: array
+      items:
+        $ref: '#/TeachingBriefProposal'
     current_run:
       $ref: '#/SessionRun'
     result:

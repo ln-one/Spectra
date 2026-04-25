@@ -9,14 +9,6 @@ Formal PPT outline/generation authority lives in Diego.
 
 from importlib import import_module
 
-from .service import (
-    ConflictError,
-    GenerationSessionService,
-    _build_outline_requirements,
-    _default_capabilities,
-    _extract_outline_style,
-)
-
 __all__ = [
     "ai_service",
     "ConflictError",
@@ -28,7 +20,16 @@ __all__ = [
 
 
 def __getattr__(name):
-    if name != "ai_service":
-        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
-    module = import_module(".ai", "services")
-    return getattr(module, name)
+    if name == "ai_service":
+        module = import_module(".ai", "services")
+        return getattr(module, name)
+    if name in {
+        "ConflictError",
+        "GenerationSessionService",
+        "_build_outline_requirements",
+        "_default_capabilities",
+        "_extract_outline_style",
+    }:
+        module = import_module(".service", __name__)
+        return getattr(module, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

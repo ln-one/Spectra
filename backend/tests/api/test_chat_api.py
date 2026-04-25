@@ -1,8 +1,9 @@
 """Chat API endpoint tests (PR-34 compatible C5)."""
 
 from datetime import datetime, timezone
+import json
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, Mock
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -10,6 +11,7 @@ from main import app
 from services.ai import ai_service
 from services.database import db_service
 from services.rag_service import rag_service
+from routers.chat.runtime_helpers import _resolve_chat_response_max_tokens
 from utils.dependencies import get_current_user
 
 _NOW = datetime.now(timezone.utc)
@@ -82,41 +84,56 @@ def _mock_owned_session_scope(monkeypatch):
     )
 
 
+@pytest.fixture(autouse=True)
+def _mock_background_brief_task(monkeypatch):
+    scheduled = []
+
+    def _fake_create_task(coro):
+        scheduled.append(coro)
+        coro.close()
+        return SimpleNamespace()
+
+    monkeypatch.setattr("routers.chat.runtime.asyncio.create_task", _fake_create_task)
+    return scheduled
+
+
 def test_send_message_success(client, monkeypatch, _as_user):
     _mock(monkeypatch, db_service, "get_project", _fake_project())
-    monkeypatch.setattr(
-        db_service.db,
-        "generationsession",
-        SimpleNamespace(
+    update_mock = AsyncMock()
+    fake_db = SimpleNamespace(
+        generationsession=SimpleNamespace(
             find_unique=AsyncMock(
                 return_value=SimpleNamespace(
                     id="s-bootstrap-001",
                     displayTitle="会话-ap-001",
                     displayTitleSource="default",
                 )
-            )
+            ),
+            update=update_mock,
         ),
-    )
-    monkeypatch.setattr(
-        db_service.db,
-        "conversation",
-        SimpleNamespace(count=AsyncMock(return_value=1)),
+        conversation=SimpleNamespace(count=AsyncMock(return_value=1)),
     )
     monkeypatch.setattr(
         db_service,
-        "create_conversation_message",
-        AsyncMock(
-            side_effect=[
-                _fake_conv(role="user", conv_id="c-user"),
-                _fake_conv(role="assistant", content="assistant reply", conv_id="c-ai"),
-            ]
+        "_instance",
+        SimpleNamespace(
+            db=fake_db,
+            create_conversation_message=AsyncMock(
+                side_effect=[
+                    _fake_conv(role="user", conv_id="c-user"),
+                    _fake_conv(
+                        role="assistant", content="assistant reply", conv_id="c-ai"
+                    ),
+                ]
+            ),
+            get_recent_conversation_messages=AsyncMock(
+                return_value=[_fake_conv(role="user", content="previous message")]
+            ),
         ),
     )
-    _mock(
-        monkeypatch,
-        db_service,
-        "get_recent_conversation_messages",
-        [_fake_conv(role="user", content="previous message")],
+    monkeypatch.setattr(
+        "routers.chat.runtime.request_session_title_generation",
+        AsyncMock(return_value=False),
     )
     _mock(monkeypatch, ai_service, "generate", {"content": "assistant reply"})
 
@@ -129,79 +146,181 @@ def test_send_message_success(client, monkeypatch, _as_user):
     assert body["data"]["session_title"] == "会话-ap-001"
     assert body["data"]["session_title_source"] == "default"
     assert body["data"]["session_title_updated"] is False
+    assert body["data"]["teaching_brief_hint"]["generation_intent"] is False
     assert len(body["data"]["suggestions"]) == 3
+    assert ai_service.generate.await_args.kwargs["max_tokens"] == 20000
 
 
-def test_send_message_inline_session_title_refresh_updates_response(
-    client, monkeypatch, _as_user
+def test_send_message_schedules_background_brief_extraction_on_early_trigger(
+    client, monkeypatch, _as_user, _mock_background_brief_task
 ):
     _mock(monkeypatch, db_service, "get_project", _fake_project())
-    monkeypatch.setattr(
-        db_service.db,
-        "generationsession",
-        SimpleNamespace(
-            find_unique=AsyncMock(
-                return_value=SimpleNamespace(
-                    id="s-bootstrap-001",
-                    displayTitle="会话-ap-001",
-                    displayTitleSource="default",
-                )
-            ),
-            update=AsyncMock(),
-        ),
+    update_mock = AsyncMock()
+    create_mock = AsyncMock(
+        side_effect=[
+            _fake_conv(role="user", conv_id="c-user"),
+            _fake_conv(role="assistant", content="assistant reply", conv_id="c-ai"),
+        ]
     )
-    monkeypatch.setattr(
-        db_service.db,
-        "conversation",
-        SimpleNamespace(count=AsyncMock(return_value=1)),
+    recent_mock = AsyncMock(
+        return_value=[_fake_conv(role="user", content="previous message")]
     )
     monkeypatch.setattr(
         db_service,
-        "create_conversation_message",
-        AsyncMock(
-            side_effect=[
-                _fake_conv(role="user", conv_id="c-user"),
-                _fake_conv(role="assistant", content="assistant reply", conv_id="c-ai"),
-            ]
+        "_instance",
+        SimpleNamespace(
+            db=SimpleNamespace(
+                generationsession=SimpleNamespace(
+                    find_unique=AsyncMock(
+                        return_value=SimpleNamespace(
+                            id="s-bootstrap-001",
+                            displayTitle="会话-ap-001",
+                            displayTitleSource="default",
+                            options="{}",
+                            state="IDLE",
+                        )
+                    ),
+                    update=update_mock,
+                ),
+                conversation=SimpleNamespace(count=AsyncMock(return_value=1)),
+            ),
+            create_conversation_message=create_mock,
+            get_recent_conversation_messages=recent_mock,
         ),
+    )
+    monkeypatch.setattr(
+        "routers.chat.runtime.request_session_title_generation",
+        AsyncMock(return_value=False),
     )
     _mock(
         monkeypatch,
-        db_service,
-        "get_recent_conversation_messages",
-        [_fake_conv(role="user", content="previous message")],
+        ai_service,
+        "generate",
+        {"content": "我先帮你梳理范围，再确认教学重点和课堂组织方式。"},
     )
-    monkeypatch.setattr(
-        "routers.chat.runtime.generate_semantic_session_title",
-        AsyncMock(
-            return_value={
-                "display_title": "网络层导入",
-                "display_title_source": "first_message",
-                "display_title_updated_at": _NOW.isoformat(),
+
+    resp = client.post(
+        "/api/v1/chat/messages",
+        json={
+            **_MSG,
+            "content": "我要做牛顿第二定律，面向高一学生，知识点包括受力分析和加速度，做12页PPT。",
+        },
+    )
+
+    assert resp.status_code == 200
+    body = resp.json()["data"]
+    hint = body["teaching_brief_hint"]
+    assert hint["auto_applied_fields"] == []
+    assert "ai_requests_confirmation" not in hint
+    assert hint["status"] == "live"
+    assert hint["extraction_scheduled"] is True
+    assert hint["extraction_reason"] == "missing_field_answer"
+    assert hint["refresh_after_ms"] >= 500
+    assert "knowledge_points" in hint["missing_fields"]
+    assert len(_mock_background_brief_task) == 1
+
+    saved_assistant_content = create_mock.await_args_list[1].kwargs["content"]
+    assert "spectra_brief_extract" not in saved_assistant_content
+
+    update_payload = update_mock.await_args.kwargs["data"]
+    updated_options = json.loads(update_payload["options"])
+    assert updated_options["_brief_extraction_turn_count"] == 0
+    assert "state" not in update_payload
+
+
+def test_send_message_keeps_live_brief_hint_without_confirmation_status(
+    client, monkeypatch, _as_user
+):
+    _mock(monkeypatch, db_service, "get_project", _fake_project())
+    session_options = json.dumps(
+        {
+            "teaching_brief": {
+                "status": "live",
+                "topic": "牛顿第二定律",
+                "audience": "高一学生",
+                "target_pages": 12,
+                "knowledge_points": ["受力分析", "加速度与合力"],
             }
+        },
+        ensure_ascii=False,
+    )
+    update_mock = AsyncMock()
+    create_mock = AsyncMock(
+        side_effect=[
+            _fake_conv(role="user", conv_id="c-user"),
+            _fake_conv(role="assistant", content="assistant reply", conv_id="c-ai"),
+        ]
+    )
+    recent_mock = AsyncMock(
+        return_value=[_fake_conv(role="user", content="previous message")]
+    )
+    monkeypatch.setattr(
+        db_service,
+        "_instance",
+        SimpleNamespace(
+            db=SimpleNamespace(
+                generationsession=SimpleNamespace(
+                    find_unique=AsyncMock(
+                        return_value=SimpleNamespace(
+                            id="s-bootstrap-001",
+                            displayTitle="会话-ap-001",
+                            displayTitleSource="default",
+                            options=session_options,
+                            state="AWAITING_REQUIREMENTS_CONFIRM",
+                        )
+                    ),
+                    update=update_mock,
+                ),
+                conversation=SimpleNamespace(count=AsyncMock(return_value=2)),
+            ),
+            create_conversation_message=create_mock,
+            get_recent_conversation_messages=recent_mock,
         ),
     )
-    spawn_mock = Mock()
-    monkeypatch.setattr("routers.chat.runtime.spawn_background_task", spawn_mock)
-    _mock(monkeypatch, ai_service, "generate", {"content": "assistant reply"})
+    _mock(
+        monkeypatch,
+        ai_service,
+        "generate",
+        {
+            "content": (
+                "我先总结一下当前需求：面向高一学生，主题是牛顿第二定律，预计 12 页。\n\n"
+                "这些信息是否准确？如果没问题，我会把需求单标记为已确认。"
+            )
+        },
+    )
 
     resp = client.post("/api/v1/chat/messages", json=_MSG)
+
     assert resp.status_code == 200
-    body = resp.json()
-    assert body["data"]["session_title_updated"] is True
-    assert body["data"]["session_title"] == "网络层导入"
-    assert body["data"]["session_title_source"] == "first_message"
-    spawn_mock.assert_not_called()
+    hint = resp.json()["data"]["teaching_brief_hint"]
+    assert hint["auto_applied_fields"] == []
+    assert hint["can_generate"] is True
+    assert hint["status"] == "live"
+    assert update_mock.await_count == 1
+
+    saved_assistant_content = create_mock.await_args_list[1].kwargs["content"]
+    assert "spectra_brief_summary" not in saved_assistant_content
 
 
-def test_send_message_first_message_title_fallback_updates_response(
+def test_chat_response_max_tokens_is_env_configurable(monkeypatch):
+    monkeypatch.setenv("CHAT_RESPONSE_MAX_TOKENS", "22000")
+    assert _resolve_chat_response_max_tokens() == 22000
+
+
+def test_chat_response_max_tokens_is_bounded(monkeypatch):
+    monkeypatch.setenv("CHAT_RESPONSE_MAX_TOKENS", "120000")
+    assert _resolve_chat_response_max_tokens() == 80000
+    monkeypatch.setenv("CHAT_RESPONSE_MAX_TOKENS", "120")
+    assert _resolve_chat_response_max_tokens() == 2560
+
+
+def test_send_message_requests_background_session_title_generation_once(
     client, monkeypatch, _as_user
 ):
     _mock(monkeypatch, db_service, "get_project", _fake_project())
-    monkeypatch.setattr(
-        db_service.db,
-        "generationsession",
-        SimpleNamespace(
+    update_mock = AsyncMock()
+    fake_db = SimpleNamespace(
+        generationsession=SimpleNamespace(
             find_unique=AsyncMock(
                 return_value=SimpleNamespace(
                     id="s-bootstrap-001",
@@ -209,51 +328,166 @@ def test_send_message_first_message_title_fallback_updates_response(
                     displayTitleSource="default",
                 )
             ),
-            update=AsyncMock(
-                return_value=SimpleNamespace(
-                    displayTitle="Hello AI",
-                    displayTitleSource="default",
-                    displayTitleUpdatedAt=_NOW,
-                )
+            update=update_mock,
+        ),
+        conversation=SimpleNamespace(count=AsyncMock(return_value=1)),
+    )
+    monkeypatch.setattr(
+        db_service,
+        "_instance",
+        SimpleNamespace(
+            db=fake_db,
+            create_conversation_message=AsyncMock(
+                side_effect=[
+                    _fake_conv(role="user", conv_id="c-user"),
+                    _fake_conv(
+                        role="assistant", content="assistant reply", conv_id="c-ai"
+                    ),
+                ]
+            ),
+            get_recent_conversation_messages=AsyncMock(
+                return_value=[_fake_conv(role="user", content="previous message")]
             ),
         ),
     )
+    request_mock = AsyncMock(return_value=True)
     monkeypatch.setattr(
-        db_service.db,
-        "conversation",
-        SimpleNamespace(count=AsyncMock(return_value=1)),
+        "routers.chat.runtime.request_session_title_generation",
+        request_mock,
     )
-    monkeypatch.setattr(
-        db_service,
-        "create_conversation_message",
-        AsyncMock(
-            side_effect=[
-                _fake_conv(role="user", conv_id="c-user"),
-                _fake_conv(role="assistant", content="assistant reply", conv_id="c-ai"),
-            ]
-        ),
-    )
-    _mock(
-        monkeypatch,
-        db_service,
-        "get_recent_conversation_messages",
-        [_fake_conv(role="user", content="previous message")],
-    )
-    monkeypatch.setattr(
-        "routers.chat.runtime.generate_semantic_session_title",
-        AsyncMock(return_value=None),
-    )
-    spawn_mock = Mock()
-    monkeypatch.setattr("routers.chat.runtime.spawn_background_task", spawn_mock)
     _mock(monkeypatch, ai_service, "generate", {"content": "assistant reply"})
 
     resp = client.post("/api/v1/chat/messages", json=_MSG)
     assert resp.status_code == 200
     body = resp.json()
-    assert body["data"]["session_title_updated"] is True
-    assert body["data"]["session_title"] == "Hello AI"
+    assert body["data"]["session_title_updated"] is False
+    assert body["data"]["session_title"] == "会话-ap-001"
     assert body["data"]["session_title_source"] == "default"
-    spawn_mock.assert_called_once()
+    request_mock.assert_awaited_once_with(
+        db=fake_db,
+        session_id="s-001",
+        first_message="Hello AI",
+        project_name="Test Project",
+    )
+
+
+def test_send_message_does_not_request_session_title_after_first_message(
+    client, monkeypatch, _as_user
+):
+    _mock(monkeypatch, db_service, "get_project", _fake_project())
+    update_mock = AsyncMock()
+    fake_db = SimpleNamespace(
+        generationsession=SimpleNamespace(
+            find_unique=AsyncMock(
+                return_value=SimpleNamespace(
+                    id="s-bootstrap-001",
+                    displayTitle="会话-ap-001",
+                    displayTitleSource="default",
+                )
+            ),
+            update=update_mock,
+        ),
+        conversation=SimpleNamespace(count=AsyncMock(return_value=2)),
+    )
+    monkeypatch.setattr(
+        db_service,
+        "_instance",
+        SimpleNamespace(
+            db=fake_db,
+            create_conversation_message=AsyncMock(
+                side_effect=[
+                    _fake_conv(role="user", conv_id="c-user"),
+                    _fake_conv(
+                        role="assistant", content="assistant reply", conv_id="c-ai"
+                    ),
+                ]
+            ),
+            get_recent_conversation_messages=AsyncMock(
+                return_value=[_fake_conv(role="user", content="previous message")]
+            ),
+        ),
+    )
+    request_mock = AsyncMock(return_value=False)
+    monkeypatch.setattr(
+        "routers.chat.runtime.request_session_title_generation", request_mock
+    )
+    _mock(monkeypatch, ai_service, "generate", {"content": "assistant reply"})
+
+    resp = client.post("/api/v1/chat/messages", json=_MSG)
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["data"]["session_title_updated"] is False
+    assert body["data"]["session_title"] == "会话-ap-001"
+    assert body["data"]["session_title_source"] == "default"
+    request_mock.assert_not_awaited()
+
+
+def test_send_message_returns_generation_intent_hint(client, monkeypatch, _as_user):
+    _mock(monkeypatch, db_service, "get_project", _fake_project())
+    update_mock = AsyncMock()
+    create_mock = AsyncMock(
+        side_effect=[
+            _fake_conv(role="user", conv_id="c-user"),
+            _fake_conv(role="assistant", content="assistant reply", conv_id="c-ai"),
+        ]
+    )
+    monkeypatch.setattr(
+        db_service,
+        "_instance",
+        SimpleNamespace(
+            db=SimpleNamespace(
+                generationsession=SimpleNamespace(
+                    find_unique=AsyncMock(
+                        return_value=SimpleNamespace(
+                            id="s-bootstrap-001",
+                            displayTitle="会话-ap-001",
+                            displayTitleSource="default",
+                            options=json.dumps(
+                                {
+                                    "teaching_brief": {
+                                        "status": "live",
+                                        "topic": "光照模型",
+                                        "audience": "软件工程大二学生",
+                                        "lesson_hours": 5,
+                                        "knowledge_points": ["Phong", "Blinn-Phong"],
+                                    }
+                                },
+                                ensure_ascii=False,
+                            ),
+                            state="AWAITING_REQUIREMENTS_CONFIRM",
+                        )
+                    ),
+                    update=update_mock,
+                ),
+                conversation=SimpleNamespace(count=AsyncMock(return_value=2)),
+            ),
+            create_conversation_message=create_mock,
+            get_recent_conversation_messages=AsyncMock(
+                return_value=[_fake_conv(role="user", content="previous message")]
+            ),
+        ),
+    )
+    _mock(
+        monkeypatch,
+        ai_service,
+        "generate",
+        {"content": "需求已明确，你可以确认后开始生成。"},
+    )
+
+    resp = client.post(
+        "/api/v1/chat/messages",
+        json={**_MSG, "content": "开始生成 PPT"},
+    )
+
+    assert resp.status_code == 200
+    hint = resp.json()["data"]["teaching_brief_hint"]
+    assert hint["generation_intent"] is True
+    assert hint["generation_ready"] is True
+    assert hint["generation_blocked_reason"] == ""
+    assert hint["generation_action"] == "open_generation_confirm"
+    assert hint["session_id"] == "s-001"
+    assert hint["generation_confirm_draft"] is not None
+    assert hint["generation_confirm_draft"]["config"]["pageCount"] == 8
 
 
 def test_send_message_rejects_missing_session_id(client, monkeypatch, _as_user):
@@ -495,6 +729,7 @@ def test_send_message_response_contract_aligns_rag_and_observability(
     assert body["observability"]["has_rag_context"] is True
     assert isinstance(body["message"]["citations"], list)
     assert body["message"]["citations"][0]["chunk_id"] == "chunk-1"
+    assert body["message"]["citations"][0]["content_preview"] == "资料内容"
 
 
 def test_send_message_exposes_rag_failure_reason_when_retrieval_fails(

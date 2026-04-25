@@ -164,6 +164,29 @@ async def apply_dualweave_parse_result_internal(
         parse_result=result,
         error_message=None,
     )
+    try:
+        from services.prompt_suggestion_pool import (
+            ALL_PROMPT_SUGGESTION_SURFACES,
+            build_project_source_fingerprint,
+            enqueue_project_prompt_suggestion_refresh_from_env,
+        )
+
+        source_fingerprint, _ = await build_project_source_fingerprint(
+            upload.projectId,
+            db=db,
+        )
+        await enqueue_project_prompt_suggestion_refresh_from_env(
+            project_id=upload.projectId,
+            surfaces=ALL_PROMPT_SUGGESTION_SURFACES,
+            source_fingerprint=source_fingerprint,
+        )
+    except Exception as exc:
+        logger.warning(
+            "prompt_suggestion_pool_enqueue_failed: project_id=%s error=%s",
+            upload.projectId,
+            exc,
+            exc_info=True,
+        )
     return result
 
 
@@ -237,6 +260,29 @@ async def trigger_fallback_parse_internal(
         parse_result=result,
         error_message=None,
     )
+    try:
+        from services.prompt_suggestion_pool import (
+            ALL_PROMPT_SUGGESTION_SURFACES,
+            build_project_source_fingerprint,
+            enqueue_project_prompt_suggestion_refresh_from_env,
+        )
+
+        source_fingerprint, _ = await build_project_source_fingerprint(
+            upload.projectId,
+            db=db,
+        )
+        await enqueue_project_prompt_suggestion_refresh_from_env(
+            project_id=upload.projectId,
+            surfaces=ALL_PROMPT_SUGGESTION_SURFACES,
+            source_fingerprint=source_fingerprint,
+        )
+    except Exception as exc:
+        logger.warning(
+            "prompt_suggestion_pool_enqueue_failed: project_id=%s error=%s",
+            upload.projectId,
+            exc,
+            exc_info=True,
+        )
     return result
 
 

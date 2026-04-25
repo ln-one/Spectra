@@ -1,8 +1,12 @@
 from __future__ import annotations
 
 import json
+import re
 
+from services.database import db_service
+from services.file_parser import extract_text_for_rag
 from schemas.project_space import ArtifactType
+from schemas.studio_cards import ExecutionCarrier, RefineMode
 from services.project_space_service import project_space_service
 from utils.docx_content_sidecar import load_docx_content_sidecar
 from utils.exceptions import APIException, ErrorCode
@@ -13,6 +17,7 @@ from .card_source_bindings import (
 )
 
 STRUCTURED_REFINE_ARTIFACT_TYPES = {
+    "word_document": ArtifactType.DOCX.value,
     "knowledge_mindmap": ArtifactType.MINDMAP.value,
     "interactive_quick_quiz": ArtifactType.EXERCISE.value,
     "interactive_games": ArtifactType.HTML.value,
@@ -21,11 +26,23 @@ STRUCTURED_REFINE_ARTIFACT_TYPES = {
 }
 
 STRUCTURED_REFINE_KINDS = {
+    "word_document": "word_document",
     "knowledge_mindmap": "mindmap",
     "interactive_quick_quiz": "quiz",
     "interactive_games": "interactive_game",
     "demonstration_animations": "animation_storyboard",
     "speaker_notes": "speaker_notes",
+}
+
+CARD_EXECUTION_CARRIERS = {
+    "courseware_ppt": ExecutionCarrier.HYBRID,
+    "word_document": ExecutionCarrier.HYBRID,
+    "speaker_notes": ExecutionCarrier.HYBRID,
+    "classroom_qa_simulator": ExecutionCarrier.HYBRID,
+    "interactive_quick_quiz": ExecutionCarrier.ARTIFACT,
+    "knowledge_mindmap": ExecutionCarrier.ARTIFACT,
+    "interactive_games": ExecutionCarrier.ARTIFACT,
+    "demonstration_animations": ExecutionCarrier.ARTIFACT,
 }
 
 
@@ -34,7 +51,59 @@ def supports_structured_refine(card_id: str) -> bool:
 
 
 def _is_animation_artifact_type(artifact_type: str | None) -> bool:
-    return artifact_type in {ArtifactType.GIF.value, ArtifactType.MP4.value}
+    return artifact_type in {ArtifactType.GIF.value, ArtifactType.HTML.value}
+
+
+def _is_legacy_animation_artifact_type(artifact_type: str | None) -> bool:
+    return artifact_type in {
+        ArtifactType.GIF.value,
+        ArtifactType.HTML.value,
+        ArtifactType.MP4.value,
+    }
+
+
+def _normalize_docx_preview_markdown(title: str, text: str) -> str:
+    normalized_text = str(text or "").replace("\r\n", "\n").replace("\r", "\n")
+    normalized_text = re.sub(r"[\x00-\x08\x0B\x0C\x0E-\x1F]", "", normalized_text)
+    normalized_text = normalized_text.replace("\u21b5", "\n")
+    normalized_text = normalized_text.replace("\ufeff", "")
+    normalized_text = re.sub(r"[\u200b\u200c\u200d\xa0]", " ", normalized_text)
+    normalized_text = re.sub(r"[ \t]+", " ", normalized_text)
+    lines = [line.strip() for line in normalized_text.split("\n")]
+    lines = [line for line in lines if line]
+    body = "\n\n".join(lines).strip()
+    normalized_title = str(title or "").strip()
+    if normalized_title and body:
+        return f"# {normalized_title}\n\n{body}"
+    if normalized_title:
+        return f"# {normalized_title}"
+    return body
+
+
+def _load_docx_content_from_storage(artifact) -> dict:
+    storage_path = str(getattr(artifact, "storagePath", None) or "").strip()
+    if not storage_path:
+        return {}
+    sidecar = load_docx_content_sidecar(storage_path)
+    if sidecar:
+        return sidecar
+    metadata = artifact_metadata_dict(artifact)
+    extracted_text, _ = extract_text_for_rag(
+        storage_path,
+        str(getattr(artifact, "id", None) or "document.docx"),
+        "word",
+    )
+    markdown = _normalize_docx_preview_markdown(
+        str(metadata.get("title") or "").strip(),
+        extracted_text,
+    )
+    if not markdown:
+        return {}
+    return {
+        "title": str(metadata.get("title") or "").strip(),
+        "markdown_content": markdown,
+        "lesson_plan_markdown": markdown,
+    }
 
 
 def artifact_result_payload(
@@ -42,11 +111,12 @@ def artifact_result_payload(
     *,
     current_version_id: str | None = None,
 ) -> dict:
-    based_on_version_id = artifact.basedOnVersionId
+    metadata = artifact_metadata_dict(artifact)
+    based_on_version_id = getattr(artifact, "basedOnVersionId", None)
     return {
-        "id": artifact.id,
-        "project_id": artifact.projectId,
-        "session_id": artifact.sessionId,
+        "id": getattr(artifact, "id", None),
+        "project_id": getattr(artifact, "projectId", None),
+        "session_id": getattr(artifact, "sessionId", None),
         "based_on_version_id": based_on_version_id,
         "current_version_id": current_version_id,
         "upstream_updated": bool(
@@ -54,12 +124,16 @@ def artifact_result_payload(
             and current_version_id
             and based_on_version_id != current_version_id
         ),
-        "owner_user_id": artifact.ownerUserId,
-        "type": artifact.type,
-        "visibility": artifact.visibility,
-        "storage_path": artifact.storagePath,
-        "created_at": artifact.createdAt,
-        "updated_at": artifact.updatedAt,
+        "owner_user_id": getattr(artifact, "ownerUserId", None),
+        "type": getattr(artifact, "type", None),
+        "visibility": getattr(artifact, "visibility", None),
+        "storage_path": getattr(artifact, "storagePath", None),
+        "created_at": getattr(artifact, "createdAt", None),
+        "updated_at": getattr(artifact, "updatedAt", None),
+        "title": metadata.get("title"),
+        "kind": metadata.get("kind"),
+        "replaces_artifact_id": metadata.get("replaces_artifact_id"),
+        "superseded_by_artifact_id": metadata.get("superseded_by_artifact_id"),
     }
 
 
@@ -77,15 +151,112 @@ def artifact_metadata_dict(artifact) -> dict:
     return {}
 
 
+def _safe_parse_json_object(value) -> dict:
+    if isinstance(value, dict):
+        return dict(value)
+    if isinstance(value, str) and value.strip():
+        try:
+            parsed = json.loads(value)
+        except json.JSONDecodeError:
+            return {}
+        if isinstance(parsed, dict):
+            return parsed
+    return {}
+
+
+async def resolve_effective_source_artifact_id(
+    *,
+    project_id: str,
+    primary_source_id: str | None = None,
+    source_artifact_id: str | None = None,
+) -> str | None:
+    normalized_artifact_id = str(source_artifact_id or "").strip()
+    if normalized_artifact_id:
+        return normalized_artifact_id
+
+    normalized_primary_source_id = str(primary_source_id or "").strip()
+    if not normalized_primary_source_id:
+        return None
+
+    upload = await db_service.get_file(normalized_primary_source_id)
+    if upload and getattr(upload, "projectId", None) == project_id:
+        parse_result = _safe_parse_json_object(getattr(upload, "parseResult", None))
+        bridged_artifact_id = str(parse_result.get("artifact_id") or "").strip()
+        if bridged_artifact_id:
+            return bridged_artifact_id
+
+    return normalized_primary_source_id
+
+
+async def build_source_snapshot_payload(
+    *,
+    project_id: str,
+    primary_source_id: str | None = None,
+    selected_source_ids: list[str] | None = None,
+    source_artifact_id: str | None = None,
+) -> dict:
+    normalized_primary_source_id = str(primary_source_id or "").strip() or None
+    normalized_selected_source_ids = [
+        str(item).strip()
+        for item in (selected_source_ids or [])
+        if isinstance(item, str) and str(item).strip()
+    ]
+    resolved_source_artifact_id = await resolve_effective_source_artifact_id(
+        project_id=project_id,
+        primary_source_id=normalized_primary_source_id,
+        source_artifact_id=source_artifact_id,
+    )
+
+    snapshot = {
+        "primary_source_id": normalized_primary_source_id,
+        "selected_source_ids": normalized_selected_source_ids,
+        "source_artifact_id": resolved_source_artifact_id,
+    }
+
+    if normalized_primary_source_id:
+        if (
+            resolved_source_artifact_id
+            and normalized_primary_source_id == resolved_source_artifact_id
+        ):
+            return snapshot
+        upload = await db_service.get_file(normalized_primary_source_id)
+        if upload and getattr(upload, "projectId", None) == project_id:
+            parse_result = _safe_parse_json_object(getattr(upload, "parseResult", None))
+            snapshot.update(
+                {
+                    "primary_source_title": str(
+                        parse_result.get("artifact_title")
+                        or parse_result.get("title")
+                        or getattr(upload, "filename", "")
+                        or ""
+                    ).strip()
+                    or None,
+                    "primary_source_tool_type": str(
+                        parse_result.get("tool_type") or ""
+                    ).strip()
+                    or None,
+                    "primary_source_surface_kind": str(
+                        parse_result.get("surface_kind") or ""
+                    ).strip()
+                    or None,
+                }
+            )
+    return snapshot
+
+
 async def validate_source_artifact(
     *,
     project_id: str,
     card_id: str,
+    user_id: str,
     source_artifact_id: str | None,
 ) -> None:
     allowed_types = get_card_source_artifact_types(card_id)
     if source_artifact_id:
-        artifact = await project_space_service.get_artifact(source_artifact_id)
+        artifact = await project_space_service.get_artifact(
+            source_artifact_id,
+            user_id=user_id,
+        )
         if not artifact or artifact.projectId != project_id:
             raise APIException(
                 status_code=404,
@@ -109,12 +280,13 @@ async def validate_source_artifact(
 
 
 async def load_artifact_content(artifact) -> dict:
+    metadata = artifact_metadata_dict(artifact)
+    snapshot = metadata.get("content_snapshot")
+    if isinstance(snapshot, dict) and snapshot:
+        return snapshot
+
     artifact_type = str(getattr(artifact, "type", None) or "").strip().lower()
-    if _is_animation_artifact_type(getattr(artifact, "type", None)):
-        metadata = artifact_metadata_dict(artifact)
-        snapshot = metadata.get("content_snapshot")
-        if isinstance(snapshot, dict):
-            return snapshot
+    if _is_legacy_animation_artifact_type(getattr(artifact, "type", None)):
         render_spec = metadata.get("render_spec")
         scenes = []
         if isinstance(render_spec, dict):
@@ -152,7 +324,7 @@ async def load_artifact_content(artifact) -> dict:
     if not storage_path:
         return {}
     if artifact_type == ArtifactType.DOCX.value:
-        return load_docx_content_sidecar(storage_path)
+        return _load_docx_content_from_storage(artifact)
     with open(storage_path, "r", encoding="utf-8") as handle:
         data = json.load(handle)
     return data if isinstance(data, dict) else {}
@@ -182,13 +354,111 @@ async def create_replacement_artifact(
     )
 
 
+async def update_existing_artifact(
+    *,
+    source_artifact,
+    project_id: str,
+    user_id: str,
+    content: dict,
+):
+    return await project_space_service.update_artifact_with_file(
+        artifact=source_artifact,
+        project_id=project_id,
+        user_id=user_id,
+        content=content,
+        based_on_version_id=getattr(source_artifact, "basedOnVersionId", None),
+    )
+
+
+def build_source_binding_payload(
+    *,
+    card_id: str,
+    source_artifact_id: str | None,
+    accepted_types: tuple[str, ...] = (),
+) -> dict:
+    required = bool(accepted_types and not is_card_source_optional(card_id))
+    selected_ids = [source_artifact_id] if source_artifact_id else []
+    return {
+        "required": required,
+        "mode": "single_artifact" if accepted_types else "none",
+        "accepted_types": list(accepted_types),
+        "selected_ids": selected_ids,
+        "visibility_scope": "project-visible" if selected_ids else None,
+        "status": "bound" if selected_ids else ("required_missing" if required else "optional"),
+    }
+
+
+def build_provenance_payload(
+    *,
+    card_id: str,
+    artifact_id: str | None = None,
+    session_id: str | None = None,
+    source_artifact_id: str | None = None,
+    request_snapshot: dict | None = None,
+    replaces_artifact_id: str | None = None,
+) -> dict:
+    return {
+        "card_id": card_id,
+        "execution_carrier": CARD_EXECUTION_CARRIERS.get(card_id, ExecutionCarrier.ARTIFACT).value,
+        "created_from_session_id": session_id,
+        "created_from_artifact_ids": [source_artifact_id] if source_artifact_id else [],
+        "request_snapshot": request_snapshot or {},
+        "artifact_id": artifact_id,
+        "replaces_artifact_id": replaces_artifact_id,
+    }
+
+
+def build_latest_runnable_state(
+    *,
+    card_id: str,
+    artifact_id: str | None,
+    session_id: str | None,
+    source_binding_valid: bool,
+    refine_mode: RefineMode | None = None,
+    placement_supported: bool | None = None,
+) -> dict:
+    carrier = CARD_EXECUTION_CARRIERS.get(card_id, ExecutionCarrier.ARTIFACT).value
+    supports_placement = (
+        card_id == "demonstration_animations" and bool(placement_supported)
+    )
+    if card_id == "classroom_qa_simulator":
+        next_action = "follow_up_turn"
+    elif supports_placement and artifact_id:
+        next_action = "placement"
+    elif card_id == "interactive_quick_quiz" and (artifact_id or session_id):
+        next_action = "answer_or_refine"
+    elif artifact_id or session_id:
+        next_action = "refine"
+    else:
+        next_action = "execute"
+    return {
+        "primary_carrier": carrier,
+        "active_artifact_id": artifact_id,
+        "active_session_id": session_id,
+        "can_refine": bool(artifact_id or session_id),
+        "can_follow_up_turn": card_id == "classroom_qa_simulator",
+        "can_recommend_placement": supports_placement and bool(artifact_id),
+        "can_confirm_placement": (
+            supports_placement
+            and bool(artifact_id)
+            and source_binding_valid
+        ),
+        "source_binding_valid": source_binding_valid,
+        "next_action": next_action,
+    }
+
+
 async def validate_structured_refine_artifact(
     *,
     card_id: str,
     project_id: str,
+    user_id: str,
     artifact_id: str,
 ):
-    artifact = await project_space_service.get_artifact(artifact_id)
+    artifact = await project_space_service.get_artifact(
+        artifact_id,
+        user_id=user_id,
+    )
     if not artifact or artifact.projectId != project_id:
         raise APIException(
             status_code=404,
@@ -222,9 +492,13 @@ async def validate_structured_refine_artifact(
 async def validate_simulator_turn_artifact(
     *,
     project_id: str,
+    user_id: str,
     artifact_id: str,
 ):
-    artifact = await project_space_service.get_artifact(artifact_id)
+    artifact = await project_space_service.get_artifact(
+        artifact_id,
+        user_id=user_id,
+    )
     if not artifact or artifact.projectId != project_id:
         raise APIException(
             status_code=404,

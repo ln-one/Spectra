@@ -63,13 +63,24 @@ class OurographQueryClientMixin:
             query={"user_id": user_id},
         )
 
-    async def get_project_versions_with_context(self, project_id: str):
-        response = await request_json("GET", f"/projects/{project_id}/versions")
+    async def get_project_versions_with_context(self, project_id: str, user_id: str):
+        response = await request_json(
+            "GET",
+            f"/projects/{project_id}/versions",
+            query={"user_id": user_id},
+        )
         return namespace(response["versions"]), response.get("currentVersionId")
 
-    async def get_project_version_with_context(self, project_id: str, version_id: str):
+    async def get_project_version_with_context(
+        self,
+        project_id: str,
+        version_id: str,
+        user_id: str,
+    ):
         response = await request_json(
-            "GET", f"/projects/{project_id}/versions/{version_id}"
+            "GET",
+            f"/projects/{project_id}/versions/{version_id}",
+            query={"user_id": user_id},
         )
         return namespace(response["version"]), response.get("currentVersionId")
 
@@ -106,8 +117,12 @@ class OurographQueryClientMixin:
         artifact = response.get("artifact")
         return namespace(artifact) if artifact is not None else None
 
-    async def get_project_current_version_id(self, project_id: str):
-        response = await request_json("GET", f"/projects/{project_id}/versions")
+    async def get_project_current_version_id(self, project_id: str, user_id: str):
+        response = await request_json(
+            "GET",
+            f"/projects/{project_id}/versions",
+            query={"user_id": user_id},
+        )
         return response.get("currentVersionId")
 
     async def get_idempotency_response(self, key: str):

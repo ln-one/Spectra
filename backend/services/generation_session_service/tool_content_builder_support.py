@@ -3,14 +3,17 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from services.generation_session_service.game_template_engine import (
-    build_game_schema_hint,
-    is_template_game_pattern,
-    resolve_game_pattern,
+from services.generation_session_service.interactive_game_normalizer import (
+    build_interactive_game_schema_hint,
 )
-from services.generation_session_service.word_template_engine import (
-    build_word_schema_hint,
-    resolve_word_document_variant,
+from services.generation_session_service.mindmap_normalizer import (
+    build_mindmap_schema_hint,
+)
+from services.generation_session_service.quiz_normalizer import (
+    build_quiz_schema_hint,
+)
+from services.generation_session_service.word_document_normalizer import (
+    resolve_word_document_schema_hint,
 )
 from utils.exceptions import APIException, ErrorCode
 
@@ -19,10 +22,10 @@ _PAYLOAD_REQUIREMENTS: dict[str, tuple[str, ...]] = {
     "word_document": ("title", "summary", "layout_payload"),
     "knowledge_mindmap": ("title", "nodes"),
     "interactive_quick_quiz": ("title", "questions"),
-    "interactive_games": ("title", "html"),
+    "interactive_games": ("schema_id", "title", "subtype", "spec", "instructions", "runtime"),
     "classroom_qa_simulator": ("title", "turns"),
-    "demonstration_animations": ("title",),
-    "speaker_notes": ("title", "slides"),
+    "demonstration_animations": (),
+    "speaker_notes": ("title", "slides", "anchors"),
 }
 
 
@@ -92,6 +95,32 @@ def strip_json_fence(text: str) -> str:
     return candidate
 
 
+def _extract_first_json_object(text: str) -> str | None:
+    candidate = (text or "").strip()
+    if not candidate:
+        return None
+    decoder = json.JSONDecoder()
+    try:
+        parsed, end = decoder.raw_decode(candidate)
+        if isinstance(parsed, dict):
+            return candidate[:end]
+    except json.JSONDecodeError:
+        pass
+
+    start = candidate.find("{")
+    while start != -1:
+        fragment = candidate[start:]
+        try:
+            parsed, end = decoder.raw_decode(fragment)
+        except json.JSONDecodeError:
+            start = candidate.find("{", start + 1)
+            continue
+        if isinstance(parsed, dict):
+            return fragment[:end]
+        start = candidate.find("{", start + 1)
+    return None
+
+
 def require_non_empty_str(payload: dict[str, Any], key: str) -> None:
     value = payload.get(key)
     if not isinstance(value, str) or not value.strip():
@@ -117,16 +146,56 @@ def validate_card_payload(card_id: str, payload: dict[str, Any]) -> None:
         require_non_empty_list(payload, "questions")
     elif card_id == "interactive_games":
         require_non_empty_str(payload, "title")
-        require_non_empty_str(payload, "html")
+        require_non_empty_str(payload, "schema_id")
+        require_non_empty_str(payload, "subtype")
+        require_non_empty_list(payload, "instructions")
+        spec = payload.get("spec")
+        if not isinstance(spec, dict) or not spec:
+            raise ValueError("field_spec_empty")
+        runtime = payload.get("runtime")
+        if not isinstance(runtime, dict) or not runtime:
+            raise ValueError("field_runtime_empty")
+        html = runtime.get("html") if isinstance(runtime, dict) else None
+        sandbox_version = runtime.get("sandbox_version") if isinstance(runtime, dict) else None
+        if not isinstance(html, str) or not html.strip():
+            raise ValueError("field_runtime_html_empty")
+        if not isinstance(sandbox_version, str) or not sandbox_version.strip():
+            raise ValueError("field_runtime_sandbox_version_empty")
     elif card_id == "classroom_qa_simulator":
         require_non_empty_str(payload, "title")
         require_non_empty_list(payload, "turns")
     elif card_id == "demonstration_animations":
-        require_non_empty_str(payload, "title")
-        require_non_empty_list(payload, "scenes")
+        title = payload.get("title")
+        topic = payload.get("topic")
+        summary = payload.get("summary")
+        focus = payload.get("focus")
+        motion_brief = payload.get("motion_brief")
+        has_descriptive_text = any(
+            isinstance(value, str) and value.strip()
+            for value in (title, topic, summary, focus, motion_brief)
+        )
+        if isinstance(payload.get("steps"), list) and payload.get("steps"):
+            return
+        scenes = payload.get("scenes")
+        if isinstance(scenes, list) and scenes:
+            return
+        runtime_graph = payload.get("runtime_graph")
+        if isinstance(runtime_graph, dict):
+            graph_steps = runtime_graph.get("steps")
+            if isinstance(graph_steps, list) and graph_steps:
+                return
+        runtime_draft = payload.get("runtime_draft")
+        if isinstance(runtime_draft, dict):
+            step_captions = runtime_draft.get("step_captions")
+            if isinstance(step_captions, list) and step_captions:
+                return
+        if has_descriptive_text:
+            return
+        raise ValueError("field_animation_runtime_empty")
     elif card_id == "speaker_notes":
         require_non_empty_str(payload, "title")
         require_non_empty_list(payload, "slides")
+        require_non_empty_list(payload, "anchors")
     elif card_id in {"courseware_ppt", "word_document"}:
         require_non_empty_str(payload, "title")
         require_non_empty_str(payload, "summary")
@@ -163,20 +232,36 @@ def parse_ai_object_payload(
     phase: str,
 ) -> dict[str, Any]:
     normalized = strip_json_fence(ai_raw)
+    recovered = _extract_first_json_object(normalized)
     try:
         parsed = json.loads(normalized)
     except Exception as exc:
-        raise_generation_error(
-            status_code=502,
-            error_code=ErrorCode.EXTERNAL_SERVICE_ERROR,
-            message="AI returned non-JSON content for studio card generation.",
-            card_id=card_id,
-            model=model,
-            phase=phase,
-            failure_reason="parse_json_failed",
-            retryable=True,
-            extra={"raw_error": str(exc)[:300]},
-        )
+        if not recovered:
+            raise_generation_error(
+                status_code=502,
+                error_code=ErrorCode.EXTERNAL_SERVICE_ERROR,
+                message="AI returned non-JSON content for studio card generation.",
+                card_id=card_id,
+                model=model,
+                phase=phase,
+                failure_reason="parse_json_failed",
+                retryable=True,
+                extra={"raw_error": str(exc)[:300]},
+            )
+        try:
+            parsed = json.loads(recovered)
+        except Exception as recovered_exc:
+            raise_generation_error(
+                status_code=502,
+                error_code=ErrorCode.EXTERNAL_SERVICE_ERROR,
+                message="AI returned non-JSON content for studio card generation.",
+                card_id=card_id,
+                model=model,
+                phase=phase,
+                failure_reason="parse_json_failed",
+                retryable=True,
+                extra={"raw_error": str(recovered_exc)[:300]},
+            )
     if not isinstance(parsed, dict):
         raise_generation_error(
             status_code=502,
@@ -193,42 +278,37 @@ def parse_ai_object_payload(
 
 def build_schema_hint(card_id: str, config: dict[str, Any] | None = None) -> str | None:
     if card_id == "interactive_games":
-        pattern = resolve_game_pattern(config)
-        if is_template_game_pattern(pattern):
-            return build_game_schema_hint(pattern)
-        return '{"title":"", "html":""}'
+        return build_interactive_game_schema_hint(config)
 
     return {
         "courseware_ppt": (
             '{"title":"", "summary":"", "pages":12, "template":"default"}'
         ),
-        "word_document": build_word_schema_hint(
-            resolve_word_document_variant((config or {}).get("document_variant"))
-        ),
-        "knowledge_mindmap": (
-            '{"title":"",'
-            ' "nodes":[{"id":"root","parent_id":null,"title":"","summary":""}]}'
-        ),
-        "interactive_quick_quiz": (
-            '{"title":"",'
-            ' "questions":[{"id":"","question":"","options":[""],'
-            '"answer":"","explanation":""}]}'
-        ),
+        "word_document": resolve_word_document_schema_hint(config),
+        "knowledge_mindmap": build_mindmap_schema_hint(config),
+        "interactive_quick_quiz": build_quiz_schema_hint(config),
         "classroom_qa_simulator": (
             '{"title":"", "summary":"", "key_points":[""], '
             '"turns":[{"student":"","question":"","teacher_hint":"",'
             '"feedback":""}]}'
         ),
         "demonstration_animations": (
-            '{"title":"", "summary":"", "format":"gif|mp4", '
-            '"render_mode":"gif|cloud_video_wan", '
-            '"style_pack":"teaching_ppt_cartoon|teaching_ppt_fresh_green|teaching_ppt_deep_blue|teaching_ppt_warm_orange|teaching_ppt_minimal_gray", '
-            '"visual_type":"process_flow", '
-            '"scenes":[{"title":"","description":"","emphasis":""}]}'
+            '{"kind":"animation_storyboard", "title":"", "topic":"", "summary":"", '
+            '"runtime_graph_version":"generic_explainer_graph.v1", '
+            '"runtime_graph":{"family_hint":"algorithm_demo","timeline":{"total_steps":1},"steps":[{"primary_caption":{"title":"","body":""},"entities":[{"id":"subject-0","kind":"track_stack"}]}]}, '
+            '"runtime_draft_version":"explainer_draft.v1", '
+            '"runtime_draft":{"family_hint":"algorithm_demo","step_captions":[{"caption_title":"","caption_body":""}]}, '
+            '"component_code":"export default function Animation(runtimeProps) { ... }", '
+            '"runtime_source":"llm_draft_assembled_graph", '
+            '"runtime_contract":"animation_runtime.v4", '
+            '"compile_status":"pending", '
+            '"compile_errors":[]}'
         ),
         "speaker_notes": (
-            '{"title":"", "summary":"", '
-            '"slides":[{"page":1,"title":"","script":"",'
-            '"action_hint":"","transition_line":""}]}'
+            '{"title":"", "summary":"", "source_artifact_id":"", '
+            '"slides":[{"id":"slide-1","page":1,"title":"",'
+            '"sections":[{"id":"slide-1-section-1","title":"开场","paragraphs":'
+            '[{"id":"slide-1-paragraph-1","anchor_id":"speaker_notes:v2:slide-1:paragraph-1","text":"","role":"script"}]}]}],'
+            '"anchors":[{"scope":"paragraph","anchor_id":"speaker_notes:v2:slide-1:paragraph-1","slide_id":"slide-1","paragraph_id":"slide-1-paragraph-1","label":"第 1 页正文"}]}'
         ),
     }.get(card_id)

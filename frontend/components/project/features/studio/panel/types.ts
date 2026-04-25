@@ -6,7 +6,8 @@ import type {
 } from "@/lib/sdk/studio-cards";
 import type { CapabilityResolution } from "../tools/capability-resolver";
 import type { StudioTool } from "../constants";
-import type { StudioToolKey, ToolDraftState } from "../tools";
+import type { StudioHistoryStatus } from "../history/types";
+import type { ManagedResultTarget, StudioToolKey, ToolDraftState } from "../tools";
 
 export interface StudioPanelProps extends HTMLAttributes<HTMLDivElement> {
   onToolClick?: (tool: StudioTool) => void;
@@ -20,6 +21,9 @@ export interface StudioExecutionResult {
   resourceKind: string | null;
   runId: string | null;
   runNo: number | null;
+  artifactId?: string | null;
+  status?: StudioHistoryStatus | null;
+  recovered?: boolean;
 }
 
 export type StudioSourceOption = {
@@ -45,3 +49,17 @@ export type ExecutionPlanMap = Record<string, StudioCardExecutionPlan>;
 export type RuntimeArtifactsByTool = Partial<
   Record<StudioToolKey, ArtifactHistoryItem[]>
 >;
+
+export interface ManagedDraftAnchor {
+  sessionId: string | null;
+  artifactId: string | null;
+  runId: string | null;
+  status: StudioHistoryStatus | null;
+  pendingWorkflowId?: string | null;
+}
+
+export interface ManagedWorkbenchState {
+  mode: "draft" | "history";
+  target: ManagedResultTarget | null;
+  draftAnchors: Partial<Record<StudioToolKey, ManagedDraftAnchor>>;
+}

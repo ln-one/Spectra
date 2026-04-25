@@ -165,7 +165,7 @@ def _default_capabilities() -> list[dict]:
                 )
                 else []
             ),
-            "operations": ["render_html", "render_gif", "render_mp4"],
+            "operations": ["render_html", "render_gif"],
             "status_message": (
                 animation_health.user_message if animation_health else None
             ),

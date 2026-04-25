@@ -207,18 +207,16 @@ ResumeSessionResponse:
 
 RegenerateSlideRequest:
   type: object
-  required: [patch]
+  required: [instruction]
   properties:
     instruction:
       type: string
       minLength: 1
       maxLength: 2000
-      description: 可选自然语言补充说明，最终以结构化 patch 为准
+      description: 单页 prompt 重做说明
     slide_index:
       type: integer
       minimum: 1
-    patch:
-      $ref: './generate-commands.yaml#/StructuredSlidePatch'
     expected_render_version:
       type: integer
       minimum: 1

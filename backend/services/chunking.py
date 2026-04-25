@@ -36,6 +36,26 @@ def _estimate_tokens(text: str) -> int:
     return int(chinese_chars * 1.5 + other_chars * 0.25)
 
 
+def _adjust_split_for_html_boundary(text: str, start: int, end: int) -> int:
+    """Avoid splitting in the middle of HTML tags like </td><td>."""
+    if end <= start or end >= len(text):
+        return end
+
+    segment = text[start:end]
+    last_lt = segment.rfind("<")
+    last_gt = segment.rfind(">")
+
+    # If the latest '<' appears after latest '>', we are inside an unfinished tag.
+    if last_lt > last_gt:
+        close_idx = text.find(">", end)
+        if close_idx != -1 and close_idx + 1 > start:
+            return close_idx + 1
+        fallback = start + last_lt
+        if fallback > start:
+            return fallback
+    return end
+
+
 def split_text(
     text: str,
     chunk_size: int = DEFAULT_CHUNK_SIZE,
@@ -86,6 +106,10 @@ def split_text(
 
             if best_split > start:
                 end = best_split
+
+        end = _adjust_split_for_html_boundary(text, start, end)
+        if end <= start:
+            end = min(start + max_chars, len(text))
 
         chunk = text[start:end].strip()
         if chunk:

@@ -19,8 +19,10 @@ from schemas.project_space import (
     SimpleSuccessResponse,
 )
 from services.project_space_service.service import project_space_service
+from services.database import db_service
 from utils.dependencies import get_current_user
 
+from .reference_runtime import resolve_target_project_runtime_maps
 from .shared import (
     COMMON_ERROR_RESPONSES,
     to_candidate_change_model,
@@ -29,6 +31,23 @@ from .shared import (
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+
+async def _serialize_project_references(references):
+    if all(str(getattr(ref, "targetProjectName", "") or "").strip() for ref in references):
+        return [to_project_reference_model(ref) for ref in references]
+
+    _, name_map = await resolve_target_project_runtime_maps(
+        db_service=db_service,
+        references=references,
+    )
+    return [
+        to_project_reference_model(
+            ref,
+            target_project_name=name_map.get(getattr(ref, "targetProjectId", "")),
+        )
+        for ref in references
+    ]
 
 
 @router.post(
@@ -55,7 +74,8 @@ async def create_project_reference(
             pinned_version_id=body.pinned_version_id,
             priority=body.priority,
         )
-        return ProjectReferenceResponse(reference=to_project_reference_model(reference))
+        serialized = await _serialize_project_references([reference])
+        return ProjectReferenceResponse(reference=serialized[0])
     except Exception as exc:
         logger.error(f"create_project_reference error: {exc}")
         raise
@@ -74,7 +94,7 @@ async def get_project_references(
             project_id=project_id, user_id=user_id
         )
         return ProjectReferencesResponse(
-            references=[to_project_reference_model(ref) for ref in references]
+            references=await _serialize_project_references(references)
         )
     except Exception as exc:
         logger.error(f"get_project_references error: {exc}")
@@ -102,9 +122,8 @@ async def update_project_reference(
             priority=body.priority,
             status=body.status,
         )
-        return ProjectReferenceResponse(
-            reference=to_project_reference_model(updated_ref)
-        )
+        serialized = await _serialize_project_references([updated_ref])
+        return ProjectReferenceResponse(reference=serialized[0])
     except Exception as exc:
         logger.error(f"update_project_reference error: {exc}")
         raise

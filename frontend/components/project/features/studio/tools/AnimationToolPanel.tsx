@@ -1,49 +1,146 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { Play } from "lucide-react";
+import { useEffect, useState } from "react";
+import { CheckCircle2, Loader2, Play, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { WorkflowStepper } from "@/components/project/shared";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { TOOL_COLORS } from "../constants";
 import type { ToolPanelProps } from "./types";
-import { ANIMATION_STEPS, getReadinessLabel } from "./animation/constants";
-import { ConfigStep } from "./animation/ConfigStep";
-import { GenerateStep } from "./animation/GenerateStep";
+import {
+  ANIMATION_RHYTHM_OPTIONS,
+  ANIMATION_STYLE_PACK_OPTIONS,
+  getReadinessLabel,
+  resolveDefaultExplainerStylePack,
+} from "./animation/constants";
+import {
+  BUBBLE_SORT_MOCK_FORMAT,
+  isBubbleSortMockRequest,
+} from "./animation/bubbleSortMock";
 import { PreviewStep } from "./animation/PreviewStep";
 import type {
   AnimationPlacementSlot,
+  AnimationOutputFormat,
   AnimationRhythm,
   AnimationStylePack,
-  AnimationStep,
   AnimationVisualType,
 } from "./animation/types";
 import { useStudioRagRecommendations } from "./useStudioRagRecommendations";
-import { useWorkflowStepSync } from "./useWorkflowStepSync";
+
+const FOCUS_PRESETS = [
+  "突出关键步骤变化",
+  "强调因果关系",
+  "先讲结论再拆过程",
+  "适合课堂演示节奏",
+];
+const DEFAULT_ANIMATION_TOPIC = "冒泡排序";
+
+function normalizeDraftString(value: unknown): string {
+  return typeof value === "string" ? value : "";
+}
+
+function normalizeDraftNumber(value: unknown, fallback: number): number {
+  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+}
+
+function normalizeRhythm(value: unknown): AnimationRhythm {
+  return value === "slow" || value === "balanced" || value === "fast"
+    ? value
+    : "balanced";
+}
+
+function normalizeFormat(value: unknown): AnimationOutputFormat {
+  // Hard-disable expensive cloud video path (mp4/cloud_video_wan).
+  if (value === "gif") return "gif";
+  return "html5";
+}
+
+function resolveDraftAnimationFormat(params: {
+  draftFormat: AnimationOutputFormat;
+  hasManualFormatSelection: boolean;
+  hasArtifact: boolean;
+  nextTopic: string;
+  nextFocus: string;
+}): AnimationOutputFormat {
+  if (params.hasManualFormatSelection || params.hasArtifact) {
+    return params.draftFormat;
+  }
+  if (isBubbleSortMockRequest(params.nextTopic, params.nextFocus)) {
+    return BUBBLE_SORT_MOCK_FORMAT;
+  }
+  return "html5";
+}
+
+function normalizeInitialFormat(_value: unknown): AnimationOutputFormat {
+  // Hard-cut default path is html5; stale persisted gif drafts should not hijack
+  // new generation runs unless the user re-selects gif explicitly.
+  return "html5";
+}
+
+function normalizeStylePack(value: unknown): AnimationStylePack {
+  return value === "teaching_ppt_cartoon" ||
+    value === "teaching_ppt_fresh_green" ||
+    value === "teaching_ppt_deep_blue" ||
+    value === "teaching_ppt_warm_orange" ||
+    value === "teaching_ppt_minimal_gray"
+    ? value
+    : resolveDefaultExplainerStylePack();
+}
+
+function normalizeVisualType(value: unknown): AnimationVisualType | null {
+  return value === "process_flow" ||
+    value === "relationship_change" ||
+    value === "structure_breakdown"
+    ? value
+    : null;
+}
 
 export function AnimationToolPanel({
   toolName,
   onDraftChange,
   flowContext,
 }: ToolPanelProps) {
-  const [activeStep, setActiveStep] = useState<AnimationStep>("config");
-  useWorkflowStepSync(activeStep, setActiveStep, flowContext);
-
-  const [topic, setTopic] = useState("");
-  const [focus, setFocus] = useState("");
-  const [durationSeconds, setDurationSeconds] = useState(6);
-  const [rhythm, setRhythm] = useState<AnimationRhythm>("balanced");
+  const existingDraft = flowContext?.currentDraft;
+  const [topic, setTopic] = useState(
+    normalizeDraftString(existingDraft?.topic) || DEFAULT_ANIMATION_TOPIC
+  );
+  const [focus, setFocus] = useState(
+    normalizeDraftString(existingDraft?.motion_brief)
+  );
+  const [durationSeconds, setDurationSeconds] = useState(
+    normalizeDraftNumber(existingDraft?.duration_seconds, 6)
+  );
+  const [rhythm, setRhythm] = useState<AnimationRhythm>(
+    normalizeRhythm(existingDraft?.rhythm)
+  );
+  const [animationFormat, setAnimationFormat] = useState<AnimationOutputFormat>(
+    normalizeInitialFormat(existingDraft?.animation_format)
+  );
+  const [hasManualFormatSelection, setHasManualFormatSelection] = useState(false);
   const [stylePack, setStylePack] = useState<AnimationStylePack>(
-    "teaching_ppt_cartoon"
+    normalizeStylePack(existingDraft?.style_pack)
   );
   const [visualType, setVisualType] = useState<AnimationVisualType | null>(
-    null
+    normalizeVisualType(existingDraft?.visual_type)
   );
   const [hasBootstrappedTopic, setHasBootstrappedTopic] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false);
+  const [isGeneratingLocal, setIsGeneratingLocal] = useState(false);
   const [isPreparingSpec, setIsPreparingSpec] = useState(false);
   const [isRefining, setIsRefining] = useState(false);
   const [isRecommendingPlacement, setIsRecommendingPlacement] = useState(false);
   const [isConfirmingPlacement, setIsConfirmingPlacement] = useState(false);
+  const [hasRequestedGeneration, setHasRequestedGeneration] = useState(false);
+  const [mockGenerationStartedAt, setMockGenerationStartedAt] = useState<string | null>(
+    null
+  );
   const [lastGeneratedAt, setLastGeneratedAt] = useState<string | null>(null);
   const [placementRecommendation, setPlacementRecommendation] = useState<Record<
     string,
@@ -56,19 +153,23 @@ export function AnimationToolPanel({
     string,
     unknown
   > | null>(null);
-  const [serverSpecCandidates, setServerSpecCandidates] = useState<
-    Record<string, unknown>[]
-  >([]);
-  const [specConfidence, setSpecConfidence] = useState<number | null>(null);
-  const [needsUserChoice, setNeedsUserChoice] = useState(false);
-
-  const latestArtifactId =
-    flowContext?.latestArtifacts?.[0]?.artifactId ?? null;
+  const latestArtifactId = flowContext?.latestArtifacts?.[0]?.artifactId ?? null;
+  const sourceLabel =
+    (flowContext?.selectedSourceId &&
+      (flowContext?.sourceOptions ?? []).find(
+        (item) => item.id === flowContext.selectedSourceId
+      )?.title) ||
+    null;
 
   const { suggestions, isLoading } = useStudioRagRecommendations({
-    query: "为当前项目推荐适合做成教学动画的知识点、动态过程和重点变化。",
-    fallbackSuggestions: ["概念形成过程", "变量变化关系", "关键步骤演示"],
+    surface: "studio_animation",
+    seedText: [topic, focus].filter(Boolean).join(" "),
   });
+  const isBubbleSortScenario = isBubbleSortMockRequest(
+    topic,
+    focus,
+    flowContext?.managedResultTarget?.title ?? null
+  );
 
   useEffect(() => {
     if (!hasBootstrappedTopic && !topic.trim() && suggestions[0]) {
@@ -78,19 +179,59 @@ export function AnimationToolPanel({
   }, [hasBootstrappedTopic, suggestions, topic]);
 
   useEffect(() => {
+    if (flowContext?.managedWorkbenchMode !== "draft") return;
+    const draft = flowContext.currentDraft;
+    if (!draft) return;
+
+    const nextTopic = normalizeDraftString(draft.topic) || DEFAULT_ANIMATION_TOPIC;
+    const nextFocus = normalizeDraftString(draft.motion_brief);
+    const nextDuration = normalizeDraftNumber(draft.duration_seconds, 6);
+    const nextRhythm = normalizeRhythm(draft.rhythm);
+    const nextFormat = normalizeFormat(draft.animation_format);
+    const resolvedFormat = resolveDraftAnimationFormat({
+      draftFormat: nextFormat,
+      hasManualFormatSelection,
+      hasArtifact: Boolean(latestArtifactId),
+      nextTopic,
+      nextFocus,
+    });
+    const nextStylePack = normalizeStylePack(draft.style_pack);
+    const nextVisualType = normalizeVisualType(draft.visual_type);
+
+    setTopic((prev) => (prev === nextTopic ? prev : nextTopic));
+    setFocus((prev) => (prev === nextFocus ? prev : nextFocus));
+    setDurationSeconds((prev) => (prev === nextDuration ? prev : nextDuration));
+    setRhythm((prev) => (prev === nextRhythm ? prev : nextRhythm));
+    setAnimationFormat((prev) => (prev === resolvedFormat ? prev : resolvedFormat));
+    setStylePack((prev) => (prev === nextStylePack ? prev : nextStylePack));
+    setVisualType((prev) => (prev === nextVisualType ? prev : nextVisualType));
+  }, [
+    flowContext?.currentDraft,
+    flowContext?.managedWorkbenchMode,
+    hasManualFormatSelection,
+    latestArtifactId,
+  ]);
+
+  useEffect(() => {
+    const safeAnimationFormat =
+      isBubbleSortScenario || animationFormat === "gif" ? "gif" : "html5";
     onDraftChange?.({
       topic,
       motion_brief: focus,
       duration_seconds: durationSeconds,
+      animation_format: safeAnimationFormat,
+      render_mode: safeAnimationFormat,
       rhythm,
       style_pack: stylePack,
       visual_type: visualType,
       source_artifact_id: flowContext?.selectedSourceId ?? null,
     });
   }, [
+    animationFormat,
     durationSeconds,
     flowContext?.selectedSourceId,
     focus,
+    isBubbleSortScenario,
     onDraftChange,
     rhythm,
     stylePack,
@@ -103,93 +244,114 @@ export function AnimationToolPanel({
     setPlacementRecords([]);
   }, [latestArtifactId]);
 
-  useEffect(() => {
-    setServerSpecPreview(null);
-    setServerSpecCandidates([]);
-    setSpecConfidence(null);
-    setNeedsUserChoice(false);
-  }, [topic, focus]);
-
-  const latestExportArtifactId =
-    flowContext?.latestArtifacts?.[0]?.artifactId ?? null;
-
-  const canOperateOnArtifact = useMemo(
-    () => Boolean(latestArtifactId),
-    [latestArtifactId]
+  const isHistoryResultMode = flowContext?.managedWorkbenchMode === "history";
+  const resultTargetStatus = flowContext?.managedResultTarget?.status ?? null;
+  const isGeneratingFromStatus = resultTargetStatus === "processing";
+  const isGenerating = Boolean(
+    isGeneratingLocal ||
+      isPreparingSpec ||
+      isGeneratingFromStatus ||
+      flowContext?.isActionRunning
   );
+  const shouldShowPreview =
+    isHistoryResultMode || hasRequestedGeneration || isGenerating;
+  const shouldShowBubbleSortMock =
+    isBubbleSortScenario &&
+    (hasRequestedGeneration ||
+      isHistoryResultMode ||
+      resultTargetStatus === "processing" ||
+      resultTargetStatus === "previewing" ||
+      resultTargetStatus === "completed");
+  const shouldShowComposeCard = !shouldShowPreview;
+
+  useEffect(() => {
+    if (flowContext?.managedWorkbenchMode !== "draft" || isGenerating) return;
+    setHasRequestedGeneration(false);
+  }, [flowContext?.managedWorkbenchMode, isGenerating]);
+
+  useEffect(() => {
+    if (flowContext?.managedWorkbenchMode !== "draft") {
+      setHasManualFormatSelection(false);
+    }
+  }, [flowContext?.managedWorkbenchMode]);
+
+  useEffect(() => {
+    if (!isBubbleSortScenario) return;
+    if (!hasManualFormatSelection && !latestArtifactId) {
+      setAnimationFormat((previous) =>
+        previous === BUBBLE_SORT_MOCK_FORMAT ? previous : BUBBLE_SORT_MOCK_FORMAT
+      );
+    }
+  }, [hasManualFormatSelection, isBubbleSortScenario, latestArtifactId]);
+
+  const prepareSpecPreview = async () => {
+    if (!flowContext?.onPreviewExecution) return;
+    setIsPreparingSpec(true);
+    try {
+      const executionPreview = await flowContext.onPreviewExecution();
+      if (!executionPreview) return;
+      const previewSpec =
+        typeof executionPreview.spec_preview === "object" &&
+        executionPreview.spec_preview
+          ? (executionPreview.spec_preview as Record<string, unknown>)
+          : null;
+      setServerSpecPreview(previewSpec);
+
+      if (!visualType && previewSpec?.visual_type) {
+        const nextVisualType = String(previewSpec.visual_type);
+        if (
+          nextVisualType === "process_flow" ||
+          nextVisualType === "relationship_change" ||
+          nextVisualType === "structure_breakdown"
+        ) {
+          setVisualType(nextVisualType);
+        }
+      }
+    } finally {
+      setIsPreparingSpec(false);
+    }
+  };
 
   const handleGenerate = async () => {
-    setActiveStep("preview");
+    if (!topic.trim() || isGenerating) return;
+
+    if (isBubbleSortScenario) {
+      const startedAt = new Date().toISOString();
+      setHasRequestedGeneration(true);
+      setMockGenerationStartedAt(startedAt);
+      if (flowContext?.onExecute) {
+        await flowContext.onExecute();
+      }
+      setLastGeneratedAt(startedAt);
+      return;
+    }
+
+    await prepareSpecPreview();
+
+    if (flowContext?.onPrepareGenerate) {
+      const prepared = await flowContext.onPrepareGenerate();
+      if (!prepared) return;
+    }
+
+    setHasRequestedGeneration(true);
+    setMockGenerationStartedAt(
+      isBubbleSortScenario ? new Date().toISOString() : null
+    );
 
     if (!flowContext?.onExecute) {
       setLastGeneratedAt(new Date().toISOString());
       return;
     }
 
-    setIsGenerating(true);
+    setIsGeneratingLocal(true);
     try {
       const executed = await flowContext.onExecute();
-      if (!executed) {
-        setActiveStep("generate");
-        return;
+      if (executed) {
+        setLastGeneratedAt(new Date().toISOString());
       }
-      setLastGeneratedAt(new Date().toISOString());
     } finally {
-      setIsGenerating(false);
+      setIsGeneratingLocal(false);
     }
-  };
-
-  const handlePrepareGenerate = async () => {
-    if (!flowContext?.onPreviewExecution) {
-      return;
-    }
-    setIsPreparingSpec(true);
-    let executionPreview: Record<string, unknown> | null = null;
-    try {
-      executionPreview = await flowContext.onPreviewExecution();
-    } finally {
-      setIsPreparingSpec(false);
-    }
-    if (!executionPreview) return;
-    const previewSpec =
-      typeof executionPreview.spec_preview === "object" &&
-      executionPreview.spec_preview
-        ? (executionPreview.spec_preview as Record<string, unknown>)
-        : null;
-    const candidatesRaw = executionPreview.spec_candidates;
-    const candidates = Array.isArray(candidatesRaw)
-      ? candidatesRaw.filter(
-          (item): item is Record<string, unknown> =>
-            Boolean(item) && typeof item === "object"
-        )
-      : [];
-    setServerSpecPreview(previewSpec);
-    setServerSpecCandidates(candidates);
-    setSpecConfidence(
-      typeof executionPreview.spec_confidence === "number"
-        ? executionPreview.spec_confidence
-        : null
-    );
-    const previewNeedsUserChoice = Boolean(executionPreview.needs_user_choice);
-    setNeedsUserChoice(previewNeedsUserChoice);
-    if (!previewNeedsUserChoice && !visualType && previewSpec?.visual_type) {
-      const nextVisualType = String(previewSpec.visual_type);
-      if (
-        nextVisualType === "process_flow" ||
-        nextVisualType === "relationship_change" ||
-        nextVisualType === "structure_breakdown"
-      ) {
-        setVisualType(nextVisualType);
-      }
-    }
-
-    if (!flowContext?.onPrepareGenerate) {
-      setActiveStep("generate");
-      return;
-    }
-    const prepared = await flowContext.onPrepareGenerate();
-    if (!prepared) return;
-    setActiveStep("generate");
   };
 
   const handleStructuredRefine = async () => {
@@ -198,7 +360,10 @@ export function AnimationToolPanel({
     try {
       const ok = await flowContext.onStructuredRefine({
         artifactId: latestArtifactId,
-        message: "请根据新的参数生成一版新的 GIF 动画",
+        message:
+          animationFormat === "gif"
+            ? "请根据新的参数生成一版新的 GIF 动画"
+            : "请根据新的参数生成一版新的 HTML runtime 动画",
         config: {
           duration_seconds: durationSeconds,
           rhythm,
@@ -257,15 +422,32 @@ export function AnimationToolPanel({
     }
   };
 
+  const appendFocusPreset = (value: string) => {
+    setFocus((previous) => {
+      const trimmed = previous.trim();
+      if (!trimmed) return value;
+      if (trimmed.includes(value)) return previous;
+      return `${trimmed}；${value}`;
+    });
+  };
+
   const colors = TOOL_COLORS.animation;
+  const actionLabels = flowContext?.display?.actionLabels ?? {
+    execute: "生成演示动画",
+  };
+  const canGenerate =
+    !isGenerating &&
+    topic.trim().length > 0 &&
+    !flowContext?.isLoadingProtocol &&
+    flowContext?.canExecute !== false;
 
   return (
     <div
       className="project-tool-workbench h-full overflow-hidden rounded-2xl border border-zinc-200/60 bg-white/80 shadow-2xl shadow-zinc-200/30 backdrop-blur-xl group/workbench"
       style={{
-        ["--project-tool-accent" as any]: colors.primary,
-        ["--project-tool-accent-soft" as any]: colors.glow,
-        ["--project-tool-surface" as any]: colors.soft,
+        ["--project-tool-accent" as never]: colors.primary,
+        ["--project-tool-accent-soft" as never]: colors.glow,
+        ["--project-tool-surface" as never]: colors.soft,
       }}
     >
       <div className={cn("h-1 w-full bg-gradient-to-r", colors.gradient)} />
@@ -282,137 +464,235 @@ export function AnimationToolPanel({
                   {toolName}工作台
                 </h3>
                 <p className="mt-0.5 text-[11px] font-medium leading-relaxed text-zinc-500">
-                  先描述教学需求，再按动画规格生成独立 GIF，最后决定是否插入
-                  PPT。
+                  先明确教学演示目标，再一键生成可继续 refine 与 placement 的动画成果。
                 </p>
               </div>
             </div>
-            <span className="rounded-full border border-zinc-100 bg-white px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-zinc-600 shadow-sm">
-              {getReadinessLabel(flowContext?.readiness)}
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="rounded-full border border-zinc-100 bg-white px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-zinc-600 shadow-sm">
+                {getReadinessLabel(flowContext?.readiness)}
+              </span>
+              <Button
+                type="button"
+                size="sm"
+                className="h-9 rounded-lg bg-blue-600 text-xs hover:bg-blue-500"
+                disabled={!canGenerate}
+                onClick={() => void handleGenerate()}
+              >
+                {isGenerating ? (
+                  <>
+                    <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                    正在生成动画...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="mr-1.5 h-3.5 w-3.5" />
+                    {actionLabels.execute}
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-hidden p-4">
-          <div className="grid h-full min-h-0 grid-cols-1 gap-3 lg:grid-cols-[176px_minmax(0,1fr)]">
-            <WorkflowStepper
-              className="hidden h-full min-h-0 overflow-y-auto lg:block"
-              layout="rail"
-              currentStep={activeStep}
-              steps={ANIMATION_STEPS}
-              onStepChange={(stepId) => setActiveStep(stepId as AnimationStep)}
-              title="动画流程"
-              subtitle="Workflow"
-            />
-            <div className="min-h-0 flex-1 overflow-y-auto pr-1">
-              <div className="mb-4 lg:hidden">
-                <WorkflowStepper
-                  layout="inline"
-                  currentStep={activeStep}
-                  steps={ANIMATION_STEPS}
-                  onStepChange={(stepId) =>
-                    setActiveStep(stepId as AnimationStep)
-                  }
-                  title="动画流程"
-                  subtitle="Workflow"
-                />
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
+          {shouldShowComposeCard ? (
+            <section className="overflow-hidden rounded-3xl border border-zinc-200 bg-white shadow-sm">
+              <div className="border-b border-zinc-100 bg-zinc-50/70 px-4 py-3">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                  <div>
+                    <p className="text-xs font-semibold text-zinc-900">
+                      生成一段教学演示动画
+                    </p>
+                    <p className="mt-1 text-[11px] text-zinc-500">
+                      先写清教学目标和表现重点，系统会生成 storyboard 并进入结果工作面。
+                    </p>
+                  </div>
+                  {sourceLabel ? (
+                    <div className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-[11px] font-medium text-emerald-700">
+                      <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+                      <span className="truncate">已绑定：{sourceLabel}</span>
+                    </div>
+                  ) : (
+                    <div className="rounded-full border border-zinc-200 bg-white px-3 py-1.5 text-[11px] font-medium text-zinc-500 shadow-sm">
+                      未绑定 PPT：可先生成动画，后续再做 placement
+                    </div>
+                  )}
+                </div>
               </div>
 
-              {activeStep === "config" ? (
-                <ConfigStep
-                  topic={topic}
-                  focus={focus}
-                  topicSuggestions={suggestions}
-                  isRecommendationsLoading={isLoading}
-                  onTopicChange={(value) => {
-                    setHasBootstrappedTopic(true);
-                    setTopic(value);
-                  }}
-                  onFocusChange={setFocus}
-                  onNext={() => {
-                    void handlePrepareGenerate();
-                  }}
-                />
-              ) : null}
-
-              {activeStep === "generate" ? (
-                <GenerateStep
-                  topic={topic}
-                  focus={focus}
-                  durationSeconds={durationSeconds}
-                  rhythm={rhythm}
-                  stylePack={stylePack}
-                  visualType={visualType}
-                  serverSpecPreview={serverSpecPreview}
-                  serverSpecCandidates={serverSpecCandidates}
-                  specConfidence={specConfidence}
-                  needsUserChoice={needsUserChoice}
-                  flowContext={flowContext}
-                  isGenerating={isGenerating || isPreparingSpec}
-                  onDurationChange={setDurationSeconds}
-                  onRhythmChange={setRhythm}
-                  onStylePackChange={setStylePack}
-                  onVisualTypeChange={setVisualType}
-                  onBack={() => setActiveStep("config")}
-                  onGenerate={() => void handleGenerate()}
-                />
-              ) : null}
-
-              {activeStep === "preview" ? (
-                <PreviewStep
-                  lastGeneratedAt={lastGeneratedAt}
-                  durationSeconds={durationSeconds}
-                  rhythm={rhythm}
-                  stylePack={stylePack}
-                  visualType={visualType}
-                  focus={focus}
-                  serverSpecPreview={serverSpecPreview}
-                  flowContext={flowContext}
-                  recommendation={placementRecommendation}
-                  placements={placementRecords}
-                  isRefining={isRefining}
-                  isRecommendingPlacement={isRecommendingPlacement}
-                  isConfirmingPlacement={isConfirmingPlacement}
-                  onDurationChange={setDurationSeconds}
-                  onRhythmChange={setRhythm}
-                  onStylePackChange={setStylePack}
-                  onVisualTypeChange={setVisualType}
-                  onFocusChange={setFocus}
-                  onRefine={() => {
-                    if (canOperateOnArtifact) {
-                      void handleStructuredRefine();
-                    }
-                  }}
-                  onRecommendPlacement={(pptArtifactId) => {
-                    void handleRecommendPlacement(pptArtifactId);
-                  }}
-                  onConfirmPlacement={(pptArtifactId, pageNumbers, slot) => {
-                    void handleConfirmPlacement(
-                      pptArtifactId,
-                      pageNumbers,
-                      slot
-                    );
-                  }}
-                />
-              ) : null}
-
-              {activeStep === "preview" && latestExportArtifactId ? (
-                <div className="mt-4 flex justify-end">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      void flowContext?.onExportArtifact?.(
-                        latestExportArtifactId
-                      )
-                    }
-                    className="text-[11px] text-zinc-500 hover:text-zinc-800"
-                  >
-                    导出当前 GIF
-                  </button>
+              <div className="space-y-4 p-4">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium text-zinc-700">
+                    教学主题
+                  </Label>
+                  <Textarea
+                    value={topic}
+                    onChange={(event) => {
+                      setHasBootstrappedTopic(true);
+                      setTopic(event.target.value);
+                    }}
+                    placeholder="例如：演示冒泡排序中比较与交换的全过程，重点让学生理解每轮后最大值如何归位。"
+                    className="min-h-[120px] resize-y rounded-xl border-zinc-200 bg-white text-sm shadow-none"
+                  />
+                  <div className="flex flex-wrap gap-1.5">
+                    {(isLoading ? [] : suggestions).map((item) => (
+                      <button
+                        key={item}
+                        type="button"
+                        className="rounded-full border border-zinc-200 bg-zinc-50 px-2.5 py-1 text-[11px] text-zinc-600 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+                        onClick={() => {
+                          setHasBootstrappedTopic(true);
+                          setTopic(item);
+                        }}
+                      >
+                        {item}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              ) : null}
-            </div>
-          </div>
+
+                <div className="rounded-2xl border border-zinc-200 bg-zinc-50/60 p-3">
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <Label className="text-xs font-medium text-zinc-700">
+                      表现重点
+                    </Label>
+                    <span className="text-[11px] text-zinc-400">可选</span>
+                  </div>
+                  <Textarea
+                    value={focus}
+                    onChange={(event) => setFocus(event.target.value)}
+                    placeholder="例如：突出关键对比步骤，不要平均展示所有镜头。"
+                    className="min-h-[96px] resize-none rounded-xl border-zinc-200 bg-white text-sm shadow-none"
+                  />
+                  <div className="mt-3 flex flex-wrap gap-1.5">
+                    {FOCUS_PRESETS.map((item) => (
+                      <button
+                        key={item}
+                        type="button"
+                        className="rounded-full border border-zinc-200 bg-white px-2.5 py-1 text-[11px] text-zinc-600 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+                        onClick={() => appendFocusPreset(item)}
+                      >
+                        {item}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-medium text-zinc-700">
+                      输出格式
+                    </Label>
+                    <Select
+                      value={animationFormat}
+                      onValueChange={(value) =>
+                        {
+                          setHasManualFormatSelection(true);
+                          setAnimationFormat(value as AnimationOutputFormat);
+                        }
+                      }
+                    >
+                      <SelectTrigger className="h-9 rounded-xl border-zinc-200 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="html5">HTML（本地 runtime 导出）</SelectItem>
+                        <SelectItem value="gif">GIF（支持后续 placement）</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-medium text-zinc-700">
+                      动画节奏
+                    </Label>
+                    <Select
+                      value={rhythm}
+                      onValueChange={(value) =>
+                        setRhythm(value as AnimationRhythm)
+                      }
+                    >
+                      <SelectTrigger className="h-9 rounded-xl border-zinc-200 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {ANIMATION_RHYTHM_OPTIONS.map((item) => (
+                          <SelectItem key={item.value} value={item.value}>
+                            {item.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-medium text-zinc-700">
+                      视觉风格
+                    </Label>
+                    <Select
+                      value={stylePack}
+                      onValueChange={(value) =>
+                        setStylePack(value as AnimationStylePack)
+                      }
+                    >
+                      <SelectTrigger className="h-9 rounded-xl border-zinc-200 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {ANIMATION_STYLE_PACK_OPTIONS.map((item) => (
+                          <SelectItem key={item.value} value={item.value}>
+                            {item.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+            </section>
+          ) : null}
+
+          {shouldShowPreview ? (
+            <PreviewStep
+              lastGeneratedAt={lastGeneratedAt}
+              durationSeconds={durationSeconds}
+              rhythm={rhythm}
+              stylePack={stylePack}
+              visualType={visualType}
+              focus={focus}
+              serverSpecPreview={serverSpecPreview}
+              flowContext={flowContext}
+              recommendation={placementRecommendation}
+              placements={placementRecords}
+              isRefining={isRefining}
+              isRecommendingPlacement={isRecommendingPlacement}
+              isConfirmingPlacement={isConfirmingPlacement}
+              onDurationChange={setDurationSeconds}
+              onRhythmChange={setRhythm}
+              onStylePackChange={setStylePack}
+              onVisualTypeChange={setVisualType}
+              onFocusChange={setFocus}
+              topic={topic}
+              showBubbleSortMock={shouldShowBubbleSortMock}
+              mockGenerationStartedAt={
+                mockGenerationStartedAt ??
+                flowContext?.managedResultTarget?.createdAt ??
+                lastGeneratedAt
+              }
+              onRefine={() => {
+                if (latestArtifactId) {
+                  void handleStructuredRefine();
+                }
+              }}
+              onRecommendPlacement={(pptArtifactId) => {
+                void handleRecommendPlacement(pptArtifactId);
+              }}
+              onConfirmPlacement={(pptArtifactId, pageNumbers, slot) => {
+                void handleConfirmPlacement(pptArtifactId, pageNumbers, slot);
+              }}
+            />
+          ) : null}
         </div>
       </div>
     </div>

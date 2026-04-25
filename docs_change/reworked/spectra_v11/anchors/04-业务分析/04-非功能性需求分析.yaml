@@ -1,0 +1,29 @@
+section_id: "04-04"
+title: "非功能性需求分析"
+purpose: "把稳定性、可用性、权限和可维护性约束绑定到当前接口、测试和边界实现，避免写成空泛质量口号。"
+source_doc_parts:
+  - "source/04-业务分析/04-非功能性需求分析.md"
+  - "source/10-风险管理.md"
+code_paths:
+  - "backend/services/task_queue/status.py"
+  - "backend/services/platform/generation_event_constants.py"
+  - "backend/services/file_upload_service/access.py"
+  - "backend/services/project_space_service/artifact_semantics.py"
+api_routes:
+  - "GET /api/v1/auth/me"
+  - "GET /api/v1/generate/sessions/{session_id}/preview"
+frontend_surfaces:
+  - "登录态与权限边界"
+  - "SSE 事件与会话状态反馈"
+tests_or_metrics:
+  - "backend/tests/services/test_generation_session_access.py"
+  - "backend/tests/services/test_file_upload_access.py"
+  - "backend/tests/services/test_preview_payload_states.py"
+figures: []
+allowed_claims:
+  - "系统当前已对权限边界、预览状态和任务执行状态做了显式约束。"
+  - "非功能要求主要围绕稳定性、可追溯性、访问边界和维护成本展开。"
+forbidden_claims:
+  - "系统已满足大规模生产 SLA"
+  - "企业级治理能力已全面完成"
+last_checked: "2026-04-18"

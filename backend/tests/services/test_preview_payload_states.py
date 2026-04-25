@@ -35,6 +35,7 @@ def test_build_preview_payload_includes_markdown_content_when_available():
     payload = build_preview_payload(
         session_id="session-001",
         snapshot={"session": {"render_version": 3}},
+        task=None,
         slides=[],
         lesson_plan=None,
         anchor={"artifact_id": "artifact-001", "based_on_version_id": None},
@@ -50,6 +51,7 @@ def test_build_preview_payload_prefers_resolved_markdown_content():
     payload = build_preview_payload(
         session_id="session-001",
         snapshot={"session": {"render_version": 3}},
+        task=None,
         slides=[],
         lesson_plan=None,
         anchor={"artifact_id": "artifact-001", "based_on_version_id": None},
@@ -64,10 +66,11 @@ def test_build_preview_payload_prefers_resolved_markdown_content():
     assert payload["slides_content_markdown"] == "# Resolved"
 
 
-def test_build_export_payload_prefers_resolved_markdown_content():
+def test_build_export_payload_prefers_render_markdown_content():
     payload = build_export_payload(
         session_id="session-001",
         snapshot={"session": {"render_version": 3}, "result": {}},
+        task=None,
         slides=[],
         lesson_plan=None,
         content={
@@ -80,4 +83,32 @@ def test_build_export_payload_prefers_resolved_markdown_content():
         include_sources=True,
     )
 
-    assert payload["content"] == "# Resolved"
+    assert payload["content"] == "# Render"
+
+
+def test_build_preview_payload_includes_diego_preview_context():
+    payload = build_preview_payload(
+        session_id="session-001",
+        snapshot={
+            "session": {"render_version": 3},
+            "current_run": {"run_id": "run-001"},
+        },
+        task=None,
+        slides=[],
+        lesson_plan=None,
+        anchor={"artifact_id": "artifact-001", "based_on_version_id": None},
+        content={
+            "diego_preview_context": {
+                "provider": "diego",
+                "palette": "academic",
+                "theme": {"primary": "1F2A3B", "bg": "FFFFFF"},
+            }
+        },
+        rendered_preview=None,
+    )
+
+    context = payload["diego_preview_context"]
+    assert context["provider"] == "diego"
+    assert context["run_id"] == "run-001"
+    assert context["palette"] == "academic"
+    assert context["theme"]["primary"] == "1F2A3B"

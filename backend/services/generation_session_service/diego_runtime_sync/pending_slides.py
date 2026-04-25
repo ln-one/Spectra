@@ -4,7 +4,16 @@ from __future__ import annotations
 
 from typing import Optional
 
+from services.generation_session_service.run_constants import (
+    RUN_STATUS_PROCESSING,
+    RUN_STEP_PREVIEW,
+)
+from services.generation_session_service.run_lifecycle import update_session_run
+from services.generation_session_service.render_version_sync import (
+    set_session_render_version,
+)
 from services.platform.generation_event_constants import GenerationEventType
+from utils.exceptions import ExternalServiceException
 
 from .constants import _SCHEMA_VERSION, logger
 from .dependencies import active
@@ -28,6 +37,8 @@ async def _sync_pending_slide_previews(
     diego_status: str,
     pending_slide_numbers: set[int],
     preview_payload: dict | None,
+    preview_by_slide_no: dict[int, dict[str, object]] | None = None,
+    diego_render_version: object = None,
 ) -> tuple[set[int], dict]:
     if not pending_slide_numbers:
         return set(), preview_payload or {}
@@ -39,44 +50,60 @@ async def _sync_pending_slide_previews(
     )
     remaining: set[int] = set()
     for slide_no in sorted(pending_slide_numbers):
-        try:
-            preview = await client.get_slide_preview(diego_run_id, slide_no)
-        except ExternalServiceException as exc:
-            if _is_diego_preview_not_ready_error(exc):
+        preview = None
+        if isinstance(preview_by_slide_no, dict):
+            candidate = preview_by_slide_no.get(slide_no)
+            if isinstance(candidate, dict):
+                preview = candidate
+
+        page = (
+            _build_spectra_preview_page(
+                spectra_run_id=run.id,
+                slide_no=slide_no,
+                preview=preview,
+            )
+            if isinstance(preview, dict)
+            else None
+        )
+        if page is None:
+            try:
+                preview = await client.get_slide_preview(diego_run_id, slide_no)
+            except ExternalServiceException as exc:
+                if _is_diego_preview_not_ready_error(exc):
+                    remaining.add(slide_no)
+                    continue
+                logger.warning(
+                    "Diego slide preview fetch failed: run=%s diego_run=%s "
+                    "slide_no=%s error=%s",
+                    run.id,
+                    diego_run_id,
+                    slide_no,
+                    exc,
+                    exc_info=True,
+                )
                 remaining.add(slide_no)
                 continue
-            logger.warning(
-                "Diego slide preview fetch failed: run=%s diego_run=%s "
-                "slide_no=%s error=%s",
-                run.id,
-                diego_run_id,
-                slide_no,
-                exc,
-                exc_info=True,
-            )
-            remaining.add(slide_no)
-            continue
-        except Exception as exc:
-            logger.warning(
-                "Diego slide preview fetch raised: run=%s diego_run=%s "
-                "slide_no=%s error=%s",
-                run.id,
-                diego_run_id,
-                slide_no,
-                exc,
-                exc_info=True,
-            )
-            remaining.add(slide_no)
-            continue
+            except Exception as exc:
+                logger.warning(
+                    "Diego slide preview fetch raised: run=%s diego_run=%s "
+                    "slide_no=%s error=%s",
+                    run.id,
+                    diego_run_id,
+                    slide_no,
+                    exc,
+                    exc_info=True,
+                )
+                remaining.add(slide_no)
+                continue
 
-        if not isinstance(preview, dict):
-            remaining.add(slide_no)
-            continue
-        page = _build_spectra_preview_page(
-            spectra_run_id=run.id,
-            slide_no=slide_no,
-            preview=preview,
-        )
+            if not isinstance(preview, dict):
+                remaining.add(slide_no)
+                continue
+            page = _build_spectra_preview_page(
+                spectra_run_id=run.id,
+                slide_no=slide_no,
+                preview=preview,
+            )
         if page is None:
             remaining.add(slide_no)
             continue
@@ -85,10 +112,22 @@ async def _sync_pending_slide_previews(
             continue
 
         await active("save_preview_content")(run.id, payload)
+        await set_session_render_version(
+            db=db,
+            session_id=session_id,
+            render_version=diego_render_version,
+        )
+        await update_session_run(
+            db=db,
+            run_id=run.id,
+            status=RUN_STATUS_PROCESSING,
+            step=RUN_STEP_PREVIEW,
+        )
         rendered = payload.get("rendered_preview")
         page_count = (
             int(rendered.get("page_count") or 0) if isinstance(rendered, dict) else 0
         )
+        svg_data_url = str(page.get("svg_data_url") or "")
         event_payload = {
             "stage": "preview_slide_rendered",
             "run_id": run.id,
@@ -100,8 +139,14 @@ async def _sync_pending_slide_previews(
             "slide_no": slide_no,
             "slide_index": int(page.get("index") or 0),
             "slide_id": str(page.get("slide_id") or ""),
-            "preview_ready": True,
-            "html_preview_ready": bool(str(page.get("html_preview") or "").strip()),
+            "status": str(page.get("status") or "ready"),
+            "preview_ready": bool(svg_data_url.strip()),
+            "preview_format": "svg",
+            "svg_data_url": svg_data_url or None,
+            "svg_preview_ready": bool(svg_data_url.strip()),
+            "preview_width": int(page.get("width") or 0) or None,
+            "preview_height": int(page.get("height") or 0) or None,
+            "is_final": True,
             "page_count": page_count,
         }
         await active("append_event")(

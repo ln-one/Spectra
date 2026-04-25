@@ -2,9 +2,15 @@ from __future__ import annotations
 
 from typing import Optional
 
+PROJECT_TITLE_SOURCE_DEFAULT = "default"
+PROJECT_TITLE_SOURCE_AUTO = "auto"
+PROJECT_TITLE_SOURCE_MANUAL = "manual"
+PROJECT_TITLE_SOURCE_FALLBACK = "fallback"
+
 SESSION_TITLE_SOURCE_DEFAULT = "default"
 SESSION_TITLE_SOURCE_FIRST_MESSAGE = "first_message"
 SESSION_TITLE_SOURCE_MANUAL = "manual"
+SESSION_TITLE_SOURCE_FALLBACK = "fallback"
 
 RUN_TITLE_SOURCE_PENDING = "pending"
 RUN_TITLE_SOURCE_AUTO = "auto"
@@ -47,6 +53,17 @@ def build_default_session_title(session_id: Optional[str] = None) -> str:
     if session_id:
         return f"会话-{str(session_id)[-6:]}"
     return "新建会话"
+
+
+def build_default_project_title(project_id: Optional[str] = None) -> str:
+    if project_id:
+        return f"知识库-{str(project_id)[-6:]}"
+    return "新建知识库"
+
+
+def build_numbered_default_project_title(sequence_no: int) -> str:
+    normalized = max(1, int(sequence_no or 1))
+    return f"新建知识库{normalized}"
 
 
 def build_numbered_default_session_title(sequence_no: int) -> str:

@@ -1,7 +1,10 @@
 import logging
+import json
 from typing import Optional
 
 from schemas.rag import ChunkContext, RAGResult, SourceDetail, SourceReference
+from services.database import db_service
+from services.library_semantics import ARTIFACT_SOURCE_USAGE_INTENT
 from services.rag_service.retrieval_helpers import (
     list_active_reference_targets,
     sort_key,
@@ -9,6 +12,24 @@ from services.rag_service.retrieval_helpers import (
 from services.stratumind_client import StratumindClientError
 
 logger = logging.getLogger(__name__)
+
+
+def _safe_parse_json_object(value) -> Optional[dict]:
+    if value is None:
+        return None
+    if isinstance(value, dict):
+        return value
+    if isinstance(value, str):
+        raw = value.strip()
+        if not raw:
+            return None
+        try:
+            parsed = json.loads(raw)
+        except json.JSONDecodeError:
+            logger.warning("Invalid parseResult JSON during artifact source enrichment")
+            return None
+        return parsed if isinstance(parsed, dict) else None
+    return None
 
 
 def _search_response_options() -> dict:
@@ -57,6 +78,8 @@ def _normalize_result(
     reference_mode: Optional[str] = None,
     reference_priority: Optional[int] = None,
     pinned_version_id: Optional[str] = None,
+    source_library_id: Optional[str] = None,
+    source_library_name: Optional[str] = None,
 ) -> RAGResult:
     metadata = dict(payload.get("metadata") or {})
     metadata.setdefault("source_project_id", source_project_id)
@@ -71,6 +94,10 @@ def _normalize_result(
         metadata.setdefault("reference_priority", reference_priority)
     if pinned_version_id is not None:
         metadata.setdefault("pinned_version_id", pinned_version_id)
+    if source_library_id is not None:
+        metadata.setdefault("source_library_id", source_library_id)
+    if source_library_name is not None:
+        metadata.setdefault("source_library_name", source_library_name)
     return RAGResult(
         chunk_id=str(payload.get("chunk_id") or ""),
         content=str(payload.get("content") or ""),
@@ -87,6 +114,65 @@ def _normalize_result(
     )
 
 
+async def _enrich_artifact_source_results(results: list[RAGResult]) -> list[RAGResult]:
+    upload_ids = []
+    for item in results:
+        metadata = getattr(item, "metadata", None) or {}
+        upload_id = str(metadata.get("upload_id") or "").strip()
+        if upload_id:
+            upload_ids.append(upload_id)
+    normalized_upload_ids = sorted({upload_id for upload_id in upload_ids if upload_id})
+    if not normalized_upload_ids:
+        return results
+
+    try:
+        uploads = await db_service.db.upload.find_many(where={"id": {"in": normalized_upload_ids}})
+    except Exception as exc:
+        logger.warning("artifact source enrichment failed: %s", exc)
+        return results
+
+    upload_info_by_id: dict[str, dict] = {}
+    for upload in uploads or []:
+        upload_id = str(getattr(upload, "id", "") or "").strip()
+        if not upload_id:
+            continue
+        parse_result = _safe_parse_json_object(getattr(upload, "parseResult", None)) or {}
+        upload_info_by_id[upload_id] = {
+            "usage_intent": str(getattr(upload, "usageIntent", "") or "").strip(),
+            "filename": str(getattr(upload, "filename", "") or "").strip(),
+            "parse_result": parse_result,
+        }
+
+    for item in results:
+        metadata = getattr(item, "metadata", None) or {}
+        upload_id = str(metadata.get("upload_id") or "").strip()
+        if not upload_id:
+            continue
+        upload_info = upload_info_by_id.get(upload_id)
+        if not upload_info:
+            continue
+        parse_result = upload_info["parse_result"] or {}
+        if upload_info["usage_intent"] == ARTIFACT_SOURCE_USAGE_INTENT:
+            metadata["source_scope"] = "project_deposit"
+            metadata["source_artifact_id"] = (
+                str(parse_result.get("artifact_id") or "").strip() or None
+            )
+            metadata["source_artifact_title"] = (
+                str(parse_result.get("artifact_title") or "").strip() or None
+            )
+            metadata["source_artifact_tool_type"] = (
+                str(parse_result.get("tool_type") or "").strip() or None
+            )
+            metadata["source_artifact_session_id"] = (
+                str(parse_result.get("session_id") or "").strip() or None
+            )
+            metadata["usage_intent"] = ARTIFACT_SOURCE_USAGE_INTENT
+            if metadata.get("source_artifact_title"):
+                item.source.filename = str(metadata["source_artifact_title"])
+        item.metadata = metadata
+    return results
+
+
 async def search(
     service,
     project_id: str,
@@ -95,6 +181,8 @@ async def search(
     filters: Optional[dict] = None,
     score_threshold: float = 0.0,
     session_id: Optional[str] = None,
+    selected_library_ids: Optional[list[str]] = None,
+    search_local_project: bool = True,
 ) -> list[RAGResult]:
     result_sets = []
     if session_id:
@@ -127,37 +215,41 @@ async def search(
             if exc.code != "PROJECT_NOT_INDEXED":
                 raise
 
-    try:
-        local_project_result = await service._client.search_text(
-            project_id=project_id,
-            query=query,
-            top_k=top_k,
-            session_id=None,
-            filters=filters,
-            planning=_search_planning_hints(
-                source_scope="local_project", session_id=None
-            ),
-            response=_search_response_options(),
-        )
-        if local_project_result.get("results"):
-            result_sets.append(
-                (
-                    local_project_result["results"],
-                    {
-                        "source_project_id": project_id,
-                        "source_scope": "local_project",
-                        "retrieval_diagnostics": _diagnostics_from_response(
-                            local_project_result
-                        ),
-                    },
-                )
+    if search_local_project:
+        try:
+            local_project_result = await service._client.search_text(
+                project_id=project_id,
+                query=query,
+                top_k=top_k,
+                session_id=None,
+                filters=filters,
+                planning=_search_planning_hints(
+                    source_scope="local_project", session_id=None
+                ),
+                response=_search_response_options(),
             )
-    except StratumindClientError as exc:
-        if exc.code != "PROJECT_NOT_INDEXED":
-            raise
+            if local_project_result.get("results"):
+                result_sets.append(
+                    (
+                        local_project_result["results"],
+                        {
+                            "source_project_id": project_id,
+                            "source_scope": "local_project",
+                            "retrieval_diagnostics": _diagnostics_from_response(
+                                local_project_result
+                            ),
+                        },
+                    )
+                )
+        except StratumindClientError as exc:
+            if exc.code != "PROJECT_NOT_INDEXED":
+                raise
 
     if not (filters and filters.get("file_ids")):
-        for target in await list_active_reference_targets(project_id):
+        for target in await list_active_reference_targets(
+            project_id,
+            selected_library_ids=selected_library_ids,
+        ):
             try:
                 target_result = await service._client.search_text(
                     project_id=target["source_project_id"],
@@ -198,6 +290,7 @@ async def search(
                 merged_by_chunk[item.chunk_id] = item
 
     rag_results = sorted(merged_by_chunk.values(), key=sort_key)[:top_k]
+    rag_results = await _enrich_artifact_source_results(rag_results)
 
     if score_threshold > 0.0:
         rag_results = [r for r in rag_results if r.score >= score_threshold]

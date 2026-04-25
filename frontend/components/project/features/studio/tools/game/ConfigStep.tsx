@@ -40,7 +40,7 @@ export function ConfigStep({
           <div>
             <p className="text-xs font-semibold text-zinc-800">游戏主题</p>
             <p className="mt-1 text-[11px] text-zinc-500">
-              不再限制固定模板，直接描述你想让大模型生成什么样的互动体验。
+              直接描述互动玩法即可，系统会优先套用时间轴排序、概念连线、术语配对、填空挑战或轻量闯关模板。
             </p>
           </div>
           {isRecommendationsLoading ? (

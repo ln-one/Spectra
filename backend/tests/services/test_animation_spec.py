@@ -65,7 +65,7 @@ def test_normalize_animation_spec_supports_osi_layers_and_encapsulation():
     assert "逐层封装" in spec["scenes"][2]["description"]
 
 
-def test_normalize_animation_spec_uses_teaching_ppt_style_pack_by_default():
+def test_normalize_animation_spec_uses_minimal_gray_style_pack_by_default():
     spec = normalize_animation_spec(
         {
             "title": "新手引导动画",
@@ -74,9 +74,9 @@ def test_normalize_animation_spec_uses_teaching_ppt_style_pack_by_default():
         }
     )
 
-    assert spec["style_pack"] == "teaching_ppt_cartoon"
-    assert spec["theme"]["background"] == "#f3c453"
-    assert spec["theme"]["accent_deep"] == "#17334e"
+    assert spec["style_pack"] == "teaching_ppt_minimal_gray"
+    assert spec["theme"]["background"] == "#eef1f4"
+    assert spec["theme"]["accent_deep"] == "#2f3f50"
 
 
 def test_normalize_animation_spec_accepts_fresh_green_style_pack():
@@ -117,6 +117,35 @@ def test_normalize_animation_spec_maps_style_pack_alias_to_new_theme():
 
     assert spec["style_pack"] == "teaching_ppt_warm_orange"
     assert spec["theme"]["background"] == "#f7e9d8"
+
+
+def test_normalize_animation_spec_respects_explicit_physics_family_hint():
+    spec = normalize_animation_spec(
+        {
+            "title": "斜抛运动中的速度与轨迹",
+            "summary": "观察物体抛出后的位移、速度变化和轨迹。",
+            "focus": "突出重力作用下的轨迹和速度矢量。",
+            "animation_family": "physics_mechanics",
+        }
+    )
+
+    assert spec["animation_family"] == "physics_mechanics"
+    assert spec["family_hint"] == "physics_mechanics"
+    assert spec["subject_family"] == "energy_transfer"
+
+
+def test_normalize_animation_spec_prefers_physics_family_for_motion_keywords():
+    spec = normalize_animation_spec(
+        {
+            "title": "斜抛运动中的速度与轨迹",
+            "summary": "展示抛物线轨迹、速度变化和重力影响。",
+            "focus": "强调速度矢量、位移和加速度之间的关系。",
+        }
+    )
+
+    assert spec["animation_family"] == "physics_mechanics"
+    assert spec["family_hint"] == "physics_mechanics"
+    assert spec["subject_family"] == "energy_transfer"
 
 
 def test_normalize_animation_spec_supports_variable_scene_count_for_long_duration():
@@ -288,3 +317,51 @@ def test_normalize_animation_spec_enforces_intro_and_summary_for_custom_scenes()
     ]
     assert spec["scenes"][0]["camera"] == "wide"
     assert spec["scenes"][-1]["camera"] == "zoom_out"
+
+
+def test_normalize_animation_spec_builds_algorithm_demo_for_bubble_sort():
+    spec = normalize_animation_spec(
+        {
+            "title": "冒泡排序演示动画",
+            "summary": "展示比较与交换过程",
+            "focus": "突出每一轮如何把最大值推到末尾",
+        }
+    )
+
+    assert spec["animation_family"] == "algorithm_demo"
+    assert spec["algorithm_type"] == "bubble_sort"
+    assert spec["layout_type"] == "algorithm_bars"
+    assert spec["family_hint"] == "algorithm_demo"
+    assert spec["scenes"]
+
+
+def test_normalize_animation_spec_builds_algorithm_demo_for_binary_search():
+    spec = normalize_animation_spec(
+        {
+            "title": "二分查找教学动画",
+            "summary": "展示查找区间如何不断缩小",
+            "focus": "突出中点比较和区间收缩",
+        }
+    )
+
+    assert spec["animation_family"] == "algorithm_demo"
+    assert spec["algorithm_type"] == "binary_search"
+    assert spec["layout_type"] == "algorithm_window"
+    assert spec["family_hint"] == "algorithm_demo"
+    assert spec["scenes"]
+
+
+def test_normalize_animation_spec_supports_deterministic_algorithm_seed_debug_mode():
+    spec = normalize_animation_spec(
+        {
+            "title": "冒泡排序演示动画",
+            "summary": "展示比较与交换过程",
+            "focus": "突出每一轮如何把最大值推到末尾",
+            "use_deterministic_algorithm_seed": True,
+        }
+    )
+
+    assert spec["animation_family"] == "algorithm_demo"
+    assert spec["algorithm_type"] == "bubble_sort"
+    assert spec["steps"][0]["action"] == "compare"
+    assert spec["steps"][-1]["snapshot"] == [2, 3, 5, 6, 8]

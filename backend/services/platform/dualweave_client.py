@@ -8,14 +8,20 @@ from typing import Any, Optional
 
 import httpx
 
+from services.runtime_env import normalize_internal_service_base_url, running_inside_container
+
 
 def dualweave_enabled() -> bool:
     return os.getenv("DUALWEAVE_ENABLED", "false").strip().lower() == "true"
 
 
 def dualweave_base_url() -> Optional[str]:
-    value = os.getenv("DUALWEAVE_BASE_URL", "").strip()
-    return value.rstrip("/") if value else None
+    return normalize_internal_service_base_url(
+        os.getenv("DUALWEAVE_BASE_URL"),
+        service_name="dualweave",
+        inside_container=running_inside_container(),
+        local_override=os.getenv("DUALWEAVE_BASE_URL_LOCAL"),
+    )
 
 
 def dualweave_timeout_seconds() -> float:

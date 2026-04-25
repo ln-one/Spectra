@@ -92,10 +92,12 @@ services:
       - /app/.next
     environment:
       - NODE_ENV=development
+      - NODE_OPTIONS=--max-old-space-size=1280
       - NEXT_PUBLIC_API_URL=http://localhost:8000
       - INTERNAL_API_URL=http://backend:8000
-      - NEXT_PUBLIC_API_TIMEOUT_MS=30000
+      - NEXT_PUBLIC_API_TIMEOUT_MS=180000
       - NEXT_PUBLIC_CHAT_TIMEOUT_MS=300000
+      - NEXT_PUBLIC_STUDIO_GENERATION_TIMEOUT_MS=600000
     command: npm run dev
     depends_on:
       - backend
@@ -130,6 +132,15 @@ services:
       - "127.0.0.1:8120:8000"
     environment:
       - PYTHONUNBUFFERED=1
+      - DIEGO_RUN_STORE=postgres
+      - DIEGO_DATABASE_URL=postgresql://spectra:spectra@postgres:5432/spectra
+      - DIEGO_RECOVERY_SCAN_ON_BOOT=1
+      - DIEGO_EVENT_POLL_INTERVAL_SEC=0.5
+    volumes:
+      - runtime_data:/app/.runtime
+    depends_on:
+      postgres:
+        condition: service_healthy
     healthcheck:
       test:
         [
@@ -233,10 +244,10 @@ services:
           "CMD",
           "python",
           "-c",
-          "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/ready', timeout=3)",
+          "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/live', timeout=8)",
         ]
       interval: 10s
-      timeout: 5s
+      timeout: 10s
       retries: 6
 
   worker:

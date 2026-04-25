@@ -1,3 +1,9 @@
+import type {
+  StudioCardCapability,
+  StudioCardTurnResponseData,
+  StudioCardTurnResult,
+} from "@/lib/sdk/studio-cards";
+
 export type StudioToolKey =
   | "word"
   | "mindmap"
@@ -10,8 +16,32 @@ export type StudioToolKey =
 export type CapabilityStatus =
   | "backend_ready"
   | "backend_placeholder"
+  | "missing_requirements"
+  | "protocol_limited"
+  | "executing"
+  | "refining"
+  | "continuing"
   | "backend_not_implemented"
   | "backend_error";
+
+export type StudioWorkflowState =
+  | "idle"
+  | "missing_requirements"
+  | "ready_to_execute"
+  | "executing"
+  | "result_available"
+  | "refining"
+  | "continuing"
+  | "failed";
+
+export interface StudioGovernanceRubric {
+  protocol_ready: boolean;
+  surface_ready: boolean;
+  execute_ready: boolean;
+  refine_ready: boolean;
+  source_binding_ready: boolean;
+  authority_boundary_risk: "low" | "medium" | "high";
+}
 
 export type ResolvedArtifactContentKind =
   | "none"
@@ -57,8 +87,70 @@ export interface ToolArtifactPreviewItem {
   runNo?: number | null;
 }
 
+export interface ManagedResultTarget {
+  kind?: ManagedTargetKind | null;
+  toolType?: StudioToolKey | null;
+  sessionId?: string | null;
+  runId?: string | null;
+  artifactId?: string | null;
+  title?: string | null;
+  createdAt?: string | null;
+  status?:
+    | "pending"
+    | "draft"
+    | "processing"
+    | "previewing"
+    | "completed"
+    | "failed"
+    | null;
+}
+
+export type ManagedTargetKind =
+  | "pinned_artifact"
+  | "pinned_run"
+  | "draft";
+
+export interface ManagedResolvedTarget {
+  kind: ManagedTargetKind;
+  toolType: StudioToolKey;
+  sessionId: string | null;
+  artifactId: string | null;
+  runId: string | null;
+  status:
+    | "pending"
+    | "draft"
+    | "processing"
+    | "previewing"
+    | "completed"
+    | "failed"
+    | null;
+  isHistorical: boolean;
+}
+
+export interface ToolDisplayModel {
+  toolId: StudioToolKey;
+  productTitle: string;
+  productDescription: string;
+  studioCardId?: string;
+  actionLabels: {
+    preview: string;
+    loadSources: string;
+    execute: string;
+    refine: string;
+  };
+  sourceBinding: {
+    required: string;
+    optional: string;
+    empty: string;
+  };
+}
+
 export interface ToolFlowContext {
+  display?: ToolDisplayModel;
+  cardCapability?: StudioCardCapability | null;
   readiness?: string | null;
+  workflowState?: StudioWorkflowState;
+  governanceRubric?: StudioGovernanceRubric | null;
   isLoadingProtocol?: boolean;
   isActionRunning?: boolean;
   isProtocolPending?: boolean;
@@ -66,6 +158,10 @@ export interface ToolFlowContext {
   supportsChatRefine?: boolean;
   canExecute?: boolean;
   canRefine?: boolean;
+  canFollowUpTurn?: boolean;
+  canRecommendPlacement?: boolean;
+  canConfirmPlacement?: boolean;
+  followUpTurnLabel?: string;
   capabilityStatus?: CapabilityStatus;
   capabilityReason?: string;
   isCapabilityLoading?: boolean;
@@ -74,6 +170,13 @@ export interface ToolFlowContext {
   selectedSourceId?: string | null;
   requestedStep?: string | null;
   latestArtifacts?: ToolArtifactPreviewItem[];
+  latestRunnableState?: Record<string, unknown> | null;
+  provenance?: Record<string, unknown> | null;
+  sourceBinding?: Record<string, unknown> | null;
+  currentDraft?: ToolDraftState;
+  managedWorkbenchMode?: "draft" | "history";
+  managedResultTarget?: ManagedResultTarget | null;
+  resolvedTarget?: ManagedResolvedTarget | null;
   onStepChange?: (stepId: string) => void;
   onSelectedSourceChange?: (sourceId: string | null) => void;
   onLoadSources?: () => Promise<void> | void;
@@ -84,14 +187,33 @@ export interface ToolFlowContext {
   onPrepareGenerate?: () => Promise<boolean> | boolean;
   onExecute?: () => Promise<boolean> | boolean;
   onRefine?: () => Promise<void> | void;
+  onFollowUpTurn?: (payload: {
+    artifactId: string;
+    teacherAnswer: string;
+    turnAnchor?: string;
+    config?: Record<string, unknown>;
+  }) => Promise<{
+    ok: boolean;
+    artifactId?: string | null;
+    effectiveSessionId?: string | null;
+    turnResult?: StudioCardTurnResult | null;
+    latestRunnableState?: Record<string, unknown> | null;
+    nextFocus?: string | null;
+    turnAnchor?: string | null;
+    raw?: StudioCardTurnResponseData | null;
+  }>;
   onStructuredRefine?: (payload: {
     artifactId: string;
     message?: string;
+    refineMode?: "chat_refine" | "structured_refine" | "follow_up_turn";
+    selectionAnchor?: Record<string, unknown>;
     config?: Record<string, unknown>;
   }) => Promise<boolean> | boolean;
   onStructuredRefineArtifact?: (payload: {
     artifactId: string;
     message: string;
+    refineMode?: "chat_refine" | "structured_refine" | "follow_up_turn";
+    selectionAnchor?: Record<string, unknown>;
     config?: Record<string, unknown>;
   }) => Promise<{
     ok: boolean;

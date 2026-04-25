@@ -176,11 +176,9 @@ def get_wave1_entry_rule(
 
 
 def normalize_artifact_type(artifact_type: ArtifactType | str) -> str:
-    return (
-        artifact_type.value
-        if isinstance(artifact_type, ArtifactType)
-        else str(artifact_type)
-    )
+    if isinstance(artifact_type, Enum):
+        return str(artifact_type.value)
+    return str(artifact_type)
 
 
 def normalize_artifact_visibility(

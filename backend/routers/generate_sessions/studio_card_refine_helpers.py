@@ -28,9 +28,18 @@ def build_chat_refine_metadata(card_id: str, body: dict, payload: dict) -> dict 
             or config.get("selected_id"),
         }
     if card_id == "interactive_quick_quiz":
+        selection_anchor = config.get("selection_anchor") or {}
         return {
             "card_id": card_id,
-            "current_question_id": config.get("question_id")
+            "scope": config.get("scope"),
+            "question_count": config.get("question_count") or config.get("count"),
+            "difficulty": config.get("difficulty"),
+            "question_type": config.get("question_type"),
+            "style_tags": config.get("style_tags"),
+            "chat_refine_scope": config.get("chat_refine_scope"),
+            "current_question_id": selection_anchor.get("anchor_id")
+            or config.get("question_id")
             or config.get("current_question_id"),
+            "selection_anchor": selection_anchor if isinstance(selection_anchor, dict) else None,
         }
     return {"card_id": card_id}

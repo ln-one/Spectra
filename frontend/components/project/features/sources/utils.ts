@@ -82,3 +82,30 @@ export function normalizeUploadingProgress(progress: number): number {
   if (!Number.isFinite(progress)) return 5;
   return Math.max(5, Math.min(95, Math.round(progress)));
 }
+
+function looksLikeUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    value.trim()
+  );
+}
+
+export function getReadableLibraryName(
+  name?: string | null,
+  libraryId?: string | null
+): string {
+  const trimmedName = name?.trim();
+  if (trimmedName) {
+    return trimmedName;
+  }
+
+  const trimmedId = libraryId?.trim();
+  if (!trimmedId) {
+    return "未命名资料库";
+  }
+
+  if (looksLikeUuid(trimmedId)) {
+    return "未命名资料库";
+  }
+
+  return trimmedId.length > 24 ? `${trimmedId.slice(0, 24)}...` : trimmedId;
+}

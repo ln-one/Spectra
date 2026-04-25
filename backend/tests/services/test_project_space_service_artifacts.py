@@ -65,6 +65,11 @@ async def test_create_artifact_with_file_uses_remote_formal_record(monkeypatch):
     assert create_artifact.await_args.kwargs["based_on_version_id"] == "v-1"
     assert create_artifact.await_args.kwargs["storage_path"] == "generated/summary.json"
     assert create_artifact.await_args.kwargs["metadata"]["mode"] == "create"
+    snapshot = create_artifact.await_args.kwargs["metadata"]["content_snapshot"]
+    assert snapshot["mode"] == "outline"
+    assert snapshot["title"] == "课程大纲"
+    assert snapshot["kind"] == "outline"
+    assert snapshot["nodes"] == []
 
 
 @pytest.mark.asyncio
@@ -200,3 +205,180 @@ async def test_create_artifact_with_file_reuses_authority_office_artifact(
     assert artifact.id == "a-new"
     assert create_artifact.await_args.kwargs["storage_path"] == "/formal/demo.pptx"
     invoke_render_mock.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_create_artifact_with_file_stores_structured_snapshot_for_docx(
+    monkeypatch,
+):
+    monkeypatch.setenv("OUROGRAPH_BASE_URL", "http://ourograph.test")
+    service = ProjectSpaceService()
+    service.db = SimpleNamespace()
+    monkeypatch.setattr(
+        service,
+        "get_project_current_version_id",
+        AsyncMock(return_value="v-1"),
+    )
+    monkeypatch.setattr(
+        service,
+        "get_project_version_with_context",
+        AsyncMock(return_value=(SimpleNamespace(id="v-1", projectId="p-1"), "v-1")),
+    )
+    monkeypatch.setattr(
+        "services.project_space_service.artifacts.generate_office_artifact_via_render_service",
+        AsyncMock(return_value="generated/lesson.docx"),
+    )
+    create_artifact = AsyncMock(
+        return_value=SimpleNamespace(
+            id="a-docx",
+            projectId="p-1",
+            sessionId=None,
+            basedOnVersionId="v-1",
+            ownerUserId="u-1",
+            type="docx",
+            visibility="private",
+            storagePath="generated/lesson.docx",
+            metadata="{}",
+            createdAt="2026-04-09T00:00:00Z",
+            updatedAt="2026-04-09T00:00:00Z",
+        )
+    )
+    monkeypatch.setattr(service, "create_artifact", create_artifact)
+    monkeypatch.setattr(service, "update_artifact_metadata", AsyncMock())
+
+    await service.create_artifact_with_file(
+        project_id="p-1",
+        artifact_type="docx",
+        visibility="private",
+        user_id="u-1",
+        content={
+            "title": "牛顿第一定律教案",
+            "document_content": {"type": "doc", "content": []},
+            "source_artifact_id": "a-ppt-001",
+        },
+    )
+
+    snapshot = create_artifact.await_args.kwargs["metadata"]["content_snapshot"]
+    assert snapshot["title"] == "牛顿第一定律教案"
+    assert snapshot["source_artifact_id"] == "a-ppt-001"
+    assert snapshot["document_content"] == {"type": "doc", "content": []}
+
+
+@pytest.mark.asyncio
+async def test_update_artifact_with_file_syncs_metadata_title_from_docx_content(
+    monkeypatch,
+):
+    monkeypatch.setenv("OUROGRAPH_BASE_URL", "http://ourograph.test")
+    service = ProjectSpaceService()
+    service.db = SimpleNamespace()
+    artifact = SimpleNamespace(
+        id="a-docx",
+        projectId="p-1",
+        sessionId=None,
+        basedOnVersionId="v-1",
+        type="docx",
+        visibility="private",
+        storagePath="generated/lesson.docx",
+        metadata='{"title":"未命名文档"}',
+    )
+    updated_artifact = SimpleNamespace(
+        id="a-docx",
+        projectId="p-1",
+        sessionId=None,
+        basedOnVersionId="v-1",
+        type="docx",
+        visibility="private",
+        storagePath="generated/lesson.docx",
+        metadata="{}",
+    )
+    monkeypatch.setattr(
+        "services.project_space_service.artifacts.resolve_based_on_version_id",
+        AsyncMock(return_value="v-1"),
+    )
+    monkeypatch.setattr(
+        "services.project_space_service.artifacts._generate_artifact_file",
+        AsyncMock(return_value="generated/lesson.docx"),
+    )
+    monkeypatch.setattr(
+        "services.project_space_service.artifacts.silently_accrete_artifact",
+        AsyncMock(return_value=None),
+    )
+    update_metadata = AsyncMock(return_value=updated_artifact)
+    monkeypatch.setattr(service, "update_artifact_metadata", update_metadata)
+    monkeypatch.setattr(service, "bind_artifact_to_version", AsyncMock())
+
+    await service.update_artifact_with_file(
+        artifact=artifact,
+        project_id="p-1",
+        user_id="u-1",
+        content={
+            "title": "计算机网络：物理层教案",
+            "document_content": {"type": "doc", "content": []},
+        },
+    )
+
+    assert update_metadata.await_args.args[1]["title"] == "计算机网络：物理层教案"
+
+
+@pytest.mark.asyncio
+async def test_update_artifact_with_file_reuses_existing_storage_path_for_download(monkeypatch, tmp_path):
+    monkeypatch.setenv("OUROGRAPH_BASE_URL", "http://ourograph.test")
+    service = ProjectSpaceService()
+    service.db = SimpleNamespace()
+    existing_path = tmp_path / "existing.docx"
+    existing_path.write_text("old", encoding="utf-8")
+    rendered_path = tmp_path / "rendered" / "fresh.docx"
+    rendered_path.parent.mkdir(parents=True, exist_ok=True)
+    rendered_path.write_text("new", encoding="utf-8")
+
+    artifact = SimpleNamespace(
+        id="a-docx",
+        projectId="p-1",
+        sessionId=None,
+        basedOnVersionId="v-1",
+        type="docx",
+        visibility="private",
+        storagePath=str(existing_path),
+        metadata='{"title":"原文档"}',
+    )
+    updated_artifact = SimpleNamespace(
+        id="a-docx",
+        projectId="p-1",
+        sessionId=None,
+        basedOnVersionId="v-1",
+        type="docx",
+        visibility="private",
+        storagePath=str(existing_path),
+        metadata="{}",
+    )
+    monkeypatch.setattr(
+        "services.project_space_service.artifacts.resolve_based_on_version_id",
+        AsyncMock(return_value="v-1"),
+    )
+    monkeypatch.setattr(
+        "services.project_space_service.artifacts._generate_artifact_file",
+        AsyncMock(return_value=str(rendered_path)),
+    )
+    monkeypatch.setattr(
+        "services.project_space_service.artifacts.silently_accrete_artifact",
+        AsyncMock(return_value=None),
+    )
+    monkeypatch.setattr(
+        service,
+        "update_artifact_metadata",
+        AsyncMock(return_value=updated_artifact),
+    )
+    monkeypatch.setattr(service, "bind_artifact_to_version", AsyncMock())
+
+    result = await service.update_artifact_with_file(
+        artifact=artifact,
+        project_id="p-1",
+        user_id="u-1",
+        content={
+            "title": "新文档",
+            "document_content": {"type": "doc", "content": []},
+        },
+    )
+
+    assert existing_path.read_text(encoding="utf-8") == "new"
+    assert result.storagePath == str(existing_path)

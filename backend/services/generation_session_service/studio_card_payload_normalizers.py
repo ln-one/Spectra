@@ -1,0 +1,28 @@
+from __future__ import annotations
+
+from typing import Any
+
+from .interactive_game_normalizer import normalize_interactive_game_v2_payload
+from .mindmap_normalizer import normalize_knowledge_mindmap_payload
+from .quiz_normalizer import normalize_interactive_quick_quiz_payload
+from .tool_content_builder_payloads import normalize_speaker_notes_payload
+from .word_document_normalizer import normalize_word_document_payload
+
+
+def normalize_generated_card_payload(
+    *,
+    card_id: str,
+    payload: dict[str, Any],
+    config: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    if card_id == "word_document":
+        return normalize_word_document_payload(payload, config)
+    if card_id == "interactive_games":
+        return normalize_interactive_game_v2_payload(payload, config)
+    if card_id == "knowledge_mindmap":
+        return normalize_knowledge_mindmap_payload(payload, config)
+    if card_id == "interactive_quick_quiz":
+        return normalize_interactive_quick_quiz_payload(payload, config)
+    if card_id == "speaker_notes":
+        return normalize_speaker_notes_payload(payload, config or {})
+    return payload

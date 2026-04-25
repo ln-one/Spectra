@@ -1,0 +1,25 @@
+title: Spectra 项目详细方案
+cover_title: 棱镜(Spectra)——多模态AI教学式共创智能体
+cover_subtitle: 项目详细方案
+cover_brand: Spectra
+cover_descriptor: 教学场景资料管理与内容生成系统
+lang: zh-Hans
+cover_logo: ../../logo/Spectra_logo.svg
+cover_logo_alt: Spectra project logo
+cover_logo_width_cm: 1.5
+cover_logo_variant: svg
+team: 螃蟹卡农
+team_members:
+  - name: 张春冉
+    role: 队长
+  - name: 邓苏鑫
+    role: 队员
+  - name: 郑瑞璟
+    role: 队员
+  - name: 邓成杰
+    role: 副队长
+  - name: 苗轩烨
+    role: 队员
+advisors:
+  - name: 李华
+  - name: 丁毅

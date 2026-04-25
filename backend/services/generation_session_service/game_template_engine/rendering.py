@@ -19,7 +19,9 @@ def _safe_json_for_script(data: dict[str, Any]) -> str:
 _HTML_TEMPLATES = {
     "timeline_sort": _timeline_sort_template(),
     "concept_match": _concept_match_template(),
+    "term_pairing": _concept_match_template(),
     "quiz_challenge": _quiz_challenge_template(),
+    "quiz_run": _quiz_challenge_template(),
     "fill_in_blank": _fill_in_blank_template(),
 }
 

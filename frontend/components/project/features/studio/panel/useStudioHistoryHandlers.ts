@@ -10,7 +10,7 @@ import type {
   StudioHistoryStep,
   StudioPptHistoryStatus,
 } from "../history/types";
-import type { StudioToolKey } from "../tools";
+import type { ManagedResultTarget, StudioToolKey } from "../tools";
 import { normalizeHistoryStep } from "./utils";
 
 interface UseStudioHistoryHandlersArgs {
@@ -42,6 +42,7 @@ interface UseStudioHistoryHandlersArgs {
   requestStep: (tool: GenerationToolType, step: StudioHistoryStep) => void;
   acknowledgeStep: (tool: GenerationToolType, step?: StudioHistoryStep) => void;
   recordWorkflowEntry: (payload: {
+    workflowId?: string | null;
     toolType: GenerationToolType;
     title: string;
     status:
@@ -58,7 +59,7 @@ interface UseStudioHistoryHandlersArgs {
     runNo?: number;
     titleSource?: string;
     toolLabel?: string;
-  }) => void;
+  }) => string;
   syncStudioChatContextByStep: (
     toolType: GenerationToolType,
     step: "config" | "generate" | "preview",
@@ -69,6 +70,8 @@ interface UseStudioHistoryHandlersArgs {
     stage: "generate" | "preview",
     sessionId: string | null
   ) => void;
+  onManagedOpenHistoryResult?: (payload: ManagedResultTarget) => void;
+  onManagedStartNewDraft?: (toolType: GenerationToolType) => void;
 }
 
 export function useStudioHistoryHandlers({
@@ -94,6 +97,8 @@ export function useStudioHistoryHandlers({
   recordWorkflowEntry,
   syncStudioChatContextByStep,
   pushStudioStageHint,
+  onManagedOpenHistoryResult,
+  onManagedStartNewDraft,
 }: UseStudioHistoryHandlersArgs) {
   const router = useRouter();
 
@@ -106,79 +111,172 @@ export function useStudioHistoryHandlers({
         setActiveRunId(item.runId);
       }
       const sessionId = item.sessionId ?? null;
+      const shouldOptimisticallyOpenOutline =
+        item.toolType === "ppt" &&
+        (item.step === "outline" ||
+          item.ppt_status === "outline_generating" ||
+          item.ppt_status === "outline_pending_confirm" ||
+          item.status === "draft" ||
+          item.status === "pending");
+
+      if (shouldOptimisticallyOpenOutline) {
+        setLayoutMode("expanded");
+        setExpandedTool("ppt");
+        setPptResumeStage("outline");
+        bumpPptResumeSignal();
+        requestStep("ppt", "outline");
+      }
 
       if (
         item.toolType === "ppt" &&
-        (item.step === "outline" || item.step === "preview") &&
-        sessionId &&
-        item.runId
+        sessionId
       ) {
         try {
-          const sessionResponse = await generateApi.getSessionByRun(sessionId, {
-            run_id: item.runId,
-          });
-          const latestSession = sessionResponse?.data ?? null;
-          let latestRunId: string | null = null;
+          const targetRunId = item.runId ?? null;
+          const snapshotResponse = await generateApi.getSessionSnapshot(
+            sessionId,
+            targetRunId ? { run_id: targetRunId } : undefined
+          );
+          const latestSession = snapshotResponse?.data ?? null;
+          const latestState = latestSession?.session?.state ?? null;
+          const latestCurrentRun = (
+            latestSession as {
+              current_run?: {
+                run_id?: string | null;
+                run_step?: string | null;
+                run_status?: string | null;
+              } | null;
+            }
+          )?.current_run ?? null;
+          const latestCurrentRunId = latestCurrentRun?.run_id ?? null;
+          const latestRunId = targetRunId || latestCurrentRunId || null;
+          let runStep = String(latestCurrentRun?.run_step ?? "").toLowerCase();
+          let runStatus = String(latestCurrentRun?.run_status ?? "").toLowerCase();
+          if (latestRunId) {
+            try {
+              const runResponse = await generateApi.getRun(sessionId, latestRunId);
+              const runRecord = runResponse?.data?.run as
+                | { run_step?: unknown; run_status?: unknown }
+                | null
+                | undefined;
+              runStep =
+                (typeof runRecord?.run_step === "string"
+                  ? runRecord.run_step
+                  : runStep
+                ).toLowerCase();
+              runStatus =
+                (typeof runRecord?.run_status === "string"
+                  ? runRecord.run_status
+                  : runStatus
+                ).toLowerCase();
+            } catch {
+              // Keep snapshot run fields if run detail fetch fails.
+            }
+          }
+          if (latestRunId) {
+            setActiveRunId(latestRunId);
+          }
           if (latestSession) {
-            latestRunId =
-              (latestSession as { current_run?: { run_id?: string } })
-                .current_run?.run_id ?? null;
-            const pinnedRunId = item.runId || latestRunId;
             useProjectStore.setState({
               generationSession: latestSession,
-              activeRunId: pinnedRunId,
+              activeRunId: latestRunId,
             });
           }
-          const latestState = latestSession?.session?.state;
-          const latestCurrentRun = (latestSession as any)?.current_run ?? null;
-          const latestCurrentRunId = latestCurrentRun?.run_id ?? null;
-          const latestCurrentRunStep = String(
-            latestCurrentRun?.run_step ?? ""
-          ).toLowerCase();
-          const latestCurrentRunStatus = String(
-            latestCurrentRun?.run_status ?? ""
-          ).toLowerCase();
-          const isSameRun =
-            Boolean(item.runId) &&
-            Boolean(latestCurrentRunId) &&
-            item.runId === latestCurrentRunId;
-          const isSessionPreviewState =
-            latestState === "GENERATING_CONTENT" ||
-            latestState === "RENDERING" ||
-            latestState === "SUCCESS";
-          const isRunPreviewState =
-            latestCurrentRunStep === "generate" ||
-            latestCurrentRunStep === "preview" ||
-            latestCurrentRunStep === "completed" ||
-            latestCurrentRunStatus === "processing" ||
-            latestCurrentRunStatus === "completed";
-          if (isSessionPreviewState && isRunPreviewState && isSameRun) {
-            trackStep("ppt", "preview");
-            acknowledgeStep("ppt", "preview");
-            const runId =
-              item.runId || resolvePptRunId(latestRunId) || undefined;
-            const isFinished = latestState === "SUCCESS";
+
+          if (latestState === "AWAITING_OUTLINE_CONFIRM") {
+            trackStep("ppt", "outline");
+            acknowledgeStep("ppt", "outline");
             recordWorkflowEntry({
               toolType: "ppt",
-              title:
-                item.title || (isFinished ? "PPT Preview" : "PPT Generating"),
-              status: isFinished ? "completed" : "processing",
-              step: "preview",
-              ppt_status: isFinished ? undefined : "slides_generating",
+              title: item.title || "课件大纲",
+              status: "draft",
+              step: "outline",
+              ppt_status: "outline_pending_confirm",
               sessionId,
-              runId,
+              runId: latestRunId || undefined,
+              toolLabel: TOOL_LABELS.ppt,
+            });
+            setLayoutMode("expanded");
+            setExpandedTool("ppt");
+            setPptResumeStage("outline");
+            bumpPptResumeSignal();
+            requestStep("ppt", "outline");
+            return;
+          }
+
+          const isRunDraftingOutline =
+            runStep === "outline" &&
+            (runStatus === "processing" || runStatus === "pending");
+          if (
+            isRunDraftingOutline ||
+            (!latestRunId && latestState === "DRAFTING_OUTLINE")
+          ) {
+            trackStep("ppt", "outline");
+            acknowledgeStep("ppt", "outline");
+            recordWorkflowEntry({
+              toolType: "ppt",
+              title: item.title || "课件大纲",
+              status: "draft",
+              step: "outline",
+              ppt_status: "outline_generating",
+              sessionId,
+              runId: latestRunId || undefined,
+              toolLabel: TOOL_LABELS.ppt,
+            });
+            setLayoutMode("expanded");
+            setExpandedTool("ppt");
+            setPptResumeStage("outline");
+            bumpPptResumeSignal();
+            requestStep("ppt", "outline");
+            return;
+          }
+
+          const isRunPreviewState =
+            runStep === "generate" ||
+            runStep === "preview" ||
+            runStep === "completed" ||
+            runStatus === "completed" ||
+            runStatus === "failed";
+          const isSessionPreviewStateWithoutRun =
+            !latestRunId &&
+            (latestState === "GENERATING_CONTENT" ||
+              latestState === "RENDERING" ||
+              latestState === "SUCCESS" ||
+              latestState === "FAILED");
+          if (isRunPreviewState || isSessionPreviewStateWithoutRun) {
+            trackStep("ppt", "preview");
+            acknowledgeStep("ppt", "preview");
+            const isFinished =
+              runStatus === "completed" ||
+              runStep === "completed" ||
+              (!latestRunId && latestState === "SUCCESS");
+            const isFailed =
+              runStatus === "failed" || (!latestRunId && latestState === "FAILED");
+            recordWorkflowEntry({
+              toolType: "ppt",
+              title: item.title || "课件生成",
+              status: isFailed
+                ? "failed"
+                : isFinished
+                  ? "completed"
+                  : "processing",
+              step: "preview",
+              ppt_status:
+                !isFinished && !isFailed ? "slides_generating" : undefined,
+              sessionId,
+              runId: latestRunId || undefined,
               toolLabel: TOOL_LABELS.ppt,
             });
             const previewHref = openPptPreviewPage(
               sessionId,
               item.artifactId,
-              runId
+              latestRunId || undefined
             );
             if (previewHref) router.push(previewHref);
             return;
           }
         } catch {
-          // If session state sync fails, keep existing routing behavior below.
+          // If snapshot sync fails, keep existing routing behavior below.
         }
       }
 
@@ -235,22 +333,31 @@ export function useStudioHistoryHandlers({
 
       setLayoutMode("expanded");
       setExpandedTool(item.toolType as StudioToolKey);
+      onManagedOpenHistoryResult?.({
+        kind: "pinned_artifact",
+        toolType: item.toolType as StudioToolKey,
+        sessionId: item.sessionId ?? null,
+        runId: item.runId ?? null,
+        artifactId: item.artifactId ?? null,
+        title: item.title ?? null,
+        createdAt: item.createdAt ?? null,
+        status: item.status,
+      });
       setManagedToolRunSeed(
         item.toolType as StudioToolKey,
         item.runId ?? null,
         item.sessionId ?? null
       );
       const targetStep: StudioHistoryStep =
+        item.status === "processing" ||
+        item.status === "previewing" ||
+        item.status === "completed" ||
         item.status === "failed" ||
-        item.status === "draft" ||
-        item.status === "pending"
-          ? "generate"
-          : item.status === "processing" ||
-              item.status === "previewing" ||
-              item.status === "completed" ||
-              item.origin === "artifact" ||
-              item.step === "preview"
-            ? "preview"
+        item.origin === "artifact" ||
+        item.step === "preview"
+          ? "preview"
+          : item.status === "draft" || item.status === "pending"
+            ? "generate"
             : normalizeHistoryStep(item.step);
       requestStep(item.toolType, targetStep);
     },
@@ -270,6 +377,7 @@ export function useStudioHistoryHandlers({
       setManagedToolRunSeed,
       setPptResumeStage,
       trackStep,
+      onManagedOpenHistoryResult,
     ]
   );
 
@@ -307,6 +415,7 @@ export function useStudioHistoryHandlers({
     (tool: StudioTool) => {
       setLayoutMode("expanded");
       setExpandedTool(tool.type);
+      onManagedStartNewDraft?.(tool.type as GenerationToolType);
       requestStep(tool.type as GenerationToolType, "config");
       if (tool.type !== "ppt") {
         setManagedToolRunSeed(
@@ -333,6 +442,7 @@ export function useStudioHistoryHandlers({
       setPptResumeStage,
       bumpPptResumeSignal,
       trackStep,
+      onManagedStartNewDraft,
     ]
   );
 

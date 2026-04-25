@@ -24,7 +24,9 @@ def card_query_text(card_id: str, config: dict[str, Any]) -> str:
     if card_id == "word_document":
         return str(config.get("topic") or config.get("document_variant") or "教学文档")
     if card_id == "knowledge_mindmap":
-        return str(config.get("topic") or config.get("focus_scope") or "课程知识结构")
+        return str(
+            config.get("output_requirements") or config.get("topic") or "课程知识结构"
+        )
     if card_id == "interactive_quick_quiz":
         return str(config.get("scope") or config.get("question_focus") or "随堂测验")
     if card_id == "interactive_games":

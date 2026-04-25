@@ -102,15 +102,25 @@ class AIService:
         prompt: str,
         max_tokens: Optional[int],
         timeout_seconds: float,
+        response_format: Optional[dict] = None,
     ):
         from services.ai import acompletion
 
+        request_kwargs = {
+            "model": model,
+            "messages": [{"role": "user", "content": prompt}],
+            "max_tokens": max_tokens,
+        }
+        if response_format is not None:
+            request_kwargs["response_format"] = response_format
+            if model.startswith("dashscope/"):
+                request_kwargs["extra_body"] = {
+                    "result_format": "message",
+                    "enable_thinking": False,
+                }
+
         return await asyncio.wait_for(
-            acompletion(
-                model=model,
-                messages=[{"role": "user", "content": prompt}],
-                max_tokens=max_tokens,
-            ),
+            acompletion(**request_kwargs),
             timeout=timeout_seconds,
         )
 
@@ -172,7 +182,9 @@ class AIService:
         model: Optional[str] = None,
         route_task: Optional[ModelRouteTask | str] = None,
         has_rag_context: bool = False,
-        max_tokens: Optional[int] = 500,
+        max_tokens: Optional[int] = 5000,
+        response_format: Optional[dict] = None,
+        timeout_seconds_override: Optional[float] = None,
     ) -> dict:
         return await generate_with_routing(
             self,
@@ -181,6 +193,8 @@ class AIService:
             route_task=route_task,
             has_rag_context=has_rag_context,
             max_tokens=max_tokens,
+            response_format=response_format,
+            timeout_seconds_override=timeout_seconds_override,
         )
 
     async def classify_intent(self, user_message: str):
@@ -194,7 +208,7 @@ class AIService:
         *,
         user_message: str,
         image_inputs: list[dict[str, str]],
-        max_tokens: int = 400,
+        max_tokens: int = 4000,
     ) -> dict | None:
         if not image_inputs:
             return None

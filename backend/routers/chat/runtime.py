@@ -1,19 +1,29 @@
 import asyncio
+import json
 import os
 import time
-from datetime import datetime, timezone
 from uuid import UUID, uuid4
 
 from fastapi.encoders import jsonable_encoder
 
 from schemas.chat import ChatRouteTask, SendMessageRequest
 from services.chat import resolve_effective_rag_source_ids
+from services.chat import resolve_effective_selected_library_ids
 from services.database import db_service
 from services.generation_session_service.access import get_owned_session
 from services.generation_session_service.session_history import (
     SESSION_TITLE_SOURCE_DEFAULT,
-    generate_semantic_session_title,
-    spawn_background_task,
+    request_session_title_generation,
+)
+from services.generation_session_service.teaching_brief import (
+    build_teaching_brief_prompt_context,
+    load_teaching_brief,
+    load_teaching_brief_proposals,
+    parse_session_options,
+    store_teaching_brief,
+)
+from services.generation_session_service.teaching_brief_extractor import (
+    run_background_brief_extraction,
 )
 from services.prompt_service import build_prompt_traceability
 from utils.exceptions import (
@@ -38,71 +48,23 @@ from .observability import (
 )
 from .runtime_helpers import (
     build_chat_prompt,
+    build_enabled_library_hint,
     build_image_analysis_hint,
     generate_assistant_reply,
     load_chat_context,
     persist_assistant_message,
 )
 from .shared import logger, to_message, verify_project_ownership
+from .teaching_brief_evidence import build_recent_requirement_evidence
+from .teaching_brief_runtime import (
+    build_generation_confirm_draft,
+    build_generation_intent_payload,
+    plan_brief_extraction,
+)
 
 
 def _get_generation_session_lookup_db():
     return db_service.db
-
-
-def _inline_title_refresh_timeout_seconds() -> float:
-    raw = os.getenv("CHAT_SESSION_TITLE_INLINE_TIMEOUT_SECONDS", "1.2")
-    try:
-        timeout = float(str(raw).strip())
-    except ValueError:
-        return 1.2
-    if timeout <= 0:
-        return 0.0
-    return min(timeout, 3.0)
-
-
-def _derive_first_message_title(first_message: str, *, max_length: int = 18) -> str:
-    compact = " ".join((first_message or "").strip().split())
-    if not compact:
-        return ""
-    return compact[:max_length]
-
-
-async def _fallback_first_message_title_refresh(
-    *,
-    session_id: str,
-    first_message: str,
-) -> dict | None:
-    if not hasattr(db_service.db.generationsession, "update"):
-        return None
-    title = _derive_first_message_title(first_message)
-    if not title:
-        return None
-    try:
-        updated = await db_service.db.generationsession.update(
-            where={"id": session_id},
-            data={
-                "displayTitle": title,
-                "displayTitleSource": SESSION_TITLE_SOURCE_DEFAULT,
-                "displayTitleUpdatedAt": datetime.now(timezone.utc),
-            },
-        )
-    except Exception as exc:
-        logger.warning(
-            "Fallback session title refresh failed: session=%s error=%s",
-            session_id,
-            exc,
-        )
-        return None
-    return {
-        "display_title": getattr(updated, "displayTitle", None),
-        "display_title_source": getattr(updated, "displayTitleSource", None),
-        "display_title_updated_at": (
-            updated.displayTitleUpdatedAt.isoformat()
-            if getattr(updated, "displayTitleUpdatedAt", None)
-            else None
-        ),
-    }
 
 
 async def _ensure_chat_session(
@@ -192,15 +154,25 @@ async def process_chat_message(
         user_message_metadata = {
             **(body.metadata or {}),
             **(
+                {"selected_file_ids": body.selected_file_ids}
+                if body.selected_file_ids is not None
+                else {}
+            ),
+            **(
                 {"rag_source_ids": body.rag_source_ids}
                 if body.rag_source_ids is not None
+                else {}
+            ),
+            **(
+                {"selected_library_ids": body.selected_library_ids}
+                if body.selected_library_ids is not None
                 else {}
             ),
             **({"idempotency_key": key_str} if key_str else {}),
             **({"session_id": session_id} if session_id else {}),
         } or None
         stage_started = time.perf_counter()
-        await db_service.create_conversation_message(
+        user_message = await db_service.create_conversation_message(
             project_id=body.project_id,
             role="user",
             content=body.content,
@@ -214,9 +186,13 @@ async def process_chat_message(
         session_title_updated = False
         session_title = None
         session_title_source = None
+        teaching_brief_context = None
         try:
             session_record = await db_service.db.generationsession.find_unique(
                 where={"id": session_id}
+            )
+            teaching_brief_context = build_teaching_brief_prompt_context(
+                getattr(session_record, "options", None)
             )
             session_title = getattr(session_record, "displayTitle", None)
             session_title_source = getattr(session_record, "displayTitleSource", None)
@@ -231,66 +207,33 @@ async def process_chat_message(
                 user_message_count == 1
                 and session_title_source == SESSION_TITLE_SOURCE_DEFAULT
             ):
-                refreshed = None
-                fallback_applied = False
-                if hasattr(db_service.db.generationsession, "update"):
-                    inline_timeout = _inline_title_refresh_timeout_seconds()
-                    if inline_timeout > 0:
-                        try:
-                            refreshed = await asyncio.wait_for(
-                                generate_semantic_session_title(
-                                    db=db_service.db,
-                                    session_id=session_id,
-                                    first_message=body.content,
-                                ),
-                                timeout=inline_timeout,
-                            )
-                        except Exception as exc:
-                            logger.warning(
-                                "Inline session title refresh fallback: session=%s "
-                                "error=%s",
-                                session_id,
-                                exc,
-                            )
-                if not refreshed:
-                    refreshed = await _fallback_first_message_title_refresh(
-                        session_id=session_id,
-                        first_message=body.content,
-                    )
-                    fallback_applied = bool(refreshed)
-                if refreshed:
-                    session_title_updated = True
-                    session_title = refreshed.get("display_title")
-                    session_title_source = refreshed.get("display_title_source")
-                    if fallback_applied:
-                        spawn_background_task(
-                            generate_semantic_session_title(
-                                db=db_service.db,
-                                session_id=session_id,
-                                first_message=body.content,
-                            ),
-                            label=f"session-title:{session_id}",
-                        )
-                else:
-                    spawn_background_task(
-                        generate_semantic_session_title(
-                            db=db_service.db,
-                            session_id=session_id,
-                            first_message=body.content,
-                        ),
-                        label=f"session-title:{session_id}",
-                    )
+                await request_session_title_generation(
+                    db=db_service.db,
+                    session_id=session_id,
+                    first_message=body.content,
+                    project_name=getattr(project, "name", None),
+                )
         except Exception as exc:
             logger.warning(
-                "Skip async session title refresh: session=%s error=%s",
+                "Skip session title refresh request: session=%s error=%s",
                 session_id,
                 exc,
             )
+            session_record = None
+            teaching_brief_context = None
 
         rag_result, history_payload, context_timings = await load_chat_context(
             body=body,
             session_id=session_id,
         )
+        if teaching_brief_context is not None:
+            teaching_brief_context = {
+                **teaching_brief_context,
+                "recent_evidence": build_recent_requirement_evidence(
+                    history_payload=history_payload,
+                    latest_user_message=body.content,
+                ),
+            }
         (
             _rag_results,
             citations,
@@ -302,7 +245,15 @@ async def process_chat_message(
         stage_timings_ms.update(context_timings)
         effective_rag_source_ids = resolve_effective_rag_source_ids(
             rag_source_ids=body.rag_source_ids,
+            selected_file_ids=body.selected_file_ids,
             metadata=body.metadata,
+        )
+        effective_selected_library_ids = resolve_effective_selected_library_ids(
+            selected_library_ids=body.selected_library_ids,
+            metadata=body.metadata,
+        )
+        enabled_library_hint = await build_enabled_library_hint(
+            selected_library_ids=effective_selected_library_ids
         )
 
         image_hint_started = time.perf_counter()
@@ -328,15 +279,22 @@ async def process_chat_message(
             selected_files_hint=selected_files_hint,
             rag_payload=rag_payload,
             history_payload=history_payload,
+            enabled_library_hint=enabled_library_hint,
             image_analysis_hint=image_analysis_hint,
+            teaching_brief_context=teaching_brief_context,
         )
 
         request_id = str(uuid4())
         prompt_digest = prompt_hash(prompt)
+        metadata = body.metadata if isinstance(body.metadata, dict) else {}
+        is_word_studio_refine = (
+            str(metadata.get("card_id") or "").strip() == "word_document"
+        )
         assistant_content, generation_meta, generation_timings = (
             await generate_assistant_reply(
                 prompt=prompt,
                 rag_hit=rag_hit,
+                is_word_studio_refine=is_word_studio_refine,
             )
         )
         stage_timings_ms.update(generation_timings)
@@ -373,6 +331,12 @@ async def process_chat_message(
         observability_metadata.update(
             build_prompt_traceability(rag_source_ids=effective_rag_source_ids)
         )
+        if body.selected_file_ids is not None:
+            observability_metadata["selected_file_ids"] = effective_rag_source_ids or []
+        if effective_selected_library_ids:
+            observability_metadata["selected_library_ids"] = (
+                effective_selected_library_ids
+            )
         observability_metadata["stage_timings_ms"] = stage_timings_ms
 
         observability_with_rag = {
@@ -408,6 +372,73 @@ async def process_chat_message(
 
         msg_dict = to_message(assistant_msg)
         msg_dict["citations"] = citations or []
+        teaching_brief_hint_payload = None
+        extraction_plan = None
+        if session_record is not None:
+            current_brief = load_teaching_brief(
+                getattr(session_record, "options", None)
+            )
+            current_proposals = load_teaching_brief_proposals(
+                getattr(session_record, "options", None)
+            )
+            auto_applied_fields: list[str] = []
+
+            extraction_plan = plan_brief_extraction(
+                options_raw=getattr(session_record, "options", None),
+                brief_raw=current_brief,
+                latest_user_message=body.content,
+            )
+            current_options = parse_session_options(
+                getattr(session_record, "options", None)
+            )
+            next_options = dict(extraction_plan["next_options"])
+            if next_options != current_options:
+                next_options = store_teaching_brief(
+                    next_options,
+                    brief=current_brief,
+                    proposals=current_proposals,
+                )
+                await db_service.db.generationsession.update(
+                    where={"id": session_id},
+                    data={"options": json.dumps(next_options, ensure_ascii=False)},
+                )
+
+            generation_intent_payload = build_generation_intent_payload(
+                content=body.content,
+                brief_raw=current_brief,
+            )
+            generation_confirm_draft = await build_generation_confirm_draft(
+                content=body.content,
+                brief_raw=current_brief,
+                history_payload=history_payload,
+            )
+            teaching_brief_hint_payload = {
+                "session_id": session_id,
+                "proposal_id": None,
+                "proposal_count": len(current_proposals),
+                "status": current_brief.get("status"),
+                "can_generate": (current_brief.get("readiness") or {}).get(
+                    "can_generate"
+                ),
+                "brief_snapshot": current_brief,
+                "auto_applied_fields": auto_applied_fields,
+                "missing_fields": (current_brief.get("readiness") or {}).get(
+                    "missing_fields"
+                )
+                or [],
+                "extraction_scheduled": bool(extraction_plan.get("should_run")),
+                "extraction_reason": extraction_plan.get("extraction_reason"),
+                "refresh_after_ms": extraction_plan.get("refresh_after_ms"),
+                "generation_confirm_draft": generation_confirm_draft,
+                **generation_intent_payload,
+            }
+            if extraction_plan.get("should_run"):
+                asyncio.create_task(
+                    run_background_brief_extraction(
+                        session_id=session_id,
+                        project_id=body.project_id,
+                    )
+                )
 
         response_payload = success_response(
             data={
@@ -423,6 +454,7 @@ async def process_chat_message(
                 "session_title_updated": session_title_updated,
                 "session_title": session_title,
                 "session_title_source": session_title_source,
+                "teaching_brief_hint": teaching_brief_hint_payload,
             },
             message="Message sent successfully",
         )

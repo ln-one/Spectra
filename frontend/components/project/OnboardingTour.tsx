@@ -6,9 +6,9 @@ import {
   ChevronRight,
   ChevronLeft,
   X,
-  Sparkles,
   Lightbulb,
 } from "lucide-react";
+import { ThinkingMark } from "@/components/icons/status/ThinkingMark";
 import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -44,7 +44,7 @@ const TOUR_STEPS: TourStep[] = [
     target: '[data-tour="sources-panel"]',
     title: "知识底座",
     content:
-      "上传您的教案、PDF 或参考资料。AI 将以此为基准进行深度理解，生成精准且符合您教学风格的内容。",
+      "导入您的教案、PDF 或参考资料。AI 将以此为基准进行深度理解，生成精准且符合您教学风格的内容。",
     placement: "right",
     pulseTarget: true,
   },
@@ -284,7 +284,7 @@ export function OnboardingTour({ projectId }: OnboardingTourProps) {
         >
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center text-primary shadow-inner">
-              <Sparkles className="w-6 h-6" />
+              <ThinkingMark className="w-6 h-6" />
             </div>
             <div className="flex-1">
               <div className="text-[10px] font-bold text-primary tracking-widest uppercase opacity-70 mb-0.5">

@@ -1,0 +1,230 @@
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import type { ToolFlowContext } from "@/components/project/features/studio/tools";
+import { PreviewStep } from "@/components/project/features/studio/tools/mindmap/PreviewStep";
+
+function buildFlowContext(
+  overrides: Partial<ToolFlowContext> = {}
+): ToolFlowContext {
+  return {
+    capabilityStatus: "backend_ready",
+    capabilityReason: "Loaded backend mindmap.",
+    cardCapability: {
+      id: "knowledge_mindmap",
+      title: "思维导图",
+      readiness: "foundation_ready",
+      governance_tag: "borrow",
+      cleanup_priority: "p1",
+      surface_strategy: "graph_surface_adapter",
+      frozen: false,
+      health_report: {
+        authority_integrity: 4,
+        builder_thinness: 3,
+        surface_maturity: 2,
+        fallback_residue: 4,
+        test_coverage: 2,
+        replaceability: 5,
+        summary: "优先借成熟 graph editor substrate，不再继续手搓 canvas/tree 双实现。",
+      },
+      context_mode: "artifact",
+      execution_mode: "artifact_create",
+      primary_capabilities: [],
+      related_capabilities: [],
+      artifact_types: [],
+      requires_source_artifact: false,
+      supports_chat_refine: true,
+      supports_selection_context: true,
+      config_fields: [],
+      actions: [],
+    },
+    resolvedArtifact: {
+      artifactId: "mindmap-artifact-1",
+      artifactType: "mindmap",
+      contentKind: "json",
+      content: {
+        kind: "mindmap",
+        nodes: [
+          {
+            id: "root",
+            label: "牛顿第二定律",
+            children: [
+              {
+                id: "child-1",
+                label: "合力",
+                children: [{ id: "grandchild-1", label: "受力分析" }],
+              },
+              { id: "child-2", label: "加速度" },
+            ],
+          },
+        ],
+      },
+    },
+    onStructuredRefineArtifact: jest.fn().mockResolvedValue({ ok: true }),
+    ...overrides,
+  };
+}
+
+describe("mindmap preview", () => {
+  it("renders a pure workspace surface and defaults to preview mode", async () => {
+    const { container } = render(
+      <PreviewStep
+        mode="preview"
+        selectedId="root"
+        lastGeneratedAt="2026-04-18T09:00:00.000Z"
+        flowContext={buildFlowContext()}
+        onSelectNode={() => undefined}
+      />
+    );
+
+    expect(screen.queryByText("导图工作面")).not.toBeInTheDocument();
+    expect(screen.queryByText("ReactFlow substrate")).not.toBeInTheDocument();
+    expect(screen.queryByText("节点工作台")).not.toBeInTheDocument();
+    expect(screen.queryByText("知识导图")).not.toBeInTheDocument();
+
+    expect(screen.queryByRole("button", { name: "重命名" })).not.toBeInTheDocument();
+    expect(screen.queryByText("编辑当前节点")).not.toBeInTheDocument();
+    expect(screen.getByText("牛顿第二定律")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(container.querySelector(".react-flow__edges")).not.toBeNull();
+      expect(container.querySelector(".react-flow__handle-left")).not.toBeNull();
+      expect(container.querySelector(".react-flow__handle-right")).not.toBeNull();
+    });
+
+    const rootNode = container.querySelector('[data-testid="rf__node-root"]') as HTMLElement | null;
+    const internalNode = container.querySelector(
+      '[data-testid="rf__node-child-1"]'
+    ) as HTMLElement | null;
+    const leafNode = container.querySelector(
+      '[data-testid="rf__node-child-2"]'
+    ) as HTMLElement | null;
+
+    expect(rootNode).not.toBeNull();
+    expect(internalNode).not.toBeNull();
+    expect(leafNode).not.toBeNull();
+
+    expect(rootNode?.querySelector(".react-flow__handle-left")).toBeNull();
+    expect(rootNode?.querySelector(".react-flow__handle-right")).not.toBeNull();
+    expect(internalNode?.querySelector(".react-flow__handle-left")).not.toBeNull();
+    expect(internalNode?.querySelector(".react-flow__handle-right")).not.toBeNull();
+    expect(leafNode?.querySelector(".react-flow__handle-left")).not.toBeNull();
+    expect(leafNode?.querySelector(".react-flow__handle-right")).toBeNull();
+
+    const rootRightHandle = rootNode?.querySelector(
+      ".react-flow__handle-right"
+    ) as HTMLElement | null;
+    expect(rootRightHandle).not.toBeNull();
+  });
+
+  it("submits child refinement from the dialog in edit mode", async () => {
+    const onStructuredRefineArtifact = jest
+      .fn()
+      .mockResolvedValue({ ok: true, insertedNodeId: "child-3" });
+    const onSelectNode = jest.fn();
+
+    render(
+      <PreviewStep
+        mode="edit"
+        selectedId="root"
+        lastGeneratedAt="2026-04-18T09:00:00.000Z"
+        flowContext={buildFlowContext({ onStructuredRefineArtifact })}
+        onSelectNode={onSelectNode}
+      />
+    );
+    fireEvent.click(screen.getByRole("button", { name: "新增子节点" }));
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText("子节点名称")).toBeInTheDocument();
+    });
+    fireEvent.change(screen.getByPlaceholderText("子节点名称"), {
+      target: { value: "质量" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "确认新增" }));
+
+    await waitFor(() => {
+      expect(onStructuredRefineArtifact).toHaveBeenCalledWith({
+        artifactId: "mindmap-artifact-1",
+        message: "质量",
+        refineMode: "structured_refine",
+        selectionAnchor: {
+          scope: "node",
+          anchor_id: "root",
+          artifact_id: "mindmap-artifact-1",
+          label: "牛顿第二定律",
+        },
+        config: {
+          selected_node_path: "root",
+          manual_child_summary: undefined,
+        },
+      });
+      expect(onSelectNode).toHaveBeenCalledWith("child-3");
+    });
+  });
+
+  it("does not render a chat refine button inside the workspace", async () => {
+    render(
+      <PreviewStep
+        mode="preview"
+        selectedId="root"
+        lastGeneratedAt="2026-04-18T09:00:00.000Z"
+        flowContext={buildFlowContext({ onRefine: jest.fn() })}
+        onSelectNode={() => undefined}
+      />
+    );
+
+    expect(
+      screen.queryByRole("button", { name: "打开对话微调" })
+    ).not.toBeInTheDocument();
+  });
+
+  it("submits edit and delete operations through structured refine", async () => {
+    const onStructuredRefineArtifact = jest.fn().mockResolvedValue({ ok: true });
+
+    render(
+      <PreviewStep
+        mode="edit"
+        selectedId="child-1"
+        lastGeneratedAt="2026-04-18T09:00:00.000Z"
+        flowContext={buildFlowContext({ onStructuredRefineArtifact })}
+        onSelectNode={() => undefined}
+      />
+    );
+    fireEvent.click(screen.getByRole("button", { name: "重命名" }));
+    fireEvent.change(screen.getByPlaceholderText("输入新的节点名称"), {
+      target: { value: "质量" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("节点说明（可选）"), {
+      target: { value: "重新解释合力的定义。" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "保存修改" }));
+
+    await waitFor(() => {
+      expect(onStructuredRefineArtifact).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({
+          artifactId: "mindmap-artifact-1",
+          message: "质量",
+          config: expect.objectContaining({
+            selected_node_path: "child-1",
+            node_operation: "edit",
+            manual_node_summary: "重新解释合力的定义。",
+          }),
+        })
+      );
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "删除节点" }));
+    fireEvent.click(screen.getByRole("button", { name: "确认删除" }));
+
+    await waitFor(() => {
+      expect(onStructuredRefineArtifact).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({
+          artifactId: "mindmap-artifact-1",
+          message: "合力",
+          config: expect.objectContaining({
+            selected_node_path: "child-1",
+            node_operation: "delete",
+          }),
+        })
+      );
+    });
+  });
+});

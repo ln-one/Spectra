@@ -35,8 +35,6 @@ def validate_project_sharing_rules(
 ) -> tuple[ProjectVisibility, bool]:
     normalized_visibility = normalize_project_visibility(visibility)
     normalized_referenceable = normalize_project_referenceable(is_referenceable)
-    if normalized_visibility == ProjectVisibility.PRIVATE and normalized_referenceable:
-        raise ValueError("private 项目不能直接设置为可引用")
     return normalized_visibility, normalized_referenceable
 
 

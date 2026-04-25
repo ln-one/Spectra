@@ -1,9 +1,13 @@
 import asyncio
+from datetime import datetime, timezone
 from typing import Optional
 
 from schemas.project_semantics import validate_project_sharing_rules
 from schemas.projects import ProjectCreate
-from services.library_semantics import SILENT_ACCRETION_USAGE_INTENT
+from services.library_semantics import (
+    ARTIFACT_SOURCE_USAGE_INTENT,
+    SILENT_ACCRETION_USAGE_INTENT,
+)
 from utils.exceptions import NotFoundException
 
 
@@ -20,20 +24,37 @@ class ProjectMixin:
             "projectId": project_id,
             "OR": [
                 {"usageIntent": None},
-                {"usageIntent": {"not": SILENT_ACCRETION_USAGE_INTENT}},
+                {
+                    "usageIntent": {
+                        "notIn": [
+                            SILENT_ACCRETION_USAGE_INTENT,
+                            ARTIFACT_SOURCE_USAGE_INTENT,
+                        ]
+                    }
+                },
             ],
         }
 
-    async def create_project(self, project_data: ProjectCreate, user_id: str):
+    async def create_project(
+        self,
+        project_data: ProjectCreate,
+        user_id: str,
+        *,
+        name_override: Optional[str] = None,
+        name_source: Optional[str] = None,
+    ):
         visibility, is_referenceable = validate_project_sharing_rules(
             getattr(project_data, "visibility", None),
             getattr(project_data, "is_referenceable", None),
         )
+        resolved_name = name_override or getattr(project_data, "name", None)
         data = {
-            "name": project_data.name,
+            "name": resolved_name,
             "description": project_data.description,
             "userId": user_id,
         }
+        if name_source is not None:
+            data["nameSource"] = name_source
         if getattr(project_data, "grade_level", None) is not None:
             data["gradeLevel"] = project_data.grade_level
         if getattr(project_data, "visibility", None) is not None:
@@ -69,6 +90,8 @@ class ProjectMixin:
         grade_level: Optional[str] = None,
         visibility: Optional[str] = None,
         is_referenceable: Optional[bool] = None,
+        *,
+        name_source: Optional[str] = None,
     ):
         existing = await self.get_project(project_id)
         if existing is None:
@@ -86,6 +109,9 @@ class ProjectMixin:
             ),
         )
         data: dict = {"name": name, "description": description}
+        if name_source is not None:
+            data["nameSource"] = name_source
+            data["nameUpdatedAt"] = datetime.now(timezone.utc)
         if grade_level is not None:
             data["gradeLevel"] = grade_level
         if visibility is not None:

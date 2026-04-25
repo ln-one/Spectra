@@ -68,13 +68,46 @@ def _normalize_docx_preview_markdown(title: str, text: str) -> str:
     return body
 
 
+def _extract_markdown_title(markdown: str) -> str:
+    for raw_line in str(markdown or "").splitlines():
+        line = raw_line.strip()
+        if line.startswith("# "):
+            return line[2:].strip()
+    return ""
+
+
+def _load_docx_companion_markdown(storage_path: str) -> dict:
+    docx_path = Path(storage_path)
+    lesson_plan_path = docx_path.with_suffix(".lesson-plan.md")
+    markdown_path = docx_path.with_suffix(".md")
+    for candidate in (lesson_plan_path, markdown_path):
+        if not candidate.exists():
+            continue
+        try:
+            markdown = candidate.read_text(encoding="utf-8")
+        except Exception:
+            continue
+        markdown = str(markdown or "").strip()
+        if not markdown:
+            continue
+        return {
+            "title": _extract_markdown_title(markdown) or docx_path.stem,
+            "markdown_content": markdown,
+            "lesson_plan_markdown": markdown,
+        }
+    return {}
+
+
 async def _load_docx_artifact_preview_content(
     project_id: str,
     artifact_id: Optional[str],
 ) -> dict:
     if not artifact_id:
         return {}
-    artifact = await db_service.get_artifact(artifact_id)
+    artifact_model = getattr(getattr(db_service, "db", None), "artifact", None)
+    if artifact_model is None or not hasattr(artifact_model, "find_unique"):
+        return {}
+    artifact = await artifact_model.find_unique(where={"id": artifact_id})
     if not artifact or getattr(artifact, "projectId", None) != project_id:
         return {}
     if str(getattr(artifact, "type", "") or "").strip().lower() != "docx":
@@ -83,6 +116,10 @@ async def _load_docx_artifact_preview_content(
     storage_path = str(getattr(artifact, "storagePath", "") or "").strip()
     if not storage_path:
         return {}
+
+    companion_content = _load_docx_companion_markdown(storage_path)
+    if companion_content:
+        return companion_content
 
     sidecar_content = load_docx_content_sidecar(storage_path)
     if sidecar_content:
@@ -148,6 +185,52 @@ def _normalize_rendered_preview(
     return normalized if changed or normalized != rendered_preview else rendered_preview
 
 
+def _context_artifact_type(material_context: dict) -> str:
+    artifact = material_context.get("artifact")
+    if artifact is None:
+        return ""
+    return str(getattr(artifact, "type", "") or "").strip().lower()
+
+
+def _snapshot_preview_content(material_context: dict) -> dict:
+    artifact_metadata = material_context.get("artifact_metadata")
+    if not isinstance(artifact_metadata, dict):
+        return {}
+
+    snapshot = artifact_metadata.get("content_snapshot")
+    if not isinstance(snapshot, dict):
+        return {}
+
+    preview_content = {
+        key: snapshot.get(key)
+        for key in (
+            "title",
+            "summary",
+            "markdown_content",
+            "lesson_plan_markdown",
+            "preview_html",
+            "document_content",
+        )
+        if key in snapshot
+    }
+    if not isinstance(preview_content.get("markdown_content"), str):
+        preview_content.pop("markdown_content", None)
+    if not str(preview_content.get("markdown_content") or "").strip():
+        lesson_plan_markdown = str(
+            preview_content.get("lesson_plan_markdown") or ""
+        ).strip()
+        if lesson_plan_markdown:
+            preview_content["markdown_content"] = lesson_plan_markdown
+    if not str(preview_content.get("title") or "").strip():
+        preview_content.pop("title", None)
+
+    has_preview_body = any(
+        str(preview_content.get(key) or "").strip()
+        for key in ("markdown_content", "lesson_plan_markdown", "preview_html")
+    )
+    return preview_content if has_preview_body else {}
+
+
 async def _load_content_for_context(
     *,
     material_context: dict,
@@ -165,6 +248,11 @@ async def _load_content_for_context(
             if render_job_id:
                 await save_preview_content(render_job_id, preview_content)
             return preview_content
+        snapshot_preview = _snapshot_preview_content(material_context)
+        if snapshot_preview:
+            if render_job_id:
+                await save_preview_content(render_job_id, snapshot_preview)
+            return snapshot_preview
 
     return {}
 
@@ -185,12 +273,12 @@ def _attach_rendered_preview_to_slides(
     slides: list[dict] = []
     for index, slide in enumerate(slide_models):
         page = page_by_slide_id.get(slide_identity(slide, index, task_id=render_job_id))
-        if page and page.get("image_url"):
-            slide.thumbnail_url = page.get("image_url")
+        if page and page.get("svg_data_url"):
+            slide.thumbnail_url = page.get("svg_data_url")
 
         dumped = slide.model_dump()
-        if page and page.get("html_preview"):
-            dumped["rendered_html_preview"] = page.get("html_preview")
+        if page and page.get("svg_data_url"):
+            dumped["rendered_previews"] = [page]
         slides.append(dumped)
     return slides
 
@@ -230,6 +318,17 @@ async def load_preview_material(
             material_context=material_context,
         )
         render_job_id = str(material_context.get("render_job_id") or "").strip()
+        if (
+            _context_artifact_type(material_context) == "docx"
+            and not str(content.get("markdown_content") or "").strip()
+        ):
+            docx_content = await _load_docx_artifact_preview_content(
+                project_id, material_context.get("artifact_id")
+            )
+            if docx_content:
+                content = docx_content
+                if render_job_id:
+                    await save_preview_content(render_job_id, content)
         rendered_preview = _normalize_rendered_preview(
             rendered_preview=(
                 content.get("rendered_preview")

@@ -1,5 +1,5 @@
 ﻿import { generateApi, previewApi, projectSpaceApi } from "@/lib/sdk";
-import { createApiError, getErrorMessage } from "@/lib/sdk/errors";
+import { ApiError, createApiError, getErrorMessage } from "@/lib/sdk/errors";
 import { toast } from "@/hooks/use-toast";
 import { groupArtifactsByTool } from "@/lib/project-space/artifact-history";
 import {
@@ -46,7 +46,36 @@ function isFallbackSessionTitle(title: string, sessionId: string): boolean {
   return normalized === `会话 ${sessionId.slice(-6)}`;
 }
 
+function areGenerationHistoriesEquivalent(
+  currentHistory: GenerationHistory[],
+  nextHistory: GenerationHistory[]
+): boolean {
+  if (currentHistory === nextHistory) return true;
+  if (currentHistory.length !== nextHistory.length) return false;
+  return currentHistory.every((currentItem, index) => {
+    const nextItem = nextHistory[index];
+    return (
+      currentItem?.id === nextItem?.id &&
+      currentItem?.toolId === nextItem?.toolId &&
+      currentItem?.toolName === nextItem?.toolName &&
+      currentItem?.status === nextItem?.status &&
+      currentItem?.sessionState === nextItem?.sessionState &&
+      currentItem?.createdAt === nextItem?.createdAt &&
+      currentItem?.title === nextItem?.title &&
+      currentItem?.titleSource === nextItem?.titleSource
+    );
+  });
+}
+
 function resolveOutlineBaseVersion(
+  session: SessionStatePayload | null | undefined
+): number {
+  const parsed = extractOutlineVersion(session);
+  if (parsed >= 1) return parsed;
+  return 1;
+}
+
+function extractOutlineVersion(
   session: SessionStatePayload | null | undefined
 ): number {
   const rawVersion =
@@ -56,7 +85,119 @@ function resolveOutlineBaseVersion(
       ? rawVersion
       : Number.parseInt(String(rawVersion ?? ""), 10);
   if (Number.isFinite(parsed) && parsed >= 1) return parsed;
-  return 1;
+  return 0;
+}
+
+function readSessionSnapshotArtifacts(
+  snapshotData: unknown,
+  projectId: string,
+  sessionId: string
+): Artifact[] {
+  if (!snapshotData || typeof snapshotData !== "object") return [];
+  const rawArtifacts = (snapshotData as { session_artifacts?: unknown })
+    .session_artifacts;
+  if (!Array.isArray(rawArtifacts)) return [];
+
+  const fallbackTimestamp = new Date().toISOString();
+  const normalized: Artifact[] = [];
+  const allowedArtifactTypes: Artifact["type"][] = [
+    "summary",
+    "html",
+    "gif",
+    "pptx",
+    "docx",
+    "mindmap",
+    "exercise",
+    "mp4",
+  ];
+  const normalizeArtifactType = (value: unknown): Artifact["type"] => {
+    if (typeof value !== "string") return "summary";
+    const normalizedValue = value.trim() as Artifact["type"];
+    return allowedArtifactTypes.includes(normalizedValue)
+      ? normalizedValue
+      : "summary";
+  };
+
+  for (const raw of rawArtifacts) {
+    if (!raw || typeof raw !== "object") continue;
+    const row = raw as Record<string, unknown>;
+    const id = typeof row.artifact_id === "string" ? row.artifact_id.trim() : "";
+    if (!id) continue;
+
+    const type = normalizeArtifactType(row.type);
+    const createdAt =
+      typeof row.created_at === "string" && row.created_at.trim()
+        ? row.created_at.trim()
+        : fallbackTimestamp;
+    const updatedAt =
+      typeof row.updated_at === "string" && row.updated_at.trim()
+        ? row.updated_at.trim()
+        : createdAt;
+    const basedOnVersionId =
+      typeof row.based_on_version_id === "string" &&
+      row.based_on_version_id.trim()
+        ? row.based_on_version_id.trim()
+        : null;
+    const sourceMetadata =
+      row.metadata && typeof row.metadata === "object" && !Array.isArray(row.metadata)
+        ? (row.metadata as Record<string, unknown>)
+        : null;
+    const metadata: Record<string, unknown> = {
+      ...(sourceMetadata ?? {}),
+    };
+
+    if (
+      typeof row.replaces_artifact_id === "string" &&
+      row.replaces_artifact_id.trim() &&
+      typeof metadata.replaces_artifact_id !== "string"
+    ) {
+      metadata.replaces_artifact_id = row.replaces_artifact_id.trim();
+    }
+    if (
+      typeof row.superseded_by_artifact_id === "string" &&
+      row.superseded_by_artifact_id.trim() &&
+      typeof metadata.superseded_by_artifact_id !== "string"
+    ) {
+      metadata.superseded_by_artifact_id = row.superseded_by_artifact_id.trim();
+    }
+    if (
+      typeof row.title === "string" &&
+      row.title.trim() &&
+      typeof metadata.title !== "string"
+    ) {
+      metadata.title = row.title.trim();
+    }
+
+    normalized.push({
+      id,
+      project_id: projectId,
+      session_id: sessionId,
+      based_on_version_id: basedOnVersionId,
+      owner_user_id: null,
+      type,
+      visibility: "private",
+      storage_path: undefined,
+      metadata,
+      created_at: createdAt,
+      updated_at: updatedAt,
+    });
+  }
+
+  return normalized;
+}
+
+function mergeArtifacts(projectArtifacts: Artifact[], snapshotArtifacts: Artifact[]): Artifact[] {
+  if (snapshotArtifacts.length === 0) return projectArtifacts;
+  if (projectArtifacts.length === 0) return snapshotArtifacts;
+
+  const mergedById = new Map<string, Artifact>();
+  for (const artifact of snapshotArtifacts) {
+    mergedById.set(artifact.id, artifact);
+  }
+  for (const artifact of projectArtifacts) {
+    mergedById.set(artifact.id, artifact);
+  }
+  return Array.from(mergedById.values());
 }
 
 export function createGenerationActions({
@@ -105,8 +246,23 @@ export function createGenerationActions({
           activeSessionId === get().generationSession?.session?.session_id
             ? extractCurrentRunId(get().generationSession)
             : null;
-        set({ generationHistory: history, activeSessionId, activeRunId });
-        await get().fetchArtifactHistory(projectId, activeSessionId);
+        const previousState = get();
+        const historyChanged = !areGenerationHistoriesEquivalent(
+          previousState.generationHistory,
+          history
+        );
+        const activeSessionChanged =
+          previousState.activeSessionId !== activeSessionId;
+        const activeRunChanged = previousState.activeRunId !== activeRunId;
+
+        if (historyChanged || activeSessionChanged || activeRunChanged) {
+          set({
+            generationHistory: history,
+            activeSessionId,
+            activeRunId,
+          });
+          await get().fetchArtifactHistory(projectId, activeSessionId);
+        }
       } catch (error) {
         const message = getErrorMessage(error);
         toast({
@@ -136,10 +292,28 @@ export function createGenerationActions({
           return;
         }
 
-        const response = await projectSpaceApi.getArtifacts(projectId, {
-          session_id: effectiveSessionId,
-        });
-        const artifacts = ((response?.artifacts ?? []) as Artifact[]) || [];
+        const [artifactsResponse, sessionSnapshotResponse] = await Promise.all([
+          projectSpaceApi.getArtifacts(projectId, {
+            session_id: effectiveSessionId,
+          }),
+          generateApi
+            .getSessionSnapshot(effectiveSessionId)
+            .catch((error: unknown) => {
+              console.warn(
+                "Session snapshot fetch failed while loading artifact history:",
+                getErrorMessage(error)
+              );
+              return null;
+            }),
+        ]);
+        const projectArtifacts =
+          ((artifactsResponse?.artifacts ?? []) as Artifact[]) || [];
+        const snapshotArtifacts = readSessionSnapshotArtifacts(
+          sessionSnapshotResponse?.data,
+          projectId,
+          effectiveSessionId
+        );
+        const artifacts = mergeArtifacts(projectArtifacts, snapshotArtifacts);
         const sessionHistoryByTool = groupArtifactsByTool(artifacts);
         const sessionArtifacts = Object.values(sessionHistoryByTool)
           .flat()
@@ -151,6 +325,16 @@ export function createGenerationActions({
         set({
           artifactHistoryByTool: sessionHistoryByTool,
           currentSessionArtifacts: sessionArtifacts,
+          generationSession:
+            effectiveSessionId ===
+              (get().activeSessionId ??
+                get().generationSession?.session?.session_id ??
+                null) && sessionSnapshotResponse?.data
+              ? {
+                  ...(get().generationSession ?? {}),
+                  ...(sessionSnapshotResponse.data as SessionStatePayload),
+                }
+              : get().generationSession,
         });
       } catch (error) {
         const message = getErrorMessage(error);
@@ -285,22 +469,54 @@ export function createGenerationActions({
           sessionId && sessionId === state.activeSessionId
             ? state.activeRunId
             : null,
+        latestBriefHint:
+          sessionId &&
+          state.latestBriefHint?.sessionId &&
+          state.latestBriefHint.sessionId === sessionId
+            ? state.latestBriefHint
+            : null,
       })),
 
     setActiveRunId: (runId: string | null) => set({ activeRunId: runId }),
 
     updateOutline: async (sessionId: string, outline: OutlineDocument) => {
-      const session = get().generationSession;
-      const baseVersion = resolveOutlineBaseVersion(session);
       try {
+        const currentRunId = get().activeRunId ?? undefined;
+        const [runScopedBeforeUpdate, sessionScopedBeforeUpdate] =
+          currentRunId
+            ? await Promise.all([
+                generateApi.getSessionSnapshot(sessionId, {
+                  run_id: currentRunId,
+                }),
+                generateApi.getSessionSnapshot(sessionId),
+              ])
+            : [await generateApi.getSessionSnapshot(sessionId), null];
+        const runScopedPayload = runScopedBeforeUpdate?.data ?? null;
+        const sessionScopedPayload = sessionScopedBeforeUpdate?.data ?? null;
+        const runScopedVersion = extractOutlineVersion(
+          runScopedPayload as SessionStatePayload | null
+        );
+        const sessionScopedVersion = extractOutlineVersion(
+          sessionScopedPayload as SessionStatePayload | null
+        );
+        const latestBeforePayload =
+          sessionScopedVersion > runScopedVersion
+            ? sessionScopedPayload
+            : runScopedPayload;
+        const baseVersion = resolveOutlineBaseVersion(
+          latestBeforePayload as SessionStatePayload | null
+        );
+
         await generateApi.sendCommand(sessionId, {
           command: {
             command_type: "UPDATE_OUTLINE",
             base_version: baseVersion,
             outline,
+            run_id: currentRunId,
           },
         });
-        const preferredRunId = get().activeRunId;
+        const preferredRunId =
+          extractCurrentRunId(latestBeforePayload) || get().activeRunId;
         const sessionResponse = await generateApi.getSessionSnapshot(
           sessionId,
           {
@@ -383,8 +599,8 @@ export function createGenerationActions({
     },
 
     confirmOutline: async (sessionId: string) => {
+      const requestedRunId = get().activeRunId ?? undefined;
       try {
-        const requestedRunId = get().activeRunId ?? undefined;
         const confirmResponse = await generateApi.sendCommand(sessionId, {
           command: {
             command_type: "CONFIRM_OUTLINE",
@@ -411,6 +627,36 @@ export function createGenerationActions({
             confirmedRunId,
         });
       } catch (error) {
+        if (error instanceof ApiError && error.status === 502) {
+          try {
+            const sessionResponse = await generateApi.getSessionSnapshot(
+              sessionId,
+              {
+                run_id: requestedRunId,
+              }
+            );
+            const latestSessionPayload = sessionResponse?.data ?? null;
+            const refreshedRunId =
+              extractCurrentRunId(latestSessionPayload) || requestedRunId || null;
+            set({
+              generationSession: latestSessionPayload,
+              activeRunId: refreshedRunId,
+            });
+            const latestState =
+              typeof latestSessionPayload?.session?.state === "string"
+                ? latestSessionPayload.session.state
+                : "";
+            if (
+              latestState === "GENERATING_CONTENT" ||
+              latestState === "RENDERING" ||
+              latestState === "SUCCESS"
+            ) {
+              return;
+            }
+          } catch {
+            // Preserve original 502 when snapshot refresh fails.
+          }
+        }
         const message = getErrorMessage(error);
         set({
           error: createApiError({ code: "CONFIRM_OUTLINE_FAILED", message }),

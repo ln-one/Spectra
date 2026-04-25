@@ -120,6 +120,13 @@ def build_source_reference_payload(
     timestamp: Any = None,
     score: Any = None,
     content_preview: Any = None,
+    source_scope: Any = None,
+    source_library_id: Any = None,
+    source_library_name: Any = None,
+    source_artifact_id: Any = None,
+    source_artifact_title: Any = None,
+    source_artifact_tool_type: Any = None,
+    source_artifact_session_id: Any = None,
 ) -> dict[str, Any]:
     payload: dict[str, Any] = {
         "chunk_id": str(chunk_id),
@@ -134,6 +141,20 @@ def build_source_reference_payload(
         payload["score"] = score
     if content_preview is not None:
         payload["content_preview"] = content_preview
+    if source_scope is not None:
+        payload["source_scope"] = str(source_scope)
+    if source_library_id is not None:
+        payload["source_library_id"] = str(source_library_id)
+    if source_library_name is not None:
+        payload["source_library_name"] = str(source_library_name)
+    if source_artifact_id is not None:
+        payload["source_artifact_id"] = str(source_artifact_id)
+    if source_artifact_title is not None:
+        payload["source_artifact_title"] = str(source_artifact_title)
+    if source_artifact_tool_type is not None:
+        payload["source_artifact_tool_type"] = str(source_artifact_tool_type)
+    if source_artifact_session_id is not None:
+        payload["source_artifact_session_id"] = str(source_artifact_session_id)
     return payload
 
 
@@ -154,6 +175,17 @@ def extract_source_reference_payload(
             "content_preview": getattr(value, "content_preview", None)
             or getattr(value, "preview_text", None),
             "score": getattr(value, "score", None),
+            "source_scope": getattr(value, "source_scope", None),
+            "source_library_id": getattr(value, "source_library_id", None),
+            "source_library_name": getattr(value, "source_library_name", None),
+            "source_artifact_id": getattr(value, "source_artifact_id", None),
+            "source_artifact_title": getattr(value, "source_artifact_title", None),
+            "source_artifact_tool_type": getattr(
+                value, "source_artifact_tool_type", None
+            ),
+            "source_artifact_session_id": getattr(
+                value, "source_artifact_session_id", None
+            ),
         }
 
     return build_source_reference_payload(
@@ -164,4 +196,11 @@ def extract_source_reference_payload(
         timestamp=raw.get("timestamp"),
         score=raw.get("score"),
         content_preview=raw.get("content_preview") or raw.get("preview_text"),
+        source_scope=raw.get("source_scope"),
+        source_library_id=raw.get("source_library_id"),
+        source_library_name=raw.get("source_library_name"),
+        source_artifact_id=raw.get("source_artifact_id"),
+        source_artifact_title=raw.get("source_artifact_title"),
+        source_artifact_tool_type=raw.get("source_artifact_tool_type"),
+        source_artifact_session_id=raw.get("source_artifact_session_id"),
     )

@@ -1,0 +1,108 @@
+{
+  "allowed_primitives": [
+    "Stage",
+    "Scene",
+    "Node",
+    "Edge",
+    "Arrow",
+    "Label",
+    "Caption",
+    "Track",
+    "Chart",
+    "Sprite",
+    "Callout",
+    "Equation",
+    "Timeline",
+    "AnimationGraphRenderer"
+  ],
+  "allowed_hooks": ["useTimeline", "usePlayback", "useSceneState"],
+  "allowed_identifiers": [
+    "React",
+    "motion",
+    "Math",
+    "Number",
+    "String",
+    "Boolean",
+    "Array",
+    "Object",
+    "JSON",
+    "Set",
+    "Map",
+    "Infinity",
+    "undefined"
+  ],
+  "subject_primitives": [
+    "Track",
+    "Node",
+    "Edge",
+    "Arrow",
+    "Chart",
+    "Sprite",
+    "Equation",
+    "Timeline",
+    "AnimationGraphRenderer"
+  ],
+  "explanation_primitives": ["Caption", "Callout", "Label"],
+  "primitive_props": {
+    "Stage": ["title", "subtitle", "theme"],
+    "Scene": ["title", "summary"],
+    "Node": ["id", "x", "y", "width", "height", "title", "body"],
+    "Edge": [],
+    "Arrow": ["fromX", "fromY", "toX", "toY", "label", "accent"],
+    "Label": ["x", "y", "text"],
+    "Caption": ["title", "body"],
+    "Track": ["items", "maxValue", "mode"],
+    "Chart": ["title", "points"],
+    "Sprite": ["children"],
+    "Callout": ["title", "body"],
+    "Equation": ["children"],
+    "Timeline": ["children"],
+    "AnimationGraphRenderer": ["graph", "theme"]
+  },
+  "primitive_prop_schema": {
+    "Caption": {
+      "required": ["title"],
+      "allowed": ["title", "body"]
+    },
+    "Track": {
+      "required": ["items"],
+      "allowed": ["items", "maxValue", "mode"],
+      "enum_props": {
+        "mode": ["bars"]
+      },
+      "track_item_allowed_props": ["id", "label", "value", "accent", "marker"],
+      "track_item_required_props": ["id", "label", "value"],
+      "track_item_accent_enum": ["swap", "active", "success", "muted"]
+    }
+  },
+  "hook_return_shape": {
+    "usePlayback": [
+      "isPlaying",
+      "stepIndex",
+      "totalSteps",
+      "globalProgress",
+      "sceneIndex",
+      "sceneProgress",
+      "playbackSpeed",
+      "hasAutoplayStarted"
+    ],
+    "useTimeline": ["stepIndex", "totalSteps", "sceneIndex", "sceneProgress"],
+    "useSceneState": ["sceneIndex", "isCurrent", "progress"]
+  },
+  "algorithm_demo_defaults": {
+    "preferred_primitives": ["Stage", "Scene", "Track", "Caption", "usePlayback"],
+    "disallowed_patterns": [
+      "playback.jumpTo",
+      "stacked_captions_without_subject"
+    ]
+  },
+  "plan_schema_fragments": {
+    "algorithm_demo": {
+      "fixed_subject_kind": "track",
+      "fixed_track_mode": "bars",
+      "fixed_caption_mode": "single_caption",
+      "fixed_bindings": "playback.stepIndex",
+      "track_item_allowed_props": ["id", "label", "value", "accent", "marker"]
+    }
+  }
+}

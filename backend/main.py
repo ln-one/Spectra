@@ -16,9 +16,13 @@ except ModuleNotFoundError:  # pragma: no cover - test/runtime fallback
 # Load environment variables (force backend/.env, independent of startup cwd)
 BASE_DIR = Path(__file__).resolve().parent
 load_dotenv(dotenv_path=BASE_DIR / ".env", override=False)
-from services.runtime_env import normalize_database_url_for_host_runtime  # noqa: E402
+from services.runtime_env import (  # noqa: E402
+    normalize_database_url_for_host_runtime,
+    normalize_internal_service_urls_for_host_runtime,
+)
 
 normalize_database_url_for_host_runtime()
+normalize_internal_service_urls_for_host_runtime()
 
 from fastapi import status  # noqa: E402
 from fastapi.responses import JSONResponse  # noqa: E402
@@ -213,6 +217,12 @@ async def health_check():
 async def readiness_check():
     """Readiness endpoint for orchestrators (dependency-aware)."""
     return await health_check()
+
+
+@app.get("/health/live", tags=["Health"])
+async def liveness_check():
+    """Lightweight liveness endpoint for container healthchecks."""
+    return {"status": "alive"}
 
 
 @app.get("/health/live", tags=["Health"])

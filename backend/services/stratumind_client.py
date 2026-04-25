@@ -11,11 +11,19 @@ from urllib import error as urllib_error
 from urllib import parse as urllib_parse
 from urllib import request as urllib_request
 
+from services.runtime_env import normalize_stratumind_base_url, running_inside_container
 from utils.exceptions import ExternalServiceException
 
 
 def stratumind_base_url() -> str:
-    return os.getenv("STRATUMIND_BASE_URL", "").strip().rstrip("/")
+    return (
+        normalize_stratumind_base_url(
+            os.getenv("STRATUMIND_BASE_URL"),
+            inside_container=running_inside_container(),
+            local_override=os.getenv("STRATUMIND_BASE_URL_LOCAL"),
+        )
+        or ""
+    )
 
 
 def stratumind_enabled() -> bool:
@@ -80,12 +88,13 @@ async def _request(
         except urllib_error.URLError as exc:
             raise ExternalServiceException(
                 message="Stratumind service unreachable",
-                details={"reason": str(exc.reason)},
+                details={"reason": str(exc.reason), "base_url": base_url},
                 retryable=True,
             ) from exc
         except TimeoutError as exc:
             raise ExternalServiceException(
                 message="Stratumind request timeout",
+                details={"base_url": base_url},
                 retryable=True,
             ) from exc
 
@@ -95,7 +104,7 @@ async def _request(
     except json.JSONDecodeError as exc:
         raise ExternalServiceException(
             message="Stratumind returned invalid JSON",
-            details={"status_code": status_code, "body": body[:300]},
+            details={"status_code": status_code, "body": body[:300], "base_url": base_url},
             retryable=False,
         ) from exc
 
@@ -103,10 +112,16 @@ async def _request(
         if not isinstance(payload_obj, dict):
             raise ExternalServiceException(
                 message=f"Stratumind request failed: status={status_code}",
-                details={"status_code": status_code},
+                details={"status_code": status_code, "base_url": base_url},
                 retryable=status_code >= 500,
             )
         error_payload = payload_obj.get("error") or {}
+        details = (
+            error_payload.get("details")
+            if isinstance(error_payload.get("details"), dict)
+            else {}
+        )
+        details = {**details, "base_url": base_url}
         raise StratumindClientError(
             message=str(
                 error_payload.get("message")
@@ -114,11 +129,7 @@ async def _request(
             ),
             code=str(error_payload.get("code") or "UNKNOWN"),
             status_code=status_code,
-            details=(
-                error_payload.get("details")
-                if isinstance(error_payload.get("details"), dict)
-                else None
-            ),
+            details=details,
             retryable=error_payload.get("retryable"),
         )
 

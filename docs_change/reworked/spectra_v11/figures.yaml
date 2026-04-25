@@ -1,0 +1,297 @@
+source_file: Spectra.docx
+input_format: docx
+media_extracted: true
+figures:
+- ordinal: 1
+  figure_id: fig-image1-01
+  source_image: image1.png
+  source_chapter: 系统设计
+  nearest_heading: 系统本体与设计判断
+  source_caption: 图 4-1 整体技术架构图
+  width_hint: 7.991666666666666in
+  height_hint: 5.9in
+  preferred_width_ratio: 1.0
+  layout_mode: full_width
+  output_path: assets/media/image1.png
+- ordinal: 2
+  figure_id: fig-image2-02
+  source_image: image2.png
+  source_chapter: 系统设计
+  nearest_heading: 前端工作台与 Studio 产品面
+  source_caption: 图 4-2 对应系统总体分层结构，用于说明产品面、控制平面和正式能力层如何被放入同一系统视野。
+  width_hint: 5.425in
+  height_hint: 6.891666666666667in
+  output_path: assets/media/image2.png
+- ordinal: 3
+  figure_id: fig-image3-03
+  source_image: image3.png
+  source_chapter: 系统设计
+  nearest_heading: 前端工作台与 Studio 产品面
+  source_caption: 图 4-3 进一步解释 Studio 为什么是系统级产品面。这里关注的不是能力项数量，而是同一课程知识空间如何同时承接课堂主交付、互动练习和教学辅助三类外化结果。
+  width_hint: 7.791666666666667in
+  height_hint: 4.708333333333333in
+  output_path: assets/media/image3.png
+- ordinal: 4
+  figure_id: fig-image4-04
+  source_image: image4.png
+  source_chapter: 系统设计
+  nearest_heading: Session 生成与交付链
+  source_caption: 该链路保证教师始终处在可参与、可确认、可修改的工作流中。生成结果进入 preview、交付和正式状态绑定的统一链路，确保状态机一致性。
+  width_hint: 7.625in
+  height_hint: 3.8125in
+  output_path: assets/media/image4.png
+- ordinal: 5
+  figure_id: fig-image5-05
+  source_image: image5.png
+  source_chapter: 系统设计
+  nearest_heading: 知识空间对象关系
+  source_caption: 图 4-5 解释这套对象关系如何构成课程知识空间的本体。
+  width_hint: 7.251968503937008in
+  height_hint: 3.3307086614173227in
+  output_path: assets/media/image5.png
+- ordinal: 6
+  figure_id: fig-image6-06
+  source_image: image6.png
+  source_chapter: 系统设计
+  nearest_heading: 数据与状态设计（数据库设计）
+  source_caption: 该分层表明，系统围绕不同权责边界将过程态、正式态、身份态和检索态拆分。课程知识空间要长期成立，需要将工作过程、正式知识、组织边界和证据索引分层管理。
+  width_hint: 8.066666666666666in
+  height_hint: 3.45in
+  output_path: assets/media/image6.png
+- ordinal: 7
+  figure_id: fig-image7-07
+  source_image: image7.png
+  source_chapter: 系统设计
+  nearest_heading: 关键接口与契约总览
+  source_caption: 结果回流契约：preview、export、artifact bind、candidate change、version update
+    组成结果回到知识空间的正式链路，保障数据流转的确定性。
+  width_hint: 7.995833333333334in
+  height_hint: 3.6486111111111112in
+  output_path: assets/media/image7.png
+- ordinal: 8
+  figure_id: fig-image8-08
+  source_image: image8.png
+  source_chapter: 系统设计
+  nearest_heading: 运行拓扑与当前实现现实
+  source_caption: Spectra 当前并不是停留在文档规划层面。运行现实已经表现为：主系统作为统一控制平面，六个正式能力层同时接入并承担各自 authority。这一点很重要，因为只有运行现实与架构判断一致，系统设计章才不会退化成漂亮但空心的图解。
+  width_hint: 7.983333333333333in
+  height_hint: 3.5701388888888888in
+  output_path: assets/media/image8.png
+- ordinal: 9
+  figure_id: fig-image9-01
+  source_image: image9.png
+  source_chapter: 关键技术与实现
+  nearest_heading: 关键技术总体架构
+  source_caption: 图 5-1 技术承接链。
+  width_hint: 6.86319in
+  height_hint: 8.73611in
+  layout_mode: portrait_safe
+  output_path: assets/media/image9.png
+- ordinal: 10
+  figure_id: fig-image10-02
+  source_image: image10.png
+  source_chapter: 关键技术与实现
+  nearest_heading: 核心机制
+  source_caption: 图 5-2 对应外化结果回到正式知识状态的路径。
+  width_hint: 6.62992in
+  height_hint: 7.47244in
+  output_path: assets/media/image10.png
+- ordinal: 11
+  figure_id: fig-image11-03
+  source_image: image11.png
+  source_chapter: 关键技术与实现
+  nearest_heading: 核心机制
+  source_caption: 图 5-3 对应可确认、可修改、可回流的会话闭环。
+  width_hint: 6.63333in
+  height_hint: 8.73056in
+  output_path: assets/media/image11.png
+- ordinal: 12
+  figure_id: fig-image12-07
+  source_image: image12.png
+  source_chapter: 关键技术与实现
+  nearest_heading: 核心机制
+  source_caption: 图 5-4 对应由同一课程知识空间、同一会话主链和同一结果契约共同驱动的卡片执行体系。
+  width_hint: 6.2868055555555555in
+  height_hint: 8.134027777777778in
+  output_path: assets/media/image12.png
+- ordinal: 13
+  figure_id: fig-image13-08
+  source_image: image13.png
+  source_chapter: 关键技术与实现
+  nearest_heading: 核心机制
+  source_caption: 这条原则已经在当前前端产品面中落实到非 PPT 产物上：当后端尚未返回真实内容时，前端只展示等待态。只有当正式产物返回后，系统才允许用户执行
+    preview、refine、history 和 download。
+  width_hint: 7.730555555555555in
+  height_hint: 3.2979166666666666in
+  output_path: assets/media/image13.png
+- ordinal: 14
+  figure_id: fig-image14-09
+  source_image: image14.png
+  source_chapter: 关键技术与实现
+  nearest_heading: 核心机制
+  source_caption: 回流契约：生成结果经 preview / export / bind / candidate change / version
+    update 回到课程知识空间。
+  width_hint: 7.951388888888889in
+  height_hint: 3.1256944444444446in
+  output_path: assets/media/image14.png
+- ordinal: 15
+  figure_id: fig-image15-10
+  source_image: image15.png
+  source_chapter: 关键技术与实现
+  nearest_heading: 采用的微服务与关键技术
+  source_caption: 采用混合检索策略（dense + sparse）提升召回率与精确度。
+  width_hint: 8.275in
+  height_hint: 3.75in
+  output_path: assets/media/image15.png
+- ordinal: 16
+  figure_id: fig-image16-04
+  source_image: image16.png
+  source_chapter: 关键技术与实现
+  nearest_heading: 核心机制
+  source_caption: 图 5-8 对应从解析到底层证据组织的分层能力链。
+  width_hint: 6.25in
+  height_hint: 8.70903in
+  output_path: assets/media/image16.png
+- ordinal: 17
+  figure_id: fig-image17-05
+  source_image: image17.png
+  source_chapter: 关键技术与实现
+  nearest_heading: 核心机制
+  source_caption: 图 5-9 对应身份与组织语义与课程知识空间本体的分离。
+  width_hint: 6.09449in
+  height_hint: 8.35039in
+  output_path: assets/media/image17.png
+- ordinal: 18
+  figure_id: fig-image18-06
+  source_image: image18.png
+  source_chapter: 关键技术与实现
+  nearest_heading: 技术先进性总结
+  source_caption: 图 5-10 展示六个正式能力层如何围绕同一课程知识空间形成闭环。
+  width_hint: 6.64097in
+  height_hint: 8.75833in
+  output_path: assets/media/image18.png
+- ordinal: 19
+  figure_id: fig-image19-01
+  source_image: image19.jpeg
+  source_chapter: 项目测试与成果展示
+  nearest_heading: 系统已实现成果
+  source_caption: 第三层是证据成果。项目已同时具备全链路业务流闭环验证、前端真实产品面验证、正式评估集量化结果和工程可观测性验证，已进入成型阶段。
+  width_hint: 7.858333333333333in
+  height_hint: 3.0680555555555555in
+  preferred_width_in: 7.2
+  output_path: assets/media/image19.jpeg
+- ordinal: 20
+  figure_id: fig-image20-01
+  source_image: image20.png
+  source_chapter: 商业企划
+  nearest_heading: 课程知识资产的单元化经营
+  source_caption: 图 8-1 展示课程库作为资产单元的商业结构。
+  width_hint: 6.82283in
+  height_hint: 8.55906in
+  output_path: assets/media/image20.png
+- ordinal: 21
+  figure_id: fig-image21-02
+  source_image: image21.png
+  source_chapter: 商业企划
+  nearest_heading: 商业飞轮：规模经济与网络协同效应
+  source_caption: 图 8-2 展示核心商业逻辑：课程库越多、引用越多、外化越多，平台的收入和 AI 能力越强，边际成本持续下降。
+  width_hint: 6.3937in
+  height_hint: 7.05118in
+  output_path: assets/media/image21.png
+- ordinal: 22
+  figure_id: fig-image22-04
+  source_image: image22.png
+  source_chapter: 商业企划
+  nearest_heading: 五层收入结构
+  source_caption: Spectra 适合采用五层收入结构，而不是单一订阅模型。
+  width_hint: 4.358333333333333in
+  height_hint: 5.654166666666667in
+  output_path: assets/media/image22.png
+- ordinal: 23
+  figure_id: fig-image23-05
+  source_image: image23.png
+  source_chapter: 商业企划
+  nearest_heading: 市场进入路径
+  source_caption: Spectra 的市场进入应采用由轻到重、由工具到资产、由单点到平台的路径。
+  width_hint: 8.072222222222223in
+  height_hint: 3.1805555555555554in
+  output_path: assets/media/image23.png
+- ordinal: 24
+  figure_id: fig-image24-03
+  source_image: image24.png
+  source_chapter: 商业企划
+  nearest_heading: 竞争优势与网络效应
+  source_caption: 图 8-5 对应平台生态关系：平台在创作者、学习者、团队、学校、机构和课程库之间组织长期关系。
+  width_hint: 6.10903in
+  height_hint: 8.61667in
+  output_path: assets/media/image24.png
+- ordinal: 25
+  figure_id: fig-external-workbench-01
+  source_image: spectra-frontend-workbench.png
+  source_chapter: 系统设计
+  nearest_heading: 系统整体架构
+  source_caption: 图 5-2 前端工作台截图，说明 Studio、智能助手、资料区与结果区如何在同一界面中组成统一工作面。
+  width_hint: 7.2in
+  height_hint: 4.1in
+  preferred_width_ratio: 1.0
+  layout_mode: full_width
+  output_path: assets/media/spectra-frontend-workbench.png
+- ordinal: 26
+  figure_id: fig-external-function-01
+  source_image: spectra-system-function-architecture.png
+  source_chapter: 系统设计
+  nearest_heading: 系统整体架构
+  source_caption: 图 5-3 系统功能架构图，说明访问层、表现层、平台服务层、核心业务层、数据资源层与外部支撑层之间的职责分工。
+  width_hint: 7.2in
+  height_hint: 6.0in
+  preferred_width_ratio: 1.0
+  layout_mode: full_width
+  output_path: assets/media/spectra-system-function-architecture.png
+- ordinal: 27
+  figure_id: fig-external-deploy-02
+  source_image: spectra-deployment-architecture.png
+  source_asset: assets/media/spectra-deployment-architecture-latest.svg
+  source_chapter: 系统设计
+  nearest_heading: 数据库设计
+  source_caption: 图 5-11 当前部署架构图，说明统一入口、前后端应用节点、外部服务区、数据存储区与第三方能力平台之间的连接关系。
+  width_hint: 7.2in
+  height_hint: 3.8in
+  preferred_width_ratio: 1.0
+  layout_mode: full_width
+
+- ordinal: 28
+  figure_id: fig-external-rag-metrics-01
+  source_image: 主方案质量与延迟对比图.png
+  source_chapter: 项目测试与成果展示
+  nearest_heading: 系统检索质量评估测试
+  source_caption: 图 7-2 60 题正式集质量与延迟对比图，说明 advanced 在主要质量指标上明显高于基础 dense 检索，且延迟仍处于可接受范围。
+  width_hint: 7.0in
+  height_hint: 3.8in
+  preferred_width_ratio: 1.0
+  layout_mode: full_width
+  output_path: assets/media/主方案质量与延迟对比图.png
+
+- ordinal: 29
+  figure_id: fig-external-rag-metrics-02
+  source_image: 两组正式集核心指标对比柱状图.png
+  source_chapter: 项目测试与成果展示
+  nearest_heading: 系统检索质量评估测试
+  source_caption: 图 7-3 两组正式集核心指标对比图，说明 advanced 在 60 题与 105 题正式集上都保持稳定提升，而不是只在少量样本上偶然有效。
+  width_hint: 7.0in
+  height_hint: 3.8in
+  preferred_width_ratio: 1.0
+  layout_mode: full_width
+  output_path: assets/media/两组正式集核心指标对比柱状图.png
+
+- ordinal: 30
+  figure_id: fig-external-rag-metrics-03
+  source_image: 不同重排策略质量—延迟对比图.png
+  source_chapter: 项目测试与成果展示
+  nearest_heading: 系统检索质量评估测试
+  source_caption: 图 7-4 不同重排策略质量与延迟对比图，说明 advanced(api) 在当前正式集上的综合平衡优于两组 late_interaction 补充方案。
+  width_hint: 7.0in
+  height_hint: 4.2in
+  preferred_width_ratio: 1.0
+  layout_mode: full_width
+  output_path: assets/media/不同重排策略质量—延迟对比图.png
+  output_path: assets/media/spectra-deployment-architecture.png

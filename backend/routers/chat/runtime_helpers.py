@@ -8,8 +8,14 @@ from schemas.common import normalize_source_type
 from services.ai import ai_service
 from services.ai.model_resolution import _resolve_model_name
 from services.ai.model_router import ModelRouteTask
-from services.chat import resolve_effective_rag_source_ids
+from services.chat import (
+    resolve_effective_rag_source_ids,
+    resolve_effective_selected_library_ids,
+)
 from services.database import db_service
+from services.generation_session_service.teaching_brief import (
+    TeachingBriefPromptContext,
+)
 from services.prompt_service import contains_mechanical_option_pattern, prompt_service
 
 from .message_flow import build_history_payload, load_rag_context
@@ -26,6 +32,22 @@ _IMAGE_EXTENSIONS = {
     ".tiff",
     ".svg",
 }
+
+
+def _env_positive_int(name: str, default: int) -> int:
+    raw = os.getenv(name, "").strip()
+    if not raw:
+        return default
+    try:
+        value = int(raw)
+        return value if value > 0 else default
+    except ValueError:
+        return default
+
+
+def _resolve_chat_response_max_tokens() -> int:
+    configured = _env_positive_int("CHAT_RESPONSE_MAX_TOKENS", 18000)
+    return max(2560, min(configured, 80000))
 
 
 def _project_upload_fields(upload, *, select: dict | None = None) -> dict | object:
@@ -54,7 +76,15 @@ async def load_chat_context(
 ) -> tuple[tuple, list[dict], dict[str, float]]:
     effective_rag_source_ids = resolve_effective_rag_source_ids(
         rag_source_ids=body.rag_source_ids,
+        selected_file_ids=body.selected_file_ids,
         metadata=body.metadata,
+    )
+    effective_selected_library_ids = resolve_effective_selected_library_ids(
+        selected_library_ids=body.selected_library_ids,
+        metadata=body.metadata,
+    )
+    search_local_project = body.selected_file_ids is None or bool(
+        effective_rag_source_ids
     )
 
     async def _timed_rag_context():
@@ -64,6 +94,8 @@ async def load_chat_context(
             query=body.content,
             session_id=session_id,
             rag_source_ids=effective_rag_source_ids,
+            selected_library_ids=effective_selected_library_ids,
+            search_local_project=search_local_project,
         )
         return result, round((time.perf_counter() - started_at) * 1000, 2)
 
@@ -91,11 +123,15 @@ def build_chat_prompt(
     selected_files_hint: str,
     rag_payload,
     history_payload: list[dict],
+    enabled_library_hint: str | None = None,
     image_analysis_hint: str | None = None,
+    teaching_brief_context: TeachingBriefPromptContext | None = None,
 ) -> str:
     message_hints = []
     if selected_files_hint:
         message_hints.append(selected_files_hint)
+    if enabled_library_hint:
+        message_hints.append(enabled_library_hint)
     if not rag_hit and session_id:
         message_hints.append(
             "RAG miss in this round. Do NOT claim the user has no uploaded files. "
@@ -109,7 +145,7 @@ def build_chat_prompt(
 
     user_message_for_prompt = body.content
     if message_hints:
-        user_message_for_prompt = f"{body.content}\n\n绯荤粺鎻愮ず锛歕n" + "\n".join(
+        user_message_for_prompt = f"{body.content}\n\n系统提示：\n" + "\n".join(
             message_hints
         )
 
@@ -119,8 +155,58 @@ def build_chat_prompt(
         session_id=session_id,
         rag_context=rag_payload,
         conversation_history=history_payload,
+        teaching_brief_context=teaching_brief_context,
     )
     return f"项目：{project_name}\n{prompt}"
+
+
+async def build_enabled_library_hint(
+    *,
+    selected_library_ids: list[str] | None,
+) -> str | None:
+    normalized_ids = [
+        str(library_id or "").strip()
+        for library_id in (selected_library_ids or [])
+        if str(library_id or "").strip()
+    ]
+    if not normalized_ids:
+        return None
+
+    try:
+        project_rows = await db_service.db.project.find_many(
+            where={"id": {"in": normalized_ids}},
+            select={"id": True, "name": True},
+        )
+    except TypeError:
+        project_rows = await db_service.db.project.find_many(
+            where={"id": {"in": normalized_ids}}
+        )
+    except Exception as exc:
+        logger.warning(
+            "enabled library lookup failed: ids=%s error=%s", normalized_ids, exc
+        )
+        return None
+
+    library_names_by_id: dict[str, str] = {}
+    for row in project_rows or []:
+        if isinstance(row, dict):
+            library_id = str(row.get("id") or "").strip()
+            library_name = str(row.get("name") or "").strip()
+        else:
+            library_id = str(getattr(row, "id", "") or "").strip()
+            library_name = str(getattr(row, "name", "") or "").strip()
+        if library_id:
+            library_names_by_id[library_id] = library_name or library_id
+
+    formatted_libraries = [
+        f"{library_names_by_id.get(library_id, library_id)}({library_id})"
+        for library_id in normalized_ids
+    ]
+    return (
+        "当前启用资料库："
+        + "、".join(formatted_libraries)
+        + "。如果老师在消息里提到某个库名，优先结合这些资料库理解，不要忽略资料库语境。"
+    )
 
 
 def _extract_image_upload_ids(rag_results) -> list[str]:
@@ -240,6 +326,7 @@ async def generate_assistant_reply(
     *,
     prompt: str,
     rag_hit: bool,
+    is_word_studio_refine: bool = False,
 ) -> tuple[str, dict, dict[str, float]]:
     route_info = {}
     attempted_route = ai_service.model_router.route(
@@ -254,14 +341,31 @@ async def generate_assistant_reply(
     latency_ms = None
     assistant_digest = ""
     stage_timings_ms: dict[str, float] = {}
+    token_budget = (
+        _env_positive_int("STUDIO_WORD_REFINE_MAX_TOKENS", 32000)
+        if is_word_studio_refine
+        else _resolve_chat_response_max_tokens()
+    )
+    rewrite_token_budget = (
+        _env_positive_int("STUDIO_WORD_REFINE_REWRITE_MAX_TOKENS", 20000)
+        if is_word_studio_refine
+        else _env_positive_int("CHAT_REWRITE_MAX_TOKENS", 12000)
+    )
+    refine_model = (
+        str(os.getenv("STUDIO_WORD_REFINE_MODEL", "") or "").strip()
+        if is_word_studio_refine
+        else ""
+    )
+    requested_model = refine_model or None
 
     try:
         stage_started = time.perf_counter()
         ai_result = await ai_service.generate(
             prompt=prompt,
+            model=requested_model,
             route_task=ModelRouteTask.CHAT_RESPONSE,
             has_rag_context=rag_hit,
-            max_tokens=500,
+            max_tokens=token_budget,
         )
         stage_timings_ms["ai_generate_ms"] = round(
             (time.perf_counter() - stage_started) * 1000, 2
@@ -290,8 +394,9 @@ async def generate_assistant_reply(
             stage_started = time.perf_counter()
             rewrite_result = await ai_service.generate(
                 prompt=rewrite_prompt,
+                model=requested_model,
                 route_task=ModelRouteTask.SHORT_TEXT_POLISH,
-                max_tokens=500,
+                max_tokens=rewrite_token_budget,
             )
             stage_timings_ms["ai_rewrite_ms"] = round(
                 (time.perf_counter() - stage_started) * 1000, 2

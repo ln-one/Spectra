@@ -12,6 +12,13 @@ export interface CitationViewModel {
   chunkId: string;
   sourceType: CitationSourceType;
   filename: string;
+  sourceScope?: string;
+  sourceLibraryId?: string;
+  sourceLibraryName?: string;
+  sourceArtifactId?: string;
+  sourceArtifactTitle?: string;
+  sourceArtifactToolType?: string;
+  sourceArtifactSessionId?: string;
   pageNumber?: number;
   timestamp?: number;
   score?: number;
@@ -77,6 +84,13 @@ export function toCitationViewModel(
     chunkId,
     filename,
     sourceType,
+    sourceScope: asString(record.source_scope),
+    sourceLibraryId: asString(record.source_library_id),
+    sourceLibraryName: asString(record.source_library_name),
+    sourceArtifactId: asString(record.source_artifact_id),
+    sourceArtifactTitle: asString(record.source_artifact_title),
+    sourceArtifactToolType: asString(record.source_artifact_tool_type),
+    sourceArtifactSessionId: asString(record.source_artifact_session_id),
     pageNumber,
     timestamp,
     score: asNumber((record as LooseCitation).score),
@@ -91,4 +105,9 @@ export function toCitationViewModels(citations: unknown): CitationViewModel[] {
   return citations
     .map((item, index) => toCitationViewModel(item, index))
     .filter((item): item is CitationViewModel => item !== null);
+}
+
+export function stripInlineCitationTags(content: string): string {
+  if (!content) return content;
+  return content.replace(/<cite\b[^>]*>(?:\s*<\/cite>)?/gi, "");
 }

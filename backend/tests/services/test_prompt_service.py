@@ -14,6 +14,7 @@ from services.prompt_service import (
     contains_mechanical_option_pattern,
     output_block_marker,
 )
+from schemas.rag import PromptSuggestionSurface
 
 
 class TestFormatRagContext:
@@ -151,6 +152,59 @@ class TestPromptService:
         assert "<task_context>" in prompt
         assert "<response_contract>" in prompt
         assert "Markdown 自然分段" in prompt
+
+    def test_chat_response_prompt_includes_teaching_brief_protocol(self):
+        prompt = self.svc.build_chat_response_prompt(
+            user_message="我要做一个高一物理课件",
+            intent="general_chat",
+            teaching_brief_context={
+                "can_generate": False,
+                "missing_fields": ["knowledge_points", "duration_or_pages"],
+                "brief": {"topic": "牛顿第二定律", "audience": "高一学生"},
+            },
+        )
+
+        assert '<teaching_brief_protocol status="live"' in prompt
+        assert "&quot;knowledge_points&quot;" in prompt
+        assert "教学需求单" in prompt
+        assert "spectra_brief_extract" not in prompt
+        assert "spectra_brief_summary" not in prompt
+
+    def test_chat_response_prompt_includes_recent_requirement_evidence(self):
+        prompt = self.svc.build_chat_response_prompt(
+            user_message="都讲",
+            intent="general_chat",
+            teaching_brief_context={
+                "can_generate": False,
+                "missing_fields": ["duration_or_pages"],
+                "brief": {"topic": "", "audience": "", "lesson_hours": None},
+                "recent_evidence": {"lesson_hours": 10, "duration_or_pages": "10课时"},
+            },
+        )
+
+        assert "<recent_requirement_evidence>" in prompt
+        assert "&quot;lesson_hours&quot;: 10" in prompt
+        assert "老师已经说过的信息不要重复追问" in prompt
+
+    def test_prompt_suggestion_prompt_requires_json_and_rag_grounding(self):
+        rag = [
+            {"content": "细胞分裂包含间期和分裂期", "source": {"filename": "bio.pdf"}}
+        ]
+        prompt = self.svc.build_prompt_suggestion_prompt(
+            surface=PromptSuggestionSurface.PPT_GENERATION_CONFIG,
+            seed_text="细胞分裂",
+            rag_context=rag,
+            limit=4,
+        )
+        assert "ppt_generation_config" in prompt
+        assert "细胞分裂" in prompt
+        assert "严格只返回 JSON" in prompt
+        assert "不要只改写关键词" in prompt
+        assert "完整型提示" in prompt
+        assert "开放型提示" in prompt
+        assert "可选增强项" in prompt
+        assert "不要追加 [来源]" in prompt
+        assert "bio.pdf" in prompt
 
     def test_chat_response_with_history(self):
         history = [

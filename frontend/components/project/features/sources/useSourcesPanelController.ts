@@ -30,20 +30,30 @@ export function useSourcesPanelController({
   const {
     files,
     selectedFileIds,
+    selectedLibraryIds,
+    selectedArtifactSourceIds,
     uploadFile,
     deleteFile,
     toggleFileSelection,
+    toggleLibrarySelection,
+    toggleArtifactSourceSelection,
+    setSelectedArtifactSourceIds,
     activeSourceDetail,
-    clearActiveSource,
+    activeSourceFocusNonce,
   } = useProjectStore(
     useShallow((state) => ({
       files: state.files,
       selectedFileIds: state.selectedFileIds,
+      selectedLibraryIds: state.selectedLibraryIds,
+      selectedArtifactSourceIds: state.selectedArtifactSourceIds,
       uploadFile: state.uploadFile,
       deleteFile: state.deleteFile,
       toggleFileSelection: state.toggleFileSelection,
+      toggleLibrarySelection: state.toggleLibrarySelection,
+      toggleArtifactSourceSelection: state.toggleArtifactSourceSelection,
+      setSelectedArtifactSourceIds: state.setSelectedArtifactSourceIds,
       activeSourceDetail: state.activeSourceDetail,
-      clearActiveSource: state.clearActiveSource,
+      activeSourceFocusNonce: state.activeSourceFocusNonce,
     }))
   );
   const { addNotification, updateNotification, replaceNotification } =
@@ -120,6 +130,8 @@ export function useSourcesPanelController({
     files.length,
     isStudioExpanded,
     selectedFileIds.length,
+    selectedLibraryIds.length,
+    selectedArtifactSourceIds.length,
     uploadingTasksCount,
   ]);
 
@@ -141,7 +153,7 @@ export function useSourcesPanelController({
         block: "center",
       });
     }
-  }, [focusedFileId, activeSourceDetail?.chunk_id]);
+  }, [focusedFileId, activeSourceDetail?.chunk_id, activeSourceFocusNonce]);
 
   useEffect(() => {
     const targetId = activeSourceDetail?.file_info?.id;
@@ -150,16 +162,17 @@ export function useSourcesPanelController({
       setExpandedIds((prev) => ({ ...prev, [targetId]: true }));
     });
     return () => cancelAnimationFrame(frame);
-  }, [activeSourceDetail?.file_info?.id, activeSourceDetail?.chunk_id]);
+  }, [
+    activeSourceDetail?.file_info?.id,
+    activeSourceDetail?.chunk_id,
+    activeSourceFocusNonce,
+  ]);
 
   const collapseFile = useCallback(
     (fileId: string) => {
       setExpandedIds((prev) => ({ ...prev, [fileId]: false }));
-      if (focusedFileId === fileId) {
-        clearActiveSource();
-      }
     },
-    [focusedFileId, clearActiveSource]
+    []
   );
 
   const handleFileSelect = useCallback(
@@ -173,7 +186,7 @@ export function useSourcesPanelController({
         const notificationId = addNotification({
           type: "upload",
           title: file.name,
-          description: "上传中",
+          description: "处理中",
           duration: 0,
           progress: 5,
           status: "uploading",
@@ -186,7 +199,7 @@ export function useSourcesPanelController({
             updateNotification(notificationId, {
               progress: displayProgress,
               status: "uploading",
-              description: "上传中",
+              description: "处理中",
               duration: 0,
             });
           },
@@ -206,7 +219,7 @@ export function useSourcesPanelController({
               replaceNotification(notificationId, {
                 type: "success",
                 title: file.name,
-                description: "上传成功",
+                description: "已导入",
                 duration: 3000,
                 progress: 100,
                 status: "success",
@@ -267,7 +280,12 @@ export function useSourcesPanelController({
   return {
     files,
     selectedFileIds,
+    selectedLibraryIds,
+    selectedArtifactSourceIds,
     toggleFileSelection,
+    toggleLibrarySelection,
+    toggleArtifactSourceSelection,
+    setSelectedArtifactSourceIds,
     focusedFileId,
     focusPayload,
     fileInputRef,

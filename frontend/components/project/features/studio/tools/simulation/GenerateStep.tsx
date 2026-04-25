@@ -23,6 +23,9 @@ export function GenerateStep({
   onBack,
   onGenerate,
 }: GenerateStepProps) {
+  const executeLabel =
+    flowContext?.display?.actionLabels.execute ?? "开始课堂预演";
+
   return (
     <div className="space-y-4">
       <section className="rounded-xl border border-zinc-200 bg-white p-4">
@@ -76,7 +79,7 @@ export function GenerateStep({
           ) : (
             <>
               <Sparkles className="mr-1.5 h-3.5 w-3.5" />
-              开始生成预演
+              {executeLabel}
             </>
           )}
         </Button>

@@ -21,7 +21,7 @@ function makeHistoryItem(
 }
 
 describe("session artifacts ppt status rendering", () => {
-  it("shows PPT completed as 已完成 and non-PPT completed as 可预览", () => {
+  it("shows history navigation and productized completed labels", () => {
     const pptCompleted = makeHistoryItem({
       status: "completed",
       step: "preview",
@@ -49,8 +49,10 @@ describe("session artifacts ppt status rendering", () => {
       />
     );
 
+    expect(screen.getByText("历史记录")).toBeInTheDocument();
     expect(screen.getByText("已完成")).toBeInTheDocument();
     expect(screen.getByText("可预览")).toBeInTheDocument();
+    expect(screen.getAllByLabelText("查看预览").length).toBeGreaterThanOrEqual(1);
   });
 
   it("renders PPT granular in-progress labels", () => {
