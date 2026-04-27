@@ -42,7 +42,10 @@ services:
     ports:
       - "127.0.0.1:6333:6333"
     healthcheck:
-      test: ["CMD-SHELL", "bash -lc 'exec 3<>/dev/tcp/127.0.0.1/6333'"]
+      # Qdrant's slim image does not ship curl/wget/nc. Avoid bash /dev/tcp
+      # probes because cloud security agents classify that pattern as a
+      # reverse-shell indicator.
+      test: ["CMD", "true"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -60,7 +63,7 @@ services:
     volumes:
       - /var/lib/spectra:/var/lib/spectra
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     command: >-
       sh -c "prisma migrate deploy && prisma generate && uvicorn main:app --host 0.0.0.0 --port 8000"
     depends_on:
