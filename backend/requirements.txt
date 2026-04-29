@@ -1,4 +1,4 @@
-﻿# Build tools (must be first to avoid conflicts)
+# Build tools (must be first to avoid conflicts)
 setuptools>=65.0.0
 
 # Core Framework
@@ -8,7 +8,7 @@ pydantic==2.12.5
 email-validator==2.3.0
 pydantic-settings==2.13.1
 prisma==0.15.0
-python-multipart==0.0.22
+python-multipart==0.0.26
 aiofiles==25.1.0
 python-dotenv==1.2.1
 httpx==0.27.0  # HTTP client for web search and fetching
