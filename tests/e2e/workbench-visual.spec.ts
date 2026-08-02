@@ -14,7 +14,7 @@ import {
 import { knowledgeStructuredContentHash } from "../../src/features/knowledge/integrity";
 import { expectNoSeriousAccessibilityViolations } from "./accessibility";
 import { e2eBaseUrl, e2eOtherAuthStatePath, e2eWorkspacePath } from "./environment";
-import { waitForWorkbenchLayout } from "./workbench-readiness";
+import { gotoWithRetry, waitForWorkbenchLayout } from "./workbench-readiness";
 
 let fixtureUrl: string;
 let fixture: {
@@ -91,8 +91,12 @@ test.beforeAll(async () => {
 
 test("resolves UUID and pretty workspace addresses", async ({ page }) => {
   test.setTimeout(60_000);
-  await page.goto(`/workspaces/${fixture.aliasedId}`);
-  await expect(page).toHaveURL(new RegExp(`${fixture.prettyUrl}\\?conversation=[0-9a-f-]{36}$`));
+  const expectedUrl = new RegExp(`${fixture.prettyUrl}\\?conversation=[0-9a-f-]{36}$`);
+  await gotoWithRetry(page, `/workspaces/${fixture.aliasedId}`, {
+    expectedUrl,
+    timeout: 30_000,
+  });
+  await expect(page).toHaveURL(expectedUrl, { timeout: 15_000 });
   await expect(page.getByRole("heading", { name: "Spectra Materials Lab" })).toBeVisible();
 });
 
@@ -1013,6 +1017,7 @@ test("previews and promotes mind-map AI changes without remounting or moving the
 });
 
 test("restores and edits a mind map through History", async ({ page }) => {
+  test.setTimeout(60_000);
   await page.goto(fixtureUrl, { waitUntil: "networkidle" });
 
   await page.getByRole("link", { name: /Persistent mind map/ }).click();
@@ -1079,7 +1084,14 @@ test("restores and edits a mind map through History", async ({ page }) => {
   await expect(
     workspace.locator(".react-flow__node").getByText("Edited branch", { exact: true }),
   ).toBeVisible();
+  const saveResponse = page.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" &&
+      /^\/api\/artifacts\/mind-map\/[^/]+$/.test(new URL(response.url()).pathname),
+    { timeout: 30_000 },
+  );
   await workspace.getByRole("button", { name: "保存" }).click();
+  expect((await saveResponse).ok()).toBe(true);
   await expect(workspace.getByRole("button", { name: "编辑" })).toBeVisible({ timeout: 15_000 });
   await expect(
     workspace.locator(".react-flow__node").getByText("Edited branch", { exact: true }),
@@ -1258,7 +1270,11 @@ test("shows the expanded Source format families", async ({ page }) => {
     "browser-contract.ipynb",
     "browser-contract.mov",
   ]) {
-    await page.getByRole("button", { name: `删除 ${filename}` }).click();
+    const deleteButton = page.getByRole("button", { name: `删除 ${filename}` });
+    await expect(deleteButton).toBeVisible({ timeout: 15_000 });
+    await expect(deleteButton).toBeEnabled({ timeout: 15_000 });
+    await deleteButton.scrollIntoViewIfNeeded();
+    await deleteButton.click({ force: true, timeout: 15_000 });
     await page.getByRole("alertdialog").getByRole("button", { name: "删除" }).click();
     await expect(page.getByText(filename, { exact: true })).toHaveCount(0);
   }

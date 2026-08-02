@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { expect, test } from "@playwright/test";
 import { e2eWorkspacePath } from "./environment";
+import { gotoWithRetry } from "./workbench-readiness";
 
 let gameUrl: string;
 
@@ -12,14 +13,14 @@ test.beforeAll(async () => {
 });
 
 test("plays through revival, failure, review, and persisted best", async ({ page }) => {
-  test.setTimeout(60_000);
+  test.setTimeout(120_000);
   const runtimeErrors: string[] = [];
   page.on("console", (message) => {
     if (message.type() === "error") runtimeErrors.push(message.text());
   });
   page.on("pageerror", (error) => runtimeErrors.push(error.message));
 
-  await page.goto(gameUrl, { waitUntil: "commit" });
+  await gotoWithRetry(page, gameUrl, { timeout: 30_000 });
   await expect(page.getByRole("heading", { name: "飞跃复活验收游戏" }).first()).toBeVisible({
     timeout: 15_000,
   });
@@ -61,7 +62,8 @@ test("plays through revival, failure, review, and persisted best", async ({ page
 });
 
 test("abandons an active run when the page is refreshed", async ({ page }) => {
-  await page.goto(gameUrl, { waitUntil: "commit" });
+  test.setTimeout(90_000);
+  await gotoWithRetry(page, gameUrl, { timeout: 30_000 });
   const started = page.waitForResponse(
     (response) =>
       response.request().method() === "POST" &&

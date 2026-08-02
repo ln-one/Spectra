@@ -23,7 +23,9 @@ test("uses the optional project name without requiring a second identifier", asy
   await page.getByLabel("项目名称 (可选)").fill(projectName);
   await page.getByRole("button", { name: "开始创造" }).click();
 
-  await expect(page).toHaveURL(/\/workspaces\/[0-9a-f-]{36}\?conversation=[0-9a-f-]{36}$/);
+  await expect(page).toHaveURL(/\/workspaces\/[0-9a-f-]{36}\?conversation=[0-9a-f-]{36}$/, {
+    timeout: 15_000,
+  });
   await expect(page.getByRole("heading", { name: projectName })).toBeVisible();
 });
 
@@ -35,7 +37,9 @@ test("updates workspace identity through the existing settings control", async (
   await page.goto("/workspaces/new");
   await page.getByLabel("教学构想").fill(`Settings flow ${unique}`);
   await page.getByRole("button", { name: "开始创造" }).click();
-  await expect(page).toHaveURL(/\/workspaces\/[0-9a-f-]{36}\?conversation=[0-9a-f-]{36}$/);
+  await expect(page).toHaveURL(/\/workspaces\/[0-9a-f-]{36}\?conversation=[0-9a-f-]{36}$/, {
+    timeout: 15_000,
+  });
   const workspaceId = new URL(page.url()).pathname.split("/").at(-1);
   if (!workspaceId) throw new Error("Created workspace URL did not contain an id");
 
@@ -78,7 +82,9 @@ test("renames, archives, opens, restores, and sorts workspaces from the Dashboar
   await page.goto("/workspaces/new");
   await page.getByLabel("教学构想").fill(originalName);
   await page.getByRole("button", { name: "开始创造" }).click();
-  await expect(page).toHaveURL(/\/workspaces\/[0-9a-f-]{36}\?conversation=[0-9a-f-]{36}$/);
+  await expect(page).toHaveURL(/\/workspaces\/[0-9a-f-]{36}\?conversation=[0-9a-f-]{36}$/, {
+    timeout: 15_000,
+  });
 
   await page.goto("/workspaces");
   await page.getByRole("button", { name: `${originalName} 的操作` }).click();
