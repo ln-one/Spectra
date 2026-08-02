@@ -1070,7 +1070,8 @@ test("restores and edits a mind map through History", async ({ page }) => {
   );
   const applyEdit = editDialog.getByRole("button", { name: "保存修改" });
   await expect(applyEdit).toBeDisabled();
-  await expect(applyEdit).toHaveCSS("background-color", "rgb(15, 118, 110)");
+  await expect(editDialog).toHaveAttribute("data-studio-tone", "teal");
+  await expect(applyEdit).toHaveClass(/bg-\[var\(--studio-emphasis\)\]/);
   await editDialog.getByLabel("短标题").fill("Edited branch");
   await expect(applyEdit).toBeEnabled();
   await applyEdit.click();

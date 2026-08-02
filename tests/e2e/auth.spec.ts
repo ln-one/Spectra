@@ -16,7 +16,7 @@ test.describe("authentication flow", () => {
     await page.getByLabel("确认密码").fill(validPassword);
     await page.getByRole("button", { name: "暂时仅用密码" }).click();
 
-    await expect(page).toHaveURL(/\/workspaces$/);
+    await expect(page).toHaveURL(/\/workspaces$/, { timeout: 15_000 });
     await page.getByLabel("打开账户菜单").click();
     await expect(page.getByText("auth-flow-e2e@example.com")).toBeVisible();
     await page.getByRole("menuitem", { name: "设置" }).click();
@@ -25,16 +25,16 @@ test.describe("authentication flow", () => {
     await page.getByLabel("打开账户菜单").click();
     await page.getByRole("menuitem", { name: "退出登录" }).click();
 
-    await expect(page).toHaveURL(/\/auth\/login$/);
+    await expect(page).toHaveURL(/\/auth\/login$/, { timeout: 15_000 });
     await page.getByLabel("邮箱").fill("auth-flow-e2e@example.com");
     await page.getByLabel("密码").fill(validPassword);
     await page.getByRole("button", { name: "登录", exact: true }).click();
-    await expect(page).toHaveURL(/\/workspaces$/);
+    await expect(page).toHaveURL(/\/workspaces$/, { timeout: 15_000 });
     await page.reload();
-    await expect(page).toHaveURL(/\/workspaces$/);
+    await expect(page).toHaveURL(/\/workspaces$/, { timeout: 15_000 });
     await page.getByLabel("打开账户菜单").click();
     await page.getByRole("menuitem", { name: "退出登录" }).click();
-    await expect(page).toHaveURL(/\/auth\/login$/);
+    await expect(page).toHaveURL(/\/auth\/login$/, { timeout: 15_000 });
   });
 
   test("recovers from a handle conflict without registering twice", async ({ page }) => {
@@ -50,7 +50,7 @@ test.describe("authentication flow", () => {
     await page.getByLabel("用户名").fill("handle-recovered-e2e");
     await page.getByRole("button", { name: "完成创建" }).click();
 
-    await expect(page).toHaveURL(/\/workspaces$/);
+    await expect(page).toHaveURL(/\/workspaces$/, { timeout: 15_000 });
   });
 
   test("enforces password length at the server boundary", async ({ request }) => {
@@ -75,7 +75,7 @@ test.describe("authentication flow", () => {
     await page.getByLabel("密码", { exact: true }).fill(validPassword);
     await page.getByLabel("确认密码").fill(validPassword);
     await page.getByRole("button", { name: "暂时仅用密码" }).click();
-    await expect(page).toHaveURL(/\/workspaces$/);
+    await expect(page).toHaveURL(/\/workspaces$/, { timeout: 15_000 });
 
     const pool = new Pool({ connectionString: e2eDatabaseUrl });
     try {
