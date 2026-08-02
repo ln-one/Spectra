@@ -1,0 +1,82 @@
+services:
+  redis:
+    image: redis:8.4.0-alpine@sha256:4eec4565e45aa0b3966554c866bc73211e281b0b3d89fe9a33c982e6faca809d
+    command: ["redis-server", "--appendonly", "yes"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+    ports:
+      - "127.0.0.1:6379:6379"
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - spectra-redis-data:/data
+
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_DB: spectra
+      POSTGRES_PASSWORD: spectra
+      POSTGRES_USER: spectra
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U spectra -d spectra"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+    ports:
+      - "5432:5432"
+    volumes:
+      - spectra-postgres-data:/var/lib/postgresql
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+
+  object-storage:
+    image: versity/versitygw:v1.4.1@sha256:0400cb59f59da0f1cf9f7fd49505191abc348dfadf54509bf1988caaff4eb96f
+    command:
+      - --health
+      - /health
+      - --iam-dir
+      - /var/lib/versity/iam
+      - posix
+      - --versioning-dir
+      - /var/lib/versity/versions
+      - /var/lib/versity/data
+    environment:
+      ROOT_ACCESS_KEY_ID: spectra-local
+      ROOT_SECRET_ACCESS_KEY: spectra-local-only
+      VGW_QUIET: "true"
+      VGW_REGION: us-east-1
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:7070/health"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+    ports:
+      - "127.0.0.1:7070:7070"
+    volumes:
+      - spectra-object-data:/var/lib/versity/data
+      - spectra-object-versions:/var/lib/versity/versions
+      - spectra-object-iam:/var/lib/versity/iam
+
+  stratumind:
+    image: "${SPECTRA_STRATUMIND_IMAGE:-stratumind:api-v1.1.7}"
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c ':> /dev/tcp/127.0.0.1/6333'"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+    ports:
+      - "127.0.0.1:6333:6333"
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - spectra-stratumind-data:/qdrant/storage
+
+volumes:
+  spectra-redis-data:
+  spectra-postgres-data:
+  spectra-object-data:
+  spectra-object-versions:
+  spectra-object-iam:
+  spectra-stratumind-data:

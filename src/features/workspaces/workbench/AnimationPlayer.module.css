@@ -1,0 +1,60 @@
+.stage {
+  container-type: size;
+  display: grid;
+  height: 100%;
+  min-height: 0;
+  place-items: center;
+  width: 100%;
+}
+
+.player {
+  --airplay-button: none;
+  --captions-button: none;
+  --cast-button: none;
+  --media-primary-color: var(--app-text);
+  --media-secondary-color: color-mix(in srgb, var(--app-surface) 88%, transparent);
+  --media-object-fit: contain;
+  --media-object-position: center;
+  --pip-button: none;
+  --seek-backward-button: none;
+  --seek-forward-button: none;
+
+  background: #050608;
+  border-radius: 16px;
+  display: block;
+  height: auto;
+  max-height: 100%;
+  overflow: hidden;
+  width: 100%;
+}
+
+.player::part(top title display) {
+  display: none;
+}
+
+@supports (height: 100cqh) {
+  .player {
+    max-width: calc(100cqh * 16 / 9);
+  }
+}
+
+.player:global([media-is-fullscreen]) {
+  border: 0;
+  border-radius: 0;
+  max-height: none;
+  width: 100%;
+}
+
+@media (max-width: 640px) {
+  .player {
+    border-radius: 10px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .player,
+  .player :global(*) {
+    scroll-behavior: auto;
+    transition-duration: 0.01ms !important;
+  }
+}

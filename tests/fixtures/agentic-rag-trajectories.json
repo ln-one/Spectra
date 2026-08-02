@@ -1,0 +1,68 @@
+[
+  {
+    "id": "knowledge-simple",
+    "ordering": "strict",
+    "expected": [
+      { "stepType": "tool_call", "name": "search_workspace", "toolArgs": { "purpose": "initial" } }
+    ],
+    "prompt": "根据工作区资料回答部署流程。",
+    "surface": "studio"
+  },
+  {
+    "id": "knowledge-multihop",
+    "ordering": "strict",
+    "expected": [
+      { "stepType": "tool_call", "name": "search_workspace", "toolArgs": { "purpose": "initial" } },
+      { "stepType": "tool_call", "name": "search_workspace", "toolArgs": { "purpose": "broaden" } },
+      { "stepType": "tool_call", "name": "search_workspace", "toolArgs": { "purpose": "verify" } }
+    ],
+    "prompt": "综合工作区中的部署手册、事故记录和复盘结论回答。",
+    "surface": "studio"
+  },
+  {
+    "id": "artifact-grounded",
+    "ordering": "strict",
+    "expected": [
+      { "stepType": "tool_call", "name": "search_workspace", "toolArgs": { "purpose": "initial" } },
+      { "stepType": "tool_call", "name": "create_artifacts" }
+    ],
+    "prompt": "根据工作区资料创建一份部署流程教学文档。",
+    "surface": "studio"
+  },
+  {
+    "id": "mechanical-operation",
+    "ordering": "strict",
+    "expected": [],
+    "prompt": "你好",
+    "surface": "studio"
+  },
+  {
+    "id": "strict-selection-edit",
+    "ordering": "strict",
+    "expected": [
+      {
+        "stepType": "tool_call",
+        "name": "propose_current_teaching_document_edits"
+      }
+    ],
+    "prompt": "仅把当前选中的段落改写得更简洁，不结合资料。",
+    "surface": "selection"
+  },
+  {
+    "id": "web-only",
+    "ordering": "strict",
+    "expected": [{ "stepType": "provider_tool_call", "name": "web_search" }],
+    "prompt": "仅使用互联网搜索今天的机器学习新闻。",
+    "surface": "studio"
+  },
+  {
+    "id": "mixed-workspace-web",
+    "ordering": "unordered",
+    "expected": [
+      { "stepType": "tool_call", "name": "search_workspace", "toolArgs": { "purpose": "initial" } },
+      { "stepType": "provider_tool_call", "name": "web_search" }
+    ],
+    "prompt": "结合工作区部署手册与今天的公开云平台公告给出建议。",
+    "surface": "studio"
+  }
+]

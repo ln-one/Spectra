@@ -1,0 +1,82 @@
+services:
+  loki:
+    image: grafana/loki:3.7.4@sha256:87f0a067673756a3cede1bcbf0c74875f7df9b09fddb53e399d0c576f756cfcc
+    command: ["-config.file=/etc/loki/config.yaml"]
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - ./docker/observability/loki.yaml:/etc/loki/config.yaml:ro
+      - spectra-loki-data:/loki
+
+  grafana:
+    image: grafana/grafana:13.1.1@sha256:7cb8c64c4d57a57e734073f3cc94620adb24a0acb929bd80ba9f14017e3a975b
+    depends_on:
+      - loki
+      - tempo
+    environment:
+      GF_ANALYTICS_CHECK_FOR_PLUGIN_UPDATES: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_PLUGINS_PREINSTALL_DISABLED: "true"
+      GF_SECURITY_ADMIN_PASSWORD: spectra-local-only
+      GF_SECURITY_ADMIN_USER: spectra-admin
+      GF_SERVER_ROOT_URL: http://127.0.0.1:3001
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:3000/api/health"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    ports:
+      - "127.0.0.1:3001:3000"
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - ./docker/observability/grafana-datasources.yaml:/etc/grafana/provisioning/datasources/spectra.yaml:ro
+      - spectra-grafana-data:/var/lib/grafana
+
+  alloy:
+    image: grafana/alloy:v1.18.0@sha256:491b0578c04983fd54fe99b587b6fab4404dc46d0dc16677bd6b00cc1140b308
+    command:
+      - run
+      - /etc/alloy/config.alloy
+      - --storage.path=/var/lib/alloy/data
+      - --disable-reporting
+      - --server.http.enable-pprof=false
+    depends_on:
+      - loki
+      - tempo
+    ports:
+      - "127.0.0.1:4317:4317"
+      - "127.0.0.1:4318:4318"
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - ./docker/observability/alloy.config:/etc/alloy/config.alloy:ro
+      - ./tmp/observability:/var/log/spectra:ro
+      - spectra-alloy-data:/var/lib/alloy/data
+
+  tempo:
+    image: grafana/tempo:3.0.2@sha256:cda87c212d8c584dc0b89e337e7ed648a5100feb657e5d528480ee4fa03dbbe3
+    command: ["-config.file=/etc/tempo/config.yaml"]
+    healthcheck:
+      test: ["CMD", "/tempo", "-health", "-health.url=http://127.0.0.1:3200/ready"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - ./docker/observability/tempo.yaml:/etc/tempo/config.yaml:ro
+      - spectra-tempo-data:/var/tempo
+
+volumes:
+  spectra-alloy-data:
+  spectra-grafana-data:
+  spectra-loki-data:
+  spectra-tempo-data:

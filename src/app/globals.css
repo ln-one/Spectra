@@ -1,0 +1,159 @@
+@import "tailwindcss" source(none);
+@source "../";
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 0 0% 3.9%;
+    --border: 0 0% 89.8%;
+    --app-bg: #f9f9f9;
+    --app-surface: #ffffff;
+    --app-surface-muted: #f4f4f5;
+    --app-surface-subtle: #fafafa;
+    --app-text: #18181b;
+    --app-text-muted: #71717a;
+    --app-text-faint: #a1a1aa;
+    --app-border: #f4f4f5;
+    --app-border-strong: #d4d4d8;
+    --app-primary: #18181b;
+    --app-primary-hover: #27272a;
+    --app-on-primary: #ffffff;
+    --app-info: #1d4ed8;
+    --app-info-bg: #eff6ff;
+    --app-warning: #92400e;
+    --app-warning-bg: #fffbeb;
+    --app-danger: #dc2626;
+    --app-danger-bg: #fef2f2;
+    --app-danger-solid: #dc2626;
+    --app-danger-solid-hover: #b91c1c;
+    --app-on-danger: #ffffff;
+    --app-focus: #2563eb;
+    color-scheme: light;
+  }
+
+  [data-theme="dark"] {
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
+    --border: 240 3.7% 20%;
+    --app-bg: #09090b;
+    --app-surface: #18181b;
+    --app-surface-muted: #27272a;
+    --app-surface-subtle: #202023;
+    --app-text: #fafafa;
+    --app-text-muted: #a1a1aa;
+    --app-text-faint: #71717a;
+    --app-border: #27272a;
+    --app-border-strong: #52525b;
+    --app-primary: #f4f4f5;
+    --app-primary-hover: #e4e4e7;
+    --app-on-primary: #18181b;
+    --app-info: #93c5fd;
+    --app-info-bg: rgba(59, 130, 246, 0.14);
+    --app-warning: #fcd34d;
+    --app-warning-bg: rgba(245, 158, 11, 0.14);
+    --app-danger: #fca5a5;
+    --app-danger-bg: rgba(239, 68, 68, 0.14);
+    --app-danger-solid: #ef4444;
+    --app-danger-solid-hover: #f87171;
+    --app-on-danger: #ffffff;
+    --app-focus: #60a5fa;
+    color-scheme: dark;
+  }
+
+  * {
+    border-color: hsl(var(--border));
+  }
+
+  html {
+    font-family: var(--font-geist-sans), system-ui, sans-serif;
+    font-size: 100%;
+  }
+
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-feature-settings:
+      "rlig" 1,
+      "calt" 1;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    letter-spacing: -0.011em;
+  }
+
+  code,
+  pre,
+  kbd,
+  samp {
+    font-family: var(--font-geist-mono), monospace;
+  }
+}
+
+:where(a, button, input, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--app-focus);
+  outline-offset: 2px;
+}
+
+html[data-focus-modality="pointer"] .pointer-focus-outline:focus {
+  outline: none;
+}
+
+.marketing-snap-scroll {
+  scrollbar-width: none;
+}
+
+.marketing-snap-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+@layer utilities {
+  .auth-form-enter {
+    animation: auth-enter 500ms ease-out both;
+  }
+
+  .auth-copy-enter {
+    animation: auth-enter 700ms 150ms ease-out both;
+  }
+
+  .skip-link {
+    position: fixed;
+    top: 0.75rem;
+    left: 0.75rem;
+    z-index: 100;
+    transform: translateY(-200%);
+    border-radius: 0.75rem;
+    background: var(--app-surface);
+    padding: 0.75rem 1rem;
+    color: var(--app-text);
+    box-shadow: 0 10px 25px rgb(0 0 0 / 0.15);
+  }
+
+  .skip-link:focus {
+    transform: translateY(0);
+  }
+}
+
+@keyframes auth-enter {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-form-enter,
+  .auth-copy-enter {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@theme inline {
+  --font-sans: var(--font-geist-sans), system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), monospace;
+}

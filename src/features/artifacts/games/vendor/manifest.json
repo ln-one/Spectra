@@ -1,0 +1,24 @@
+{
+  "sidequest": {
+    "commit": "8fbdde2e4d2db8a2d7514230932bcf177b13635e",
+    "project": "https://github.com/sidequestdev/flappy-bird",
+    "snapshotSpriteSha256": "e0b20b25f9356526e9857f36ff4ce3c12be23414ee052ddb04eb3fb0d670d4d8"
+  },
+  "megacrash": {
+    "archiveSha256": "5e90a2edc3d090f3c7db367654c00e333cbf59a0da34062a4ea1984cd6c04463",
+    "curatedAssetsSha256": {
+      "bird-day.png": "25b9a53cccdbfb7fa566197b58bceb384602e85cc211c091b3eadb55168bba10",
+      "bird-night.png": "59238c0ac22fe52ed499eb399a88fcb2a395b330c74609743500d43f2eeb28b0",
+      "bird-sunset.png": "ca3dd52816e12220406a5c59388f4281701111b87afe454c4c8d9ff416bb9762",
+      "city-night.png": "52077f714bf031582d3bd150276d269a8fb864c8b0e00f7f7f771954d6ca6026",
+      "city-sunset.png": "dc2a1b798828962fe2cf959aa0a0caad93270d3b86c177e3e1da46c6ad777d42",
+      "skyline-day.png": "22d823aa3dcff40f88da4734a020ef14e101f5c40396a92f076bedae64f77d4a",
+      "tiles-day.png": "83c13f79a5231c66dfb7e0cf09eec338882ddd1cf81416ee2bec86db6da05d23",
+      "tiles-night.png": "23427bb54d88af4e7912e7a72db2ca20bca2f7c272a4266ac68785cc147c7d33",
+      "tiles-sunset.png": "68fcb48ea266d265134202bc40f1224047aa87d85e0b6d9b6a8fd2d1add4df07"
+    },
+    "license": "CC0-1.0",
+    "project": "https://megacrash.itch.io/flappy-bird-assets",
+    "version": "1.6"
+  }
+}

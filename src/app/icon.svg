@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400">
+  <defs>
+    <linearGradient id="a" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#ff3b30"/><stop offset="1" stop-color="#ff9500"/></linearGradient>
+    <linearGradient id="b" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#ffcc00"/><stop offset="1" stop-color="#4cd964"/></linearGradient>
+    <linearGradient id="c" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#5ac8fa"/><stop offset="1" stop-color="#007aff"/></linearGradient>
+    <linearGradient id="d" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#5856d6"/><stop offset="1" stop-color="#af52de"/></linearGradient>
+  </defs>
+  <g transform="translate(110.64 95)" style="mix-blend-mode:multiply">
+    <rect x="0" y="45" width="70" height="150" rx="35" fill="url(#a)" opacity=".85" transform="skewX(-15)"/>
+    <rect x="55" y="15" width="70" height="150" rx="35" fill="url(#b)" opacity=".85" transform="skewX(-15)"/>
+    <rect x="110" y="45" width="70" height="150" rx="35" fill="url(#c)" opacity=".85" transform="skewX(-15)"/>
+    <rect x="165" y="15" width="70" height="150" rx="35" fill="url(#d)" opacity=".85" transform="skewX(-15)"/>
+  </g>
+</svg>

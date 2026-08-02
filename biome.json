@@ -1,0 +1,136 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.5.3/schema.json",
+  "files": {
+    "includes": [
+      "**/*.js",
+      "**/*.mjs",
+      "**/*.ts",
+      "**/*.tsx",
+      "**/*.json",
+      "**/*.jsonc",
+      "**/*.css",
+      "!**/.next",
+      "!**/.next-e2e",
+      "!**/.codegraph",
+      "!**/.worktrees",
+      "!**/node_modules",
+      "!**/test-results",
+      "!public/deckelier",
+      "!prototypes",
+      "!src/features/artifacts/games/vendor/sidequest/src",
+      "!tests/fixtures/openhands-runner",
+      "!scripts/openhands-runner-probe.ts",
+      "!scripts/openhands-ppt-probe.ts",
+      "!scripts/openhands-ppt-integration-probe.ts",
+      "!next-env.d.ts",
+      "!package-lock.json"
+    ]
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 100
+  },
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true,
+    "defaultBranch": "main"
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "preset": "recommended",
+      "suspicious": {
+        "noImportCycles": "error"
+      }
+    }
+  },
+  "overrides": [
+    {
+      "includes": [
+        "src/**/*.ts",
+        "src/**/*.tsx",
+        "!src/**/*.test.ts",
+        "!src/**/*.test.tsx",
+        "!src/**/*.spec.ts",
+        "!src/**/*.spec.tsx"
+      ],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noConsole": "error"
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/components/**/*.ts", "src/components/**/*.tsx"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": ["@/app", "@/app/**"],
+                    "message": "Reusable components must not depend on route implementations."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/features/workspaces/**/*.ts", "src/features/workspaces/**/*.tsx"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "@/features/auth",
+                      "@/features/auth/**",
+                      "../auth",
+                      "../auth/**",
+                      "../../auth",
+                      "../../auth/**",
+                      "../../../auth",
+                      "../../../auth/**",
+                      "better-auth",
+                      "better-auth/**",
+                      "next/headers"
+                    ],
+                    "message": "Workspace modules receive Actor and must not read Auth state."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "css": {
+    "linter": {
+      "enabled": false
+    },
+    "parser": {
+      "tailwindDirectives": true
+    }
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "double",
+      "semicolons": "always",
+      "trailingCommas": "all"
+    }
+  }
+}

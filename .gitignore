@@ -1,0 +1,39 @@
+# Operating-system and application detritus
+.DS_Store
+~$*.pptx
+
+# Local environment
+.env
+.env.*
+!.env.example
+
+# Dependencies and build output
+node_modules/
+dist/
+/.next/
+/next-env.d.ts
+*.tsbuildinfo
+
+# Test and verification output
+coverage/
+/test-results/
+/.playwright-cli/
+/.next-e2e/
+/.next-e2e-*/
+/.next-verify-*/
+/.tsconfig.e2e-*
+
+# Local tools and private reference material
+/.codegraph/
+/local-reference/
+/.zcode/
+/.worktrees/
+
+# Logs and disposable runtime output
+*.log
+/output/
+/outputs/
+/artifacts/
+/tmp/
+**/__pycache__/
+*.pyc

@@ -1,0 +1,29 @@
+apiVersion: 1
+
+datasources:
+  - name: Spectra Logs
+    uid: spectra-loki
+    type: loki
+    access: proxy
+    url: http://loki:3100
+    isDefault: true
+    editable: false
+    jsonData:
+      maxLines: 200
+      timeout: 60
+  - name: Spectra Traces
+    uid: spectra-tempo
+    type: tempo
+    access: proxy
+    url: http://tempo:3200
+    editable: false
+    jsonData:
+      tracesToLogsV2:
+        datasourceUid: spectra-loki
+        filterBySpanID: true
+        filterByTraceID: true
+        spanEndTimeShift: 5m
+        spanStartTimeShift: -5m
+        tags:
+          - key: service.name
+            value: service

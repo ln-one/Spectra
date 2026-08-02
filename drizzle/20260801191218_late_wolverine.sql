@@ -1,0 +1,9 @@
+ALTER TABLE "artifact_edit_proposals" DROP CONSTRAINT "artifact_edit_proposals_kind_check";--> statement-breakpoint
+DROP INDEX "artifact_source_bundles_generation_attempt_unique";--> statement-breakpoint
+ALTER TABLE "artifact_source_bundles" ALTER COLUMN "generation_attempt_id" DROP NOT NULL;--> statement-breakpoint
+ALTER TABLE "artifact_source_bundles" ADD COLUMN "producing_run_id" uuid;--> statement-breakpoint
+ALTER TABLE "artifact_source_bundles" ADD CONSTRAINT "artifact_source_bundles_producing_run_id_ai_runs_id_fk" FOREIGN KEY ("producing_run_id") REFERENCES "public"."ai_runs"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
+CREATE UNIQUE INDEX "artifact_source_bundles_producing_run_unique" ON "artifact_source_bundles" USING btree ("producing_run_id") WHERE "artifact_source_bundles"."producing_run_id" is not null;--> statement-breakpoint
+CREATE UNIQUE INDEX "artifact_source_bundles_generation_attempt_unique" ON "artifact_source_bundles" USING btree ("generation_attempt_id") WHERE "artifact_source_bundles"."generation_attempt_id" is not null;--> statement-breakpoint
+ALTER TABLE "artifact_edit_proposals" ADD CONSTRAINT "artifact_edit_proposals_kind_check" CHECK ("artifact_edit_proposals"."kind" in ('teaching_document', 'mind_map', 'quiz', 'presentation'));--> statement-breakpoint
+ALTER TABLE "artifact_source_bundles" ADD CONSTRAINT "artifact_source_bundles_producer_check" CHECK (("artifact_source_bundles"."generation_attempt_id" is not null and "artifact_source_bundles"."producing_run_id" is null) or ("artifact_source_bundles"."generation_attempt_id" is null and "artifact_source_bundles"."producing_run_id" is not null));

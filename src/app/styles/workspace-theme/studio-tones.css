@@ -1,0 +1,295 @@
+[data-workspace-theme] {
+  --studio-accent: var(--workspace-text-muted);
+  --studio-accent-text: var(--workspace-text-muted);
+  --studio-emphasis: var(--workspace-accent);
+  --studio-on-emphasis: var(--workspace-surface-elevated);
+  --studio-surface-subtle: var(--workspace-surface-muted);
+  --studio-surface: var(--workspace-surface-elevated);
+  --studio-border: var(--workspace-border);
+  --studio-border-strong: var(--workspace-border-strong);
+  --studio-ring: var(--app-focus);
+  --studio-glow: transparent;
+  --studio-icon-surface: var(--workspace-surface-muted);
+  --studio-icon-border: var(--workspace-border);
+}
+
+[data-workspace-theme][data-studio-tone]:not([data-studio-tone="neutral"]),
+[data-workspace-theme] [data-studio-tone]:not([data-studio-tone="neutral"]) {
+  --studio-surface-subtle: color-mix(in oklab, var(--studio-accent) 7%, transparent);
+  --studio-surface: color-mix(
+    in oklab,
+    var(--studio-accent) 10%,
+    var(--workspace-surface-elevated)
+  );
+  --studio-border: color-mix(in oklab, var(--studio-accent) 28%, var(--workspace-border));
+  --studio-border-strong: color-mix(
+    in oklab,
+    var(--studio-accent) 58%,
+    var(--workspace-border-strong)
+  );
+  --studio-ring: color-mix(in oklab, var(--studio-accent) 72%, transparent);
+  --studio-glow: color-mix(in oklab, var(--studio-accent) 16%, transparent);
+  --studio-icon-surface: color-mix(
+    in oklab,
+    var(--studio-accent) 14%,
+    var(--workspace-surface-elevated)
+  );
+  --studio-icon-border: color-mix(in oklab, var(--studio-accent) 34%, var(--workspace-border));
+}
+
+[data-workspace-theme][data-studio-tone="orange"],
+[data-workspace-theme] [data-studio-tone="orange"] {
+  --studio-accent: #f97316;
+  --studio-accent-text: #c2410c;
+  --studio-emphasis: #c2410c;
+  --studio-on-emphasis: #ffffff;
+}
+
+[data-workspace-theme][data-studio-tone="blue"],
+[data-workspace-theme] [data-studio-tone="blue"] {
+  --studio-accent: #3b82f6;
+  --studio-accent-text: #2563eb;
+  --studio-emphasis: #2563eb;
+  --studio-on-emphasis: #ffffff;
+}
+
+[data-workspace-theme][data-studio-tone="teal"],
+[data-workspace-theme] [data-studio-tone="teal"] {
+  --studio-accent: #14b8a6;
+  --studio-accent-text: #0f766e;
+  --studio-emphasis: #0f766e;
+  --studio-on-emphasis: #ffffff;
+}
+
+[data-workspace-theme][data-studio-tone="rose"],
+[data-workspace-theme] [data-studio-tone="rose"] {
+  --studio-accent: #f43f5e;
+  --studio-accent-text: #be123c;
+  --studio-emphasis: #be123c;
+  --studio-on-emphasis: #ffffff;
+}
+
+[data-workspace-theme][data-studio-tone="violet"],
+[data-workspace-theme] [data-studio-tone="violet"] {
+  --studio-accent: #8b5cf6;
+  --studio-accent-text: #7c3aed;
+  --studio-emphasis: #7c3aed;
+  --studio-on-emphasis: #ffffff;
+}
+
+[data-workspace-theme][data-studio-tone="sky"],
+[data-workspace-theme] [data-studio-tone="sky"] {
+  --studio-accent: #0ea5e9;
+  --studio-accent-text: #0369a1;
+  --studio-emphasis: #0369a1;
+  --studio-on-emphasis: #ffffff;
+}
+
+[data-workspace-theme][data-studio-tone="green"],
+[data-workspace-theme] [data-studio-tone="green"] {
+  --studio-accent: #22c55e;
+  --studio-accent-text: #15803d;
+  --studio-emphasis: #15803d;
+  --studio-on-emphasis: #ffffff;
+}
+
+[data-workspace-theme][data-studio-tone="amber"],
+[data-workspace-theme] [data-studio-tone="amber"] {
+  --studio-accent: #eab308;
+  --studio-accent-text: #92400e;
+  --studio-emphasis: #92400e;
+  --studio-on-emphasis: #ffffff;
+}
+
+[data-theme="dark"] [data-workspace-theme][data-studio-tone="orange"],
+[data-theme="dark"] [data-workspace-theme] [data-studio-tone="orange"] {
+  --studio-accent: #fb923c;
+  --studio-accent-text: #fb923c;
+}
+
+[data-theme="dark"] [data-workspace-theme][data-studio-tone="blue"],
+[data-theme="dark"] [data-workspace-theme] [data-studio-tone="blue"] {
+  --studio-accent: #60a5fa;
+  --studio-accent-text: #60a5fa;
+}
+
+[data-theme="dark"] [data-workspace-theme][data-studio-tone="teal"],
+[data-theme="dark"] [data-workspace-theme] [data-studio-tone="teal"] {
+  --studio-accent: #2dd4bf;
+  --studio-accent-text: #2dd4bf;
+}
+
+[data-theme="dark"] [data-workspace-theme][data-studio-tone="rose"],
+[data-theme="dark"] [data-workspace-theme] [data-studio-tone="rose"] {
+  --studio-accent: #fb7185;
+  --studio-accent-text: #fb7185;
+}
+
+[data-theme="dark"] [data-workspace-theme][data-studio-tone="violet"],
+[data-theme="dark"] [data-workspace-theme] [data-studio-tone="violet"] {
+  --studio-accent: #a78bfa;
+  --studio-accent-text: #a78bfa;
+}
+
+[data-theme="dark"] [data-workspace-theme][data-studio-tone="sky"],
+[data-theme="dark"] [data-workspace-theme] [data-studio-tone="sky"] {
+  --studio-accent: #38bdf8;
+  --studio-accent-text: #38bdf8;
+}
+
+[data-theme="dark"] [data-workspace-theme][data-studio-tone="green"],
+[data-theme="dark"] [data-workspace-theme] [data-studio-tone="green"] {
+  --studio-accent: #4ade80;
+  --studio-accent-text: #4ade80;
+}
+
+[data-theme="dark"] [data-workspace-theme][data-studio-tone="amber"],
+[data-theme="dark"] [data-workspace-theme] [data-studio-tone="amber"] {
+  --studio-accent: #facc15;
+  --studio-accent-text: #facc15;
+}
+
+[data-workspace-theme] .workspace-tool-card-aura {
+  background: radial-gradient(circle, var(--studio-glow), transparent 68%);
+  filter: blur(14px);
+}
+
+[data-workspace-theme] .workspace-tool-card-wash {
+  background: linear-gradient(135deg, var(--studio-surface-subtle), transparent 72%);
+}
+
+[data-workspace-theme] .workspace-tool-icon-container {
+  color: var(--studio-accent-text);
+  background: var(--studio-icon-surface);
+  border-color: var(--studio-icon-border);
+  box-shadow: 0 1px 2px color-mix(in oklab, var(--studio-accent) 10%, transparent);
+}
+
+[data-workspace-theme] .workspace-artifact-tone-panel,
+[data-workspace-theme] .workspace-assistant-tone-panel {
+  border-color: var(--workspace-border);
+  transition:
+    border-color 220ms ease,
+    box-shadow 220ms ease;
+}
+
+[data-workspace-theme] .workspace-assistant-tone-panel {
+  box-shadow: var(--workspace-panel-shadow);
+}
+
+[data-workspace-theme] .workspace-artifact-header {
+  border-color: var(--workspace-border);
+}
+
+[data-workspace-theme] .workspace-artifact-canvas {
+  background:
+    radial-gradient(circle at 15% 0%, var(--studio-glow), transparent 36%),
+    var(--workspace-surface-muted);
+}
+
+[data-workspace-theme] .workspace-chat-input-shell {
+  border-color: var(--studio-border);
+  background: var(--studio-surface);
+}
+
+[data-workspace-theme] .workspace-chat-input-shell:focus-within {
+  border-color: var(--studio-border-strong);
+  box-shadow:
+    0 8px 24px rgb(0 0 0 / 0.06),
+    0 0 0 2px var(--studio-ring);
+}
+
+[data-workspace-theme] .workspace-chat-composer-input::placeholder {
+  color: color-mix(in oklab, var(--studio-accent-text) 42%, var(--workspace-text-muted));
+  opacity: 1;
+}
+
+[data-workspace-theme] .workspace-artifact-back-button {
+  color: color-mix(in oklab, var(--studio-accent-text) 52%, var(--workspace-text-primary));
+  background: color-mix(in oklab, var(--studio-accent) 5%, var(--workspace-surface-elevated));
+  border-color: color-mix(in oklab, var(--studio-accent) 16%, var(--workspace-border));
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.04);
+}
+
+[data-workspace-theme] .workspace-artifact-back-button:hover {
+  color: var(--studio-accent-text);
+  background: color-mix(in oklab, var(--studio-accent) 9%, var(--workspace-surface-elevated));
+  border-color: color-mix(in oklab, var(--studio-accent) 26%, var(--workspace-border));
+  box-shadow: 0 3px 10px rgb(0 0 0 / 0.06);
+}
+
+[data-workspace-theme] .workspace-suggestion-card {
+  border-color: color-mix(in oklab, var(--studio-accent) 12%, var(--workspace-border));
+  background: color-mix(in oklab, var(--studio-accent) 2%, var(--workspace-surface-elevated));
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.04);
+}
+
+[data-workspace-theme] button.workspace-suggestion-card:not(:disabled):hover {
+  border-color: color-mix(in oklab, var(--studio-accent) 24%, var(--workspace-border-strong));
+  background: color-mix(in oklab, var(--studio-accent) 4%, var(--workspace-surface-elevated));
+  box-shadow: 0 8px 22px rgb(0 0 0 / 0.07);
+}
+
+@keyframes workspace-suggestion-refresh-pulse {
+  0%,
+  100% {
+    opacity: 0.34;
+  }
+
+  50% {
+    opacity: 0.62;
+  }
+}
+
+[data-workspace-theme] .workspace-suggestion-content-refreshing {
+  animation: workspace-suggestion-refresh-pulse 1.8s ease-in-out infinite;
+  filter: saturate(0.25);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-workspace-theme] .workspace-suggestion-content-refreshing {
+    animation: none;
+    opacity: 0.45;
+  }
+}
+
+[data-workspace-theme] .workspace-suggestion-index {
+  color: color-mix(in oklab, var(--studio-accent-text) 46%, var(--workspace-text-muted));
+  background: color-mix(in oklab, var(--studio-accent) 6%, var(--workspace-surface-muted));
+  border: 1px solid color-mix(in oklab, var(--studio-accent) 12%, var(--workspace-border));
+}
+
+[data-workspace-theme] .workspace-document-title-input:focus-visible {
+  border-color: var(--studio-border-strong);
+  box-shadow: inset 0 -1px 0 var(--studio-border-strong);
+}
+
+[data-workspace-theme] .teaching-document-editor .tiptap[contenteditable="true"] {
+  box-shadow: 0 0 0 2px var(--studio-ring);
+}
+
+[data-workspace-theme] .mind-map-controls {
+  border-color: var(--workspace-border);
+  background: var(--workspace-surface-elevated);
+}
+
+[data-workspace-theme] .mind-map-controls button {
+  color: var(--workspace-text-primary);
+  border-color: var(--workspace-border);
+  background: var(--workspace-surface-elevated);
+}
+
+[data-workspace-theme] .mind-map-controls button:hover {
+  background: var(--workspace-surface-muted);
+}
+
+[data-workspace-theme] .mind-map-controls button svg {
+  fill: currentColor;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-workspace-theme] .workspace-artifact-tone-panel,
+  [data-workspace-theme] .workspace-assistant-tone-panel {
+    transition: none;
+  }
+}

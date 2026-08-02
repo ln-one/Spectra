@@ -1,0 +1,35 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "entry": [
+    "playwright.config.ts",
+    "tests/e2e/**/*.spec.ts",
+    "tests/e2e/global-setup.ts",
+    "tests/e2e/global-teardown.ts",
+    "scripts/artifact-dbos-recovery-worker.ts",
+    "scripts/animation-runtime-child.ts",
+    "src/features/artifacts/documents/editor.ts",
+    "src/features/artifacts/documents/export.ts",
+    "src/features/artifacts/documents/projector.ts",
+    "src/features/artifacts/mind-maps/layout.ts",
+    "src/features/workspaces/workbench/MindMapWorkspaceView.tsx",
+    "src/features/workspaces/workbench/TeachingDocumentWorkspaceView.tsx",
+    "tests/server-only.ts"
+  ],
+  "ignore": ["public/deckelier/**", "src/features/artifacts/games/vendor/sidequest/src/**"],
+  "ignoreDependencies": [
+    "@fontsource/noto-sans-sc",
+    "@remotion/fonts",
+    "@remotion/layout-utils",
+    "@remotion/media",
+    "@remotion/transitions",
+    "remotion"
+  ],
+  "ignoreIssues": {
+    "packages/deckelier-contracts/src/index.ts": ["exports", "types"],
+    "src/features/maintenance/cleanup-dbos-worker.ts": ["exports"],
+    "src/features/knowledge/dbos-worker.ts": ["exports"],
+    "src/features/sources/ingestion/dbos-worker.ts": ["exports"],
+    "src/features/sources/ingestion/dbos.ts": ["exports"]
+  },
+  "playwright": false
+}
