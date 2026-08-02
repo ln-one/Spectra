@@ -140,8 +140,6 @@ for (const viewport of viewports) {
 }
 
 test("keeps the desktop Workbench usable at 1024 by 768", async ({ page }) => {
-  test.skip(Boolean(process.env.CI), "Workbench browser layout is verified locally and manually.");
-
   const fixture = JSON.parse(await readFile(e2eWorkspacePath, "utf8")) as { url: string };
   await page.setViewportSize({ width: 1024, height: 768 });
   await page.goto(fixture.url, { waitUntil: "domcontentloaded" });

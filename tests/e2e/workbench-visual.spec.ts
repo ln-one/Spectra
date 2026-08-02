@@ -1509,8 +1509,6 @@ test("collapses and restores the sources panel", async ({ page }) => {
 });
 
 test("renders a compact icon rail when the sources panel is collapsed", async ({ page }) => {
-  test.skip(Boolean(process.env.CI), "Sources rail interaction is verified locally and manually.");
-
   await page.goto(fixtureUrl, { waitUntil: "networkidle" });
 
   const sources = page.locator("[data-testid='sources-panel']");
