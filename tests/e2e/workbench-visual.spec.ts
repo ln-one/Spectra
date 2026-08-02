@@ -1628,9 +1628,24 @@ test("supports keyboard navigation through page and account preferences", async 
   await expect(lightTheme).toBeChecked();
 });
 
-test("signs out from the Workbench account menu", async ({ page }) => {
-  await page.goto(fixtureUrl);
-  await page.getByLabel("打开账户菜单").click();
-  await page.getByRole("menuitem", { name: "退出登录" }).click();
-  await expect(page).toHaveURL(/\/auth\/login$/);
+test("signs out from the Workbench account menu", async ({ browser }) => {
+  const context = await browser.newContext({
+    storageState: { cookies: [], origins: [] },
+  });
+
+  try {
+    const page = await context.newPage();
+    await page.goto("/auth/login");
+    await page.getByLabel("邮箱").fill("spectra-e2e@example.com");
+    await page.getByLabel("密码").fill("Spectra2026E2E!!");
+    await page.getByRole("button", { name: "登录", exact: true }).click();
+    await expect(page).toHaveURL(/\/workspaces$/);
+
+    await page.goto(fixtureUrl);
+    await page.getByLabel("打开账户菜单").click();
+    await page.getByRole("menuitem", { name: "退出登录" }).click();
+    await expect(page).toHaveURL(/\/auth\/login$/);
+  } finally {
+    await context.close();
+  }
 });

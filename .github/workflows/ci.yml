@@ -21,7 +21,7 @@ jobs:
   quality:
     name: Quality
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 15
     services:
       postgres:
         image: postgres:18-alpine
@@ -52,7 +52,7 @@ jobs:
   browser:
     name: Browser
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 15
     services:
       postgres:
         image: postgres:18-alpine
@@ -64,6 +64,29 @@ jobs:
           - 5432:5432
         options: >-
           --health-cmd "pg_isready -U spectra -d spectra_test"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 20
+      redis:
+        image: redis:8.4.0-alpine@sha256:4eec4565e45aa0b3966554c866bc73211e281b0b3d89fe9a33c982e6faca809d
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 20
+      object-storage:
+        image: versity/versitygw:v1.4.1@sha256:0400cb59f59da0f1cf9f7fd49505191abc348dfadf54509bf1988caaff4eb96
+        env:
+          ROOT_ACCESS_KEY_ID: spectra-local
+          ROOT_SECRET_ACCESS_KEY: spectra-local-only
+          VGW_QUIET: "true"
+          VGW_REGION: us-east-1
+        ports:
+          - 7070:7070
+        options: >-
+          --health-cmd "wget -q -O /dev/null http://127.0.0.1:7070/health"
           --health-interval 2s
           --health-timeout 3s
           --health-retries 20
