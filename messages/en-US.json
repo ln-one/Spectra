@@ -182,12 +182,18 @@
     "allowReferencesNote": "On by default. Your private libraries can still be reused by your own projects."
   },
   "Marketing": {
-    "assemblyInput": "INPUT · MULTIMODAL SOURCES",
-    "assemblyOutput": "OUTPUT · SIX CREATIONS",
-    "assemblyContext": "KNOWLEDGE CONTEXT",
-    "assemblyUnderstanding": "Understanding the sources",
-    "assemblyUnderstandingDetail": "Extract · Connect · Organize",
-    "assemblyExpressing": "One context, many expressions"
+    "portalHeroEyebrow": "SPECTRA KNOWLEDGE WORKBENCH",
+    "portalHeroTitle": "Turn sources into living work.",
+    "portalHeroSubtitle": "Sources, dialogue and six ways to create — always in one workbench. Understand first, then express.",
+    "portalHeroHint": "Scroll to watch sources become creations",
+    "portalActGather": "More than upload. Understand how they relate first.",
+    "portalActGatherDetail": "Each source keeps its form and color as they begin to travel together.",
+    "portalActContext": "Many forms converge into one knowledge context.",
+    "portalActContextDetail": "Topics, structure, facts and clues are extracted one by one.",
+    "portalActPrism": "Understood. Now choose an expression.",
+    "portalActPrismDetail": "One context, about to be transformed.",
+    "portalActRefraction": "One body of knowledge, refracted into six creations.",
+    "portalActRefractionDetail": "Each ray maps to a real Studio artifact."
   },
   "Workbench": {
     "skipToContent": "Skip to workspace content",

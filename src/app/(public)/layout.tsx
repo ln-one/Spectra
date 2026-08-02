@@ -4,6 +4,8 @@ import { getLocale, getMessages } from "next-intl/server";
 import { geistMono, geistSans } from "../app-fonts";
 import { AppThemeProvider } from "../providers";
 import "../globals.css";
+import "../styles/workspace-theme/common.css";
+import "../styles/workspace-theme/studio-tones.css";
 
 export const metadata: Metadata = {
   title: "Spectra",
