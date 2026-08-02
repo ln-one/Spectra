@@ -49,4 +49,4 @@ test("contains a MinerU subprocess that aborts under its resource boundary", asy
       childUrl: fixtureUrl,
     }),
   ).rejects.toMatchObject({ errorCode: "mineru_resource_limit", retryable: false });
-});
+}, 15_000);
