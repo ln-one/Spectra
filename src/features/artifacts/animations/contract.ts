@@ -3,7 +3,7 @@ import { artifactGroundingBundleSchema } from "@/features/artifacts/grounding";
 import { taskAgentAttemptPhaseSchema } from "@/features/artifacts/task-agent/attempt";
 
 const ANIMATION_RECIPE_VERSION = "animation-remotion-v1";
-export const ANIMATION_RENDERER_VERSION = "remotion-4.0.496";
+export const ANIMATION_RENDERER_VERSION = "remotion-4.0.504";
 const animationStageSchema = taskAgentAttemptPhaseSchema;
 
 export const animationGenerationDraftSchema = z

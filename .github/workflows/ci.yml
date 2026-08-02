@@ -42,6 +42,10 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: npm
+      - name: Configure Tiptap Pro registry
+        uses: ./.github/actions/setup-tiptap-pro-registry
+        with:
+          token: ${{ secrets.TIPTAP_PRO_TOKEN }}
       - run: npm ci
       - run: npm run verify
 
@@ -69,6 +73,10 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: npm
+      - name: Configure Tiptap Pro registry
+        uses: ./.github/actions/setup-tiptap-pro-registry
+        with:
+          token: ${{ secrets.TIPTAP_PRO_TOKEN }}
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - run: npm run verify:browser
@@ -77,26 +85,20 @@ jobs:
     name: Knowledge Offline Acceptance
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    env:
+      SPECTRA_STRATUMIND_IMAGE: ghcr.io/ln-one/stratumind@sha256:5792dc0ec7836499d6001703c57c2f781378e0aa24c7316000b39ecd0ec93de0
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-        with:
-          repository: ln-one/Stratumind
-          ref: c2bd63c8ebb080119d1785b94803e5ad3db1c0a4
-          path: .ci/stratumind
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version-file: .nvmrc
           cache: npm
-      - uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4
-      - name: Build pinned Stratumind acceptance runtime
-        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
+      - name: Configure Tiptap Pro registry
+        uses: ./.github/actions/setup-tiptap-pro-registry
         with:
-          context: .ci/stratumind
-          load: true
-          tags: stratumind:api-v1.1.7
-          cache-from: type=gha,scope=stratumind-api-v1.1.7
-          cache-to: type=gha,mode=max,scope=stratumind-api-v1.1.7,ignore-error=true
+          token: ${{ secrets.TIPTAP_PRO_TOKEN }}
+      - name: Pull published Stratumind acceptance image
+        run: docker pull "$SPECTRA_STRATUMIND_IMAGE"
       - run: npm ci
       - run: npm run knowledge:acceptance:infra:up
       - run: npm run knowledge:acceptance:offline

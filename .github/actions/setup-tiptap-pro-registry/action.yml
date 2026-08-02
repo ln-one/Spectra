@@ -1,0 +1,28 @@
+name: Configure Tiptap Pro registry
+description: Configure a runner-local npmrc for installing Tiptap Pro packages
+inputs:
+  token:
+    description: Tiptap Pro registry token
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Write runner-local npm configuration
+      shell: bash
+      env:
+        TIPTAP_PRO_TOKEN: ${{ inputs.token }}
+      run: |
+        set -euo pipefail
+        if [[ -z "$TIPTAP_PRO_TOKEN" ]]; then
+          echo "TIPTAP_PRO_TOKEN is required to install @tiptap-pro packages" >&2
+          exit 1
+        fi
+
+        npmrc="$RUNNER_TEMP/spectra-tiptap.npmrc"
+        umask 077
+        {
+          printf '%s\n' 'registry=https://registry.npmjs.org/'
+          printf '%s\n' '@tiptap-pro:registry=https://registry.tiptap.dev/'
+          printf '%s\n' "//registry.tiptap.dev/:_authToken=$TIPTAP_PRO_TOKEN"
+        } > "$npmrc"
+        printf 'NPM_CONFIG_USERCONFIG=%s\n' "$npmrc" >> "$GITHUB_ENV"

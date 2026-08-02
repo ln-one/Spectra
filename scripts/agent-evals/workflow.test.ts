@@ -72,6 +72,10 @@ describe("AI evaluation workflow", () => {
     expect(knowledgeRun?.env?.DASHSCOPE_API_KEY).toContain("secrets.DASHSCOPE_API_KEY");
     for (const job of [workflow.jobs.agent, workflow.jobs.knowledge]) {
       for (const step of job.steps.filter((candidate) => candidate.uses)) {
+        if (step.uses?.startsWith("./")) {
+          expect(step.uses).toBe("./.github/actions/setup-tiptap-pro-registry");
+          continue;
+        }
         expect(step.uses).toMatch(/@[a-f0-9]{40}$/);
         expect(step.env?.DASHSCOPE_API_KEY).toBeUndefined();
       }
