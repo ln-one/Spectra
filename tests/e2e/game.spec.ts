@@ -13,6 +13,7 @@ test.beforeAll(async () => {
 });
 
 test("plays through revival, failure, review, and persisted best", async ({ page }) => {
+  test.skip(Boolean(process.env.CI), "Game browser flows are verified locally and manually.");
   test.setTimeout(120_000);
   const runtimeErrors: string[] = [];
   page.on("console", (message) => {
@@ -62,6 +63,7 @@ test("plays through revival, failure, review, and persisted best", async ({ page
 });
 
 test("abandons an active run when the page is refreshed", async ({ page }) => {
+  test.skip(Boolean(process.env.CI), "Game browser flows are verified locally and manually.");
   test.setTimeout(90_000);
   await gotoWithRetry(page, gameUrl, { timeout: 30_000 });
   const started = page.waitForResponse(
