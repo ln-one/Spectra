@@ -47,6 +47,12 @@ jobs:
         with:
           token: ${{ secrets.TIPTAP_PRO_TOKEN }}
       - run: npm ci
+      - name: Migrate application database
+        run: npm run db:migrate
+      - name: Migrate Better Auth database
+        run: npm run auth:migrate
+      - name: Initialize DBOS system tables
+        run: npm run dbos:setup
       - run: npm run verify
 
   browser:
@@ -77,7 +83,7 @@ jobs:
           --health-timeout 3s
           --health-retries 20
       object-storage:
-        image: versity/versitygw:v1.4.1@sha256:0400cb59f59da0f1cf9f7fd49505191abc348dfadf54509bf1988caaff4eb96
+        image: versity/versitygw:v1.4.1@sha256:0400cb59f59da0f1cf9f7fd49505191abc348dfadf54509bf1988caaff4eb96f
         env:
           ROOT_ACCESS_KEY_ID: spectra-local
           ROOT_SECRET_ACCESS_KEY: spectra-local-only
