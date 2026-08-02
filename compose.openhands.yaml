@@ -1,0 +1,33 @@
+services:
+  openhands:
+    image: "${OPENHANDS_RUNTIME_IMAGE:-ghcr.io/ln-one/spectra-agent-runtime@sha256:62a919a1b8380c524dbb9fc7e082e202a4943d4303e45414c9510aed00fdc7dc}"
+    platform: "${OPENHANDS_RUNTIME_PLATFORM:-linux/amd64}"
+    profiles:
+      - openhands
+    restart: unless-stopped
+    environment:
+      SESSION_API_KEY: "${OPENHANDS_RUNTIME_API_KEY:?OPENHANDS_RUNTIME_API_KEY is required}"
+      OH_SECRET_KEY: "${OPENHANDS_SECRET_KEY:?OPENHANDS_SECRET_KEY is required}"
+      OH_ENABLE_VNC: "false"
+      OH_ENABLE_VSCODE: "false"
+      UNSPLASH_ACCESS_KEY: "${UNSPLASH_ACCESS_KEY:-}"
+    command: ["--host", "0.0.0.0", "--port", "8000"]
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - spectra-openhands-data:/workspace/spectra
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          curl --fail --silent
+          --header "X-Session-API-Key: $${SESSION_API_KEY}"
+          http://127.0.0.1:8000/ready
+          >/dev/null
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 10s
+
+volumes:
+  spectra-openhands-data:

@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "image": "ghcr.io/ln-one/spectra-agent-runtime@sha256:62a919a1b8380c524dbb9fc7e082e202a4943d4303e45414c9510aed00fdc7dc",
+  "source": {
+    "repository": "https://github.com/ln-one/spectra-agent-runtime",
+    "commit": "088c179e15ed2d8ca09a39f94134c6f55ccddaa6"
+  },
+  "platforms": ["linux/amd64"],
+  "api": {
+    "port": 8000,
+    "healthPath": "/ready",
+    "apiKeyHeader": "X-Session-API-Key"
+  }
+}

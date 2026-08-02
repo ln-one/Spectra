@@ -58,6 +58,30 @@ describe("CI workflow contracts", () => {
     }
   });
 
+  it("pins the public Agent Runtime for the local OpenHands Compose profile", async () => {
+    const [compose, envExample, lockSource] = await Promise.all([
+      readFile("compose.openhands.yaml", "utf8"),
+      readFile(".env.example", "utf8"),
+      readFile("runtime.lock.json", "utf8"),
+    ]);
+    const lock = JSON.parse(lockSource) as {
+      image?: unknown;
+      platforms?: unknown;
+    };
+    const image = lock.image;
+
+    expect(typeof image).toBe("string");
+    expect(image).toMatch(/^ghcr\.io\/ln-one\/spectra-agent-runtime@sha256:[a-f0-9]{64}$/);
+    expect(lock.platforms).toEqual(["linux/amd64"]);
+    expect(compose).toContain(`image: "\${OPENHANDS_RUNTIME_IMAGE:-${image}}"`);
+    const platformPlaceholder = ["$", "{OPENHANDS_RUNTIME_PLATFORM:-linux/amd64}"].join("");
+    expect(compose).toContain(`platform: "${platformPlaceholder}"`);
+    expect(compose).toContain('SESSION_API_KEY: "${OPENHANDS_RUNTIME_API_KEY:?');
+    expect(compose).toContain('OH_SECRET_KEY: "${OPENHANDS_SECRET_KEY:?');
+    expect(compose).toContain("profiles:");
+    expect(envExample).toContain(`OPENHANDS_RUNTIME_IMAGE=${image}`);
+  });
+
   it("keeps registry credentials outside the repository and npm cache", async () => {
     const action = await readFile(".github/actions/setup-tiptap-pro-registry/action.yml", "utf8");
 
