@@ -14,6 +14,7 @@ import {
 import { knowledgeStructuredContentHash } from "../../src/features/knowledge/integrity";
 import { expectNoSeriousAccessibilityViolations } from "./accessibility";
 import { e2eBaseUrl, e2eOtherAuthStatePath, e2eWorkspacePath } from "./environment";
+import { waitForWorkbenchLayout } from "./workbench-readiness";
 
 let fixtureUrl: string;
 let fixture: {
@@ -467,14 +468,15 @@ test("keeps the pending indicator while a refresh resumes exactly one active ans
   });
 
   await page.goto(fixture.resumeUrl, { waitUntil: "domcontentloaded" });
-  await expect(page.getByText("刷新恢复测试", { exact: true })).toBeVisible();
+  await waitForWorkbenchLayout(page);
+  await expect(page.getByText("刷新恢复测试", { exact: true })).toBeVisible({ timeout: 15_000 });
   await expect.poll(() => resumeRequests).toBe(1);
   await expect(page.getByText("正在准备回答…", { exact: true })).toBeVisible();
   await page.reload({ waitUntil: "domcontentloaded" });
-  await expect(page.getByText("刷新恢复测试", { exact: true })).toBeVisible();
+  await expect(page.getByText("刷新恢复测试", { exact: true })).toBeVisible({ timeout: 15_000 });
   await expect(page.getByText("正在准备回答…", { exact: true })).toBeVisible();
   await page.reload({ waitUntil: "domcontentloaded" });
-  await expect(page.getByText("刷新恢复测试", { exact: true })).toBeVisible();
+  await expect(page.getByText("刷新恢复测试", { exact: true })).toBeVisible({ timeout: 15_000 });
   await expect(page.getByText("正在准备回答…", { exact: true })).toBeVisible();
   expect(resumeRequests).toBe(3);
 
@@ -925,10 +927,12 @@ test("previews and promotes mind-map AI changes without remounting or moving the
   });
 
   await page.goto(`${fixtureUrl}&artifact=${fixture.mindMapArtifactId}`, {
-    waitUntil: "networkidle",
+    waitUntil: "domcontentloaded",
   });
   const workspace = page.getByTestId("mind-map-workspace");
   const flowNodes = workspace.locator(".react-flow__node");
+  await expect(workspace).toBeVisible({ timeout: 15_000 });
+  await expect.poll(() => flowNodes.count(), { timeout: 15_000 }).toBeGreaterThanOrEqual(3);
   const visibleNodes = await flowNodes.evaluateAll((nodes) =>
     nodes.map((node) => ({
       id: node.getAttribute("data-id") ?? "",
@@ -1075,7 +1079,7 @@ test("restores and edits a mind map through History", async ({ page }) => {
     workspace.locator(".react-flow__node").getByText("Edited branch", { exact: true }),
   ).toBeVisible();
   await workspace.getByRole("button", { name: "保存" }).click();
-  await expect(workspace.getByRole("button", { name: "编辑" })).toBeVisible();
+  await expect(workspace.getByRole("button", { name: "编辑" })).toBeVisible({ timeout: 15_000 });
   await expect(
     workspace.locator(".react-flow__node").getByText("Edited branch", { exact: true }),
   ).toBeVisible();
@@ -1466,6 +1470,7 @@ test("exposes keyboard-accessible panel separators", async ({ page }) => {
 
 test("collapses and restores the sources panel", async ({ page }) => {
   await page.goto(fixtureUrl, { waitUntil: "networkidle" });
+  await waitForWorkbenchLayout(page);
 
   const sources = page.locator("[data-testid='sources-panel']");
   const rightHandle = page.locator("[data-testid='chat-sources-resizer']");
@@ -1475,7 +1480,12 @@ test("collapses and restores the sources panel", async ({ page }) => {
   await page.mouse.down();
   await page.mouse.move(rightBox.x + 260, rightBox.y + 100);
   await page.mouse.up();
-  expect(Math.abs(((await sources.boundingBox())?.width ?? 0) - 56)).toBeLessThanOrEqual(1);
+  await expect
+    .poll(async () => (await sources.boundingBox())?.width ?? 0, { timeout: 15_000 })
+    .toBeGreaterThanOrEqual(55);
+  await expect
+    .poll(async () => (await sources.boundingBox())?.width ?? 0, { timeout: 15_000 })
+    .toBeLessThanOrEqual(57);
 
   await page.getByRole("button", { name: "展开资料来源" }).click();
   expect((await sources.boundingBox())?.width ?? 0).toBeGreaterThanOrEqual(214);
@@ -1591,6 +1601,7 @@ test("keeps authenticated pages within the accessibility baseline", async ({ pag
 
   await page.emulateMedia({ colorScheme: "dark", reducedMotion: "reduce" });
   await page.goto(fixtureUrl);
+  await waitForWorkbenchLayout(page);
   await expectNoSeriousAccessibilityViolations(page);
   const composer = page.getByPlaceholder("输入你的想法或任务");
   await composer.focus();

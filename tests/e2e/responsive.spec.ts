@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { expect, type Locator, type Page, test } from "@playwright/test";
 import { e2eAuthStatePath, e2eWorkspacePath } from "./environment";
+import { waitForPanelMinimums, waitForWorkbenchLayout } from "./workbench-readiness";
 
 const viewports = [
   { width: 375, height: 812 },
@@ -141,7 +142,13 @@ for (const viewport of viewports) {
 test("keeps the desktop Workbench usable at 1024 by 768", async ({ page }) => {
   const fixture = JSON.parse(await readFile(e2eWorkspacePath, "utf8")) as { url: string };
   await page.setViewportSize({ width: 1024, height: 768 });
-  await page.goto(fixture.url, { waitUntil: "networkidle" });
+  await page.goto(fixture.url, { waitUntil: "domcontentloaded" });
+  await waitForWorkbenchLayout(page);
+  await waitForPanelMinimums(page, [
+    { id: "studio-panel", pixels: 260 },
+    { id: "chat-panel", pixels: 420 },
+    { id: "sources-panel", pixels: 214 },
+  ]);
 
   const panels = await Promise.all(
     ["studio-panel", "chat-panel", "sources-panel"].map(async (testId) => {

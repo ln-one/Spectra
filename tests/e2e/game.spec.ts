@@ -19,12 +19,14 @@ test("plays through revival, failure, review, and persisted best", async ({ page
   });
   page.on("pageerror", (error) => runtimeErrors.push(error.message));
 
-  await page.goto(gameUrl, { waitUntil: "networkidle" });
-  await expect(page.getByRole("heading", { name: "飞跃复活验收游戏" }).first()).toBeVisible();
-  await expect(page.getByText("题库", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "开始游戏" }).click();
+  await page.goto(gameUrl, { waitUntil: "domcontentloaded" });
+  await expect(page.getByRole("heading", { name: "飞跃复活验收游戏" }).first()).toBeVisible({
+    timeout: 15_000,
+  });
+  await expect(page.getByText("题库", { exact: true })).toBeVisible({ timeout: 15_000 });
+  await page.getByRole("button", { name: "开始游戏" }).click({ timeout: 15_000 });
   const canvas = page.getByLabel("飞跃复活游戏舞台");
-  await expect(canvas).toBeVisible();
+  await expect(canvas).toBeVisible({ timeout: 15_000 });
   await canvas.click();
   await expect(page.getByRole("heading", { name: "飞行结束" })).toBeVisible({ timeout: 10_000 });
   await page.getByRole("button", { name: "知识复活" }).click();
@@ -53,19 +55,19 @@ test("plays through revival, failure, review, and persisted best", async ({ page
   await lastQuestionInRound.scrollIntoViewIfNeeded();
   await expect(lastQuestionInRound).toBeVisible();
 
-  await page.reload({ waitUntil: "networkidle" });
-  await expect(page.getByRole("button", { name: "开始游戏" })).toBeVisible();
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await expect(page.getByRole("button", { name: "开始游戏" })).toBeVisible({ timeout: 15_000 });
   expect(runtimeErrors).toEqual([]);
 });
 
 test("abandons an active run when the page is refreshed", async ({ page }) => {
-  await page.goto(gameUrl, { waitUntil: "networkidle" });
+  await page.goto(gameUrl, { waitUntil: "domcontentloaded" });
   const started = page.waitForResponse(
     (response) =>
       response.request().method() === "POST" &&
       /\/api\/artifacts\/game\/[^/]+\/runs\?/.test(response.url()),
   );
-  await page.getByRole("button", { name: "开始游戏" }).click();
+  await page.getByRole("button", { name: "开始游戏" }).click({ timeout: 15_000 });
   const startBody = (await (await started).json()) as { run: { id: string } };
   const parsedUrl = new URL(gameUrl, "http://localhost");
   const artifactId = parsedUrl.searchParams.get("artifact");
@@ -73,8 +75,8 @@ test("abandons an active run when the page is refreshed", async ({ page }) => {
   expect(artifactId).toBeTruthy();
   expect(workspaceId).toBeTruthy();
 
-  await page.reload({ waitUntil: "networkidle" });
-  await expect(page.getByRole("button", { name: "开始游戏" })).toBeVisible();
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await expect(page.getByRole("button", { name: "开始游戏" })).toBeVisible({ timeout: 15_000 });
   await expect
     .poll(async () => {
       const response = await page.request.get(
