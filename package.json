@@ -114,7 +114,6 @@
     "@remotion/transitions": "4.0.496",
     "@t3-oss/env-nextjs": "0.13.11",
     "@tanstack/react-query": "5.101.2",
-    "@tiptap-pro/extension-export-docx": "^0.26.1",
     "@tiptap/core": "3.29.1",
     "@tiptap/extension-code-block": "3.29.1",
     "@tiptap/extension-mathematics": "3.29.1",
