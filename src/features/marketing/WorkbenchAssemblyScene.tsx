@@ -100,8 +100,11 @@ export function WorkbenchAssemblyScene() {
           );
           const glow = stage.querySelector<HTMLElement>("[data-portal-glow]");
           const prism = stage.querySelector<HTMLElement>("[data-portal-prism]");
-          const prismShine = stage.querySelector<SVGPolygonElement>("[data-prism-shine]");
+          const prismShine = stage.querySelector<HTMLElement>("[data-prism-shine]");
+          const prismBlobs = Array.from(stage.querySelectorAll<HTMLElement>("[data-prism-blob]"));
           const raysSvg = stage.querySelector<SVGSVGElement>("[data-portal-rays]");
+          const beamPaths = Array.from(stage.querySelectorAll<SVGPathElement>("[data-beam]"));
+          const exitGlows = Array.from(stage.querySelectorAll<HTMLElement>("[data-exit-glow]"));
           const rayHalos = Array.from(stage.querySelectorAll<SVGPathElement>("[data-ray-halo]"));
           const rayCores = Array.from(stage.querySelectorAll<SVGPathElement>("[data-ray-core]"));
           const targetSources = Array.from(
@@ -177,14 +180,41 @@ export function WorkbenchAssemblyScene() {
           const stageCenterX = () => stage.clientWidth / 2;
           const stageCenterY = () => stage.clientHeight / 2;
 
-          // Refit the refracted rays and particle origins to the current layout.
+          // Refit rays, particle origins and card widths to the current layout.
           // Runs before ScrollTrigger re-invalidates function-based tween values.
+          // Card widths are synced to the real panel slots in CSS (not transform),
+          // so the landing flight is a pure translation — no stretched, blurry text.
           const layoutFx = () => {
             const width = stage.clientWidth;
             const height = stage.clientHeight;
             raysSvg.setAttribute("viewBox", `0 0 ${width} ${height}`);
             const cx = width / 2;
             const cy = height / 2;
+            sourceCards.forEach((card, index) => {
+              const target = targetSources[index];
+              if (target && target.offsetWidth > 0) card.style.width = `${target.offsetWidth}px`;
+            });
+            toolCards.forEach((card, index) => {
+              const target = targetTools[index];
+              if (target && target.offsetWidth > 0) card.style.width = `${target.offsetWidth}px`;
+            });
+            // The white beam enters the right facet, crosses the glass, and all six
+            // rays leave from one shared exit point on the left facet. The CSS prism
+            // spans (cx, cy-108) apex → (cx±106, cy+82) base corners.
+            const entryX = cx + 56;
+            const entryY = cy - 8;
+            const exitY = cy + 6;
+            const exitX = cx - (106 * (exitY - (cy - 108))) / 190 - 2;
+            beamPaths.forEach((path) => {
+              path.setAttribute("d", `M ${entryX} ${entryY} L ${exitX} ${exitY}`);
+              const length = path.getTotalLength();
+              path.style.strokeDasharray = `${length}`;
+              path.style.strokeDashoffset = `${length}`;
+            });
+            exitGlows.forEach((glowSpot) => {
+              glowSpot.style.left = `${exitX}px`;
+              glowSpot.style.top = `${exitY}px`;
+            });
             rayCores.forEach((core, index) => {
               const card = toolCards[index];
               const halo = rayHalos[index];
@@ -192,9 +222,9 @@ export function WorkbenchAssemblyScene() {
               const cardBox = measureWithinStage(card);
               const tx = cardBox.centerX;
               const ty = cardBox.centerY;
-              const d = `M ${cx} ${cy} C ${cx + (tx - cx) * 0.3} ${cy + (ty - cy) * 0.08}, ${
-                cx + (tx - cx) * 0.72
-              } ${cy + (ty - cy) * 0.92}, ${tx} ${ty}`;
+              const d = `M ${exitX} ${exitY} C ${exitX + (tx - exitX) * 0.3} ${
+                exitY + (ty - exitY) * 0.12
+              }, ${exitX + (tx - exitX) * 0.72} ${exitY + (ty - exitY) * 0.88}, ${tx} ${ty}`;
               core.setAttribute("d", d);
               halo.setAttribute("d", d);
               for (const path of [core, halo]) {
@@ -232,8 +262,24 @@ export function WorkbenchAssemblyScene() {
           });
           gsap.set(actCopies, { opacity: 0, y: 14 });
           gsap.set(particles, { opacity: 0, scale: 0.7 });
-          gsap.set(glow, { opacity: 0, scale: 0.3, transformOrigin: "50% 50%" });
-          gsap.set(prism, { opacity: 0, scale: 0.82, transformOrigin: "50% 50%" });
+          gsap.set(raysSvg, { opacity: 0 });
+          gsap.set(prismBlobs, { opacity: 0 });
+          gsap.set(glow, {
+            opacity: 0,
+            scale: 0.3,
+            transformOrigin: "50% 50%",
+            x: 56,
+            y: -8,
+            xPercent: -50,
+            yPercent: -50,
+          });
+          gsap.set(prism, {
+            opacity: 0,
+            scale: 0.82,
+            transformOrigin: "50% 50%",
+            xPercent: -50,
+            yPercent: -50,
+          });
 
           const timeline = gsap.timeline({
             defaults: { ease: "power2.inOut" },
@@ -252,6 +298,22 @@ export function WorkbenchAssemblyScene() {
           ScrollTrigger.addEventListener("refreshInit", layoutFx);
           layoutFx();
 
+          // Ambient blobs drift slowly so the glass prism picks up living light.
+          if (!prefersReducedMotion) {
+            const driftX = [18, -16, 12] as const;
+            const driftY = [-12, 10, -8] as const;
+            prismBlobs.forEach((blob, index) => {
+              gsap.to(blob, {
+                duration: 6 + index * 1.4,
+                ease: "sine.inOut",
+                repeat: -1,
+                x: driftX[index % driftX.length] ?? 0,
+                y: driftY[index % driftY.length] ?? 0,
+                yoyo: true,
+              });
+            });
+          }
+
           const ease = prefersReducedMotion ? "none" : "power2.inOut";
 
           // ── Act 1 → 2 · sources fall in line and travel together ──────────
@@ -267,7 +329,6 @@ export function WorkbenchAssemblyScene() {
                 duration: 0.09,
                 ease,
                 rotation: 0,
-                scale: 0.94,
                 x: () => flyDelta(card, slot).x,
                 y: () => flyDelta(card, slot).y,
               },
@@ -299,8 +360,8 @@ export function WorkbenchAssemblyScene() {
                 {
                   duration: 0.075,
                   ease: prefersReducedMotion ? "none" : "power2.in",
-                  x: () => stageCenterX() + (((index * 31) % 13) - 6),
-                  y: () => stageCenterY() + (((index * 71) % 11) - 5),
+                  x: () => stageCenterX() + 56 + (((index * 31) % 13) - 6),
+                  y: () => stageCenterY() - 8 + (((index * 71) % 11) - 5),
                 },
                 t0 + 0.008,
               )
@@ -322,8 +383,8 @@ export function WorkbenchAssemblyScene() {
 
           // ── Act 3 → 4 · the white context enters the prism ────────────────
           timeline
-            .to(actCopies[1], { opacity: 0, y: -10, duration: 0.03 }, 0.25)
-            .to(actCopies[2], { opacity: 1, y: 0, duration: 0.04 }, 0.26)
+            .to(actCopies[1], { opacity: 0, y: -10, duration: 0.03 }, 0.22)
+            .to(actCopies[2], { opacity: 1, y: 0, duration: 0.04 }, 0.23)
             .to(
               prism,
               {
@@ -332,21 +393,34 @@ export function WorkbenchAssemblyScene() {
                 opacity: 1,
                 scale: 1,
               },
-              0.25,
+              0.23,
             )
-            .to(glow, { opacity: 0.5, scale: 0.55, duration: 0.05, ease }, 0.27)
+            .to(prismBlobs, { opacity: 1, duration: 0.06, ease }, 0.23)
+            .to(glow, { opacity: 0.55, scale: 0.4, duration: 0.05, ease }, 0.26)
+            .set(raysSvg, { opacity: 1 }, 0.275)
+            .fromTo(
+              beamPaths,
+              { strokeDashoffset: (_i, element: SVGPathElement) => element.getTotalLength() },
+              {
+                duration: 0.04,
+                ease: prefersReducedMotion ? "none" : "power1.in",
+                strokeDashoffset: 0,
+              },
+              0.29,
+            )
             .fromTo(
               prismShine,
-              { opacity: 0.12 },
-              { duration: 0.03, ease: "none", opacity: 0.65, repeat: 3, yoyo: true },
-              0.28,
+              { opacity: 0.1 },
+              { duration: 0.03, ease: "none", opacity: 0.5, repeat: 3, yoyo: true },
+              0.3,
             );
 
           // ── Act 4 → 5 · refraction into six creations ─────────────────────
           timeline
             .to(actCopies[2], { opacity: 0, y: -10, duration: 0.03 }, 0.34)
             .to(actCopies[3], { opacity: 1, y: 0, duration: 0.04 }, 0.35)
-            .to(glow, { opacity: 0.22, duration: 0.08, ease }, 0.36);
+            .to(glow, { opacity: 0.2, duration: 0.08, ease }, 0.36)
+            .fromTo(exitGlows, { opacity: 0 }, { duration: 0.03, ease: "none", opacity: 1 }, 0.335);
           rayCores.forEach((core, index) => {
             const halo = rayHalos[index];
             const paths = halo ? [halo, core] : [core];
@@ -379,10 +453,14 @@ export function WorkbenchAssemblyScene() {
           timeline
             .to(actCopies[3], { opacity: 0, y: -10, duration: 0.03 }, 0.49)
             .to(header, { opacity: 0, duration: 0.05 }, 0.5)
+            .set(header, { pointerEvents: "none" }, 0.55)
             .to(shell, { opacity: 0.4, duration: 0.08, ease }, 0.5)
             .to(panelContents, { opacity: 0.4, duration: 0.06, ease }, 0.53)
-            .to([prism, glow], { opacity: 0, duration: 0.06, ease }, 0.52)
-            .to([...rayHalos, ...rayCores], { opacity: 0, duration: 0.06, ease }, 0.52)
+            .to(
+              [prism, glow, raysSvg, ...exitGlows, ...prismBlobs],
+              { opacity: 0, duration: 0.06, ease },
+              0.52,
+            )
             .to(sourceCards, { opacity: 1, duration: 0.03, ease: "none" }, 0.545);
 
           sourceCards.forEach((card, index) => {
@@ -508,9 +586,23 @@ export function WorkbenchAssemblyScene() {
           <svg
             data-portal-rays
             aria-hidden="true"
-            className="absolute inset-0 h-full w-full"
+            className="absolute inset-0 h-full w-full opacity-0"
             fill="none"
           >
+            <path
+              data-beam
+              stroke="#ffffff"
+              strokeLinecap="round"
+              strokeOpacity="0.32"
+              strokeWidth="10"
+            />
+            <path
+              data-beam
+              stroke="#ffffff"
+              strokeLinecap="round"
+              strokeOpacity="0.95"
+              strokeWidth="3.5"
+            />
             {STUDIO_TOOL_IDS.map((id) => {
               const { tone } = STUDIO_TOOL_PRESENTATIONS[id];
               const color = TOOL_RAY_COLORS[tone];
@@ -520,82 +612,105 @@ export function WorkbenchAssemblyScene() {
                     data-ray-halo
                     stroke={color}
                     strokeLinecap="round"
-                    strokeOpacity="0.16"
-                    strokeWidth="7"
+                    strokeOpacity="0.2"
+                    strokeWidth="8"
                   />
                   <path
                     data-ray-core
                     stroke={color}
                     strokeLinecap="round"
-                    strokeOpacity="0.85"
-                    strokeWidth="2.2"
+                    strokeOpacity="0.9"
+                    strokeWidth="2.6"
                   />
                 </g>
               );
             })}
           </svg>
 
+          {/* Ambient light the glass prism picks up and refracts */}
+          <div
+            data-prism-blob
+            className="absolute left-1/2 top-1/2 -ml-14 -mt-28 h-40 w-40 rounded-full opacity-70 blur-2xl"
+            style={{
+              background: "radial-gradient(circle, rgba(196,181,253,0.55), transparent 70%)",
+            }}
+          />
+          <div
+            data-prism-blob
+            className="absolute left-1/2 top-1/2 -ml-36 mt-6 h-44 w-44 rounded-full opacity-60 blur-2xl"
+            style={{
+              background: "radial-gradient(circle, rgba(186,230,253,0.5), transparent 70%)",
+            }}
+          />
+          <div
+            data-prism-blob
+            className="absolute left-1/2 top-1/2 ml-4 mt-12 h-32 w-32 rounded-full opacity-60 blur-2xl"
+            style={{
+              background: "radial-gradient(circle, rgba(254,243,199,0.55), transparent 70%)",
+            }}
+          />
+
           <div
             data-portal-glow
-            className="absolute left-1/2 top-1/2 h-[300px] w-[300px] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-0"
+            className="absolute left-1/2 top-1/2 h-[300px] w-[300px] rounded-full opacity-0"
             style={{
               background:
                 "radial-gradient(circle, rgba(255,255,255,0.95) 0%, rgba(196,181,253,0.35) 42%, transparent 68%)",
             }}
           />
 
+          {/* Frosted-glass prism: real backdrop refraction, not a painted triangle */}
           <div
             data-portal-prism
-            className="absolute left-1/2 top-1/2 h-[190px] w-[190px] -translate-x-1/2 -translate-y-1/2 opacity-0"
+            className="absolute left-1/2 top-1/2 h-[240px] w-[240px] opacity-0 drop-shadow-[0_24px_44px_rgba(24,24,27,0.2)]"
           >
             <div
-              className="absolute left-1/2 top-1/2 h-40 w-40 -translate-x-1/2 -translate-y-1/2 rounded-full opacity-70 blur-2xl"
+              className="absolute inset-0"
               style={{
+                clipPath: "polygon(50% 5%, 94% 84%, 6% 84%)",
                 background:
-                  "radial-gradient(circle, rgba(255,255,255,0.85), rgba(148,163,184,0.18) 60%, transparent 75%)",
+                  "linear-gradient(155deg, rgba(255,255,255,0.95) 0%, rgba(203,213,225,0.7) 45%, rgba(255,255,255,0.85) 100%)",
               }}
             />
-            <svg
-              viewBox="0 0 200 200"
-              aria-hidden="true"
-              className="relative h-full w-full drop-shadow-[0_18px_36px_rgba(24,24,27,0.18)]"
-            >
-              <defs>
-                <linearGradient id="portal-prism-glass" x1="0" x2="1" y1="0" y2="1">
-                  <stop offset="0" stopColor="#ffffff" stopOpacity="0.95" />
-                  <stop offset="0.52" stopColor="#e4e4e7" stopOpacity="0.5" />
-                  <stop offset="1" stopColor="#ffffff" stopOpacity="0.28" />
-                </linearGradient>
-              </defs>
-              <polygon
-                points="100,22 176,156 24,156"
-                fill="url(#portal-prism-glass)"
-                stroke="rgba(255,255,255,0.9)"
-                strokeLinejoin="round"
-                strokeWidth="1.5"
-              />
-              <polygon
-                points="100,22 100,156 24,156"
-                fill="rgba(255,255,255,0.16)"
-                stroke="rgba(255,255,255,0.35)"
-                strokeWidth="1"
-              />
-              <line
-                x1="100"
-                y1="22"
-                x2="176"
-                y2="156"
-                stroke="rgba(255,255,255,0.65)"
-                strokeWidth="1.2"
-              />
-              <polygon
-                data-prism-shine
-                points="100,22 128,70 72,70"
-                fill="rgba(255,255,255,0.55)"
-                opacity="0.12"
-              />
-            </svg>
+            <div
+              className="absolute inset-[3px]"
+              style={{
+                clipPath: "polygon(50% 7%, 92% 83%, 8% 83%)",
+                backdropFilter: "blur(12px) saturate(1.35) brightness(1.07)",
+                WebkitBackdropFilter: "blur(12px) saturate(1.35) brightness(1.07)",
+                background:
+                  "linear-gradient(165deg, rgba(255,255,255,0.45) 0%, rgba(255,255,255,0.1) 45%, rgba(148,163,184,0.16) 100%)",
+              }}
+            />
+            <div
+              className="absolute inset-[3px]"
+              style={{
+                clipPath: "polygon(50% 7%, 50% 83%, 8% 83%)",
+                background:
+                  "linear-gradient(115deg, rgba(255,255,255,0.4), rgba(255,255,255,0.05) 65%)",
+              }}
+            />
+            <div
+              data-prism-shine
+              className="absolute left-[31%] top-[15%] h-[44%] w-[15%] opacity-10"
+              style={{
+                clipPath: "polygon(50% 0, 100% 100%, 0 100%)",
+                background:
+                  "linear-gradient(180deg, rgba(255,255,255,0.95), rgba(255,255,255,0.05))",
+              }}
+            />
+            <div className="absolute left-1/2 top-[87%] h-3.5 w-[68%] -translate-x-1/2 rounded-full bg-[rgba(24,24,27,0.1)] blur-[7px]" />
           </div>
+
+          {/* Exit glow where the rays leave the left facet */}
+          <div
+            data-exit-glow
+            className="absolute h-7 w-7 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/50 opacity-0 blur-[7px]"
+          />
+          <div
+            data-exit-glow
+            className="absolute h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white opacity-0"
+          />
 
           {PUBLIC_PREVIEW_SOURCE_SPECS.flatMap(([, fileName]) => {
             const presentation = sourceFilePresentation(fileName);
