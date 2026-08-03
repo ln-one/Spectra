@@ -106,6 +106,17 @@ html[data-focus-modality="pointer"] .pointer-focus-outline:focus {
   display: none;
 }
 
+/* The portal workbench preview is a static mock — hide its internal panel scrollbars. */
+.marketing-workbench *,
+.marketing-workbench {
+  scrollbar-width: none;
+}
+
+.marketing-workbench *::-webkit-scrollbar,
+.marketing-workbench::-webkit-scrollbar {
+  display: none;
+}
+
 @layer utilities {
   .auth-form-enter {
     animation: auth-enter 500ms ease-out both;

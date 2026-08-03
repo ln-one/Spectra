@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useLayoutEffect, useRef } from "react";
@@ -25,6 +25,10 @@ const TOOL_RAY_COLORS = {
   violet: "#8b5cf6",
   green: "#22c55e",
 } as const;
+
+const SPECTRUM_COLORS = STUDIO_TOOL_IDS.map(
+  (id) => TOOL_RAY_COLORS[STUDIO_TOOL_PRESENTATIONS[id].tone],
+);
 
 // Act 1 — sources scattered on the right side of the hero.
 const sourcePositions = [
@@ -85,6 +89,7 @@ export function WorkbenchAssemblyScene() {
         const context = gsap.context(() => {
           const shell = stage.querySelector<HTMLElement>("[data-assembly-workbench]");
           const header = stage.querySelector<HTMLElement>("[data-portal-header]");
+          const portalBg = stage.querySelector<HTMLElement>("[data-portal-bg]");
           const hero = stage.querySelector<HTMLElement>("[data-portal-hero]");
           const scrollHint = stage.querySelector<HTMLElement>("[data-portal-hint]");
           const actCopyQueries = PORTAL_ACTS.map((_act, index) =>
@@ -319,6 +324,7 @@ export function WorkbenchAssemblyScene() {
           // ── Act 1 → 2 · sources fall in line and travel together ──────────
           timeline
             .to(hero, { opacity: 0, y: -36, duration: 0.06, ease }, 0.02)
+            .set(hero, { pointerEvents: "none" }, 0.08)
             .to(scrollHint, { opacity: 0, duration: 0.03 }, 0.02)
             .to(actCopies[0], { opacity: 1, y: 0, duration: 0.04 }, 0.05);
           sourceCards.forEach((card, index) => {
@@ -395,7 +401,16 @@ export function WorkbenchAssemblyScene() {
               },
               0.23,
             )
-            .to(prismBlobs, { opacity: 1, duration: 0.06, ease }, 0.23)
+            .to(
+              prismBlobs,
+              {
+                opacity: (_index, element: HTMLElement) =>
+                  Number(element.dataset.prismBlobOpacity ?? 0.45),
+                duration: 0.06,
+                ease,
+              },
+              0.23,
+            )
             .to(glow, { opacity: 0.55, scale: 0.4, duration: 0.05, ease }, 0.26)
             .set(raysSvg, { opacity: 1 }, 0.275)
             .fromTo(
@@ -452,7 +467,7 @@ export function WorkbenchAssemblyScene() {
           // ── Act 5 → 6 · the real workbench emerges ────────────────────────
           timeline
             .to(actCopies[3], { opacity: 0, y: -10, duration: 0.03 }, 0.49)
-            .to(header, { opacity: 0, duration: 0.05 }, 0.5)
+            .to([header, portalBg], { opacity: 0, duration: 0.05 }, 0.5)
             .set(header, { pointerEvents: "none" }, 0.55)
             .to(shell, { opacity: 0.4, duration: 0.08, ease }, 0.5)
             .to(panelContents, { opacity: 0.4, duration: 0.06, ease }, 0.53)
@@ -549,6 +564,15 @@ export function WorkbenchAssemblyScene() {
         data-workspace-theme="mist-zinc"
         className="relative isolate h-screen h-[100dvh] w-full overflow-hidden"
       >
+        <div
+          aria-hidden="true"
+          data-portal-bg
+          className="pointer-events-none absolute inset-0 z-0"
+          style={{
+            background:
+              "radial-gradient(640px at 14% 18%, rgba(139,92,246,0.08), transparent 70%), radial-gradient(760px at 86% 82%, rgba(14,165,233,0.07), transparent 70%), radial-gradient(520px at 72% 12%, rgba(245,158,11,0.05), transparent 70%)",
+          }}
+        />
         <header
           data-portal-header
           className="absolute inset-x-0 top-0 z-50 mx-auto flex h-20 max-w-[1440px] items-center justify-between px-5 sm:px-8"
@@ -627,24 +651,28 @@ export function WorkbenchAssemblyScene() {
             })}
           </svg>
 
-          {/* Ambient light the glass prism picks up and refracts */}
+          {/* Ambient light the glass prism picks up and refracts — clustered
+              behind the prism so color reads through the glass, never beside it */}
           <div
             data-prism-blob
-            className="absolute left-1/2 top-1/2 -ml-14 -mt-28 h-40 w-40 rounded-full opacity-70 blur-2xl"
+            data-prism-blob-opacity="0.45"
+            className="absolute left-1/2 top-1/2 -ml-12 -mt-20 h-32 w-32 rounded-full opacity-45 blur-2xl"
             style={{
               background: "radial-gradient(circle, rgba(196,181,253,0.55), transparent 70%)",
             }}
           />
           <div
             data-prism-blob
-            className="absolute left-1/2 top-1/2 -ml-36 mt-6 h-44 w-44 rounded-full opacity-60 blur-2xl"
+            data-prism-blob-opacity="0.4"
+            className="absolute left-1/2 top-1/2 -ml-20 mt-4 h-36 w-36 rounded-full opacity-40 blur-2xl"
             style={{
               background: "radial-gradient(circle, rgba(186,230,253,0.5), transparent 70%)",
             }}
           />
           <div
             data-prism-blob
-            className="absolute left-1/2 top-1/2 ml-4 mt-12 h-32 w-32 rounded-full opacity-60 blur-2xl"
+            data-prism-blob-opacity="0.4"
+            className="absolute left-1/2 top-1/2 ml-2 mt-10 h-28 w-28 rounded-full opacity-40 blur-2xl"
             style={{
               background: "radial-gradient(circle, rgba(254,243,199,0.55), transparent 70%)",
             }}
@@ -664,22 +692,42 @@ export function WorkbenchAssemblyScene() {
             data-portal-prism
             className="absolute left-1/2 top-1/2 h-[240px] w-[240px] opacity-0 drop-shadow-[0_24px_44px_rgba(24,24,27,0.2)]"
           >
+            {/* Glass body — low fill, high transmission, like the light-glass CTA:
+                background light passes through instead of a painted white shell */}
             <div
               className="absolute inset-0"
               style={{
                 clipPath: "polygon(50% 5%, 94% 84%, 6% 84%)",
                 background:
-                  "linear-gradient(155deg, rgba(255,255,255,0.95) 0%, rgba(203,213,225,0.7) 45%, rgba(255,255,255,0.85) 100%)",
+                  "linear-gradient(155deg, rgba(255,255,255,0.5) 0%, rgba(203,213,225,0.2) 45%, rgba(255,255,255,0.35) 100%)",
               }}
             />
             <div
               className="absolute inset-[3px]"
               style={{
                 clipPath: "polygon(50% 7%, 92% 83%, 8% 83%)",
-                backdropFilter: "blur(12px) saturate(1.35) brightness(1.07)",
-                WebkitBackdropFilter: "blur(12px) saturate(1.35) brightness(1.07)",
+                backdropFilter: "blur(14px) saturate(1.6) brightness(1.1)",
+                WebkitBackdropFilter: "blur(14px) saturate(1.6) brightness(1.1)",
                 background:
-                  "linear-gradient(165deg, rgba(255,255,255,0.45) 0%, rgba(255,255,255,0.1) 45%, rgba(148,163,184,0.16) 100%)",
+                  "linear-gradient(165deg, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0.05) 45%, rgba(148,163,184,0.1) 100%)",
+              }}
+            />
+            {/* Right facet shade — subtle, gives the glass thickness */}
+            <div
+              className="absolute inset-[3px]"
+              style={{
+                clipPath: "polygon(50% 7%, 92% 83%, 50% 83%)",
+                background:
+                  "linear-gradient(205deg, rgba(148,163,184,0.18) 0%, rgba(100,116,139,0.1) 75%)",
+              }}
+            />
+            {/* Iridescent body tint, like the glass CTAs */}
+            <div
+              className="absolute inset-[3px]"
+              style={{
+                clipPath: "polygon(50% 7%, 92% 83%, 8% 83%)",
+                background:
+                  "linear-gradient(115deg, rgba(167,139,250,0.24) 0%, transparent 38%, transparent 62%, rgba(56,189,248,0.22) 100%)",
               }}
             />
             <div
@@ -687,9 +735,20 @@ export function WorkbenchAssemblyScene() {
               style={{
                 clipPath: "polygon(50% 7%, 50% 83%, 8% 83%)",
                 background:
-                  "linear-gradient(115deg, rgba(255,255,255,0.4), rgba(255,255,255,0.05) 65%)",
+                  "linear-gradient(115deg, rgba(255,255,255,0.25), rgba(255,255,255,0.04) 65%)",
               }}
             />
+            {/* Specular reflection band sweeping across the glass */}
+            <div
+              className="absolute inset-[3px]"
+              style={{
+                clipPath: "polygon(50% 7%, 92% 83%, 8% 83%)",
+                background:
+                  "linear-gradient(118deg, transparent 28%, rgba(255,255,255,0.75) 43%, rgba(255,255,255,0.15) 52%, transparent 62%)",
+              }}
+            />
+            {/* Bright glint at the apex where light enters */}
+            <div className="absolute left-[42%] top-[3%] h-9 w-9 rounded-full bg-white/85 blur-[7px]" />
             <div
               data-prism-shine
               className="absolute left-[31%] top-[15%] h-[44%] w-[15%] opacity-10"
@@ -699,6 +758,35 @@ export function WorkbenchAssemblyScene() {
                   "linear-gradient(180deg, rgba(255,255,255,0.95), rgba(255,255,255,0.05))",
               }}
             />
+            {/* Crisp glass edges — gray body line beneath, bright highlight on top */}
+            <svg aria-hidden="true" className="absolute inset-0 h-full w-full" fill="none">
+              <path
+                d="M 120 12 L 225.6 201.6 L 14.4 201.6 Z"
+                stroke="rgba(100,116,139,0.25)"
+                strokeLinejoin="round"
+                strokeWidth="3.5"
+              />
+              <path
+                d="M 120 12 L 225.6 201.6 L 14.4 201.6 Z"
+                stroke="rgba(255,255,255,0.9)"
+                strokeLinejoin="round"
+                strokeWidth="1.6"
+              />
+            </svg>
+            {/* Chromatic dispersion fringe along the left edge, where the rays exit */}
+            <div
+              className="absolute h-[3px] w-[130px] -rotate-[61deg] rounded-full opacity-70 blur-[2px]"
+              style={{
+                left: "calc(28% - 65px)",
+                top: "43%",
+                background:
+                  "linear-gradient(90deg, rgba(139,92,246,0.75), rgba(59,130,246,0.65), rgba(20,184,166,0.6), rgba(244,63,94,0.65), rgba(249,115,22,0.75))",
+              }}
+            />
+            {/* Rainbow caustic refracted along the base edge */}
+            <div className="absolute left-[16%] top-[79.5%] h-[3px] w-[68%] rounded-full bg-gradient-to-r from-violet-400/75 via-sky-300/65 to-orange-300/75 blur-[2.5px]" />
+            {/* Caustic glow spilled onto the surface below the prism */}
+            <div className="absolute left-[12%] top-[85%] h-3 w-[76%] rounded-full bg-gradient-to-r from-violet-400/40 via-sky-300/35 to-orange-300/40 blur-[6px]" />
             <div className="absolute left-1/2 top-[87%] h-3.5 w-[68%] -translate-x-1/2 rounded-full bg-[rgba(24,24,27,0.1)] blur-[7px]" />
           </div>
 
@@ -829,6 +917,29 @@ export function WorkbenchAssemblyScene() {
             <p className="mt-6 max-w-lg text-base leading-7 text-[var(--app-text-muted)] sm:text-lg">
               {marketing("portalHeroSubtitle")}
             </p>
+            <div aria-hidden="true" className="mt-8 flex items-center gap-1.5">
+              {SPECTRUM_COLORS.map((color) => (
+                <span
+                  key={color}
+                  className="h-1 w-9 rounded-full"
+                  style={{ backgroundColor: color }}
+                />
+              ))}
+            </div>
+            <div className="pointer-events-auto mt-9 flex items-center gap-3">
+              <Link
+                href="/auth/register"
+                className="rounded-full bg-[var(--app-primary)] px-6 py-3 text-sm font-semibold text-[var(--app-on-primary)] shadow-lg transition hover:-translate-y-0.5 hover:bg-[var(--app-primary-hover)]"
+              >
+                {marketing("portalHeroPrimaryCta")}
+              </Link>
+              <Link
+                href="/auth/login"
+                className="rounded-full border border-[var(--app-border-strong)] px-6 py-3 text-sm font-medium text-[var(--app-text)] transition hover:bg-[var(--app-surface)]"
+              >
+                {marketing("portalHeroSecondaryCta")}
+              </Link>
+            </div>
           </div>
 
           {PORTAL_ACTS.map((act, index) => (
@@ -850,9 +961,10 @@ export function WorkbenchAssemblyScene() {
 
           <p
             data-portal-hint
-            className="absolute inset-x-0 bottom-8 text-center text-xs font-medium tracking-[0.14em] text-[var(--app-text-muted)]"
+            className="absolute inset-x-0 bottom-8 flex items-center justify-center gap-1.5 text-center text-xs font-medium tracking-[0.14em] text-[var(--app-text-muted)]"
           >
             {marketing("portalHeroHint")}
+            <ChevronDown className="h-3.5 w-3.5 motion-safe:animate-bounce" strokeWidth={2.2} />
           </p>
         </div>
       </div>
