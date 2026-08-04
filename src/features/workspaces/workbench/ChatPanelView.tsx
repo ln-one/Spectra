@@ -47,6 +47,7 @@ import {
   artifactPlanItemFailedDataSchema,
   artifactPlanProgressDataSchema,
 } from "@/features/agents/artifact-plan-contract";
+import type { KnowledgeCitationEvidence } from "@/features/agents/knowledge-citation-contract";
 import { KNOWLEDGE_AGENT_TOOL_IDS } from "@/features/agents/knowledge-tool-contract";
 import type { AgentSurfaceContext } from "@/features/agents/surface-context";
 import type { ThreadTitleUpdate } from "@/features/agents/thread-events";
@@ -122,6 +123,7 @@ function KnowledgeEvidenceImage({
             {image}
           </button>
         }
+        onOpenKnowledgeNetwork={context.onOpenKnowledgeNetwork}
         workspaceId={context.workspaceId}
       />
     </figure>
@@ -276,6 +278,7 @@ function AssistantMessage({
   conversationId,
   onOpenArtifact,
   onArtifactEvent,
+  onOpenKnowledgeNetwork,
   unavailableArtifactIds,
   workspaceId,
 }: {
@@ -283,6 +286,7 @@ function AssistantMessage({
   conversationId: string;
   onOpenArtifact?: ((artifactId: string) => void) | undefined;
   onArtifactEvent?: ((event: ArtifactStreamEvent) => void) | undefined;
+  onOpenKnowledgeNetwork?: ((evidence: KnowledgeCitationEvidence) => void) | undefined;
   unavailableArtifactIds?: ReadonlySet<string> | undefined;
   workspaceId: string;
 }) {
@@ -356,6 +360,7 @@ function AssistantMessage({
               isStreaming={isLast && isRunning}
               parts={messageParts}
               visibleTextPartIndexes={visibleTextPartIndexes}
+              onOpenKnowledgeNetwork={onOpenKnowledgeNetwork}
               workspaceId={workspaceId}
             >
               <div className="workspace-chat-markdown relative select-text">
@@ -699,6 +704,7 @@ export function ChatPanelView({
   onClearArtifactSelection,
   composerFocusRequest = 0,
   onArtifactProposal,
+  onOpenKnowledgeNetwork,
 }: ChatPanelViewProps & {
   artifactHistory?: readonly ArtifactHistoryItem[] | undefined;
   surfaceContext?: AgentSurfaceContext;
@@ -719,6 +725,7 @@ export function ChatPanelView({
   onClearArtifactSelection?: (() => void) | undefined;
   composerFocusRequest?: number | undefined;
   onArtifactProposal?: ((proposal: ArtifactEditProposal) => void) | undefined;
+  onOpenKnowledgeNetwork?: ((evidence: KnowledgeCitationEvidence) => void) | undefined;
 }) {
   const t = useTranslations("Workbench");
   const locale = useLocale() === "en-US" ? "en-US" : "zh-CN";
@@ -809,6 +816,7 @@ export function ChatPanelView({
                           conversationId={conversationId}
                           onArtifactEvent={onArtifactEvent}
                           onOpenArtifact={onOpenArtifact}
+                          onOpenKnowledgeNetwork={onOpenKnowledgeNetwork}
                           unavailableArtifactIds={unavailableArtifactIds}
                           workspaceId={workspaceId}
                         />

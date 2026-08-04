@@ -1,14 +1,25 @@
 "use client";
 
 import type { UIMessage } from "ai";
+import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { type ReactNode, useMemo, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import type { ThreadTitleUpdate } from "@/features/agents/thread-events";
 import type { ArtifactDetail } from "@/features/artifacts/contract";
 import type { ArtifactHistoryItem } from "@/features/artifacts/types";
+import type {
+  KnowledgeNetworkTrace,
+  KnowledgeNetworkWorkspaceReturnView,
+} from "@/features/knowledge-network/model";
 import { workspaceHref } from "../address";
 import type { WorkspaceSharingState } from "../sharing.server";
 import type { Workspace } from "../types";
+import {
+  consumeKnowledgeNetworkNavigation,
+  consumeKnowledgeNetworkReturn,
+  type KnowledgeNetworkPendingNavigation,
+  stageKnowledgeNetworkReturn,
+} from "./knowledge-network-navigation";
 import type {
   WorkspaceConversationNavigationItem,
   WorkspaceSettingsFormAction,
@@ -62,6 +73,7 @@ export function WorkspaceWorkbenchView({
   workspace,
   taskAgentCapabilities = ["presentation", "animation"],
   taskAgentCreationCapabilities = taskAgentCapabilities,
+  knowledgeNetworkTrace = null,
 }: {
   accountMenu: ReactNode;
   conversationId: string;
@@ -83,11 +95,30 @@ export function WorkspaceWorkbenchView({
   workspace: Workspace;
   taskAgentCapabilities?: readonly ("animation" | "presentation")[];
   taskAgentCreationCapabilities?: readonly ("animation" | "presentation")[];
+  knowledgeNetworkTrace?: KnowledgeNetworkTrace | null;
 }) {
   const t = useTranslations("Workbench");
+  const router = useRouter();
   const [generatedTitle, setGeneratedTitle] = useState<
     (ThreadTitleUpdate & { updatedAt: string }) | null
   >(null);
+  const [returnNavigation, setReturnNavigation] =
+    useState<KnowledgeNetworkPendingNavigation | null>(null);
+  const [knowledgeNetworkInitialView, setKnowledgeNetworkInitialView] =
+    useState<KnowledgeNetworkWorkspaceReturnView | null>(null);
+  useEffect(() => {
+    setReturnNavigation(consumeKnowledgeNetworkNavigation(workspace.id));
+    setKnowledgeNetworkInitialView(consumeKnowledgeNetworkReturn(workspace.id));
+  }, [workspace.id]);
+  const returnToKnowledgeNetwork = useCallback(() => {
+    if (!returnNavigation) return;
+    stageKnowledgeNetworkReturn(
+      returnNavigation.context.originWorkspaceId,
+      returnNavigation.context.returnView,
+    );
+    setReturnNavigation(null);
+    router.push(returnNavigation.originHref, { scroll: false });
+  }, [returnNavigation, router]);
   const visibleConversations = useMemo(
     () => mergeGeneratedThreadTitle(conversations, conversationId, generatedTitle),
     [conversationId, conversations, generatedTitle],
@@ -147,6 +178,9 @@ export function WorkspaceWorkbenchView({
           ) : null
         }
         sourcesPanel={sourcesPanel}
+        knowledgeNetworkTrace={knowledgeNetworkTrace}
+        knowledgeNetworkInitialView={knowledgeNetworkInitialView}
+        returnToKnowledgeNetwork={returnNavigation ? returnToKnowledgeNetwork : undefined}
         workspaceId={workspace.id}
         workspaceHref={workspaceHref(workspace)}
         workspaceSlug={workspace.slug}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMutation } from "@tanstack/react-query";
+import { ArrowLeft, X } from "lucide-react";
 import { animate } from "motion";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -14,6 +15,7 @@ import {
   useState,
 } from "react";
 import { flushSync } from "react-dom";
+import type { KnowledgeCitationEvidence } from "@/features/agents/knowledge-citation-contract";
 import type { AgentSurfaceContext } from "@/features/agents/surface-context";
 import type { ThreadTitleUpdate } from "@/features/agents/thread-events";
 import type { ArtifactDetail, ArtifactSelection } from "@/features/artifacts/contract";
@@ -28,6 +30,29 @@ import {
   deleteArtifact,
   fetchArtifactDetail,
 } from "@/features/artifacts/workbench-client";
+import {
+  type KnowledgeNetworkGraphCitationFocus,
+  type KnowledgeNetworkGraphFocusRequest,
+  knowledgeNetworkSelectedNodeDetails,
+} from "@/features/knowledge-network/KnowledgeNetworkGraphView";
+import {
+  KnowledgeNetworkNodeInspector,
+  type KnowledgeNetworkSelectedNode,
+} from "@/features/knowledge-network/KnowledgeNetworkNodeInspector";
+import { KnowledgeNetworkSourcesPanel } from "@/features/knowledge-network/KnowledgeNetworkWorkbench";
+import { prepareKnowledgeNetworkGraphPlan } from "@/features/knowledge-network/knowledge-network-plan";
+import { mergeKnowledgeNetworkCitation } from "@/features/knowledge-network/live-trace";
+import {
+  directKnowledgeNetworkSourceEntries,
+  type KnowledgeNetworkLabels,
+  type KnowledgeNetworkNodeSelectionLabels,
+  type KnowledgeNetworkTrace,
+  type KnowledgeNetworkWorkspaceNavigationContext,
+  type KnowledgeNetworkWorkspaceNavigationTarget,
+  type KnowledgeNetworkWorkspaceReturnView,
+  workspaceNavigationTarget,
+  ZH_KNOWLEDGE_NETWORK_NODE_SELECTION_LABELS,
+} from "@/features/knowledge-network/model";
 import type { Source } from "@/features/sources/types";
 import {
   type ArtifactSourceTransitionContextValue,
@@ -47,6 +72,9 @@ import {
   studioToolForArtifactKind,
 } from "./artifactWorkbench";
 import { ChatPanelView } from "./ChatPanelView";
+import { KnowledgeNetworkHostProvider } from "./KnowledgeNetworkHostContext";
+import { beginKnowledgeNetworkNavigation } from "./knowledge-network-navigation";
+import { PanelShell } from "./PanelShell";
 import { StudioPanelView } from "./StudioPanelView";
 import { studioToolTone } from "./studioTools";
 import type {
@@ -62,7 +90,7 @@ import type {
   ComposerSuggestion,
   UserMessageSurfaceSnapshot,
 } from "./WorkbenchChatRuntime";
-import { WorkbenchPanelLayout } from "./WorkbenchPanelLayout";
+import { startWorkbenchPanelTransition, WorkbenchPanelLayout } from "./WorkbenchPanelLayout";
 import { WorkspaceHeaderView } from "./WorkspaceHeaderView";
 
 export function startWorkbenchViewTransition(update: () => void) {
@@ -216,6 +244,9 @@ export function WorkbenchView({
   settingsAction,
   settingsControl,
   sourcesPanel,
+  knowledgeNetworkTrace = null,
+  knowledgeNetworkInitialView = null,
+  returnToKnowledgeNetwork,
   workspaceId,
   workspaceHref,
   workspaceSlug,
@@ -239,6 +270,9 @@ export function WorkbenchView({
   settingsAction: WorkspaceSettingsFormAction;
   settingsControl: ReactNode;
   sourcesPanel: ReactNode;
+  knowledgeNetworkTrace?: KnowledgeNetworkTrace | null;
+  knowledgeNetworkInitialView?: KnowledgeNetworkWorkspaceReturnView | null;
+  returnToKnowledgeNetwork?: (() => void) | undefined;
   workspaceId: string;
   workspaceHref: string;
   workspaceSlug: string | null;
@@ -246,6 +280,126 @@ export function WorkbenchView({
   const t = useTranslations("Workbench");
   const router = useRouter();
   const searchParams = useSearchParams();
+  const shouldReduceMotion = usePrefersReducedMotion();
+  const [networkTrace, setNetworkTrace] = useState<KnowledgeNetworkTrace | null>(
+    knowledgeNetworkTrace,
+  );
+  const [knowledgeNetworkMode, setKnowledgeNetworkMode] = useState(
+    knowledgeNetworkInitialView?.sourceMode === "network",
+  );
+  const [knowledgeNetworkSelectedId, setKnowledgeNetworkSelectedId] = useState<string | null>(
+    knowledgeNetworkInitialView?.selectedNodeId ?? null,
+  );
+  const [knowledgeNetworkInspectorId, setKnowledgeNetworkInspectorId] = useState<string | null>(
+    null,
+  );
+  const [knowledgeNetworkFocusRequest, setKnowledgeNetworkFocusRequest] =
+    useState<KnowledgeNetworkGraphFocusRequest | null>(null);
+  const [knowledgeNetworkCitationFocus, setKnowledgeNetworkCitationFocus] =
+    useState<KnowledgeNetworkGraphCitationFocus | null>(null);
+  const knowledgeNetworkFocusRequestIdRef = useRef(0);
+  const knowledgeNetworkInitialViewKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    setNetworkTrace(knowledgeNetworkTrace);
+  }, [knowledgeNetworkTrace]);
+  useEffect(() => {
+    if (!knowledgeNetworkInitialView || !knowledgeNetworkTrace) return;
+    if (knowledgeNetworkInitialView.traceId !== knowledgeNetworkTrace.id) return;
+    const viewKey = `${knowledgeNetworkInitialView.traceId}:${knowledgeNetworkInitialView.requestId}`;
+    if (knowledgeNetworkInitialViewKeyRef.current === viewKey) return;
+    knowledgeNetworkInitialViewKeyRef.current = viewKey;
+    setKnowledgeNetworkMode(true);
+    setKnowledgeNetworkSelectedId(knowledgeNetworkInitialView.selectedNodeId);
+    setKnowledgeNetworkInspectorId(null);
+    if (knowledgeNetworkInitialView.citationSourceId) {
+      const focus = {
+        sourceId: knowledgeNetworkInitialView.citationSourceId,
+        requestId: knowledgeNetworkInitialView.requestId,
+      };
+      setKnowledgeNetworkFocusRequest(focus);
+      setKnowledgeNetworkCitationFocus(focus);
+    }
+  }, [knowledgeNetworkInitialView, knowledgeNetworkTrace]);
+  const knowledgeNetworkGraphPlan = useMemo(
+    () => (networkTrace ? prepareKnowledgeNetworkGraphPlan(networkTrace) : null),
+    [networkTrace],
+  );
+  const knowledgeNetworkSourceEntries = useMemo(
+    () => (networkTrace ? directKnowledgeNetworkSourceEntries(networkTrace) : []),
+    [networkTrace],
+  );
+  const knowledgeNetworkNodeSelectionLabels = useMemo<KnowledgeNetworkNodeSelectionLabels>(
+    () => ({
+      ...ZH_KNOWLEDGE_NETWORK_NODE_SELECTION_LABELS,
+      workspace: t("knowledgeNetworkNodeWorkspace"),
+      source: t("knowledgeNetworkNodeSource"),
+      owner: t("knowledgeNetworkNodeOwner"),
+      connections: (count) => t("knowledgeNetworkNodeConnections", { count }),
+      sources: (count) => t("knowledgeNetworkNodeSources", { count }),
+      chunks: (count) => t("knowledgeNetworkNodeChunks", { count }),
+      selectedEvidence: t("knowledgeNetworkNodeSelectedEvidence"),
+      close: t("knowledgeNetworkNodeClose"),
+      detailsTitle: t("knowledgeNetworkNodeDetailsTitle"),
+      sourceListTitle: t("knowledgeNetworkNodeSourceList"),
+      currentWorkspace: t("knowledgeNetworkNodeCurrentWorkspace"),
+      referencedWorkspace: t("knowledgeNetworkNodeReferencedWorkspace"),
+      enterWorkspace: t("knowledgeNetworkNodeEnterWorkspace"),
+      enterOwnerWorkspace: t("knowledgeNetworkNodeEnterOwnerWorkspace"),
+    }),
+    [t],
+  );
+  const knowledgeNetworkLabels = useMemo<KnowledgeNetworkLabels>(
+    () => ({
+      studioTitle: t("studioTitle"),
+      studioSubtitle: t("studioSubtitle"),
+      studioExpand: t("expandStudio"),
+      assistantTitle: t("assistantTitle"),
+      assistantSubtitle: t("assistantSubtitle"),
+      assistantGrounding: t("workspaceRetrieval"),
+      sourceTitle: t("knowledgeNetworkNodeSourceList"),
+      sourceListSummary: networkTrace
+        ? t("knowledgeNetworkStats", {
+            workspaceCount: networkTrace.workspaces.length,
+            sourceCount: networkTrace.sources.length,
+          })
+        : t("knowledgeNetworkNodeSourceList"),
+      workspaceSourceType: t("knowledgeNetworkNodeWorkspace"),
+      workspaceSourceStatus: t("knowledgeNetworkNodeReferencedWorkspace"),
+      networkSummary: networkTrace
+        ? t("knowledgeNetworkStats", {
+            workspaceCount: networkTrace.workspaces.length,
+            sourceCount: networkTrace.sources.length,
+          })
+        : t("knowledgeNetworkNodeSourceList"),
+      importLabel: t("import"),
+      switchToList: t("knowledgeNetworkSwitchToList"),
+      switchToNetwork: t("openKnowledgeNetwork"),
+      currentWorkspace: t("knowledgeNetworkNodeCurrentWorkspace"),
+      referencedWorkspace: t("knowledgeNetworkNodeReferencedWorkspace"),
+    }),
+    [networkTrace, t],
+  );
+  const selectedKnowledgeNetworkNode = useMemo(
+    () =>
+      knowledgeNetworkMode &&
+      networkTrace &&
+      knowledgeNetworkGraphPlan &&
+      knowledgeNetworkInspectorId
+        ? knowledgeNetworkSelectedNodeDetails(
+            networkTrace,
+            knowledgeNetworkGraphPlan,
+            knowledgeNetworkInspectorId,
+            knowledgeNetworkNodeSelectionLabels,
+          )
+        : null,
+    [
+      knowledgeNetworkGraphPlan,
+      knowledgeNetworkInspectorId,
+      knowledgeNetworkMode,
+      knowledgeNetworkNodeSelectionLabels,
+      networkTrace,
+    ],
+  );
   const [composerSuggestion, setComposerSuggestion] = useState<ComposerSuggestion | null>(null);
   const [membershipTransitionArtifactId, setMembershipTransitionArtifactId] = useState<
     string | null
@@ -608,6 +762,107 @@ export function WorkbenchView({
         : undefined,
     [artifactDetail],
   );
+  const openKnowledgeNetwork = useCallback(() => {
+    if (!networkTrace) return;
+    void startWorkbenchPanelTransition(() => {
+      setKnowledgeNetworkMode(true);
+      setKnowledgeNetworkInspectorId(null);
+      setKnowledgeNetworkSelectedId(null);
+      setKnowledgeNetworkFocusRequest(null);
+      setKnowledgeNetworkCitationFocus(null);
+    }, shouldReduceMotion);
+  }, [networkTrace, shouldReduceMotion]);
+  const closeKnowledgeNetwork = useCallback(() => {
+    knowledgeNetworkFocusRequestIdRef.current += 1;
+    void startWorkbenchPanelTransition(() => {
+      setKnowledgeNetworkMode(false);
+      setKnowledgeNetworkInspectorId(null);
+      setKnowledgeNetworkSelectedId(null);
+      setKnowledgeNetworkFocusRequest(null);
+      setKnowledgeNetworkCitationFocus(null);
+    }, shouldReduceMotion);
+  }, [shouldReduceMotion]);
+  const focusKnowledgeNetworkCitation = useCallback(
+    (evidence: KnowledgeCitationEvidence) => {
+      if (!networkTrace?.sources.some((source) => source.id === evidence.sourceId)) return;
+      knowledgeNetworkFocusRequestIdRef.current += 1;
+      const requestId = knowledgeNetworkFocusRequestIdRef.current;
+      const focus = { sourceId: evidence.sourceId, requestId };
+      void startWorkbenchPanelTransition(() => {
+        setNetworkTrace((current) =>
+          current ? mergeKnowledgeNetworkCitation(current, evidence) : current,
+        );
+        setKnowledgeNetworkMode(true);
+        setKnowledgeNetworkInspectorId(null);
+        setKnowledgeNetworkSelectedId(evidence.evidenceId);
+        setKnowledgeNetworkFocusRequest(focus);
+        setKnowledgeNetworkCitationFocus(focus);
+      }, shouldReduceMotion);
+    },
+    [networkTrace?.sources, shouldReduceMotion],
+  );
+  const handleKnowledgeNetworkSelect = useCallback((id: string | null) => {
+    setKnowledgeNetworkSelectedId(id);
+    setKnowledgeNetworkInspectorId(id);
+  }, []);
+  const handleKnowledgeNetworkSourceSelect = useCallback((id: string) => {
+    setKnowledgeNetworkSelectedId(id);
+    setKnowledgeNetworkInspectorId(id);
+  }, []);
+  const handleKnowledgeNetworkEnterWorkspace = useCallback(
+    (target: KnowledgeNetworkWorkspaceNavigationTarget) => {
+      if (!networkTrace) return;
+      const nodeId = target.sourceId ?? target.workspaceId;
+      const canonicalTarget = workspaceNavigationTarget(networkTrace, nodeId);
+      if (
+        !canonicalTarget ||
+        canonicalTarget.workspaceId !== target.workspaceId ||
+        canonicalTarget.sourceId !== target.sourceId ||
+        canonicalTarget.reason !== target.reason ||
+        canonicalTarget.workspaceId === networkTrace.currentWorkspaceId
+      ) {
+        return;
+      }
+
+      knowledgeNetworkFocusRequestIdRef.current += 1;
+      const context: KnowledgeNetworkWorkspaceNavigationContext = {
+        originWorkspaceId: networkTrace.currentWorkspaceId,
+        targetWorkspaceId: canonicalTarget.workspaceId,
+        sourceId: canonicalTarget.sourceId,
+        reason: canonicalTarget.reason,
+        requestId: knowledgeNetworkFocusRequestIdRef.current,
+        returnView: {
+          traceId: networkTrace.id,
+          sourceMode: "network",
+          selectedNodeId: canonicalTarget.sourceId ?? canonicalTarget.workspaceId,
+          citationSourceId: knowledgeNetworkCitationFocus?.sourceId ?? null,
+          requestId: knowledgeNetworkFocusRequestIdRef.current,
+        },
+      };
+      beginKnowledgeNetworkNavigation(canonicalTarget.workspaceId, {
+        context,
+        originHref: conversationHref,
+      });
+      setKnowledgeNetworkMode(false);
+      setKnowledgeNetworkInspectorId(null);
+      setKnowledgeNetworkSelectedId(null);
+      setKnowledgeNetworkFocusRequest(null);
+      setKnowledgeNetworkCitationFocus(null);
+      router.push(`/workspaces/${encodeURIComponent(canonicalTarget.workspaceId)}`);
+    },
+    [conversationHref, knowledgeNetworkCitationFocus?.sourceId, networkTrace, router],
+  );
+  const knowledgeNetworkHost = useMemo(
+    () =>
+      networkTrace
+        ? {
+            active: knowledgeNetworkMode,
+            label: t("openKnowledgeNetwork"),
+            open: openKnowledgeNetwork,
+          }
+        : null,
+    [knowledgeNetworkMode, networkTrace, openKnowledgeNetwork, t],
+  );
   const chat = (
     <ChatPanelView
       {...fixture.chat}
@@ -625,6 +880,7 @@ export function WorkbenchView({
       onComposerSuggestionConsumed={consumeComposerSuggestion}
       onArtifactEvent={handleArtifactEvent}
       onOpenArtifact={(artifactId) => void openArtifactFromMessage(artifactId)}
+      onOpenKnowledgeNetwork={focusKnowledgeNetworkCitation}
       unavailableArtifactIds={unavailableArtifactIds}
       artifactContext={artifactContext}
       artifactSelection={activeArtifactInteractionSelection}
@@ -642,145 +898,264 @@ export function WorkbenchView({
       }}
     />
   );
+  const assistant = selectedKnowledgeNetworkNode ? (
+    <KnowledgeNetworkSelectionPanel
+      labels={knowledgeNetworkNodeSelectionLabels}
+      node={selectedKnowledgeNetworkNode}
+      onClose={() => setKnowledgeNetworkInspectorId(null)}
+      onEnterWorkspace={handleKnowledgeNetworkEnterWorkspace}
+      onSelectNode={handleKnowledgeNetworkSourceSelect}
+    />
+  ) : (
+    chat
+  );
   return (
-    <ArtifactSourceTransitionProvider value={artifactSourceTransition}>
-      <div
-        data-workspace-style="mist-zinc"
-        data-workspace-theme="mist-zinc"
-        data-studio-tone={activeStudioTone}
-        className="workspace-theme-root relative flex h-screen select-none flex-col overflow-hidden bg-[var(--workspace-bg-base)]"
-      >
-        <p
-          key={membershipAnnouncement.sequence}
-          className="sr-only"
-          role="status"
-          aria-live="polite"
+    <KnowledgeNetworkHostProvider value={knowledgeNetworkHost}>
+      <ArtifactSourceTransitionProvider value={artifactSourceTransition}>
+        <div
+          data-workspace-style="mist-zinc"
+          data-workspace-theme="mist-zinc"
+          data-studio-tone={activeStudioTone}
+          className="workspace-theme-root relative flex h-screen select-none flex-col overflow-hidden bg-[var(--workspace-bg-base)]"
         >
-          {membershipAnnouncement.message}
-        </p>
-        <a href="#main-content" className="skip-link">
-          {t("skipToContent")}
-        </a>
-        <div className="workspace-workbench-background pointer-events-none absolute inset-0" />
-        <WorkspaceHeaderView
-          {...fixture.workspace}
-          accountMenu={accountMenu}
-          canManageSettings={canManageSettings}
-          conversationId={conversationId}
-          conversations={conversations}
-          conversationNextCursor={conversationNextCursor}
-          deleteThreadAction={deleteThreadAction}
-          newConversationId={newConversationId}
-          renameThreadAction={renameThreadAction}
-          settingsAction={settingsAction}
-          settingsControl={settingsControl}
-          shareControl={shareControl}
-          workspaceId={workspaceId}
-          workspaceHref={workspaceHref}
-          workspaceSlug={workspaceSlug}
-        />
-        <main id="main-content" tabIndex={-1} className="relative min-h-0 flex-1">
-          {isArtifactWorkspaceOpen ? (
-            <ArtifactWorkbenchPanelLayout
-              layoutMode={artifactLayoutMode}
-              artifact={
-                <ArtifactWorkspaceView
-                  detail={artifactDetail ?? null}
-                  conversationId={conversationId}
-                  kind={activeArtifactKind}
-                  onDetailUpdated={updateArtifactDetail}
-                  onBack={() => {
-                    pendingCreationSourceUserMessageId.current = null;
-                    startWorkbenchViewTransition(() => {
-                      dispatchArtifactSelection({ type: "openStudio" });
-                    });
-                    router.replace(conversationHref, { scroll: false });
-                  }}
-                  onSuggestion={(text) =>
-                    setComposerSuggestion((current) => ({ id: (current?.id ?? 0) + 1, text }))
-                  }
-                  phase={artifactWorkspacePhase(artifactDetail?.generationState)}
-                  proposal={artifactProposal}
-                  readOnly={!initialArtifactCanManage}
-                  selection={artifactInteractionSelection}
-                  onSelectionChange={setArtifactInteractionSelection}
-                  onProposalDismiss={() => {
-                    setArtifactProposal(null);
-                    if (selectedArtifactId && artifactProposal) {
-                      dismissProposal(selectedArtifactId, artifactProposal.runId);
+          <p
+            key={membershipAnnouncement.sequence}
+            className="sr-only"
+            role="status"
+            aria-live="polite"
+          >
+            {membershipAnnouncement.message}
+          </p>
+          <a href="#main-content" className="skip-link">
+            {t("skipToContent")}
+          </a>
+          <div className="workspace-workbench-background pointer-events-none absolute inset-0" />
+          {returnToKnowledgeNetwork ? (
+            <div className="pointer-events-none absolute top-3 right-6 z-40">
+              <button
+                type="button"
+                aria-label={t("knowledgeNetworkReturnToCurrentWorkspace")}
+                title={t("knowledgeNetworkReturnToCurrentWorkspace")}
+                onClick={returnToKnowledgeNetwork}
+                className="pointer-events-auto inline-flex h-8 items-center gap-1.5 rounded-full border border-[var(--studio-border)] bg-[var(--studio-surface)] px-3 text-xs font-semibold text-[var(--studio-accent-text)] shadow-sm transition-[background-color,box-shadow,transform] hover:bg-[var(--studio-surface-subtle)] hover:shadow-md active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--studio-ring)]"
+              >
+                <ArrowLeft aria-hidden="true" className="h-3.5 w-3.5" />
+                <span>{t("knowledgeNetworkReturnToCurrentWorkspace")}</span>
+              </button>
+            </div>
+          ) : null}
+          <WorkspaceHeaderView
+            {...fixture.workspace}
+            accountMenu={accountMenu}
+            canManageSettings={canManageSettings}
+            conversationId={conversationId}
+            conversations={conversations}
+            conversationNextCursor={conversationNextCursor}
+            deleteThreadAction={deleteThreadAction}
+            newConversationId={newConversationId}
+            renameThreadAction={renameThreadAction}
+            settingsAction={settingsAction}
+            settingsControl={settingsControl}
+            shareControl={shareControl}
+            workspaceId={workspaceId}
+            workspaceHref={workspaceHref}
+            workspaceSlug={workspaceSlug}
+          />
+          <main id="main-content" tabIndex={-1} className="relative min-h-0 flex-1">
+            {isArtifactWorkspaceOpen ? (
+              <ArtifactWorkbenchPanelLayout
+                layoutMode={artifactLayoutMode}
+                artifact={
+                  <ArtifactWorkspaceView
+                    detail={artifactDetail ?? null}
+                    conversationId={conversationId}
+                    kind={activeArtifactKind}
+                    onDetailUpdated={updateArtifactDetail}
+                    onBack={() => {
+                      pendingCreationSourceUserMessageId.current = null;
+                      startWorkbenchViewTransition(() => {
+                        dispatchArtifactSelection({ type: "openStudio" });
+                      });
+                      router.replace(conversationHref, { scroll: false });
+                    }}
+                    onSuggestion={(text) =>
+                      setComposerSuggestion((current) => ({ id: (current?.id ?? 0) + 1, text }))
                     }
-                  }}
-                  onProposalRetry={(request) => {
-                    setArtifactProposal(null);
-                    if (selectedArtifactId && artifactProposal) {
-                      dismissProposal(selectedArtifactId, artifactProposal.runId);
-                    }
-                    setComposerSuggestion((current) => ({
-                      id: (current?.id ?? 0) + 1,
-                      text: request,
-                    }));
-                    setComposerFocusRequest((current) => current + 1);
-                  }}
-                  onRequestAssistant={() => setComposerFocusRequest((current) => current + 1)}
-                  workspaceId={workspaceId}
-                />
-              }
-              assistant={chat}
-              disclaimer={fixture.disclaimer}
-              sources={sourcesPanel}
-            />
-          ) : (
-            <WorkbenchPanelLayout
-              disclaimer={fixture.disclaimer}
-              studio={(studioControls) => (
-                <StudioPanelView
-                  {...fixture.studio}
-                  artifactHistory={visibleArtifactHistory}
-                  artifactHistoryError={historyQuery.isError}
-                  artifactHref={artifactHref}
-                  isRefreshingHistory={historyQuery.isFetching}
-                  onRefreshHistory={() => void historyQuery.refetch()}
-                  onDeleteArtifact={(artifactId) => deleteArtifactMutation.mutateAsync(artifactId)}
-                  {...(canPublishArtifacts
-                    ? {
-                        onAddArtifactSource: async (artifactId: string) => {
-                          await addArtifactSourceMutation.mutateAsync(artifactId);
-                        },
+                    phase={artifactWorkspacePhase(artifactDetail?.generationState)}
+                    proposal={artifactProposal}
+                    readOnly={!initialArtifactCanManage}
+                    selection={artifactInteractionSelection}
+                    onSelectionChange={setArtifactInteractionSelection}
+                    onProposalDismiss={() => {
+                      setArtifactProposal(null);
+                      if (selectedArtifactId && artifactProposal) {
+                        dismissProposal(selectedArtifactId, artifactProposal.runId);
                       }
-                    : {})}
-                  addingArtifactSourceId={
-                    addArtifactSourceMutation.isPending ? addArtifactSourceMutation.variables : null
-                  }
-                  artifactSourceAddError={addArtifactSourceMutation.isError}
-                  onOpenArtifact={(artifactId) => {
-                    pendingCreationSourceUserMessageId.current = null;
-                    startWorkbenchViewTransition(() =>
-                      dispatchArtifactSelection({ artifactId, type: "select" }),
-                    );
-                    router.push(artifactHref(artifactId), { scroll: false });
-                  }}
-                  onSelectTool={(toolId) => {
-                    const selection = artifactSelectionForTool(toolId);
-                    if (!selection) return;
-                    pendingCreationSourceUserMessageId.current = null;
-                    startWorkbenchViewTransition(() =>
-                      dispatchArtifactSelection({ toolId: selection.toolId, type: "start" }),
-                    );
-                  }}
-                  selectedArtifactId={selectedArtifactId}
-                  collapsed={studioControls.collapsed}
-                  historyFocusRequest={studioControls.historyFocusRequest}
-                  onExpand={studioControls.expand}
-                  onShowHistory={studioControls.showHistory}
-                />
-              )}
-              chat={chat}
-              sources={sourcesPanel}
-              workspaceId={workspaceId}
-            />
-          )}
-        </main>
+                    }}
+                    onProposalRetry={(request) => {
+                      setArtifactProposal(null);
+                      if (selectedArtifactId && artifactProposal) {
+                        dismissProposal(selectedArtifactId, artifactProposal.runId);
+                      }
+                      setComposerSuggestion((current) => ({
+                        id: (current?.id ?? 0) + 1,
+                        text: request,
+                      }));
+                      setComposerFocusRequest((current) => current + 1);
+                    }}
+                    onRequestAssistant={() => setComposerFocusRequest((current) => current + 1)}
+                    workspaceId={workspaceId}
+                  />
+                }
+                assistant={chat}
+                disclaimer={fixture.disclaimer}
+                sources={sourcesPanel}
+              />
+            ) : (
+              <WorkbenchPanelLayout
+                disclaimer={fixture.disclaimer}
+                studio={(studioControls) => (
+                  <StudioPanelView
+                    {...fixture.studio}
+                    artifactHistory={visibleArtifactHistory}
+                    artifactHistoryError={historyQuery.isError}
+                    artifactHref={(artifactId) => artifactHref(artifactId)}
+                    isRefreshingHistory={historyQuery.isFetching}
+                    onRefreshHistory={() => void historyQuery.refetch()}
+                    onDeleteArtifact={(artifactId) =>
+                      deleteArtifactMutation.mutateAsync(artifactId)
+                    }
+                    {...(canPublishArtifacts
+                      ? {
+                          onAddArtifactSource: async (artifactId: string) => {
+                            await addArtifactSourceMutation.mutateAsync(artifactId);
+                          },
+                        }
+                      : {})}
+                    addingArtifactSourceId={
+                      addArtifactSourceMutation.isPending
+                        ? addArtifactSourceMutation.variables
+                        : null
+                    }
+                    artifactSourceAddError={addArtifactSourceMutation.isError}
+                    onOpenArtifact={(artifactId) => {
+                      pendingCreationSourceUserMessageId.current = null;
+                      startWorkbenchViewTransition(() =>
+                        dispatchArtifactSelection({ artifactId, type: "select" }),
+                      );
+                      router.push(artifactHref(artifactId), { scroll: false });
+                    }}
+                    onSelectTool={(toolId) => {
+                      const selection = artifactSelectionForTool(toolId);
+                      if (!selection) return;
+                      pendingCreationSourceUserMessageId.current = null;
+                      startWorkbenchViewTransition(() =>
+                        dispatchArtifactSelection({ toolId: selection.toolId, type: "start" }),
+                      );
+                    }}
+                    selectedArtifactId={selectedArtifactId}
+                    collapsed={studioControls.collapsed}
+                    historyFocusRequest={studioControls.historyFocusRequest}
+                    onExpand={studioControls.expand}
+                    onShowHistory={studioControls.showHistory}
+                  />
+                )}
+                chat={assistant}
+                layoutMode={knowledgeNetworkMode ? "network-focus" : "default"}
+                sources={
+                  networkTrace && knowledgeNetworkMode && knowledgeNetworkGraphPlan ? (
+                    <KnowledgeNetworkSourcesPanel
+                      labels={knowledgeNetworkLabels}
+                      graphPlan={knowledgeNetworkGraphPlan}
+                      theme="light"
+                      selectedId={knowledgeNetworkSelectedId}
+                      shouldReduceMotion={shouldReduceMotion}
+                      sourceMode="network"
+                      sourceEntries={knowledgeNetworkSourceEntries}
+                      trace={networkTrace}
+                      focusRequest={knowledgeNetworkFocusRequest}
+                      citationFocus={knowledgeNetworkCitationFocus}
+                      onSelect={handleKnowledgeNetworkSourceSelect}
+                      onGraphSelect={handleKnowledgeNetworkSelect}
+                      selectionLabels={knowledgeNetworkNodeSelectionLabels}
+                      onSourceModeChange={(mode) => {
+                        if (mode === "list") closeKnowledgeNetwork();
+                      }}
+                    />
+                  ) : (
+                    sourcesPanel
+                  )
+                }
+                workspaceId={workspaceId}
+              />
+            )}
+          </main>
+        </div>
+      </ArtifactSourceTransitionProvider>
+    </KnowledgeNetworkHostProvider>
+  );
+}
+
+function usePrefersReducedMotion() {
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+
+  useEffect(() => {
+    const media = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const update = () => setPrefersReducedMotion(media.matches);
+    update();
+    if (typeof media.addEventListener === "function") {
+      media.addEventListener("change", update);
+      return () => media.removeEventListener("change", update);
+    }
+    if (typeof media.addListener === "function") {
+      media.addListener(update);
+      return () => media.removeListener(update);
+    }
+    return undefined;
+  }, []);
+
+  return prefersReducedMotion;
+}
+
+function KnowledgeNetworkSelectionPanel({
+  labels,
+  node,
+  onClose,
+  onEnterWorkspace,
+  onSelectNode,
+}: {
+  labels: KnowledgeNetworkNodeSelectionLabels;
+  node: KnowledgeNetworkSelectedNode;
+  onClose: () => void;
+  onEnterWorkspace: (target: KnowledgeNetworkWorkspaceNavigationTarget) => void;
+  onSelectNode: (id: string) => void;
+}) {
+  return (
+    <PanelShell className="workspace-assistant-tone-panel" testId="knowledge-network-node-panel">
+      <div className="flex h-[52px] items-center border-b border-[var(--workspace-border)] px-4">
+        <h2 className="min-w-0 flex-1 truncate text-lg font-bold leading-tight">
+          {labels.detailsTitle}
+        </h2>
+        <button
+          type="button"
+          aria-label={labels.close}
+          title={labels.close}
+          onClick={onClose}
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[var(--workspace-text-muted)] transition-colors hover:bg-[var(--workspace-surface-muted)] hover:text-[var(--workspace-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--studio-ring)]"
+        >
+          <X aria-hidden="true" className="h-4 w-4" />
+        </button>
       </div>
-    </ArtifactSourceTransitionProvider>
+      <div className="workspace-chat-viewport min-h-0 flex-1 overflow-y-auto px-4 py-4">
+        <KnowledgeNetworkNodeInspector
+          node={node}
+          labels={labels}
+          variant="panel"
+          onClose={onClose}
+          onEnterWorkspace={onEnterWorkspace}
+          onSelectNode={onSelectNode}
+        />
+      </div>
+    </PanelShell>
   );
 }

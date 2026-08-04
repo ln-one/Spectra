@@ -3,6 +3,7 @@ import {
   Check,
   ChevronDown,
   FolderMinus,
+  Network,
   PanelRightOpen,
   RefreshCw,
   RotateCcw,
@@ -14,6 +15,7 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useEffect, useRef } from "react";
 import { sourceIconStyle } from "@/features/sources/ui/SourcePresentationIcon";
+import { useKnowledgeNetworkHost } from "./KnowledgeNetworkHostContext";
 import { PanelShell } from "./PanelShell";
 import { useSourcePanelLayout } from "./SourcePanelLayoutContext";
 import type { SourceItemViewModel, SourcesPanelViewProps } from "./types";
@@ -66,6 +68,7 @@ export function SourcesPanelView({
 }: SourcesPanelViewProps) {
   const t = useTranslations("Workbench");
   const panelLayout = useSourcePanelLayout();
+  const knowledgeNetworkHost = useKnowledgeNetworkHost();
   const sourceElementsRef = useRef(new Map<string, HTMLDivElement>());
 
   useEffect(() => {
@@ -93,6 +96,24 @@ export function SourcesPanelView({
     </button>
   );
   const resolvedImportControl = importControl ?? fallbackImportControl;
+  const knowledgeNetworkControl = knowledgeNetworkHost ? (
+    <button
+      type="button"
+      aria-label={knowledgeNetworkHost.label}
+      aria-pressed={knowledgeNetworkHost.active}
+      title={knowledgeNetworkHost.label}
+      onClick={knowledgeNetworkHost.open}
+      className="workspace-sources-import-action flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--studio-border)] bg-[var(--studio-surface-subtle)] text-[var(--studio-accent-text)] shadow-sm transition-[color,background-color,border-color,box-shadow,transform] hover:border-[var(--studio-border-strong)] hover:bg-[var(--studio-surface)] hover:shadow-md active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--studio-ring)]"
+    >
+      <Network className="h-4 w-4 shrink-0" strokeWidth={2.2} />
+    </button>
+  ) : null;
+  const resolvedHeaderControls = (
+    <div className="flex items-center gap-1.5">
+      {knowledgeNetworkControl}
+      {resolvedImportControl}
+    </div>
+  );
 
   if (panelLayout?.collapsed) {
     return (
@@ -132,7 +153,8 @@ export function SourcesPanelView({
             ))}
           </div>
           <div className="my-2 h-px w-7 shrink-0 bg-[var(--workspace-border)]" />
-          <div className="workspace-sources-rail-import flex h-10 w-10 shrink-0 items-center justify-center">
+          <div className="workspace-sources-rail-import flex h-auto min-h-10 shrink-0 flex-col items-center justify-center gap-1">
+            {knowledgeNetworkControl}
             {resolvedImportControl}
           </div>
         </nav>
@@ -153,7 +175,7 @@ export function SourcesPanelView({
             </div>
           </div>
           <div className="workspace-sources-header-actions ml-2 flex shrink-0 items-center gap-1.5 text-[var(--workspace-text-muted)]">
-            {resolvedImportControl}
+            {resolvedHeaderControls}
           </div>
         </div>
         <div className="workspace-sources-body h-[calc(100%-52px)] overflow-y-auto px-2 pb-3 pt-2">

@@ -2,7 +2,7 @@
 
 import * as Popover from "@radix-ui/react-popover";
 import { useQuery } from "@tanstack/react-query";
-import { X } from "lucide-react";
+import { Network, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import {
   type ComponentPropsWithoutRef,
@@ -40,6 +40,7 @@ type KnowledgeEvidenceContextValue = {
   visualEvidenceByToken: ReadonlyMap<string, KnowledgeCitationEvidence>;
   visualEvidenceTokensByPartIndex: ReadonlyMap<number, readonly string[]>;
   workspaceId: string;
+  onOpenKnowledgeNetwork?: ((evidence: KnowledgeCitationEvidence) => void) | undefined;
 };
 
 const KnowledgeEvidenceContext = createContext<KnowledgeEvidenceContextValue | null>(null);
@@ -102,12 +103,14 @@ export function KnowledgeEvidenceBoundary({
   parts,
   visibleTextPartIndexes,
   workspaceId,
+  onOpenKnowledgeNetwork,
 }: {
   children: ReactNode;
   isStreaming?: boolean;
   parts: readonly unknown[];
   visibleTextPartIndexes: ReadonlySet<number>;
   workspaceId: string;
+  onOpenKnowledgeNetwork?: ((evidence: KnowledgeCitationEvidence) => void) | undefined;
 }) {
   const bundle = useMemo(() => extractKnowledgeEvidence(parts), [parts]);
   const byId = useMemo(() => new Map(bundle.map((unit) => [unit.citationToken, unit])), [bundle]);
@@ -151,8 +154,17 @@ export function KnowledgeEvidenceBoundary({
       visualEvidenceByToken,
       visualEvidenceTokensByPartIndex: visualPlacement.tokensByPartIndex,
       workspaceId,
+      ...(onOpenKnowledgeNetwork ? { onOpenKnowledgeNetwork } : {}),
     }),
-    [bundle, byId, displayNumbers, visualEvidenceByToken, visualPlacement, workspaceId],
+    [
+      bundle,
+      byId,
+      displayNumbers,
+      onOpenKnowledgeNetwork,
+      visualEvidenceByToken,
+      visualPlacement,
+      workspaceId,
+    ],
   );
 
   return (
@@ -181,6 +193,7 @@ export function KnowledgeMarkdownLink({ children, href, ...props }: ComponentPro
       <KnowledgeEvidencePopover
         evidence={evidence}
         displayNumber={displayNumber}
+        onOpenKnowledgeNetwork={context.onOpenKnowledgeNetwork}
         workspaceId={context.workspaceId}
       />
     );
@@ -197,11 +210,13 @@ export function KnowledgeEvidencePopover({
   displayNumber,
   trigger,
   workspaceId,
+  onOpenKnowledgeNetwork,
 }: {
   evidence: KnowledgeCitationEvidence;
   displayNumber: number;
   trigger?: ReactNode;
   workspaceId: string;
+  onOpenKnowledgeNetwork?: ((evidence: KnowledgeCitationEvidence) => void) | undefined;
 }) {
   const t = useTranslations("Workbench");
   const [open, setOpen] = useState(false);
@@ -280,6 +295,19 @@ export function KnowledgeEvidencePopover({
                 </p>
               ) : null}
             </div>
+            {onOpenKnowledgeNetwork ? (
+              <Popover.Close asChild>
+                <button
+                  type="button"
+                  aria-label={t("openKnowledgeNetwork")}
+                  title={t("openKnowledgeNetwork")}
+                  onClick={() => onOpenKnowledgeNetwork(evidence)}
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[var(--workspace-text-muted)] outline-none hover:bg-[var(--workspace-surface-muted)] hover:text-[var(--workspace-text-primary)] focus-visible:ring-2 focus-visible:ring-[var(--studio-ring)]"
+                >
+                  <Network className="h-4 w-4" />
+                </button>
+              </Popover.Close>
+            ) : null}
             <Popover.Close asChild>
               <button
                 type="button"

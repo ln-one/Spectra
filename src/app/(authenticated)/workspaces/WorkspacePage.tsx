@@ -11,6 +11,8 @@ import { getAuthSession } from "@/features/auth/session";
 import { getCurrentActor } from "@/features/identity/current";
 import { IdentityError } from "@/features/identity/errors";
 import type { Actor } from "@/features/identity/types";
+import type { KnowledgeNetworkTrace } from "@/features/knowledge-network/model";
+import { buildRealKnowledgeNetworkTrace } from "@/features/knowledge-network/real-trace";
 import { workspaceHref } from "@/features/workspaces/address";
 import { WorkspaceError } from "@/features/workspaces/errors";
 import type { Workspace } from "@/features/workspaces/types";
@@ -67,6 +69,7 @@ export async function renderWorkspacePage({
   let email: string | null = null;
   let actor: Actor | null = null;
   let bootstrap: Awaited<ReturnType<typeof loadWorkspaceBootstrap>> | null = null;
+  let knowledgeNetworkTrace: KnowledgeNetworkTrace | null = null;
   let accessDenied: { name: string; ownerHandle: string } | null = null;
   try {
     const [session, currentActor] = await Promise.all([getAuthSession(), getCurrentActor()]);
@@ -79,6 +82,17 @@ export async function renderWorkspacePage({
       requestedConversationId,
       workspace: resolvedWorkspace,
     });
+    try {
+      knowledgeNetworkTrace = await buildRealKnowledgeNetworkTrace({
+        actor: currentActor,
+        conversationId: bootstrap.conversationId,
+        initialMessages: bootstrap.messages.items,
+        initialSources: bootstrap.sources,
+        workspace: resolvedWorkspace,
+      });
+    } catch {
+      knowledgeNetworkTrace = null;
+    }
     actor = currentActor;
     email = session?.user.email ?? "";
   } catch (error) {
@@ -130,6 +144,7 @@ export async function renderWorkspacePage({
       sharingState={bootstrap.sharing}
       settingsAction={updateWorkspaceFromForm}
       workspace={workspace}
+      knowledgeNetworkTrace={knowledgeNetworkTrace}
       taskAgentCapabilities={[...artifactPublishedCapabilities()]}
       taskAgentCreationCapabilities={[...artifactCreationCapabilities()]}
       accountMenu={
