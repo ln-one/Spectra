@@ -83,6 +83,13 @@
     var(--workspace-surface, #fff);
 }
 
+:global([data-theme="dark"]) .canvas {
+  background:
+    radial-gradient(circle at 50% 50%, rgb(37 99 235 / 16%), transparent 44%),
+    radial-gradient(circle at 18% 20%, rgb(39 39 42 / 72%), transparent 36%),
+    var(--workspace-surface, #18181b);
+}
+
 .fitButton {
   position: absolute;
   z-index: 3;

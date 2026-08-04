@@ -3,7 +3,7 @@
 import type { UIMessage } from "ai";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ThreadTitleUpdate } from "@/features/agents/thread-events";
 import type { ArtifactDetail } from "@/features/artifacts/contract";
 import type { ArtifactHistoryItem } from "@/features/artifacts/types";
@@ -106,7 +106,10 @@ export function WorkspaceWorkbenchView({
     useState<KnowledgeNetworkPendingNavigation | null>(null);
   const [knowledgeNetworkInitialView, setKnowledgeNetworkInitialView] =
     useState<KnowledgeNetworkWorkspaceReturnView | null>(null);
+  const consumedKnowledgeNetworkNavigationWorkspaceIdRef = useRef<string | null>(null);
   useEffect(() => {
+    if (consumedKnowledgeNetworkNavigationWorkspaceIdRef.current === workspace.id) return;
+    consumedKnowledgeNetworkNavigationWorkspaceIdRef.current = workspace.id;
     setReturnNavigation(consumeKnowledgeNetworkNavigation(workspace.id));
     setKnowledgeNetworkInitialView(consumeKnowledgeNetworkReturn(workspace.id));
   }, [workspace.id]);

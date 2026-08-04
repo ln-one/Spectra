@@ -13,7 +13,10 @@ import {
   PixiGraphViewCanvas,
   type PixiGraphViewCanvasHandle,
 } from "@/features/graph-view/PixiGraphViewCanvas";
-import { SOURCE_ICON_PALETTE } from "@/features/sources/ui/source-icon-palette";
+import {
+  ARTIFACT_TONE_PALETTE,
+  SOURCE_ICON_PALETTE,
+} from "@/features/sources/ui/source-icon-palette";
 import {
   KnowledgeNetworkNodeInspector,
   type KnowledgeNetworkSelectedNode,
@@ -98,11 +101,12 @@ export function knowledgeNetworkSelectedNodeDetails(
     const navigationTarget = workspaceNavigationTarget(trace, workspace.id);
     const relatedSources = trace.sources
       .filter((source) => source.workspaceId === workspace.id)
-      .map(({ id, name, detail, family, chunkCount }) => ({
+      .map(({ id, name, detail, family, artifactKind, chunkCount }) => ({
         id,
         name,
         detail,
         family,
+        ...(artifactKind ? { artifactKind } : {}),
         chunkCount,
       }));
     return {
@@ -137,6 +141,7 @@ export function knowledgeNetworkSelectedNodeDetails(
     detail: source.detail,
     typeLabel: labels.source,
     family: source.family,
+    artifactKind: source.artifactKind,
     meta: [
       ...(owner ? [`${labels.owner}: ${owner.name}`] : []),
       labels.connections(metric.weight),
@@ -188,10 +193,13 @@ function buildCitationPath(
 }
 
 function nodePalette(
-  kind: "workspace" | KnowledgeNetworkSource["family"],
+  source: KnowledgeNetworkSource | undefined,
+  isWorkspace: boolean,
   theme: "light" | "dark",
 ): { foreground: string } {
-  return SOURCE_ICON_PALETTE[kind][theme];
+  if (isWorkspace) return SOURCE_ICON_PALETTE.workspace[theme];
+  if (source?.artifactTone) return ARTIFACT_TONE_PALETTE[source.artifactTone][theme];
+  return SOURCE_ICON_PALETTE[source?.family ?? "document"][theme];
 }
 
 function buildKnowledgeNetworkGraphData(
@@ -217,7 +225,7 @@ function buildKnowledgeNetworkGraphData(
     if (!item || !metric || !position) continue;
 
     const isWorkspace = workspace !== undefined;
-    const palette = nodePalette(isWorkspace ? "workspace" : (source?.family ?? "document"), theme);
+    const palette = nodePalette(source, isWorkspace, theme);
     nodes.push({
       id,
       x: position.x,

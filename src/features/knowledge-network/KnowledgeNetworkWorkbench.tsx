@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { useMemo } from "react";
 import { SourcePresentationIcon } from "@/features/sources/ui/SourcePresentationIcon";
 import {
+  artifactSourcePresentation,
   sourceFilePresentation,
   workspaceSourcePresentation,
 } from "@/features/sources/ui/source-file-presentation";
@@ -210,6 +211,23 @@ function knowledgeNetworkSourceItem(
     };
   }
 
+  if (entry.source.artifactKind) {
+    const presentation = artifactSourcePresentation(entry.source.artifactKind);
+    return {
+      id: entry.source.id,
+      name: entry.source.name,
+      status: entry.source.detail,
+      Icon: presentation.Icon,
+      artifactKind: entry.source.artifactKind,
+      artifactTone: presentation.tone,
+      kind: "artifact",
+      selected: selectedId === entry.source.id,
+      canOpen: false,
+      canDelete: false,
+      statusTone: "success",
+    };
+  }
+
   const presentation = sourceFilePresentation(entry.source.name);
   return {
     id: entry.source.id,
@@ -289,13 +307,12 @@ function KnowledgeNetworkSourceIcon({ entry }: { entry: KnowledgeNetworkSourceLi
   const presentation =
     entry.kind === "workspace"
       ? workspaceSourcePresentation()
-      : sourceFilePresentation(entry.source.name);
+      : entry.source.artifactKind
+        ? artifactSourcePresentation(entry.source.artifactKind)
+        : { category: "file" as const, ...sourceFilePresentation(entry.source.name) };
   return (
     <SourcePresentationIcon
-      presentation={{
-        category: entry.kind === "workspace" ? "workspace" : "file",
-        ...presentation,
-      }}
+      presentation={presentation}
       className="h-8 w-8 rounded-lg"
       iconClassName="h-[19px] w-[19px]"
     />

@@ -4,6 +4,7 @@ import { ArrowUpRight, X } from "lucide-react";
 import type { SourceVisualFamily } from "@/features/sources/presentation";
 import { SourcePresentationIcon } from "@/features/sources/ui/SourcePresentationIcon";
 import {
+  artifactSourcePresentation,
   sourceFilePresentation,
   workspaceSourcePresentation,
 } from "@/features/sources/ui/source-file-presentation";
@@ -22,8 +23,12 @@ export type KnowledgeNetworkSelectedNode = {
   family: SourceVisualFamily;
   meta: string[];
   relatedSources?: Array<
-    Pick<KnowledgeNetworkSource, "id" | "name" | "detail" | "family" | "chunkCount">
+    Pick<
+      KnowledgeNetworkSource,
+      "id" | "name" | "detail" | "family" | "artifactKind" | "chunkCount"
+    >
   >;
+  artifactKind?: KnowledgeNetworkSource["artifactKind"];
   navigationTarget?: KnowledgeNetworkWorkspaceNavigationTarget;
   navigationLabel?: string;
   evidence?: {
@@ -53,7 +58,9 @@ export function KnowledgeNetworkNodeInspector({
   const presentation =
     node.family === "workspace"
       ? workspaceSourcePresentation()
-      : { category: "file" as const, ...sourceFilePresentation(node.name) };
+      : node.artifactKind
+        ? artifactSourcePresentation(node.artifactKind)
+        : { category: "file" as const, ...sourceFilePresentation(node.name) };
 
   return (
     <div
@@ -111,10 +118,9 @@ export function KnowledgeNetworkNodeInspector({
           </div>
           <div className={styles.selectionRelatedList}>
             {node.relatedSources.map((source) => {
-              const sourcePresentation = {
-                category: "file" as const,
-                ...sourceFilePresentation(source.name),
-              };
+              const sourcePresentation = source.artifactKind
+                ? artifactSourcePresentation(source.artifactKind)
+                : { category: "file" as const, ...sourceFilePresentation(source.name) };
               const sourceContent = (
                 <>
                   <SourcePresentationIcon

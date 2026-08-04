@@ -6,6 +6,7 @@ import {
   type KnowledgeCitationEvidence,
   referencedKnowledgeCitationTokens,
 } from "@/features/agents/knowledge-citation-contract";
+import { artifactPresentation } from "@/features/artifacts/ui/artifact-presentation";
 import type { Actor } from "@/features/identity/types";
 import { type SourceVisualFamily, sourceVisualFamily } from "@/features/sources/presentation";
 import { listWorkspaceSources } from "@/features/sources/service";
@@ -111,6 +112,12 @@ function knowledgeNetworkSource(source: Source): KnowledgeNetworkSource | null {
     name,
     detail: sourceDetail(source, family),
     family,
+    ...(source.kind === "artifact"
+      ? {
+          artifactKind: source.artifact.kind,
+          artifactTone: artifactPresentation(source.artifact.kind).tone,
+        }
+      : {}),
     chunkCount: source.knowledgeIndex?.chunkCount ?? 0,
   };
 }

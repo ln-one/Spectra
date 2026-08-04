@@ -329,7 +329,7 @@ export function PixiGraphViewCanvas<TData extends GraphViewCanvasData>({
     let dpr = Math.max(1, window.devicePixelRatio || 1);
     const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     let reduceMotion = reducedMotionRef.current || prefersReducedMotion;
-    const theme = readGraphViewTheme(document, DEFAULT_GRAPH_VIEW_THEME);
+    let theme = readGraphViewTheme(document, DEFAULT_GRAPH_VIEW_THEME);
     const viewport: Viewport = { width: 1, height: 1 };
     const transform = { panX: 0, panY: 0, scale: DEFAULT_SCALE };
     // Pan is a live camera value in the reference renderer. Only zoom has a
@@ -383,6 +383,15 @@ export function PixiGraphViewCanvas<TData extends GraphViewCanvasData>({
       idleFrames = 0;
       scheduleRender();
     };
+
+    const themeObserver = new MutationObserver(() => {
+      theme = readGraphViewTheme(document, DEFAULT_GRAPH_VIEW_THEME);
+      markDirty();
+    });
+    themeObserver.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["data-theme"],
+    });
 
     const setCursor = (cursor: "default" | "pointer" | "grabbing") => {
       if (interactionCanvas) interactionCanvas.style.cursor = cursor;
@@ -1691,6 +1700,7 @@ export function PixiGraphViewCanvas<TData extends GraphViewCanvasData>({
     return () => {
       disposed = true;
       resizeObserver.disconnect();
+      themeObserver.disconnect();
       if (animationFrame !== null) window.cancelAnimationFrame(animationFrame);
       animationFrame = null;
       setBodyGrabbing(false);

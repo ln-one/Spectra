@@ -1,3 +1,5 @@
+import type { ArtifactSourceKind } from "@/features/artifacts/types";
+import type { ArtifactTone } from "@/features/artifacts/ui/artifact-presentation";
 import type { SourceVisualFamily } from "@/features/sources/presentation";
 
 export type KnowledgeNetworkWorkspace = {
@@ -19,6 +21,8 @@ export type KnowledgeNetworkSource = {
   name: string;
   detail: string;
   family: Exclude<SourceVisualFamily, "workspace">;
+  artifactKind?: ArtifactSourceKind;
+  artifactTone?: ArtifactTone;
   chunkCount: number;
 };
 

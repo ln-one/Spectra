@@ -1,3 +1,4 @@
+import type { ArtifactTone } from "@/features/artifacts/ui/artifact-presentation";
 import type { SourceVisualFamily } from "../presentation";
 
 export const SOURCE_ICON_PALETTE = {
@@ -63,6 +64,44 @@ export const SOURCE_ICON_PALETTE = {
   },
 } as const satisfies Record<
   SourceVisualFamily,
+  {
+    light: { foreground: string; background: string };
+    dark: { foreground: string; background: string };
+  }
+>;
+
+/**
+ * Artifact sources keep their studio tone after becoming graph nodes. The
+ * foreground values intentionally match the source-list tone tokens so the
+ * same source has the same visual identity in both views.
+ */
+export const ARTIFACT_TONE_PALETTE = {
+  orange: {
+    light: { foreground: "#c2410c", background: "#ffedd5" },
+    dark: { foreground: "#fb923c", background: "#431407" },
+  },
+  blue: {
+    light: { foreground: "#2563eb", background: "#dbeafe" },
+    dark: { foreground: "#60a5fa", background: "#172554" },
+  },
+  teal: {
+    light: { foreground: "#0f766e", background: "#ccfbf1" },
+    dark: { foreground: "#2dd4bf", background: "#134e4a" },
+  },
+  rose: {
+    light: { foreground: "#be123c", background: "#ffe4e6" },
+    dark: { foreground: "#fb7185", background: "#3f121e" },
+  },
+  violet: {
+    light: { foreground: "#7c3aed", background: "#f3e8ff" },
+    dark: { foreground: "#a78bfa", background: "#2e1065" },
+  },
+  green: {
+    light: { foreground: "#15803d", background: "#dcfce7" },
+    dark: { foreground: "#4ade80", background: "#14532d" },
+  },
+} as const satisfies Record<
+  ArtifactTone,
   {
     light: { foreground: string; background: string };
     dark: { foreground: string; background: string };

@@ -147,6 +147,23 @@ function waitForArtifactMembershipElement(artifactId: string, destination: "hist
   });
 }
 
+function useResolvedWorkspaceTheme(): "light" | "dark" {
+  const [theme, setTheme] = useState<"light" | "dark">("light");
+
+  useEffect(() => {
+    const root = document.documentElement;
+    const syncTheme = () => {
+      setTheme(root.dataset.theme === "dark" ? "dark" : "light");
+    };
+    const observer = new MutationObserver(syncTheme);
+    syncTheme();
+    observer.observe(root, { attributes: true, attributeFilter: ["data-theme"] });
+    return () => observer.disconnect();
+  }, []);
+
+  return theme;
+}
+
 async function animateArtifactMembershipMove(
   artifactId: string,
   destination: "history" | "sources",
@@ -281,6 +298,7 @@ export function WorkbenchView({
   const router = useRouter();
   const searchParams = useSearchParams();
   const shouldReduceMotion = usePrefersReducedMotion();
+  const resolvedWorkspaceTheme = useResolvedWorkspaceTheme();
   const [networkTrace, setNetworkTrace] = useState<KnowledgeNetworkTrace | null>(
     knowledgeNetworkTrace,
   );
@@ -931,7 +949,10 @@ export function WorkbenchView({
           </a>
           <div className="workspace-workbench-background pointer-events-none absolute inset-0" />
           {returnToKnowledgeNetwork ? (
-            <div className="pointer-events-none absolute top-3 right-6 z-40">
+            <div
+              className="pointer-events-none absolute right-6 z-40"
+              style={{ top: "calc(var(--workspace-header-height) + 0.75rem)" }}
+            >
               <button
                 type="button"
                 aria-label={t("knowledgeNetworkReturnToCurrentWorkspace")}
@@ -1067,7 +1088,7 @@ export function WorkbenchView({
                     <KnowledgeNetworkSourcesPanel
                       labels={knowledgeNetworkLabels}
                       graphPlan={knowledgeNetworkGraphPlan}
-                      theme="light"
+                      theme={resolvedWorkspaceTheme}
                       selectedId={knowledgeNetworkSelectedId}
                       shouldReduceMotion={shouldReduceMotion}
                       sourceMode="network"

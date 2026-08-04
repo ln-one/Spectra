@@ -188,6 +188,41 @@
   color: #556582;
 }
 
+:global([data-theme="dark"] .graph-view.color-fill) {
+  color: #8ea2ff;
+}
+
+:global([data-theme="dark"] .graph-view.color-fill-focused) {
+  color: #a9b9ff;
+}
+
+:global([data-theme="dark"] .graph-view.color-fill-tag) {
+  color: #2dd4bf;
+}
+
+:global([data-theme="dark"] .graph-view.color-fill-unresolved) {
+  color: #fb7185;
+}
+
+:global([data-theme="dark"] .graph-view.color-fill-attachment) {
+  color: #fb923c;
+}
+
+:global([data-theme="dark"] .graph-view.color-arrow),
+:global([data-theme="dark"] .graph-view.color-circle),
+:global([data-theme="dark"] .graph-view.color-fill-highlight),
+:global([data-theme="dark"] .graph-view.color-line-highlight) {
+  color: #9aaeff;
+}
+
+:global([data-theme="dark"] .graph-view.color-line) {
+  color: #94a3b8;
+}
+
+:global([data-theme="dark"] .graph-view.color-text) {
+  color: #cbd5e1;
+}
+
 .pixiCanvas {
   display: block;
   width: 100%;

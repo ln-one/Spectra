@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { SOURCE_ICON_PALETTE } from "./source-icon-palette";
+import { ARTIFACT_TONE_PALETTE, SOURCE_ICON_PALETTE } from "./source-icon-palette";
 
 const NON_TEXT_CONTRAST_TARGET = 3;
 
@@ -29,6 +29,19 @@ function contrastRatio(first: string, second: string) {
 describe("source icon palette", () => {
   test.each(
     Object.entries(SOURCE_ICON_PALETTE),
+  )("%s meets the non-text contrast target in light and dark themes", (_tone, colors) => {
+    expect(contrastRatio(colors.light.foreground, colors.light.background)).toBeGreaterThanOrEqual(
+      NON_TEXT_CONTRAST_TARGET,
+    );
+    expect(contrastRatio(colors.dark.foreground, colors.dark.background)).toBeGreaterThanOrEqual(
+      NON_TEXT_CONTRAST_TARGET,
+    );
+  });
+});
+
+describe("artifact tone palette", () => {
+  test.each(
+    Object.entries(ARTIFACT_TONE_PALETTE),
   )("%s meets the non-text contrast target in light and dark themes", (_tone, colors) => {
     expect(contrastRatio(colors.light.foreground, colors.light.background)).toBeGreaterThanOrEqual(
       NON_TEXT_CONTRAST_TARGET,
