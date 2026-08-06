@@ -17,7 +17,9 @@ function required(name) {
 }
 
 const endpoint = new URL(required("STORAGE_ENDPOINT"));
-if (endpoint.hostname !== "localhost" && endpoint.hostname !== "127.0.0.1") {
+const loopbackEndpoint = endpoint.hostname === "localhost" || endpoint.hostname === "127.0.0.1";
+const internalEndpointAllowed = process.env.STORAGE_SETUP_ALLOW_INTERNAL_ENDPOINT === "true";
+if (!loopbackEndpoint && !internalEndpointAllowed) {
   throw new Error("storage:setup only provisions loopback development storage");
 }
 
@@ -55,7 +57,7 @@ try {
           {
             AllowedHeaders: ["*"],
             AllowedMethods: ["GET", "HEAD", "PUT"],
-            AllowedOrigins: ["http://localhost:3000"],
+            AllowedOrigins: ["http://localhost:3000", process.env.BETTER_AUTH_URL].filter(Boolean),
             ExposeHeaders: ["ETag", "x-amz-version-id"],
           },
         ],
