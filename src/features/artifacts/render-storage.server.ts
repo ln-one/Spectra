@@ -29,6 +29,10 @@ export type ArtifactRenderStorage = {
   }): Promise<{ versionId: string }>;
 };
 
+function supportsConditionalPut(config: StorageConfig) {
+  return !new URL(config.endpoint).hostname.endsWith(".aliyuncs.com");
+}
+
 export function createArtifactRenderStorage(
   config: StorageConfig = storageConfig(),
   client: S3Client = createStorageClient(config),
@@ -96,7 +100,7 @@ export function createArtifactRenderStorage(
           Bucket: config.bucket,
           ContentLength: body.byteLength,
           ContentType: contentType,
-          IfNoneMatch: ifNoneMatch,
+          ...(supportsConditionalPut(config) ? { IfNoneMatch: ifNoneMatch } : {}),
           Key: key,
         }),
       );
