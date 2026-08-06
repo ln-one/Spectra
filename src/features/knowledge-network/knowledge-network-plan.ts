@@ -145,11 +145,9 @@ function computeLayout(
 export function prepareKnowledgeNetworkGraphPlan(
   trace: KnowledgeNetworkTrace,
 ): KnowledgeNetworkGraphPlan {
-  // An empty retrieval trace may still carry placeholder Workspace/Source
-  // entries for the native source list. Do not turn those placeholders into a
-  // fabricated graph; a real graph with no Chunks can still be valid when the
-  // trace contains Workspace references.
-  if (trace.chunks.length === 0 && trace.references.length === 0) {
+  // A graph is meaningful as soon as it has a real Source or Workspace reference.
+  // Chunks only add retrieval evidence; they are not required for the source graph.
+  if (trace.sources.length === 0 && trace.references.length === 0) {
     return {
       layout: {},
       nodeMetrics: {},

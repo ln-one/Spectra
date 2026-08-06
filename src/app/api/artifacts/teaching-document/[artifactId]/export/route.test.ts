@@ -88,11 +88,9 @@ test("GET returns the fixed-revision download only after the job is ready", asyn
   expect(payload).toMatchObject({
     job: { artifactRevisionId: revisionId, state: "ready" },
   });
-  expect(new URL(payload.downloadUrl)).toMatchObject({
-    host: "localhost",
-    pathname: `/api/artifacts/teaching-document/${artifactId}/export`,
-  });
-  expect(new URL(payload.downloadUrl).searchParams.get("download")).toBe("1");
+  expect(payload.downloadUrl).toBe(
+    `/api/artifacts/teaching-document/${artifactId}/export?download=1&revisionId=${revisionId}`,
+  );
   expect(getArtifactRenderDownload).not.toHaveBeenCalled();
 });
 

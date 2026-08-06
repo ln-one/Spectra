@@ -54,11 +54,16 @@ async function handle(
         },
       });
     }
-    const downloadUrl = job.state === "ready" ? new URL(requestUrl) : null;
-    downloadUrl?.searchParams.set("download", "1");
+    const downloadUrl =
+      job.state === "ready"
+        ? `${requestUrl.pathname}?${new URLSearchParams({
+            download: "1",
+            revisionId: revisionId as string,
+          })}`
+        : null;
     return Response.json(
       {
-        downloadUrl: downloadUrl?.toString() ?? null,
+        downloadUrl,
         job: artifactRenderJobSchema.parse({
           artifactId: job.artifactId,
           artifactRevisionId: job.artifactRevisionId,

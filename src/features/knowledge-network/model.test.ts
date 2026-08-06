@@ -86,13 +86,38 @@ describe("knowledge network graph model", () => {
     expect(new Set(connections).size).toBe(connections.length);
   });
 
-  test("does not invent a graph for an empty trace", () => {
+  test("keeps the base source graph visible without retrieval evidence", () => {
     const plan = prepareKnowledgeNetworkGraphPlan(emptyKnowledgeNetworkTrace);
 
-    expect(plan.visibleNodeIds).toHaveLength(0);
-    expect(plan.visibleEdges).toHaveLength(0);
-    expect(plan.layout).toEqual({});
-    expect(plan.nodeMetrics).toEqual({});
+    expect(plan.visibleNodeIds).toEqual([
+      emptyKnowledgeNetworkTrace.currentWorkspaceId,
+      emptyKnowledgeNetworkTrace.sources[0]?.id,
+    ]);
+    expect(plan.visibleEdges).toHaveLength(1);
+    expect(Object.keys(plan.layout)).toHaveLength(2);
+    expect(Object.keys(plan.nodeMetrics)).toHaveLength(2);
+  });
+
+  test("keeps an indexed Source visible before it is cited", () => {
+    const source = referenceKnowledgeNetworkTrace.sources[0];
+    if (!source) throw new Error("Source fixture failed");
+    const sourceOnlyTrace = {
+      ...emptyKnowledgeNetworkTrace,
+      id: "source-only-knowledge-network",
+      sources: [
+        {
+          ...source,
+          workspaceId: emptyKnowledgeNetworkTrace.currentWorkspaceId,
+        },
+      ],
+    };
+    const plan = prepareKnowledgeNetworkGraphPlan(sourceOnlyTrace);
+
+    expect(plan.visibleNodeIds).toEqual([
+      emptyKnowledgeNetworkTrace.currentWorkspaceId,
+      sourceOnlyTrace.sources[0]?.id,
+    ]);
+    expect(plan.visibleEdges).toHaveLength(1);
   });
 
   test("keeps Workspace and Source nodes visible when the trace has no Chunks", () => {

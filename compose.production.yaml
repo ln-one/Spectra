@@ -76,6 +76,12 @@ services:
       dockerfile: Dockerfile
       secrets:
         - npmrc
+        - production_env
+      args:
+        http_proxy: http://host.docker.internal:17890
+        https_proxy: http://host.docker.internal:17890
+      extra_hosts:
+        - "host.docker.internal:host-gateway"
     command: ["node", "scripts/setup-local-storage.mjs"]
     depends_on:
       object-storage:
@@ -91,6 +97,12 @@ services:
       dockerfile: Dockerfile
       secrets:
         - npmrc
+        - production_env
+      args:
+        http_proxy: http://host.docker.internal:17890
+        https_proxy: http://host.docker.internal:17890
+      extra_hosts:
+        - "host.docker.internal:host-gateway"
     command: ["sh", "-c", "npm run db:migrate && npm run auth:migrate && npm run start"]
     depends_on:
       postgres:
@@ -102,8 +114,14 @@ services:
       stratumind:
         condition: service_healthy
     env_file: .env.production
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      HTTP_PROXY: http://host.docker.internal:17890
+      HTTPS_PROXY: http://host.docker.internal:17890
+      NO_PROXY: localhost,127.0.0.1,postgres,redis,object-storage,stratumind
     healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000').then((response) => process.exit(response.status < 500 ? 0 : 1)).catch(() => process.exit(1))"]
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000').then((response) => process.exit(response.status < 500 ? 0 : 1)).catch(() => process.exit(1))"]
       interval: 10s
       timeout: 5s
       retries: 18
@@ -118,12 +136,22 @@ services:
       dockerfile: Dockerfile.worker
       secrets:
         - npmrc
+      args:
+        http_proxy: http://host.docker.internal:17890
+        https_proxy: http://host.docker.internal:17890
+      extra_hosts:
+        - "host.docker.internal:host-gateway"
     depends_on:
       app:
         condition: service_healthy
     env_file: .env.production
     environment:
       WORKER_HEALTH_PORT: "8787"
+      HTTP_PROXY: http://host.docker.internal:17890
+      HTTPS_PROXY: http://host.docker.internal:17890
+      NO_PROXY: localhost,127.0.0.1,postgres,redis,object-storage,stratumind,app
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8787/readyz').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))"]
       interval: 15s
@@ -135,6 +163,8 @@ services:
 secrets:
   npmrc:
     file: ./secrets/npmrc
+  production_env:
+    file: ./.env.production
 
 volumes:
   spectra-object-data:

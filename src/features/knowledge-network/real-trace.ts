@@ -13,6 +13,7 @@ import { listWorkspaceSources } from "@/features/sources/service";
 import type { Source } from "@/features/sources/types";
 import { resolveReachableWorkspaceGraph } from "@/features/workspaces/reference-graph";
 import type { Workspace } from "@/features/workspaces/types";
+import { webLogger } from "@/observability/server";
 import type {
   KnowledgeNetworkChunk,
   KnowledgeNetworkPath,
@@ -159,14 +160,27 @@ export async function buildRealKnowledgeNetworkTrace({
   workspace: Workspace;
 }): Promise<KnowledgeNetworkTrace> {
   const graph = await resolveReachableWorkspaceGraph(actor, workspace.id);
-  const sourcesByWorkspace = new Map<string, Source[]>();
-  await Promise.all(
-    graph.nodes.map(async (node) => {
-      const sources =
-        node.id === workspace.id ? [...initialSources] : await listWorkspaceSources(actor, node.id);
-      sourcesByWorkspace.set(node.id, sources);
-    }),
+  const sourcesByWorkspace = new Map<string, Source[]>([[workspace.id, [...initialSources]]]);
+  const sourceResults = await Promise.allSettled(
+    graph.nodes
+      .filter((node) => node.id !== workspace.id)
+      .map(async (node) => {
+        const sources = await listWorkspaceSources(actor, node.id);
+        sourcesByWorkspace.set(node.id, sources);
+      }),
   );
+  for (const result of sourceResults) {
+    if (result.status !== "rejected") continue;
+    webLogger.warn(
+      {
+        component: "knowledge-network",
+        errorType: result.reason instanceof Error ? result.reason.name : "unknown",
+        event: "knowledge_network.reference_sources_unavailable",
+        workspaceId: workspace.id,
+      },
+      "Referenced workspace sources were unavailable for the knowledge network",
+    );
+  }
 
   const sources = graph.nodes.flatMap((node) =>
     (sourcesByWorkspace.get(node.id) ?? []).flatMap((source) => {
@@ -178,12 +192,27 @@ export async function buildRealKnowledgeNetworkTrace({
   const pathByWorkspaceId = new Map(
     graph.paths.map((path) => [path.workspaceId, [...path.workspaceIds]]),
   );
-  const evidence = extractKnowledgeEvidence(
-    initialMessages.flatMap((message) => message.parts ?? []),
-  );
-  const referencedTokens = referencedKnowledgeCitationTokens(
-    initialMessages.flatMap((message) => message.parts ?? []),
-  );
+  const messageParts = initialMessages.flatMap((message) => message.parts ?? []);
+  let evidence: KnowledgeCitationEvidence[];
+  let referencedTokens: Set<string>;
+  try {
+    evidence = extractKnowledgeEvidence(messageParts);
+    referencedTokens = referencedKnowledgeCitationTokens(messageParts);
+  } catch (error) {
+    if (!(error instanceof Error) || error.message !== "knowledge_evidence_conflict") {
+      throw error;
+    }
+    webLogger.warn(
+      {
+        component: "knowledge-network",
+        event: "knowledge_network.evidence_conflict",
+        workspaceId: workspace.id,
+      },
+      "Conflicting historical citation evidence was excluded from the knowledge network",
+    );
+    evidence = [];
+    referencedTokens = new Set();
+  }
   const chunks: KnowledgeNetworkChunk[] = [];
   const paths: KnowledgeNetworkPath[] = [];
   const selectedChunkIds: string[] = [];
