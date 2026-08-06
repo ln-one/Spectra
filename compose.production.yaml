@@ -91,7 +91,7 @@ services:
       dockerfile: Dockerfile
       secrets:
         - npmrc
-    command: ["sh", "-c", "npm run db:migrate && npm run start"]
+    command: ["sh", "-c", "npm run db:migrate && npm run auth:migrate && npm run start"]
     depends_on:
       postgres:
         condition: service_healthy

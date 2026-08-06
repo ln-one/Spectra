@@ -7,7 +7,6 @@ import { databasePoolProfiles } from "@/database/pool-profiles";
 import { authDatabaseUrl } from "@/database/url";
 import { serverEnvironment } from "@/environment/server";
 import { authEnvironment } from "./config";
-import { reportAuthenticationEmailFailure, sendAuthenticationEmail } from "./email.server";
 import { isSignUpEnabled } from "./policy";
 
 loadEnvConfig(process.cwd());
@@ -32,6 +31,23 @@ if (environment.NODE_ENV !== "production") {
   globalAuthDatabase.spectraAuthPool = authPool;
 }
 
+async function sendAuthenticationEmail(
+  recipient: string,
+  kind: "password-reset" | "verification",
+  url: string,
+) {
+  if (!smtp) throw new Error("SMTP is not configured");
+
+  // The migration CLI loads this configuration outside Next.js, where server-only is unavailable.
+  const { sendAuthenticationEmail: deliver } = await import("./email.server");
+  await deliver(smtp, recipient, kind, url);
+}
+
+async function reportAuthenticationEmailFailure() {
+  const { reportAuthenticationEmailFailure: report } = await import("./email.server");
+  report();
+}
+
 export const auth = betterAuth({
   appName: "Spectra",
   baseURL,
@@ -44,11 +60,10 @@ export const auth = betterAuth({
     requireEmailVerification: true,
     revokeSessionsOnPasswordReset: true,
     sendResetPassword: async ({ user, url }) => {
-      if (!smtp) throw new Error("SMTP is not configured");
       try {
-        await sendAuthenticationEmail(smtp, user.email, "password-reset", url);
+        await sendAuthenticationEmail(user.email, "password-reset", url);
       } catch {
-        reportAuthenticationEmailFailure();
+        await reportAuthenticationEmailFailure();
         throw new Error("Authentication email delivery failed");
       }
     },
@@ -58,11 +73,10 @@ export const auth = betterAuth({
     sendOnSignIn: true,
     sendOnSignUp: true,
     sendVerificationEmail: async ({ user, url }) => {
-      if (!smtp) throw new Error("SMTP is not configured");
       try {
-        await sendAuthenticationEmail(smtp, user.email, "verification", url);
+        await sendAuthenticationEmail(user.email, "verification", url);
       } catch {
-        reportAuthenticationEmailFailure();
+        await reportAuthenticationEmailFailure();
         throw new Error("Authentication email delivery failed");
       }
     },
