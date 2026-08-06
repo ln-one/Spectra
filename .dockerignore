@@ -7,6 +7,7 @@
 .playwright-cli
 .worktrees
 node_modules
+secrets
 artifacts
 docs
 local-reference
