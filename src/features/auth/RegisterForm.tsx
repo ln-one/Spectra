@@ -1,18 +1,17 @@
 "use client";
 
-import { Fingerprint, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { AuthInput } from "./AuthInput";
 import { onboardPrincipal } from "./actions";
 import { authClient } from "./client";
-import { loginHref } from "./redirect";
+import { loginHref, registerHref } from "./redirect";
 import { handleError, normalizeHandle, passwordError } from "./validators";
 
 export function RegisterForm({
   redirectPath,
-  onboardingOnly: initialOnboardingOnly,
+  onboardingOnly,
   signUpEnabled,
 }: {
   redirectPath: string;
@@ -20,11 +19,9 @@ export function RegisterForm({
   signUpEnabled: boolean;
 }) {
   const t = useTranslations("Auth");
-  const [accountReady, setAccountReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [onboardingOnly, setOnboardingOnly] = useState(initialOnboardingOnly);
-  const [requestedPasskey, setRequestedPasskey] = useState(false);
+  const [verificationPending, setVerificationPending] = useState(false);
 
   if (!signUpEnabled && !onboardingOnly) {
     return (
@@ -42,14 +39,29 @@ export function RegisterForm({
     );
   }
 
+  if (verificationPending) {
+    return (
+      <div className="space-y-6 text-center">
+        <p className="rounded-xl bg-[var(--app-info-bg)] p-4 text-sm leading-6 text-[var(--app-info)]">
+          {t("verificationEmailSent")}
+        </p>
+        <p className="text-sm leading-6 text-[var(--app-text-muted)]">
+          {t("verificationEmailSentDescription")}
+        </p>
+        <Link
+          href={loginHref(redirectPath)}
+          className="inline-flex h-12 w-full items-center justify-center rounded-xl bg-[var(--app-primary)] font-semibold text-[var(--app-on-primary)]"
+        >
+          {t("backToLogin")}
+        </Link>
+      </div>
+    );
+  }
+
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
 
-    const submitter = (event.nativeEvent as SubmitEvent).submitter;
-    const shouldCreatePasskey = onboardingOnly
-      ? requestedPasskey
-      : !(submitter instanceof HTMLButtonElement && submitter.value === "password");
     const form = new FormData(event.currentTarget);
     const handle = normalizeHandle(String(form.get("handle") ?? ""));
     const invalidHandle = handleError(handle);
@@ -60,136 +72,53 @@ export function RegisterForm({
 
     setIsSubmitting(true);
     try {
-      if (!onboardingOnly) {
-        const email = String(form.get("email") ?? "").trim();
-        const password = String(form.get("password") ?? "");
-        const confirmPassword = String(form.get("confirmPassword") ?? "");
-        const invalidPassword = passwordError(password);
-        if (invalidPassword) {
-          setError(t("passwordLength"));
-          return;
-        }
-        if (password !== confirmPassword) {
-          setError(t("passwordMismatch"));
-          return;
-        }
-
-        const signUp = await authClient.signUp.email({ email, password, name: handle });
-        if (signUp.error) {
+      if (onboardingOnly) {
+        const onboarding = await onboardPrincipal(handle);
+        if (!onboarding.ok) {
           setError(
-            "code" in signUp.error && signUp.error.code === "PASSWORD_COMPROMISED"
-              ? t("passwordCompromised")
-              : t("registrationFailed"),
+            onboarding.code === "handle_unavailable"
+              ? t("handleUnavailable")
+              : t("onboardingFailed"),
           );
           return;
         }
-        setRequestedPasskey(shouldCreatePasskey);
-        setOnboardingOnly(true);
-      }
-
-      const onboarding = await onboardPrincipal(handle);
-      if (!onboarding.ok) {
-        if (onboarding.code === "handle_unavailable") {
-          setOnboardingOnly(true);
-          setError(t("handleUnavailable"));
-          return;
-        }
-        setError(t("onboardingFailed"));
+        window.location.assign(redirectPath);
         return;
       }
 
-      if (shouldCreatePasskey) {
-        setAccountReady(true);
-        const passkeyCreated = await createPasskey();
-        if (!passkeyCreated) return;
+      const email = String(form.get("email") ?? "").trim();
+      const password = String(form.get("password") ?? "");
+      const confirmPassword = String(form.get("confirmPassword") ?? "");
+      const invalidPassword = passwordError(password);
+      if (invalidPassword) {
+        setError(t("passwordLength"));
+        return;
+      }
+      if (password !== confirmPassword) {
+        setError(t("passwordMismatch"));
+        return;
       }
 
-      window.location.assign(redirectPath);
-    } catch {
-      setError(t("registrationUnavailable"));
-    } finally {
-      setIsSubmitting(false);
-    }
-  }
-
-  async function createPasskey() {
-    if (!window.PublicKeyCredential) {
-      setError(t("passkeyUnsupported"));
-      return false;
-    }
-
-    try {
-      const result = await authClient.passkey.addPasskey({
-        authenticatorAttachment: "platform",
-        name: t("primaryPasskeyName"),
+      const signUp = await authClient.signUp.email({
+        callbackURL: registerHref(redirectPath, true),
+        email,
+        name: handle,
+        password,
       });
-      if (result.error) {
+      if (signUp.error) {
         setError(
-          "code" in result.error && result.error.code === "REGISTRATION_CANCELLED"
-            ? t("passkeyCancelled")
-            : t("passkeyEnrollmentFailed"),
+          "code" in signUp.error && signUp.error.code === "PASSWORD_COMPROMISED"
+            ? t("passwordCompromised")
+            : t("registrationFailed"),
         );
-        return false;
+        return;
       }
-      return true;
+      setVerificationPending(true);
     } catch {
-      setError(t("passkeyEnrollmentFailed"));
-      return false;
-    }
-  }
-
-  async function retryPasskey() {
-    setError(null);
-    setIsSubmitting(true);
-    try {
-      if (await createPasskey()) window.location.assign(redirectPath);
+      setError(onboardingOnly ? t("onboardingFailed") : t("registrationUnavailable"));
     } finally {
       setIsSubmitting(false);
     }
-  }
-
-  if (accountReady) {
-    return (
-      <div className="space-y-5 text-center">
-        <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--app-surface-muted)] text-[var(--app-text)]">
-          <Fingerprint className="h-7 w-7" />
-        </span>
-        <div>
-          <h2 className="text-lg font-semibold text-[var(--app-text)]">
-            {t("accountCreatedTitle")}
-          </h2>
-          <p className="mt-2 text-sm leading-6 text-[var(--app-text-muted)]">
-            {t("passkeyEnrollmentDescription")}
-          </p>
-        </div>
-        {error ? (
-          <p role="alert" className="text-sm font-medium text-[var(--app-danger)]">
-            {error}
-          </p>
-        ) : null}
-        <button
-          type="button"
-          disabled={isSubmitting}
-          onClick={() => void retryPasskey()}
-          className="flex h-12 w-full items-center justify-center rounded-xl bg-[var(--app-primary)] text-base font-semibold text-[var(--app-on-primary)] shadow-xl transition-[box-shadow,opacity] hover:bg-[var(--app-primary-hover)] disabled:cursor-wait disabled:opacity-70"
-        >
-          {isSubmitting ? (
-            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-          ) : (
-            <Fingerprint className="mr-2 h-5 w-5" />
-          )}
-          {isSubmitting ? t("creatingPasskey") : t("createPasskey")}
-        </button>
-        <button
-          type="button"
-          disabled={isSubmitting}
-          onClick={() => window.location.assign(redirectPath)}
-          className="h-10 w-full text-sm font-medium text-[var(--app-text-muted)] transition hover:text-[var(--app-text)] disabled:opacity-60"
-        >
-          {t("skipPasskey")}
-        </button>
-      </div>
-    );
   }
 
   return (
@@ -248,43 +177,25 @@ export function RegisterForm({
       ) : null}
       <button
         type="submit"
-        name="credentialMode"
-        value="passkey"
         disabled={isSubmitting}
         className="flex h-12 w-full items-center justify-center rounded-xl bg-[var(--app-primary)] text-base font-semibold text-[var(--app-on-primary)] shadow-xl transition-[box-shadow,opacity] hover:bg-[var(--app-primary-hover)] disabled:cursor-wait disabled:opacity-70"
       >
-        {isSubmitting ? (
-          <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-        ) : !onboardingOnly ? (
-          <Fingerprint className="mr-2 h-5 w-5" />
-        ) : null}
         {isSubmitting
           ? t("processing")
           : onboardingOnly
             ? t("finishOnboarding")
-            : t("registerWithPasskey")}
+            : t("registerAndVerify")}
       </button>
       {!onboardingOnly ? (
-        <>
-          <button
-            type="submit"
-            name="credentialMode"
-            value="password"
-            disabled={isSubmitting}
-            className="h-10 w-full text-sm font-medium text-[var(--app-text-muted)] transition hover:text-[var(--app-text)] disabled:opacity-60"
+        <p className="pt-1 text-center text-sm text-[var(--app-text-muted)]">
+          {t("hasAccount")}{" "}
+          <Link
+            href={loginHref(redirectPath)}
+            className="inline-flex min-h-6 items-center font-medium text-[var(--app-text)] transition-colors hover:text-blue-600 hover:underline"
           >
-            {t("registerWithPassword")}
-          </button>
-          <p className="pt-1 text-center text-sm text-[var(--app-text-muted)]">
-            {t("hasAccount")}{" "}
-            <Link
-              href={loginHref(redirectPath)}
-              className="inline-flex min-h-6 items-center font-medium text-[var(--app-text)] transition-colors hover:text-blue-600 hover:underline"
-            >
-              {t("loginNow")}
-            </Link>
-          </p>
-        </>
+            {t("loginNow")}
+          </Link>
+        </p>
       ) : null}
     </form>
   );

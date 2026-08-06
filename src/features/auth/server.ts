@@ -7,11 +7,12 @@ import { databasePoolProfiles } from "@/database/pool-profiles";
 import { authDatabaseUrl } from "@/database/url";
 import { serverEnvironment } from "@/environment/server";
 import { authEnvironment } from "./config";
+import { reportAuthenticationEmailFailure, sendAuthenticationEmail } from "./email.server";
 import { isSignUpEnabled } from "./policy";
 
 loadEnvConfig(process.cwd());
 const environment = serverEnvironment();
-const { baseURL, secret } = authEnvironment(environment);
+const { baseURL, secret, smtp } = authEnvironment(environment);
 const authOrigin = new URL(baseURL);
 
 const globalAuthDatabase = globalThis as typeof globalThis & {
@@ -40,6 +41,31 @@ export const auth = betterAuth({
     disableSignUp: !isSignUpEnabled(environment),
     minPasswordLength: 15,
     maxPasswordLength: 128,
+    requireEmailVerification: true,
+    revokeSessionsOnPasswordReset: true,
+    sendResetPassword: async ({ user, url }) => {
+      if (!smtp) throw new Error("SMTP is not configured");
+      try {
+        await sendAuthenticationEmail(smtp, user.email, "password-reset", url);
+      } catch {
+        reportAuthenticationEmailFailure();
+        throw new Error("Authentication email delivery failed");
+      }
+    },
+  },
+  emailVerification: {
+    autoSignInAfterVerification: true,
+    sendOnSignIn: true,
+    sendOnSignUp: true,
+    sendVerificationEmail: async ({ user, url }) => {
+      if (!smtp) throw new Error("SMTP is not configured");
+      try {
+        await sendAuthenticationEmail(smtp, user.email, "verification", url);
+      } catch {
+        reportAuthenticationEmailFailure();
+        throw new Error("Authentication email delivery failed");
+      }
+    },
   },
   session: {
     // Default 24h is too short for passkey registration; allow 30 days.

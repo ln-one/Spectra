@@ -7,7 +7,7 @@ import { useEffect, useState } from "react";
 import { AuthInput } from "./AuthInput";
 import { postSignInDestination } from "./actions";
 import { authClient } from "./client";
-import { registerHref } from "./redirect";
+import { forgotPasswordHref, registerHref } from "./redirect";
 
 export function LoginForm({ redirectPath }: { redirectPath: string }) {
   const t = useTranslations("Auth");
@@ -53,7 +53,10 @@ export function LoginForm({ redirectPath }: { redirectPath: string }) {
     try {
       const result = await authClient.signIn.email({ email, password });
       if (result.error) {
-        setError(t("loginInvalid"));
+        const verificationRequired =
+          ("code" in result.error && result.error.code === "EMAIL_NOT_VERIFIED") ||
+          ("status" in result.error && result.error.status === 403);
+        setError(verificationRequired ? t("emailVerificationRequired") : t("loginInvalid"));
         return;
       }
       window.location.assign(await postSignInDestination(redirectPath));
@@ -122,6 +125,14 @@ export function LoginForm({ redirectPath }: { redirectPath: string }) {
         {isSubmitting ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : null}
         {isSubmitting ? t("loggingIn") : t("login")}
       </button>
+      <div className="text-right">
+        <Link
+          href={forgotPasswordHref()}
+          className="text-sm font-medium text-[var(--app-text-muted)] transition-colors hover:text-[var(--app-text)] hover:underline"
+        >
+          {t("forgotPassword")}
+        </Link>
+      </div>
       <div className="flex items-center gap-3" aria-hidden="true">
         <span className="h-px flex-1 bg-[var(--app-border)]" />
         <span className="text-xs font-medium text-[var(--app-text-muted)]">{t("or")}</span>

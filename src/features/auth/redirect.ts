@@ -24,6 +24,14 @@ export function registerHref(redirectPath: string, onboardingOnly = false) {
   return `/auth/register?${params.toString()}`;
 }
 
+export function forgotPasswordHref() {
+  return "/auth/forgot-password";
+}
+
+export function resetPasswordHref() {
+  return "/auth/reset-password";
+}
+
 export function authRecoveryHref(error: { code?: string }, redirectPath: string) {
   if (error.code === "authentication_required") return loginHref(redirectPath);
   if (error.code === "onboarding_required") return registerHref(redirectPath, true);
