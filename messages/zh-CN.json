@@ -182,12 +182,26 @@
     "allowReferencesNote": "默认开启，私有资料库也可以被你自己的项目接入复用。"
   },
   "Marketing": {
-    "assemblyInput": "INPUT · 多模态资料",
-    "assemblyOutput": "OUTPUT · 六种作品",
-    "assemblyContext": "KNOWLEDGE CONTEXT",
-    "assemblyUnderstanding": "资料正在被理解",
-    "assemblyUnderstandingDetail": "提取 · 关联 · 组织",
-    "assemblyExpressing": "一种上下文，多种表达"
+    "portalHeroEyebrow": "SPECTRA KNOWLEDGE WORKBENCH",
+    "portalHeroTitle": "让资料，变成正在发生的创作。",
+    "portalHeroSubtitle": "资料、对话与六种创作方式，始终在同一个工作台里。先理解，再表达。",
+    "portalHeroHint": "向下滚动，看资料如何成为作品",
+    "portalHeroPrimaryCta": "开始创作",
+    "portalHeroSecondaryCta": "登录",
+    "portalActGather": "不只是上传。先理解它们之间的关系。",
+    "portalActGatherDetail": "资料保持各自的形式与颜色，开始彼此同行。",
+    "portalActContext": "不同形式，汇聚成同一个知识上下文。",
+    "portalActContextDetail": "主题、结构、事实与线索，被逐一提取。",
+    "portalActPrism": "理解之后，选择表达。",
+    "portalActPrismDetail": "同一个上下文，即将进入转换。",
+    "portalActRefraction": "同一份知识，折射成六种作品。",
+    "portalActRefractionDetail": "每一条光，对应一种真实的创作成果。",
+    "portalClosingEyebrow": "ONE CONTEXT",
+    "portalClosingTitle": "从一个真实的工作台开始。",
+    "portalClosingBody": "所有资料、理解与创作，都在同一个工作台里继续。右侧资料成为上下文，中间对话推进行动，左侧工具把知识变成不同的作品。",
+    "portalClosingPrimaryCta": "进入工作台",
+    "portalClosingSecondaryCta": "登录",
+    "portalClosingFooter": "让资料，变成正在发生的创作。"
   },
   "Workbench": {
     "skipToContent": "跳至工作区内容",
