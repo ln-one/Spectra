@@ -47,18 +47,17 @@ describe("knowledge network graph model", () => {
     expect(plan.nodeMetrics).toEqual(repeatedPlan.nodeMetrics);
   });
 
-  test("uses one Obsidian-inspired degree radius function for both node kinds", () => {
+  test("uses personalized PageRank to make the current workspace the visual center", () => {
     const metrics = calculateKnowledgeNetworkNodeMetrics(circularExpandedKnowledgeNetworkTrace);
     const root = metrics[circularExpandedKnowledgeNetworkTrace.currentWorkspaceId];
     const source = metrics[circularExpandedKnowledgeNetworkTrace.sources[0]?.id ?? "missing"];
 
-    expect(root?.radius).toBe(knowledgeNetworkNodeRadius(root?.weight ?? 0));
-    expect(source?.radius).toBe(knowledgeNetworkNodeRadius(source?.weight ?? 0));
-    expect(root?.radius).not.toBeGreaterThan(34);
+    expect(root?.radius).toBe(knowledgeNetworkNodeRadius(1));
+    expect(root?.radius).toBe(20);
+    expect(source?.radius).toBeLessThan(root?.radius ?? 0);
+    expect(source?.radius).toBeGreaterThanOrEqual(8);
     expect(metrics["chunk-did-architecture"]).toBeUndefined();
-    expect(Math.max(...Object.values(metrics).map((metric) => metric.radius))).toBeGreaterThan(
-      Math.min(...Object.values(metrics).map((metric) => metric.radius)),
-    );
+    expect(new Set(Object.values(metrics).map((metric) => metric.radius)).size).toBeGreaterThan(1);
   });
 
   test("counts visible inbound and outbound edges as degree", () => {

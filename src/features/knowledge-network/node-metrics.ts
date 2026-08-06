@@ -7,12 +7,10 @@ import {
 
 export type KnowledgeNetworkNodeKind = "workspace" | "source";
 
-/**
- * The force graph uses the same radius function for both visible node kinds.
- * The multiplier is only a canvas calibration; the degree curve stays aligned
- * with Obsidian's graph-view semantics.
- */
-const KNOWLEDGE_NETWORK_NODE_SIZE_MULTIPLIER = 1.25;
+const PERSONALIZED_PAGERANK_RESTART = 0.4;
+const PERSONALIZED_PAGERANK_ITERATIONS = 16;
+const KNOWLEDGE_NETWORK_NODE_MIN_RADIUS = 8;
+const KNOWLEDGE_NETWORK_NODE_MAX_RADIUS = 20;
 
 export const KNOWLEDGE_NETWORK_PHYSICS = {
   linkDistance: {
@@ -45,9 +43,12 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
 
-export function knowledgeNetworkNodeRadius(weight: number): number {
-  const safeWeight = Math.max(0, weight);
-  return KNOWLEDGE_NETWORK_NODE_SIZE_MULTIPLIER * clamp(3 * Math.sqrt(safeWeight + 1), 8, 30);
+export function knowledgeNetworkNodeRadius(relevance: number): number {
+  return (
+    KNOWLEDGE_NETWORK_NODE_MIN_RADIUS +
+    (KNOWLEDGE_NETWORK_NODE_MAX_RADIUS - KNOWLEDGE_NETWORK_NODE_MIN_RADIUS) *
+      Math.sqrt(clamp(relevance, 0, 1))
+  );
 }
 
 function nodeKindById(trace: KnowledgeNetworkTrace): Map<string, KnowledgeNetworkNodeKind> {
@@ -55,6 +56,42 @@ function nodeKindById(trace: KnowledgeNetworkTrace): Map<string, KnowledgeNetwor
   for (const workspace of trace.workspaces) entries.push([workspace.id, "workspace"]);
   for (const source of trace.sources) entries.push([source.id, "source"]);
   return new Map(entries);
+}
+
+function personalizedPageRank(
+  currentWorkspaceId: string,
+  nodeIds: Iterable<string>,
+  edges: KnowledgeNetworkDiscoveryEdge[],
+): Map<string, number> {
+  const ids = [...nodeIds];
+  const adjacency = new Map(ids.map((id) => [id, new Set<string>()]));
+  for (const edge of edges) {
+    adjacency.get(edge.fromId)?.add(edge.toId);
+    adjacency.get(edge.toId)?.add(edge.fromId);
+  }
+
+  let scores = new Map(ids.map((id) => [id, id === currentWorkspaceId ? 1 : 0]));
+  for (let iteration = 0; iteration < PERSONALIZED_PAGERANK_ITERATIONS; iteration += 1) {
+    const next = new Map(ids.map((id) => [id, 0]));
+    next.set(currentWorkspaceId, PERSONALIZED_PAGERANK_RESTART);
+    for (const id of ids) {
+      const score = scores.get(id) ?? 0;
+      const neighbors = adjacency.get(id);
+      if (!neighbors || neighbors.size === 0) {
+        next.set(
+          currentWorkspaceId,
+          (next.get(currentWorkspaceId) ?? 0) + (1 - PERSONALIZED_PAGERANK_RESTART) * score,
+        );
+        continue;
+      }
+      const share = ((1 - PERSONALIZED_PAGERANK_RESTART) * score) / neighbors.size;
+      for (const neighborId of neighbors) {
+        next.set(neighborId, (next.get(neighborId) ?? 0) + share);
+      }
+    }
+    scores = next;
+  }
+  return scores;
 }
 
 export function knowledgeNetworkDiscoveryEdges(
@@ -104,6 +141,8 @@ export function calculateKnowledgeNetworkNodeMetrics(
   edges = knowledgeNetworkDiscoveryEdges(trace),
 ): Record<string, KnowledgeNetworkNodeVisualMetric> {
   const kinds = nodeKindById(trace);
+  const relevance = personalizedPageRank(trace.currentWorkspaceId, kinds.keys(), edges);
+  const maximumRelevance = Math.max(...relevance.values(), 0);
   const inbound = new Map<string, number>();
   const outbound = new Map<string, number>();
 
@@ -120,7 +159,9 @@ export function calculateKnowledgeNetworkNodeMetrics(
     const weight = nodeInbound + nodeOutbound;
     metrics[id] = {
       weight,
-      radius: knowledgeNetworkNodeRadius(weight),
+      radius: knowledgeNetworkNodeRadius(
+        maximumRelevance === 0 ? 0 : (relevance.get(id) ?? 0) / maximumRelevance,
+      ),
       inbound: nodeInbound,
       outbound: nodeOutbound,
     };
