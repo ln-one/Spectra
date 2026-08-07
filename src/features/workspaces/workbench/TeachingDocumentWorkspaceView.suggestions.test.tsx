@@ -680,7 +680,7 @@ test("starts export once, then polls read-only until a terminal state", async ()
 
 test("downloads a ready export without navigating away from the workspace", async () => {
   const downloadUrl =
-    "http://localhost/api/artifacts/teaching-document/00000000-0000-4000-8000-000000000201/export?revisionId=00000000-0000-4000-8000-000000000202&download=1";
+    "/api/artifacts/teaching-document/00000000-0000-4000-8000-000000000201/export?download=1&revisionId=00000000-0000-4000-8000-000000000202";
   vi.stubGlobal(
     "fetch",
     vi

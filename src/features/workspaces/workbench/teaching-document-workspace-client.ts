@@ -11,7 +11,7 @@ const proposalResponseSchema = z
   .strict();
 const renderResponseSchema = z
   .object({
-    downloadUrl: z.string().url().nullable(),
+    downloadUrl: z.string().startsWith("/").nullable(),
     job: z.object({ state: z.enum(["queued", "rendering", "ready", "failed", "cancelled"]) }),
   })
   .passthrough();

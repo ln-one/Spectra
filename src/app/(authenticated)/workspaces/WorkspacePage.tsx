@@ -19,6 +19,7 @@ import type { Workspace } from "@/features/workspaces/types";
 import { loadWorkspaceBootstrap } from "@/features/workspaces/workbench/bootstrap.server";
 import { WorkspaceAccessDenied } from "@/features/workspaces/workbench/WorkspaceAccessDenied";
 import { WorkspaceWorkbenchView } from "@/features/workspaces/workbench/WorkspaceWorkbenchView";
+import { webLogger } from "@/observability/server";
 import { updateWorkspaceFromForm } from "./settings-actions";
 import {
   searchWorkspaceInviteCandidatesAction,
@@ -90,7 +91,16 @@ export async function renderWorkspacePage({
         initialSources: bootstrap.sources,
         workspace: resolvedWorkspace,
       });
-    } catch {
+    } catch (error) {
+      webLogger.warn(
+        {
+          component: "knowledge-network",
+          errorType: error instanceof Error ? error.name : "unknown",
+          event: "knowledge_network.trace_unavailable",
+          workspaceId: resolvedWorkspace.id,
+        },
+        "Knowledge network trace was unavailable",
+      );
       knowledgeNetworkTrace = null;
     }
     actor = currentActor;

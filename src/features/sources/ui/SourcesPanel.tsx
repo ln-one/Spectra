@@ -4,8 +4,9 @@ import * as AlertDialog from "@radix-ui/react-alert-dialog";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { UppyContextProvider, useUppyState } from "@uppy/react";
 import { LoaderCircle } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ArtifactHistoryItem } from "@/features/artifacts/types";
 import { useArtifactSourceTransition } from "@/features/workspaces/workbench/ArtifactSourceTransitionContext";
 import { moveArtifactIntoHistory } from "@/features/workspaces/workbench/artifactSourceMembership";
@@ -138,6 +139,7 @@ function SourcesPanelContent({
   workspaceId: string;
 }) {
   const t = useTranslations("Sources");
+  const router = useRouter();
   const artifactSourceTransition = useArtifactSourceTransition();
   const queryClient = useQueryClient();
   const queryKey = useMemo(() => ["workspace", workspaceId, "sources"] as const, [workspaceId]);
@@ -161,6 +163,22 @@ function SourcesPanelContent({
     refetchInterval: (query) =>
       query.state.data?.some((source) => sourceNeedsStatusRefresh(source)) ? 3_000 : false,
   });
+  const readySourceIds = useMemo(
+    () =>
+      sources
+        .filter((source) => source.kind !== "workspaceReference")
+        .filter((source) => source.knowledgeIndex?.state === "ready")
+        .map((source) => source.id)
+        .sort(),
+    [sources],
+  );
+  const readySourceIdsRef = useRef<readonly string[] | null>(null);
+  useEffect(() => {
+    const previous = readySourceIdsRef.current;
+    readySourceIdsRef.current = readySourceIds;
+    if (!previous) return;
+    if (readySourceIds.some((sourceId) => !previous.includes(sourceId))) router.refresh();
+  }, [readySourceIds, router]);
 
   const uppy = useSourceUploader({
     actions,
