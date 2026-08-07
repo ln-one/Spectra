@@ -119,6 +119,7 @@ services:
     environment:
       HTTP_PROXY: http://host.docker.internal:17890
       HTTPS_PROXY: http://host.docker.internal:17890
+      NODE_USE_ENV_PROXY: "1"
       NO_PROXY: localhost,127.0.0.1,postgres,redis,object-storage,stratumind
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://localhost:3000').then((response) => process.exit(response.status < 500 ? 0 : 1)).catch(() => process.exit(1))"]
