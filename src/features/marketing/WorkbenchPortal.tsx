@@ -15,17 +15,7 @@ export function WorkbenchPortal() {
   const marketing = useTranslations("Marketing");
 
   return (
-    <main className="marketing-snap-scroll relative min-h-svh overflow-x-hidden bg-[var(--app-bg)] text-[var(--app-text)] transition-colors">
-      <a
-        aria-label="View Spectra on GitHub"
-        className="fixed right-4 top-4 z-50 flex h-10 w-10 items-center justify-center rounded-full border border-white/25 bg-zinc-950/45 text-white shadow-lg backdrop-blur-md transition hover:-translate-y-0.5 hover:bg-zinc-950/65 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-400"
-        href="https://github.com/ln-one/Spectra"
-        rel="noreferrer"
-        target="_blank"
-        title="View Spectra on GitHub"
-      >
-        <Github aria-hidden="true" className="h-5 w-5" />
-      </a>
+    <main className="marketing-snap-scroll min-h-svh overflow-x-hidden bg-[var(--app-bg)] text-[var(--app-text)] transition-colors">
       <WorkbenchAssemblyScene />
 
       <section className="relative flex min-h-screen min-h-[100dvh] items-center overflow-hidden border-t border-[var(--app-border-strong)] bg-[var(--app-surface)] transition-colors">
@@ -151,7 +141,19 @@ export function WorkbenchPortal() {
               <span className="font-semibold text-[var(--app-text)]">Spectra</span>
             </Link>
             <p>{marketing("portalClosingFooter")}</p>
-            <p>© 2026 Spectra</p>
+            <div className="flex items-center gap-3">
+              <p>© 2026 Spectra</p>
+              <a
+                aria-label="View Spectra on GitHub"
+                className="transition-colors hover:text-[var(--app-text)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-400"
+                href="https://github.com/ln-one/Spectra"
+                rel="noreferrer"
+                target="_blank"
+                title="View Spectra on GitHub"
+              >
+                <Github aria-hidden="true" className="h-4 w-4" />
+              </a>
+            </div>
           </footer>
         </div>
       </section>
