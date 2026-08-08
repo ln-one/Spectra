@@ -232,6 +232,9 @@ test("resolves project-relative PPTD images as self-contained data URLs", async 
     undefined,
     undefined,
   ]);
+  await expect(
+    extractPresentationPptdAssets(files, ["/workspace/spectra/attempt/out/deck/images/cover.png"]),
+  ).resolves.toEqual([`data:image/png;base64,${Buffer.from(png).toString("base64")}`]);
 });
 
 test("rejects repeated PPTD asset paths before encoding", async () => {

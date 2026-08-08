@@ -209,7 +209,13 @@ const presentationImageFormats = new Map([
 const MAX_PRESENTATION_EDITOR_IMAGE_PIXELS = 40_000_000;
 
 export function resolvePresentationAssetPath(entrypointPath: string, requestedPath: string) {
-  const relativePath = requestedPath.replace(/^\/+/, "");
+  // The authoring sandbox writes absolute paths into PPTD files. Once the
+  // project is archived, only the stable `out/...` suffix remains meaningful.
+  const archivedPathIndex = requestedPath.lastIndexOf("/out/");
+  const relativePath =
+    archivedPathIndex >= 0
+      ? requestedPath.slice(archivedPathIndex + 1)
+      : requestedPath.replace(/^\/+/, "");
   if (
     !relativePath ||
     relativePath.includes("\0") ||
@@ -219,7 +225,9 @@ export function resolvePresentationAssetPath(entrypointPath: string, requestedPa
     return null;
   }
   const projectDirectory = path.posix.dirname(entrypointPath);
-  const resolved = path.posix.normalize(path.posix.join(projectDirectory, relativePath));
+  const normalized = path.posix.normalize(relativePath);
+  if (normalized.startsWith(`${projectDirectory}/`)) return normalized;
+  const resolved = path.posix.normalize(path.posix.join(projectDirectory, normalized));
   if (
     resolved === projectDirectory ||
     (projectDirectory !== "." && !resolved.startsWith(`${projectDirectory}/`))
