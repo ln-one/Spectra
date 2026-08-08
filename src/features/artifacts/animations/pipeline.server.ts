@@ -34,7 +34,11 @@ export async function inspectAnimationSourceArchive(archive: Uint8Array) {
   return { files, projectFiles };
 }
 
-async function materializeProject(files: readonly SourceFile[], directory: string) {
+async function materializeProject(
+  files: readonly SourceFile[],
+  directory: string,
+  timeoutMs: number,
+) {
   for (const file of files) {
     const relative = projectPath(file.path);
     if (!relative) continue;
@@ -60,7 +64,7 @@ async function materializeProject(files: readonly SourceFile[], directory: strin
     },
     killSignal: "SIGKILL",
     maxBuffer: 4 * 1024 * 1024,
-    timeout: 10 * 60_000,
+    timeout: timeoutMs,
   });
 }
 
@@ -74,8 +78,9 @@ async function runAnimationPipelineDirect(input: {
   const projectDirectory = path.join(temporaryRoot, "project");
   const outputDirectory = path.join(temporaryRoot, "output");
   const render = animationRenderEnvironment();
+  const timeouts = animationPipelineTimeouts(render.timeoutMs);
   try {
-    await materializeProject(inspected.projectFiles, projectDirectory);
+    await materializeProject(inspected.projectFiles, projectDirectory, timeouts.installTimeoutMs);
     await mkdir(outputDirectory, { recursive: true });
     const entryPoint = ["src/index.ts", "src/index.tsx", "src/index.js", "src/index.jsx"]
       .map((candidate) => path.join(projectDirectory, candidate))
@@ -154,6 +159,13 @@ async function runAnimationPipelineDirect(input: {
 
 type AnimationPipelineResult = Awaited<ReturnType<typeof runAnimationPipelineDirect>>;
 
+export function animationPipelineTimeouts(renderTimeoutMs: number) {
+  return {
+    childTimeoutMs: renderTimeoutMs * 2 + 60_000,
+    installTimeoutMs: renderTimeoutMs,
+  };
+}
+
 function requiresChild() {
   return process.execArgv.some((argument) => argument.includes("react-server"));
 }
@@ -231,6 +243,7 @@ export async function runAnimationPipeline(input: {
     ]);
     const render = animationRenderEnvironment();
     const command = animationChildCommand(temporaryRoot, requestPath, render.sandboxExecutable);
+    const timeouts = animationPipelineTimeouts(render.timeoutMs);
     await execFileAsync(command.executable, command.args, {
       cwd: process.cwd(),
       env: {
@@ -244,7 +257,7 @@ export async function runAnimationPipeline(input: {
       },
       killSignal: "SIGKILL",
       maxBuffer: 4 * 1024 * 1024,
-      timeout: render.timeoutMs + 60_000,
+      timeout: timeouts.childTimeoutMs,
     });
     const response = z
       .object({
