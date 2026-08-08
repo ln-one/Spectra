@@ -89,6 +89,7 @@ const completionSchema = z.object({
   choices: z.array(
     z.object({
       message: z.object({
+        content: z.string().nullable().optional(),
         tool_calls: z
           .array(
             z.object({
@@ -102,9 +103,10 @@ const completionSchema = z.object({
   ),
   usage: z
     .object({
-      prompt_tokens: z.number().int().nonnegative(),
-      completion_tokens: z.number().int().nonnegative(),
+      prompt_tokens: z.number().int().nonnegative().optional(),
+      completion_tokens: z.number().int().nonnegative().optional(),
     })
+    .nullable()
     .optional(),
 });
 
@@ -153,8 +155,8 @@ export function buildMediaContent(input: MediaInput): DashScopeContentPart[] {
         : { type: "video_url" as const, video_url: { url: input.url } };
   const prompt =
     input.kind === "image"
-      ? "Describe the image accurately. Return an empty segments array. Never include the media URL or credentials."
-      : "Describe the media accurately and divide its content into timestamped segments in milliseconds. Include visible text and spoken words verbatim. Never include the media URL or credentials.";
+      ? "Describe the image accurately in factual plain text. Never include the media URL or credentials."
+      : "Describe the media accurately in factual plain text. Include visible text and spoken words when identifiable, and chronological details when they are clear. Never include the media URL or credentials.";
   return [media, { type: "text", text: prompt }];
 }
 
@@ -165,18 +167,6 @@ export function buildMediaRequest(input: MediaInput): DashScopeStreamParams {
     modalities: ["text"],
     max_tokens: mediaUnderstandingProfile.maxOutputTokens,
     temperature: mediaUnderstandingProfile.temperature,
-    tool_choice: { type: "function", function: { name: "publish_media_analysis" } },
-    tools: [
-      {
-        type: "function",
-        function: {
-          name: "publish_media_analysis",
-          description: "Submit the completed media analysis.",
-          strict: true,
-          parameters: z.toJSONSchema(mediaAnalysisSchema, { target: "draft-7" }),
-        },
-      },
-    ],
   };
 }
 
@@ -191,29 +181,39 @@ export function parseMediaCompletion(
 ): MediaUnderstandingResult {
   const parsedCompletion = completionSchema.safeParse(completion);
   if (!parsedCompletion.success) throw new MediaUnderstandingError("media_result_invalid");
-  const toolCall = parsedCompletion.data.choices[0]?.message.tool_calls?.find(
+  const message = parsedCompletion.data.choices[0]?.message;
+  const toolCall = message?.tool_calls?.find(
     (call) => call.function.name === "publish_media_analysis",
   );
-  if (!toolCall) throw new MediaUnderstandingError("media_result_invalid");
 
-  let argumentsValue: unknown;
-  try {
-    argumentsValue = JSON.parse(toolCall.function.arguments);
-  } catch {
-    throw new MediaUnderstandingError("media_result_invalid");
+  let analysis: z.infer<typeof mediaAnalysisSchema>;
+  if (toolCall) {
+    let argumentsValue: unknown;
+    try {
+      argumentsValue = JSON.parse(toolCall.function.arguments);
+    } catch {
+      throw new MediaUnderstandingError("media_result_invalid");
+    }
+    const parsedAnalysis = mediaAnalysisSchema.safeParse(argumentsValue);
+    if (!parsedAnalysis.success) throw new MediaUnderstandingError("media_result_invalid");
+    analysis = parsedAnalysis.data;
+  } else {
+    const content = message?.content?.trim();
+    const parsedAnalysis = mediaAnalysisSchema.safeParse({
+      summary: content,
+      segments:
+        input.kind === "image" || !content ? [] : [{ startMs: 0, endMs: 1, description: content }],
+    });
+    if (!parsedAnalysis.success) throw new MediaUnderstandingError("media_result_invalid");
+    analysis = parsedAnalysis.data;
   }
-  const analysis = mediaAnalysisSchema.safeParse(argumentsValue);
   if (
-    !analysis.success ||
-    (input.kind === "image" && analysis.data.segments.length !== 0) ||
-    (input.kind !== "image" && analysis.data.segments.length === 0)
+    (input.kind === "image" && analysis.segments.length !== 0) ||
+    (input.kind !== "image" && analysis.segments.length === 0)
   ) {
     throw new MediaUnderstandingError("media_result_invalid");
   }
-  const outputText = [
-    analysis.data.summary,
-    ...analysis.data.segments.map((item) => item.description),
-  ];
+  const outputText = [analysis.summary, ...analysis.segments.map((item) => item.description)];
   const credentialMarker =
     /(x-amz-(?:signature|credential|security-token)|ossaccesskeyid|security-token|signature)=/i;
   if (outputText.some((text) => text.includes(input.url) || credentialMarker.test(text))) {
@@ -221,10 +221,12 @@ export function parseMediaCompletion(
   }
   const usage = parsedCompletion.data.usage;
   return {
-    ...analysis.data,
+    ...analysis,
     usage: {
-      ...(usage ? { promptTokens: usage.prompt_tokens } : {}),
-      ...(usage ? { completionTokens: usage.completion_tokens } : {}),
+      ...(usage?.prompt_tokens !== undefined ? { promptTokens: usage.prompt_tokens } : {}),
+      ...(usage?.completion_tokens !== undefined
+        ? { completionTokens: usage.completion_tokens }
+        : {}),
     },
   };
 }
