@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { deterministicTaskAgentSourceArchive } from "../task-agent/source-archive";
-import { inspectAnimationSourceArchive } from "./pipeline.server";
+import { animationPipelineTimeouts, inspectAnimationSourceArchive } from "./pipeline.server";
 
 const fixtureProjectFiles = [
   { path: "package.json", source: "{}" },
@@ -25,6 +25,13 @@ async function fixtureArchive(extraFiles: Array<{ body: Uint8Array; path: string
 }
 
 describe("animation source pipeline", () => {
+  test("gives dependency installation and rendering independent time budgets", () => {
+    expect(animationPipelineTimeouts(1_200_000)).toEqual({
+      childTimeoutMs: 2_460_000,
+      installTimeoutMs: 1_200_000,
+    });
+  });
+
   test("accepts a native renderable Remotion project without sidecar metadata", async () => {
     const inspected = await inspectAnimationSourceArchive(await fixtureArchive());
     expect(inspected.projectFiles).toHaveLength(6);
