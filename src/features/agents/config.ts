@@ -23,7 +23,7 @@ export const workspaceAgentProfile = {
   maxOutputTokens: 4096,
   maxSteps: 7,
   modelContextLastTurns: 8,
-  modelContextMaxTokens: 24_000,
+  modelContextMaxTokens: 48_000,
   modelId: dashScopeModels.workspaceAgent,
   providerOptions: {
     openai: {
