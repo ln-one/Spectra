@@ -127,24 +127,19 @@ describe("media understanding adapter", () => {
     );
   });
 
-  test("uses the fixed model and a forced strict function call", () => {
+  test("uses the fixed model without requiring a function call", () => {
     const request = buildMediaRequest({ kind: "video", url: "https://media.invalid/video.mp4" });
     expect(request).toMatchObject({
       model: "qwen3.5-omni-flash-2026-03-15",
       modalities: ["text"],
       max_tokens: 1024,
       temperature: 0,
-      tool_choice: { type: "function", function: { name: "publish_media_analysis" } },
-      tools: [
-        {
-          type: "function",
-          function: { name: "publish_media_analysis", strict: true },
-        },
-      ],
     });
+    expect(request).not.toHaveProperty("tool_choice");
+    expect(request).not.toHaveProperty("tools");
   });
 
-  test("validates tool results and usage without repairing JSON", () => {
+  test("accepts tool results or non-empty text and usage", () => {
     expect(
       parseMediaCompletion(
         completion(
@@ -162,13 +157,51 @@ describe("media understanding adapter", () => {
     });
     expect(
       parseMediaCompletion(
-        completion(JSON.stringify({ summary: "An image.", segments: [] }), false),
+        { choices: [{ message: { content: "An image." } }] },
         {
           kind: "image",
           url: "https://media.invalid/image.jpg",
         },
       ),
     ).toEqual({ summary: "An image.", segments: [], usage: {} });
+
+    expect(
+      parseMediaCompletion(
+        { choices: [{ message: { content: "A brief recording." } }], usage: {} },
+        { kind: "audio", format: "aac", url: "https://media.invalid/audio.aac" },
+      ),
+    ).toEqual({
+      summary: "A brief recording.",
+      segments: [{ startMs: 0, endMs: 1, description: "A brief recording." }],
+      usage: {},
+    });
+
+    expect(
+      parseMediaCompletion(
+        { choices: [{ message: { content: "A second brief recording." } }], usage: null },
+        { kind: "audio", format: "aac", url: "https://media.invalid/audio.aac" },
+      ),
+    ).toEqual({
+      summary: "A second brief recording.",
+      segments: [{ startMs: 0, endMs: 1, description: "A second brief recording." }],
+      usage: {},
+    });
+
+    expect(
+      parseMediaCompletion(
+        {
+          choices: [{ message: { content: "A crane moves materials across an active site." } }],
+          usage: { prompt_tokens: 100, completion_tokens: 20 },
+        },
+        { kind: "video", url: "https://media.invalid/video.mp4" },
+      ),
+    ).toEqual({
+      summary: "A crane moves materials across an active site.",
+      segments: [
+        { startMs: 0, endMs: 1, description: "A crane moves materials across an active site." },
+      ],
+      usage: { promptTokens: 100, completionTokens: 20 },
+    });
 
     for (const invalid of [
       completion('{"summary":"broken"}```'),
@@ -179,7 +212,7 @@ describe("media understanding adapter", () => {
           segments: [{ startMs: 1000, endMs: 500, description: "Reversed." }],
         }),
       ),
-      { choices: [{ message: {} }] },
+      { choices: [{ message: { content: "   " } }] },
     ]) {
       expect(() =>
         parseMediaCompletion(invalid, {
