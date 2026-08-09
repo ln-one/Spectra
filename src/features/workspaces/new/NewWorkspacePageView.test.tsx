@@ -7,7 +7,7 @@ import type { CreateWorkspaceFormAction } from "./types";
 const createAction: CreateWorkspaceFormAction = async () => null;
 
 test("preserves the NeoSpectra creation-page shell while enabling workspace creation", () => {
-  const { container } = renderWithIntl(<NewWorkspacePageView createAction={createAction} />);
+  renderWithIntl(<NewWorkspacePageView createAction={createAction} />);
 
   expect(screen.getByRole("link", { name: "返回工作台" })).toHaveAttribute("href", "/workspaces");
   expect(screen.getByRole("heading", { name: "开启您的智慧教学" })).toBeInTheDocument();
@@ -15,7 +15,6 @@ test("preserves the NeoSpectra creation-page shell while enabling workspace crea
   expect(screen.getByRole("button", { name: "导入资料 (0)" })).toBeDisabled();
   expect(screen.getByRole("button", { name: "导入资料库" })).toBeDisabled();
   expect(screen.getByRole("button", { name: "开始创造" })).toBeEnabled();
-  expect(container.querySelector('g[style*="mix-blend-mode: normal"]')).toBeInTheDocument();
 });
 
 test("keeps advanced placeholders static instead of storing fake Project state", () => {

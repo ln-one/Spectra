@@ -15,7 +15,7 @@ export function NewWorkspaceHero({
   return (
     <section className="group relative">
       <div className="absolute -inset-1 rounded-[2.5rem] bg-gradient-to-r from-blue-500 to-purple-600 opacity-15 blur transition duration-500 group-focus-within:opacity-40" />
-      <div className="relative space-y-6 rounded-[2rem] border border-[var(--app-border)] bg-[var(--app-surface)] p-5 shadow-2xl sm:space-y-8 sm:rounded-[2.5rem] sm:p-8">
+      <div className="relative space-y-5 rounded-[2rem] border border-[var(--app-border)] bg-[var(--app-surface)] p-5 shadow-2xl sm:space-y-6 sm:rounded-[2.5rem] sm:p-6">
         <div className="space-y-4">
           <div className="flex items-center gap-4">
             <span className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-50">
