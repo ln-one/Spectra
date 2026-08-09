@@ -784,7 +784,7 @@ export function ChatPanelView({
           <ThreadPrimitive.Root className="relative flex h-[calc(100%-52px)] min-h-0 flex-col">
             <ThreadPrimitive.Viewport
               turnAnchor="top"
-              className="workspace-chat-viewport min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-4"
+              className="workspace-chat-viewport relative min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-4"
             >
               <div className="mx-auto flex min-h-full w-full flex-col py-4">
                 <WorkspaceMessageHistoryControl
@@ -826,17 +826,21 @@ export function ChatPanelView({
                   <PendingRunStatus />
                 </div>
               </div>
+              <ThreadPrimitive.ScrollToBottom
+                aria-label={t("scrollToBottom")}
+                behavior="smooth"
+                className="sticky bottom-4 left-1/2 z-20 flex h-8 w-8 -translate-x-1/2 items-center justify-center overflow-hidden rounded-full border border-white/80 bg-white/35 text-[var(--workspace-text-primary)] shadow-[inset_0_1px_1px_rgba(255,255,255,1),0_6px_18px_rgba(24,24,27,0.1)] backdrop-blur-2xl backdrop-saturate-150 transition hover:-translate-y-0.5 hover:bg-white/55 dark:border-white/20 dark:bg-white/10 dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.2)] dark:hover:bg-white/15"
+              >
+                <span
+                  aria-hidden="true"
+                  className="pointer-events-none absolute -inset-y-2 left-[-25%] w-[60%] -skew-x-[24deg] bg-gradient-to-r from-transparent via-white/60 to-transparent dark:via-white/15"
+                />
+                <ArrowDown className="relative h-4 w-4" />
+              </ThreadPrimitive.ScrollToBottom>
             </ThreadPrimitive.Viewport>
             <div className="relative z-10 shrink-0 bg-[var(--workspace-surface)] px-4 pt-2 pb-3">
               <div className="relative">
                 <DictationErrorNotice />
-                <ThreadPrimitive.ScrollToBottom
-                  aria-label={t("scrollToBottom")}
-                  behavior="smooth"
-                  className="absolute top-0 left-1/2 flex h-8 w-8 -translate-x-1/2 -translate-y-full items-center justify-center rounded-full border border-[var(--workspace-border)] bg-[var(--workspace-surface-elevated)] text-[var(--workspace-text-muted)] shadow-sm transition-colors hover:text-[var(--workspace-text-primary)]"
-                >
-                  <ArrowDown className="h-4 w-4" />
-                </ThreadPrimitive.ScrollToBottom>
                 <Popover.Root>
                   <Popover.Anchor asChild>
                     <ComposerPrimitive.Root className="workspace-chat-input-shell relative rounded-[22px] border p-2 shadow-sm backdrop-blur-2xl">
