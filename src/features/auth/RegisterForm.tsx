@@ -106,11 +106,27 @@ export function RegisterForm({
         password,
       });
       if (signUp.error) {
-        setError(
-          "code" in signUp.error && signUp.error.code === "PASSWORD_COMPROMISED"
-            ? t("passwordCompromised")
-            : t("registrationFailed"),
-        );
+        const code = "code" in signUp.error ? signUp.error.code : undefined;
+        switch (code) {
+          case "PASSWORD_COMPROMISED":
+            setError(t("passwordCompromised"));
+            break;
+          case "USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL":
+            setError(t("emailAlreadyRegistered"));
+            break;
+          case "INVALID_EMAIL":
+            setError(t("emailInvalid"));
+            break;
+          case "EMAIL_PASSWORD_SIGN_UP_DISABLED":
+            setError(t("signUpClosed"));
+            break;
+          case "FAILED_TO_CREATE_USER":
+          case "FAILED_TO_CREATE_SESSION":
+            setError(t("registrationUnavailable"));
+            break;
+          default:
+            setError(t("registrationFailed"));
+        }
         return;
       }
       setVerificationPending(true);

@@ -89,6 +89,8 @@
     "registrationUnavailable": "Registration is temporarily unavailable. Try again later.",
     "verificationEmailSent": "Verification email sent",
     "verificationEmailSentDescription": "Open the link in the email to finish setting up your account. Check your spam folder if it does not arrive shortly.",
+    "emailAlreadyRegistered": "This email is already registered",
+    "emailInvalid": "The email address is invalid",
     "handleReserved": "This username is unavailable",
     "handleInvalid": "Use 1–39 lowercase letters, numbers, or single hyphens",
     "passwordLength": "Password must be 15–128 characters",

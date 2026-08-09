@@ -89,6 +89,8 @@
     "registrationUnavailable": "注册暂时不可用，请稍后重试",
     "verificationEmailSent": "验证邮件已发送",
     "verificationEmailSentDescription": "请打开邮件中的链接继续完成账号设置；如果暂时没有收到，请检查垃圾邮件文件夹。",
+    "emailAlreadyRegistered": "该邮箱已注册",
+    "emailInvalid": "邮箱格式不正确",
     "handleReserved": "这个用户名不可使用",
     "handleInvalid": "请输入 1–39 位小写字母、数字或单连字符",
     "passwordLength": "密码长度必须为 15–128 位",
