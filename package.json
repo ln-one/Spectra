@@ -70,7 +70,10 @@
   "overrides": {
     "@ai-sdk/react": "3.0.230",
     "ai": "6.0.228",
-    "lodash": "4.18.1"
+    "lodash": "4.18.1",
+    "@ai-sdk/provider-utils": {
+      "undici": "6.28.0"
+    }
   },
   "dependencies": {
     "@ai-sdk/openai": "3.0.85",
@@ -144,11 +147,11 @@
     "jsonc-parser": "3.3.1",
     "katex": "0.16.47",
     "lucide-react": "^0.564.0",
-    "mermaid": "11.16.0",
+    "mermaid": "^11.16.1",
     "mineru-open-sdk": "0.2.5",
     "motion": "^12.42.2",
     "negotiator": "1.0.0",
-    "next": "16.2.10",
+    "next": "^16.3.0",
     "next-intl": "4.13.2",
     "nodemailer": "^9.0.4",
     "openai": "6.47.0",
@@ -204,15 +207,15 @@
     "@types/tar-stream": "3.1.4",
     "@types/yauzl": "3.4.0",
     "auth": "1.6.23",
-    "concurrently": "10.0.3",
+    "concurrently": "^10.0.4",
     "dependency-cruiser": "18.1.0",
     "drizzle-kit": "0.31.10",
     "fflate": "0.8.2",
     "jsdom": "29.1.1",
     "knip": "6.23.0",
     "nodemon": "3.1.14",
-    "postcss": "8.5.19",
-    "sharp": "0.34.5",
+    "postcss": "^8.5.26",
+    "sharp": "^0.35.3",
     "simple-git-hooks": "2.13.1",
     "tailwindcss": "4.3.2",
     "typescript": "6.0.2",
