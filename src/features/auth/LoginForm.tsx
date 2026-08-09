@@ -4,6 +4,7 @@ import { Fingerprint, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
+import { AuthError } from "./AuthError";
 import { AuthInput } from "./AuthInput";
 import { postSignInDestination } from "./actions";
 import { authClient } from "./client";
@@ -49,6 +50,10 @@ export function LoginForm({ redirectPath }: { redirectPath: string }) {
     const form = new FormData(event.currentTarget);
     const email = String(form.get("email") ?? "").trim();
     const password = String(form.get("password") ?? "");
+    if (!email || !password) {
+      setError(t("loginInvalid"));
+      return;
+    }
 
     try {
       const result = await authClient.signIn.email({ email, password });
@@ -94,7 +99,7 @@ export function LoginForm({ redirectPath }: { redirectPath: string }) {
   }
 
   return (
-    <form onSubmit={submit} className="space-y-6">
+    <form onSubmit={submit} noValidate className="space-y-6">
       <AuthInput
         label={t("email")}
         name="email"
@@ -112,11 +117,7 @@ export function LoginForm({ redirectPath }: { redirectPath: string }) {
         minLength={8}
         disabled={isSubmitting || isPasskeySubmitting}
       />
-      {error ? (
-        <p role="alert" className="text-sm font-medium text-[var(--app-danger)]">
-          {error}
-        </p>
-      ) : null}
+      {error ? <AuthError message={error} /> : null}
       <button
         type="submit"
         disabled={!isClientReady || isSubmitting || isPasskeySubmitting}

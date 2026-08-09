@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
+import { AuthError } from "./AuthError";
 import { AuthInput } from "./AuthInput";
 import { onboardPrincipal } from "./actions";
 import { authClient } from "./client";
@@ -70,6 +71,34 @@ export function RegisterForm({
       return;
     }
 
+    const email = String(form.get("email") ?? "").trim();
+    const password = String(form.get("password") ?? "");
+    const confirmPassword = String(form.get("confirmPassword") ?? "");
+
+    if (!onboardingOnly) {
+      if (!email) {
+        setError(t("emailRequired"));
+        return;
+      }
+      const invalidPassword = passwordError(password);
+      if (invalidPassword === "password_short") {
+        setError(t("passwordTooShort", { count: password.length }));
+        return;
+      }
+      if (invalidPassword === "password_long") {
+        setError(t("passwordTooLong"));
+        return;
+      }
+      if (invalidPassword === "password_classes") {
+        setError(t("passwordClasses"));
+        return;
+      }
+      if (password !== confirmPassword) {
+        setError(t("passwordMismatch"));
+        return;
+      }
+    }
+
     setIsSubmitting(true);
     try {
       if (onboardingOnly) {
@@ -83,19 +112,6 @@ export function RegisterForm({
           return;
         }
         window.location.assign(redirectPath);
-        return;
-      }
-
-      const email = String(form.get("email") ?? "").trim();
-      const password = String(form.get("password") ?? "");
-      const confirmPassword = String(form.get("confirmPassword") ?? "");
-      const invalidPassword = passwordError(password);
-      if (invalidPassword) {
-        setError(t("passwordLength"));
-        return;
-      }
-      if (password !== confirmPassword) {
-        setError(t("passwordMismatch"));
         return;
       }
 
@@ -138,7 +154,7 @@ export function RegisterForm({
   }
 
   return (
-    <form onSubmit={submit} className="space-y-5">
+    <form onSubmit={submit} noValidate className="space-y-5">
       {onboardingOnly ? (
         <p className="rounded-xl bg-[var(--app-info-bg)] p-4 text-sm leading-6 text-[var(--app-info)]">
           {t("onboardingNotice")}
@@ -170,7 +186,7 @@ export function RegisterForm({
             type="password"
             autoComplete="new-password"
             placeholder={t("newPasswordPlaceholder")}
-            minLength={15}
+            minLength={8}
             maxLength={128}
             disabled={isSubmitting}
           />
@@ -180,17 +196,13 @@ export function RegisterForm({
             type="password"
             autoComplete="new-password"
             placeholder={t("confirmPasswordPlaceholder")}
-            minLength={15}
+            minLength={8}
             maxLength={128}
             disabled={isSubmitting}
           />
         </>
       ) : null}
-      {error ? (
-        <p role="alert" className="text-sm font-medium text-[var(--app-danger)]">
-          {error}
-        </p>
-      ) : null}
+      {error ? <AuthError message={error} /> : null}
       <button
         type="submit"
         disabled={isSubmitting}

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
+import { AuthError } from "./AuthError";
 import { AuthInput } from "./AuthInput";
 import { authClient } from "./client";
 import { loginHref, resetPasswordHref } from "./redirect";
@@ -16,9 +17,13 @@ export function ForgotPasswordForm() {
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
+    const email = String(new FormData(event.currentTarget).get("email") ?? "").trim();
+    if (!email) {
+      setError(t("emailRequired"));
+      return;
+    }
     setIsSubmitting(true);
     try {
-      const email = String(new FormData(event.currentTarget).get("email") ?? "").trim();
       const result = await authClient.requestPasswordReset({
         email,
         redirectTo: resetPasswordHref(),
@@ -52,7 +57,7 @@ export function ForgotPasswordForm() {
   }
 
   return (
-    <form onSubmit={submit} className="space-y-5">
+    <form onSubmit={submit} noValidate className="space-y-5">
       <AuthInput
         label={t("email")}
         name="email"
@@ -61,11 +66,7 @@ export function ForgotPasswordForm() {
         placeholder="you@example.com"
         disabled={isSubmitting}
       />
-      {error ? (
-        <p role="alert" className="text-sm font-medium text-[var(--app-danger)]">
-          {error}
-        </p>
-      ) : null}
+      {error ? <AuthError message={error} /> : null}
       <button
         type="submit"
         disabled={isSubmitting}

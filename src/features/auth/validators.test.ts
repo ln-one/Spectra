@@ -8,8 +8,12 @@ test("normalizes and validates Spectra handles", () => {
   expect(handleError("workspaces")).toBe("handle_reserved");
 });
 
-test("requires a long password but does not impose character-composition rules", () => {
+test("requires an 8+ character password mixing at least two character classes", () => {
   expect(passwordError("correct horse battery staple")).toBeNull();
-  expect(passwordError("123456789012345")).toBeNull();
-  expect(passwordError("too short")).toBe("password_length");
+  expect(passwordError("abcd1234")).toBeNull();
+  expect(passwordError("too short")).toBeNull();
+  expect(passwordError("short")).toBe("password_short");
+  expect(passwordError("123456789012345")).toBe("password_classes");
+  expect(passwordError("aaaaaaaa")).toBe("password_classes");
+  expect(passwordError("a".repeat(129))).toBe("password_long");
 });

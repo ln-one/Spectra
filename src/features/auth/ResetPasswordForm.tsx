@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
+import { AuthError } from "./AuthError";
 import { AuthInput } from "./AuthInput";
 import { authClient } from "./client";
 import { loginHref } from "./redirect";
@@ -23,8 +24,17 @@ export function ResetPasswordForm({ token }: { token: string | undefined }) {
     const form = new FormData(event.currentTarget);
     const password = String(form.get("password") ?? "");
     const confirmPassword = String(form.get("confirmPassword") ?? "");
-    if (passwordError(password)) {
-      setError(t("passwordLength"));
+    const invalidPassword = passwordError(password);
+    if (invalidPassword === "password_short") {
+      setError(t("passwordTooShort", { count: password.length }));
+      return;
+    }
+    if (invalidPassword === "password_long") {
+      setError(t("passwordTooLong"));
+      return;
+    }
+    if (invalidPassword === "password_classes") {
+      setError(t("passwordClasses"));
       return;
     }
     if (password !== confirmPassword) {
@@ -65,14 +75,14 @@ export function ResetPasswordForm({ token }: { token: string | undefined }) {
   }
 
   return (
-    <form onSubmit={submit} className="space-y-5">
+    <form onSubmit={submit} noValidate className="space-y-5">
       <AuthInput
         label={t("newPassword")}
         name="password"
         type="password"
         autoComplete="new-password"
         placeholder={t("newPasswordPlaceholder")}
-        minLength={15}
+        minLength={8}
         maxLength={128}
         disabled={isSubmitting}
       />
@@ -82,15 +92,11 @@ export function ResetPasswordForm({ token }: { token: string | undefined }) {
         type="password"
         autoComplete="new-password"
         placeholder={t("confirmPasswordPlaceholder")}
-        minLength={15}
+        minLength={8}
         maxLength={128}
         disabled={isSubmitting}
       />
-      {error ? (
-        <p role="alert" className="text-sm font-medium text-[var(--app-danger)]">
-          {error}
-        </p>
-      ) : null}
+      {error ? <AuthError message={error} /> : null}
       <button
         type="submit"
         disabled={isSubmitting}
