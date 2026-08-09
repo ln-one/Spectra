@@ -11,9 +11,14 @@ await mkdir(logDirectory, { recursive: true });
 // Alloy persists file offsets across restarts, so truncating this file can make it
 // wait at an obsolete offset and silently miss new application logs.
 const logStream = createWriteStream(logPath, { flags: "a", mode: 0o600 });
-const child = spawn("npm", ["run", "dev:processes"], {
+// On Windows the npm shim is a .cmd file, which child_process.spawn cannot
+// execute directly (ENOENT/EINVAL). Run it through a shell on Windows only,
+// so Unix keeps direct spawn and clean signal forwarding.
+const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
+const child = spawn(npmCommand, ["run", "dev:processes"], {
   env: process.env,
   stdio: ["inherit", "pipe", "pipe"],
+  shell: process.platform === "win32",
 });
 
 child.stdout.pipe(process.stdout);
