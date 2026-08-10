@@ -16,15 +16,9 @@ import {
   STUDIO_TOOL_IDS,
   STUDIO_TOOL_PRESENTATIONS,
 } from "@/features/workspaces/workbench/studioTools";
-
-const TOOL_RAY_COLORS = {
-  orange: "#f97316",
-  blue: "#3b82f6",
-  teal: "#14b8a6",
-  rose: "#f43f5e",
-  violet: "#8b5cf6",
-  green: "#22c55e",
-} as const;
+import type { PortalKnowledgeGraphHandle } from "./PortalKnowledgeGraph";
+import { PortalKnowledgeGraph } from "./PortalKnowledgeGraph";
+import { TOOL_RAY_COLORS } from "./portalSpectrum";
 
 const SPECTRUM_COLORS = STUDIO_TOOL_IDS.map(
   (id) => TOOL_RAY_COLORS[STUDIO_TOOL_PRESENTATIONS[id].tone],
@@ -62,11 +56,13 @@ const PORTAL_ACTS = [
   { key: "portalActContext", detailKey: "portalActContextDetail" },
   { key: "portalActPrism", detailKey: "portalActPrismDetail" },
   { key: "portalActRefraction", detailKey: "portalActRefractionDetail" },
+  { key: "portalActNetwork", detailKey: "portalActNetworkDetail" },
 ] as const;
 
 export function WorkbenchAssemblyScene() {
   const sectionRef = useRef<HTMLElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
+  const graphRef = useRef<PortalKnowledgeGraphHandle>(null);
   const t = useTranslations("Workbench");
   const marketing = useTranslations("Marketing");
 
@@ -104,6 +100,7 @@ export function WorkbenchAssemblyScene() {
             stage.querySelectorAll<HTMLElement>("[data-portal-particle]"),
           );
           const glow = stage.querySelector<HTMLElement>("[data-portal-glow]");
+          const graphWrap = stage.querySelector<HTMLElement>("[data-portal-graph]");
           const prism = stage.querySelector<HTMLElement>("[data-portal-prism]");
           const prismShine = stage.querySelector<HTMLElement>("[data-prism-shine]");
           const prismBlobs = Array.from(stage.querySelectorAll<HTMLElement>("[data-prism-blob]"));
@@ -126,6 +123,7 @@ export function WorkbenchAssemblyScene() {
 
           if (
             !shell ||
+            !graphWrap ||
             sourceCards.length === 0 ||
             toolCards.length === 0 ||
             !raysSvg ||
@@ -133,7 +131,13 @@ export function WorkbenchAssemblyScene() {
           ) {
             return;
           }
-          const actCopies = actCopyQueries as [HTMLElement, HTMLElement, HTMLElement, HTMLElement];
+          const actCopies = actCopyQueries as [
+            HTMLElement,
+            HTMLElement,
+            HTMLElement,
+            HTMLElement,
+            HTMLElement,
+          ];
 
           const prefersReducedMotion = window.matchMedia(
             "(prefers-reduced-motion: reduce)",
@@ -266,6 +270,7 @@ export function WorkbenchAssemblyScene() {
               prefersReducedMotion ? 0 : Number(element.dataset.assemblyRotation ?? 0),
           });
           gsap.set(actCopies, { opacity: 0, y: 14 });
+          gsap.set(graphWrap, { opacity: 0, scale: 1.22, transformOrigin: "50% 50%" });
           gsap.set(particles, { opacity: 0, scale: 0.7 });
           gsap.set(raysSvg, { opacity: 0 });
           gsap.set(prismBlobs, { opacity: 0 });
@@ -290,7 +295,7 @@ export function WorkbenchAssemblyScene() {
             defaults: { ease: "power2.inOut" },
             scrollTrigger: {
               anticipatePin: 1,
-              end: () => `+=${window.innerHeight * 4.4}`,
+              end: () => `+=${window.innerHeight * 7.1}`,
               invalidateOnRefresh: true,
               pin: stage,
               pinSpacing: true,
@@ -529,6 +534,58 @@ export function WorkbenchAssemblyScene() {
             )
             .to([...sourceCards, ...toolCards], { opacity: 0, duration: 0.05, ease: "none" }, 0.815)
             .to({}, { duration: 0.14 }, 0.86);
+
+          // ── Act 8 · the workbench folds into one node, camera pulls back ──
+          // The shell collapses onto the stage center, where the pinned hub
+          // node takes over — the workbench itself becomes the node. Then the
+          // network grows in staged setData swaps: hub → incoming links
+          // (sources) → outgoing links (creations) → cross references → peer
+          // course projects. The stage is recomputed from the live playhead so
+          // scrubbing backwards works.
+          const applyGraphStage = () => {
+            const position = timeline.progress() * timeline.duration();
+            const stage =
+              position < 1.16
+                ? 0
+                : position < 1.24
+                  ? 1
+                  : position < 1.32
+                    ? 2
+                    : position < 1.4
+                      ? 3
+                      : position < 1.48
+                        ? 4
+                        : 5;
+            graphRef.current?.setStage(stage);
+          };
+          timeline
+            .to(actCopies[4], { opacity: 1, y: 0, duration: 0.05 }, 1.04)
+            .to(
+              shell,
+              {
+                scale: 0.02,
+                duration: 0.14,
+                ease: prefersReducedMotion ? "none" : "power1.in",
+              },
+              1.02,
+            )
+            .to(shell, { opacity: 0, duration: 0.02, ease: "none" }, 1.15)
+            .to(
+              graphWrap,
+              {
+                opacity: 1,
+                scale: 1,
+                duration: 0.2,
+                ease: prefersReducedMotion ? "none" : "power2.out",
+              },
+              1.1,
+            )
+            .call(applyGraphStage, [], 1.16)
+            .call(applyGraphStage, [], 1.24)
+            .call(applyGraphStage, [], 1.32)
+            .call(applyGraphStage, [], 1.4)
+            .call(applyGraphStage, [], 1.48)
+            .to({}, { duration: 0.14 }, 1.48);
 
           const refresh = () => ScrollTrigger.refresh(true);
           resizeObserver = new ResizeObserver(refresh);
@@ -815,6 +872,10 @@ export function WorkbenchAssemblyScene() {
               />
             ));
           })}
+        </div>
+
+        <div data-portal-graph className="pointer-events-none absolute inset-0 z-[25]">
+          <PortalKnowledgeGraph graphRef={graphRef} />
         </div>
 
         <div
