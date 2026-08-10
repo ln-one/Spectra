@@ -106,7 +106,7 @@ function KnowledgeEvidenceImage({
   );
 
   return (
-    <figure className="my-4 max-w-full rounded-xl border border-[var(--workspace-border)] bg-[var(--workspace-surface-muted)] p-2">
+    <figure className="my-4 max-w-full rounded-xl bg-[var(--workspace-surface-muted)] p-2">
       <KnowledgeEvidencePopover
         displayNumber={displayNumber}
         evidence={evidence}

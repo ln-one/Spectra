@@ -335,7 +335,9 @@ test("renders persisted typed citations and images outside Markdown paragraphs",
   expect(screen.queryByTestId("knowledge-citation-1")).not.toBeInTheDocument();
   expect(await screen.findByTestId("knowledge-visual-1")).toBeInTheDocument();
   const image = await screen.findByRole("img", { name: "凸轮轴拆卸结构图" });
-  expect(image.closest("figure")).not.toBeNull();
+  const figure = image.closest("figure");
+  expect(figure).not.toBeNull();
+  expect(figure).not.toHaveClass("border");
   expect(container.querySelector("p figure")).toBeNull();
   expect(container.querySelector("figure figcaption")).toBeNull();
 });
