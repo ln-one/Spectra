@@ -338,6 +338,7 @@ test("renders persisted typed citations and images outside Markdown paragraphs",
   const figure = image.closest("figure");
   expect(figure).not.toBeNull();
   expect(figure).not.toHaveClass("border");
+  expect(figure).not.toHaveClass("rounded-xl", "bg-[var(--workspace-surface-muted)]", "p-2");
   expect(container.querySelector("p figure")).toBeNull();
   expect(container.querySelector("figure figcaption")).toBeNull();
 });
