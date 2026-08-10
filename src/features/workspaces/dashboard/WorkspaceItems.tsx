@@ -4,7 +4,7 @@ import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { Archive, ArchiveRestore, BookOpen, MoreVertical, Pencil } from "lucide-react";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
-import { startTransition } from "react";
+import { type CSSProperties, startTransition } from "react";
 import { workspaceHref } from "../address";
 import type { Workspace } from "../types";
 
@@ -21,14 +21,51 @@ const LOGO_COLORS = [
 
 const SKELETON_ITEMS = ["workspace-1", "workspace-2", "workspace-3", "workspace-4"];
 
-function workspaceGradient(seed: string) {
+function workspaceSeedColors(seed: string) {
   let hash = 0;
   for (const character of seed) hash = character.charCodeAt(0) + ((hash << 5) - hash);
 
-  const first = LOGO_COLORS[Math.abs(hash) % LOGO_COLORS.length];
-  const second = LOGO_COLORS[Math.abs(hash + 3) % LOGO_COLORS.length];
+  return [
+    LOGO_COLORS[Math.abs(hash) % LOGO_COLORS.length],
+    LOGO_COLORS[Math.abs(hash + 3) % LOGO_COLORS.length],
+  ] as const;
+}
+
+function workspaceGradient(seed: string) {
+  const [first, second] = workspaceSeedColors(seed);
   return `radial-gradient(circle at 0% 0%, ${first}99 0%, transparent 70%), radial-gradient(circle at 100% 100%, ${second}66 0%, transparent 90%), var(--app-surface)`;
 }
+
+// Card glass: high-transparency liquid glass, not frosted. The seeded hues are
+// restrained to faint tints pooling at two corners, and the base is a
+// semi-transparent surface so real background light passes through (paired
+// with backdrop-blur on the card). The surface token keeps dark theme intact.
+function workspaceGlassGradient(seed: string) {
+  const [first, second] = workspaceSeedColors(seed);
+  return [
+    `radial-gradient(130% 160% at 0% 0%, ${first}66 0%, transparent 68%)`,
+    `radial-gradient(140% 150% at 100% 100%, ${second}59 0%, transparent 72%)`,
+    "linear-gradient(165deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.02) 50%, rgba(255,255,255,0.06) 100%)",
+    "color-mix(in srgb, var(--app-surface) 78%, transparent)",
+  ].join(", ");
+}
+
+// Liquid-glass optics: crisp and small, never hazy — a tight hot spot on the
+// upper-left edge, a thin light line slicing diagonally, a hard top-edge sheen
+// and a soft bounce rim along the bottom. All-white layers read as glass
+// highlights in both themes.
+const GLASS_SHEEN = [
+  "radial-gradient(28% 20% at 20% 8%, rgba(255,255,255,0.95) 0%, transparent 70%)",
+  "linear-gradient(105deg, transparent 44%, rgba(255,255,255,0.55) 49%, rgba(255,255,255,0.05) 53%, transparent 58%)",
+  "linear-gradient(to bottom, rgba(255,255,255,0.5) 0%, transparent 12%)",
+  "radial-gradient(120% 42% at 50% 120%, rgba(255,255,255,0.4) 0%, transparent 55%)",
+].join(", ");
+
+// Edge light: a hard bright rim on top, a faint dark rim on the bottom (glass
+// thickness), plus concentrated inner light just under the top edge and a dim
+// inner shadow at the bottom — the curved-surface shading of clear glass.
+const GLASS_INSET_RING =
+  "inset 0 1px 0 rgba(255,255,255,0.95), inset 0 -1px 0 rgba(15,23,42,0.08), inset 1px 0 0 rgba(255,255,255,0.5), inset -1px 0 0 rgba(255,255,255,0.25), inset 0 10px 18px -12px rgba(255,255,255,0.9), inset 0 -14px 22px -16px rgba(15,23,42,0.12)";
 
 function formatWorkspaceDate(
   value: string,
@@ -123,11 +160,22 @@ export function WorkspaceCard({
 }) {
   const locale = useLocale();
   const t = useTranslations("Dashboard");
+  const [accent] = workspaceSeedColors(workspace.id);
   return (
     <article
-      className="group relative flex min-h-[180px] flex-col justify-between overflow-hidden rounded-[2rem] border border-zinc-100/50 p-6 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)] transition hover:-translate-y-1 hover:scale-[1.02] hover:shadow-xl"
-      style={{ background: workspaceGradient(workspace.id) }}
+      className="group relative flex min-h-[180px] flex-col justify-between overflow-hidden rounded-[2rem] border border-white/70 p-6 shadow-[0_18px_40px_-18px_var(--card-glow)] backdrop-blur-md transition-all duration-300 ease-out hover:shadow-[0_28px_56px_-20px_var(--card-glow),0_10px_24px_-12px_rgba(15,23,42,0.18)] hover:saturate-[1.15]"
+      style={
+        {
+          background: workspaceGlassGradient(workspace.id),
+          "--card-glow": `${accent}59`,
+        } as CSSProperties
+      }
     >
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 rounded-[2rem]"
+        style={{ background: GLASS_SHEEN, boxShadow: GLASS_INSET_RING }}
+      />
       <Link
         href={workspaceHref(workspace)}
         aria-label={t("openWorkspace", { name: workspace.name })}

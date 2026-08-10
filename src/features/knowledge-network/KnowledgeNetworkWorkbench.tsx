@@ -292,7 +292,7 @@ function KnowledgeNetworkViewToggle({
       aria-pressed={sourceMode === "network"}
       title={nextLabel}
       onClick={onToggle}
-      className="workspace-sources-import-action flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--studio-border)] bg-[var(--studio-surface-subtle)] text-[var(--studio-accent-text)] shadow-sm transition-[color,background-color,border-color,box-shadow,transform] hover:border-[var(--studio-border-strong)] hover:bg-[var(--studio-surface)] hover:shadow-md active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--studio-ring)]"
+      className="workspace-sources-import-action flex h-8 w-8 items-center justify-center rounded-full px-0 text-[var(--workspace-text-muted)] transition-[color,background-color,transform] hover:bg-[var(--workspace-surface-muted)] hover:text-[var(--workspace-text-primary)] aria-pressed:bg-[var(--workspace-surface-muted)] aria-pressed:text-[var(--workspace-text-primary)] active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--studio-ring)]"
     >
       {sourceMode === "list" ? (
         <Network className="h-4 w-4 shrink-0" strokeWidth={2.2} />
