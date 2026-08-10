@@ -5,6 +5,7 @@ import { formatArtifactHistoryTimestamp } from "@/features/artifacts/artifact-hi
 import { renderWithIntl } from "../../../../tests/render";
 import { ChatPanelView } from "./ChatPanelView";
 import { workbenchVisualFixture } from "./fixture";
+import { KnowledgeNetworkHostProvider } from "./KnowledgeNetworkHostContext";
 import { SourcesPanelView } from "./SourcesPanelView";
 import { artifactRailCapacity, StudioPanelView } from "./StudioPanelView";
 
@@ -86,6 +87,40 @@ test("renders panel data supplied by the caller", async () => {
   expect(screen.getByText("外部资料.pdf")).toBeInTheDocument();
   expect(screen.queryByText("智能课件")).not.toBeInTheDocument();
   expect(screen.queryByText("proj_mock_base")).not.toBeInTheDocument();
+});
+
+test("aligns the knowledge network control with the source import action", () => {
+  const openKnowledgeNetwork = vi.fn();
+  renderWithIntl(
+    <KnowledgeNetworkHostProvider
+      value={{ active: false, label: "在知识网络中查看", open: openKnowledgeNetwork }}
+    >
+      <SourcesPanelView title="资料来源" summary="0 项资料" sources={[]} />
+    </KnowledgeNetworkHostProvider>,
+  );
+
+  const networkControl = screen.getByRole("button", { name: "在知识网络中查看" });
+  const importControl = screen.getByRole("button", { name: "导入" });
+
+  expect(networkControl).toHaveAttribute("aria-pressed", "false");
+  expect(networkControl).toHaveClass(
+    "workspace-sources-import-action",
+    "rounded-full",
+    "hover:bg-[var(--workspace-surface-muted)]",
+  );
+  expect(networkControl).not.toHaveClass(
+    "border",
+    "bg-[var(--studio-surface-subtle)]",
+    "shadow-sm",
+  );
+  expect(importControl).toHaveClass(
+    "workspace-sources-import-action",
+    "rounded-full",
+    "hover:bg-[var(--workspace-surface-muted)]",
+  );
+
+  fireEvent.click(networkControl);
+  expect(openKnowledgeNetwork).toHaveBeenCalledOnce();
 });
 
 test("keeps the full visual fixture isolated to component tests", () => {
