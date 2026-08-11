@@ -78,6 +78,61 @@ describe("modelConversationMessages", () => {
       ]),
     );
   });
+
+  it.each([
+    {
+      output: {
+        artifactId: "11111111-1111-4111-8111-111111111111",
+        generationState: "ready",
+        kind: "game",
+        revisionId: "22222222-2222-4222-8222-222222222222",
+        title: "RAG 知识大闯关",
+      },
+      receipt: 'updated game "RAG 知识大闯关"',
+      toolName: "apply_current_game_edits",
+    },
+    {
+      output: {
+        artifactId: "11111111-1111-4111-8111-111111111111",
+        baseRevisionId: "22222222-2222-4222-8222-222222222222",
+        kind: "presentation",
+        runId: "33333333-3333-4333-8333-333333333333",
+        state: "queued",
+        title: "RAG 系统完整工作流解析",
+      },
+      receipt: 'queued edits to presentation "RAG 系统完整工作流解析"',
+      toolName: "propose_current_presentation_edits",
+    },
+  ])("retains a $toolName mutation receipt", ({ output, receipt, toolName }) => {
+    const messages = [
+      {
+        id: "user-1",
+        parts: [{ text: "修改当前成果", type: "text" }],
+        role: "user",
+      },
+      {
+        id: "assistant-1",
+        parts: [
+          {
+            output,
+            state: "output-available",
+            toolCallId: "tool-1",
+            type: `tool-${toolName}`,
+          },
+        ],
+        role: "assistant",
+      },
+    ] as Parameters<typeof modelConversationMessages>[0];
+
+    expect(modelConversationMessages(messages)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          parts: [expect.objectContaining({ text: expect.stringContaining(receipt) })],
+          role: "assistant",
+        }),
+      ]),
+    );
+  });
 });
 
 function stepArgs(

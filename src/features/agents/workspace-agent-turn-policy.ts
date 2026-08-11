@@ -11,6 +11,7 @@ import {
 import {
   currentArtifactUpdateToolOutputSchema,
   mindMapEditProposalToolOutputSchema,
+  presentationRefinementQueuedToolOutputSchema,
   quizEditProposalToolOutputSchema,
   teachingDocumentEditProposalToolOutputSchema,
 } from "./artifact-edit-tool-contract";
@@ -29,11 +30,13 @@ import {
 } from "./planning-tools";
 
 const ARTIFACT_MUTATION_TOOL_IDS = new Set<string>([
+  ARTIFACT_AGENT_TOOL_IDS.applyCurrentGameEdits,
   ARTIFACT_AGENT_TOOL_IDS.applyCurrentMindMapEdits,
   ARTIFACT_AGENT_TOOL_IDS.applyCurrentQuizEdits,
   ARTIFACT_AGENT_TOOL_IDS.commitArtifactPlan,
   ARTIFACT_AGENT_TOOL_IDS.createArtifacts,
   ARTIFACT_AGENT_TOOL_IDS.proposeCurrentMindMapEdits,
+  ARTIFACT_AGENT_TOOL_IDS.proposeCurrentPresentationEdits,
   ARTIFACT_AGENT_TOOL_IDS.proposeCurrentQuizEdits,
   ARTIFACT_AGENT_TOOL_IDS.proposeCurrentTeachingDocumentEdits,
   ARTIFACT_AGENT_TOOL_IDS.updateCurrentTeachingDocument,
@@ -89,8 +92,17 @@ function artifactActionReceipt(message: UIMessage) {
     if (
       toolName === ARTIFACT_AGENT_TOOL_IDS.proposeCurrentTeachingDocumentEdits ||
       toolName === ARTIFACT_AGENT_TOOL_IDS.proposeCurrentMindMapEdits ||
-      toolName === ARTIFACT_AGENT_TOOL_IDS.proposeCurrentQuizEdits
+      toolName === ARTIFACT_AGENT_TOOL_IDS.proposeCurrentQuizEdits ||
+      toolName === ARTIFACT_AGENT_TOOL_IDS.proposeCurrentPresentationEdits
     ) {
+      if (toolName === ARTIFACT_AGENT_TOOL_IDS.proposeCurrentPresentationEdits) {
+        const parsed = presentationRefinementQueuedToolOutputSchema.safeParse(output);
+        if (parsed.success) {
+          hasMutation = true;
+          receipts.push(`queued edits to presentation "${parsed.data.title}"`);
+        }
+        continue;
+      }
       const schema =
         toolName === ARTIFACT_AGENT_TOOL_IDS.proposeCurrentTeachingDocumentEdits
           ? teachingDocumentEditProposalToolOutputSchema
@@ -265,6 +277,15 @@ function completedArtifactMutationInMessages(messages: readonly { role: string }
         }
         continue;
       }
+      if (toolName === ARTIFACT_AGENT_TOOL_IDS.proposeCurrentPresentationEdits) {
+        if (
+          presentationRefinementQueuedToolOutputSchema.safeParse(Reflect.get(invocation, "result"))
+            .success
+        ) {
+          return true;
+        }
+        continue;
+      }
       return true;
     }
   }
@@ -293,6 +314,7 @@ function isolateArtifactMutationContinuation({
       const proposalNames = new Set<string>([
         ARTIFACT_AGENT_TOOL_IDS.proposeCurrentTeachingDocumentEdits,
         ARTIFACT_AGENT_TOOL_IDS.proposeCurrentMindMapEdits,
+        ARTIFACT_AGENT_TOOL_IDS.proposeCurrentPresentationEdits,
         ARTIFACT_AGENT_TOOL_IDS.proposeCurrentQuizEdits,
       ]);
       if (mutationNames.some((name) => !proposalNames.has(name))) {
@@ -315,6 +337,7 @@ function isolateArtifactMutationContinuation({
         return (
           teachingDocumentEditProposalToolOutputSchema.safeParse(output).success ||
           mindMapEditProposalToolOutputSchema.safeParse(output).success ||
+          presentationRefinementQueuedToolOutputSchema.safeParse(output).success ||
           quizEditProposalToolOutputSchema.safeParse(output).success
         );
       });
