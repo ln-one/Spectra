@@ -222,7 +222,7 @@ export function createSpectraAgent(environment: ServerEnvironment = serverEnviro
     inputProcessors: [
       new TokenLimiter({
         limit: workspaceAgentProfile.modelContextMaxTokens,
-        trimMode: "contiguous",
+        trimMode: "best-fit",
       }),
     ],
     maxRetries: 0,
