@@ -22,7 +22,16 @@ describe("environment architecture", () => {
       ["src/instrumentation.ts", ["process.env.NEXT_RUNTIME", "process.env.NEXT_RUNTIME"]],
       [
         "src/features/artifacts/animations/pipeline.server.ts",
-        ["process.env.PATH", "process.env.PATH"],
+        [
+          "process.env.HTTP_PROXY",
+          "process.env.HTTPS_PROXY",
+          "process.env.NO_PROXY",
+          "process.env.PATH",
+          "process.env.HTTP_PROXY",
+          "process.env.HTTPS_PROXY",
+          "process.env.NO_PROXY",
+          "process.env.PATH",
+        ],
       ],
     ]);
     const violations: string[] = [];
