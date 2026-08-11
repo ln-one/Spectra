@@ -60,7 +60,7 @@ describe("DashScope configuration", () => {
       maxOutputTokens: 4096,
       maxSteps: 7,
       modelContextLastTurns: 8,
-      modelContextMaxTokens: 24_000,
+      modelContextMaxTokens: 48_000,
       modelId: "qwen3.7-plus",
       providerOptions: {
         openai: {

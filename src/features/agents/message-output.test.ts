@@ -22,9 +22,19 @@ describe("assistant message publication policy", () => {
         ]) as never,
       ),
     ).toBe(true);
+    expect(
+      assistantMessageHasUserVisibleOutput(
+        assistant([
+          {
+            data: { artifactId: "artifact", title: "智能建造导论" },
+            type: "data-artifactStarted",
+          },
+        ]) as never,
+      ),
+    ).toBe(true);
   });
 
-  it("rejects blank, tool-only, and validation-error-only messages", () => {
+  it("rejects blank, tool-only, metadata-only, and validation-error-only messages", () => {
     expect(
       assistantMessageHasUserVisibleOutput(assistant([{ text: "   ", type: "text" }]) as never),
     ).toBe(false);
@@ -50,6 +60,20 @@ describe("assistant message publication policy", () => {
             toolCallId: "call-read",
             toolName: "read_current_artifact",
             type: "dynamic-tool",
+          },
+        ]) as never,
+      ),
+    ).toBe(false);
+    expect(
+      assistantMessageHasUserVisibleOutput(
+        assistant([
+          {
+            data: { evidence: [], schemaVersion: 2 },
+            type: "data-knowledgeEvidence",
+          },
+          {
+            data: { reason: "No messages fit", retry: false },
+            type: "data-tripwire",
           },
         ]) as never,
       ),
