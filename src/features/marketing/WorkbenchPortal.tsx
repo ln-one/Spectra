@@ -60,10 +60,13 @@ export function WorkbenchPortal() {
           data-workspace-theme="mist-zinc"
           className="relative mx-auto flex w-full max-w-[1120px] flex-col items-center px-5 py-24 text-center sm:px-8 sm:py-32"
         >
-          <p className="text-sm font-semibold tracking-[0.16em] text-violet-500">
+          <p className="text-base font-semibold tracking-[0.16em] text-violet-500 sm:text-sm">
             {marketing("portalClosingEyebrow")}
           </p>
-          <h2 className="mt-5 text-4xl font-bold tracking-[-0.045em] text-[var(--app-text)] sm:text-5xl">
+          <h2
+            data-portal-closing-title
+            className="mt-5 text-4xl font-bold tracking-[-0.045em] text-[var(--app-text)] sm:text-5xl"
+          >
             {marketing("portalClosingTitle")}
           </h2>
           <p className="mt-6 max-w-2xl text-base leading-8 text-[var(--app-text-muted)] sm:text-lg">
