@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { expect, type Locator, type Page, test } from "@playwright/test";
 import { e2eAuthStatePath, e2eWorkspacePath } from "./environment";
-import { waitForPanelMinimums, waitForWorkbenchLayout } from "./workbench-readiness";
+import { gotoWithRetry, waitForPanelMinimums, waitForWorkbenchLayout } from "./workbench-readiness";
 
 const viewports = [
   { width: 375, height: 812 },
@@ -138,6 +138,35 @@ for (const viewport of viewports) {
     }
   });
 }
+
+test("uses focused Workbench panels on a phone", async ({ page }) => {
+  const fixture = JSON.parse(await readFile(e2eWorkspacePath, "utf8")) as { url: string };
+  await page.setViewportSize({ width: 375, height: 812 });
+  await gotoWithRetry(page, fixture.url);
+
+  const navigation = page.getByTestId("mobile-workbench-navigation");
+  await expect(navigation).toBeVisible();
+  await expect(page.getByTestId("chat-panel")).toBeVisible();
+  await expect(page.getByTestId("studio-panel")).toBeHidden();
+  await expect(page.getByTestId("sources-panel")).toBeHidden();
+
+  const [disclaimerBox, navigationBox] = await Promise.all([
+    page.getByTestId("workbench-disclaimer").boundingBox(),
+    navigation.boundingBox(),
+  ]);
+  if (!disclaimerBox || !navigationBox) throw new Error("Missing mobile Workbench chrome");
+  expect(disclaimerBox.y + disclaimerBox.height).toBeLessThanOrEqual(navigationBox.y);
+
+  await page.getByRole("button", { name: "备课工坊" }).click();
+  await expect(page.getByTestId("studio-panel")).toBeVisible();
+  await expect(page.getByTestId("chat-panel")).toBeHidden();
+
+  await page.getByRole("button", { name: "资料来源" }).click();
+  await expect(page.getByTestId("sources-panel")).toBeVisible();
+  await expect(page.getByTestId("studio-panel")).toBeHidden();
+  await expectNoHorizontalOverflow(page);
+  await expectMinimumTargetSize(page);
+});
 
 test("keeps the desktop Workbench usable at 1024 by 768", async ({ page }) => {
   const fixture = JSON.parse(await readFile(e2eWorkspacePath, "utf8")) as { url: string };
