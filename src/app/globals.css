@@ -117,6 +117,19 @@ html[data-focus-modality="pointer"] .pointer-focus-outline:focus {
   display: none;
 }
 
+@media (max-width: 639px) {
+  [data-portal-source] {
+    left: var(--portal-mobile-source-left) !important;
+    right: auto !important;
+    top: var(--portal-mobile-source-top) !important;
+    opacity: 0;
+  }
+
+  [data-portal-source][data-mobile-hero-visible="true"] {
+    opacity: 0.24;
+  }
+}
+
 @layer utilities {
   .auth-form-enter {
     animation: auth-enter 500ms ease-out both;

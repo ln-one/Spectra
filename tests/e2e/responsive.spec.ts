@@ -66,6 +66,74 @@ async function expectMinimumTargetSize(page: Page) {
   expect(undersizedTargets).toEqual([]);
 }
 
+test("keeps the marketing hero composed on a phone", async ({ browser }) => {
+  const context = await browser.newContext({
+    colorScheme: "dark",
+    locale: "zh-CN",
+    reducedMotion: "reduce",
+    storageState: { cookies: [], origins: [] },
+    viewport: { width: 375, height: 812 },
+  });
+  try {
+    const page = await context.newPage();
+    await page.goto("/");
+
+    const hero = page.locator("[data-portal-hero]");
+    const heading = hero.getByRole("heading", { level: 1 });
+    await expect(hero).toBeVisible();
+    await expectInsideViewport(page, hero);
+    await expectInsideViewport(page, heading);
+    const headingMetrics = await heading.evaluate((element) => ({
+      height: element.getBoundingClientRect().height,
+      lineHeight: Number.parseFloat(getComputedStyle(element).lineHeight),
+    }));
+    expect(headingMetrics.height).toBeLessThanOrEqual(headingMetrics.lineHeight + 1);
+    const [heroBox, viewport] = await Promise.all([hero.boundingBox(), page.viewportSize()]);
+    if (!heroBox || !viewport) throw new Error("Missing marketing hero geometry");
+    expect(heroBox.x + heroBox.width / 2).toBeCloseTo(viewport.width / 2, 0);
+
+    const decorativeCards = page.locator('[data-portal-source][data-mobile-hero-visible="true"]');
+    const upperCards = page.locator(
+      '[data-portal-source][data-mobile-hero-visible="true"][data-mobile-hero-zone="upper"]',
+    );
+    const lowerCards = page.locator(
+      '[data-portal-source][data-mobile-hero-visible="true"][data-mobile-hero-zone="lower"]',
+    );
+    await expect(decorativeCards).toHaveCount(9);
+    await expect(upperCards).toHaveCount(4);
+    await expect(lowerCards).toHaveCount(5);
+    for (const card of await upperCards.all()) {
+      const cardBox = await card.boundingBox();
+      if (!cardBox) throw new Error("Missing mobile source decoration");
+      expect(cardBox.y + cardBox.height).toBeLessThanOrEqual(heroBox.y);
+    }
+    const primaryAction = hero.getByRole("link", { name: "开始创作" });
+    const secondaryAction = hero.getByRole("link", { name: "登录" });
+    await expectInsideViewport(page, primaryAction);
+    await expectInsideViewport(page, secondaryAction);
+    const actionBoxes = await Promise.all([
+      primaryAction.boundingBox(),
+      secondaryAction.boundingBox(),
+    ]);
+    const actionBottom = Math.max(
+      ...actionBoxes.map((box) => {
+        if (!box) throw new Error("Missing marketing action geometry");
+        return box.y + box.height;
+      }),
+    );
+    for (const card of await lowerCards.all()) {
+      const cardBox = await card.boundingBox();
+      if (!cardBox) throw new Error("Missing lower mobile source decoration");
+      expect(cardBox.y).toBeGreaterThanOrEqual(actionBottom);
+    }
+    await expect(decorativeCards.first()).toHaveCSS("opacity", "0.24");
+    await expectNoHorizontalOverflow(page);
+    await expectMinimumTargetSize(page);
+  } finally {
+    await context.close();
+  }
+});
+
 for (const viewport of viewports) {
   const label = `${viewport.width} by ${viewport.height}`;
 

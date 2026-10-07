@@ -3,7 +3,7 @@
 import { ChevronDown, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { useLayoutEffect, useRef } from "react";
+import { type CSSProperties, useLayoutEffect, useRef } from "react";
 import { SpectraLogo } from "@/components/icons/SpectraLogo";
 import { sourceIconStyle } from "@/features/sources/ui/SourcePresentationIcon";
 import { sourceFilePresentation } from "@/features/sources/ui/source-file-presentation";
@@ -35,6 +35,20 @@ const sourcePositions = [
   { right: "clamp(330px, 29vw, 460px)", top: "66%", rotate: -4 },
   { right: "clamp(145px, 13vw, 210px)", top: "73%", rotate: 4 },
   { right: "clamp(24px, 4vw, 64px)", top: "83%", rotate: -5 },
+] as const;
+
+// Keep the phone hero's reading path clear while distributing every card above
+// and below the copy as quiet background decoration.
+const mobileHeroSourcePositions = [
+  { left: "-42px", top: "14%", zone: "upper" },
+  { left: "calc(100% - 112px)", top: "16%", zone: "upper" },
+  { left: "-82px", top: "24%", zone: "upper" },
+  { left: "calc(100% - 76px)", top: "25%", zone: "upper" },
+  { left: "-58px", top: "66%", zone: "lower" },
+  { left: "calc(100% - 96px)", top: "68%", zone: "lower" },
+  { left: "-92px", top: "76%", zone: "lower" },
+  { left: "calc(100% - 72px)", top: "78%", zone: "lower" },
+  { left: "calc(50% - 77px)", top: "85%", zone: "lower" },
 ] as const;
 
 const GATHER_SLOT_RIGHT = "clamp(28px, 4.5vw, 72px)";
@@ -632,22 +646,22 @@ export function WorkbenchAssemblyScene() {
         />
         <header
           data-portal-header
-          className="absolute inset-x-0 top-0 z-50 mx-auto flex h-20 max-w-[1440px] items-center justify-between px-5 sm:px-8"
+          className="absolute inset-x-0 top-0 z-50 mx-auto flex h-16 max-w-[1440px] items-center justify-between px-4 sm:h-20 sm:px-8"
         >
           <Link href="/welcome" className="flex items-center gap-2.5" aria-label="Spectra 首页">
-            <SpectraLogo className="h-9 w-9" blendMode="normal" />
-            <span className="text-xl font-bold tracking-tight">Spectra</span>
+            <SpectraLogo className="h-8 w-8 sm:h-9 sm:w-9" blendMode="normal" />
+            <span className="text-lg font-bold tracking-tight sm:text-xl">Spectra</span>
           </Link>
-          <nav className="flex items-center gap-2 text-sm font-medium">
+          <nav className="flex items-center gap-0.5 text-sm font-medium sm:gap-2">
             <Link
               href="/auth/login"
-              className="rounded-full px-4 py-2 text-[var(--app-text-muted)] transition hover:bg-[var(--app-surface)] hover:text-[var(--app-text)]"
+              className="rounded-full px-3 py-2 text-[var(--app-text-muted)] transition hover:bg-[var(--app-surface)] hover:text-[var(--app-text)] sm:px-4"
             >
               登录
             </Link>
             <Link
               href="/auth/register"
-              className="rounded-full bg-[var(--app-primary)] px-5 py-2 text-[var(--app-on-primary)] shadow-sm transition hover:bg-[var(--app-primary-hover)]"
+              className="rounded-full bg-[var(--app-primary)] px-4 py-2 text-[var(--app-on-primary)] shadow-sm transition hover:bg-[var(--app-primary-hover)] sm:px-5"
             >
               开始创作
             </Link>
@@ -898,21 +912,28 @@ export function WorkbenchAssemblyScene() {
             const presentation = sourceFilePresentation(fileName);
             const Icon = presentation.Icon;
             const position = sourcePositions[index];
+            const mobilePosition = mobileHeroSourcePositions[index];
             const extension = fileName.split(".").at(-1)?.toUpperCase();
             return (
               <article
                 key={fileName}
                 data-portal-source
                 data-assembly-rotation={position?.rotate ?? 0}
-                className="workspace-sources-rail-item absolute z-10 grid min-h-[52px] w-[clamp(170px,17vw,228px)] grid-cols-[32px_1fr_auto] items-center gap-2.5 rounded-xl border border-[var(--workspace-border)] bg-[var(--workspace-surface-elevated)] p-2.5 shadow-[0_14px_35px_rgba(24,24,27,0.14)] will-change-transform"
-                style={{
-                  right: position?.right,
-                  top: position?.top,
-                }}
+                data-mobile-hero-visible="true"
+                data-mobile-hero-zone={mobilePosition?.zone}
+                className="workspace-sources-rail-item absolute z-10 grid min-h-[52px] w-[clamp(170px,17vw,228px)] grid-cols-[32px_1fr_auto] items-center gap-2.5 rounded-xl border border-[var(--workspace-border)] bg-[var(--workspace-surface-elevated)] p-2.5 shadow-[0_14px_35px_rgba(24,24,27,0.14)] will-change-transform max-sm:min-h-12 max-sm:w-[154px] max-sm:grid-cols-[28px_1fr_auto] max-sm:gap-2 max-sm:p-2"
+                style={
+                  {
+                    "--portal-mobile-source-left": mobilePosition?.left,
+                    "--portal-mobile-source-top": mobilePosition?.top,
+                    right: position?.right,
+                    top: position?.top,
+                  } as CSSProperties
+                }
               >
-                <span className="col-span-2 grid min-w-0 grid-cols-[32px_1fr] items-center gap-2.5">
+                <span className="col-span-2 grid min-w-0 grid-cols-[32px_1fr] items-center gap-2.5 max-sm:grid-cols-[28px_1fr] max-sm:gap-2">
                   <span
-                    className="workspace-source-file-icon flex h-8 w-8 items-center justify-center rounded-lg border"
+                    className="workspace-source-file-icon flex h-8 w-8 items-center justify-center rounded-lg border max-sm:h-7 max-sm:w-7"
                     style={sourceIconStyle(presentation.iconTone)}
                   >
                     <Icon className="h-[19px] w-[19px]" strokeWidth={2.2} />
@@ -968,35 +989,41 @@ export function WorkbenchAssemblyScene() {
         </div>
 
         <div className="pointer-events-none absolute inset-0 z-40">
-          <div data-portal-hero className="absolute left-[6%] top-1/2 max-w-xl -translate-y-1/2">
-            <p className="text-sm font-semibold tracking-[0.18em] text-[var(--app-text-muted)]">
+          <div
+            data-portal-hero
+            className="absolute left-[6%] top-1/2 max-w-xl -translate-y-1/2 max-sm:left-1/2 max-sm:right-auto max-sm:top-[48%] max-sm:w-[calc(100%_-_2.5rem)] max-sm:max-w-none max-sm:-translate-x-1/2 max-sm:text-center"
+          >
+            <p className="text-xs font-semibold tracking-[0.18em] text-[var(--app-text-muted)] sm:text-sm">
               {marketing("portalHeroEyebrow")}
             </p>
-            <h1 className="mt-5 text-4xl font-bold tracking-[-0.055em] text-[var(--app-text)] sm:text-6xl">
+            <h1 className="mx-auto mt-4 w-full text-center text-balance text-[clamp(2rem,8.7vw,2.25rem)] font-bold leading-[1.05] tracking-[-0.055em] text-[var(--app-text)] sm:mt-5 sm:text-left sm:text-6xl sm:leading-none">
               {marketing("portalHeroTitle")}
             </h1>
-            <p className="mt-6 max-w-lg text-base leading-7 text-[var(--app-text-muted)] sm:text-lg">
+            <p className="mx-auto mt-5 max-w-lg text-sm leading-6 text-[var(--app-text-muted)] sm:mx-0 sm:mt-6 sm:text-lg sm:leading-7">
               {marketing("portalHeroSubtitle")}
             </p>
-            <div aria-hidden="true" className="mt-8 flex items-center gap-1.5">
+            <div
+              aria-hidden="true"
+              className="mt-6 flex items-center justify-center gap-1.5 sm:mt-8 sm:justify-start"
+            >
               {SPECTRUM_COLORS.map((color) => (
                 <span
                   key={color}
-                  className="h-1 w-9 rounded-full"
+                  className="h-1 w-8 rounded-full sm:w-9"
                   style={{ backgroundColor: color }}
                 />
               ))}
             </div>
-            <div className="pointer-events-auto mt-9 flex items-center gap-3">
+            <div className="pointer-events-auto mt-7 flex flex-wrap items-center justify-center gap-3 sm:mt-9 sm:justify-start">
               <Link
                 href="/auth/register"
-                className="rounded-full bg-[var(--app-primary)] px-6 py-3 text-sm font-semibold text-[var(--app-on-primary)] shadow-lg transition hover:-translate-y-0.5 hover:bg-[var(--app-primary-hover)]"
+                className="inline-flex min-h-11 items-center rounded-full bg-[var(--app-primary)] px-6 py-3 text-sm font-semibold text-[var(--app-on-primary)] shadow-lg transition hover:-translate-y-0.5 hover:bg-[var(--app-primary-hover)]"
               >
                 {marketing("portalHeroPrimaryCta")}
               </Link>
               <Link
                 href="/auth/login"
-                className="rounded-full border border-[var(--app-border-strong)] px-6 py-3 text-sm font-medium text-[var(--app-text)] transition hover:bg-[var(--app-surface)]"
+                className="inline-flex min-h-11 items-center rounded-full border border-[var(--app-border-strong)] px-6 py-3 text-sm font-medium text-[var(--app-text)] transition hover:bg-[var(--app-surface)]"
               >
                 {marketing("portalHeroSecondaryCta")}
               </Link>
@@ -1022,7 +1049,7 @@ export function WorkbenchAssemblyScene() {
 
           <p
             data-portal-hint
-            className="absolute inset-x-0 bottom-8 flex items-center justify-center gap-1.5 text-center text-xs font-medium tracking-[0.14em] text-[var(--app-text-muted)]"
+            className="absolute inset-x-0 bottom-5 flex items-center justify-center gap-1.5 px-5 text-center text-[11px] font-medium tracking-[0.12em] text-[var(--app-text-muted)] sm:bottom-8 sm:px-0 sm:text-xs sm:tracking-[0.14em]"
           >
             {marketing("portalHeroHint")}
             <ChevronDown className="h-3.5 w-3.5 motion-safe:animate-bounce" strokeWidth={2.2} />
