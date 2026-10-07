@@ -126,6 +126,58 @@ test("keeps the marketing hero composed on a phone", async ({ browser }) => {
       if (!cardBox) throw new Error("Missing lower mobile source decoration");
       expect(cardBox.y).toBeGreaterThanOrEqual(actionBottom);
     }
+
+    const topGatherSlots = page.locator('[data-gather-slot][data-mobile-gather-zone="top"]');
+    const sideGatherSlots = page.locator('[data-gather-slot][data-mobile-gather-zone="side"]');
+    const bottomGatherSlots = page.locator('[data-gather-slot][data-mobile-gather-zone="bottom"]');
+    await expect(topGatherSlots).toHaveCount(3);
+    await expect(sideGatherSlots).toHaveCount(4);
+    await expect(bottomGatherSlots).toHaveCount(2);
+    const gatherTargets = await page.locator("[data-gather-slot]").evaluateAll((slots) =>
+      slots.map((slot) => ({
+        x: Number((slot as HTMLElement).dataset.mobileGatherX),
+        y: Number((slot as HTMLElement).dataset.mobileGatherY),
+        zone: (slot as HTMLElement).dataset.mobileGatherZone,
+      })),
+    );
+    expect(gatherTargets.filter(({ zone }) => zone === "top").every(({ y }) => y < 0.3)).toBe(true);
+    expect(
+      gatherTargets.filter(({ zone }) => zone === "side").every(({ x }) => x < 0.1 || x > 0.9),
+    ).toBe(true);
+    expect(gatherTargets.filter(({ zone }) => zone === "bottom").every(({ y }) => y > 0.7)).toBe(
+      true,
+    );
+
+    await expect(page.locator('[data-portal-tool][data-mobile-tool-column="left"]')).toHaveCount(3);
+    await expect(page.locator('[data-portal-tool][data-mobile-tool-column="right"]')).toHaveCount(
+      3,
+    );
+    await expect(
+      page.locator('[data-portal-particle][data-mobile-particle-primary="true"]'),
+    ).toHaveCount(9);
+    await expect(
+      page.locator('[data-portal-particle][data-mobile-particle-primary="false"]'),
+    ).toHaveCount(9);
+    const graphSurfaceColor = await page
+      .locator("[data-portal-graph]")
+      .evaluate((element) => getComputedStyle(element).backgroundColor);
+    const portalColor = await page
+      .locator("main")
+      .evaluate((element) => getComputedStyle(element).backgroundColor);
+    expect(graphSurfaceColor).toBe(portalColor);
+    expect(graphSurfaceColor).not.toBe("rgba(0, 0, 0, 0)");
+    await expect(page.locator("[data-portal-graph-background]")).toHaveCSS(
+      "background-image",
+      /radial-gradient/,
+    );
+    const closingHeading = page.getByRole("heading", {
+      name: "你的下一份作品，从这张网开始。",
+    });
+    const closingHeadingMetrics = await closingHeading.evaluate((element) => ({
+      height: element.getBoundingClientRect().height,
+      lineHeight: Number.parseFloat(getComputedStyle(element).lineHeight),
+    }));
+    expect(closingHeadingMetrics.height).toBeLessThanOrEqual(closingHeadingMetrics.lineHeight + 1);
     await expect(decorativeCards.first()).toHaveCSS("opacity", "0.24");
     await expectNoHorizontalOverflow(page);
     await expectMinimumTargetSize(page);

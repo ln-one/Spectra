@@ -51,6 +51,31 @@ const mobileHeroSourcePositions = [
   { left: "calc(50% - 77px)", top: "85%", zone: "lower" },
 ] as const;
 
+// The phone story uses a compact orbit of source nodes instead of the
+// desktop's tall rail, leaving the center open for the prism and light path.
+const mobileGatherPositions = [
+  { centerX: 0.17, centerY: 0.22, zone: "top" },
+  { centerX: 0.5, centerY: 0.22, zone: "top" },
+  { centerX: 0.83, centerY: 0.22, zone: "top" },
+  { centerX: 0.07, centerY: 0.41, zone: "side" },
+  { centerX: 0.93, centerY: 0.41, zone: "side" },
+  { centerX: 0.07, centerY: 0.57, zone: "side" },
+  { centerX: 0.93, centerY: 0.57, zone: "side" },
+  { centerX: 0.28, centerY: 0.74, zone: "bottom" },
+  { centerX: 0.72, centerY: 0.74, zone: "bottom" },
+] as const;
+
+// Six outputs become a calm two-column mobile composition. Desktop keeps the
+// scattered cards and wider rays defined by toolPositions.
+const mobileToolPositions = [
+  { left: "18px", top: "25%", column: "left", row: 0 },
+  { left: "calc(100% - 150px)", top: "25%", column: "right", row: 0 },
+  { left: "18px", top: "47%", column: "left", row: 1 },
+  { left: "calc(100% - 150px)", top: "47%", column: "right", row: 1 },
+  { left: "18px", top: "69%", column: "left", row: 2 },
+  { left: "calc(100% - 150px)", top: "69%", column: "right", row: 2 },
+] as const;
+
 const GATHER_SLOT_RIGHT = "clamp(28px, 4.5vw, 72px)";
 
 // Act 5 — artifacts materialize at the end of each refracted ray.
@@ -156,6 +181,7 @@ export function WorkbenchAssemblyScene() {
           const prefersReducedMotion = window.matchMedia(
             "(prefers-reduced-motion: reduce)",
           ).matches;
+          const phoneLayout = window.matchMedia("(max-width: 639px)");
 
           // Measure with layout geometry (offsetLeft/offsetTop chain) instead of live
           // getBoundingClientRect: elements are mid-transform while function values are
@@ -187,6 +213,21 @@ export function WorkbenchAssemblyScene() {
             };
           };
 
+          const gatherDelta = (
+            card: HTMLElement,
+            target: HTMLElement | undefined,
+            index: number,
+          ) => {
+            if (!phoneLayout.matches) return flyDelta(card, target);
+            const mobileTarget = mobileGatherPositions[index];
+            if (!mobileTarget) return { x: 0, y: 0 };
+            const cardBox = measureWithinStage(card);
+            return {
+              x: stage.clientWidth * mobileTarget.centerX - cardBox.centerX,
+              y: stage.clientHeight * mobileTarget.centerY - cardBox.centerY,
+            };
+          };
+
           const fitCardToTarget = (card: HTMLElement, target: HTMLElement | undefined) => {
             if (!target) return null;
             const cardBox = measureWithinStage(card);
@@ -202,6 +243,21 @@ export function WorkbenchAssemblyScene() {
 
           const stageCenterX = () => stage.clientWidth / 2;
           const stageCenterY = () => stage.clientHeight / 2;
+          const particleDestination = (index: number) => {
+            if (!phoneLayout.matches) {
+              return {
+                x: stageCenterX() + 56 + (((index * 31) % 13) - 6),
+                y: stageCenterY() - 8 + (((index * 71) % 11) - 5),
+              };
+            }
+            const cardIndex = Math.floor(index / PARTICLES_PER_SOURCE);
+            const angle = (cardIndex / mobileGatherPositions.length) * Math.PI * 2 - Math.PI / 2;
+            const radius = 8 + (cardIndex % 3) * 3;
+            return {
+              x: stageCenterX() + Math.cos(angle) * radius,
+              y: stageCenterY() + Math.sin(angle) * radius,
+            };
+          };
 
           // Refit rays, particle origins and card widths to the current layout.
           // Runs before ScrollTrigger re-invalidates function-based tween values.
@@ -257,11 +313,19 @@ export function WorkbenchAssemblyScene() {
               }
             });
             particles.forEach((particle, index) => {
-              const slot = gatherSlots[Math.floor(index / PARTICLES_PER_SOURCE)];
+              const cardIndex = Math.floor(index / PARTICLES_PER_SOURCE);
+              const slot = gatherSlots[cardIndex];
               if (!slot) return;
-              const slotBox = measureWithinStage(slot);
-              particle.dataset.originX = `${slotBox.centerX + (((index * 53) % 17) - 8)}`;
-              particle.dataset.originY = `${slotBox.centerY + (((index * 97) % 23) - 11)}`;
+              if (phoneLayout.matches) {
+                const mobileOrigin = mobileGatherPositions[cardIndex];
+                if (!mobileOrigin) return;
+                particle.dataset.originX = `${width * mobileOrigin.centerX + (((index * 53) % 5) - 2)}`;
+                particle.dataset.originY = `${height * mobileOrigin.centerY + (((index * 97) % 5) - 2)}`;
+              } else {
+                const slotBox = measureWithinStage(slot);
+                particle.dataset.originX = `${slotBox.centerX + (((index * 53) % 17) - 8)}`;
+                particle.dataset.originY = `${slotBox.centerY + (((index * 97) % 23) - 11)}`;
+              }
             });
           };
 
@@ -292,8 +356,8 @@ export function WorkbenchAssemblyScene() {
             opacity: 0,
             scale: 0.3,
             transformOrigin: "50% 50%",
-            x: 56,
-            y: -8,
+            x: () => (phoneLayout.matches ? 0 : 56),
+            y: () => (phoneLayout.matches ? 0 : -8),
             xPercent: -50,
             yPercent: -50,
           });
@@ -354,8 +418,9 @@ export function WorkbenchAssemblyScene() {
                 duration: 0.09,
                 ease,
                 rotation: 0,
-                x: () => flyDelta(card, slot).x,
-                y: () => flyDelta(card, slot).y,
+                scale: () => (phoneLayout.matches ? 0.62 : 1),
+                x: () => gatherDelta(card, slot, index).x,
+                y: () => gatherDelta(card, slot, index).y,
               },
               0.03 + index * 0.003,
             );
@@ -377,7 +442,13 @@ export function WorkbenchAssemblyScene() {
                   x: () => Number(particle.dataset.originX ?? 0),
                   y: () => Number(particle.dataset.originY ?? 0),
                 },
-                { duration: 0.015, ease: "none", opacity: 1, scale: 1 },
+                {
+                  duration: 0.015,
+                  ease: "none",
+                  opacity: () =>
+                    phoneLayout.matches && index % PARTICLES_PER_SOURCE !== 0 ? 0 : 1,
+                  scale: () => (phoneLayout.matches ? 0.82 : 1),
+                },
                 t0,
               )
               .to(
@@ -385,8 +456,8 @@ export function WorkbenchAssemblyScene() {
                 {
                   duration: 0.075,
                   ease: prefersReducedMotion ? "none" : "power2.in",
-                  x: () => stageCenterX() + 56 + (((index * 31) % 13) - 6),
-                  y: () => stageCenterY() - 8 + (((index * 71) % 11) - 5),
+                  x: () => particleDestination(index).x,
+                  y: () => particleDestination(index).y,
                 },
                 t0 + 0.008,
               )
@@ -399,12 +470,16 @@ export function WorkbenchAssemblyScene() {
               {
                 duration: 0.06,
                 ease: prefersReducedMotion ? "none" : "power2.out",
-                opacity: 0.95,
-                scale: 1,
+                opacity: () => (phoneLayout.matches ? 0.72 : 0.95),
+                scale: () => (phoneLayout.matches ? 0.58 : 1),
               },
               0.19,
             )
-            .to(sourceCards, { opacity: 0.6, duration: 0.04 }, 0.2);
+            .to(
+              sourceCards,
+              { opacity: () => (phoneLayout.matches ? 0.48 : 0.6), duration: 0.04 },
+              0.2,
+            );
 
           // ── Act 3 → 4 · the white context enters the prism ────────────────
           timeline
@@ -430,7 +505,16 @@ export function WorkbenchAssemblyScene() {
               },
               0.23,
             )
-            .to(glow, { opacity: 0.55, scale: 0.4, duration: 0.05, ease }, 0.26)
+            .to(
+              glow,
+              {
+                opacity: () => (phoneLayout.matches ? 0.38 : 0.55),
+                scale: () => (phoneLayout.matches ? 0.32 : 0.4),
+                duration: 0.05,
+                ease,
+              },
+              0.26,
+            )
             .set(raysSvg, { opacity: 1 }, 0.275)
             .fromTo(
               beamPaths,
@@ -453,6 +537,11 @@ export function WorkbenchAssemblyScene() {
           timeline
             .to(actCopies[2], { opacity: 0, y: -10, duration: 0.03 }, 0.34)
             .to(actCopies[3], { opacity: 1, y: 0, duration: 0.04 }, 0.35)
+            .to(
+              sourceCards,
+              { opacity: () => (phoneLayout.matches ? 0.12 : 0.6), duration: 0.04 },
+              0.34,
+            )
             .to(glow, { opacity: 0.2, duration: 0.08, ease }, 0.36)
             .fromTo(exitGlows, { opacity: 0 }, { duration: 0.03, ease: "none", opacity: 1 }, 0.335);
           rayCores.forEach((core, index) => {
@@ -878,6 +967,7 @@ export function WorkbenchAssemblyScene() {
               <span
                 key={`${fileName}-${particleId}`}
                 data-portal-particle
+                data-mobile-particle-primary={particleId === "first" ? "true" : "false"}
                 className="absolute left-0 top-0 h-1.5 w-1.5 rounded-full opacity-0"
                 style={{
                   backgroundColor: color,
@@ -888,7 +978,19 @@ export function WorkbenchAssemblyScene() {
           })}
         </div>
 
-        <div data-portal-graph className="pointer-events-none absolute inset-0 z-[25]">
+        <div
+          data-portal-graph
+          className="pointer-events-none absolute inset-0 z-[25] max-sm:bg-[var(--app-bg)]"
+        >
+          <div
+            aria-hidden="true"
+            data-portal-graph-background
+            className="absolute inset-0 hidden max-sm:block"
+            style={{
+              background:
+                "radial-gradient(440px at 12% 18%, rgba(139,92,246,0.1), transparent 72%), radial-gradient(520px at 88% 58%, rgba(14,165,233,0.08), transparent 72%), radial-gradient(380px at 52% 94%, rgba(245,158,11,0.05), transparent 74%)",
+            }}
+          />
           <PortalKnowledgeGraph graphRef={graphRef} />
         </div>
 
@@ -896,17 +998,20 @@ export function WorkbenchAssemblyScene() {
           aria-hidden="true"
           className="pointer-events-none absolute inset-4 z-30 overflow-hidden rounded-[28px] [backface-visibility:hidden] sm:inset-6"
         >
-          {PUBLIC_PREVIEW_SOURCE_SPECS.map(([, fileName], index) => (
-            <span
-              key={`gather-${fileName}`}
-              data-gather-slot
-              className="invisible absolute h-[52px] w-[clamp(170px,17vw,228px)]"
-              style={{
-                right: GATHER_SLOT_RIGHT,
-                top: `${10 + index * 9.2}%`,
-              }}
-            />
-          ))}
+          {PUBLIC_PREVIEW_SOURCE_SPECS.map(([, fileName], index) => {
+            const mobilePosition = mobileGatherPositions[index];
+            return (
+              <span
+                key={`gather-${fileName}`}
+                data-gather-slot
+                data-mobile-gather-zone={mobilePosition?.zone}
+                data-mobile-gather-x={mobilePosition?.centerX}
+                data-mobile-gather-y={mobilePosition?.centerY}
+                className="invisible absolute h-[52px] w-[clamp(170px,17vw,228px)]"
+                style={{ right: GATHER_SLOT_RIGHT, top: `${10 + index * 9.2}%` }}
+              />
+            );
+          })}
 
           {PUBLIC_PREVIEW_SOURCE_SPECS.map(([name, fileName], index) => {
             const presentation = sourceFilePresentation(fileName);
@@ -957,28 +1062,35 @@ export function WorkbenchAssemblyScene() {
           {STUDIO_TOOL_IDS.map((id, index) => {
             const { Icon, labelKey, tone } = STUDIO_TOOL_PRESENTATIONS[id];
             const position = toolPositions[index];
+            const mobilePosition = mobileToolPositions[index];
             return (
               <article
                 key={id}
                 data-portal-tool
                 data-assembly-rotation={position?.rotate ?? 0}
+                data-mobile-tool-column={mobilePosition?.column}
+                data-mobile-tool-row={mobilePosition?.row}
                 data-studio-tone={tone}
-                className="workspace-tool-card absolute z-10 isolate flex min-h-[96px] w-[clamp(120px,12vw,160px)] flex-col justify-between overflow-hidden rounded-2xl border border-[var(--workspace-border)] bg-[var(--workspace-surface)] p-4 opacity-0 shadow-[0_18px_44px_rgba(24,24,27,0.16)] will-change-transform"
-                style={{
-                  left: position?.left,
-                  top: position?.top,
-                }}
+                className="workspace-tool-card absolute z-10 isolate flex min-h-[96px] w-[clamp(120px,12vw,160px)] flex-col justify-between overflow-hidden rounded-2xl border border-[var(--workspace-border)] bg-[var(--workspace-surface)] p-4 opacity-0 shadow-[0_18px_44px_rgba(24,24,27,0.16)] will-change-transform max-sm:h-14 max-sm:min-h-14 max-sm:w-[132px] max-sm:flex-row max-sm:items-center max-sm:justify-start max-sm:gap-2.5 max-sm:rounded-xl max-sm:p-2.5"
+                style={
+                  {
+                    "--portal-mobile-tool-left": mobilePosition?.left,
+                    "--portal-mobile-tool-top": mobilePosition?.top,
+                    left: position?.left,
+                    top: position?.top,
+                  } as CSSProperties
+                }
               >
                 <span className="workspace-tool-card-aura pointer-events-none absolute -left-10 -top-10 z-0 h-40 w-40 rounded-full opacity-50" />
-                <span className="workspace-tool-icon-container pointer-events-none relative z-10 flex h-10 w-10 items-center justify-center rounded-xl border">
-                  <Icon className="h-6 w-6" strokeWidth={2.25} />
+                <span className="workspace-tool-icon-container pointer-events-none relative z-10 flex h-10 w-10 items-center justify-center rounded-xl border max-sm:h-8 max-sm:w-8 max-sm:shrink-0 max-sm:rounded-lg">
+                  <Icon className="h-6 w-6 max-sm:h-5 max-sm:w-5" strokeWidth={2.25} />
                 </span>
-                <span className="relative z-10 mt-4 flex w-full items-center justify-between gap-2">
-                  <span className="truncate text-[14px] font-medium text-[var(--workspace-text-primary)]">
+                <span className="relative z-10 mt-4 flex w-full items-center justify-between gap-2 max-sm:mt-0 max-sm:min-w-0">
+                  <span className="truncate text-[14px] font-medium text-[var(--workspace-text-primary)] max-sm:text-xs">
                     {t(labelKey)}
                   </span>
                   <ChevronRight
-                    className="h-4 w-4 shrink-0 text-[var(--workspace-text-muted)] opacity-40"
+                    className="h-4 w-4 shrink-0 text-[var(--workspace-text-muted)] opacity-40 max-sm:hidden"
                     strokeWidth={2.5}
                   />
                 </span>
