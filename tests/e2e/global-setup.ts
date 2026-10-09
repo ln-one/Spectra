@@ -316,6 +316,17 @@ export default async function globalSetup() {
     otherAuthUser.id,
     "spectra-other-e2e",
   ]);
+  for (const [client, email] of [
+    [context, "spectra-e2e@example.com"],
+    [otherContext, "spectra-other-e2e@example.com"],
+  ] as const) {
+    await pool.query('UPDATE auth."user" SET "emailVerified" = true WHERE email = $1', [email]);
+    await requireOk(
+      await client.post("/api/auth/sign-in/email", {
+        data: { email, password: "Spectra2026E2E!!" },
+      }),
+    );
+  }
   await pool.end();
 
   await Promise.all([

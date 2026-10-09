@@ -231,6 +231,7 @@ test("continues an incomplete agent message and publishes once after FinishActio
   };
   const sourceArchive = new TextEncoder().encode("normalized source");
   const pptx = new TextEncoder().encode("valid pptx");
+  const storage = memoryStorage();
   registerPresentationAuthoringDbosWorkflow({
     client,
     db: testDatabase.db,
@@ -261,7 +262,7 @@ test("continues an incomplete agent message and publishes once after FinishActio
         schemaVersion: 1,
       },
     }),
-    storage: memoryStorage(),
+    storage,
   });
   DBOS.setConfig({
     listenQueues: [PRESENTATION_AUTHORING_DBOS_QUEUE],
@@ -620,6 +621,40 @@ test("continues an incomplete agent message and publishes once after FinishActio
     }),
     expect.any(String),
   );
+  getConversation.mockResolvedValue({ found: true, status: "error", usageById: {} });
+  vi.mocked(client.downloadArchive).mockRejectedValue(new Error("draft_unavailable"));
+  let stateAtCleanup: string | null = null;
+  let failureCodeAtCleanup: string | null = null;
+  const listVersions = vi.spyOn(storage, "listVersions").mockImplementationOnce(async () => {
+    const [row] = await testDatabase.db
+      .select()
+      .from(artifacts)
+      .where(eq(artifacts.id, cleanupFailureDetail.id));
+    stateAtCleanup = row?.generationState ?? null;
+    failureCodeAtCleanup = row?.generationFailureCode ?? null;
+    throw new Error("AccessDenied");
+  });
+  const cleanupFailureDetail = await startPresentationGeneration(
+    actor,
+    {
+      conversationId: randomUUID(),
+      locale: "en-US",
+      prompt: "Create a presentation whose failed draft cannot be cleaned up",
+      sourceUserMessageId: `presentation-dbos-cleanup-failure-${randomUUID()}`,
+      workspaceId,
+    },
+    createPresentationDbosQueue(),
+    testDatabase.db,
+  );
+  if (!cleanupFailureDetail.generationAttemptId) throw new Error("attempt_missing");
+  const cleanupFailureHandle = DBOS.retrieveWorkflow<null>(
+    cleanupFailureDetail.generationAttemptId,
+  );
+  await expect(cleanupFailureHandle.getResult({ pollingIntervalMs: 20 })).resolves.toBeNull();
+  expect(stateAtCleanup).toBe("failed");
+  expect(failureCodeAtCleanup).toBe("presentation_remote_error");
+  expect(listVersions.mock.calls.length).toBeGreaterThan(1);
+  listVersions.mockRestore();
   authoringWarnings.mockRestore();
   authoringLogs.mockRestore();
 }, 45_000);
