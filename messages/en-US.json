@@ -263,8 +263,6 @@
     "showSource": "View source: {name}",
     "assistantTitle": "Assistant",
     "assistantSubtitle": "AI assistant conversation",
-    "sourcesTitle": "Sources",
-    "mobileNavigation": "Workbench navigation",
     "welcomeTitle": "What would you like to work on?",
     "welcomeDescription": "Ask a question, or add sources and let Spectra help you organize and create.",
     "citationHint": "Open the source card from the citation, then use its network icon to locate the source.",
