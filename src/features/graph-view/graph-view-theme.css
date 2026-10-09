@@ -1,0 +1,70 @@
+/* Theme probes are mounted on document.body and require global selectors. */
+.graph-view.color-fill {
+  color: #5069d9;
+}
+
+.graph-view.color-fill-focused {
+  color: #5069d9;
+}
+
+.graph-view.color-fill-tag {
+  color: #159b86;
+}
+
+.graph-view.color-fill-unresolved {
+  color: #c96571;
+}
+
+.graph-view.color-fill-attachment {
+  color: #e29352;
+}
+
+.graph-view.color-arrow,
+.graph-view.color-circle,
+.graph-view.color-fill-highlight,
+.graph-view.color-line-highlight {
+  color: #536ddd;
+}
+
+.graph-view.color-line {
+  color: #c5cedd;
+}
+
+.graph-view.color-text {
+  color: #556582;
+}
+
+[data-theme="dark"] .graph-view.color-fill {
+  color: #8ea2ff;
+}
+
+[data-theme="dark"] .graph-view.color-fill-focused {
+  color: #a9b9ff;
+}
+
+[data-theme="dark"] .graph-view.color-fill-tag {
+  color: #2dd4bf;
+}
+
+[data-theme="dark"] .graph-view.color-fill-unresolved {
+  color: #fb7185;
+}
+
+[data-theme="dark"] .graph-view.color-fill-attachment {
+  color: #fb923c;
+}
+
+[data-theme="dark"] .graph-view.color-arrow,
+[data-theme="dark"] .graph-view.color-circle,
+[data-theme="dark"] .graph-view.color-fill-highlight,
+[data-theme="dark"] .graph-view.color-line-highlight {
+  color: #9aaeff;
+}
+
+[data-theme="dark"] .graph-view.color-line {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .graph-view.color-text {
+  color: #cbd5e1;
+}

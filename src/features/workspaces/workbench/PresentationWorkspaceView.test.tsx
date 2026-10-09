@@ -123,7 +123,9 @@ test("shows the shared suggestion start view before Presentation creation", asyn
 
   fireEvent.click(await screen.findByRole("button", { name: /课件建议 1/ }));
   expect(onSuggestion).toHaveBeenCalledWith("生成第 1 份智能课件");
-  expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("target=presentation"));
+  expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("target=presentation"), {
+    signal: expect.any(AbortSignal),
+  });
   fetchMock.mockRestore();
 });
 
@@ -184,7 +186,7 @@ test("shows feedback while regenerating Presentation suggestions", async () => {
 
   fireEvent.click(await screen.findByRole("button", { name: "重新生成建议" }));
   expect(await screen.findByRole("button", { name: "正在准备建议" })).toBeDisabled();
-  expect(screen.getByRole("button", { name: /当前建议 1/ })).toBeDisabled();
+  expect(screen.getByRole("button", { name: /当前建议 1/ })).toBeEnabled();
   const regenerationRequest = fetchMock.mock.calls.find(([, init]) => init?.method === "POST");
   expect(JSON.parse(String(regenerationRequest?.[1]?.body))).toEqual(
     expect.objectContaining({ afterGeneration: "2026-07-26T00:00:00.000Z" }),

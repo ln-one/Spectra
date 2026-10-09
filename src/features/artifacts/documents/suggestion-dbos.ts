@@ -33,6 +33,28 @@ function retryWorkflowIdentity(identity: string, status: string, updatedAt: numb
     .digest("hex")}`;
 }
 
+export async function artifactSuggestionRequestFailed(
+  workspaceId: string,
+  locale: Locale,
+  target: ArtifactSuggestionTarget,
+  requestIdentity: string,
+) {
+  const client = await artifactDbosClient();
+  let identity = workflowIdentity(workspaceId, locale, target, requestIdentity);
+  for (let attempt = 0; attempt < MAX_SUGGESTION_WORKFLOW_ATTEMPTS; attempt += 1) {
+    const status = await client.retrieveWorkflow(identity).getStatus();
+    if (!status) return false;
+    // A successful workflow without the awaited snapshot was skipped or superseded.
+    if (status.status === "SUCCESS") return true;
+    if (!RETRYABLE_TERMINAL_STATES.has(status.status)) return false;
+    const nextIdentity = retryWorkflowIdentity(identity, status.status, status.updatedAt);
+    const nextStatus = await client.retrieveWorkflow(nextIdentity).getStatus();
+    if (!nextStatus) return true;
+    identity = nextIdentity;
+  }
+  return true;
+}
+
 export async function enqueueArtifactSuggestions(
   workspaceId: string,
   locale: Locale,

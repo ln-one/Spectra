@@ -1,5 +1,3 @@
-import { randomUUID } from "node:crypto";
-
 export type QuestionDraft =
   | {
       correctOptionIndex: number;
@@ -117,7 +115,7 @@ export function applyQuestionEdits<Question extends { questionId: string }, Draf
     questionNotFoundError: string;
   },
 ) {
-  const idFactory = options.idFactory ?? randomUUID;
+  const idFactory = options.idFactory ?? (() => crypto.randomUUID());
   const next: Question[] = structuredClone(Array.from(questions));
 
   for (const edit of edits) {

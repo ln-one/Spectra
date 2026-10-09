@@ -1,8 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { enqueueArtifactSuggestions } from "@/features/artifacts/documents/suggestion-dbos";
+import {
+  artifactSuggestionRequestFailed,
+  enqueueArtifactSuggestions,
+} from "@/features/artifacts/documents/suggestion-dbos";
 import {
   artifactSuggestionContextHash,
   markArtifactSuggestionSnapshotRefreshing,
+  readArtifactSuggestionRequest,
   readArtifactSuggestionSnapshot,
   reserveArtifactSuggestionRequest,
 } from "@/features/artifacts/documents/suggestion-snapshots.server";
@@ -17,10 +21,12 @@ vi.mock("@/features/artifacts/documents/suggestions", () => ({
 vi.mock("@/features/artifacts/documents/suggestion-snapshots.server", () => ({
   artifactSuggestionContextHash: vi.fn(() => "context-hash"),
   markArtifactSuggestionSnapshotRefreshing: vi.fn(),
+  readArtifactSuggestionRequest: vi.fn(),
   readArtifactSuggestionSnapshot: vi.fn(),
   reserveArtifactSuggestionRequest: vi.fn(),
 }));
 vi.mock("@/features/artifacts/documents/suggestion-dbos", () => ({
+  artifactSuggestionRequestFailed: vi.fn(),
   enqueueArtifactSuggestions: vi.fn(),
 }));
 
@@ -46,6 +52,8 @@ beforeEach(() => {
     workspaceUpdatedAt: "2026-07-20T00:00:00.000Z",
   });
   vi.mocked(readArtifactSuggestionSnapshot).mockReset();
+  vi.mocked(readArtifactSuggestionRequest).mockReset().mockResolvedValue({ epoch: 7 });
+  vi.mocked(artifactSuggestionRequestFailed).mockReset().mockResolvedValue(false);
   vi.mocked(artifactSuggestionContextHash).mockReset().mockReturnValue("context-hash");
   vi.mocked(markArtifactSuggestionSnapshotRefreshing).mockReset().mockResolvedValue(true);
   vi.mocked(reserveArtifactSuggestionRequest)
@@ -433,4 +441,50 @@ describe("Artifact suggestions API", () => {
     expect(await response.json()).toEqual({ generation: null, status: "pending", suggestions: [] });
     expect(enqueueArtifactSuggestions).not.toHaveBeenCalled();
   });
+});
+
+it("reports terminal suggestion failure without queueing a replacement", async () => {
+  vi.mocked(readArtifactSuggestionSnapshot).mockResolvedValue({
+    generatedAt: firstGeneration,
+    status: "stale",
+    suggestions,
+  });
+  vi.mocked(artifactSuggestionRequestFailed).mockResolvedValue(true);
+  const response = await GET(
+    new Request(
+      `http://localhost/api/artifacts/suggestions?workspaceId=${workspaceId}&locale=zh-CN&target=presentation&afterGeneration=${firstGeneration.toISOString()}&waitOnly=true`,
+    ),
+  );
+  expect(response.status).toBe(200);
+  expect(await response.json()).toEqual({
+    generation: firstGeneration.toISOString(),
+    status: "failed",
+    suggestions: [],
+  });
+  expect(artifactSuggestionRequestFailed).toHaveBeenCalledWith(
+    workspaceId,
+    "zh-CN",
+    "presentation",
+    `context:context-hash:generation:${firstGeneration.toISOString()}:epoch:7`,
+  );
+  expect(enqueueArtifactSuggestions).not.toHaveBeenCalled();
+});
+
+it("returns the new snapshot if publication races with the terminal status check", async () => {
+  const newerGeneration = new Date("2026-07-20T00:01:00.000Z");
+  vi.mocked(readArtifactSuggestionSnapshot)
+    .mockResolvedValueOnce({ generatedAt: firstGeneration, status: "stale", suggestions })
+    .mockResolvedValueOnce({ generatedAt: newerGeneration, status: "fresh", suggestions });
+  vi.mocked(artifactSuggestionRequestFailed).mockResolvedValue(true);
+  const response = await GET(
+    new Request(
+      `http://localhost/api/artifacts/suggestions?workspaceId=${workspaceId}&locale=zh-CN&target=presentation&afterGeneration=${firstGeneration.toISOString()}&waitOnly=true`,
+    ),
+  );
+  expect(await response.json()).toEqual({
+    generation: newerGeneration.toISOString(),
+    status: "fresh",
+    suggestions,
+  });
+  expect(enqueueArtifactSuggestions).not.toHaveBeenCalled();
 });

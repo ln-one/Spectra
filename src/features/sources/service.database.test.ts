@@ -43,6 +43,7 @@ import {
   startSourceUpload,
 } from "./service";
 import type { InspectedObject, SourceStorage, VersionedObject } from "./storage";
+import { uploadSourceObject } from "./upload-proxy.server";
 import { MAX_NATIVE_TEXT_SOURCE_FILE_BYTES } from "./validation";
 
 class FakeSourceStorage implements SourceStorage {
@@ -698,6 +699,61 @@ describe("Source upload lifecycle", () => {
     expect(renewed.upload.generation).toBe(2);
     await expect(
       completeSourceUpload(alice, started.source.id, 1, dependencies),
+    ).rejects.toMatchObject({ code: "source_upload_mismatch" });
+  });
+
+  test("proxies an authenticated upload into the pending staging object", async () => {
+    dependencies.uploadProxyEnabled = true;
+    const body = fileBytes("%PDF-1.7");
+    const started = await startSourceUpload(
+      alice,
+      workspaceId,
+      { originalFilename: "notes.pdf", declaredSizeBytes: body.byteLength },
+      dependencies,
+    );
+
+    expect(started.upload.url).toBe(`/api/sources/${started.source.id}/upload?generation=1`);
+    await uploadSourceObject(
+      alice,
+      started.source.id,
+      started.upload.generation,
+      body,
+      "application/pdf",
+      dependencies,
+    );
+
+    await expect(
+      completeSourceUpload(alice, started.source.id, 1, dependencies),
+    ).resolves.toMatchObject({ state: "stored" });
+  });
+
+  test("rejects proxy uploads with a mismatched generation or byte length", async () => {
+    const started = await startSourceUpload(
+      alice,
+      workspaceId,
+      { originalFilename: "notes.pdf", declaredSizeBytes: 1024 },
+      dependencies,
+    );
+
+    await expect(
+      uploadSourceObject(
+        alice,
+        started.source.id,
+        2,
+        fileBytes("%PDF-1.7"),
+        "application/pdf",
+        dependencies,
+      ),
+    ).rejects.toMatchObject({ code: "source_upload_mismatch" });
+    await expect(
+      uploadSourceObject(
+        alice,
+        started.source.id,
+        1,
+        fileBytes("%PDF-1.7", 12),
+        "application/pdf",
+        dependencies,
+      ),
     ).rejects.toMatchObject({ code: "source_upload_mismatch" });
   });
 

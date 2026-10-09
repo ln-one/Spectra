@@ -198,6 +198,7 @@ test("reuses cached suggestions when the document workspace is reopened", async 
   expect(fetch).toHaveBeenNthCalledWith(
     1,
     "/api/artifacts/suggestions?locale=zh-CN&target=teaching_document&view=artifact-v1&workspaceId=00000000-0000-4000-8000-000000000002",
+    { signal: expect.any(AbortSignal) },
   );
   expect(screen.getByText("Suggestion one").closest("button")).toHaveClass(
     "h-[172px]",

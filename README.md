@@ -16,7 +16,14 @@ Try the live experience at [spectra.forevergreendam.cn](https://spectra.foreverg
 
 ## Run locally
 
-Requires Node.js 24, Docker, and npm 11.
+Requires Node.js 24, Docker, npm 11, and Pandoc 3.12.1 on `PATH` for DOCX export.
+The public npm dependencies do not require a Tiptap Pro registry token.
+
+On Linux, install the pinned converter with `bash scripts/install-pandoc.sh /usr/local`
+(requires write access to that directory). On Windows, use the official
+[Pandoc 3.12.1 release](https://github.com/jgm/pandoc/releases/tag/3.12.1) and add its
+directory to `PATH`. CI and both Docker images install the checksum-verified Linux runtime.
+Pandoc performs DOCX conversion locally; no external conversion API is used.
 
 ```bash
 cp .env.example .env.local

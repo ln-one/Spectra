@@ -78,6 +78,7 @@ test("requests suggestions in the active interface language", async () => {
   });
   expect(fetch).toHaveBeenCalledWith(
     "/api/artifacts/suggestions?locale=en-US&target=teaching_document&view=artifact-v1&workspaceId=workspace",
+    { signal: expect.any(AbortSignal) },
   );
 });
 

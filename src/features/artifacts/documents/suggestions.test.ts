@@ -1,5 +1,6 @@
-import { expect, test } from "vitest";
-import { artifactSuggestionsDifferFrom } from "./suggestions";
+import { generateText } from "ai";
+import { expect, test, vi } from "vitest";
+import { artifactSuggestionsDifferFrom, generateArtifactSuggestions } from "./suggestions";
 
 const previous = [
   { prompt: "创建一份区块链技术基础演示。", title: "区块链技术基础" },
@@ -30,3 +31,34 @@ test("requires every regenerated suggestion card to differ from the previous car
     ),
   ).toBe(true);
 });
+
+vi.mock("ai", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("ai")>()),
+  generateText: vi.fn(),
+}));
+
+test("gives retries a different instruction while still rejecting repeated cards", async () => {
+  vi.mocked(generateText).mockResolvedValue({ output: { suggestions: previous } } as never);
+  const context = {
+    locale: "zh-CN" as const,
+    sourceNames: [],
+    sourceFingerprint: [],
+    target: "presentation" as const,
+    workspaceId: "workspace",
+    workspaceName: "Course",
+    workspaceUpdatedAt: "2026-10-09T00:00:00.000Z",
+  };
+  await expect(
+    generateArtifactSuggestions(context, new AbortController().signal, previous, 2),
+  ).rejects.toThrow("Regenerated artifact suggestions repeated a previous card.");
+  expect(generateText).toHaveBeenCalledWith(
+    expect.objectContaining({
+      prompt: expect.stringContaining("Retry 2: the previous attempt failed validation."),
+    }),
+  );
+});
+
+vi.mock("./config", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./config")>()),
+  createTeachingDocumentSuggestionModel: vi.fn(() => "suggestion-test-model"),
+}));

@@ -60,6 +60,7 @@ export function registerArtifactSuggestionDbosWorkflows(input: {
         context,
         DBOS.stepStatus?.timeoutSignal ?? AbortSignal.timeout(30_000),
         previousSuggestions,
+        DBOS.stepStatus?.currentAttempt ?? 1,
       );
       return { context, suggestions };
     },

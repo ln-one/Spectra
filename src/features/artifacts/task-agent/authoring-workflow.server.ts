@@ -948,8 +948,7 @@ export function registerTaskAgentAuthoringWorkflow<
         }
       }
       await interruptRemoteConversation();
-      await deleteUnpublishedObjects(artifactId, attemptId);
-      await discardStagedSource(attemptId);
+      // Persist the terminal state before cleanup, which can fail independently.
       await failGeneration(artifactId, attemptId, code, redactedTaskAgentFailureDetail(error));
       await completeObservedStage("failed", code);
       authoringSpan.setAttributes({
@@ -967,6 +966,8 @@ export function registerTaskAgentAuthoringWorkflow<
         },
         `${input.kind} authoring failed`,
       );
+      await deleteUnpublishedObjects(artifactId, attemptId);
+      await discardStagedSource(attemptId);
       return null;
     } finally {
       if (input.progressStream) {

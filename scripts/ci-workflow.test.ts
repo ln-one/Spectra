@@ -14,7 +14,7 @@ type Workflow = {
 };
 
 describe("CI workflow contracts", () => {
-  it("configures Tiptap Pro before every npm ci without checking out Stratumind", async () => {
+  it("installs Pandoc without private registry credentials or a Stratumind checkout", async () => {
     for (const file of workflowFiles) {
       const source = await readFile(file, "utf8");
       const workflow = parse(source) as Workflow;
@@ -22,7 +22,7 @@ describe("CI workflow contracts", () => {
       expect(source).not.toContain("repository: ln-one/Stratumind");
       expect(source).not.toContain(".ci/stratumind");
       expect(source).not.toContain("Build pinned Stratumind acceptance runtime");
-      expect(source).toContain("secrets.TIPTAP_PRO_TOKEN");
+      expect(source).not.toContain("TIPTAP_PRO_TOKEN");
 
       for (const [jobName, job] of Object.entries(workflow.jobs ?? {})) {
         const steps = job.steps ?? [];
@@ -30,8 +30,8 @@ describe("CI workflow contracts", () => {
           if (step.run !== "npm ci") return;
           const configured = steps
             .slice(0, index)
-            .some((candidate) => candidate.uses === "./.github/actions/setup-tiptap-pro-registry");
-          expect(configured, `${file}:${jobName} must configure Tiptap before npm ci`).toBe(true);
+            .some((candidate) => candidate.uses === "./.github/actions/setup-pandoc");
+          expect(configured, `${file}:${jobName} must install Pandoc before npm ci`).toBe(true);
         });
       }
     }
@@ -82,13 +82,23 @@ describe("CI workflow contracts", () => {
     expect(envExample).toContain(`OPENHANDS_RUNTIME_IMAGE=${image}`);
   });
 
-  it("keeps registry credentials outside the repository and npm cache", async () => {
-    const action = await readFile(".github/actions/setup-tiptap-pro-registry/action.yml", "utf8");
-
-    expect(action).toContain("$RUNNER_TEMP/spectra-tiptap.npmrc");
-    expect(action).toContain("NPM_CONFIG_USERCONFIG=");
-    expect(action).toContain("umask 077");
-    expect(action).not.toContain("npm config set");
-    expect(action).not.toContain('echo "$TIPTAP_PRO_TOKEN"');
+  it("pins and verifies the converter in CI and both application runtimes", async () => {
+    const [action, installer, web, worker, lock, compose] = await Promise.all([
+      readFile(".github/actions/setup-pandoc/action.yml", "utf8"),
+      readFile("scripts/install-pandoc.sh", "utf8"),
+      readFile("Dockerfile", "utf8"),
+      readFile("Dockerfile.worker", "utf8"),
+      readFile("package-lock.json", "utf8"),
+      readFile("compose.production.yaml", "utf8"),
+    ]);
+    expect(action).toContain("$GITHUB_PATH");
+    expect(installer).toContain("version=3.12.1");
+    expect(installer).toContain("sha256sum --check --status");
+    for (const dockerfile of [web, worker]) {
+      expect(dockerfile).toContain("bash /tmp/install-pandoc.sh /usr/local");
+    }
+    expect(lock).not.toContain("@tiptap-pro/");
+    expect(lock).not.toContain("registry.tiptap.dev");
+    expect(compose).not.toContain("secrets/npmrc");
   });
 });

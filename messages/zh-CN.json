@@ -263,6 +263,8 @@
     "showSource": "查看资料：{name}",
     "assistantTitle": "智能助手",
     "assistantSubtitle": "AI 助手对话",
+    "sourcesTitle": "资料来源",
+    "mobileNavigation": "工作台导航",
     "welcomeTitle": "今天想从哪里开始？",
     "welcomeDescription": "你可以直接提问，也可以先添加资料，再让 Spectra 帮你整理或创作。",
     "citationHint": "点击引用角标打开来源卡片，再使用其中的网络图标定位资料。",

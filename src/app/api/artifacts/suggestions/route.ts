@@ -1,8 +1,12 @@
 import { z } from "zod";
-import { enqueueArtifactSuggestions } from "@/features/artifacts/documents/suggestion-dbos";
+import {
+  artifactSuggestionRequestFailed,
+  enqueueArtifactSuggestions,
+} from "@/features/artifacts/documents/suggestion-dbos";
 import {
   artifactSuggestionContextHash,
   markArtifactSuggestionSnapshotRefreshing,
+  readArtifactSuggestionRequest,
   readArtifactSuggestionSnapshot,
   reserveArtifactSuggestionRequest,
 } from "@/features/artifacts/documents/suggestion-snapshots.server";
@@ -93,6 +97,32 @@ async function respond(value: unknown, forceRefresh: boolean) {
         { generation, status: "fresh", suggestions: snapshot.suggestions },
         { headers: { "Cache-Control": "private, no-store", Vary: "Cookie" } },
       );
+    }
+    if (!forceRefresh && parsed.data.waitOnly === "true" && waitingForRefresh) {
+      const request = await readArtifactSuggestionRequest(context);
+      if (
+        request &&
+        (await artifactSuggestionRequestFailed(
+          parsed.data.workspaceId,
+          parsed.data.locale,
+          parsed.data.target,
+          `context:${contextHash}:generation:${generation ?? "missing"}:epoch:${request.epoch}`,
+        ))
+      ) {
+        // The worker may have published between the first snapshot read and its terminal status.
+        const latestSnapshot = await readArtifactSuggestionSnapshot(context);
+        if (
+          (latestSnapshot.status === "fresh" || latestSnapshot.status === "stale") &&
+          latestSnapshot.generatedAt.toISOString() !== generation
+        ) {
+          return Response.json({
+            generation: latestSnapshot.generatedAt.toISOString(),
+            status: latestSnapshot.status,
+            suggestions: latestSnapshot.suggestions,
+          });
+        }
+        return Response.json({ generation, status: "failed", suggestions: [] });
+      }
     }
     if (forceRefresh || parsed.data.waitOnly !== "true" || !waitingForRefresh) {
       if (

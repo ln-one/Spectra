@@ -117,6 +117,31 @@ html[data-focus-modality="pointer"] .pointer-focus-outline:focus {
   display: none;
 }
 
+@media (max-width: 639px) {
+  [data-portal-source] {
+    left: var(--portal-mobile-source-left) !important;
+    right: auto !important;
+    top: var(--portal-mobile-source-top) !important;
+    opacity: 0;
+  }
+
+  [data-portal-source][data-mobile-hero-visible="true"] {
+    opacity: 0.24;
+  }
+
+  [data-portal-tool] {
+    left: var(--portal-mobile-tool-left) !important;
+    top: var(--portal-mobile-tool-top) !important;
+  }
+
+  [data-portal-closing-title]:lang(zh-CN) {
+    font-size: clamp(1.125rem, 5.6vw, 1.375rem);
+    letter-spacing: -0.055em;
+    line-height: 1.1;
+    white-space: nowrap;
+  }
+}
+
 @layer utilities {
   .auth-form-enter {
     animation: auth-enter 500ms ease-out both;

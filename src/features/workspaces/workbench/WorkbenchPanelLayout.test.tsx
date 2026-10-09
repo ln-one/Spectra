@@ -4,6 +4,7 @@ import { beforeEach, expect, test, vi } from "vitest";
 import { renderWithIntl } from "../../../../tests/render";
 import { SourcesPanelView } from "./SourcesPanelView";
 import {
+  mobilePanelPreferenceKey,
   sourceRailPreferenceKey,
   studioRailPreferenceKey,
   WorkbenchPanelLayout,
@@ -33,6 +34,24 @@ test("uses a Workspace-scoped key for the Studio rail preference", () => {
   expect(studioRailPreferenceKey(workspaceId)).toBe(
     `spectra:workspace:${workspaceId}:studio-panel`,
   );
+});
+
+test("switches the mobile Workbench panel and restores the Workspace preference", () => {
+  window.localStorage.setItem(mobilePanelPreferenceKey(workspaceId), "sources");
+  renderWithIntl(
+    <WorkbenchPanelLayout
+      workspaceId={workspaceId}
+      chat={<div>Assistant content</div>}
+      disclaimer="Disclaimer"
+      sources={<div>Sources content</div>}
+      studio={() => <div>Studio content</div>}
+    />,
+  );
+
+  expect(screen.getByRole("button", { name: "资料来源" })).toHaveAttribute("aria-current", "page");
+  fireEvent.click(screen.getByRole("button", { name: "备课工坊" }));
+  expect(screen.getByRole("button", { name: "备课工坊" })).toHaveAttribute("aria-current", "page");
+  expect(window.localStorage.getItem(mobilePanelPreferenceKey(workspaceId))).toBe("studio");
 });
 
 test("collapses, expands, and stores the Studio rail preference", () => {
@@ -120,6 +139,7 @@ test("restores a collapsed Sources rail and expands to the selected Source", () 
 
   fireEvent.click(screen.getByRole("button", { name: "查看资料：课程讲义.pdf" }));
   expect(screen.queryByTestId("sources-rail")).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "资料来源" })).toHaveAttribute("aria-current", "page");
   expect(screen.getByText("课程讲义.pdf").closest("[data-source-id]")).toHaveFocus();
   expect(window.localStorage.getItem(sourceRailPreferenceKey(workspaceId))).toBe("expanded");
 });

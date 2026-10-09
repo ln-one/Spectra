@@ -34,6 +34,10 @@ function replaceSource(current: Source[] | undefined, source: Source) {
   return current.map((item) => (item.id === source.id ? source : item));
 }
 
+export function resolveSourceUploadUrl(uploadUrl: string, origin: string) {
+  return new URL(uploadUrl, origin).toString();
+}
+
 export function useSourceUploader({
   actions,
   actionFailedMessage,
@@ -95,7 +99,11 @@ export function useSourceUploader({
         queryClient.setQueryData<Source[]>(queryKey, (current) =>
           replaceSource(current, target.source),
         );
-        return { method: target.upload.method, url: target.upload.url, fields: {} };
+        return {
+          method: target.upload.method,
+          url: resolveSourceUploadUrl(target.upload.url, window.location.origin),
+          fields: {},
+        };
       },
     });
 

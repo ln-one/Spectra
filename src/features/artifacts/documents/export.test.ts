@@ -1,3 +1,6 @@
+import { execFile } from "node:child_process";
+import { createServer } from "node:http";
+import { promisify } from "node:util";
 import { describe, expect, test } from "vitest";
 import { fromBufferPromise } from "yauzl";
 import { docxFilename, teachingDocumentToDocx } from "./export";
@@ -21,7 +24,51 @@ async function zipEntryText(buffer: Buffer, fileName: string) {
 }
 
 describe("teaching document DOCX export", () => {
-  test("uses the official Tiptap exporter for deterministic OOXML packaging", async () => {
+  test("exports from the same Node/tsx runtime used by the DBOS worker", async () => {
+    const source = `
+      const { projectTeachingDocument } = require('./src/features/artifacts/documents/projector.ts');
+      const { teachingDocumentToDocx } = require('./src/features/artifacts/documents/export.ts');
+      const projection = projectTeachingDocument({
+        outcome: 'complete', rawOutput: '# Runtime probe\\n\\n$x^2$', requestedTitle: 'Runtime probe'
+      });
+      teachingDocumentToDocx(projection.revision).then(buffer => {
+        process.stdout.write(buffer.subarray(0, 2).toString());
+      }).catch(() => { process.exitCode = 1; });
+    `;
+    const { stdout } = await promisify(execFile)(
+      process.execPath,
+      ["--conditions=react-server", "--import", "tsx", "--eval", source],
+      { timeout: 30_000 },
+    );
+    expect(stdout).toBe("PK");
+  });
+
+  test("does not fetch resources embedded in untrusted document text", async () => {
+    let requests = 0;
+    const server = createServer((_request, response) => {
+      requests += 1;
+      response.end("Private resource");
+    });
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    try {
+      const address = server.address();
+      if (!address || typeof address === "string") throw new Error("Missing probe port");
+      const content = finalizeTeachingDocumentDraft({
+        blocks: [{ kind: "paragraph", text: `![probe](http://127.0.0.1:${address.port}/private)` }],
+        title: "Resource probe",
+      });
+      await expect(teachingDocumentToDocx(content)).rejects.toThrow(
+        "teaching_document_export_failed",
+      );
+      expect(requests).toBe(0);
+    } finally {
+      await new Promise<void>((resolve, reject) =>
+        server.close((error) => (error ? reject(error) : resolve())),
+      );
+    }
+  });
+
+  test("exports a teaching document through Pandoc", async () => {
     const content = finalizeTeachingDocumentDraft({
       blocks: [
         { kind: "heading", level: 2, text: "概念" },
@@ -89,14 +136,18 @@ $$`,
     });
     const buffer = await teachingDocumentToDocx(projection.revision);
     const documentXml = await zipEntryText(buffer, "word/document.xml");
+    const stylesXml = await zipEntryText(buffer, "word/styles.xml");
 
-    expect(documentXml).toContain("<w:tblBorders>");
+    expect(documentXml).toContain('w:tblStyle w:val="Table"');
+    expect(stylesXml).toContain("<w:tblBorders>");
     for (const side of ["top", "bottom", "left", "right", "insideH", "insideV"]) {
-      expect(documentXml).toContain(`<w:${side} w:val="single" w:color="CBD5E1" w:sz="4"/>`);
+      expect(stylesXml).toMatch(
+        new RegExp(`<w:${side} w:val="single" w:color="CBD5E1" w:sz="4"\\s*/>`),
+      );
     }
   });
 
-  test("preserves rich semantics with the official exporter defaults", async () => {
+  test("preserves rich semantics through Pandoc", async () => {
     const projection = projectTeachingDocument({
       outcome: "complete",
       rawOutput:
@@ -114,7 +165,8 @@ $$`,
     expect(documentXml).toMatch(/<w:b(?:\s[^>]*)?\/>/);
     expect(documentXml).toContain("<w:numPr>");
     expect(numberingXml).toContain('w:numFmt w:val="bullet"');
-    expect(documentXml).toContain('w:tblW w:type="pct" w:w="100%"');
-    expect(documentXml).toContain('w:tblLayout w:type="autofit"');
+    expect(documentXml).toContain("<w:tblGrid>");
+    expect(documentXml).toContain('w:tblW w:type="auto"');
+    expect(documentXml).toContain('w:ilvl w:val="1"');
   });
 });

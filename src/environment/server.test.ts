@@ -49,7 +49,15 @@ describe("server environment contract", () => {
       PRESENTATION_COLLECTION_RESERVE_MS: 300_000,
       PRESENTATION_MAX_FAILED_VISUAL_CHECKS: 8,
       PRESENTATION_MAX_STALLED_VISUAL_CHECKS: 3,
+      SOURCE_UPLOAD_PROXY_ENABLED: false,
     });
+  });
+
+  test("enables the same-origin Source upload proxy explicitly", () => {
+    expect(
+      serverEnvironment({ NODE_ENV: "test", SOURCE_UPLOAD_PROXY_ENABLED: "true" })
+        .SOURCE_UPLOAD_PROXY_ENABLED,
+    ).toBe(true);
   });
 
   test.each([

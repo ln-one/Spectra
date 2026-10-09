@@ -16,6 +16,7 @@
     "tests/server-only.ts"
   ],
   "ignore": ["public/deckelier/**", "src/features/artifacts/games/vendor/sidequest/src/**"],
+  "ignoreBinaries": ["pandoc"],
   "ignoreDependencies": [
     "@fontsource/noto-sans-sc",
     "@remotion/fonts",

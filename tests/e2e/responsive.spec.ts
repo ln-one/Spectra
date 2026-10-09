@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { expect, type Locator, type Page, test } from "@playwright/test";
 import { e2eAuthStatePath, e2eWorkspacePath } from "./environment";
-import { waitForPanelMinimums, waitForWorkbenchLayout } from "./workbench-readiness";
+import { gotoWithRetry, waitForPanelMinimums, waitForWorkbenchLayout } from "./workbench-readiness";
 
 const viewports = [
   { width: 375, height: 812 },
@@ -65,6 +65,126 @@ async function expectMinimumTargetSize(page: Page) {
   );
   expect(undersizedTargets).toEqual([]);
 }
+
+test("keeps the marketing hero composed on a phone", async ({ browser }) => {
+  const context = await browser.newContext({
+    colorScheme: "dark",
+    locale: "zh-CN",
+    reducedMotion: "reduce",
+    storageState: { cookies: [], origins: [] },
+    viewport: { width: 375, height: 812 },
+  });
+  try {
+    const page = await context.newPage();
+    await page.goto("/");
+
+    const hero = page.locator("[data-portal-hero]");
+    const heading = hero.getByRole("heading", { level: 1 });
+    await expect(hero).toBeVisible();
+    await expectInsideViewport(page, hero);
+    await expectInsideViewport(page, heading);
+    const headingMetrics = await heading.evaluate((element) => ({
+      height: element.getBoundingClientRect().height,
+      lineHeight: Number.parseFloat(getComputedStyle(element).lineHeight),
+    }));
+    expect(headingMetrics.height).toBeLessThanOrEqual(headingMetrics.lineHeight + 1);
+    const [heroBox, viewport] = await Promise.all([hero.boundingBox(), page.viewportSize()]);
+    if (!heroBox || !viewport) throw new Error("Missing marketing hero geometry");
+    expect(heroBox.x + heroBox.width / 2).toBeCloseTo(viewport.width / 2, 0);
+
+    const decorativeCards = page.locator('[data-portal-source][data-mobile-hero-visible="true"]');
+    const upperCards = page.locator(
+      '[data-portal-source][data-mobile-hero-visible="true"][data-mobile-hero-zone="upper"]',
+    );
+    const lowerCards = page.locator(
+      '[data-portal-source][data-mobile-hero-visible="true"][data-mobile-hero-zone="lower"]',
+    );
+    await expect(decorativeCards).toHaveCount(9);
+    await expect(upperCards).toHaveCount(4);
+    await expect(lowerCards).toHaveCount(5);
+    for (const card of await upperCards.all()) {
+      const cardBox = await card.boundingBox();
+      if (!cardBox) throw new Error("Missing mobile source decoration");
+      expect(cardBox.y + cardBox.height).toBeLessThanOrEqual(heroBox.y);
+    }
+    const primaryAction = hero.getByRole("link", { name: "开始创作" });
+    const secondaryAction = hero.getByRole("link", { name: "登录" });
+    await expectInsideViewport(page, primaryAction);
+    await expectInsideViewport(page, secondaryAction);
+    const actionBoxes = await Promise.all([
+      primaryAction.boundingBox(),
+      secondaryAction.boundingBox(),
+    ]);
+    const actionBottom = Math.max(
+      ...actionBoxes.map((box) => {
+        if (!box) throw new Error("Missing marketing action geometry");
+        return box.y + box.height;
+      }),
+    );
+    for (const card of await lowerCards.all()) {
+      const cardBox = await card.boundingBox();
+      if (!cardBox) throw new Error("Missing lower mobile source decoration");
+      expect(cardBox.y).toBeGreaterThanOrEqual(actionBottom);
+    }
+
+    const topGatherSlots = page.locator('[data-gather-slot][data-mobile-gather-zone="top"]');
+    const sideGatherSlots = page.locator('[data-gather-slot][data-mobile-gather-zone="side"]');
+    const bottomGatherSlots = page.locator('[data-gather-slot][data-mobile-gather-zone="bottom"]');
+    await expect(topGatherSlots).toHaveCount(3);
+    await expect(sideGatherSlots).toHaveCount(4);
+    await expect(bottomGatherSlots).toHaveCount(2);
+    const gatherTargets = await page.locator("[data-gather-slot]").evaluateAll((slots) =>
+      slots.map((slot) => ({
+        x: Number((slot as HTMLElement).dataset.mobileGatherX),
+        y: Number((slot as HTMLElement).dataset.mobileGatherY),
+        zone: (slot as HTMLElement).dataset.mobileGatherZone,
+      })),
+    );
+    expect(gatherTargets.filter(({ zone }) => zone === "top").every(({ y }) => y < 0.3)).toBe(true);
+    expect(
+      gatherTargets.filter(({ zone }) => zone === "side").every(({ x }) => x < 0.1 || x > 0.9),
+    ).toBe(true);
+    expect(gatherTargets.filter(({ zone }) => zone === "bottom").every(({ y }) => y > 0.7)).toBe(
+      true,
+    );
+
+    await expect(page.locator('[data-portal-tool][data-mobile-tool-column="left"]')).toHaveCount(3);
+    await expect(page.locator('[data-portal-tool][data-mobile-tool-column="right"]')).toHaveCount(
+      3,
+    );
+    await expect(
+      page.locator('[data-portal-particle][data-mobile-particle-primary="true"]'),
+    ).toHaveCount(9);
+    await expect(
+      page.locator('[data-portal-particle][data-mobile-particle-primary="false"]'),
+    ).toHaveCount(9);
+    const graphSurfaceColor = await page
+      .locator("[data-portal-graph]")
+      .evaluate((element) => getComputedStyle(element).backgroundColor);
+    const portalColor = await page
+      .locator("main")
+      .evaluate((element) => getComputedStyle(element).backgroundColor);
+    expect(graphSurfaceColor).toBe(portalColor);
+    expect(graphSurfaceColor).not.toBe("rgba(0, 0, 0, 0)");
+    await expect(page.locator("[data-portal-graph-background]")).toHaveCSS(
+      "background-image",
+      /radial-gradient/,
+    );
+    const closingHeading = page.getByRole("heading", {
+      name: "你的下一份作品，从这张网开始。",
+    });
+    const closingHeadingMetrics = await closingHeading.evaluate((element) => ({
+      height: element.getBoundingClientRect().height,
+      lineHeight: Number.parseFloat(getComputedStyle(element).lineHeight),
+    }));
+    expect(closingHeadingMetrics.height).toBeLessThanOrEqual(closingHeadingMetrics.lineHeight + 1);
+    await expect(decorativeCards.first()).toHaveCSS("opacity", "0.24");
+    await expectNoHorizontalOverflow(page);
+    await expectMinimumTargetSize(page);
+  } finally {
+    await context.close();
+  }
+});
 
 for (const viewport of viewports) {
   const label = `${viewport.width} by ${viewport.height}`;
@@ -138,6 +258,35 @@ for (const viewport of viewports) {
     }
   });
 }
+
+test("uses focused Workbench panels on a phone", async ({ page }) => {
+  const fixture = JSON.parse(await readFile(e2eWorkspacePath, "utf8")) as { url: string };
+  await page.setViewportSize({ width: 375, height: 812 });
+  await gotoWithRetry(page, fixture.url);
+
+  const navigation = page.getByTestId("mobile-workbench-navigation");
+  await expect(navigation).toBeVisible();
+  await expect(page.getByTestId("chat-panel")).toBeVisible();
+  await expect(page.getByTestId("studio-panel")).toBeHidden();
+  await expect(page.getByTestId("sources-panel")).toBeHidden();
+
+  const [disclaimerBox, navigationBox] = await Promise.all([
+    page.getByTestId("workbench-disclaimer").boundingBox(),
+    navigation.boundingBox(),
+  ]);
+  if (!disclaimerBox || !navigationBox) throw new Error("Missing mobile Workbench chrome");
+  expect(disclaimerBox.y + disclaimerBox.height).toBeLessThanOrEqual(navigationBox.y);
+
+  await page.getByRole("button", { name: "备课工坊" }).click();
+  await expect(page.getByTestId("studio-panel")).toBeVisible();
+  await expect(page.getByTestId("chat-panel")).toBeHidden();
+
+  await page.getByRole("button", { name: "资料来源" }).click();
+  await expect(page.getByTestId("sources-panel")).toBeVisible();
+  await expect(page.getByTestId("studio-panel")).toBeHidden();
+  await expectNoHorizontalOverflow(page);
+  await expectMinimumTargetSize(page);
+});
 
 test("keeps the desktop Workbench usable at 1024 by 768", async ({ page }) => {
   const fixture = JSON.parse(await readFile(e2eWorkspacePath, "utf8")) as { url: string };
