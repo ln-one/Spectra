@@ -32,10 +32,8 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: npm
-      - name: Configure Tiptap Pro registry
-        uses: ./.github/actions/setup-tiptap-pro-registry
-        with:
-          token: ${{ secrets.TIPTAP_PRO_TOKEN }}
+      - name: Install Pandoc
+        uses: ./.github/actions/setup-pandoc
       - run: npm ci
       - name: Run product Agent evaluation
         env:
@@ -65,10 +63,8 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: npm
-      - name: Configure Tiptap Pro registry
-        uses: ./.github/actions/setup-tiptap-pro-registry
-        with:
-          token: ${{ secrets.TIPTAP_PRO_TOKEN }}
+      - name: Install Pandoc
+        uses: ./.github/actions/setup-pandoc
       - name: Pull published Stratumind acceptance image
         run: docker pull "$SPECTRA_STRATUMIND_IMAGE"
       - run: npm ci

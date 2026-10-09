@@ -1,8 +1,10 @@
 import "server-only";
 
+import path from "node:path";
 import type { JSONContent } from "@tiptap/core";
-import { Docx, exportDocx } from "@tiptap-pro/extension-export-docx";
+import { execa } from "execa";
 import type { TeachingDocumentRevisionContent } from "./contract";
+import { teachingDocumentEditorJsonToMarkdown } from "./markdown";
 import { normalizeTeachingDocumentMathNodes } from "./math";
 
 function nodeText(node: JSONContent): string {
@@ -61,39 +63,32 @@ function exportDocument(content: TeachingDocumentRevisionContent): JSONContent {
   if (isRepeatedTitle(normalizedNodes[0], content.title)) normalizedNodes.shift();
 
   return {
-    content: [
-      {
-        attrs: { level: 1 },
-        content: [{ text: content.title, type: "text" }],
-        type: "heading",
-      },
-      ...normalizedNodes,
-    ],
+    content: normalizedNodes,
     type: "doc",
   };
 }
 
 export async function teachingDocumentToDocx(content: TeachingDocumentRevisionContent) {
-  const result = await exportDocx({
-    comments: { threads: [] },
-    customNodes: [],
-    document: exportDocument(content),
-    exportType: "buffer",
-    styleOverrides: {},
-    tableOverrides: {
-      borders: {
-        bottom: { color: "CBD5E1", size: 4, style: Docx.BorderStyle.SINGLE },
-        insideHorizontal: { color: "CBD5E1", size: 4, style: Docx.BorderStyle.SINGLE },
-        insideVertical: { color: "CBD5E1", size: 4, style: Docx.BorderStyle.SINGLE },
-        left: { color: "CBD5E1", size: 4, style: Docx.BorderStyle.SINGLE },
-        right: { color: "CBD5E1", size: 4, style: Docx.BorderStyle.SINGLE },
-        top: { color: "CBD5E1", size: 4, style: Docx.BorderStyle.SINGLE },
-      },
-    },
-  });
-  if (!Buffer.isBuffer(result))
-    throw new Error("Tiptap DOCX exporter returned a non-buffer result");
-  return result;
+  const markdown = teachingDocumentEditorJsonToMarkdown(exportDocument(content), content.title);
+  try {
+    const { stdout } = await execa(
+      "pandoc",
+      [
+        "--sandbox",
+        "--from=commonmark_x+tex_math_dollars-raw_html",
+        "--to=docx",
+        "--output=-",
+        "--fail-if-warnings",
+        `--reference-doc=${path.join(process.cwd(), "src/features/artifacts/documents/pandoc-reference.docx")}`,
+      ],
+      { encoding: "buffer", input: markdown, maxBuffer: 16 * 1024 * 1024, timeout: 30_000 },
+    );
+    return Buffer.from(stdout);
+  } catch (error) {
+    // Converter diagnostics can contain document text; never propagate them into runtime logs.
+    const unavailable = error instanceof Error && "code" in error && error.code === "ENOENT";
+    throw new Error(unavailable ? "pandoc_unavailable" : "teaching_document_export_failed");
+  }
 }
 
 export function docxFilename(title: string) {

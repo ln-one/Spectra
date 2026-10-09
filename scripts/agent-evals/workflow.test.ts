@@ -73,7 +73,7 @@ describe("AI evaluation workflow", () => {
     for (const job of [workflow.jobs.agent, workflow.jobs.knowledge]) {
       for (const step of job.steps.filter((candidate) => candidate.uses)) {
         if (step.uses?.startsWith("./")) {
-          expect(step.uses).toBe("./.github/actions/setup-tiptap-pro-registry");
+          expect(step.uses).toBe("./.github/actions/setup-pandoc");
           continue;
         }
         expect(step.uses).toMatch(/@[a-f0-9]{40}$/);

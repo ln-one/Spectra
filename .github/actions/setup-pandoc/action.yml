@@ -1,0 +1,9 @@
+name: Install Pandoc
+description: Install the pinned and checksum-verified DOCX converter
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      run: |
+        bash scripts/install-pandoc.sh "$RUNNER_TEMP/spectra-pandoc"
+        printf '%s\n' "$RUNNER_TEMP/spectra-pandoc/bin" >> "$GITHUB_PATH"

@@ -22,7 +22,7 @@ export const artifactRenderJobSchema = z
   })
   .strict();
 
-const ARTIFACT_DOCX_RENDERER_VERSION = "teaching-document-docx-v3";
+const ARTIFACT_DOCX_RENDERER_VERSION = "teaching-document-pandoc-docx-v1";
 
 async function findTeachingDocumentRenderJob(
   input: { artifactId: string; revisionId: string },

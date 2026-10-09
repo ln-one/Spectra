@@ -75,7 +75,6 @@ services:
       context: .
       dockerfile: Dockerfile
       secrets:
-        - npmrc
         - production_env
       args:
         http_proxy: http://host.docker.internal:17890
@@ -96,7 +95,6 @@ services:
       context: .
       dockerfile: Dockerfile
       secrets:
-        - npmrc
         - production_env
       args:
         http_proxy: http://host.docker.internal:17890
@@ -135,8 +133,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.worker
-      secrets:
-        - npmrc
       args:
         http_proxy: http://host.docker.internal:17890
         https_proxy: http://host.docker.internal:17890
@@ -162,8 +158,6 @@ services:
     restart: unless-stopped
 
 secrets:
-  npmrc:
-    file: ./secrets/npmrc
   production_env:
     file: ./.env.production
 
