@@ -2,7 +2,6 @@ import "server-only";
 
 import path from "node:path";
 import type { JSONContent } from "@tiptap/core";
-import { execa } from "execa";
 import type { TeachingDocumentRevisionContent } from "./contract";
 import { teachingDocumentEditorJsonToMarkdown } from "./markdown";
 import { normalizeTeachingDocumentMathNodes } from "./math";
@@ -71,6 +70,8 @@ function exportDocument(content: TeachingDocumentRevisionContent): JSONContent {
 export async function teachingDocumentToDocx(content: TeachingDocumentRevisionContent) {
   const markdown = teachingDocumentEditorJsonToMarkdown(exportDocument(content), content.title);
   try {
+    // The worker's CommonJS entry must load this ESM-only dependency via import().
+    const { execa } = await import("execa");
     const { stdout } = await execa(
       "pandoc",
       [

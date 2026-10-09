@@ -1,4 +1,6 @@
+import { execFile } from "node:child_process";
 import { createServer } from "node:http";
+import { promisify } from "node:util";
 import { describe, expect, test } from "vitest";
 import { fromBufferPromise } from "yauzl";
 import { docxFilename, teachingDocumentToDocx } from "./export";
@@ -22,6 +24,25 @@ async function zipEntryText(buffer: Buffer, fileName: string) {
 }
 
 describe("teaching document DOCX export", () => {
+  test("exports from the same Node/tsx runtime used by the DBOS worker", async () => {
+    const source = `
+      const { projectTeachingDocument } = require('./src/features/artifacts/documents/projector.ts');
+      const { teachingDocumentToDocx } = require('./src/features/artifacts/documents/export.ts');
+      const projection = projectTeachingDocument({
+        outcome: 'complete', rawOutput: '# Runtime probe\\n\\n$x^2$', requestedTitle: 'Runtime probe'
+      });
+      teachingDocumentToDocx(projection.revision).then(buffer => {
+        process.stdout.write(buffer.subarray(0, 2).toString());
+      }).catch(() => { process.exitCode = 1; });
+    `;
+    const { stdout } = await promisify(execFile)(
+      process.execPath,
+      ["--conditions=react-server", "--import", "tsx", "--eval", source],
+      { timeout: 30_000 },
+    );
+    expect(stdout).toBe("PK");
+  });
+
   test("does not fetch resources embedded in untrusted document text", async () => {
     let requests = 0;
     const server = createServer((_request, response) => {
