@@ -41,7 +41,7 @@ test("renders exactly four equal-height suggestions for a test-only Artifact", (
   expect(onSuggestion).toHaveBeenCalledWith("Prompt 1");
 });
 
-test("keeps suggestion cards visible but inactive while refreshing", () => {
+test("keeps suggestion cards visible and usable while refreshing", () => {
   const onSuggestion = vi.fn();
   render(
     <ArtifactStartView
@@ -66,12 +66,12 @@ test("keeps suggestion cards visible but inactive while refreshing", () => {
   const cards = suggestions.map((suggestion) =>
     screen.getByText(suggestion.title).closest("button"),
   );
-  for (const card of cards) expect(card).toBeDisabled();
+  for (const card of cards) expect(card).toBeEnabled();
   for (const content of screen.getAllByTestId("suggestion-card-content")) {
     expect(content).toHaveClass("workspace-suggestion-content-refreshing");
   }
   fireEvent.click(screen.getByText("Suggestion 1"));
-  expect(onSuggestion).not.toHaveBeenCalled();
+  expect(onSuggestion).toHaveBeenCalledWith("Prompt 1");
 });
 
 test("shows a breathing generation state without content skeleton lines", () => {

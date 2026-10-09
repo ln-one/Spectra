@@ -269,7 +269,6 @@ export function ArtifactStartView({
           <button
             key={`${suggestion.title}:${suggestion.prompt}`}
             type="button"
-            disabled={refreshing}
             onClick={() => onSuggestion(suggestion.prompt)}
             className="workspace-suggestion-card group flex h-[172px] flex-col justify-center overflow-hidden rounded-2xl border p-5 text-left transition-[transform,border-color,box-shadow,background-color] hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--studio-ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--workspace-surface-muted)] disabled:cursor-wait disabled:hover:translate-y-0"
           >

@@ -89,7 +89,9 @@ test("requests Animation-specific suggestions before creation", async () => {
   );
   renderWithIntl(view(null, "idle"));
   expect(await screen.findByRole("button", { name: /梯度下降/ })).toBeEnabled();
-  expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("target=animation"));
+  expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("target=animation"), {
+    signal: expect.any(AbortSignal),
+  });
   fetchMock.mockRestore();
 });
 

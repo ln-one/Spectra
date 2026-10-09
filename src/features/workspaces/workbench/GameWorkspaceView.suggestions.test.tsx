@@ -33,6 +33,7 @@ test("shows Game prompt suggestions before generation and injects the selected p
   const suggestion = await screen.findByRole("button", { name: /Game suggestion 0/ });
   expect(fetchMock).toHaveBeenCalledWith(
     `/api/artifacts/suggestions?locale=zh-CN&target=game&view=artifact-v1&workspaceId=${workspaceId}`,
+    { signal: expect.any(AbortSignal) },
   );
   fireEvent.click(suggestion);
   expect(onSuggestion).toHaveBeenCalledWith("Game prompt 0");

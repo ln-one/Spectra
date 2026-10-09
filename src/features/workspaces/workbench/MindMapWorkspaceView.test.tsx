@@ -158,6 +158,7 @@ test("loads Mind Map suggestions dynamically through the shared Artifact endpoin
   const suggestion = await screen.findByRole("button", { name: /Mind map suggestion 0/ });
   expect(fetchMock).toHaveBeenCalledWith(
     `/api/artifacts/suggestions?locale=zh-CN&target=mind_map&view=artifact-v1&workspaceId=${workspaceId}`,
+    { signal: expect.any(AbortSignal) },
   );
   expect(screen.getByRole("button", { name: "重新生成建议" })).toBeInTheDocument();
   fireEvent.click(suggestion);

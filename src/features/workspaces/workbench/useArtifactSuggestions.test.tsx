@@ -148,3 +148,68 @@ test("garbage collects inactive suggestions after the bounded retention", async 
   expect(queryClient.getQueryCache().find({ queryKey })).toBeUndefined();
   queryClient.clear();
 });
+
+test("stops a hung initial request without waiting for another poll", async () => {
+  vi.useFakeTimers();
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const wrapper = ({ children }: { children: ReactNode }) => (
+    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+  );
+  const { result, unmount } = renderHook(
+    () =>
+      useArtifactSuggestions({
+        enabled: true,
+        queryKey: ["suggestions", "hung"],
+        fetchSuggestions: () => new Promise<never>(() => {}),
+        regenerateSuggestions: vi.fn(),
+      }),
+    { wrapper },
+  );
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(121_000);
+  });
+  expect(result.current.error).toBe(true);
+  expect(result.current.loading).toBe(false);
+  expect(result.current.refreshing).toBe(false);
+  unmount();
+  queryClient.clear();
+});
+
+test("ends failed refresh and preserves usable cached suggestions", async () => {
+  vi.useFakeTimers();
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const suggestions = Array.from({ length: 4 }, (_, index) => ({
+    prompt: `Prompt ${index}`,
+    title: `Suggestion ${index}`,
+  }));
+  const fetchSuggestions = vi
+    .fn()
+    .mockResolvedValueOnce({ generation: "old", status: "stale", suggestions })
+    .mockResolvedValue({ generation: "old", status: "failed", suggestions: [] });
+  const wrapper = ({ children }: { children: ReactNode }) => (
+    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+  );
+  const { result, unmount } = renderHook(
+    () =>
+      useArtifactSuggestions({
+        enabled: true,
+        queryKey: ["suggestions", "failure"],
+        fetchSuggestions,
+        regenerateSuggestions: vi.fn(),
+      }),
+    { wrapper },
+  );
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(5_000);
+  });
+  expect(result.current.error).toBe(true);
+  expect(result.current.suggestions).toEqual(suggestions);
+  expect(result.current.refreshing).toBe(false);
+  const calls = fetchSuggestions.mock.calls.length;
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(120_000);
+  });
+  expect(fetchSuggestions).toHaveBeenCalledTimes(calls);
+  unmount();
+  queryClient.clear();
+});

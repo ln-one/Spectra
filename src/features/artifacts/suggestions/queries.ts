@@ -34,7 +34,9 @@ export async function fetchArtifactSuggestions(
     query.set("afterGeneration", afterGeneration ?? "missing");
   }
   if (waitOnly) query.set("waitOnly", "true");
-  const response = await fetch(`/api/artifacts/suggestions?${query}`);
+  const response = await fetch(`/api/artifacts/suggestions?${query}`, {
+    signal: AbortSignal.timeout(30_000),
+  });
   if (!response.ok) throw new Error("artifact_suggestions_unavailable");
   return artifactSuggestionsResponseSchema.parse(await response.json());
 }
@@ -54,6 +56,7 @@ export async function regenerateArtifactSuggestions(
     }),
     headers: { "Content-Type": "application/json" },
     method: "POST",
+    signal: AbortSignal.timeout(30_000),
   });
   if (!response.ok) throw new Error("artifact_suggestions_unavailable");
   return artifactSuggestionsResponseSchema.parse(await response.json());

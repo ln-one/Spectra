@@ -98,6 +98,25 @@ export async function writeArtifactSuggestionSnapshot(
     });
 }
 
+export async function readArtifactSuggestionRequest(
+  context: ArtifactSuggestionContext,
+  db: Database = database,
+) {
+  const [request] = await db
+    .select({ epoch: artifactSuggestionRequests.epoch })
+    .from(artifactSuggestionRequests)
+    .where(
+      and(
+        eq(artifactSuggestionRequests.workspaceId, context.workspaceId),
+        eq(artifactSuggestionRequests.locale, context.locale),
+        eq(artifactSuggestionRequests.artifactKind, context.target),
+        eq(artifactSuggestionRequests.contextHash, artifactSuggestionContextHash(context)),
+      ),
+    )
+    .limit(1);
+  return request;
+}
+
 export async function reserveArtifactSuggestionRequest(
   context: ArtifactSuggestionContext,
   db: Database = database,

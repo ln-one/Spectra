@@ -1,7 +1,7 @@
 "use client";
 
 import { type QueryKey, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { ArtifactSuggestion } from "./ArtifactWorkspacePrimitives";
 
 type SuggestionResult<Suggestion extends ArtifactSuggestion> = {
@@ -28,27 +28,58 @@ export function useArtifactSuggestions<Suggestion extends ArtifactSuggestion>(in
   const waitingStartedAtRef = useRef<number | null>(null);
   const [refreshGeneration, setRefreshGeneration] = useState<string | null | undefined>(undefined);
   const [timedOut, setTimedOut] = useState(false);
+  const stoppedRef = useRef(false);
+  const [waitingStartedAt, setWaitingStartedAt] = useState<number | null>(null);
+  const startWaiting = useCallback(() => {
+    if (waitingStartedAtRef.current !== null) return;
+    const startedAt = Date.now();
+    waitingStartedAtRef.current = startedAt;
+    setWaitingStartedAt(startedAt);
+  }, []);
+  const stopWaiting = useCallback((failed: boolean) => {
+    stoppedRef.current = failed;
+    refreshGenerationRef.current = undefined;
+    waitingStartedAtRef.current = null;
+    setRefreshGeneration(undefined);
+    setWaitingStartedAt(null);
+    setTimedOut(failed);
+  }, []);
+  useEffect(() => {
+    if (!input.enabled || waitingStartedAt === null) return;
+    const timer = setTimeout(
+      () => {
+        stopWaiting(true);
+        void queryClient.cancelQueries({ queryKey: input.queryKey, exact: true });
+      },
+      Math.max(0, SUGGESTION_WAIT_TIMEOUT_MS - (Date.now() - waitingStartedAt)),
+    );
+    return () => clearTimeout(timer);
+  }, [input.enabled, input.queryKey, queryClient, waitingStartedAt, stopWaiting]);
   const query = useQuery({
     enabled: input.enabled,
     gcTime: SUGGESTION_CACHE_GC_TIME_MS,
     queryFn: async () => {
       const waitingFor = refreshGenerationRef.current;
+      startWaiting();
       const result = await input.fetchSuggestions(waitingFor, waitingFor !== undefined);
+      const cached = queryClient.getQueryData<SuggestionResult<Suggestion>>(input.queryKey);
+      if (stoppedRef.current || result.status === "failed") {
+        stopWaiting(true);
+        if (cached?.status === "fresh" || cached?.status === "stale") return cached;
+        return { generation: result.generation, status: "failed" as const, suggestions: [] };
+      }
       if (result.status === "pending") {
         const existing = queryClient.getQueryData<SuggestionResult<Suggestion>>(input.queryKey);
         if (waitingFor === undefined) {
           const generation = result.generation ?? null;
           refreshGenerationRef.current = generation;
-          waitingStartedAtRef.current = Date.now();
+          startWaiting();
           setRefreshGeneration(generation);
         } else if (
           waitingStartedAtRef.current !== null &&
           Date.now() - waitingStartedAtRef.current >= SUGGESTION_WAIT_TIMEOUT_MS
         ) {
-          refreshGenerationRef.current = undefined;
-          waitingStartedAtRef.current = null;
-          setRefreshGeneration(undefined);
-          setTimedOut(true);
+          stopWaiting(true);
           if (existing?.status === "fresh" || existing?.status === "stale") return existing;
           return { generation: result.generation, status: "failed" as const, suggestions: [] };
         }
@@ -57,7 +88,7 @@ export function useArtifactSuggestions<Suggestion extends ArtifactSuggestion>(in
       if (waitingFor === undefined && result.status === "stale") {
         const generation = result.generation ?? null;
         refreshGenerationRef.current = generation;
-        waitingStartedAtRef.current = Date.now();
+        startWaiting();
         setRefreshGeneration(generation);
       }
       if (
@@ -65,16 +96,14 @@ export function useArtifactSuggestions<Suggestion extends ArtifactSuggestion>(in
         (result.status === "fresh" || result.status === "stale") &&
         result.generation !== waitingFor
       ) {
-        refreshGenerationRef.current = undefined;
-        waitingStartedAtRef.current = null;
-        setRefreshGeneration(undefined);
-        setTimedOut(false);
+        stopWaiting(false);
       }
+      if (waitingFor === undefined && result.status === "fresh") stopWaiting(false);
       return result;
     },
     queryKey: input.queryKey,
     refetchInterval: (query) => {
-      if (timedOut) return false;
+      if (timedOut || query.state.status === "error") return false;
       return refreshGeneration !== undefined ||
         query.state.data?.status === "pending" ||
         query.state.data?.status === "stale"
@@ -85,35 +114,46 @@ export function useArtifactSuggestions<Suggestion extends ArtifactSuggestion>(in
   });
   const refresh = useMutation({
     mutationFn: input.regenerateSuggestions,
+    onMutate: () => {
+      stopWaiting(false);
+      startWaiting();
+    },
+    onError: () => stopWaiting(true),
     onSuccess: (result) => {
+      if (stoppedRef.current || result.status === "failed") {
+        stopWaiting(true);
+        return;
+      }
       if (result.status === "pending") {
         const generation = result.generation ?? null;
         refreshGenerationRef.current = generation;
-        waitingStartedAtRef.current = Date.now();
+        startWaiting();
         setRefreshGeneration(generation);
         setTimedOut(false);
         void query.refetch();
         return;
       }
-      if (result.status === "fresh" || result.status === "stale") {
-        queryClient.setQueryData(input.queryKey, result);
-      }
-      void queryClient.invalidateQueries({ queryKey: input.queryKey });
+      stopWaiting(false);
+      queryClient.setQueryData(input.queryKey, result);
     },
   });
+  useEffect(() => {
+    if (query.isError) stopWaiting(true);
+  }, [query.isError, stopWaiting]);
   const snapshot =
     query.data?.status === "fresh" || query.data?.status === "stale" ? query.data : undefined;
   return {
     error: timedOut || query.isError || refresh.isError || query.data?.status === "failed",
     loading: !timedOut && !snapshot && (query.isPending || query.data?.status === "pending"),
     refresh: () => {
-      setTimedOut(false);
+      stopWaiting(false);
       refresh.mutate(snapshot?.generation ?? null);
     },
-    refreshing: refresh.isPending || refreshGeneration !== undefined || query.isFetching,
+    refreshing:
+      !timedOut && (refresh.isPending || refreshGeneration !== undefined || query.isFetching),
     retry: () => {
-      if (timedOut || refresh.isError || query.data?.status === "failed") {
-        setTimedOut(false);
+      if (timedOut || query.isError || refresh.isError || query.data?.status === "failed") {
+        stopWaiting(false);
         refresh.mutate(snapshot?.generation ?? null);
         return;
       }

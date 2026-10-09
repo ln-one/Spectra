@@ -67,6 +67,7 @@ export async function generateArtifactSuggestions(
   context: ArtifactSuggestionContext,
   abortSignal: AbortSignal,
   previousSuggestions: ArtifactSuggestion[] = [],
+  attempt = 1,
 ): Promise<ArtifactSuggestion[]> {
   const targetInstruction = {
     animation:
@@ -109,6 +110,9 @@ export async function generateArtifactSuggestions(
       `Workspace: ${context.workspaceName}`,
       `Source filenames: ${context.sourceNames.length > 0 ? context.sourceNames.join(" | ") : "none"}`,
       regenerationInstruction,
+      attempt > 1
+        ? `Retry ${attempt}: the previous attempt failed validation. Choose entirely different topics from the previous cards; avoid repeating either their titles or their prompts. Start from applications, comparisons, or practical exercises instead of the same introductory topics.`
+        : null,
     ].join("\n"),
     temperature: teachingDocumentSuggestionProfile.temperature,
   });

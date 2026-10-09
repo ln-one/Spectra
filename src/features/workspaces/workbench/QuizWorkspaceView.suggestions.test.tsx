@@ -127,6 +127,7 @@ test("loads Quiz suggestions dynamically and injects the selected prompt", async
   const suggestion = await screen.findByRole("button", { name: /Quiz suggestion 0/ });
   expect(fetchMock).toHaveBeenCalledWith(
     `/api/artifacts/suggestions?locale=zh-CN&target=quiz&view=artifact-v1&workspaceId=${workspaceId}`,
+    { signal: expect.any(AbortSignal) },
   );
   expect(screen.getByRole("button", { name: "重新生成建议" })).toBeInTheDocument();
   fireEvent.click(suggestion);
@@ -187,6 +188,7 @@ test("keeps existing Quiz cards visible until a forced refresh returns a newer g
   expect(await screen.findByText("New suggestion 0")).toBeInTheDocument();
   expect(fetchMock).toHaveBeenCalledWith(
     `/api/artifacts/suggestions?locale=zh-CN&target=quiz&view=artifact-v1&workspaceId=${workspaceId}&afterGeneration=${encodeURIComponent(firstGeneration)}&waitOnly=true`,
+    { signal: expect.any(AbortSignal) },
   );
 });
 
