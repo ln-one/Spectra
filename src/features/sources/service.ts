@@ -20,6 +20,7 @@ import {
   workspaceReferenceSources,
   workspaces,
 } from "@/database/schema";
+import { serverEnvironment } from "@/environment/server";
 import {
   artifactGenerationStateSchema,
   artifactSourceKindSchema,
@@ -82,6 +83,7 @@ export type SourceServiceDependencies = {
   now: () => Date;
   randomId: () => string;
   ingestionQueue: SourceIngestionQueue;
+  uploadProxyEnabled?: boolean;
 };
 
 type SourceDatabaseDependencies = Pick<SourceServiceDependencies, "db"> & {
@@ -104,6 +106,7 @@ function defaultDependencies(): SourceServiceDependencies {
     now: () => new Date(),
     randomId: randomUUID,
     ingestionQueue: defaultIngestionQueue,
+    uploadProxyEnabled: serverEnvironment().SOURCE_UPLOAD_PROXY_ENABLED,
   };
 }
 
@@ -341,6 +344,23 @@ function uploadTarget(source: SourceRow, url: string): SourceUploadTarget {
   };
 }
 
+async function createSourceUploadUrl(
+  source: SourceRow,
+  expiresInSeconds: number,
+  dependencies: SourceServiceDependencies,
+) {
+  if (dependencies.uploadProxyEnabled) {
+    const query = new URLSearchParams({ generation: String(source.file.uploadGeneration) });
+    return `/api/sources/${source.source.id}/upload?${query}`;
+  }
+  const uploadKey = source.file.uploadKey;
+  if (!uploadKey) throw new SourceError("source_invalid_state");
+  const { url } = await storageOperation(() =>
+    dependencies.storage.createUploadUrl({ key: uploadKey, expiresInSeconds }),
+  );
+  return url;
+}
+
 async function hasExpectedFileType(filename: string, bytes: Uint8Array) {
   const detected = await fileTypeFromBuffer(bytes).catch(() => undefined);
   const expected = sourceFileExtension(filename);
@@ -471,13 +491,9 @@ export async function startSourceUpload(
       .returning();
     if (!createdFile) throw new Error("File source insert returned no row");
 
-    const { url } = await storageOperation(() =>
-      dependencies.storage.createUploadUrl({
-        key,
-        expiresInSeconds: SOURCE_UPLOAD_TTL_SECONDS,
-      }),
-    );
-    return uploadTarget({ source: createdSource, file: createdFile }, url);
+    const row = { source: createdSource, file: createdFile };
+    const url = await createSourceUploadUrl(row, SOURCE_UPLOAD_TTL_SECONDS, dependencies);
+    return uploadTarget(row, url);
   });
 }
 
@@ -518,13 +534,10 @@ export async function prepareSourceUpload(
       1,
       Math.ceil((uploadExpiry.getTime() - now.getTime()) / 1000),
     );
-    const { url } = await storageOperation(() =>
-      dependencies.storage.createUploadUrl({
-        key,
-        expiresInSeconds,
-      }),
-    );
-    if (!expired) return uploadTarget(row, url);
+    if (!expired) {
+      const url = await createSourceUploadUrl(row, expiresInSeconds, dependencies);
+      return uploadTarget(row, url);
+    }
 
     const [renewedFile] = await transaction
       .update(fileSources)
@@ -542,7 +555,9 @@ export async function prepareSourceUpload(
       .where(eq(sources.id, sourceId))
       .returning();
     if (!renewedSource) throw new Error("Source renewal returned no source row");
-    return uploadTarget({ source: renewedSource, file: renewedFile }, url);
+    const renewedRow = { source: renewedSource, file: renewedFile };
+    const url = await createSourceUploadUrl(renewedRow, expiresInSeconds, dependencies);
+    return uploadTarget(renewedRow, url);
   });
 }
 

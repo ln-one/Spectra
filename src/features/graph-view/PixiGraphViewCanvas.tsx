@@ -1,3 +1,5 @@
+import "./graph-view-theme.css";
+
 import {
   Application,
   Circle,

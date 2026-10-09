@@ -1,4 +1,3 @@
-import { randomUUID } from "node:crypto";
 import {
   applyQuestionEdits,
   cloneQuestionWithOptions,
@@ -53,7 +52,7 @@ function projectQuestion(
 export function applyQuizEdits(
   content: QuizRevisionContent,
   edits: readonly QuizEdit[],
-  idFactory: () => string = randomUUID,
+  idFactory: () => string = () => crypto.randomUUID(),
 ) {
   let next = structuredClone(content);
   for (const edit of edits) {

@@ -1,4 +1,3 @@
-import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import {
   applyQuestionEdits,
@@ -90,7 +89,7 @@ function projectGameQuestion(
 export function applyGameRefineEdits(
   content: FlapRevivalGameRevisionContent,
   edits: readonly GameEdit[],
-  idFactory: () => string = randomUUID,
+  idFactory: () => string = () => crypto.randomUUID(),
 ) {
   const next = structuredClone(content);
   for (const edit of edits) {
