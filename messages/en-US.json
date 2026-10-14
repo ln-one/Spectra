@@ -231,6 +231,8 @@
     "skipToContent": "Skip to workspace content",
     "backToWorkspaces": "Back to workspaces",
     "newConversation": "New conversation",
+    "conversationActions": "Conversation actions",
+    "conversationActionsAfterMessage": "Send a message to manage this conversation",
     "noConversationHistory": "No conversation history yet",
     "loadMoreConversations": "Load more conversations",
     "loadingMoreConversations": "Loading conversations…",

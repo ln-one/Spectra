@@ -231,6 +231,8 @@
     "skipToContent": "跳至工作区内容",
     "backToWorkspaces": "返回工作空间",
     "newConversation": "新对话",
+    "conversationActions": "对话操作",
+    "conversationActionsAfterMessage": "发送消息后即可管理这段对话",
     "noConversationHistory": "还没有历史对话",
     "loadMoreConversations": "加载更多对话",
     "loadingMoreConversations": "正在加载对话…",

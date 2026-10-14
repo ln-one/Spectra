@@ -2,7 +2,7 @@
 
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { QueryClientContext } from "@tanstack/react-query";
-import { ChevronDown, LoaderCircle, Pencil, Plus, Trash2 } from "lucide-react";
+import { ChevronDown, LoaderCircle, MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useFormatter, useTranslations } from "next-intl";
 import { type ReactNode, useActionState, useContext, useEffect, useRef, useState } from "react";
@@ -140,7 +140,7 @@ function WorkspaceHeaderViewContent({
   return (
     <>
       <header className="relative z-50">
-        <div className="workspace-header-enter workspace-header-shell flex h-[var(--workspace-header-height)] items-center gap-2 px-3 lg:hidden">
+        <div className="workspace-header-enter workspace-header-shell grid h-[var(--workspace-header-height)] grid-cols-[5.5rem_minmax(0,1fr)_5.5rem] items-center px-3 lg:hidden">
           <MobileWorkspaceDrawer
             accountMenu={accountMenu}
             conversationId={conversationId}
@@ -152,7 +152,7 @@ function WorkspaceHeaderViewContent({
             workspaceHref={workspaceHref}
             workspaces={workspaces}
           />
-          <div className="min-w-0 flex-1 text-center">
+          <div className="min-w-0 text-center">
             <p className="truncate text-sm font-semibold text-[var(--workspace-text-primary)]">
               {mobileOverview ? workspaceName : currentConversationLabel}
             </p>
@@ -162,13 +162,62 @@ function WorkspaceHeaderViewContent({
               </p>
             ) : null}
           </div>
-          <Link
-            href={newConversationHref}
-            aria-label={t("newConversation")}
-            className="workspace-mobile-icon-button"
-          >
-            <Plus aria-hidden="true" className="h-5 w-5" />
-          </Link>
+          <div className="flex items-center justify-end">
+            <Link
+              href={newConversationHref}
+              aria-label={t("newConversation")}
+              className="workspace-mobile-icon-button"
+            >
+              <Plus aria-hidden="true" className="h-5 w-5" />
+            </Link>
+            {!mobileOverview ? (
+              <DropdownMenu.Root modal={false}>
+                <DropdownMenu.Trigger asChild>
+                  <button
+                    type="button"
+                    aria-label={t("conversationActions")}
+                    className="workspace-mobile-icon-button"
+                  >
+                    <MoreHorizontal aria-hidden="true" className="h-5 w-5" />
+                  </button>
+                </DropdownMenu.Trigger>
+                <DropdownMenu.Portal>
+                  <DropdownMenu.Content
+                    align="end"
+                    sideOffset={6}
+                    aria-label={t("conversationActions")}
+                    data-workspace-style="mist-zinc"
+                    data-workspace-theme="mist-zinc"
+                    className="z-[110] w-48 rounded-xl border border-[var(--app-border-strong)] bg-[var(--app-surface)] p-1.5 text-[var(--app-text)] shadow-xl"
+                  >
+                    {currentConversation ? (
+                      <>
+                        <DropdownMenu.Item
+                          onSelect={() => setConversationToRename(currentConversation)}
+                          className="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg px-3 text-sm outline-none focus:bg-[var(--app-surface-muted)]"
+                        >
+                          <Pencil aria-hidden="true" className="h-4 w-4" />
+                          {t("renameConversation")}
+                        </DropdownMenu.Item>
+                        <DropdownMenu.Separator className="my-1 h-px bg-[var(--app-border)]" />
+                        <DropdownMenu.Item
+                          onSelect={() => setConversationToDelete(currentConversation)}
+                          className="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg px-3 text-sm text-[var(--app-danger)] outline-none focus:bg-[var(--app-danger-bg)]"
+                        >
+                          <Trash2 aria-hidden="true" className="h-4 w-4" />
+                          {t("deleteConversation")}
+                        </DropdownMenu.Item>
+                      </>
+                    ) : (
+                      <DropdownMenu.Label className="px-3 py-2 text-sm leading-5 text-[var(--app-text-muted)]">
+                        {t("conversationActionsAfterMessage")}
+                      </DropdownMenu.Label>
+                    )}
+                  </DropdownMenu.Content>
+                </DropdownMenu.Portal>
+              </DropdownMenu.Root>
+            ) : null}
+          </div>
         </div>
         <div className="workspace-header-enter workspace-header-shell hidden h-[var(--workspace-header-height)] grid-cols-[1fr_auto_1fr] items-center gap-3 px-4 lg:grid lg:px-6">
           <div className="workspace-header-left flex min-w-0 items-center gap-4">

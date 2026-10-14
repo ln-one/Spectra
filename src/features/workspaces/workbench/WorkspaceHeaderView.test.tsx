@@ -20,6 +20,7 @@ function renderHeader(
       updatedAt: "2026-07-15T05:00:00.000Z",
     },
   ],
+  mobileOverview = false,
 ) {
   renderWithIntl(
     <WorkspaceHeaderView
@@ -36,6 +37,7 @@ function renderHeader(
       workspaceId="00000000-0000-4000-8000-000000000003"
       workspaceHref="/workspaces/00000000-0000-4000-8000-000000000003"
       workspaceSlug="human-design"
+      mobileOverview={mobileOverview}
       workspaces={[
         {
           href: "/workspaces/00000000-0000-4000-8000-000000000003",
@@ -71,7 +73,7 @@ test("edits the workspace name directly from the title", () => {
 test("links new and existing conversations without client-owned state", () => {
   renderHeader();
   expect(screen.getByRole("link", { name: "返回工作空间" })).toHaveAttribute("href", "/workspaces");
-  fireEvent.pointerDown(screen.getByRole("button", { name: /对话/ }), {
+  fireEvent.pointerDown(screen.getByRole("button", { name: /^对话 ·/ }), {
     button: 0,
     ctrlKey: false,
   });
@@ -117,7 +119,7 @@ test("keeps a long conversation history inside a scrollable viewport", () => {
 
 test("opens a conversation-specific rename dialog from its row action", () => {
   renderHeader();
-  fireEvent.pointerDown(screen.getByRole("button", { name: /对话/ }), {
+  fireEvent.pointerDown(screen.getByRole("button", { name: /^对话 ·/ }), {
     button: 0,
     ctrlKey: false,
   });
@@ -133,7 +135,7 @@ test("opens a conversation-specific rename dialog from its row action", () => {
 
 test("confirms before deleting the conversation selected from its row action", () => {
   renderHeader();
-  fireEvent.pointerDown(screen.getByRole("button", { name: /对话/ }), {
+  fireEvent.pointerDown(screen.getByRole("button", { name: /^对话 ·/ }), {
     button: 0,
     ctrlKey: false,
   });
@@ -143,4 +145,56 @@ test("confirms before deleting the conversation selected from its row action", (
   expect(screen.getByText(/删除“旧对话”/)).toBeInTheDocument();
   expect(document.querySelector('input[name="conversationId"]')).toHaveValue(olderConversationId);
   expect(screen.getByRole("button", { name: "删除" })).toHaveAttribute("type", "submit");
+});
+
+test("offers the current conversation's supported actions from the mobile header", () => {
+  renderHeader();
+
+  expect(screen.getByRole("link", { name: "新对话" })).toHaveAttribute(
+    "href",
+    `/workspaces/00000000-0000-4000-8000-000000000003?conversation=${newConversationId}`,
+  );
+  const actions = screen.getByRole("button", { name: "对话操作" });
+
+  fireEvent.pointerDown(actions, { button: 0, ctrlKey: false });
+  expect(screen.getByRole("menuitem", { name: "重命名对话" })).toBeInTheDocument();
+  expect(screen.getByRole("menuitem", { name: "删除对话" })).toBeInTheDocument();
+  expect(screen.queryByRole("menuitem", { name: "归档" })).not.toBeInTheDocument();
+
+  fireEvent.click(screen.getByRole("menuitem", { name: "重命名对话" }));
+  expect(screen.getByRole("dialog", { name: "重命名对话" })).toBeInTheDocument();
+  expect(document.querySelector('input[name="conversationId"]')).toHaveValue(currentConversationId);
+});
+
+test("does not offer conversation mutations before a new conversation is saved", () => {
+  renderHeader([]);
+
+  fireEvent.pointerDown(screen.getByRole("button", { name: "对话操作" }), {
+    button: 0,
+    ctrlKey: false,
+  });
+
+  expect(screen.getByText("发送消息后即可管理这段对话")).toBeInTheDocument();
+  expect(screen.queryByRole("menuitem", { name: "重命名对话" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("menuitem", { name: "删除对话" })).not.toBeInTheDocument();
+});
+
+test("requires confirmation before deleting the current conversation from mobile actions", () => {
+  renderHeader();
+
+  fireEvent.pointerDown(screen.getByRole("button", { name: "对话操作" }), {
+    button: 0,
+    ctrlKey: false,
+  });
+  fireEvent.click(screen.getByRole("menuitem", { name: "删除对话" }));
+
+  expect(screen.getByRole("alertdialog", { name: "删除对话" })).toBeInTheDocument();
+  expect(document.querySelector('input[name="conversationId"]')).toHaveValue(currentConversationId);
+});
+
+test("does not show conversation actions on the workspace overview", () => {
+  renderHeader(undefined, true);
+
+  expect(screen.queryByRole("button", { name: "对话操作" })).not.toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "新对话" })).toBeInTheDocument();
 });
