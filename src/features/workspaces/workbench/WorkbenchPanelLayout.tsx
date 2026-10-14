@@ -1,6 +1,6 @@
 "use client";
 
-import { Blocks, Library, MessageCircle } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { type ReactNode, useLayoutEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
@@ -12,6 +12,7 @@ import {
   type PanelSize,
   Separator,
 } from "react-resizable-panels";
+import { MobileWorkbenchActionsProvider } from "./MobileWorkbenchActionsContext";
 import {
   type SourcePanelFocusRequest,
   SourcePanelLayoutProvider,
@@ -284,116 +285,109 @@ export function WorkbenchPanelLayout({
   }, [initialLayout, layoutMode, mobilePanel, sourcePanel, studioPanel]);
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <Group
-        className="workspace-mobile-panel-layout min-h-0 flex-1 px-6 pb-6"
-        defaultLayout={initialLayout}
-        disabled={disabled}
-        data-workbench-layout-mode={layoutMode}
-        groupRef={groupRef}
-        id="workbench-panels"
-        orientation="horizontal"
-        resizeTargetMinimumSize={{
-          coarse: resizeTargetMinimumSize,
-          fine: resizeTargetMinimumSize,
-        }}
-      >
-        <Panel
-          className="h-full min-w-0"
-          collapsedSize={`${panelCollapsedSize}px`}
-          collapsible
-          data-mobile-active={mobilePanel === "studio"}
-          groupResizeBehavior="preserve-pixel-size"
-          id="studio"
-          maxSize="40%"
-          minSize="260px"
-          onResize={studioPanel.handleResize}
-          panelRef={studioPanel.panelRef}
-          style={{ overflow: "visible" }}
-        >
-          <div className="workspace-view-transition-primary h-full">{studio(studioControls)}</div>
-        </Panel>
-        <Separator
-          aria-label={t("resizeStudioChat")}
-          className="relative z-10 w-3 shrink-0 cursor-col-resize touch-none select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--studio-ring)]"
-          data-target-minimum-size={resizeTargetMinimumSize}
-          data-testid="studio-chat-resizer"
-          disableDoubleClick
-          id="studio-chat-resizer"
-        />
-        <Panel
-          className="h-full min-w-0"
-          key={`chat-${chatMinSize}`}
-          data-mobile-active={mobilePanel === "chat"}
-          data-workbench-chat-min-size={chatMinSize}
-          id="chat"
-          minSize={chatMinSize}
-          // The outer disclaimer uses the layout's reserved bottom gutter.
-          style={{ overflow: "visible" }}
-        >
-          <div className="workspace-view-transition-assistant relative h-full">
-            {chat}
-            <p
-              className="pointer-events-none absolute inset-x-0 top-full flex h-6 items-center justify-center px-2 text-center text-[10px] leading-3 text-[var(--workspace-text-muted)]"
-              data-testid="workbench-disclaimer"
-            >
-              {disclaimer}
-            </p>
-          </div>
-        </Panel>
-        <Separator
-          aria-label={t("resizeChatSources")}
-          className="relative z-10 w-3 shrink-0 cursor-col-resize touch-none select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--studio-ring)]"
-          data-target-minimum-size={resizeTargetMinimumSize}
-          data-testid="chat-sources-resizer"
-          disableDoubleClick
-          id="chat-sources-resizer"
-        />
-        <Panel
-          className="h-full min-w-0"
-          collapsedSize={`${panelCollapsedSize}px`}
-          collapsible
-          data-mobile-active={mobilePanel === "sources"}
-          groupResizeBehavior="preserve-pixel-size"
-          id="sources"
-          minSize="214px"
-          onResize={sourcePanel.handleResize}
-          panelRef={sourcePanel.panelRef}
-          style={{ overflow: "visible" }}
-        >
-          <div className="workspace-view-transition-sources h-full">
-            <SourcePanelLayoutProvider value={sourceControls}>{sources}</SourcePanelLayoutProvider>
-          </div>
-        </Panel>
-      </Group>
-      <nav
-        aria-label={t("mobileNavigation")}
-        className="mx-3 mb-2 grid shrink-0 grid-cols-3 gap-1 rounded-2xl border border-[var(--workspace-border)] bg-[var(--workspace-surface)] p-1.5 shadow-lg backdrop-blur-xl lg:hidden"
-        data-testid="mobile-workbench-navigation"
-        style={{ paddingBottom: "max(env(safe-area-inset-bottom), 0.375rem)" }}
-      >
-        {(
-          [
-            { icon: Blocks, label: t("studioTitle"), panel: "studio" },
-            { icon: MessageCircle, label: t("assistantTitle"), panel: "chat" },
-            { icon: Library, label: t("sourcesTitle"), panel: "sources" },
-          ] as const
-        ).map(({ icon: Icon, label, panel }) => {
-          const selected = mobilePanel === panel;
-          return (
+    <MobileWorkbenchActionsProvider
+      value={{
+        openSources: () => selectMobilePanel("sources"),
+        openStudio: () => selectMobilePanel("studio"),
+      }}
+    >
+      <div className="flex h-full min-h-0 flex-col">
+        {mobilePanel !== "chat" ? (
+          <div className="flex h-11 shrink-0 items-center px-2 lg:hidden">
             <button
-              key={panel}
               type="button"
-              aria-current={selected ? "page" : undefined}
-              className={`flex min-h-11 min-w-0 items-center justify-center gap-1.5 rounded-xl px-2 text-xs font-semibold transition-[background-color,color,box-shadow,transform] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--studio-ring)] ${selected ? "bg-[var(--workspace-surface-muted)] text-[var(--workspace-text-primary)] shadow-sm" : "text-[var(--workspace-text-muted)]"}`}
-              onClick={() => selectMobilePanel(panel)}
+              onClick={() => selectMobilePanel("chat")}
+              className="flex min-h-10 items-center gap-2 rounded-xl px-3 text-sm font-semibold text-[var(--workspace-text-primary)] outline-none hover:bg-[var(--workspace-surface-muted)] focus-visible:ring-2 focus-visible:ring-[var(--studio-ring)]"
             >
-              <Icon aria-hidden="true" className="h-4 w-4 shrink-0" />
-              <span className="truncate">{label}</span>
+              <ArrowLeft aria-hidden="true" className="h-4 w-4" />
+              {t("backToConversation")}
             </button>
-          );
-        })}
-      </nav>
-    </div>
+          </div>
+        ) : null}
+        <Group
+          className="workspace-mobile-panel-layout min-h-0 flex-1 px-6 pb-6"
+          defaultLayout={initialLayout}
+          disabled={disabled}
+          data-workbench-layout-mode={layoutMode}
+          groupRef={groupRef}
+          id="workbench-panels"
+          orientation="horizontal"
+          resizeTargetMinimumSize={{
+            coarse: resizeTargetMinimumSize,
+            fine: resizeTargetMinimumSize,
+          }}
+        >
+          <Panel
+            className="h-full min-w-0"
+            collapsedSize={`${panelCollapsedSize}px`}
+            collapsible
+            data-mobile-active={mobilePanel === "studio"}
+            groupResizeBehavior="preserve-pixel-size"
+            id="studio"
+            maxSize="40%"
+            minSize="260px"
+            onResize={studioPanel.handleResize}
+            panelRef={studioPanel.panelRef}
+            style={{ overflow: "visible" }}
+          >
+            <div className="workspace-view-transition-primary h-full">{studio(studioControls)}</div>
+          </Panel>
+          <Separator
+            aria-label={t("resizeStudioChat")}
+            className="relative z-10 w-3 shrink-0 cursor-col-resize touch-none select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--studio-ring)]"
+            data-target-minimum-size={resizeTargetMinimumSize}
+            data-testid="studio-chat-resizer"
+            disableDoubleClick
+            id="studio-chat-resizer"
+          />
+          <Panel
+            className="h-full min-w-0"
+            key={`chat-${chatMinSize}`}
+            data-mobile-active={mobilePanel === "chat"}
+            data-workbench-chat-min-size={chatMinSize}
+            id="chat"
+            minSize={chatMinSize}
+            // The outer disclaimer uses the layout's reserved bottom gutter.
+            style={{ overflow: "visible" }}
+          >
+            <div className="workspace-view-transition-assistant relative h-full">
+              {chat}
+              <p
+                className="pointer-events-none absolute inset-x-0 top-full flex h-6 items-center justify-center px-2 text-center text-[10px] leading-3 text-[var(--workspace-text-muted)]"
+                data-testid="workbench-disclaimer"
+              >
+                {disclaimer}
+              </p>
+            </div>
+          </Panel>
+          <Separator
+            aria-label={t("resizeChatSources")}
+            className="relative z-10 w-3 shrink-0 cursor-col-resize touch-none select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--studio-ring)]"
+            data-target-minimum-size={resizeTargetMinimumSize}
+            data-testid="chat-sources-resizer"
+            disableDoubleClick
+            id="chat-sources-resizer"
+          />
+          <Panel
+            className="h-full min-w-0"
+            collapsedSize={`${panelCollapsedSize}px`}
+            collapsible
+            data-mobile-active={mobilePanel === "sources"}
+            groupResizeBehavior="preserve-pixel-size"
+            id="sources"
+            minSize="214px"
+            onResize={sourcePanel.handleResize}
+            panelRef={sourcePanel.panelRef}
+            style={{ overflow: "visible" }}
+          >
+            <div className="workspace-view-transition-sources h-full">
+              <SourcePanelLayoutProvider value={sourceControls}>
+                {sources}
+              </SourcePanelLayoutProvider>
+            </div>
+          </Panel>
+        </Group>
+      </div>
+    </MobileWorkbenchActionsProvider>
   );
 }

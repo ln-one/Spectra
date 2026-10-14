@@ -15,6 +15,7 @@ import type { KnowledgeNetworkTrace } from "@/features/knowledge-network/model";
 import { buildRealKnowledgeNetworkTrace } from "@/features/knowledge-network/real-trace";
 import { workspaceHref } from "@/features/workspaces/address";
 import { WorkspaceError } from "@/features/workspaces/errors";
+import { listSharedWorkspaces, listWorkspaces } from "@/features/workspaces/service";
 import type { Workspace } from "@/features/workspaces/types";
 import { loadWorkspaceBootstrap } from "@/features/workspaces/workbench/bootstrap.server";
 import { WorkspaceAccessDenied } from "@/features/workspaces/workbench/WorkspaceAccessDenied";
@@ -31,6 +32,7 @@ import { WorkspaceSourcePanel } from "./WorkspaceSourcePanel";
 export type WorkspacePageSearchParams = {
   artifact?: string | string[];
   conversation?: string | string[];
+  view?: string | string[];
 };
 
 export async function renderWorkspacePage({
@@ -49,6 +51,7 @@ export async function renderWorkspacePage({
   const resolvedSearchParams = await searchParams;
   const rawConversationId = resolvedSearchParams?.conversation;
   const rawArtifactId = resolvedSearchParams?.artifact;
+  const mobileOverview = resolvedSearchParams?.view === "overview";
   const parsedConversationId = z
     .string()
     .uuid()
@@ -72,17 +75,30 @@ export async function renderWorkspacePage({
   let bootstrap: Awaited<ReturnType<typeof loadWorkspaceBootstrap>> | null = null;
   let knowledgeNetworkTrace: KnowledgeNetworkTrace | null = null;
   let accessDenied: { name: string; ownerHandle: string } | null = null;
+  let navigationWorkspaces: Workspace[] = [];
   try {
     const [session, currentActor] = await Promise.all([getAuthSession(), getCurrentActor()]);
     const resolvedWorkspace = await resolveWorkspace(currentActor);
     workspace = resolvedWorkspace;
-    bootstrap = await loadWorkspaceBootstrap({
-      actor: currentActor,
-      emptyConversationId: randomUUID(),
-      requestedArtifactId,
-      requestedConversationId,
-      workspace: resolvedWorkspace,
-    });
+    const [workspaceBootstrap, ownedWorkspaces, sharedWorkspaces] = await Promise.all([
+      loadWorkspaceBootstrap({
+        actor: currentActor,
+        emptyConversationId: randomUUID(),
+        requestedArtifactId,
+        requestedConversationId,
+        workspace: resolvedWorkspace,
+      }),
+      listWorkspaces(currentActor),
+      listSharedWorkspaces(currentActor),
+    ]);
+    bootstrap = workspaceBootstrap;
+    navigationWorkspaces = [
+      ...new Map(
+        [...ownedWorkspaces, ...sharedWorkspaces, resolvedWorkspace]
+          .filter((item) => !item.archivedAt || item.id === resolvedWorkspace.id)
+          .map((item) => [item.id, item]),
+      ).values(),
+    ];
     try {
       knowledgeNetworkTrace = await buildRealKnowledgeNetworkTrace({
         actor: currentActor,
@@ -127,11 +143,12 @@ export async function renderWorkspacePage({
   if ((canonicalizeToSlug || workspace.resolvedFromRedirect) && workspace.slug) {
     const artifactSuffix =
       requestedConversationId && requestedArtifactId ? `&artifact=${requestedArtifactId}` : "";
+    const overviewSuffix = mobileOverview ? "&view=overview" : "";
     redirect(
-      `${workspaceHref(workspace)}?conversation=${bootstrap.conversationId}${artifactSuffix}`,
+      `${workspaceHref(workspace)}?conversation=${bootstrap.conversationId}${artifactSuffix}${overviewSuffix}`,
     );
   }
-  if (!requestedConversationId) {
+  if (!requestedConversationId && !mobileOverview) {
     redirect(`${workspacePath}?conversation=${bootstrap.conversationId}`);
   }
   if (bootstrap.selectedArtifactMissing) redirect(conversationPath);
@@ -154,6 +171,15 @@ export async function renderWorkspacePage({
       sharingState={bootstrap.sharing}
       settingsAction={updateWorkspaceFromForm}
       workspace={workspace}
+      mobileOverview={mobileOverview}
+      navigationWorkspaces={navigationWorkspaces.map((item) => ({
+        href: workspaceHref(item),
+        id: item.id,
+        name: item.name,
+        ownerHandle: item.ownerHandle,
+        updatedAt: item.updatedAt,
+      }))}
+      sourceCount={bootstrap.sources.length}
       knowledgeNetworkTrace={knowledgeNetworkTrace}
       taskAgentCapabilities={[...artifactPublishedCapabilities()]}
       taskAgentCreationCapabilities={[...artifactCreationCapabilities()]}

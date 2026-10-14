@@ -21,6 +21,7 @@ import {
   stageKnowledgeNetworkReturn,
 } from "./knowledge-network-navigation";
 import type {
+  MobileWorkspaceNavigationItem,
   WorkspaceConversationNavigationItem,
   WorkspaceSettingsFormAction,
   WorkspaceThreadDeleteFormAction,
@@ -74,6 +75,9 @@ export function WorkspaceWorkbenchView({
   taskAgentCapabilities = ["presentation", "animation"],
   taskAgentCreationCapabilities = taskAgentCapabilities,
   knowledgeNetworkTrace = null,
+  mobileOverview = false,
+  navigationWorkspaces = [],
+  sourceCount = 0,
 }: {
   accountMenu: ReactNode;
   conversationId: string;
@@ -96,6 +100,9 @@ export function WorkspaceWorkbenchView({
   taskAgentCapabilities?: readonly ("animation" | "presentation")[];
   taskAgentCreationCapabilities?: readonly ("animation" | "presentation")[];
   knowledgeNetworkTrace?: KnowledgeNetworkTrace | null;
+  mobileOverview?: boolean;
+  navigationWorkspaces?: readonly MobileWorkspaceNavigationItem[];
+  sourceCount?: number;
 }) {
   const t = useTranslations("Workbench");
   const router = useRouter();
@@ -182,11 +189,15 @@ export function WorkspaceWorkbenchView({
         }
         sourcesPanel={sourcesPanel}
         knowledgeNetworkTrace={knowledgeNetworkTrace}
+        mobileOverview={mobileOverview}
+        navigationWorkspaces={navigationWorkspaces}
         knowledgeNetworkInitialView={knowledgeNetworkInitialView}
         returnToKnowledgeNetwork={returnNavigation ? returnToKnowledgeNetwork : undefined}
         workspaceId={workspace.id}
         workspaceHref={workspaceHref(workspace)}
         workspaceSlug={workspace.slug}
+        workspaceOwnerHandle={workspace.ownerHandle}
+        sourceCount={sourceCount}
       />
     </WorkbenchQueryProvider>
   );

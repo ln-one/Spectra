@@ -18,6 +18,14 @@ export type WorkspaceConversationNavigationItem = {
   updatedAt: string;
 };
 
+export type MobileWorkspaceNavigationItem = {
+  href: string;
+  id: string;
+  name: string;
+  ownerHandle: string;
+  updatedAt: string;
+};
+
 export type WorkspaceSettingsFormState =
   | { code: "workspace_settings_invalid" }
   | { code: "workspace_slug_conflict" }

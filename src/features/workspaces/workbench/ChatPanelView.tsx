@@ -20,6 +20,7 @@ import {
   Copy,
   Gamepad2,
   Globe2,
+  Library,
   Lightbulb,
   ListChecks,
   Mic,
@@ -62,7 +63,9 @@ import {
   KnowledgeMarkdownLink,
   useKnowledgeEvidence,
 } from "./KnowledgeEvidence";
+import { useMobileWorkbenchActions } from "./MobileWorkbenchActionsContext";
 import { PanelShell } from "./PanelShell";
+import { STUDIO_TOOL_PRESENTATIONS, type StudioToolId } from "./studioTools";
 import { trustedKnowledgeCitationRemarkPlugin } from "./trusted-knowledge-citation-markdown";
 import type { ChatPanelViewProps } from "./types";
 import {
@@ -705,6 +708,7 @@ export function ChatPanelView({
   composerFocusRequest = 0,
   onArtifactProposal,
   onOpenKnowledgeNetwork,
+  onSelectTool,
 }: ChatPanelViewProps & {
   artifactHistory?: readonly ArtifactHistoryItem[] | undefined;
   surfaceContext?: AgentSurfaceContext;
@@ -726,6 +730,7 @@ export function ChatPanelView({
   composerFocusRequest?: number | undefined;
   onArtifactProposal?: ((proposal: ArtifactEditProposal) => void) | undefined;
   onOpenKnowledgeNetwork?: ((evidence: KnowledgeCitationEvidence) => void) | undefined;
+  onSelectTool?: ((toolId: StudioToolId) => void) | undefined;
 }) {
   const t = useTranslations("Workbench");
   const locale = useLocale() === "en-US" ? "en-US" : "zh-CN";
@@ -747,6 +752,7 @@ export function ChatPanelView({
     workspaceRetrievalFromMessages(messages),
   );
   const [forceWebSearch, setForceWebSearch] = useState(() => webSearchFromMessages(messages));
+  const mobileWorkbenchActions = useMobileWorkbenchActions();
   useEffect(() => {
     if (composerFocusRequest <= 0) return;
     requestAnimationFrame(() => composerInputRef.current?.focus());
@@ -770,7 +776,7 @@ export function ChatPanelView({
       {...(onThreadTitle ? { onThreadTitle } : {})}
     >
       <PanelShell className="workspace-assistant-tone-panel" testId="chat-panel">
-        <div className="flex h-[52px] items-center px-4">
+        <div className="workspace-chat-panel-header flex h-[52px] items-center px-4">
           <div className="min-w-0 flex-1 flex-col justify-center">
             <h2 className="truncate text-lg font-bold leading-tight">
               <span className="truncate whitespace-nowrap">{title}</span>
@@ -781,7 +787,7 @@ export function ChatPanelView({
           </div>
         </div>
         <ThreadPrimitive.ViewportProvider>
-          <ThreadPrimitive.Root className="relative flex h-[calc(100%-52px)] min-h-0 flex-col">
+          <ThreadPrimitive.Root className="workspace-chat-thread-root relative flex h-[calc(100%-52px)] min-h-0 flex-col">
             <ThreadPrimitive.Viewport
               turnAnchor="top"
               className="workspace-chat-viewport relative min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-4"
@@ -939,7 +945,7 @@ export function ChatPanelView({
                                 side="top"
                                 sideOffset={8}
                                 collisionPadding={12}
-                                className="z-[80] w-[var(--radix-popover-trigger-width)] rounded-[20px] border border-[var(--workspace-border-strong)] bg-[var(--workspace-surface-elevated)] p-2 text-[var(--workspace-text-primary)] shadow-2xl outline-none data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-bottom-1 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:slide-in-from-bottom-2"
+                                className="z-[80] max-h-[min(70vh,36rem)] w-[min(22rem,calc(100vw-1.5rem))] overflow-y-auto rounded-[20px] border border-[var(--workspace-border-strong)] bg-[var(--workspace-surface-elevated)] p-2 text-[var(--workspace-text-primary)] shadow-2xl outline-none data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-bottom-1 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:slide-in-from-bottom-2"
                               >
                                 <div className="px-3 pb-1.5 pt-1 text-sm font-medium text-[var(--workspace-text-muted)]">
                                   {t("composerAddTitle")}
@@ -1014,6 +1020,65 @@ export function ChatPanelView({
                                     ) : null}
                                   </button>
                                 </Popover.Close>
+                                {mobileWorkbenchActions ? (
+                                  <>
+                                    <div className="my-1.5 h-px bg-[var(--workspace-border)]" />
+                                    <div className="px-3 pb-1 pt-1 text-xs font-semibold text-[var(--workspace-text-muted)]">
+                                      {t("composerSourcesTitle")}
+                                    </div>
+                                    <Popover.Close asChild>
+                                      <button
+                                        type="button"
+                                        role="menuitem"
+                                        onClick={mobileWorkbenchActions.openSources}
+                                        className="flex min-h-12 w-full items-center gap-3 rounded-xl px-3 py-2 text-left outline-none hover:bg-[var(--workspace-surface-muted)] focus-visible:bg-[var(--workspace-surface-muted)]"
+                                      >
+                                        <Library className="h-5 w-5 shrink-0 text-teal-600 dark:text-teal-400" />
+                                        <span className="min-w-0 flex-1">
+                                          <span className="block text-sm font-medium">
+                                            {t("openSources")}
+                                          </span>
+                                          <span className="block truncate text-xs text-[var(--workspace-text-muted)]">
+                                            {t("openSourcesDescription")}
+                                          </span>
+                                        </span>
+                                      </button>
+                                    </Popover.Close>
+                                  </>
+                                ) : null}
+                                {onSelectTool ? (
+                                  <>
+                                    <div className="my-1.5 h-px bg-[var(--workspace-border)]" />
+                                    <div className="px-3 pb-1 pt-1 text-xs font-semibold text-[var(--workspace-text-muted)]">
+                                      {t("composerCreationTitle")}
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-1">
+                                      {Object.entries(STUDIO_TOOL_PRESENTATIONS).map(
+                                        ([toolId, presentation]) => {
+                                          const ToolIcon = presentation.Icon;
+                                          return (
+                                            <Popover.Close asChild key={toolId}>
+                                              <button
+                                                type="button"
+                                                role="menuitem"
+                                                data-studio-tone={presentation.tone}
+                                                onClick={() => onSelectTool(toolId as StudioToolId)}
+                                                className="flex min-h-12 min-w-0 items-center gap-2 rounded-xl px-2.5 py-2 text-left outline-none hover:bg-[var(--workspace-surface-muted)] focus-visible:bg-[var(--workspace-surface-muted)]"
+                                              >
+                                                <span className="workspace-tool-icon-container flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] border">
+                                                  <ToolIcon className="h-[17px] w-[17px]" />
+                                                </span>
+                                                <span className="truncate text-xs font-medium">
+                                                  {t(presentation.labelKey)}
+                                                </span>
+                                              </button>
+                                            </Popover.Close>
+                                          );
+                                        },
+                                      )}
+                                    </div>
+                                  </>
+                                ) : null}
                               </Popover.Content>
                             </Popover.Portal>
                             {messageIntent === "plan" ? (
