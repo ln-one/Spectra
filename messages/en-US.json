@@ -233,6 +233,7 @@
     "newConversation": "New conversation",
     "conversationActions": "Conversation actions",
     "conversationActionsAfterMessage": "Send a message to manage this conversation",
+    "removeCreationTool": "Remove {name} tool",
     "noConversationHistory": "No conversation history yet",
     "loadMoreConversations": "Load more conversations",
     "loadingMoreConversations": "Loading conversations…",
