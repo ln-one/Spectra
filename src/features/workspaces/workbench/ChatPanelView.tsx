@@ -63,6 +63,7 @@ import {
   KnowledgeMarkdownLink,
   useKnowledgeEvidence,
 } from "./KnowledgeEvidence";
+import { MobileCreationToolChip } from "./MobileCreationToolChip";
 import { useMobileWorkbenchActions } from "./MobileWorkbenchActionsContext";
 import { PanelShell } from "./PanelShell";
 import { STUDIO_TOOL_PRESENTATIONS, type StudioToolId } from "./studioTools";
@@ -709,6 +710,8 @@ export function ChatPanelView({
   onArtifactProposal,
   onOpenKnowledgeNetwork,
   onSelectTool,
+  selectedCreationTool,
+  onClearCreationTool,
 }: ChatPanelViewProps & {
   artifactHistory?: readonly ArtifactHistoryItem[] | undefined;
   surfaceContext?: AgentSurfaceContext;
@@ -731,6 +734,8 @@ export function ChatPanelView({
   onArtifactProposal?: ((proposal: ArtifactEditProposal) => void) | undefined;
   onOpenKnowledgeNetwork?: ((evidence: KnowledgeCitationEvidence) => void) | undefined;
   onSelectTool?: ((toolId: StudioToolId) => void) | undefined;
+  selectedCreationTool?: StudioToolId | null | undefined;
+  onClearCreationTool?: (() => void) | undefined;
 }) {
   const t = useTranslations("Workbench");
   const locale = useLocale() === "en-US" ? "en-US" : "zh-CN";
@@ -855,6 +860,12 @@ export function ChatPanelView({
                         className="workspace-planning-composer-slot"
                       />
                       <div className="workspace-normal-composer">
+                        {selectedCreationTool && onClearCreationTool ? (
+                          <MobileCreationToolChip
+                            toolId={selectedCreationTool}
+                            onClear={onClearCreationTool}
+                          />
+                        ) : null}
                         {artifactContext ? (
                           <div className="flex items-center gap-2 px-2.5 pt-1.5 pb-0.5">
                             <div className="flex min-w-0 items-center gap-1.5 rounded-full border border-[var(--studio-border)] bg-[var(--studio-surface-subtle)] px-2.5 py-1 text-[11px] font-medium text-[var(--workspace-text-muted)]">

@@ -181,6 +181,27 @@ test("labels a selected presentation slide with its position in the deck", () =>
   expect(screen.getByText("已选择第 3/8 张幻灯片")).toBeInTheDocument();
 });
 
+test("shows a selected creation tool in the composer and lets the user remove it", () => {
+  const onClearCreationTool = vi.fn();
+  renderWithIntl(
+    <ChatPanelView
+      conversationId={conversationId}
+      messages={[]}
+      selectedSourceCount={0}
+      selectedCreationTool="smart-slides"
+      onClearCreationTool={onClearCreationTool}
+      subtitle="知识助手"
+      title="对话"
+      workspaceId={workspaceId}
+    />,
+  );
+
+  expect(screen.getByTestId("selected-creation-tool")).toHaveTextContent("智能课件");
+  expect(screen.getByPlaceholderText("输入你的想法或任务")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "移除智能课件工具" }));
+  expect(onClearCreationTool).toHaveBeenCalledOnce();
+});
+
 test("does not render a visual Evidence item that has no body anchor", async () => {
   const evidence = visualEvidence();
   renderChat([
