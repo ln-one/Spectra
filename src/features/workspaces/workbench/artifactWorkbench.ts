@@ -81,6 +81,10 @@ export function artifactSelectionForTool(
   return isArtifactCreationToolId(toolId) ? { mode: "starting", toolId } : null;
 }
 
+export function artifactKindForSelection(
+  selection: Extract<ArtifactSelectionState, { mode: "starting" }>,
+): ArtifactKind;
+export function artifactKindForSelection(selection: ArtifactSelectionState): ArtifactKind | null;
 export function artifactKindForSelection(selection: ArtifactSelectionState): ArtifactKind | null {
   if (selection.mode !== "starting") return null;
   switch (selection.toolId) {

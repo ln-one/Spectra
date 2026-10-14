@@ -53,13 +53,26 @@ vi.mock("./ChatPanelView", () => ({
     onOpenArtifact?: (artifactId: string) => void;
     onUserMessageCreated?: (snapshot: UserMessageSurfaceSnapshot) => void;
     artifactSelection?: TeachingDocumentFocus | null;
+    selectedCreationTool?: string | null;
+    surfaceContext?: { type: string; kind?: string };
+    onClearCreationTool?: () => void;
   }) => {
     testState.emitDocumentEvent = (event) => props.onArtifactEvent?.(event as ArtifactStreamEvent);
     testState.openArtifact = (artifactId) => props.onOpenArtifact?.(artifactId);
     testState.createUserMessage = (snapshot) => props.onUserMessageCreated?.(snapshot);
     testState.emitProposal = (proposal) => props.onArtifactProposal?.(proposal);
     return (
-      <div data-focus={props.artifactSelection ? "selected" : "clear"} data-testid="chat-panel" />
+      <div
+        data-focus={props.artifactSelection ? "selected" : "clear"}
+        data-mobile-tool={props.selectedCreationTool ?? ""}
+        data-surface-kind={props.surfaceContext?.kind ?? ""}
+        data-surface-type={props.surfaceContext?.type ?? ""}
+        data-testid="chat-panel"
+      >
+        <button type="button" onClick={props.onClearCreationTool}>
+          Clear mobile tool
+        </button>
+      </div>
     );
   },
 }));
@@ -893,6 +906,74 @@ test("does not reopen the document workspace when generation events arrive after
     "/developer/course-notes?conversation=00000000-0000-4000-8000-000000000001",
     { scroll: false },
   );
+});
+
+test("keeps a mobile creation tool in chat and sends it with the existing artifact surface", () => {
+  Object.defineProperty(window, "matchMedia", {
+    configurable: true,
+    value: vi.fn((query: string) => ({ matches: query === "(max-width: 1023px)" })),
+  });
+  renderWithIntl(
+    <WorkbenchView
+      fixture={workbenchVisualFixture}
+      initialArtifact={null}
+      initialArtifactHistory={[]}
+      accountMenu={null}
+      conversationId="00000000-0000-4000-8000-000000000001"
+      conversations={[]}
+      deleteThreadAction={async () => null}
+      newConversationId="00000000-0000-4000-8000-000000000002"
+      onThreadTitle={vi.fn()}
+      renameThreadAction={async () => null}
+      settingsAction={async () => null}
+      settingsControl={null}
+      sourcesPanel={<div data-testid="sources-panel" />}
+      workspaceHref="/developer/course-notes"
+      workspaceId="00000000-0000-4000-8000-000000000003"
+      workspaceSlug="course-notes"
+    />,
+  );
+
+  fireEvent.click(screen.getByRole("button", { name: "Open teaching document" }));
+  expect(screen.getByTestId("chat-panel")).toHaveAttribute("data-mobile-tool", "teaching-document");
+  expect(screen.getByTestId("chat-panel")).toHaveAttribute("data-surface-type", "artifact_start");
+  expect(screen.getByTestId("chat-panel")).toHaveAttribute(
+    "data-surface-kind",
+    "teaching_document",
+  );
+  expect(screen.queryByTestId("artifact-layout-mode")).not.toBeInTheDocument();
+  expect(testState.replace).not.toHaveBeenCalled();
+
+  act(() =>
+    testState.createUserMessage?.({
+      id: "user:mobile-document",
+      surface: { kind: "teaching_document", type: "artifact_start" },
+    }),
+  );
+  expect(screen.getByTestId("chat-panel")).toHaveAttribute("data-mobile-tool", "");
+  expect(screen.getByTestId("chat-panel")).toHaveAttribute("data-surface-type", "studio");
+  act(() =>
+    testState.emitDocumentEvent?.({
+      detail: {
+        artifact: null,
+        createdAt: "2026-07-18T00:00:00.000Z",
+        draft: null,
+        failureCode: null,
+        generationAttemptId: null,
+        generationSequence: 0,
+        generationState: "queued",
+        id: "00000000-0000-4000-8000-000000000009",
+        kind: "teaching_document",
+        title: "New document",
+        updatedAt: "2026-07-18T00:00:00.000Z",
+        workspaceId: "00000000-0000-4000-8000-000000000003",
+      },
+      sourceUserMessageId: "user:mobile-document",
+      type: "started",
+    }),
+  );
+  expect(screen.queryByTestId("artifact-layout-mode")).not.toBeInTheDocument();
+  expect(testState.replace).not.toHaveBeenCalled();
 });
 
 test("does not mistake a remounted historical map card for the newly requested map", async () => {

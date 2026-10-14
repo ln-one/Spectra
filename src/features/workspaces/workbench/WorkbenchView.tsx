@@ -62,6 +62,7 @@ import { ArtifactWorkbenchPanelLayout } from "./ArtifactWorkbenchPanelLayout";
 import { ArtifactWorkspaceView } from "./ArtifactWorkspaceView";
 import { moveArtifactIntoSources } from "./artifactSourceMembership";
 import {
+  type ArtifactCreationToolId,
   artifactKindForSelection,
   artifactSelectionForTool,
   artifactSelectionReducer,
@@ -437,6 +438,8 @@ export function WorkbenchView({
     sequence: 0,
   });
   const [composerFocusRequest, setComposerFocusRequest] = useState(0);
+  const [mobileCreationTool, setMobileCreationTool] = useState<ArtifactCreationToolId | null>(null);
+  const [mobileChatFocusRequest, setMobileChatFocusRequest] = useState(0);
   const [artifactInteractionSelection, setArtifactInteractionSelection] =
     useState<ArtifactSelection | null>(null);
   const [artifactProposal, setArtifactProposal] = useState<ArtifactEditProposal | null>(null);
@@ -746,11 +749,12 @@ export function WorkbenchView({
       ? artifactKindForSelection(artifactSelection)
       : selectedArtifactKind;
   const activeStudioTool =
-    artifactSelection.mode === "starting"
+    mobileCreationTool ??
+    (artifactSelection.mode === "starting"
       ? artifactSelection.toolId
       : activeArtifactKind
         ? studioToolForArtifactKind(activeArtifactKind)
-        : null;
+        : null);
   const activeStudioTone = activeStudioTool ? studioToolTone(activeStudioTool) : "neutral";
   const isArtifactWorkspaceOpen = activeArtifactKind !== null;
   const activeArtifactInteractionSelection =
@@ -760,8 +764,12 @@ export function WorkbenchView({
     artifactKindForInteractionSelection(artifactInteractionSelection) === artifactDetail.kind
       ? artifactInteractionSelection
       : null;
-  const surfaceContext: AgentSurfaceContext =
-    artifactSelection.mode === "starting" && activeArtifactKind
+  const surfaceContext: AgentSurfaceContext = mobileCreationTool
+    ? {
+        kind: artifactKindForSelection({ mode: "starting", toolId: mobileCreationTool }),
+        type: "artifact_start",
+      }
+    : artifactSelection.mode === "starting" && activeArtifactKind
       ? { kind: activeArtifactKind, type: "artifact_start" }
       : selectedArtifactId
         ? {
@@ -895,6 +903,12 @@ export function WorkbenchView({
     const selection = artifactSelectionForTool(toolId);
     if (!selection) return;
     pendingCreationSourceUserMessageId.current = null;
+    if (window.matchMedia("(max-width: 1023px)").matches) {
+      setMobileCreationTool(selection.toolId);
+      setMobileChatFocusRequest((current) => current + 1);
+      setComposerFocusRequest((current) => current + 1);
+      return;
+    }
     startWorkbenchViewTransition(() =>
       dispatchArtifactSelection({ toolId: selection.toolId, type: "start" }),
     );
@@ -909,6 +923,11 @@ export function WorkbenchView({
       workspaceId={workspaceId}
       surfaceContext={surfaceContext}
       onUserMessageCreated={(snapshot: UserMessageSurfaceSnapshot) => {
+        if (mobileCreationTool && snapshot.surface.type === "artifact_start") {
+          setMobileCreationTool(null);
+          pendingCreationSourceUserMessageId.current = null;
+          return;
+        }
         pendingCreationSourceUserMessageId.current =
           snapshot.surface.type === "artifact_start" ? snapshot.id : null;
       }}
@@ -918,6 +937,8 @@ export function WorkbenchView({
       onOpenArtifact={(artifactId) => void openArtifactFromMessage(artifactId)}
       onOpenKnowledgeNetwork={focusKnowledgeNetworkCitation}
       onSelectTool={handleSelectTool}
+      selectedCreationTool={mobileCreationTool}
+      onClearCreationTool={() => setMobileCreationTool(null)}
       unavailableArtifactIds={unavailableArtifactIds}
       artifactContext={artifactContext}
       artifactSelection={activeArtifactInteractionSelection}
@@ -1067,6 +1088,7 @@ export function WorkbenchView({
               ) : (
                 <WorkbenchPanelLayout
                   disclaimer={fixture.disclaimer}
+                  mobileChatFocusRequest={mobileChatFocusRequest}
                   studio={(studioControls) => (
                     <StudioPanelView
                       {...fixture.studio}
