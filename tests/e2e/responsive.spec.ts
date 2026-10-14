@@ -259,31 +259,28 @@ for (const viewport of viewports) {
   });
 }
 
-test("uses focused Workbench panels on a phone", async ({ page }) => {
+test("uses drawer and contextual Workbench actions on a phone", async ({ page }) => {
   const fixture = JSON.parse(await readFile(e2eWorkspacePath, "utf8")) as { url: string };
   await page.setViewportSize({ width: 375, height: 812 });
   await gotoWithRetry(page, fixture.url);
 
-  const navigation = page.getByTestId("mobile-workbench-navigation");
-  await expect(navigation).toBeVisible();
+  await expect(page.getByTestId("mobile-workbench-navigation")).toHaveCount(0);
   await expect(page.getByTestId("chat-panel")).toBeVisible();
   await expect(page.getByTestId("studio-panel")).toBeHidden();
   await expect(page.getByTestId("sources-panel")).toBeHidden();
 
-  const [disclaimerBox, navigationBox] = await Promise.all([
-    page.getByTestId("workbench-disclaimer").boundingBox(),
-    navigation.boundingBox(),
-  ]);
-  if (!disclaimerBox || !navigationBox) throw new Error("Missing mobile Workbench chrome");
-  expect(disclaimerBox.y + disclaimerBox.height).toBeLessThanOrEqual(navigationBox.y);
+  await page.getByRole("button", { name: "打开工作空间导航" }).click();
+  await expect(page.getByRole("dialog", { name: "Spectra" })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "工作空间" })).toBeVisible();
+  await page.getByRole("button", { name: "关闭工作空间导航" }).click();
 
-  await page.getByRole("button", { name: "备课工坊" }).click();
-  await expect(page.getByTestId("studio-panel")).toBeVisible();
-  await expect(page.getByTestId("chat-panel")).toBeHidden();
-
-  await page.getByRole("button", { name: "资料来源" }).click();
+  await page.getByRole("button", { name: "打开添加菜单" }).click();
+  await page.getByRole("menuitem", { name: /资料来源/ }).click();
   await expect(page.getByTestId("sources-panel")).toBeVisible();
-  await expect(page.getByTestId("studio-panel")).toBeHidden();
+  await expect(page.getByTestId("chat-panel")).toBeHidden();
+  await page.getByRole("button", { name: "返回对话" }).click();
+  await expect(page.getByTestId("chat-panel")).toBeVisible();
+  await expect(page.getByTestId("sources-panel")).toBeHidden();
   await expectNoHorizontalOverflow(page);
   await expectMinimumTargetSize(page);
 });

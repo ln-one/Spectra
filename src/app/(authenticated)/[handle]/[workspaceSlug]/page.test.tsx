@@ -21,6 +21,8 @@ vi.mock("@/features/identity/current", () => ({
 }));
 vi.mock("@/features/workspaces/service", () => ({
   findWorkspaceAddressPreview: vi.fn(),
+  listSharedWorkspaces: vi.fn().mockResolvedValue([]),
+  listWorkspaces: vi.fn().mockResolvedValue([]),
   resolveWorkspace: vi.fn(),
 }));
 vi.mock("@/features/workspaces/sharing.server", () => ({

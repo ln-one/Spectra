@@ -17,7 +17,11 @@ import WorkspacePage from "./page";
 vi.mock("@/features/identity/current", () => ({
   getCurrentActor: vi.fn().mockResolvedValue({ principalId: "owner-id", handle: "developer" }),
 }));
-vi.mock("@/features/workspaces/service", () => ({ getWorkspaceById: vi.fn() }));
+vi.mock("@/features/workspaces/service", () => ({
+  getWorkspaceById: vi.fn(),
+  listSharedWorkspaces: vi.fn().mockResolvedValue([]),
+  listWorkspaces: vi.fn().mockResolvedValue([]),
+}));
 vi.mock("@/features/workspaces/sharing.server", () => ({
   getWorkspaceSharingState: vi.fn(),
 }));
@@ -118,6 +122,30 @@ test("redirects an aliased workspace without permanently caching its mutable slu
   ).rejects.toMatchObject({
     digest:
       "NEXT_REDIRECT;replace;/developer/material-lab?conversation=00000000-0000-4000-8000-000000000001;307;",
+  });
+});
+
+test("preserves the mobile overview when redirecting an aliased workspace", async () => {
+  mockedGetWorkspaceById.mockResolvedValue({
+    id: workspaceId,
+    ownerId: "owner-id",
+    ownerHandle: "developer",
+    slug: "material-lab",
+    name: "材料实验记录",
+    visibility: "private",
+    archivedAt: null,
+    createdAt: "2026-07-14T00:00:00Z",
+    updatedAt: "2026-07-14T00:00:00Z",
+  });
+
+  await expect(
+    WorkspacePage({
+      params: Promise.resolve({ id: workspaceId }),
+      searchParams: Promise.resolve({ view: "overview" }),
+    }),
+  ).rejects.toMatchObject({
+    digest:
+      "NEXT_REDIRECT;replace;/developer/material-lab?conversation=00000000-0000-4000-8000-000000000001&view=overview;307;",
   });
 });
 

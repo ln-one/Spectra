@@ -2,6 +2,7 @@ import { fireEvent, screen } from "@testing-library/react";
 import { FileText } from "lucide-react";
 import { beforeEach, expect, test, vi } from "vitest";
 import { renderWithIntl } from "../../../../tests/render";
+import { useMobileWorkbenchActions } from "./MobileWorkbenchActionsContext";
 import { SourcesPanelView } from "./SourcesPanelView";
 import {
   mobilePanelPreferenceKey,
@@ -12,6 +13,20 @@ import {
 
 const workspaceId = "00000000-0000-4000-8000-000000000501";
 const storedPreferences = new Map<string, string>();
+
+function MobilePanelControls() {
+  const actions = useMobileWorkbenchActions();
+  return (
+    <div>
+      <button type="button" onClick={actions?.openSources}>
+        Open test sources
+      </button>
+      <button type="button" onClick={actions?.openStudio}>
+        Open test studio
+      </button>
+    </div>
+  );
+}
 
 beforeEach(() => {
   storedPreferences.clear();
@@ -36,22 +51,25 @@ test("uses a Workspace-scoped key for the Studio rail preference", () => {
   );
 });
 
-test("switches the mobile Workbench panel and restores the Workspace preference", () => {
+test("switches mobile panels from contextual actions without persistent bottom navigation", () => {
   window.localStorage.setItem(mobilePanelPreferenceKey(workspaceId), "sources");
   renderWithIntl(
     <WorkbenchPanelLayout
       workspaceId={workspaceId}
-      chat={<div>Assistant content</div>}
+      chat={<MobilePanelControls />}
       disclaimer="Disclaimer"
       sources={<div>Sources content</div>}
       studio={() => <div>Studio content</div>}
     />,
   );
 
-  expect(screen.getByRole("button", { name: "资料来源" })).toHaveAttribute("aria-current", "page");
-  fireEvent.click(screen.getByRole("button", { name: "备课工坊" }));
-  expect(screen.getByRole("button", { name: "备课工坊" })).toHaveAttribute("aria-current", "page");
+  expect(document.querySelector('[data-mobile-active="true"]')).toHaveAttribute("id", "sources");
+  expect(screen.queryByTestId("mobile-workbench-navigation")).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Open test studio" }));
+  expect(document.querySelector('[data-mobile-active="true"]')).toHaveAttribute("id", "studio");
   expect(window.localStorage.getItem(mobilePanelPreferenceKey(workspaceId))).toBe("studio");
+  fireEvent.click(screen.getByRole("button", { name: "返回对话" }));
+  expect(document.querySelector('[data-mobile-active="true"]')).toHaveAttribute("id", "chat");
 });
 
 test("collapses, expands, and stores the Studio rail preference", () => {
@@ -139,7 +157,7 @@ test("restores a collapsed Sources rail and expands to the selected Source", () 
 
   fireEvent.click(screen.getByRole("button", { name: "查看资料：课程讲义.pdf" }));
   expect(screen.queryByTestId("sources-rail")).not.toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "资料来源" })).toHaveAttribute("aria-current", "page");
+  expect(document.querySelector('[data-mobile-active="true"]')).toHaveAttribute("id", "sources");
   expect(screen.getByText("课程讲义.pdf").closest("[data-source-id]")).toHaveFocus();
   expect(window.localStorage.getItem(sourceRailPreferenceKey(workspaceId))).toBe("expanded");
 });

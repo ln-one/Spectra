@@ -36,6 +36,15 @@ function renderHeader(
       workspaceId="00000000-0000-4000-8000-000000000003"
       workspaceHref="/workspaces/00000000-0000-4000-8000-000000000003"
       workspaceSlug="human-design"
+      workspaces={[
+        {
+          href: "/workspaces/00000000-0000-4000-8000-000000000003",
+          id: "00000000-0000-4000-8000-000000000003",
+          name: "测试空间",
+          ownerHandle: "tester",
+          updatedAt: "2026-07-16T05:00:00.000Z",
+        },
+      ]}
     />,
   );
 }
