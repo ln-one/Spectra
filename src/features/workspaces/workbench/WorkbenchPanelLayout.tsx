@@ -166,6 +166,7 @@ function useCollapsiblePanelPreference(
 interface WorkbenchPanelLayoutProps {
   chat: ReactNode;
   disclaimer: string;
+  mobileChatFocusRequest?: number;
   disabled?: boolean;
   chatMinSize?: string;
   initialStudioCollapsed?: boolean;
@@ -181,6 +182,7 @@ export function WorkbenchPanelLayout({
   chat,
   chatMinSize = "420px",
   disclaimer,
+  mobileChatFocusRequest = 0,
   disabled = false,
   initialLayout = defaultLayout,
   initialStudioCollapsed = false,
@@ -217,6 +219,12 @@ export function WorkbenchPanelLayout({
   useLayoutEffect(() => {
     setMobilePanel(persistPanelState ? readMobilePanelPreference(mobilePanelKey) : "chat");
   }, [mobilePanelKey, persistPanelState]);
+
+  useLayoutEffect(() => {
+    if (mobileChatFocusRequest <= 0) return;
+    setMobilePanel("chat");
+    if (persistPanelState) writeMobilePanelPreference(mobilePanelKey, "chat");
+  }, [mobileChatFocusRequest, mobilePanelKey, persistPanelState]);
 
   function selectMobilePanel(panel: MobileWorkbenchPanel) {
     setMobilePanel(panel);

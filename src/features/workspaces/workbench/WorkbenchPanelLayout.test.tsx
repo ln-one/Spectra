@@ -72,6 +72,35 @@ test("switches mobile panels from contextual actions without persistent bottom n
   expect(document.querySelector('[data-mobile-active="true"]')).toHaveAttribute("id", "chat");
 });
 
+test("returns to the mobile chat when a creation tool is selected", () => {
+  window.localStorage.setItem(mobilePanelPreferenceKey(workspaceId), "studio");
+  const view = renderWithIntl(
+    <WorkbenchPanelLayout
+      workspaceId={workspaceId}
+      mobileChatFocusRequest={0}
+      chat={<div>Assistant</div>}
+      disclaimer="Disclaimer"
+      sources={<div>Sources</div>}
+      studio={() => <div>Studio</div>}
+    />,
+  );
+
+  expect(document.querySelector('[data-mobile-active="true"]')).toHaveAttribute("id", "studio");
+  view.rerender(
+    <WorkbenchPanelLayout
+      workspaceId={workspaceId}
+      mobileChatFocusRequest={1}
+      chat={<div>Assistant</div>}
+      disclaimer="Disclaimer"
+      sources={<div>Sources</div>}
+      studio={() => <div>Studio</div>}
+    />,
+  );
+
+  expect(document.querySelector('[data-mobile-active="true"]')).toHaveAttribute("id", "chat");
+  expect(window.localStorage.getItem(mobilePanelPreferenceKey(workspaceId))).toBe("chat");
+});
+
 test("collapses, expands, and stores the Studio rail preference", () => {
   window.localStorage.removeItem(studioRailPreferenceKey(workspaceId));
   renderWithIntl(
