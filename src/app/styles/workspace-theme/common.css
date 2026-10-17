@@ -302,7 +302,7 @@ html[data-focus-modality="pointer"]
 
 @media (max-width: 1023px) {
   [data-workspace-theme] .workspace-mobile-panel-layout {
-    padding: 0 0.5rem 1.5rem;
+    padding: 0 0.5rem max(env(safe-area-inset-bottom), 1.5rem);
   }
 
   [data-workspace-theme] .workspace-mobile-panel-layout > [data-panel] {

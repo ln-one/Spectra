@@ -140,7 +140,7 @@ function WorkspaceHeaderViewContent({
   return (
     <>
       <header className="relative z-50">
-        <div className="workspace-header-enter workspace-header-shell grid h-[var(--workspace-header-height)] grid-cols-[5.5rem_minmax(0,1fr)_5.5rem] items-center px-3 lg:hidden">
+        <div className="workspace-header-enter workspace-header-shell grid h-[calc(var(--workspace-header-height)+env(safe-area-inset-top))] grid-cols-[5.5rem_minmax(0,1fr)_5.5rem] items-center px-3 pt-[env(safe-area-inset-top)] lg:hidden">
           <MobileWorkspaceDrawer
             accountMenu={accountMenu}
             conversationId={conversationId}

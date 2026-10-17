@@ -974,7 +974,7 @@ export function WorkbenchView({
           data-workspace-style="mist-zinc"
           data-workspace-theme="mist-zinc"
           data-studio-tone={activeStudioTone}
-          className="workspace-theme-root relative flex h-screen select-none flex-col overflow-hidden bg-[var(--workspace-bg-base)]"
+          className="workspace-theme-root relative flex h-dvh select-none flex-col overflow-hidden bg-[var(--workspace-bg-base)]"
         >
           <p
             key={membershipAnnouncement.sequence}
