@@ -144,7 +144,7 @@ try {
   };
 
   if (buildFirst) {
-    const buildCode = await run("npm", ["run", "build"], {
+    const buildCode = await run("npm", ["run", "build", "--", "--webpack"], {
       ...sharedEnvironment,
       NEXT_DIST_DIR: buildDistDir,
     });
@@ -155,7 +155,8 @@ try {
         ["test", ...playwrightArgs],
         {
           ...sharedEnvironment,
-          NEXT_DIST_DIR: e2eDistDir,
+          NEXT_DIST_DIR: buildDistDir,
+          SPECTRA_E2E_SERVER_MODE: "production",
         },
       );
     }

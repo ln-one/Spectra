@@ -25,8 +25,8 @@ const nextConfig = {
   ...(process.env.CLOUDSTUDIO_WEBPACK_FALLBACK === "true" ||
   process.env.CLOUDSTUDIO_WEBPACK_LOW_MEMORY === "true"
     ? {
-        webpack(config, { dev }) {
-          if (dev && process.env.CLOUDSTUDIO_WEBPACK_LOW_MEMORY === "true") {
+        webpack(config) {
+          if (process.env.CLOUDSTUDIO_WEBPACK_LOW_MEMORY === "true") {
             config.cache = false;
             config.parallelism = 1;
           }
