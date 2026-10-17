@@ -129,7 +129,7 @@ export function LoginForm({ redirectPath }: { redirectPath: string }) {
       <div className="text-right">
         <Link
           href={forgotPasswordHref()}
-          className="text-sm font-medium text-[var(--app-text-muted)] transition-colors hover:text-[var(--app-text)] hover:underline"
+          className="inline-flex min-h-6 items-center text-sm font-medium text-[var(--app-text-muted)] transition-colors hover:text-[var(--app-text)] hover:underline"
         >
           {t("forgotPassword")}
         </Link>
