@@ -202,6 +202,20 @@ test("shows a selected creation tool in the composer and lets the user remove it
   expect(onClearCreationTool).toHaveBeenCalledOnce();
 });
 
+test("restores the composer draft for the current conversation", async () => {
+  const draftStorageKey = `spectra:composer-draft:${workspaceId}:${conversationId}`;
+  const firstRender = renderChat();
+  const firstInput = await readyComposerInput();
+  fireEvent.change(firstInput, { target: { value: "保留这段移动端草稿" } });
+  await waitFor(() =>
+    expect(window.sessionStorage.getItem(draftStorageKey)).toBe("保留这段移动端草稿"),
+  );
+  firstRender.unmount();
+
+  renderChat();
+  expect(await readyComposerInput()).toHaveValue("保留这段移动端草稿");
+});
+
 test("does not render a visual Evidence item that has no body anchor", async () => {
   const evidence = visualEvidence();
   renderChat([

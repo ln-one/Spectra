@@ -8,6 +8,7 @@ import {
   Tools,
   useAui,
   useAuiState,
+  useComposerRuntime,
 } from "@assistant-ui/react";
 import {
   AssistantChatTransport,
@@ -421,6 +422,7 @@ function ChatRuntimeBoundary({
       <AgentRunControlContext.Provider value={agentRunControl}>
         <AssistantRuntimeProvider runtime={runtime}>
           <WorkspaceAgentToolRegistry onPlanningFinished={onPlanningFinished}>
+            <ComposerDraftBridge conversationId={conversationId} workspaceId={workspaceId} />
             <ComposerSuggestionBridge
               suggestion={composerSuggestion ?? null}
               onConsumed={onComposerSuggestionConsumed}
@@ -431,6 +433,48 @@ function ChatRuntimeBoundary({
       </AgentRunControlContext.Provider>
     </DictationErrorContext.Provider>
   );
+}
+
+function composerDraftStorageKey(workspaceId: string, conversationId: string) {
+  return `spectra:composer-draft:${workspaceId}:${conversationId}`;
+}
+
+function ComposerDraftBridge({
+  conversationId,
+  workspaceId,
+}: {
+  conversationId: string;
+  workspaceId: string;
+}) {
+  const composer = useComposerRuntime();
+  const storageKey = composerDraftStorageKey(workspaceId, conversationId);
+
+  useEffect(() => {
+    let storedDraft = "";
+    try {
+      storedDraft = window.sessionStorage.getItem(storageKey) ?? "";
+    } catch {
+      // The composer still works when browser storage is unavailable.
+    }
+    composer.setText(storedDraft);
+
+    const persistDraft = () => {
+      try {
+        const text = composer.getState().text;
+        if (text) window.sessionStorage.setItem(storageKey, text);
+        else window.sessionStorage.removeItem(storageKey);
+      } catch {
+        // Draft persistence is best-effort and must not block message composition.
+      }
+    };
+    const unsubscribe = composer.subscribe(persistDraft);
+    return () => {
+      persistDraft();
+      unsubscribe();
+    };
+  }, [composer, storageKey]);
+
+  return null;
 }
 
 export function ComposerSuggestionBridge({
