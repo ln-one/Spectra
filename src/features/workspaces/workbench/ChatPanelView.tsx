@@ -37,6 +37,7 @@ import {
   type ComponentPropsWithoutRef,
   type RefObject,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -686,6 +687,53 @@ function PendingRunStatus() {
   return show ? <AssistantRunStatus /> : null;
 }
 
+function conversationScrollStorageKey(workspaceId: string, conversationId: string) {
+  return `spectra:conversation-scroll:${workspaceId}:${conversationId}`;
+}
+
+function useConversationScrollRestoration(
+  viewportRef: RefObject<HTMLDivElement | null>,
+  workspaceId: string,
+  conversationId: string,
+) {
+  useLayoutEffect(() => {
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+    const storageKey = conversationScrollStorageKey(workspaceId, conversationId);
+    let restored = false;
+
+    const persistScrollPosition = () => {
+      if (!restored) return;
+      try {
+        window.sessionStorage.setItem(storageKey, String(viewport.scrollTop));
+      } catch {
+        // Scroll restoration is best-effort and must not block the conversation.
+      }
+    };
+    const restoreFrame = window.requestAnimationFrame(() => {
+      try {
+        const storedPosition = Number(window.sessionStorage.getItem(storageKey));
+        if (Number.isFinite(storedPosition) && storedPosition > 0) {
+          viewport.scrollTop = Math.min(
+            storedPosition,
+            Math.max(0, viewport.scrollHeight - viewport.clientHeight),
+          );
+        }
+      } catch {
+        // The conversation remains usable when browser storage is unavailable.
+      }
+      restored = true;
+    });
+    viewport.addEventListener("scroll", persistScrollPosition, { passive: true });
+
+    return () => {
+      window.cancelAnimationFrame(restoreFrame);
+      persistScrollPosition();
+      viewport.removeEventListener("scroll", persistScrollPosition);
+    };
+  }, [conversationId, viewportRef, workspaceId]);
+}
+
 export function ChatPanelView({
   conversationId,
   workspaceId,
@@ -750,6 +798,7 @@ export function ChatPanelView({
             ? Gamepad2
             : BookOpenText;
   const composerInputRef = useRef<HTMLTextAreaElement>(null);
+  const messageViewportRef = useRef<HTMLDivElement>(null);
   const [messageIntent, setMessageIntent] = useState<"chat" | "plan">(() =>
     messageIntentFromMessages(messages),
   );
@@ -758,6 +807,7 @@ export function ChatPanelView({
   );
   const [forceWebSearch, setForceWebSearch] = useState(() => webSearchFromMessages(messages));
   const mobileWorkbenchActions = useMobileWorkbenchActions();
+  useConversationScrollRestoration(messageViewportRef, workspaceId, conversationId);
   useEffect(() => {
     if (composerFocusRequest <= 0) return;
     requestAnimationFrame(() => composerInputRef.current?.focus());
@@ -794,6 +844,7 @@ export function ChatPanelView({
         <ThreadPrimitive.ViewportProvider>
           <ThreadPrimitive.Root className="workspace-chat-thread-root relative flex h-[calc(100%-52px)] min-h-0 flex-col">
             <ThreadPrimitive.Viewport
+              ref={messageViewportRef}
               turnAnchor="top"
               className="workspace-chat-viewport relative min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-4"
             >

@@ -216,6 +216,31 @@ test("restores the composer draft for the current conversation", async () => {
   expect(await readyComposerInput()).toHaveValue("保留这段移动端草稿");
 });
 
+test("restores the message scroll position for the current conversation", async () => {
+  const scrollStorageKey = `spectra:conversation-scroll:${workspaceId}:${conversationId}`;
+  const firstRender = renderChat();
+  const firstViewport = document.querySelector<HTMLElement>(".workspace-chat-viewport");
+  if (!firstViewport) throw new Error("Missing conversation viewport");
+  Object.defineProperties(firstViewport, {
+    clientHeight: { configurable: true, value: 200 },
+    scrollHeight: { configurable: true, value: 1_000 },
+  });
+  await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+  firstViewport.scrollTop = 320;
+  fireEvent.scroll(firstViewport);
+  await waitFor(() => expect(window.sessionStorage.getItem(scrollStorageKey)).toBe("320"));
+  firstRender.unmount();
+
+  renderChat();
+  const restoredViewport = document.querySelector<HTMLElement>(".workspace-chat-viewport");
+  if (!restoredViewport) throw new Error("Missing restored conversation viewport");
+  Object.defineProperties(restoredViewport, {
+    clientHeight: { configurable: true, value: 200 },
+    scrollHeight: { configurable: true, value: 1_000 },
+  });
+  await waitFor(() => expect(restoredViewport.scrollTop).toBe(320));
+});
+
 test("does not render a visual Evidence item that has no body anchor", async () => {
   const evidence = visualEvidence();
   renderChat([
