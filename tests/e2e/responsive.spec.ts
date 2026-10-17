@@ -260,7 +260,10 @@ for (const viewport of viewports) {
 }
 
 test("uses drawer and contextual Workbench actions on a phone", async ({ page }) => {
-  const fixture = JSON.parse(await readFile(e2eWorkspacePath, "utf8")) as { url: string };
+  const fixture = JSON.parse(await readFile(e2eWorkspacePath, "utf8")) as {
+    resumeUrl: string;
+    url: string;
+  };
   await page.setViewportSize({ width: 375, height: 812 });
   await gotoWithRetry(page, fixture.url);
 
@@ -268,6 +271,13 @@ test("uses drawer and contextual Workbench actions on a phone", async ({ page })
   await expect(page.getByTestId("chat-panel")).toBeVisible();
   await expect(page.getByTestId("studio-panel")).toBeHidden();
   await expect(page.getByTestId("sources-panel")).toBeHidden();
+
+  const composer = page.getByPlaceholder("输入你的想法或任务");
+  await composer.fill("保留这段移动端草稿");
+  await composer.focus();
+  await page.setViewportSize({ width: 375, height: 560 });
+  await expectInsideViewport(page, composer);
+  await page.setViewportSize({ width: 375, height: 812 });
 
   await page.getByRole("button", { name: "打开工作空间导航" }).click();
   await expect(page.getByRole("dialog", { name: "Spectra" })).toBeVisible();
@@ -278,11 +288,61 @@ test("uses drawer and contextual Workbench actions on a phone", async ({ page })
   await page.getByRole("menuitem", { name: /资料来源/ }).click();
   await expect(page.getByTestId("sources-panel")).toBeVisible();
   await expect(page.getByTestId("chat-panel")).toBeHidden();
+
+  await page.getByRole("button", { name: "导入" }).click();
+  const fileChooserPromise = page.waitForEvent("filechooser");
+  await page.getByRole("menuitem", { name: "上传资料" }).click();
+  const fileChooser = await fileChooserPromise;
+  await fileChooser.setFiles({
+    buffer: Buffer.from("# 第一阶段移动端资料\n用于验证文件选择。"),
+    mimeType: "text/markdown",
+    name: "mobile-phase-one.md",
+  });
+  await expect(page.getByText("mobile-phase-one.md", { exact: true })).toBeVisible();
+
   await page.getByRole("button", { name: "返回对话" }).click();
   await expect(page.getByTestId("chat-panel")).toBeVisible();
   await expect(page.getByTestId("sources-panel")).toBeHidden();
+  await expect(composer).toHaveValue("保留这段移动端草稿");
+
+  await page.getByRole("button", { name: "打开工作空间导航" }).click();
+  await page.getByRole("link", { name: "Refresh resume" }).click();
+  await expect(page).toHaveURL(
+    new RegExp(encodeURIComponent(fixture.resumeUrl.split("=").at(-1) ?? "")),
+  );
+  await gotoWithRetry(page, fixture.url);
+  await expect(page.getByPlaceholder("输入你的想法或任务")).toHaveValue("保留这段移动端草稿");
   await expectNoHorizontalOverflow(page);
   await expectMinimumTargetSize(page);
+});
+
+test("keeps the focused Workbench flow usable on a tablet", async ({ page }) => {
+  const fixture = JSON.parse(await readFile(e2eWorkspacePath, "utf8")) as { url: string };
+  await page.setViewportSize({ width: 768, height: 1024 });
+  await gotoWithRetry(page, fixture.url);
+
+  await expect(page.getByTestId("chat-panel")).toBeVisible();
+  await expect(page.getByTestId("studio-panel")).toBeHidden();
+  await expect(page.getByTestId("sources-panel")).toBeHidden();
+  await page.getByRole("button", { name: "打开添加菜单" }).click();
+  await page.getByRole("menuitem", { name: /资料来源/ }).click();
+  await expect(page.getByTestId("sources-panel")).toBeVisible();
+  await page.getByRole("button", { name: "返回对话" }).click();
+  await expect(page.getByPlaceholder("输入你的想法或任务")).toBeVisible();
+  await expectNoHorizontalOverflow(page);
+  await expectMinimumTargetSize(page);
+});
+
+test("keeps the phone Workbench usable in landscape", async ({ page }) => {
+  const fixture = JSON.parse(await readFile(e2eWorkspacePath, "utf8")) as { url: string };
+  await page.setViewportSize({ width: 812, height: 375 });
+  await gotoWithRetry(page, fixture.url);
+
+  const composer = page.getByPlaceholder("输入你的想法或任务");
+  await expect(page.getByTestId("chat-panel")).toBeVisible();
+  await expect(composer).toBeVisible();
+  await expectInsideViewport(page, composer);
+  await expectNoHorizontalOverflow(page);
 });
 
 test("keeps the desktop Workbench usable at 1024 by 768", async ({ page }) => {
@@ -326,3 +386,35 @@ test("keeps the desktop Workbench usable at 1024 by 768", async ({ page }) => {
   expect(dictationButton.width).toBeGreaterThanOrEqual(24);
   expect(dictationButton.height).toBeGreaterThanOrEqual(24);
 });
+
+for (const viewport of [
+  { width: 1280, height: 800 },
+  { width: 1440, height: 900 },
+] as const) {
+  test(`keeps the desktop Workbench usable at ${viewport.width} by ${viewport.height}`, async ({
+    page,
+  }) => {
+    const fixture = JSON.parse(await readFile(e2eWorkspacePath, "utf8")) as { url: string };
+    await page.setViewportSize(viewport);
+    await gotoWithRetry(page, fixture.url);
+    await waitForWorkbenchLayout(page);
+
+    const panels = await Promise.all(
+      ["studio-panel", "chat-panel", "sources-panel"].map(async (testId) => {
+        const locator = page.getByTestId(testId);
+        await expect(locator).toBeVisible();
+        const box = await locator.boundingBox();
+        if (!box) throw new Error(`Missing ${testId}`);
+        return box;
+      }),
+    );
+    const [studio, chat, sources] = panels;
+    if (!studio || !chat || !sources) throw new Error("Missing Workbench panels");
+    expect(studio.x + studio.width).toBeLessThanOrEqual(chat.x);
+    expect(chat.x + chat.width).toBeLessThanOrEqual(sources.x);
+    expect(sources.x + sources.width).toBeLessThanOrEqual(viewport.width - 24);
+    await expect(page.getByPlaceholder("输入你的想法或任务")).toBeVisible();
+    await expectNoHorizontalOverflow(page);
+    await expectMinimumTargetSize(page);
+  });
+}
