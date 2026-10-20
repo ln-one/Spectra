@@ -4,6 +4,8 @@ import { authRecoveryHref } from "@/features/auth/redirect";
 import { getAuthSession } from "@/features/auth/session";
 import { getCurrentActor } from "@/features/identity/current";
 import { IdentityError } from "@/features/identity/errors";
+import { workspaceHref } from "@/features/workspaces/address";
+import { MobileConversationEntry } from "@/features/workspaces/dashboard/MobileConversationEntry";
 import { WorkspaceDashboardView } from "@/features/workspaces/dashboard/WorkspaceDashboardView";
 import { listSharedWorkspaces, listWorkspaces } from "@/features/workspaces/service";
 import {
@@ -18,21 +20,31 @@ export default async function WorkspacesPage() {
       listWorkspaces(actor),
       listSharedWorkspaces(actor),
     ]);
+    const destinations = [...workspaces, ...sharedWorkspaces]
+      .filter(
+        (workspace) => !workspace.archivedAt && workspace.permissions?.includes("workspace.chat"),
+      )
+      .sort(
+        (left, right) => new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime(),
+      )
+      .map((workspace) => ({ href: workspaceHref(workspace), name: workspace.name }));
     return (
-      <WorkspaceDashboardView
-        accountMenu={
-          <AccountMenu
-            handle={actor.handle}
-            email={session?.user.email ?? ""}
-            appearance="dashboard"
-          />
-        }
-        now={new Date().toISOString()}
-        archiveAction={setWorkspaceArchiveStateFromDashboard}
-        renameAction={renameWorkspaceFromDashboard}
-        sharedWorkspaces={sharedWorkspaces}
-        workspaces={workspaces}
-      />
+      <MobileConversationEntry destinations={destinations}>
+        <WorkspaceDashboardView
+          accountMenu={
+            <AccountMenu
+              handle={actor.handle}
+              email={session?.user.email ?? ""}
+              appearance="dashboard"
+            />
+          }
+          now={new Date().toISOString()}
+          archiveAction={setWorkspaceArchiveStateFromDashboard}
+          renameAction={renameWorkspaceFromDashboard}
+          sharedWorkspaces={sharedWorkspaces}
+          workspaces={workspaces}
+        />
+      </MobileConversationEntry>
     );
   } catch (error) {
     if (error instanceof IdentityError) {
