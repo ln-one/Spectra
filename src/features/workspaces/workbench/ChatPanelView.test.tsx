@@ -207,9 +207,8 @@ test("restores the composer draft for the current conversation", async () => {
   const firstRender = renderChat();
   const firstInput = await readyComposerInput();
   fireEvent.change(firstInput, { target: { value: "保留这段移动端草稿" } });
-  await waitFor(() =>
-    expect(window.sessionStorage.getItem(draftStorageKey)).toBe("保留这段移动端草稿"),
-  );
+  await waitFor(() => expect(firstInput).toHaveValue("保留这段移动端草稿"));
+  expect(window.sessionStorage.getItem(draftStorageKey)).toBeNull();
   firstRender.unmount();
 
   renderChat();
@@ -571,6 +570,63 @@ test("restores a typed Artifact card from message history", async () => {
   ]);
 
   expect(await screen.findByText("凸轮轴知识图")).toBeInTheDocument();
+});
+
+test("recovers an artifact from its source message when the event was not persisted", async () => {
+  renderWithIntl(
+    <ChatPanelView
+      artifactHistory={[
+        {
+          createdAt: "2026-07-30T00:00:00.000Z",
+          currentRevisionId: null,
+          generationState: "generating",
+          id: "00000000-0000-4000-8000-000000000099",
+          kind: "mind_map",
+          sourceUserMessageId: "user:recover",
+          title: "恢复的知识图",
+          updatedAt: "2026-07-30T00:00:00.000Z",
+        },
+      ]}
+      conversationId={conversationId}
+      messages={[
+        { id: "user:recover", parts: [{ text: "生成知识图", type: "text" }], role: "user" },
+      ]}
+      selectedSourceCount={0}
+      subtitle="知识助手"
+      title="对话"
+      workspaceId={workspaceId}
+    />,
+  );
+  expect(await screen.findByText("恢复的知识图")).toBeInTheDocument();
+  expect(screen.getByText("生成中")).toBeInTheDocument();
+});
+
+test("renders one card when the same artifact event appears more than once", async () => {
+  const data = {
+    artifact: null,
+    createdAt: "2026-07-30T00:00:00.000Z",
+    draft: null,
+    failureCode: null,
+    generationAttemptId: null,
+    generationSequence: 0,
+    generationState: "queued" as const,
+    id: "00000000-0000-4000-8000-000000000099",
+    kind: "mind_map" as const,
+    title: "去重知识图",
+    updatedAt: "2026-07-30T00:00:00.000Z",
+    workspaceId,
+  };
+  renderChat([
+    {
+      id: "assistant:duplicate",
+      parts: [
+        { data, type: "data-artifactStarted" },
+        { data, type: "data-artifactStarted" },
+      ],
+      role: "assistant",
+    },
+  ]);
+  expect(await screen.findAllByText("去重知识图")).toHaveLength(1);
 });
 
 test("sends the complete visible branch through the official transport", async () => {

@@ -51,13 +51,17 @@ import {
 } from "@/features/agents/artifact-plan-contract";
 import type { KnowledgeCitationEvidence } from "@/features/agents/knowledge-citation-contract";
 import { KNOWLEDGE_AGENT_TOOL_IDS } from "@/features/agents/knowledge-tool-contract";
-import type { AgentSurfaceContext } from "@/features/agents/surface-context";
+import {
+  type AgentSurfaceContext,
+  agentSurfaceContextSchema,
+} from "@/features/agents/surface-context";
 import type { ThreadTitleUpdate } from "@/features/agents/thread-events";
 import type { ArtifactSelection } from "@/features/artifacts/contract";
 import type { ArtifactEditProposal } from "@/features/artifacts/proposal-contract";
 import type { ArtifactHistoryItem, ArtifactKind } from "@/features/artifacts/types";
 import { parseArtifactStreamEvent } from "@/features/artifacts/workbench-client";
 import { ArtifactResultCard } from "./ArtifactResultCard";
+import { CreationToolMessageBadge } from "./CreationToolMessageBadge";
 import {
   KnowledgeEvidenceBoundary,
   KnowledgeEvidencePopover,
@@ -262,36 +266,24 @@ function ProjectedMarkdownText({ visibleIndexes }: { visibleIndexes: ReadonlySet
   return <MarkdownText partIndex={selector.index} />;
 }
 
-function isLatestArtifactEvent(event: ArtifactStreamEvent, events: readonly ArtifactStreamEvent[]) {
-  let latest: ArtifactStreamEvent | undefined;
-  for (let index = events.length - 1; index >= 0; index -= 1) {
-    if (events[index]?.detail.id === event.detail.id) {
-      latest = events[index];
-      break;
-    }
-  }
-  if (!latest) return true;
-  return (
-    latest.detail.generationSequence === event.detail.generationSequence &&
-    latest.detail.generationState === event.detail.generationState &&
-    latest.detail.updatedAt === event.detail.updatedAt
-  );
-}
-
 function AssistantMessage({
   artifactHistory,
+  artifactHistoryError,
   conversationId,
   onOpenArtifact,
   onArtifactEvent,
   onOpenKnowledgeNetwork,
   unavailableArtifactIds,
   workspaceId,
+  onRetryArtifact,
 }: {
   artifactHistory?: readonly ArtifactHistoryItem[] | undefined;
+  artifactHistoryError?: boolean | undefined;
   conversationId: string;
   onOpenArtifact?: ((artifactId: string) => void) | undefined;
   onArtifactEvent?: ((event: ArtifactStreamEvent) => void) | undefined;
   onOpenKnowledgeNetwork?: ((evidence: KnowledgeCitationEvidence) => void) | undefined;
+  onRetryArtifact?: ((artifactId: string) => Promise<void>) | undefined;
   unavailableArtifactIds?: ReadonlySet<string> | undefined;
   workspaceId: string;
 }) {
@@ -314,6 +306,18 @@ function AssistantMessage({
     return null;
   });
   const messageParts = useAuiState((state) => state.message.parts);
+  const messageId = useAuiState((state) => state.message.id);
+  const threadMessages = useAuiState((state) => state.thread.messages);
+  const latestArtifactPositions = useMemo(() => {
+    const positions = new Map<string, { messageId: string; index: number }>();
+    for (const message of threadMessages) {
+      message.parts.forEach((part, index) => {
+        const event = parseArtifactStreamEvent(part);
+        if (event) positions.set(event.detail.id, { messageId: message.id, index });
+      });
+    }
+    return positions;
+  }, [threadMessages]);
   const visibleTextPartIndexes = useMemo(
     () => visibleAssistantTextPartIndexes(messageParts),
     [messageParts],
@@ -390,15 +394,19 @@ function AssistantMessage({
                     }
                     const artifactEvent = parseArtifactStreamEvent(part);
                     if (artifactEvent) {
-                      if (!isLatestArtifactEvent(artifactEvent, artifactDataEvents)) return null;
+                      const position = latestArtifactPositions.get(artifactEvent.detail.id);
+                      if (position?.messageId !== messageId) return null;
                       return (
                         <ArtifactDataPart
                           artifactEvent={artifactEvent}
                           artifactHistory={artifactHistory}
+                          historyUnavailable={artifactHistoryError}
                           conversationId={conversationId}
                           isLive={isLast && isRunning}
+                          latestPartIndex={position.index}
                           onArtifactEvent={onArtifactEvent}
                           onOpenArtifact={onOpenArtifact}
+                          onRetryArtifact={onRetryArtifact}
                           sourceUserMessageId={sourceUserMessageId}
                           unavailableArtifactIds={unavailableArtifactIds}
                         />
@@ -456,32 +464,45 @@ function AssistantMessage({
 function ArtifactDataPart({
   artifactEvent,
   artifactHistory,
+  historyUnavailable,
   conversationId,
   isLive,
+  latestPartIndex,
   onArtifactEvent,
   onOpenArtifact,
+  onRetryArtifact,
   sourceUserMessageId,
   unavailableArtifactIds,
 }: {
   artifactEvent: ArtifactStreamEvent;
   artifactHistory?: readonly ArtifactHistoryItem[] | undefined;
+  historyUnavailable?: boolean | undefined;
   conversationId: string;
   isLive: boolean;
+  latestPartIndex: number;
   onArtifactEvent?: ((event: ArtifactStreamEvent) => void) | undefined;
   onOpenArtifact?: ((artifactId: string) => void) | undefined;
+  onRetryArtifact?: ((artifactId: string) => Promise<void>) | undefined;
   sourceUserMessageId: string | null;
   unavailableArtifactIds?: ReadonlySet<string> | undefined;
 }) {
+  const aui = useAui();
+  const part = aui.part;
+  const isLatest =
+    part.source === "message" &&
+    part.query.type === "index" &&
+    part.query.index === latestPartIndex;
   const reportedRef = useRef(false);
   useEffect(() => {
-    if (reportedRef.current) return;
+    if (!isLatest || reportedRef.current) return;
     reportedRef.current = true;
     onArtifactEvent?.({
       ...artifactEvent,
       ...(!isLive ? { replayedFromHistory: true } : {}),
       ...(sourceUserMessageId ? { sourceUserMessageId } : {}),
     });
-  }, [artifactEvent, isLive, onArtifactEvent, sourceUserMessageId]);
+  }, [artifactEvent, isLatest, isLive, onArtifactEvent, sourceUserMessageId]);
+  if (!isLatest) return null;
   return (
     <ArtifactResultCard
       artifactHistory={artifactHistory}
@@ -490,14 +511,55 @@ function ArtifactDataPart({
       fallbackKind={artifactEvent.detail.kind}
       fallbackState={artifactEvent.detail.generationState}
       fallbackTitle={artifactEvent.detail.title}
+      historyUnavailable={historyUnavailable}
       onOpenArtifact={onOpenArtifact}
+      onRetryArtifact={onRetryArtifact}
       unavailableArtifactIds={unavailableArtifactIds}
     />
   );
 }
 
-function UserMessage() {
+function UserMessage({
+  artifactHistory,
+  artifactHistoryError,
+  conversationId,
+  onOpenArtifact,
+  onRetryArtifact,
+  unavailableArtifactIds,
+}: {
+  artifactHistory?: readonly ArtifactHistoryItem[] | undefined;
+  artifactHistoryError?: boolean | undefined;
+  conversationId: string;
+  onOpenArtifact?: ((artifactId: string) => void) | undefined;
+  onRetryArtifact?: ((artifactId: string) => Promise<void>) | undefined;
+  unavailableArtifactIds?: ReadonlySet<string> | undefined;
+}) {
   const t = useTranslations("Workbench");
+  const messageId = useAuiState((state) => state.message.id);
+  const creationKind = useAuiState((state) => {
+    const metadata = state.message.metadata;
+    if (!metadata || typeof metadata !== "object") return null;
+    const surface = agentSurfaceContextSchema.safeParse(
+      Reflect.get(metadata, "spectraSurfaceContext"),
+    );
+    return surface.success && surface.data.type === "artifact_start" ? surface.data.kind : null;
+  });
+  const threadMessages = useAuiState((state) => state.thread.messages);
+  const recoveredArtifacts = useMemo(() => {
+    const eventIds = new Set(
+      threadMessages.flatMap((message) =>
+        message.parts.flatMap((part) => {
+          const event = parseArtifactStreamEvent(part);
+          return event ? [event.detail.id] : [];
+        }),
+      ),
+    );
+    return (
+      artifactHistory?.filter(
+        (artifact) => artifact.sourceUserMessageId === messageId && !eventIds.has(artifact.id),
+      ) ?? []
+    );
+  }, [artifactHistory, messageId, threadMessages]);
   const canEdit = useAuiState((state) => {
     if (state.thread.isRunning) return false;
     const currentIndex = state.thread.messages.findIndex(
@@ -521,9 +583,10 @@ function UserMessage() {
     <MessagePrimitive.Root className="group flex w-full flex-col items-end">
       <div className="flex w-full min-w-0 flex-1 flex-col items-end gap-1.5">
         <div className="w-fit max-w-[78%] select-text rounded-2xl rounded-tr-sm bg-[var(--workspace-surface-muted)] px-4 py-2.5 text-left text-[15px] leading-relaxed text-[var(--workspace-text-primary)]">
+          {creationKind ? <CreationToolMessageBadge kind={creationKind} /> : null}
           <MessagePrimitive.Parts />
         </div>
-        {canEdit ? (
+        {canEdit && recoveredArtifacts.length === 0 ? (
           <ActionBarPrimitive.Root className="flex items-center text-[var(--workspace-text-muted)] opacity-60 transition-opacity md:opacity-0 md:group-focus-within:opacity-100 md:group-hover:opacity-100">
             <ActionBarPrimitive.Edit
               aria-label={t("editMessage")}
@@ -534,6 +597,22 @@ function UserMessage() {
           </ActionBarPrimitive.Root>
         ) : null}
       </div>
+      {recoveredArtifacts.map((artifact) => (
+        <div key={artifact.id} className="mt-2 w-full self-start">
+          <ArtifactResultCard
+            artifactHistory={artifactHistory}
+            artifactId={artifact.id}
+            conversationId={conversationId}
+            fallbackKind={artifact.kind}
+            fallbackState={artifact.generationState}
+            fallbackTitle={artifact.title}
+            historyUnavailable={artifactHistoryError}
+            onOpenArtifact={onOpenArtifact}
+            onRetryArtifact={onRetryArtifact}
+            unavailableArtifactIds={unavailableArtifactIds}
+          />
+        </div>
+      ))}
     </MessagePrimitive.Root>
   );
 }
@@ -580,9 +659,9 @@ function UserEditComposer() {
   );
 }
 
-function UserMessageSlot() {
+function UserMessageSlot(props: Parameters<typeof UserMessage>[0]) {
   const isEditing = useAuiState((state) => state.message.composer.isEditing);
-  return isEditing ? <UserEditComposer /> : <UserMessage />;
+  return isEditing ? <UserEditComposer /> : <UserMessage {...props} />;
 }
 
 function ComposerAction() {
@@ -663,16 +742,26 @@ function DictationErrorNotice() {
 
 function WorkbenchComposerInput({
   composerInputRef,
+  selectedCreationTool,
 }: {
   composerInputRef: RefObject<HTMLTextAreaElement | null>;
+  selectedCreationTool?: StudioToolId | null;
 }) {
   const t = useTranslations("Workbench");
   return (
     <ComposerPrimitive.Input
       ref={composerInputRef}
-      placeholder={t("composerPlaceholder")}
+      placeholder={
+        selectedCreationTool === "mind-map"
+          ? t("mindMapComposerPlaceholder")
+          : selectedCreationTool
+            ? t("creationToolComposerPlaceholder", {
+                name: t(STUDIO_TOOL_PRESENTATIONS[selectedCreationTool].labelKey),
+              })
+            : t("composerPlaceholder")
+      }
       submitMode="enter"
-      className="workspace-chat-composer-input relative z-10 min-h-[44px] w-full select-text resize-none overflow-hidden border-none bg-transparent px-3 py-2.5 text-sm leading-5 text-[var(--workspace-text-primary)] outline-none disabled:cursor-wait disabled:opacity-60"
+      className="workspace-chat-composer-input relative z-10 min-h-[44px] w-full select-text resize-none overflow-hidden border-none bg-transparent px-3 py-2.5 text-base leading-6 text-[var(--workspace-text-primary)] outline-none disabled:cursor-wait disabled:opacity-60 lg:text-sm lg:leading-5"
       minRows={2}
       rows={1}
     />
@@ -749,7 +838,9 @@ export function ChatPanelView({
   onArtifactEvent,
   onUserMessageCreated,
   artifactHistory,
+  artifactHistoryError,
   onOpenArtifact,
+  onRetryArtifact,
   unavailableArtifactIds,
   artifactContext,
   artifactSelection,
@@ -762,6 +853,7 @@ export function ChatPanelView({
   onClearCreationTool,
 }: ChatPanelViewProps & {
   artifactHistory?: readonly ArtifactHistoryItem[] | undefined;
+  artifactHistoryError?: boolean | undefined;
   surfaceContext?: AgentSurfaceContext;
   composerSuggestion?: ComposerSuggestion | null | undefined;
   onComposerSuggestionConsumed?: ((id: number) => void) | undefined;
@@ -771,6 +863,7 @@ export function ChatPanelView({
   onArtifactEvent?: ((event: ArtifactStreamEvent) => void) | undefined;
   onUserMessageCreated?: ((snapshot: UserMessageSurfaceSnapshot) => void) | undefined;
   onOpenArtifact?: ((artifactId: string) => void) | undefined;
+  onRetryArtifact?: ((artifactId: string) => Promise<void>) | undefined;
   unavailableArtifactIds?: ReadonlySet<string> | undefined;
   artifactContext?:
     | { kind: Exclude<ArtifactKind, "presentation">; title: string }
@@ -871,13 +964,22 @@ export function ChatPanelView({
                   <ThreadPrimitive.Messages>
                     {({ message }) =>
                       message.role === "user" ? (
-                        <UserMessageSlot />
+                        <UserMessageSlot
+                          artifactHistory={artifactHistory}
+                          artifactHistoryError={artifactHistoryError}
+                          conversationId={conversationId}
+                          onOpenArtifact={onOpenArtifact}
+                          onRetryArtifact={onRetryArtifact}
+                          unavailableArtifactIds={unavailableArtifactIds}
+                        />
                       ) : (
                         <AssistantMessage
                           artifactHistory={artifactHistory}
+                          artifactHistoryError={artifactHistoryError}
                           conversationId={conversationId}
                           onArtifactEvent={onArtifactEvent}
                           onOpenArtifact={onOpenArtifact}
+                          onRetryArtifact={onRetryArtifact}
                           onOpenKnowledgeNetwork={onOpenKnowledgeNetwork}
                           unavailableArtifactIds={unavailableArtifactIds}
                           workspaceId={workspaceId}
@@ -900,7 +1002,7 @@ export function ChatPanelView({
                 <ArrowDown className="relative h-4 w-4" />
               </ThreadPrimitive.ScrollToBottom>
             </ThreadPrimitive.Viewport>
-            <div className="relative z-10 shrink-0 bg-[var(--workspace-surface)] px-4 pt-2 pb-3">
+            <div className="workspace-mobile-composer-surface relative z-10 shrink-0 bg-[var(--workspace-surface)] px-4 pt-2 pb-3">
               <div className="relative">
                 <DictationErrorNotice />
                 <Popover.Root>
@@ -986,7 +1088,10 @@ export function ChatPanelView({
                           </div>
                         ) : null}
                         <div className="workspace-chat-composer-scroll max-h-[176px] min-w-0 overflow-y-auto overscroll-y-contain">
-                          <WorkbenchComposerInput composerInputRef={composerInputRef} />
+                          <WorkbenchComposerInput
+                            composerInputRef={composerInputRef}
+                            selectedCreationTool={selectedCreationTool}
+                          />
                         </div>
                         <div className="flex h-10 w-full items-center justify-between px-1">
                           <div className="flex min-w-0 items-center gap-1">

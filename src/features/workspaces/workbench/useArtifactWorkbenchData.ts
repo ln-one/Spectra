@@ -2,15 +2,17 @@
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo } from "react";
+import { z } from "zod";
 import { type ArtifactDetail, artifactDetailSchema } from "@/features/artifacts/contract";
 import type { ArtifactEditProposal } from "@/features/artifacts/proposal-contract";
-import type { ArtifactHistoryItem } from "@/features/artifacts/types";
+import { type ArtifactHistoryItem, artifactHistoryItemSchema } from "@/features/artifacts/types";
 import {
   artifactWorkbenchQueryKeys,
   dismissArtifactProposal,
   fetchArtifactDetail,
   fetchArtifactHistory,
   fetchCurrentArtifactProposal,
+  mergeArtifactHistory,
   upsertArtifactHistory,
 } from "@/features/artifacts/workbench-client";
 import {
@@ -38,13 +40,21 @@ export function useArtifactWorkbenchData(input: {
     queryFn: () => fetchArtifactHistory(input.workspaceId, input.conversationId),
     queryKey: historyQueryKey,
     refetchInterval: (query) => artifactHistoryRefetchInterval(query.state.data),
+    refetchOnWindowFocus: "always",
     staleTime: 30_000,
+    structuralSharing: (cached, server) => {
+      const previous = z.array(artifactHistoryItemSchema).safeParse(cached);
+      const next = z.array(artifactHistoryItemSchema).safeParse(server);
+      return next.success
+        ? mergeArtifactHistory(previous.success ? previous.data : undefined, next.data)
+        : server;
+    },
   });
 
   useEffect(() => {
-    queryClient.setQueryData<ArtifactHistoryItem[]>(historyQueryKey, [
-      ...input.initialArtifactHistory,
-    ]);
+    queryClient.setQueryData<ArtifactHistoryItem[]>(historyQueryKey, (current) =>
+      mergeArtifactHistory(current, input.initialArtifactHistory),
+    );
   }, [historyQueryKey, input.initialArtifactHistory, queryClient]);
 
   const visibleArtifactHistory = useMemo(
@@ -118,6 +128,9 @@ export function useArtifactWorkbenchData(input: {
     queryClient.setQueryData<ArtifactHistoryItem[]>(historyQueryKey, (current = []) =>
       upsertArtifactHistory(current, artifactDetail, { insertIfMissing: false }),
     );
+    if (artifactDetail.generationState === "failed") {
+      void queryClient.invalidateQueries({ queryKey: historyQueryKey });
+    }
     if (artifactDetail !== artifactQuery.data) {
       queryClient.setQueryData(
         artifactWorkbenchQueryKeys.detail(

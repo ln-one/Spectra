@@ -39,6 +39,22 @@ export const CreationToolSelected: Story = {
   },
 };
 
+export const SentMindMapRequest: Story = {
+  args: {
+    ...baseArgs,
+    messages: [
+      {
+        id: "user-mind-map-story",
+        metadata: {
+          spectraSurfaceContext: { kind: "mind_map", type: "artifact_start" },
+        },
+        parts: [{ text: "梳理机器学习基础", type: "text" }],
+        role: "user",
+      },
+    ],
+  },
+};
+
 export const WithConversation: Story = {
   args: {
     ...baseArgs,
