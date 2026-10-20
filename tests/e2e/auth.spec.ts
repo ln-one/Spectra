@@ -58,7 +58,7 @@ test.describe("authentication flow", () => {
       data: {
         name: "password-policy-e2e",
         email: "password-policy-e2e@example.com",
-        password: "onlyletters",
+        password: "aB7!q2X",
       },
     });
 

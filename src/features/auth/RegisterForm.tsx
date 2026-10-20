@@ -82,7 +82,7 @@ export function RegisterForm({
       }
       const invalidPassword = passwordError(password);
       if (invalidPassword === "password_short") {
-        setError(t("passwordTooShort", { count: password.length }));
+        setError(t("passwordTooShort"));
         return;
       }
       if (invalidPassword === "password_long") {

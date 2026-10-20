@@ -38,6 +38,19 @@ test("marks email as the saved login identifier instead of the public handle", (
   expect(screen.getByLabelText("用户名")).toHaveAttribute("autocomplete", "nickname");
 });
 
+test("shows the required password length when the password is too short", () => {
+  renderWithIntl(
+    <RegisterForm redirectPath="/workspaces" onboardingOnly={false} signUpEnabled={true} />,
+  );
+  fillRegistrationForm();
+  fireEvent.change(screen.getByLabelText("密码"), { target: { value: "a1" } });
+  fireEvent.change(screen.getByLabelText("确认密码"), { target: { value: "a1" } });
+  fireEvent.submit(screen.getByLabelText("密码").closest("form") as HTMLFormElement);
+
+  expect(screen.getByRole("alert")).toHaveTextContent("密码至少需要 8 位。");
+  expect(authClient.signUp.email).not.toHaveBeenCalled();
+});
+
 test("sends verification before principal onboarding", async () => {
   renderWithIntl(
     <RegisterForm redirectPath="/workspaces" onboardingOnly={false} signUpEnabled={true} />,
