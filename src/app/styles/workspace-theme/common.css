@@ -301,6 +301,84 @@ html[data-focus-modality="pointer"]
 }
 
 @media (max-width: 1023px) {
+  [data-workspace-theme] .workspace-artifact-desktop-panels {
+    display: none;
+  }
+
+  [data-workspace-theme] .workspace-header-shell {
+    position: relative;
+    z-index: 1;
+    border-bottom: 1px solid var(--workspace-border);
+    background: color-mix(in srgb, var(--workspace-surface) 88%, transparent);
+    backdrop-filter: blur(16px) saturate(130%);
+  }
+
+  [data-workspace-theme] .workspace-mobile-composer-surface {
+    background: color-mix(in srgb, var(--workspace-surface) 90%, transparent);
+    backdrop-filter: blur(16px) saturate(130%);
+  }
+
+  [data-workspace-theme] .workspace-chat-input-shell {
+    border-color: color-mix(in srgb, var(--mind-map-branch-2) 18%, var(--workspace-border));
+    background: color-mix(in srgb, var(--workspace-surface-elevated) 87%, transparent);
+    box-shadow: 0 8px 24px rgb(0 0 0 / 0.045);
+  }
+
+  [data-workspace-theme] .workspace-chat-input-shell:focus-within {
+    border-color: color-mix(in srgb, var(--mind-map-branch-2) 46%, var(--workspace-border-strong));
+  }
+
+  .workspace-mobile-drawer [aria-current="location"] {
+    background: color-mix(in srgb, var(--mind-map-branch-2) 7%, transparent);
+  }
+
+  .workspace-mobile-drawer [aria-current="page"] {
+    color: var(--workspace-text-primary);
+  }
+
+  [data-workspace-theme] .workspace-workbench-background {
+    background-image:
+      radial-gradient(
+        circle at 10% 4%,
+        color-mix(in srgb, var(--mind-map-branch-2) 8%, transparent),
+        transparent 38%
+      ),
+      radial-gradient(
+        circle at 90% 80%,
+        color-mix(in srgb, var(--mind-map-branch-3) 5%, transparent),
+        transparent 44%
+      ),
+      linear-gradient(135deg, var(--workspace-bg-start), var(--workspace-bg-end));
+  }
+
+  [data-workspace-theme] .workspace-mobile-artifact-layout > * {
+    min-width: 0;
+  }
+
+  [data-workspace-theme] .workspace-mobile-artifact-layout .workspace-artifact-header {
+    height: auto;
+    min-height: 3.625rem;
+    flex-wrap: wrap;
+    padding-block: 0.5rem;
+  }
+
+  [data-workspace-theme] .workspace-mobile-artifact-layout .workspace-artifact-canvas {
+    min-width: 0;
+  }
+
+  [data-workspace-theme]
+    .workspace-mobile-artifact-layout
+    :where(h1, .workspace-document-title-input) {
+    font-size: clamp(1.5rem, 7vw, 2.25rem);
+    overflow-wrap: anywhere;
+  }
+
+  [data-workspace-theme]
+    .workspace-mobile-artifact-layout
+    :where(.teaching-document-editor, .teaching-document-markdown) {
+    overflow-wrap: anywhere;
+  }
+
   [data-workspace-theme] .workspace-mobile-panel-layout {
     padding: 0 0.5rem max(env(safe-area-inset-bottom), 1.5rem);
   }

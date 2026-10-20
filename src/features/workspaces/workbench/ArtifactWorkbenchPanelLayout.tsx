@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { type ReactNode, useLayoutEffect, useRef } from "react";
+import { type ReactNode, useLayoutEffect, useRef, useSyncExternalStore } from "react";
 import {
   Group,
   type GroupImperativeHandle,
@@ -15,6 +15,19 @@ const ARTIFACT_LAYOUTS = {
   compose: { artifact: 55, side: 45 },
   preview: { artifact: 68, side: 32 },
 } satisfies Record<ArtifactWorkbenchLayoutMode, Record<"artifact" | "side", number>>;
+
+const mobileArtifactQuery = "(max-width: 1023px)";
+
+function subscribeToMobileLayout(change: () => void) {
+  if (typeof window.matchMedia !== "function") return () => undefined;
+  const query = window.matchMedia(mobileArtifactQuery);
+  query.addEventListener("change", change);
+  return () => query.removeEventListener("change", change);
+}
+
+function isMobileArtifactLayout() {
+  return typeof window.matchMedia === "function" && window.matchMedia(mobileArtifactQuery).matches;
+}
 
 // Panel border + header + body padding, followed by 55px cards with an 8px gap.
 const SOURCE_PANEL_CHROME_HEIGHT = 61;
@@ -51,6 +64,11 @@ export function ArtifactWorkbenchPanelLayout({
   sources: ReactNode;
 }) {
   const t = useTranslations("Workbench");
+  const isMobile = useSyncExternalStore(
+    subscribeToMobileLayout,
+    isMobileArtifactLayout,
+    () => false,
+  );
   const outerGroupRef = useRef<GroupImperativeHandle | null>(null);
   const sourcesPanelRef = useRef<PanelImperativeHandle | null>(null);
   const initialLayoutModeRef = useRef(layoutMode);
@@ -59,13 +77,22 @@ export function ArtifactWorkbenchPanelLayout({
   );
 
   useLayoutEffect(() => {
+    if (isMobile) return;
     outerGroupRef.current?.setLayout(ARTIFACT_LAYOUTS[layoutMode]);
     sourcesPanelRef.current?.resize(`${sourcePanelHeightForRows(SOURCE_PANEL_ROWS[layoutMode])}px`);
-  }, [layoutMode]);
+  }, [isMobile, layoutMode]);
+
+  if (isMobile) {
+    return (
+      <div className="workspace-mobile-artifact-layout h-full min-h-0 min-w-0 px-2 pb-[max(env(safe-area-inset-bottom),0.5rem)]">
+        {artifact}
+      </div>
+    );
+  }
 
   return (
     <Group
-      className="h-full px-6 pb-6"
+      className="workspace-artifact-desktop-panels h-full px-6 pb-6"
       defaultLayout={ARTIFACT_LAYOUTS[initialLayoutModeRef.current]}
       groupRef={outerGroupRef}
       id="artifact-workbench-panels"
