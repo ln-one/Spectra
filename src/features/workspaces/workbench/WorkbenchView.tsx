@@ -1,6 +1,6 @@
 "use client";
 
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { ArrowLeft, X } from "lucide-react";
 import { animate } from "motion";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -19,7 +19,10 @@ import type { KnowledgeCitationEvidence } from "@/features/agents/knowledge-cita
 import type { AgentSurfaceContext } from "@/features/agents/surface-context";
 import type { ThreadTitleUpdate } from "@/features/agents/thread-events";
 import type { ArtifactDetail, ArtifactSelection } from "@/features/artifacts/contract";
-import { artifactKindForInteractionSelection } from "@/features/artifacts/contract";
+import {
+  artifactHistoryItemFromDetail,
+  artifactKindForInteractionSelection,
+} from "@/features/artifacts/contract";
 import type { ArtifactEditProposal } from "@/features/artifacts/proposal-contract";
 import type { ArtifactHistoryItem } from "@/features/artifacts/types";
 import {
@@ -29,6 +32,8 @@ import {
   artifactWorkbenchQueryKeys,
   deleteArtifact,
   fetchArtifactDetail,
+  fetchWorkspaceArtifactHistory,
+  retryArtifactGeneration,
 } from "@/features/artifacts/workbench-client";
 import {
   type KnowledgeNetworkGraphCitationFocus,
@@ -75,6 +80,7 @@ import {
 import { ChatPanelView } from "./ChatPanelView";
 import { KnowledgeNetworkHostProvider } from "./KnowledgeNetworkHostContext";
 import { beginKnowledgeNetworkNavigation } from "./knowledge-network-navigation";
+import { MobileCreationToolsPage } from "./MobileCreationToolsPage";
 import { MobileWorkspaceOverview } from "./MobileWorkspaceOverview";
 import { PanelShell } from "./PanelShell";
 import { StudioPanelView } from "./StudioPanelView";
@@ -93,7 +99,11 @@ import type {
   ComposerSuggestion,
   UserMessageSurfaceSnapshot,
 } from "./WorkbenchChatRuntime";
-import { startWorkbenchPanelTransition, WorkbenchPanelLayout } from "./WorkbenchPanelLayout";
+import {
+  mobilePanelPreferenceKey,
+  startWorkbenchPanelTransition,
+  WorkbenchPanelLayout,
+} from "./WorkbenchPanelLayout";
 import { WorkspaceHeaderView } from "./WorkspaceHeaderView";
 
 export function startWorkbenchViewTransition(update: () => void) {
@@ -271,6 +281,7 @@ export function WorkbenchView({
   workspaceHref,
   workspaceSlug,
   workspaceOwnerHandle = "",
+  mobileCreationTools = false,
   mobileOverview = false,
   navigationWorkspaces = [],
   sourceCount = 0,
@@ -301,6 +312,7 @@ export function WorkbenchView({
   workspaceHref: string;
   workspaceSlug: string | null;
   workspaceOwnerHandle?: string;
+  mobileCreationTools?: boolean;
   mobileOverview?: boolean;
   navigationWorkspaces?: readonly MobileWorkspaceNavigationItem[];
   sourceCount?: number;
@@ -440,6 +452,7 @@ export function WorkbenchView({
   const [composerFocusRequest, setComposerFocusRequest] = useState(0);
   const [mobileCreationTool, setMobileCreationTool] = useState<ArtifactCreationToolId | null>(null);
   const [mobileChatFocusRequest, setMobileChatFocusRequest] = useState(0);
+  const [mobileSourcesFocusRequest, setMobileSourcesFocusRequest] = useState(0);
   const [artifactInteractionSelection, setArtifactInteractionSelection] =
     useState<ArtifactSelection | null>(null);
   const [artifactProposal, setArtifactProposal] = useState<ArtifactEditProposal | null>(null);
@@ -454,6 +467,13 @@ export function WorkbenchView({
   const [unavailableArtifactIds, setUnavailableArtifactIds] = useState<ReadonlySet<string>>(
     () => new Set(),
   );
+  const messageScope = `${workspaceId}:${conversationId}`;
+  const messageScopeRef = useRef(messageScope);
+  messageScopeRef.current = messageScope;
+  const [messageDetails, setMessageDetails] = useState<{
+    scope: string;
+    items: readonly ArtifactDetail[];
+  }>({ scope: messageScope, items: [] });
   const urlArtifactId = searchParams?.get("artifact") ?? null;
   const selectedArtifactId = selectedArtifactIdForState(artifactSelection, urlArtifactId);
   const conversationHref = `${workspaceHref}?conversation=${conversationId}`;
@@ -484,6 +504,20 @@ export function WorkbenchView({
     unavailableArtifactIds,
     workspaceId,
   });
+  const workspaceArtifactHistoryQueryKey = artifactWorkbenchQueryKeys.workspaceHistory(workspaceId);
+  const workspaceArtifactHistoryQuery = useQuery({
+    queryKey: workspaceArtifactHistoryQueryKey,
+    queryFn: () => fetchWorkspaceArtifactHistory(workspaceId),
+  });
+  const messageArtifactHistory = useMemo(() => {
+    const details = messageDetails.scope === messageScope ? messageDetails.items : [];
+    return [
+      ...visibleArtifactHistory,
+      ...details
+        .filter((detail) => !visibleArtifactHistory.some((item) => item.id === detail.id))
+        .map(artifactHistoryItemFromDetail),
+    ];
+  }, [messageDetails, messageScope, visibleArtifactHistory]);
   const runArtifactSourceTransition = useCallback<ArtifactSourceTransitionContextValue["run"]>(
     async (artifactId, destination, update) => {
       const finish = () => {
@@ -585,10 +619,11 @@ export function WorkbenchView({
       cacheDetail(detail);
       void Promise.all([
         queryClient.invalidateQueries({ queryKey: historyQueryKey }),
+        queryClient.invalidateQueries({ queryKey: workspaceArtifactHistoryQueryKey }),
         queryClient.invalidateQueries({ queryKey: ["workspace", workspaceId, "sources"] }),
       ]);
     },
-    [cacheDetail, historyQueryKey, queryClient, workspaceId],
+    [cacheDetail, historyQueryKey, queryClient, workspaceArtifactHistoryQueryKey, workspaceId],
   );
   useEffect(() => {
     setArtifactInteractionSelection((current) =>
@@ -622,6 +657,7 @@ export function WorkbenchView({
         queryClient.setQueryData(historyQueryKey, moved.history);
         queryClient.setQueryData(sourcesQueryKey, moved.sources);
       });
+      await queryClient.invalidateQueries({ queryKey: workspaceArtifactHistoryQueryKey });
     },
   });
   const deleteArtifactMutation = useMutation({
@@ -649,6 +685,7 @@ export function WorkbenchView({
         router.replace(conversationHref, { scroll: false });
       }
       await queryClient.invalidateQueries({ queryKey: historyQueryKey });
+      await queryClient.invalidateQueries({ queryKey: workspaceArtifactHistoryQueryKey });
     },
   });
   useEffect(() => {
@@ -683,7 +720,23 @@ export function WorkbenchView({
           conversationId,
           workspaceId,
         })
-          .then(cacheDetail)
+          .then((detail) => {
+            if (messageScopeRef.current !== messageScope) return;
+            cacheDetail(detail);
+            void Promise.all([
+              queryClient.invalidateQueries({ queryKey: historyQueryKey }),
+              queryClient.invalidateQueries({ queryKey: workspaceArtifactHistoryQueryKey }),
+            ]);
+            setMessageDetails((current) => ({
+              scope: messageScope,
+              items: [
+                ...(current.scope === messageScope
+                  ? current.items.filter((item) => item.id !== detail.id)
+                  : []),
+                detail,
+              ],
+            }));
+          })
           .catch((error: unknown) => {
             if (!(error instanceof ArtifactDetailError) || error.code !== "not_found") return;
             setUnavailableArtifactIds((current) => new Set(current).add(event.detail.id));
@@ -691,6 +744,7 @@ export function WorkbenchView({
         return;
       }
       cacheDetail(event.detail, { insertIntoHistory: true });
+      void queryClient.invalidateQueries({ queryKey: workspaceArtifactHistoryQueryKey });
       if (!isExpectedCreation) return;
       pendingCreationSourceUserMessageId.current = null;
       startWorkbenchViewTransition(() => {
@@ -703,10 +757,14 @@ export function WorkbenchView({
       artifactSelection,
       cacheDetail,
       conversationId,
+      historyQueryKey,
       initialArtifactHistory,
+      messageScope,
+      queryClient,
       router,
       unavailableArtifactIds,
       workspaceId,
+      workspaceArtifactHistoryQueryKey,
     ],
   );
   const openArtifactFromMessage = useCallback(
@@ -739,6 +797,30 @@ export function WorkbenchView({
       }
     },
     [artifactHref, conversationId, queryClient, router, workspaceId],
+  );
+  const retryArtifactFromMessage = useCallback(
+    async (artifactId: string) => {
+      const artifact = historyQuery.data.find((item) => item.id === artifactId);
+      if (
+        artifact?.canRetryGeneration !== true ||
+        artifact.generationState !== "failed" ||
+        (artifact.kind !== "presentation" && artifact.kind !== "animation")
+      ) {
+        throw new Error("artifact_not_retryable");
+      }
+      try {
+        const detail = await retryArtifactGeneration({
+          artifactId,
+          conversationId,
+          kind: artifact.kind,
+          workspaceId,
+        });
+        cacheDetail(detail, { insertIntoHistory: true });
+      } finally {
+        await queryClient.invalidateQueries({ queryKey: historyQueryKey });
+      }
+    },
+    [cacheDetail, conversationId, historyQuery.data, historyQueryKey, queryClient, workspaceId],
   );
   const selectedArtifactKind =
     artifactDetail?.kind ??
@@ -913,10 +995,21 @@ export function WorkbenchView({
       dispatchArtifactSelection({ toolId: selection.toolId, type: "start" }),
     );
   };
+  const handleOpenCreationTool = (toolId: Parameters<typeof artifactSelectionForTool>[0]) => {
+    const selection = artifactSelectionForTool(toolId);
+    if (!selection) return;
+    pendingCreationSourceUserMessageId.current = null;
+    setMobileCreationTool(null);
+    startWorkbenchViewTransition(() =>
+      dispatchArtifactSelection({ toolId: selection.toolId, type: "start" }),
+    );
+    router.replace(conversationHref, { scroll: false });
+  };
   const chat = (
     <ChatPanelView
       {...fixture.chat}
-      artifactHistory={visibleArtifactHistory}
+      artifactHistory={messageArtifactHistory}
+      artifactHistoryError={historyQuery.isError}
       conversationId={conversationId}
       initialMessagesNextCursor={initialMessagesNextCursor}
       onThreadTitle={onThreadTitle}
@@ -935,6 +1028,7 @@ export function WorkbenchView({
       onComposerSuggestionConsumed={consumeComposerSuggestion}
       onArtifactEvent={handleArtifactEvent}
       onOpenArtifact={(artifactId) => void openArtifactFromMessage(artifactId)}
+      onRetryArtifact={retryArtifactFromMessage}
       onOpenKnowledgeNetwork={focusKnowledgeNetworkCitation}
       onSelectTool={handleSelectTool}
       selectedCreationTool={mobileCreationTool}
@@ -1022,9 +1116,36 @@ export function WorkbenchView({
             workspaceHref={workspaceHref}
             workspaceSlug={workspaceSlug}
             workspaces={navigationWorkspaces}
+            workspaceArtifacts={workspaceArtifactHistoryQuery.data ?? []}
+            mobileCreationTools={mobileCreationTools}
             mobileOverview={mobileOverview}
+            onOpenMobileCreationTools={() => {
+              router.push(`${conversationHref}&view=tools`, { scroll: false });
+            }}
+            onOpenMobileSources={() => {
+              try {
+                window.localStorage.setItem(mobilePanelPreferenceKey(workspaceId), "sources");
+              } catch {
+                // The panel request still works when browser storage is unavailable.
+              }
+              if (isArtifactWorkspaceOpen || mobileOverview) {
+                if (isArtifactWorkspaceOpen) {
+                  startWorkbenchViewTransition(() =>
+                    dispatchArtifactSelection({ type: "openStudio" }),
+                  );
+                }
+                router.replace(conversationHref, { scroll: false });
+              }
+              setMobileSourcesFocusRequest((current) => current + 1);
+            }}
           />
           <main id="main-content" tabIndex={-1} className="relative min-h-0 flex-1">
+            {mobileCreationTools ? (
+              <MobileCreationToolsPage
+                onSelectTool={handleOpenCreationTool}
+                runtimeUnavailableTools={fixture.studio.runtimeUnavailableTools}
+              />
+            ) : null}
             {mobileOverview ? (
               <MobileWorkspaceOverview
                 conversations={conversations}
@@ -1035,7 +1156,11 @@ export function WorkbenchView({
                 workspaceName={fixture.workspace.workspaceName}
               />
             ) : null}
-            <div className={mobileOverview ? "hidden h-full lg:block" : "h-full"}>
+            <div
+              className={
+                mobileOverview || mobileCreationTools ? "hidden h-full lg:block" : "h-full"
+              }
+            >
               {isArtifactWorkspaceOpen ? (
                 <ArtifactWorkbenchPanelLayout
                   layoutMode={artifactLayoutMode}
@@ -1089,6 +1214,7 @@ export function WorkbenchView({
                 <WorkbenchPanelLayout
                   disclaimer={fixture.disclaimer}
                   mobileChatFocusRequest={mobileChatFocusRequest}
+                  mobileSourcesFocusRequest={mobileSourcesFocusRequest}
                   studio={(studioControls) => (
                     <StudioPanelView
                       {...fixture.studio}

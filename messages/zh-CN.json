@@ -305,6 +305,8 @@
     "artifactSourcesDescription": "生成这份内容时，AI 获得了以下工作区资料作为参考。",
     "artifactSourcesClose": "关闭参考资料",
     "composerPlaceholder": "输入你的想法或任务",
+    "creationToolComposerPlaceholder": "描述{name}的主题和要求，例如用途、受众与重点",
+    "mindMapComposerPlaceholder": "例如：梳理机器学习基础，包含监督学习、无监督学习与应用",
     "composerAddMenu": "打开添加菜单",
     "composerAddTitle": "添加",
     "composerSourcesTitle": "资料与上下文",
@@ -346,6 +348,7 @@
     "planAnswersHeading": "以下是我对规划问题的回答：",
     "planAnswerLine": "回答：{answer}",
     "planCancelMessage": "取消本次规划，恢复普通对话。",
+    "creationGuidanceCancelMessage": "取消本次创作引导。",
     "planApproveMessage": "我确认这份计划。请退出规划状态，立即按照已确认的计划开始执行并创建所需成果。",
     "planRevisionMessage": "请根据以下意见调整计划：{feedback}",
     "send": "发送消息",
@@ -703,6 +706,14 @@
       "interactiveGame": "互动游戏",
       "quiz": "随堂小测",
       "animation": "演示动画"
+    },
+    "toolDescriptions": {
+      "smartSlides": "将主题与资料整理成结构清晰的演示课件",
+      "teachingDocument": "生成可继续编辑、导出和完善的教学文档",
+      "mindMap": "梳理主题层级、概念关系与知识结构",
+      "interactiveGame": "设计具有目标、规则和反馈的课堂互动游戏",
+      "quiz": "根据教学内容生成题目、答案与解析",
+      "animation": "将抽象过程转化为直观的演示动画"
     }
   },
   "Sources": {

@@ -167,6 +167,7 @@ interface WorkbenchPanelLayoutProps {
   chat: ReactNode;
   disclaimer: string;
   mobileChatFocusRequest?: number;
+  mobileSourcesFocusRequest?: number;
   disabled?: boolean;
   chatMinSize?: string;
   initialStudioCollapsed?: boolean;
@@ -183,6 +184,7 @@ export function WorkbenchPanelLayout({
   chatMinSize = "420px",
   disclaimer,
   mobileChatFocusRequest = 0,
+  mobileSourcesFocusRequest = 0,
   disabled = false,
   initialLayout = defaultLayout,
   initialStudioCollapsed = false,
@@ -225,6 +227,12 @@ export function WorkbenchPanelLayout({
     setMobilePanel("chat");
     if (persistPanelState) writeMobilePanelPreference(mobilePanelKey, "chat");
   }, [mobileChatFocusRequest, mobilePanelKey, persistPanelState]);
+
+  useLayoutEffect(() => {
+    if (mobileSourcesFocusRequest <= 0) return;
+    setMobilePanel("sources");
+    if (persistPanelState) writeMobilePanelPreference(mobilePanelKey, "sources");
+  }, [mobileSourcesFocusRequest, mobilePanelKey, persistPanelState]);
 
   function selectMobilePanel(panel: MobileWorkbenchPanel) {
     setMobilePanel(panel);

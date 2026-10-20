@@ -2,11 +2,12 @@
 
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { QueryClientContext } from "@tanstack/react-query";
-import { ChevronDown, LoaderCircle, MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
+import { ChevronDown, LoaderCircle, MoreHorizontal, Pencil, Plus, Trash2, X } from "lucide-react";
 import Link from "next/link";
 import { useFormatter, useTranslations } from "next-intl";
 import { type ReactNode, useActionState, useContext, useEffect, useRef, useState } from "react";
 import { SpectraLogo } from "@/components/icons/SpectraLogo";
+import type { WorkspaceArtifactNavigationItem } from "@/features/artifacts/types";
 import { MobileWorkspaceDrawer } from "./MobileWorkspaceDrawer";
 import type {
   MobileWorkspaceNavigationItem,
@@ -37,7 +38,11 @@ type WorkspaceHeaderViewInput = WorkspaceHeaderViewProps & {
   workspaceHref: string;
   workspaceSlug: string | null;
   workspaces: readonly MobileWorkspaceNavigationItem[];
+  workspaceArtifacts?: readonly WorkspaceArtifactNavigationItem[];
+  mobileCreationTools?: boolean;
   mobileOverview?: boolean;
+  onOpenMobileCreationTools?: () => void;
+  onOpenMobileSources?: () => void;
 };
 
 export function WorkspaceHeaderView(props: WorkspaceHeaderViewInput) {
@@ -87,7 +92,11 @@ function WorkspaceHeaderViewContent({
   workspaceHref,
   workspaceSlug,
   workspaces,
+  workspaceArtifacts = [],
+  mobileCreationTools = false,
   mobileOverview = false,
+  onOpenMobileCreationTools,
+  onOpenMobileSources,
   hasNextPage = false,
   isLoadingNextPage = false,
   onLoadMore,
@@ -151,26 +160,46 @@ function WorkspaceHeaderViewContent({
             shareControl={shareControl}
             workspaceHref={workspaceHref}
             workspaces={workspaces}
+            workspaceArtifacts={workspaceArtifacts}
+            hasNextPage={hasNextPage}
+            isLoadingNextPage={isLoadingNextPage}
+            onLoadMore={onLoadMore}
+            onOpenCreationTools={onOpenMobileCreationTools}
+            onOpenSources={onOpenMobileSources}
           />
           <div className="min-w-0 text-center">
             <p className="truncate text-sm font-semibold text-[var(--workspace-text-primary)]">
-              {mobileOverview ? workspaceName : currentConversationLabel}
+              {mobileCreationTools
+                ? t("creationToolsNavigation")
+                : mobileOverview
+                  ? workspaceName
+                  : currentConversationLabel}
             </p>
-            {!mobileOverview ? (
+            {!mobileOverview && !mobileCreationTools ? (
               <p className="mt-0.5 truncate text-[11px] text-[var(--workspace-text-muted)]">
                 {workspaceName}
               </p>
             ) : null}
           </div>
           <div className="flex items-center justify-end">
-            <Link
-              href={newConversationHref}
-              aria-label={t("newConversation")}
-              className="workspace-mobile-icon-button"
-            >
-              <Plus aria-hidden="true" className="h-5 w-5" />
-            </Link>
-            {!mobileOverview ? (
+            {mobileCreationTools ? (
+              <Link
+                href={`${workspaceHref}?conversation=${conversationId}`}
+                aria-label={t("backToConversation")}
+                className="workspace-mobile-icon-button"
+              >
+                <X aria-hidden="true" className="h-5 w-5" />
+              </Link>
+            ) : (
+              <Link
+                href={newConversationHref}
+                aria-label={t("newConversation")}
+                className="workspace-mobile-icon-button"
+              >
+                <Plus aria-hidden="true" className="h-5 w-5" />
+              </Link>
+            )}
+            {!mobileOverview && !mobileCreationTools ? (
               <DropdownMenu.Root modal={false}>
                 <DropdownMenu.Trigger asChild>
                   <button

@@ -305,6 +305,8 @@
     "artifactSourcesDescription": "The AI received these workspace sources as reference material when generating this content.",
     "artifactSourcesClose": "Close sources",
     "composerPlaceholder": "Describe an idea or task",
+    "creationToolComposerPlaceholder": "Describe the topic and requirements for your {name}",
+    "mindMapComposerPlaceholder": "For example: Map machine learning basics, including supervised and unsupervised learning",
     "composerAddMenu": "Open add menu",
     "composerAddTitle": "Add",
     "composerSourcesTitle": "Sources and context",
@@ -346,6 +348,7 @@
     "planAnswersHeading": "Here are my answers to the planning questions:",
     "planAnswerLine": "Answer: {answer}",
     "planCancelMessage": "Cancel this plan and return to normal chat.",
+    "creationGuidanceCancelMessage": "Cancel this creation guide.",
     "planApproveMessage": "I confirm this plan. Exit planning and execute the approved plan now, creating its required deliverables.",
     "planRevisionMessage": "Revise the plan using this feedback: {feedback}",
     "send": "Send message",
@@ -703,6 +706,14 @@
       "interactiveGame": "Interactive game",
       "quiz": "Class quiz",
       "animation": "Presentation animation"
+    },
+    "toolDescriptions": {
+      "smartSlides": "Turn a topic and sources into a clear presentation",
+      "teachingDocument": "Create an editable teaching document ready to refine or export",
+      "mindMap": "Organize topic levels, concept links, and knowledge structure",
+      "interactiveGame": "Design a classroom game with goals, rules, and feedback",
+      "quiz": "Generate questions, answers, and explanations from lesson content",
+      "animation": "Turn an abstract process into a clear demonstration animation"
     }
   },
   "Sources": {

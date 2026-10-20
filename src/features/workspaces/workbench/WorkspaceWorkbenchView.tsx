@@ -75,6 +75,7 @@ export function WorkspaceWorkbenchView({
   taskAgentCapabilities = ["presentation", "animation"],
   taskAgentCreationCapabilities = taskAgentCapabilities,
   knowledgeNetworkTrace = null,
+  mobileCreationTools = false,
   mobileOverview = false,
   navigationWorkspaces = [],
   sourceCount = 0,
@@ -100,6 +101,7 @@ export function WorkspaceWorkbenchView({
   taskAgentCapabilities?: readonly ("animation" | "presentation")[];
   taskAgentCreationCapabilities?: readonly ("animation" | "presentation")[];
   knowledgeNetworkTrace?: KnowledgeNetworkTrace | null;
+  mobileCreationTools?: boolean;
   mobileOverview?: boolean;
   navigationWorkspaces?: readonly MobileWorkspaceNavigationItem[];
   sourceCount?: number;
@@ -189,6 +191,7 @@ export function WorkspaceWorkbenchView({
         }
         sourcesPanel={sourcesPanel}
         knowledgeNetworkTrace={knowledgeNetworkTrace}
+        mobileCreationTools={mobileCreationTools}
         mobileOverview={mobileOverview}
         navigationWorkspaces={navigationWorkspaces}
         knowledgeNetworkInitialView={knowledgeNetworkInitialView}

@@ -52,6 +52,7 @@ export async function renderWorkspacePage({
   const rawConversationId = resolvedSearchParams?.conversation;
   const rawArtifactId = resolvedSearchParams?.artifact;
   const mobileOverview = resolvedSearchParams?.view === "overview";
+  const mobileCreationTools = resolvedSearchParams?.view === "tools";
   const parsedConversationId = z
     .string()
     .uuid()
@@ -143,12 +144,16 @@ export async function renderWorkspacePage({
   if ((canonicalizeToSlug || workspace.resolvedFromRedirect) && workspace.slug) {
     const artifactSuffix =
       requestedConversationId && requestedArtifactId ? `&artifact=${requestedArtifactId}` : "";
-    const overviewSuffix = mobileOverview ? "&view=overview" : "";
+    const mobileViewSuffix = mobileOverview
+      ? "&view=overview"
+      : mobileCreationTools
+        ? "&view=tools"
+        : "";
     redirect(
-      `${workspaceHref(workspace)}?conversation=${bootstrap.conversationId}${artifactSuffix}${overviewSuffix}`,
+      `${workspaceHref(workspace)}?conversation=${bootstrap.conversationId}${artifactSuffix}${mobileViewSuffix}`,
     );
   }
-  if (!requestedConversationId && !mobileOverview) {
+  if (!requestedConversationId && !mobileOverview && !mobileCreationTools) {
     redirect(`${workspacePath}?conversation=${bootstrap.conversationId}`);
   }
   if (bootstrap.selectedArtifactMissing) redirect(conversationPath);
@@ -171,6 +176,7 @@ export async function renderWorkspacePage({
       sharingState={bootstrap.sharing}
       settingsAction={updateWorkspaceFromForm}
       workspace={workspace}
+      mobileCreationTools={mobileCreationTools}
       mobileOverview={mobileOverview}
       navigationWorkspaces={navigationWorkspaces.map((item) => ({
         href: workspaceHref(item),
