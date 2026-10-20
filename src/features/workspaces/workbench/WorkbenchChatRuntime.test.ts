@@ -196,4 +196,31 @@ describe("workbench user messages", () => {
 
     expect(message.metadata).not.toHaveProperty("spectraIntent");
   });
+
+  it("keeps the selected creation tool on a guided answer without entering plan mode", () => {
+    const message = workbenchCreateMessage(
+      {
+        attachments: [],
+        content: [{ text: "时长 2 分钟，使用蓝绿色", type: "text" }],
+        createdAt: new Date("2026-08-01T00:00:00.000Z"),
+        metadata: {
+          custom: {
+            spectraIntent: "chat",
+            spectraSurfaceContext: { kind: "animation", type: "artifact_start" },
+          },
+        },
+        parentId: null,
+        role: "user",
+        runConfig: undefined,
+        sourceId: null,
+      },
+      { type: "studio" },
+      "guided-answer-id",
+      "plan",
+    );
+
+    expect(message.metadata).toEqual({
+      spectraSurfaceContext: { kind: "animation", type: "artifact_start" },
+    });
+  });
 });

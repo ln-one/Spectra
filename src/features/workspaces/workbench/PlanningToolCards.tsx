@@ -6,17 +6,27 @@ import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { parsePlanningQuestionBatch, workspacePlanSchema } from "@/features/agents/planning-tools";
+import {
+  type AgentSurfaceContext,
+  agentSurfaceContextSchema,
+} from "@/features/agents/surface-context";
 
 type PlanningToolCardProps = ToolCallMessagePartProps & {
   onPlanningFinished?: (() => void) | undefined;
 };
 
-function appendUserMessage(aui: ReturnType<typeof useAui>, text: string, intent: "chat" | "plan") {
+function appendUserMessage(
+  aui: ReturnType<typeof useAui>,
+  text: string,
+  intent: "chat" | "plan",
+  surface?: AgentSurfaceContext,
+) {
   aui.thread().append({
     content: [{ text, type: "text" }],
     metadata: {
       custom: {
         spectraIntent: intent,
+        ...(surface ? { spectraSurfaceContext: surface } : {}),
       },
     },
   });
@@ -28,6 +38,19 @@ export function AskUserCard({ args, onPlanningFinished }: PlanningToolCardProps)
   const isLatestMessage = useAuiState(
     (state) => state.thread.messages.at(-1)?.id === state.message.id,
   );
+  const answerSurface = useAuiState((state) => {
+    for (let index = state.thread.messages.length - 1; index >= 0; index -= 1) {
+      const message = state.thread.messages[index];
+      if (message?.role !== "user") continue;
+      const metadata = message.metadata;
+      if (!metadata || typeof metadata !== "object") return null;
+      const parsed = agentSurfaceContextSchema.safeParse(
+        Reflect.get(metadata, "spectraSurfaceContext"),
+      );
+      return parsed.success ? parsed.data : null;
+    }
+    return null;
+  });
   const batch = parsePlanningQuestionBatch(args);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<number, string[]>>({});
@@ -62,7 +85,12 @@ export function AskUserCard({ args, onPlanningFinished }: PlanningToolCardProps)
           : (nextAnswers[index] ?? []).join("、"),
       }),
     ]);
-    appendUserMessage(aui, [t("planAnswersHeading"), ...lines].join("\n"), "plan");
+    appendUserMessage(
+      aui,
+      [t("planAnswersHeading"), ...lines].join("\n"),
+      answerSurface?.type === "artifact_start" ? "chat" : "plan",
+      answerSurface ?? undefined,
+    );
   }
 
   function finishQuestion(values: string[] | null) {
@@ -85,8 +113,12 @@ export function AskUserCard({ args, onPlanningFinished }: PlanningToolCardProps)
   function cancelPlanning() {
     if (isSubmitting) return;
     setIsSubmitting(true);
-    appendUserMessage(aui, t("planCancelMessage"), "chat");
-    onPlanningFinished?.();
+    if (answerSurface?.type === "artifact_start") {
+      appendUserMessage(aui, t("creationGuidanceCancelMessage"), "chat", { type: "studio" });
+    } else {
+      appendUserMessage(aui, t("planCancelMessage"), "chat");
+      onPlanningFinished?.();
+    }
   }
 
   return createPortal(

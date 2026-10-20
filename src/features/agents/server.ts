@@ -32,6 +32,7 @@ import {
   workspaceKnowledgeToolHooks,
 } from "./knowledge-tool.server";
 import { createAgentObservabilityResources } from "./observability.server";
+import { PLANNING_TOOL_IDS } from "./planning-tools";
 import { workspacePlanningTools } from "./planning-tools.server";
 import type { ResolvedAgentSurfaceContext } from "./surface-context";
 import { workspaceAgentToolContextSchema } from "./workspace-agent-tool-context";
@@ -41,7 +42,7 @@ export const SPECTRA_AGENT_INSTRUCTIONS = [
   "Act on the latest user message. Use earlier turns only when the latest message explicitly refers back to them.",
   "The resolved current artifact context supersedes artifact context from earlier turns. Never infer the currently open artifact kind from conversation history.",
   "The current page is context, not hidden authorization for a workspace side effect.",
-  "Before creating an artifact, ask a concise clarifying question only when the latest message provides no usable subject. A concise subject is sufficient; use conventional defaults for unspecified audience, scope, structure, or difficulty. Never fill a missing subject from older turns or the current page.",
+  "Before creating an artifact outside a selected creation-tool flow, ask a concise clarifying question only when the latest message provides no usable subject. A concise subject is otherwise sufficient; use conventional defaults for unspecified audience, scope, structure, or difficulty. Inside a selected creation-tool flow, follow its surface instructions for guided choices. Never fill a missing subject from older turns or the current page.",
   "For Artifact creation, decide the complete ordered plan first, then call commit_artifact_plan exactly once with one independent, concise item for every useful Artifact. Kinds may repeat and there is no product item-count limit. Use only useful Evidence refs returned by search_workspace for that specific Artifact; use [] when none helps. Requirements contain only user-specified constraints. Never claim there is a one-Artifact system limit, never ask the user to send a follow-up merely to finish an accepted plan, and never poll asynchronous generation. After the tool returns, give one brief success or partial-success summary and call no more tools.",
   "Route animation, knowledge-explanation animation, 演示动画, and 知识讲解动画 requests to kind animation. Never substitute teaching_document or presentation.",
   "A request to show, insert, embed, explain with, or demonstrate using an existing image or diagram in chat is an information request, not an Artifact request. Chinese phrases such as 图示、看图、展示图片、插入图片、嵌入图片、用图说明、图示演示 do not request animation by themselves. Create an animation only when the latest message explicitly asks for 动画、视频、动态演示, or an Animation Artifact.",
@@ -89,7 +90,7 @@ function surfaceInstructions(requestContext: unknown, capabilities: ArtifactCrea
           ? " A request for an animation, knowledge animation, or 演示动画 MUST create kind animation. Never substitute teaching_document, presentation, or another Artifact kind."
           : " Animation creation is unavailable in this runtime. Do not substitute another Artifact kind; state briefly that animation generation is temporarily unavailable."
         : "";
-    return `The user is on the blank ${kind} workbench. A concise topic-only creation request refers to this artifact kind. A fully specified request for another artifact kind follows the user's explicit wording.${presentationConstraint}${animationConstraint}`;
+    return `The user selected the ${kind} creation tool and is on its blank workbench. Interpret the latest message within this creation flow: a concise topic-only request refers to this artifact kind. If the user only says to proceed or start without giving a usable topic, do not treat it as a generic chat request or infer a topic from an existing artifact. Ask for the specific topic and offer brief example prompts for this kind. When the user provides a usable topic but has not yet supplied the consequential production choices, guide the user before generation by calling ask_user exactly once with one to three short, ${kind}-specific questions. The UI presents these questions sequentially as touch-friendly choices and submits their combined answers after the final question. Prefer useful selectable options over open-ended typing, and make the final question invite optional additional requirements with skipping allowed. Tailor questions to this kind: for example animation should clarify duration and visual style, while a mind map should clarify purpose, structure, and depth. When Workspace sources could materially improve the choices or result, search the Workspace first and use only relevant Evidence. If the latest message contains the submitted planning answers or already specifies the consequential choices, do not ask the same questions again; create this artifact kind without another confirmation. A fully specified request for another artifact kind follows the user's explicit wording.${presentationConstraint}${animationConstraint}`;
   }
   if (type === "artifact_detail") {
     const kind = Reflect.get(surface, "kind");
@@ -190,6 +191,18 @@ export function workspaceArtifactToolsForContext(
   };
 }
 
+export function workspaceGuidanceToolsForContext(
+  intent: unknown,
+  requestContext: unknown,
+): Partial<typeof workspacePlanningTools> {
+  if (intent === "plan") return workspacePlanningTools;
+  const parsed = workspaceAgentToolContextSchema.safeParse(requestContext);
+  if (!parsed.success || parsed.data.surface.type !== "artifact_start") return {};
+  return {
+    [PLANNING_TOOL_IDS.askUser]: workspacePlanningTools[PLANNING_TOOL_IDS.askUser],
+  };
+}
+
 export function createSpectraAgent(environment: ServerEnvironment = serverEnvironment()) {
   const { model, webSearch } = createWorkspaceAgentResources(environment);
   const creationCapabilities = artifactCreationCapabilities(environment);
@@ -231,7 +244,7 @@ export function createSpectraAgent(environment: ServerEnvironment = serverEnviro
     tools: ({ requestContext }) => ({
       ...workspaceArtifactToolsForContext(artifactTools, requestContext.all),
       ...knowledgeTools,
-      ...(requestContext.get("intent") === "plan" ? workspacePlanningTools : {}),
+      ...workspaceGuidanceToolsForContext(requestContext.get("intent"), requestContext.all),
       web_search: webSearch,
     }),
   });

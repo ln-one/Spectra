@@ -36,7 +36,8 @@ import {
   type ArtifactToolDependencies,
   createWorkspaceArtifactAgentTools,
 } from "./artifact-tools.server";
-import { workspaceArtifactToolsForContext } from "./server";
+import { PLANNING_TOOL_IDS } from "./planning-tools";
+import { workspaceArtifactToolsForContext, workspaceGuidanceToolsForContext } from "./server";
 import type { WorkspaceAgentToolContext } from "./workspace-agent-tool-context";
 import { prepareWorkspaceAgentStep } from "./workspace-agent-turn-policy";
 
@@ -569,6 +570,24 @@ function currentArtifactContext(
     ["workspaceId", workspaceId],
   ]);
 }
+
+describe("workspace creation guidance tools", () => {
+  it("exposes ask_user for a selected creation tool without enabling plan submission", () => {
+    const context = requestContext("zh-CN", "制作机器学习基础思维导图");
+    context.set("surface", { kind: "mind_map", type: "artifact_start" });
+
+    const scopedTools = workspaceGuidanceToolsForContext("chat", context.all);
+
+    expect(scopedTools[PLANNING_TOOL_IDS.askUser]).toBeDefined();
+    expect(Reflect.get(scopedTools, PLANNING_TOOL_IDS.submitPlan)).toBeUndefined();
+  });
+
+  it("does not expose guidance tools in an ordinary chat", () => {
+    const context = requestContext("zh-CN", "解释机器学习基础");
+
+    expect(workspaceGuidanceToolsForContext("chat", context.all)).toEqual({});
+  });
+});
 
 async function executeTool<Result>(
   tool: object,

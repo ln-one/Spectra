@@ -214,10 +214,14 @@ export function workbenchCreateMessage<UI_MESSAGE extends UIMessage = UIMessage>
   const requestedIntent = Reflect.get(message.metadata.custom, "spectraIntent");
   const resolvedIntent =
     requestedIntent === "chat" || requestedIntent === "plan" ? requestedIntent : intent;
+  const requestedSurface = agentSurfaceContextSchema.safeParse(
+    Reflect.get(message.metadata.custom, "spectraSurfaceContext"),
+  );
+  const resolvedSurface = requestedSurface.success ? requestedSurface.data : surfaceContext;
   return {
     id: messageId,
     metadata: {
-      spectraSurfaceContext: surfaceContext,
+      spectraSurfaceContext: resolvedSurface,
       ...(resolvedIntent === "plan" ? { spectraIntent: "plan" } : {}),
       ...(retrievalPreferences.workspace ? { spectraForceWorkspaceRetrieval: true } : {}),
       ...(retrievalPreferences.web ? { spectraForceWebSearch: true } : {}),
@@ -439,6 +443,8 @@ function composerDraftStorageKey(workspaceId: string, conversationId: string) {
   return `spectra:composer-draft:${workspaceId}:${conversationId}`;
 }
 
+const composerDrafts = new Map<string, string>();
+
 function ComposerDraftBridge({
   conversationId,
   workspaceId,
@@ -450,22 +456,17 @@ function ComposerDraftBridge({
   const storageKey = composerDraftStorageKey(workspaceId, conversationId);
 
   useEffect(() => {
-    let storedDraft = "";
     try {
-      storedDraft = window.sessionStorage.getItem(storageKey) ?? "";
+      window.sessionStorage.removeItem(storageKey);
     } catch {
-      // The composer still works when browser storage is unavailable.
+      // A legacy stored draft is safe to ignore when storage is unavailable.
     }
-    composer.setText(storedDraft);
+    composer.setText(composerDrafts.get(storageKey) ?? "");
 
     const persistDraft = () => {
-      try {
-        const text = composer.getState().text;
-        if (text) window.sessionStorage.setItem(storageKey, text);
-        else window.sessionStorage.removeItem(storageKey);
-      } catch {
-        // Draft persistence is best-effort and must not block message composition.
-      }
+      const text = composer.getState().text;
+      if (text) composerDrafts.set(storageKey, text);
+      else composerDrafts.delete(storageKey);
     };
     const unsubscribe = composer.subscribe(persistDraft);
     return () => {
