@@ -12,6 +12,7 @@ import {
   fetchArtifactDetail,
   fetchArtifactHistory,
   fetchCurrentArtifactProposal,
+  fetchWorkspaceArtifactHistory,
   mergeArtifactHistory,
   upsertArtifactHistory,
 } from "@/features/artifacts/workbench-client";
@@ -35,6 +36,14 @@ export function useArtifactWorkbenchData(input: {
     () => artifactWorkbenchQueryKeys.history(input.workspaceId, input.conversationId),
     [input.conversationId, input.workspaceId],
   );
+  const workspaceArtifactHistoryQueryKey = useMemo(
+    () => artifactWorkbenchQueryKeys.workspaceHistory(input.workspaceId),
+    [input.workspaceId],
+  );
+  const workspaceArtifactHistoryQuery = useQuery({
+    queryKey: workspaceArtifactHistoryQueryKey,
+    queryFn: () => fetchWorkspaceArtifactHistory(input.workspaceId),
+  });
   const historyQuery = useQuery({
     initialData: [...input.initialArtifactHistory],
     queryFn: () => fetchArtifactHistory(input.workspaceId, input.conversationId),
@@ -215,5 +224,7 @@ export function useArtifactWorkbenchData(input: {
     proposalQueryKey,
     queryClient,
     visibleArtifactHistory,
+    workspaceArtifactHistoryQuery,
+    workspaceArtifactHistoryQueryKey,
   };
 }

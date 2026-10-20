@@ -32,7 +32,6 @@ import {
   artifactWorkbenchQueryKeys,
   deleteArtifact,
   fetchArtifactDetail,
-  fetchWorkspaceArtifactHistory,
   retryArtifactGeneration,
 } from "@/features/artifacts/workbench-client";
 import {
@@ -496,6 +495,8 @@ export function WorkbenchView({
     proposalQueryKey,
     queryClient,
     visibleArtifactHistory,
+    workspaceArtifactHistoryQuery,
+    workspaceArtifactHistoryQueryKey,
   } = useArtifactWorkbenchData({
     conversationId,
     initialArtifact,
@@ -503,11 +504,6 @@ export function WorkbenchView({
     selectedArtifactId,
     unavailableArtifactIds,
     workspaceId,
-  });
-  const workspaceArtifactHistoryQueryKey = artifactWorkbenchQueryKeys.workspaceHistory(workspaceId);
-  const workspaceArtifactHistoryQuery = useQuery({
-    queryKey: workspaceArtifactHistoryQueryKey,
-    queryFn: () => fetchWorkspaceArtifactHistory(workspaceId),
   });
   const messageArtifactHistory = useMemo(() => {
     const details = messageDetails.scope === messageScope ? messageDetails.items : [];
