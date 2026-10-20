@@ -197,7 +197,9 @@ test("shows a selected creation tool in the composer and lets the user remove it
   );
 
   expect(screen.getByTestId("selected-creation-tool")).toHaveTextContent("智能课件");
-  expect(screen.getByPlaceholderText("输入你的想法或任务")).toBeInTheDocument();
+  expect(
+    screen.getByPlaceholderText("描述智能课件的主题和要求，例如用途、受众与重点"),
+  ).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "移除智能课件工具" }));
   expect(onClearCreationTool).toHaveBeenCalledOnce();
 });
