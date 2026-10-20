@@ -1,8 +1,9 @@
 "use client";
 
-import { ArrowUpRight, CheckCircle2, FileX2 } from "lucide-react";
+import { ArrowUpRight, CheckCircle2, FileX2, LoaderCircle, RotateCcw } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
+import { useRef, useState } from "react";
 import {
   type ArtifactHistoryItem,
   type ArtifactKind,
@@ -17,7 +18,9 @@ export type ArtifactResultCardProps = {
   fallbackState: ArtifactHistoryItem["generationState"];
   fallbackKind: ArtifactKind;
   fallbackTitle: string;
+  historyUnavailable?: boolean | undefined;
   onOpenArtifact?: ((artifactId: string) => void) | undefined;
+  onRetryArtifact?: ((artifactId: string) => Promise<void>) | undefined;
   unavailableArtifactIds?: ReadonlySet<string> | undefined;
 };
 
@@ -28,10 +31,15 @@ export function ArtifactResultCard({
   fallbackState,
   fallbackKind,
   fallbackTitle,
+  historyUnavailable,
   onOpenArtifact,
+  onRetryArtifact,
   unavailableArtifactIds,
 }: ArtifactResultCardProps) {
   const t = useTranslations("Workbench");
+  const retryingRef = useRef(false);
+  const [retrying, setRetrying] = useState(false);
+  const [retryFailed, setRetryFailed] = useState(false);
   const currentArtifact = artifactHistory?.find((item) => item.id === artifactId);
   const currentTitle = currentArtifact?.title ?? fallbackTitle;
   const generationState = currentArtifact
@@ -40,6 +48,11 @@ export function ArtifactResultCard({
   const artifactKind = currentArtifact?.kind ?? fallbackKind;
   const { Icon: ArtifactIcon, tone: artifactTone } = artifactPresentation(artifactKind);
   const isUnavailable = unavailableArtifactIds?.has(artifactId) ?? false;
+  const canRetry =
+    !isUnavailable &&
+    generationState === "failed" &&
+    currentArtifact?.canRetryGeneration === true &&
+    onRetryArtifact !== undefined;
   const href = `?conversation=${encodeURIComponent(conversationId)}&artifact=${encodeURIComponent(artifactId)}`;
   const readyLabels: Record<ArtifactKind, string> = {
     animation: t("animationArtifactReady"),
@@ -65,31 +78,101 @@ export function ArtifactResultCard({
         ? readyLabels[artifactKind]
         : generationState === "failed"
           ? t("artifactGenerationFailed")
-          : generationState === "finalizing"
-            ? t("artifactFinalizing")
-            : t("artifactGenerating");
+          : generationState === "cancelled"
+            ? t("artifactGenerationCancelled")
+            : generationState === "finalizing"
+              ? t("artifactFinalizing")
+              : t("artifactGenerating");
+  const failureCode = currentArtifact?.failureCode ?? null;
+  const failureMessage = retryFailed
+    ? t("artifactRetryFailed")
+    : failureCode?.includes("rate_limit")
+      ? t("artifactFailureRateLimited")
+      : failureCode?.includes("timeout") || failureCode?.includes("stalled")
+        ? t("artifactFailureTimedOut")
+        : failureCode?.includes("runtime") || failureCode?.includes("configuration")
+          ? t("artifactFailureUnavailable")
+          : generationState === "failed"
+            ? t("artifactFailureGeneric")
+            : generationState === "cancelled"
+              ? t("artifactCancelledDescription")
+              : null;
+  const retry = async () => {
+    if (!onRetryArtifact || retryingRef.current) return;
+    retryingRef.current = true;
+    setRetrying(true);
+    setRetryFailed(false);
+    try {
+      await onRetryArtifact(artifactId);
+    } catch {
+      setRetryFailed(true);
+    } finally {
+      retryingRef.current = false;
+      setRetrying(false);
+    }
+  };
   const content = (
     <>
       <span className="workspace-tool-icon-container flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border">
-        {isUnavailable || generationState === "failed" ? (
+        {isUnavailable || generationState === "failed" || generationState === "cancelled" ? (
           <FileX2 className="h-5 w-5" strokeWidth={2.1} />
         ) : generationState === "ready" ? (
           <CheckCircle2 className="h-5 w-5" strokeWidth={2.1} />
         ) : (
-          <ArtifactIcon className="h-5 w-5 animate-pulse" strokeWidth={2.1} />
+          <ArtifactIcon
+            className="h-5 w-5 animate-pulse motion-reduce:animate-none"
+            strokeWidth={2.1}
+          />
         )}
       </span>
       <span className="min-w-0 flex-1">
-        <span className="flex items-center gap-1.5 text-[11px] font-medium text-[var(--studio-accent-text)]">
+        <span
+          aria-live="polite"
+          className="flex items-center gap-1.5 text-[11px] font-medium text-[var(--studio-accent-text)]"
+        >
           {statusLabel}
         </span>
         <span className="mt-0.5 block truncate text-sm font-semibold text-[var(--workspace-text-primary)]">
           {currentTitle}
         </span>
+        {failureMessage ? (
+          <span className="mt-1 block text-xs leading-4 text-[var(--workspace-text-muted)]">
+            {failureMessage}
+          </span>
+        ) : null}
+        {generationState === "failed" && !canRetry && !isUnavailable ? (
+          <span className="mt-1 block text-xs leading-4 text-[var(--workspace-text-muted)]">
+            {t("artifactRetryUnsupported")}
+          </span>
+        ) : null}
+        {historyUnavailable && !isUnavailable ? (
+          <span className="mt-1 block text-xs leading-4 text-[var(--workspace-text-muted)]">
+            {t("artifactStatusUpdateUnavailable")}
+          </span>
+        ) : null}
       </span>
-      {isUnavailable ? null : (
+      {canRetry ? (
+        <button
+          type="button"
+          aria-label={t("retryArtifactGeneration", { title: currentTitle })}
+          disabled={retrying}
+          onClick={() => void retry()}
+          className="flex min-h-11 shrink-0 items-center gap-1.5 rounded-lg border border-[var(--studio-border)] bg-[var(--studio-surface)] px-3 text-xs font-medium text-[var(--studio-accent-text)] transition-colors hover:border-[var(--studio-border-strong)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--studio-ring)] disabled:opacity-60"
+        >
+          {retrying ? (
+            <LoaderCircle className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" />
+          ) : (
+            <RotateCcw className="h-3.5 w-3.5" />
+          )}
+          {retrying ? t("artifactRetrying") : t("artifactRetry")}
+        </button>
+      ) : isUnavailable ? null : (
         <span className="flex shrink-0 items-center gap-1 text-xs font-medium text-[var(--studio-accent-text)]">
-          {t("openArtifactAction")}
+          {generationState === "ready"
+            ? t("openArtifactAction")
+            : generationState === "failed" || generationState === "cancelled"
+              ? t("viewArtifactStatus")
+              : t("viewGenerationProgress")}
           <ArrowUpRight className="h-3.5 w-3.5 transition-transform group-hover/artifact:-translate-y-0.5 group-hover/artifact:translate-x-0.5" />
         </span>
       )}
@@ -99,6 +182,16 @@ export function ArtifactResultCard({
   if (isUnavailable) {
     return (
       <div className="flex w-full max-w-[72ch] min-w-0 select-none items-center gap-3 overflow-hidden rounded-2xl border border-[var(--workspace-border)] bg-[var(--workspace-surface-muted)] px-3.5 py-3 opacity-75">
+        {content}
+      </div>
+    );
+  }
+  if (canRetry) {
+    return (
+      <div
+        data-studio-tone={artifactTone}
+        className="flex w-full max-w-[72ch] min-w-0 select-none items-center gap-3 overflow-hidden rounded-2xl border border-[var(--studio-border)] bg-[var(--studio-surface-subtle)] px-3.5 py-3 text-left shadow-sm"
+      >
         {content}
       </div>
     );
