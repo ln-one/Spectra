@@ -19,7 +19,7 @@ export function MobileCreationToolsPage({
   runtimeUnavailableTools = [],
 }: {
   onSelectTool: (toolId: StudioToolId) => void;
-  runtimeUnavailableTools?: readonly StudioToolId[];
+  runtimeUnavailableTools?: readonly StudioToolId[] | undefined;
 }) {
   const t = useTranslations("Workbench");
 

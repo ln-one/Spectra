@@ -745,7 +745,7 @@ function WorkbenchComposerInput({
   selectedCreationTool,
 }: {
   composerInputRef: RefObject<HTMLTextAreaElement | null>;
-  selectedCreationTool?: StudioToolId | null;
+  selectedCreationTool?: StudioToolId | null | undefined;
 }) {
   const t = useTranslations("Workbench");
   return (
