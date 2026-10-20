@@ -1,16 +1,17 @@
 import { z } from "zod";
 import { ArtifactError } from "@/features/artifacts/errors";
-import { listArtifactHistory } from "@/features/artifacts/workbench-server";
+import {
+  listArtifactHistory,
+  listWorkspaceArtifactHistory,
+} from "@/features/artifacts/workbench-server";
 import { getCurrentActor } from "@/features/identity/current";
 import { IdentityError } from "@/features/identity/errors";
 import { WorkspaceError } from "@/features/workspaces/errors";
 
-const querySchema = z
-  .object({
-    conversationId: z.string().uuid(),
-    workspaceId: z.string().uuid(),
-  })
-  .strict();
+const querySchema = z.union([
+  z.object({ conversationId: z.string().uuid(), workspaceId: z.string().uuid() }).strict(),
+  z.object({ scope: z.literal("workspace"), workspaceId: z.string().uuid() }).strict(),
+]);
 
 const NO_STORE_HEADERS = { "Cache-Control": "private, no-store" } as const;
 
@@ -25,7 +26,10 @@ export async function GET(request: Request) {
   }
   try {
     const actor = await getCurrentActor();
-    const artifacts = await listArtifactHistory(actor, parsed.data);
+    const artifacts =
+      "conversationId" in parsed.data
+        ? await listArtifactHistory(actor, parsed.data)
+        : await listWorkspaceArtifactHistory(actor, { workspaceId: parsed.data.workspaceId });
     return Response.json({ artifacts }, { headers: NO_STORE_HEADERS });
   } catch (error) {
     if (error instanceof IdentityError) {

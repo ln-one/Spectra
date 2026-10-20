@@ -14,12 +14,15 @@ import { cancelArtifactDbosExecution } from "./dbos-client.server";
 import { ArtifactError } from "./errors";
 import { type ArtifactCleanupQueue, tombstoneArtifact } from "./lifecycle.server";
 import { artifactServerModule } from "./server-modules.server";
+import { animationExecutionEnabled, openHandsExecutionEnabled } from "./task-agent/config.server";
 import {
   type ArtifactHistoryItem,
   artifactEffectiveGenerationState,
   artifactGenerationStateSchema,
   artifactHistoryItemSchema,
   artifactKindSchema,
+  type WorkspaceArtifactNavigationItem,
+  workspaceArtifactNavigationItemSchema,
 } from "./types";
 
 type ArtifactScope = { conversationId: string; workspaceId: string };
@@ -108,19 +111,21 @@ export async function listArtifactHistory(
   db: Database = database,
   accessSnapshot?: WorkspaceAccessSnapshot,
 ): Promise<ArtifactHistoryItem[]> {
-  if (
-    accessSnapshot?.workspaceId !== input.workspaceId ||
-    !hasWorkspacePermission(accessSnapshot.permissions, "workspace.read")
-  ) {
-    await requireWorkspacePermission(actor, input.workspaceId, "workspace.read", db);
-  }
+  const permissions =
+    accessSnapshot?.workspaceId === input.workspaceId &&
+    hasWorkspacePermission(accessSnapshot.permissions, "workspace.read")
+      ? accessSnapshot.permissions
+      : (await requireWorkspacePermission(actor, input.workspaceId, "workspace.read", db))
+          .permissions;
   const rows = await db
     .select({
       createdAt: artifacts.createdAt,
       currentRevisionId: artifacts.currentRevisionId,
+      failureCode: artifacts.generationFailureCode,
       generationState: artifacts.generationState,
       id: artifacts.id,
       kind: artifacts.kind,
+      sourceUserMessageId: artifacts.sourceUserMessageId,
       title: artifacts.title,
       updatedAt: artifacts.updatedAt,
     })
@@ -145,7 +150,76 @@ export async function listArtifactHistory(
   return rows.map((row) =>
     artifactHistoryItemSchema.parse({
       ...row,
+      canRetryGeneration:
+        hasWorkspacePermission(permissions, "artifact.private.manage") &&
+        row.currentRevisionId === null &&
+        row.generationState === "failed" &&
+        ((row.kind === "presentation" && openHandsExecutionEnabled()) ||
+          (row.kind === "animation" && animationExecutionEnabled())),
       createdAt: row.createdAt.toISOString(),
+      failureCode: row.currentRevisionId ? null : row.failureCode,
+      generationState: artifactEffectiveGenerationState({
+        currentRevisionId: row.currentRevisionId,
+        generationState: artifactGenerationStateSchema.parse(row.generationState),
+      }),
+      updatedAt: row.updatedAt.toISOString(),
+    }),
+  );
+}
+
+export async function listWorkspaceArtifactHistory(
+  actor: Actor,
+  input: Pick<ArtifactScope, "workspaceId">,
+  db: Database = database,
+  accessSnapshot?: WorkspaceAccessSnapshot,
+): Promise<WorkspaceArtifactNavigationItem[]> {
+  const permissions =
+    accessSnapshot?.workspaceId === input.workspaceId &&
+    hasWorkspacePermission(accessSnapshot.permissions, "workspace.read")
+      ? accessSnapshot.permissions
+      : (await requireWorkspacePermission(actor, input.workspaceId, "workspace.read", db))
+          .permissions;
+  const rows = await db
+    .select({
+      conversationId: artifacts.conversationId,
+      createdAt: artifacts.createdAt,
+      currentRevisionId: artifacts.currentRevisionId,
+      failureCode: artifacts.generationFailureCode,
+      generationState: artifacts.generationState,
+      id: artifacts.id,
+      kind: artifacts.kind,
+      sourceUserMessageId: artifacts.sourceUserMessageId,
+      title: artifacts.title,
+      updatedAt: artifacts.updatedAt,
+    })
+    .from(artifacts)
+    .where(
+      and(
+        eq(artifacts.createdByPrincipalId, actor.principalId),
+        eq(artifacts.workspaceId, input.workspaceId),
+        isNull(artifacts.deletedAt),
+        notExists(
+          db
+            .select({ sourceId: artifactSources.sourceId })
+            .from(artifactSources)
+            .innerJoin(sources, eq(artifactSources.sourceId, sources.id))
+            .where(and(eq(artifactSources.artifactId, artifacts.id), isNull(sources.deletedAt))),
+        ),
+      ),
+    )
+    .orderBy(desc(artifacts.updatedAt), asc(artifacts.id))
+    .limit(100);
+  return rows.map((row) =>
+    workspaceArtifactNavigationItemSchema.parse({
+      ...row,
+      canRetryGeneration:
+        hasWorkspacePermission(permissions, "artifact.private.manage") &&
+        row.currentRevisionId === null &&
+        row.generationState === "failed" &&
+        ((row.kind === "presentation" && openHandsExecutionEnabled()) ||
+          (row.kind === "animation" && animationExecutionEnabled())),
+      createdAt: row.createdAt.toISOString(),
+      failureCode: row.currentRevisionId ? null : row.failureCode,
       generationState: artifactEffectiveGenerationState({
         currentRevisionId: row.currentRevisionId,
         generationState: artifactGenerationStateSchema.parse(row.generationState),

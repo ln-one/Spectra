@@ -143,6 +143,7 @@ export function artifactHistoryItemFromDetail(detail: ArtifactDetail) {
   return artifactHistoryItemSchema.parse({
     createdAt: detail.createdAt,
     currentRevisionId: detail.artifact?.currentRevision.id ?? null,
+    failureCode: detail.failureCode,
     generationState: detail.generationState,
     id: detail.id,
     kind: detail.kind,

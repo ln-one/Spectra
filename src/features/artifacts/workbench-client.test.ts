@@ -7,7 +7,9 @@ import {
   dismissArtifactProposal,
   fetchArtifactDetail,
   fetchArtifactHistory,
+  fetchWorkspaceArtifactHistory,
   fetchCurrentArtifactProposal,
+  mergeArtifactHistory,
   parseArtifactStreamEvent,
   upsertArtifactHistory,
 } from "./workbench-client";
@@ -39,6 +41,12 @@ test("uses kind-neutral cache keys for history and details", () => {
     "conversation",
     "artifacts",
   ]);
+  expect(artifactWorkbenchQueryKeys.workspaceHistory("workspace")).toEqual([
+    "workspace",
+    "workspace",
+    "artifacts",
+    "navigation",
+  ]);
   expect(artifactWorkbenchQueryKeys.detail("workspace", "conversation", "artifact")).toEqual([
     "workspace",
     "workspace",
@@ -56,6 +64,34 @@ test("uses kind-neutral cache keys for history and details", () => {
     "artifact",
     "proposal",
   ]);
+});
+
+test("keeps a newer cached state when a history response arrives out of order", () => {
+  const base = {
+    createdAt: detail.createdAt,
+    currentRevisionId: null,
+    id: detail.id,
+    kind: detail.kind,
+    title: detail.title,
+  };
+  const newer = {
+    ...base,
+    generationState: "failed" as const,
+    updatedAt: "2026-07-18T01:02:00.000Z",
+  };
+  const older = {
+    ...base,
+    generationState: "generating" as const,
+    updatedAt: "2026-07-18T01:01:00.000Z",
+  };
+  expect(mergeArtifactHistory([newer], [older])).toEqual([newer]);
+  const retry = {
+    ...base,
+    generationState: "queued" as const,
+    updatedAt: "2026-07-18T01:03:00.000Z",
+  };
+  expect(mergeArtifactHistory([newer], [retry])).toEqual([retry]);
+  expect(mergeArtifactHistory([newer], [])).toEqual([]);
 });
 
 test("normalizes a concrete stream part at the Artifact boundary", () => {
@@ -157,6 +193,7 @@ test("bypasses browser caches for mutable Artifact reads", async () => {
   vi.stubGlobal("fetch", fetchMock);
 
   await fetchArtifactHistory(detail.workspaceId, "00000000-0000-4000-8000-000000000202");
+  await fetchWorkspaceArtifactHistory(detail.workspaceId);
   await fetchArtifactDetail({
     artifactId: detail.id,
     conversationId: "00000000-0000-4000-8000-000000000202",
@@ -166,8 +203,11 @@ test("bypasses browser caches for mutable Artifact reads", async () => {
   expect(fetchMock).toHaveBeenNthCalledWith(1, expect.stringContaining("/api/artifacts?"), {
     cache: "no-store",
   });
+  expect(fetchMock).toHaveBeenNthCalledWith(2, expect.stringContaining("scope=workspace"), {
+    cache: "no-store",
+  });
   expect(fetchMock).toHaveBeenNthCalledWith(
-    2,
+    3,
     expect.stringContaining(`/api/artifacts/${detail.id}?`),
     { cache: "no-store" },
   );

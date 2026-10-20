@@ -28,11 +28,14 @@ export const artifactGenerationStateSchema = z.enum([
 
 export const artifactHistoryItemSchema = z
   .object({
+    canRetryGeneration: z.boolean().optional(),
     createdAt: z.iso.datetime(),
     currentRevisionId: z.string().uuid().nullable(),
+    failureCode: z.string().trim().min(1).max(100).nullable().optional(),
     generationState: artifactGenerationStateSchema,
     id: z.string().uuid(),
     kind: artifactKindSchema,
+    sourceUserMessageId: z.string().min(1).max(128).nullable().optional(),
     title: z.string().trim().min(1).max(200),
     updatedAt: z.iso.datetime(),
   })
@@ -40,6 +43,10 @@ export const artifactHistoryItemSchema = z
 
 export type ArtifactGenerationState = z.infer<typeof artifactGenerationStateSchema>;
 export type ArtifactHistoryItem = z.infer<typeof artifactHistoryItemSchema>;
+export const workspaceArtifactNavigationItemSchema = artifactHistoryItemSchema.extend({
+  conversationId: z.string().uuid(),
+});
+export type WorkspaceArtifactNavigationItem = z.infer<typeof workspaceArtifactNavigationItemSchema>;
 export type ArtifactKind = z.infer<typeof artifactKindSchema>;
 export type ArtifactSourceKind = z.infer<typeof artifactSourceKindSchema>;
 

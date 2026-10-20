@@ -14,6 +14,7 @@ import {
   artifactGenerationStateSchema,
   artifactHistoryItemSchema,
   artifactSourceKindSchema,
+  workspaceArtifactNavigationItemSchema,
 } from "./types";
 
 const historyResponseSchema = z.object({ artifacts: z.unknown() }).strict();
@@ -68,6 +69,8 @@ export const artifactWorkbenchQueryKeys = {
     ["workspace", workspaceId, "conversation", conversationId, "artifact", artifactId] as const,
   history: (workspaceId: string, conversationId: string) =>
     ["workspace", workspaceId, "conversation", conversationId, "artifacts"] as const,
+  workspaceHistory: (workspaceId: string) =>
+    ["workspace", workspaceId, "artifacts", "navigation"] as const,
   proposal: (workspaceId: string, conversationId: string, artifactId: string) =>
     [
       "workspace",
@@ -94,6 +97,46 @@ export async function fetchArtifactHistory(workspaceId: string, conversationId: 
   return sortArtifactHistory(z.array(artifactHistoryItemSchema).parse(payload.artifacts));
 }
 
+export async function fetchWorkspaceArtifactHistory(workspaceId: string) {
+  const query = new URLSearchParams({ scope: "workspace", workspaceId });
+  const response = await fetch(`/api/artifacts?${query}`, { cache: "no-store" });
+  if (!response.ok) throw new Error("workspace_artifact_history_unavailable");
+  const payload = historyResponseSchema.parse(await response.json());
+  return sortArtifactHistory(
+    z.array(workspaceArtifactNavigationItemSchema).parse(payload.artifacts),
+  );
+}
+
+export function mergeArtifactHistory(
+  cached: readonly ArtifactHistoryItem[] | undefined,
+  server: readonly ArtifactHistoryItem[],
+) {
+  if (!cached) return [...server];
+  return sortArtifactHistory(
+    server.map((item) => {
+      const previous = cached.find((candidate) => candidate.id === item.id);
+      if (!previous) return item;
+      const previousTime = Date.parse(previous.updatedAt);
+      const serverTime = Date.parse(item.updatedAt);
+      if (previousTime > serverTime) {
+        return {
+          ...previous,
+          ...(item.sourceUserMessageId !== undefined
+            ? { sourceUserMessageId: item.sourceUserMessageId }
+            : {}),
+        };
+      }
+      if (
+        previousTime === serverTime &&
+        artifactGenerationStateRank(artifactEffectiveGenerationState(previous)) >
+          artifactGenerationStateRank(artifactEffectiveGenerationState(item))
+      )
+        return previous;
+      return item;
+    }),
+  );
+}
+
 export async function fetchArtifactDetail(input: {
   artifactId: string;
   conversationId: string;
@@ -109,6 +152,25 @@ export async function fetchArtifactDetail(input: {
   if (!response.ok) {
     throw new ArtifactDetailError(response.status === 404 ? "not_found" : "unavailable");
   }
+  const payload = detailResponseSchema.parse(await response.json());
+  return artifactDetailSchema.parse(payload.detail);
+}
+
+export async function retryArtifactGeneration(input: {
+  artifactId: string;
+  conversationId: string;
+  kind: "animation" | "presentation";
+  workspaceId: string;
+}) {
+  const response = await fetch(`/api/artifacts/${input.kind}/${input.artifactId}/retry`, {
+    body: JSON.stringify({
+      conversationId: input.conversationId,
+      workspaceId: input.workspaceId,
+    }),
+    headers: { "content-type": "application/json" },
+    method: "POST",
+  });
+  if (!response.ok) throw new Error("artifact_retry_unavailable");
   const payload = detailResponseSchema.parse(await response.json());
   return artifactDetailSchema.parse(payload.detail);
 }
@@ -205,7 +267,17 @@ export function upsertArtifactHistory(
       return sortArtifactHistory(history);
     }
   }
-  return sortArtifactHistory([candidate, ...history.filter((item) => item.id !== detail.id)]).slice(
+  const merged = {
+    ...candidate,
+    ...(current?.sourceUserMessageId !== undefined
+      ? { sourceUserMessageId: current.sourceUserMessageId }
+      : {}),
+    canRetryGeneration:
+      candidate.generationState === "failed" && current?.generationState === "failed"
+        ? current.canRetryGeneration === true
+        : false,
+  };
+  return sortArtifactHistory([merged, ...history.filter((item) => item.id !== detail.id)]).slice(
     0,
     50,
   );

@@ -1,10 +1,16 @@
 import { beforeEach, expect, test, vi } from "vitest";
-import { listArtifactHistory } from "@/features/artifacts/workbench-server";
+import {
+  listArtifactHistory,
+  listWorkspaceArtifactHistory,
+} from "@/features/artifacts/workbench-server";
 import { getCurrentActor } from "@/features/identity/current";
 import { GET } from "./route";
 
 vi.mock("@/features/identity/current", () => ({ getCurrentActor: vi.fn() }));
-vi.mock("@/features/artifacts/workbench-server", () => ({ listArtifactHistory: vi.fn() }));
+vi.mock("@/features/artifacts/workbench-server", () => ({
+  listArtifactHistory: vi.fn(),
+  listWorkspaceArtifactHistory: vi.fn(),
+}));
 
 const actor = { handle: "alice", principalId: "00000000-0000-4000-8000-000000000401" };
 const workspaceId = "00000000-0000-4000-8000-000000000402";
@@ -13,6 +19,16 @@ const conversationId = "00000000-0000-4000-8000-000000000403";
 beforeEach(() => {
   vi.mocked(getCurrentActor).mockReset().mockResolvedValue(actor);
   vi.mocked(listArtifactHistory).mockReset().mockResolvedValue([]);
+  vi.mocked(listWorkspaceArtifactHistory).mockReset().mockResolvedValue([]);
+});
+
+test("lists Artifact navigation through the authorized workspace scope", async () => {
+  const response = await GET(
+    new Request(`http://localhost/api/artifacts?workspaceId=${workspaceId}&scope=workspace`),
+  );
+  expect(response.status).toBe(200);
+  expect(await response.json()).toEqual({ artifacts: [] });
+  expect(listWorkspaceArtifactHistory).toHaveBeenCalledWith(actor, { workspaceId });
 });
 
 test("lists mixed Artifact history through the authorized conversation scope", async () => {
