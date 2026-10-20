@@ -18,7 +18,8 @@ export function useWorkspaceConversationPages(input: {
     initialPageParam: null as string | null,
     queryFn: ({ pageParam }) => fetchWorkspaceConversationPage(input.workspaceId, pageParam),
     queryKey: ["workspace", input.workspaceId, "conversations"],
-    refetchOnWindowFocus: false,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: "always",
     staleTime: 30_000,
   });
 }

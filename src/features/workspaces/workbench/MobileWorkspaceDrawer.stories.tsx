@@ -38,6 +38,28 @@ export const Default: Story = {
     newConversationHref: "/teacher/optics?conversation=new",
     settingsControl: <button type="button">设置</button>,
     workspaceHref: "/teacher/optics",
+    workspaceArtifacts: [
+      {
+        conversationId: "00000000-0000-4000-8000-000000000001",
+        createdAt: "2026-10-13T08:30:00.000Z",
+        currentRevisionId: "00000000-0000-4000-8000-000000000011",
+        generationState: "ready",
+        id: "00000000-0000-4000-8000-000000000010",
+        kind: "mind_map",
+        title: "机器学习基础",
+        updatedAt: "2026-10-13T09:10:00.000Z",
+      },
+      {
+        conversationId: "00000000-0000-4000-8000-000000000002",
+        createdAt: "2026-10-12T08:30:00.000Z",
+        currentRevisionId: null,
+        generationState: "generating",
+        id: "00000000-0000-4000-8000-000000000012",
+        kind: "teaching_document",
+        title: "折射实验教学文档",
+        updatedAt: "2026-10-13T09:05:00.000Z",
+      },
+    ],
     workspaces: [
       {
         href: "/teacher/optics",
@@ -54,5 +76,14 @@ export const Default: Story = {
         updatedAt: "2026-10-12T09:00:00.000Z",
       },
     ],
+  },
+};
+
+export const MoreHistory: Story = {
+  args: {
+    ...Default.args,
+    hasNextPage: true,
+    isLoadingNextPage: false,
+    onLoadMore: () => undefined,
   },
 };
