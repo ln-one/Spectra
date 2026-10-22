@@ -725,7 +725,12 @@
       "interactiveGame": "Design a classroom game with goals, rules, and feedback",
       "quiz": "Generate questions, answers, and explanations from lesson content",
       "animation": "Turn an abstract process into a clear demonstration animation"
-    }
+    },
+    "mobileAccountTitle": "Account & preferences",
+    "collapseWorkspaceNavigation": "Collapse {name}",
+    "expandWorkspaceNavigation": "Expand {name}",
+    "workspaceNavigationLoading": "Loading workspace content…",
+    "workspaceNavigationRetry": "Could not load. Tap to retry."
   },
   "Sources": {
     "title": "Sources",

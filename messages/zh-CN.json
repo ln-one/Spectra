@@ -725,7 +725,12 @@
       "interactiveGame": "设计具有目标、规则和反馈的课堂互动游戏",
       "quiz": "根据教学内容生成题目、答案与解析",
       "animation": "将抽象过程转化为直观的演示动画"
-    }
+    },
+    "mobileAccountTitle": "账户与偏好",
+    "collapseWorkspaceNavigation": "收起{name}的内容",
+    "expandWorkspaceNavigation": "展开{name}的内容",
+    "workspaceNavigationLoading": "正在加载项目内容…",
+    "workspaceNavigationRetry": "加载失败，点击重试"
   },
   "Sources": {
     "title": "资料来源",

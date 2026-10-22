@@ -8,6 +8,7 @@ import {
   parseAppTheme,
   parseResolvedAppTheme,
 } from "@/features/preferences/theme-preference";
+import { MobileWorkspaceDrawerNavigationProvider } from "@/features/workspaces/workbench/MobileWorkspaceDrawerNavigationContext";
 import { geistMono, geistSans } from "../app-fonts";
 import { AppThemeProvider } from "../providers";
 import "../styles/workspace.css";
@@ -42,7 +43,11 @@ export default async function AuthenticatedLayout({
     >
       <body className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased`}>
         <AppThemeProvider initialTheme={initialTheme}>
-          <NextIntlClientProvider messages={messages}>{children}</NextIntlClientProvider>
+          <NextIntlClientProvider messages={messages}>
+            <MobileWorkspaceDrawerNavigationProvider>
+              {children}
+            </MobileWorkspaceDrawerNavigationProvider>
+          </NextIntlClientProvider>
         </AppThemeProvider>
       </body>
     </html>

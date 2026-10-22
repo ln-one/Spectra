@@ -43,13 +43,25 @@ test("opens the mobile drawer and exposes workspace and conversation navigation"
   expect(screen.getByRole("dialog", { name: "Spectra" })).toBeInTheDocument();
   expect(screen.getByRole("link", { name: /光学课程/ })).toHaveAttribute(
     "href",
-    "/teacher/optics?conversation=conversation-1",
+    "/teacher/optics?view=overview",
   );
   expect(screen.getByRole("link", { name: "折射实验" })).toHaveAttribute(
     "href",
     "/teacher/optics?conversation=conversation-1",
   );
-  expect(screen.getByRole("link", { name: /高等数学/ })).toHaveAttribute("href", "/teacher/math");
+  expect(screen.getByRole("link", { name: /高等数学/ })).toHaveAttribute(
+    "href",
+    "/teacher/math?view=overview",
+  );
+
+  fireEvent.click(screen.getByRole("button", { name: "收起光学课程的内容" }));
+  expect(screen.queryByRole("link", { name: "折射实验" })).not.toBeInTheDocument();
+  expect(screen.getByRole("link", { name: /光学课程/ })).toHaveAttribute(
+    "href",
+    "/teacher/optics?view=overview",
+  );
+  fireEvent.click(screen.getByRole("button", { name: "展开光学课程的内容" }));
+  expect(screen.getByRole("link", { name: "折射实验" })).toBeInTheDocument();
 });
 
 test("loads older conversations from the mobile drawer", () => {
@@ -109,7 +121,9 @@ test("filters workspace navigation without losing current conversation matches",
     />,
   );
   fireEvent.click(screen.getByRole("button", { name: "打开工作空间导航" }));
-  fireEvent.change(screen.getByRole("searchbox"), { target: { value: "棱镜" } });
+  fireEvent.change(screen.getByRole("searchbox"), {
+    target: { value: "棱镜" },
+  });
   expect(screen.getByRole("link", { name: "棱镜配色" })).toBeInTheDocument();
 });
 

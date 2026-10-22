@@ -3,10 +3,7 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import {
   BookOpenText,
-  ChevronDown,
   ChevronRight,
-  Folder,
-  LoaderCircle,
   Menu,
   MessageSquarePlus,
   Search,
@@ -14,20 +11,18 @@ import {
   X,
 } from "lucide-react";
 import Link from "next/link";
-import { useFormatter, useTranslations } from "next-intl";
-import { type ReactNode, useEffect, useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
+import { type ReactNode, useEffect, useState } from "react";
 import { SpectraLogo } from "@/components/icons/SpectraLogo";
-import {
-  artifactEffectiveGenerationState,
-  type WorkspaceArtifactNavigationItem,
-} from "@/features/artifacts/types";
+import type { WorkspaceArtifactNavigationItem } from "@/features/artifacts/types";
 import { mobileLastWorkspaceKey } from "../dashboard/MobileConversationEntry";
-import { studioToolForArtifactKind } from "./artifactWorkbench";
-import { STUDIO_TOOL_PRESENTATIONS } from "./studioTools";
+import { useMobileWorkspaceDrawerNavigation } from "./MobileWorkspaceDrawerNavigationContext";
+import { MobileWorkspaceTreeItem } from "./MobileWorkspaceTreeItem";
 import type { MobileWorkspaceNavigationItem, WorkspaceConversationNavigationItem } from "./types";
 
 export function MobileWorkspaceDrawer({
   accountMenu,
+  account,
   conversationId,
   conversations,
   currentWorkspaceId,
@@ -43,8 +38,10 @@ export function MobileWorkspaceDrawer({
   onLoadMore,
   onOpenCreationTools,
   onOpenSources,
+  onOpenAccount,
 }: {
   accountMenu: ReactNode;
+  account?: { handle: string; email: string };
   conversationId: string;
   conversations: readonly WorkspaceConversationNavigationItem[];
   currentWorkspaceId: string;
@@ -60,12 +57,18 @@ export function MobileWorkspaceDrawer({
   onLoadMore?: (() => void) | undefined;
   onOpenCreationTools?: (() => void) | undefined;
   onOpenSources?: (() => void) | undefined;
+  onOpenAccount?: (() => void) | undefined;
 }) {
   const t = useTranslations("Workbench");
-  const format = useFormatter();
   const [query, setQuery] = useState("");
-  const [conversationsExpanded, setConversationsExpanded] = useState(true);
-  const [artifactsExpanded, setArtifactsExpanded] = useState(true);
+  const [localOpen, setLocalOpen] = useState(defaultOpen);
+  const drawerNavigation = useMobileWorkspaceDrawerNavigation();
+  const open = drawerNavigation?.isOpen ?? localOpen;
+  const navigationTargetWorkspaceId = drawerNavigation?.navigationTargetWorkspaceId ?? null;
+  const [expandedByWorkspace, setExpandedByWorkspace] = useState<Record<string, boolean>>({});
+  const expandedWorkspaceIds = workspaces.map((workspace) => workspace.id).join(":");
+  const normalizedQuery = query.trim().toLocaleLowerCase();
+
   useEffect(() => {
     if (
       typeof window.matchMedia !== "function" ||
@@ -78,93 +81,64 @@ export function MobileWorkspaceDrawer({
       // Navigation still works when browser storage is unavailable.
     }
   }, [workspaceHref]);
-  useEffect(() => {
-    try {
-      setConversationsExpanded(
-        window.localStorage.getItem(`spectra.mobileDrawer.${currentWorkspaceId}.conversations`) !==
-          "collapsed",
-      );
-      setArtifactsExpanded(
-        window.localStorage.getItem(`spectra.mobileDrawer.${currentWorkspaceId}.artifacts`) !==
-          "collapsed",
-      );
-    } catch {
-      setConversationsExpanded(true);
-      setArtifactsExpanded(true);
-    }
-  }, [currentWorkspaceId]);
-  const normalizedQuery = query.trim().toLocaleLowerCase();
-  const filteredConversations = useMemo(
-    () =>
-      conversations.filter((conversation) => {
-        const label =
-          conversation.title ??
-          t("conversationAt", {
-            date: format.dateTime(new Date(conversation.updatedAt), {
-              dateStyle: "medium",
-              timeStyle: "short",
-              timeZone: "Asia/Shanghai",
-            }),
-          });
-        return label.toLocaleLowerCase().includes(normalizedQuery);
-      }),
-    [conversations, format, normalizedQuery, t],
-  );
-  const filteredArtifacts = useMemo(
-    () =>
-      workspaceArtifacts.filter((artifact) =>
-        artifact.title.toLocaleLowerCase().includes(normalizedQuery),
-      ),
-    [normalizedQuery, workspaceArtifacts],
-  );
-  const filteredWorkspaces = useMemo(
-    () =>
-      workspaces.filter(
-        (workspace) =>
-          workspace.name.toLocaleLowerCase().includes(normalizedQuery) ||
-          (workspace.id === currentWorkspaceId &&
-            (filteredConversations.length > 0 || filteredArtifacts.length > 0)),
-      ),
-    [
-      currentWorkspaceId,
-      filteredArtifacts.length,
-      filteredConversations.length,
-      normalizedQuery,
-      workspaces,
-    ],
-  );
 
-  const setSectionExpanded = (section: "artifacts" | "conversations", expanded: boolean) => {
-    if (section === "conversations") setConversationsExpanded(expanded);
-    else setArtifactsExpanded(expanded);
+  useEffect(() => {
+    const restored: Record<string, boolean> = {};
+    for (const workspaceId of expandedWorkspaceIds.split(":")) {
+      if (!workspaceId) continue;
+      try {
+        const saved = window.localStorage.getItem(`spectra.mobileDrawer.${workspaceId}.workspace`);
+        restored[workspaceId] =
+          saved === "expanded" || (saved === null && workspaceId === currentWorkspaceId);
+      } catch {
+        restored[workspaceId] = workspaceId === currentWorkspaceId;
+      }
+    }
+    setExpandedByWorkspace(restored);
+  }, [currentWorkspaceId, expandedWorkspaceIds]);
+
+  function setWorkspaceExpanded(workspaceId: string, expanded: boolean) {
+    setExpandedByWorkspace((current) => ({
+      ...current,
+      [workspaceId]: expanded,
+    }));
     try {
       window.localStorage.setItem(
-        `spectra.mobileDrawer.${currentWorkspaceId}.${section}`,
+        `spectra.mobileDrawer.${workspaceId}.workspace`,
         expanded ? "expanded" : "collapsed",
       );
     } catch {
-      // The drawer remains usable when browser storage is unavailable.
+      // The tree remains usable when browser storage is unavailable.
     }
-  };
+  }
 
-  const conversationLabel = (conversation: WorkspaceConversationNavigationItem) =>
-    conversation.title ??
-    t("conversationAt", {
-      date: format.dateTime(new Date(conversation.updatedAt), {
-        dateStyle: "medium",
-        timeStyle: "short",
-        timeZone: "Asia/Shanghai",
-      }),
-    });
+  function selectWorkspace(workspaceId: string) {
+    setWorkspaceExpanded(workspaceId, true);
+    drawerNavigation?.beginWorkspaceNavigation(workspaceId);
+  }
+
+  function handleOpenChange(nextOpen: boolean) {
+    if (drawerNavigation) {
+      drawerNavigation.setOpen(nextOpen);
+      if (!nextOpen) drawerNavigation.cancelWorkspaceNavigation();
+    } else setLocalOpen(nextOpen);
+    if (!nextOpen) {
+      setQuery("");
+    }
+  }
+
+  const filteredWorkspaces = workspaces.filter(
+    (workspace) =>
+      workspace.name.toLocaleLowerCase().includes(normalizedQuery) ||
+      (workspace.id === currentWorkspaceId &&
+        (conversations.some((item) => item.title?.toLocaleLowerCase().includes(normalizedQuery)) ||
+          workspaceArtifacts.some((item) =>
+            item.title.toLocaleLowerCase().includes(normalizedQuery),
+          ))),
+  );
 
   return (
-    <Dialog.Root
-      defaultOpen={defaultOpen}
-      onOpenChange={(open) => {
-        if (open) return;
-        setQuery("");
-      }}
-    >
+    <Dialog.Root open={open} onOpenChange={handleOpenChange}>
       <Dialog.Trigger asChild>
         <button
           type="button"
@@ -175,9 +149,13 @@ export function MobileWorkspaceDrawer({
         </button>
       </Dialog.Trigger>
       <Dialog.Portal>
-        <Dialog.Overlay className="workspace-mobile-drawer-overlay fixed inset-0 z-[120] bg-zinc-950/25 backdrop-blur-[2px]" />
+        <Dialog.Overlay
+          data-navigation-reopen={navigationTargetWorkspaceId ? "true" : undefined}
+          className="workspace-mobile-drawer-overlay fixed inset-0 z-[120] bg-zinc-950/25 backdrop-blur-[2px]"
+        />
         <Dialog.Content
           aria-describedby={undefined}
+          data-navigation-reopen={navigationTargetWorkspaceId ? "true" : undefined}
           data-workspace-style="mist-zinc"
           data-workspace-theme="mist-zinc"
           className="workspace-mobile-drawer fixed inset-y-0 left-0 z-[121] flex w-[min(88vw,360px)] flex-col border-r border-[var(--workspace-border)] bg-[var(--workspace-surface)] text-[var(--workspace-text-primary)] shadow-2xl backdrop-blur-[var(--workspace-panel-blur)] outline-none"
@@ -257,177 +235,27 @@ export function MobileWorkspaceDrawer({
               {t("workspaceNavigationTitle")}
             </p>
             <nav aria-label={t("workspaceNavigationTitle")} className="space-y-1">
-              {filteredWorkspaces.map((workspace) => {
-                const current = workspace.id === currentWorkspaceId;
-                return (
-                  <div key={workspace.id}>
-                    <Dialog.Close asChild>
-                      <Link
-                        href={
-                          current
-                            ? `${workspaceHref}?conversation=${conversationId}`
-                            : workspace.href
-                        }
-                        aria-current={current ? "location" : undefined}
-                        className={`flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm outline-none hover:bg-[var(--workspace-surface-muted)] focus-visible:ring-2 focus-visible:ring-[var(--studio-ring)] ${current ? "font-semibold" : "font-medium"}`}
-                      >
-                        <Folder
-                          aria-hidden="true"
-                          className="h-5 w-5 shrink-0 text-[var(--workspace-accent)]"
-                        />
-                        <span className="min-w-0 flex-1 truncate">{workspace.name}</span>
-                        <ChevronRight
-                          aria-hidden="true"
-                          className="h-4 w-4 text-[var(--workspace-text-muted)]"
-                        />
-                      </Link>
-                    </Dialog.Close>
-                    {current ? (
-                      <div className="ml-7 border-l border-[var(--workspace-border)] pl-2">
-                        <button
-                          type="button"
-                          aria-expanded={conversationsExpanded}
-                          onClick={() =>
-                            setSectionExpanded("conversations", !conversationsExpanded)
-                          }
-                          className="flex min-h-10 w-full items-center gap-2 rounded-lg px-3 text-left text-xs font-semibold text-[var(--workspace-text-muted)] outline-none hover:bg-[var(--workspace-surface-muted)] focus-visible:ring-2 focus-visible:ring-[var(--studio-ring)]"
-                        >
-                          <ChevronDown
-                            aria-hidden="true"
-                            className={`h-4 w-4 transition-transform ${conversationsExpanded ? "" : "-rotate-90"}`}
-                          />
-                          <span className="min-w-0 flex-1">{t("conversationNavigationTitle")}</span>
-                          <span className="tabular-nums">{conversations.length}</span>
-                        </button>
-                        {conversationsExpanded || normalizedQuery ? (
-                          <div className="space-y-0.5">
-                            {filteredConversations.map((conversation) => (
-                              <Dialog.Close asChild key={conversation.conversationId}>
-                                <Link
-                                  href={`${workspaceHref}?conversation=${conversation.conversationId}`}
-                                  aria-current={
-                                    conversation.conversationId === conversationId
-                                      ? "page"
-                                      : undefined
-                                  }
-                                  className={`block min-h-10 truncate rounded-lg px-3 py-2.5 text-sm outline-none hover:bg-[var(--workspace-surface-muted)] focus-visible:ring-2 focus-visible:ring-[var(--studio-ring)] ${conversation.conversationId === conversationId ? "font-semibold text-[var(--workspace-text-primary)]" : "text-[var(--workspace-text-muted)]"}`}
-                                >
-                                  {conversationLabel(conversation)}
-                                </Link>
-                              </Dialog.Close>
-                            ))}
-                            {hasNextPage ? (
-                              <button
-                                type="button"
-                                disabled={isLoadingNextPage}
-                                onClick={onLoadMore}
-                                className="flex min-h-10 w-full items-center justify-center gap-2 rounded-lg px-3 text-xs font-medium text-[var(--workspace-text-muted)] outline-none hover:bg-[var(--workspace-surface-muted)] focus-visible:ring-2 focus-visible:ring-[var(--studio-ring)] disabled:cursor-wait disabled:opacity-60"
-                              >
-                                {isLoadingNextPage ? (
-                                  <LoaderCircle
-                                    aria-hidden="true"
-                                    className="h-4 w-4 animate-spin motion-reduce:animate-none"
-                                  />
-                                ) : null}
-                                {isLoadingNextPage
-                                  ? t("loadingMoreConversations")
-                                  : t("loadMoreConversations")}
-                              </button>
-                            ) : null}
-                          </div>
-                        ) : null}
-
-                        <button
-                          type="button"
-                          aria-expanded={artifactsExpanded}
-                          onClick={() => setSectionExpanded("artifacts", !artifactsExpanded)}
-                          className="mt-1 flex min-h-10 w-full items-center gap-2 rounded-lg px-3 text-left text-xs font-semibold text-[var(--workspace-text-muted)] outline-none hover:bg-[var(--workspace-surface-muted)] focus-visible:ring-2 focus-visible:ring-[var(--studio-ring)]"
-                        >
-                          <ChevronDown
-                            aria-hidden="true"
-                            className={`h-4 w-4 transition-transform ${artifactsExpanded ? "" : "-rotate-90"}`}
-                          />
-                          <span className="min-w-0 flex-1">{t("creationResultsTitle")}</span>
-                          <span className="tabular-nums">{workspaceArtifacts.length}</span>
-                        </button>
-                        {artifactsExpanded || normalizedQuery ? (
-                          <div className="space-y-1 pb-1">
-                            {filteredArtifacts.length === 0 ? (
-                              <p className="px-3 py-2 text-xs text-[var(--workspace-text-muted)]">
-                                {t("creationResultsEmpty")}
-                              </p>
-                            ) : (
-                              filteredArtifacts.map((artifact) => {
-                                const toolId = studioToolForArtifactKind(artifact.kind);
-                                const presentation = toolId
-                                  ? STUDIO_TOOL_PRESENTATIONS[toolId]
-                                  : null;
-                                const ArtifactIcon = presentation?.Icon ?? Folder;
-                                const state = artifactEffectiveGenerationState(artifact);
-                                const active =
-                                  state === "queued" ||
-                                  state === "generating" ||
-                                  state === "finalizing";
-                                const status = active
-                                  ? t(
-                                      state === "queued"
-                                        ? "artifactQueued"
-                                        : state === "generating"
-                                          ? "artifactGenerating"
-                                          : "artifactFinalizing",
-                                    )
-                                  : state === "failed"
-                                    ? t("artifactGenerationFailed")
-                                    : state === "cancelled"
-                                      ? t("artifactGenerationCancelled")
-                                      : presentation
-                                        ? t(presentation.labelKey)
-                                        : t("artifactHistoryKind");
-                                return (
-                                  <Dialog.Close asChild key={artifact.id}>
-                                    <Link
-                                      href={`${workspaceHref}?conversation=${artifact.conversationId}&artifact=${artifact.id}`}
-                                      data-studio-tone={presentation?.tone ?? "neutral"}
-                                      className="flex min-h-12 items-center gap-2 rounded-xl px-2 py-1.5 outline-none hover:bg-[var(--studio-surface-subtle)] focus-visible:ring-2 focus-visible:ring-[var(--studio-ring)]"
-                                    >
-                                      <span className="workspace-tool-icon-container flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border">
-                                        {active ? (
-                                          <LoaderCircle
-                                            aria-hidden="true"
-                                            className="h-[17px] w-[17px] animate-spin motion-reduce:animate-none"
-                                          />
-                                        ) : (
-                                          <ArtifactIcon
-                                            aria-hidden="true"
-                                            className="h-[17px] w-[17px]"
-                                          />
-                                        )}
-                                      </span>
-                                      <span className="min-w-0 flex-1">
-                                        <span className="block truncate text-sm font-medium text-[var(--workspace-text-primary)]">
-                                          {artifact.title}
-                                        </span>
-                                        <span className="block truncate text-[11px] text-[var(--workspace-text-muted)]">
-                                          {status}
-                                        </span>
-                                      </span>
-                                    </Link>
-                                  </Dialog.Close>
-                                );
-                              })
-                            )}
-                          </div>
-                        ) : null}
-                      </div>
-                    ) : null}
-                  </div>
-                );
-              })}
+              {filteredWorkspaces.map((workspace) => (
+                <MobileWorkspaceTreeItem
+                  key={workspace.id}
+                  workspace={workspace}
+                  current={workspace.id === currentWorkspaceId}
+                  expanded={
+                    expandedByWorkspace[workspace.id] ?? workspace.id === currentWorkspaceId
+                  }
+                  onExpand={(expanded) => setWorkspaceExpanded(workspace.id, expanded)}
+                  onNavigate={() => selectWorkspace(workspace.id)}
+                  query={normalizedQuery}
+                  conversationId={conversationId}
+                  conversations={workspace.id === currentWorkspaceId ? conversations : []}
+                  artifacts={workspace.id === currentWorkspaceId ? workspaceArtifacts : []}
+                  hasNextPage={workspace.id === currentWorkspaceId && hasNextPage}
+                  isLoadingNextPage={workspace.id === currentWorkspaceId && isLoadingNextPage}
+                  onLoadMore={workspace.id === currentWorkspaceId ? onLoadMore : undefined}
+                />
+              ))}
             </nav>
-            {normalizedQuery &&
-            filteredWorkspaces.length === 0 &&
-            filteredConversations.length === 0 &&
-            filteredArtifacts.length === 0 ? (
+            {normalizedQuery && filteredWorkspaces.length === 0 ? (
               <p className="px-3 py-6 text-center text-sm text-[var(--workspace-text-muted)]">
                 {t("navigationSearchEmpty")}
               </p>
@@ -437,7 +265,31 @@ export function MobileWorkspaceDrawer({
           <div className="flex min-h-16 shrink-0 items-center gap-2 border-t border-[var(--workspace-border)] px-3 pb-[max(env(safe-area-inset-bottom),0.5rem)] pt-2">
             {shareControl}
             {settingsControl}
-            <span className="ml-auto">{accountMenu}</span>
+            {account ? (
+              <Dialog.Close asChild>
+                <button
+                  type="button"
+                  onClick={onOpenAccount}
+                  className="ml-auto flex min-h-11 min-w-0 max-w-[13rem] items-center gap-2 rounded-xl px-2 text-left outline-none transition hover:bg-[var(--workspace-surface-muted)] focus-visible:ring-2 focus-visible:ring-[var(--studio-ring)]"
+                >
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--workspace-surface-muted)] text-xs font-semibold text-[var(--workspace-control-text)]">
+                    {account.handle.slice(0, 1).toUpperCase()}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-xs font-semibold">{account.handle}</span>
+                    <span className="block truncate text-[11px] text-[var(--workspace-text-muted)]">
+                      {account.email}
+                    </span>
+                  </span>
+                  <ChevronRight
+                    aria-hidden="true"
+                    className="h-4 w-4 shrink-0 text-[var(--workspace-text-muted)]"
+                  />
+                </button>
+              </Dialog.Close>
+            ) : (
+              <span className="ml-auto">{accountMenu}</span>
+            )}
           </div>
         </Dialog.Content>
       </Dialog.Portal>
