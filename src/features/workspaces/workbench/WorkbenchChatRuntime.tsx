@@ -48,7 +48,9 @@ type DictationErrorContextValue = {
 
 const DictationErrorContext = createContext<DictationErrorContextValue | null>(null);
 
-type AgentRunControlContextValue = { cancel: (cancelRuntime: () => void) => void };
+type AgentRunControlContextValue = {
+  cancel: (cancelRuntime: () => void) => void;
+};
 const AgentRunControlContext = createContext<AgentRunControlContextValue | null>(null);
 
 export function useDictationError() {
@@ -64,7 +66,10 @@ export function useCancelAgentRun() {
 export type { ArtifactStreamEvent } from "@/features/artifacts/workbench-client";
 
 export type ComposerSuggestion = { id: number; text: string };
-export type UserMessageSurfaceSnapshot = { id: string; surface: AgentSurfaceContext };
+export type UserMessageSurfaceSnapshot = {
+  id: string;
+  surface: AgentSurfaceContext;
+};
 export type WorkspaceMessageIntent = "chat" | "plan";
 
 type RetrievalPreferenceMessage = {
@@ -116,9 +121,15 @@ export function webSearchFromMessages(messages: readonly RetrievalPreferenceMess
   return retrievalPreferenceFromMessages(messages, "spectraForceWebSearch");
 }
 
-function surfaceContextFromMessage(candidate: UIMessage | undefined) {
+export function surfaceContextFromMessage(candidate: { metadata?: unknown } | undefined) {
   const metadata = candidate?.metadata;
   if (!metadata || typeof metadata !== "object") return null;
+  const custom = Reflect.get(metadata, "custom");
+  const customSurface =
+    custom && typeof custom === "object"
+      ? agentSurfaceContextSchema.safeParse(Reflect.get(custom, "spectraSurfaceContext"))
+      : null;
+  if (customSurface?.success) return customSurface.data;
   const parsed = agentSurfaceContextSchema.safeParse(
     Reflect.get(metadata, "spectraSurfaceContext"),
   );
@@ -140,6 +151,7 @@ export function surfaceForCreatedMessage(
   currentSurface: AgentSurfaceContext,
   snapshots: ReadonlyMap<string, AgentSurfaceContext>,
 ) {
+  if (currentSurface.type === "artifact_start") return currentSurface;
   return sourceId ? (snapshots.get(sourceId) ?? currentSurface) : currentSurface;
 }
 
@@ -201,7 +213,10 @@ export function workbenchCreateMessage<UI_MESSAGE extends UIMessage = UIMessage>
   surfaceContext: AgentSurfaceContext = { type: "studio" },
   messageId = globalThis.crypto.randomUUID(),
   intent: WorkspaceMessageIntent = "chat",
-  retrievalPreferences: { web: boolean; workspace: boolean } = { web: false, workspace: false },
+  retrievalPreferences: { web: boolean; workspace: boolean } = {
+    web: false,
+    workspace: false,
+  },
 ): CreateUIMessage<UI_MESSAGE> {
   if (message.role !== "user") throw new Error("Workbench composer only accepts user messages");
   if (message.attachments && message.attachments.length > 0) {
@@ -222,6 +237,9 @@ export function workbenchCreateMessage<UI_MESSAGE extends UIMessage = UIMessage>
     id: messageId,
     metadata: {
       spectraSurfaceContext: resolvedSurface,
+      custom: {
+        spectraSurfaceContext: resolvedSurface,
+      },
       ...(resolvedIntent === "plan" ? { spectraIntent: "plan" } : {}),
       ...(retrievalPreferences.workspace ? { spectraForceWorkspaceRetrieval: true } : {}),
       ...(retrievalPreferences.web ? { spectraForceWebSearch: true } : {}),
@@ -303,7 +321,32 @@ function ChatRuntimeBoundary({
     workspace: forceWorkspaceRetrieval,
   };
   const surfaceSnapshotsRef = useRef(new Map<string, AgentSurfaceContext>());
-  const [initialMessages] = useState(() => [...messages]);
+  const [initialMessages] = useState(() =>
+    messages.map((message) => {
+      const surface = surfaceContextFromMessage(message);
+      if (!surface) return message;
+      const metadata = message.metadata;
+      const custom =
+        metadata && typeof metadata === "object" ? Reflect.get(metadata, "custom") : undefined;
+      if (
+        custom &&
+        typeof custom === "object" &&
+        agentSurfaceContextSchema.safeParse(Reflect.get(custom, "spectraSurfaceContext")).success
+      ) {
+        return message;
+      }
+      return {
+        ...message,
+        metadata: {
+          ...(metadata && typeof metadata === "object" ? metadata : {}),
+          custom: {
+            ...(custom && typeof custom === "object" ? custom : {}),
+            spectraSurfaceContext: surface,
+          },
+        },
+      };
+    }),
+  );
   const [dictationError, setDictationError] = useState<DictationErrorKind | null>(null);
   const dictation = useMemo(
     () =>
@@ -409,11 +452,18 @@ function ChatRuntimeBoundary({
       cancelRuntime();
       if (!clientRequestId) return;
 
-      void fetch(agentRunCancellationUrl({ clientRequestId, conversationId, workspaceId }), {
-        credentials: "same-origin",
-        keepalive: true,
-        method: "DELETE",
-      }).catch(() => undefined);
+      void fetch(
+        agentRunCancellationUrl({
+          clientRequestId,
+          conversationId,
+          workspaceId,
+        }),
+        {
+          credentials: "same-origin",
+          keepalive: true,
+          method: "DELETE",
+        },
+      ).catch(() => undefined);
     },
     [conversationId, workspaceId],
   );

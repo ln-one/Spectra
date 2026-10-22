@@ -51,10 +51,7 @@ import {
 } from "@/features/agents/artifact-plan-contract";
 import type { KnowledgeCitationEvidence } from "@/features/agents/knowledge-citation-contract";
 import { KNOWLEDGE_AGENT_TOOL_IDS } from "@/features/agents/knowledge-tool-contract";
-import {
-  type AgentSurfaceContext,
-  agentSurfaceContextSchema,
-} from "@/features/agents/surface-context";
+import type { AgentSurfaceContext } from "@/features/agents/surface-context";
 import type { ThreadTitleUpdate } from "@/features/agents/thread-events";
 import type { ArtifactSelection } from "@/features/artifacts/contract";
 import type { ArtifactEditProposal } from "@/features/artifacts/proposal-contract";
@@ -83,6 +80,7 @@ import {
   type ArtifactStreamEvent,
   type ComposerSuggestion,
   messageIntentFromMessages,
+  surfaceContextFromMessage,
   type UserMessageSurfaceSnapshot,
   useCancelAgentRun,
   useDictationError,
@@ -537,12 +535,8 @@ function UserMessage({
   const t = useTranslations("Workbench");
   const messageId = useAuiState((state) => state.message.id);
   const creationKind = useAuiState((state) => {
-    const metadata = state.message.metadata;
-    if (!metadata || typeof metadata !== "object") return null;
-    const surface = agentSurfaceContextSchema.safeParse(
-      Reflect.get(metadata, "spectraSurfaceContext"),
-    );
-    return surface.success && surface.data.type === "artifact_start" ? surface.data.kind : null;
+    const surface = surfaceContextFromMessage(state.message);
+    return surface?.type === "artifact_start" ? surface.kind : null;
   });
   const threadMessages = useAuiState((state) => state.thread.messages);
   const recoveredArtifacts = useMemo(() => {

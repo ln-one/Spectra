@@ -3,6 +3,7 @@ import {
   agentChatRequestBody,
   agentRunCancellationUrl,
   messageIntentFromMessages,
+  surfaceContextFromMessage,
   surfaceForCreatedMessage,
   userMessageSurfaceSnapshots,
   webSearchFromMessages,
@@ -150,6 +151,9 @@ describe("workbench user messages", () => {
     expect(message).toEqual({
       id: "new-user-id",
       metadata: {
+        custom: {
+          spectraSurfaceContext: { type: "artifact_start", kind: "quiz" },
+        },
         spectraSurfaceContext: { type: "artifact_start", kind: "quiz" },
       },
       parts: [{ text: "edited", type: "text" }],
@@ -220,7 +224,25 @@ describe("workbench user messages", () => {
     );
 
     expect(message.metadata).toEqual({
+      custom: {
+        spectraSurfaceContext: { kind: "animation", type: "artifact_start" },
+      },
       spectraSurfaceContext: { kind: "animation", type: "artifact_start" },
     });
+  });
+
+  it("reads a persisted creation surface from assistant-ui custom metadata", () => {
+    expect(
+      surfaceContextFromMessage({
+        metadata: {
+          custom: {
+            spectraSurfaceContext: {
+              kind: "teaching_document",
+              type: "artifact_start",
+            },
+          },
+        },
+      }),
+    ).toEqual({ kind: "teaching_document", type: "artifact_start" });
   });
 });

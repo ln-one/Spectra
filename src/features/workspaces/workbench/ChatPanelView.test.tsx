@@ -204,6 +204,25 @@ test("shows a selected creation tool in the composer and lets the user remove it
   expect(onClearCreationTool).toHaveBeenCalledOnce();
 });
 
+test("shows the selected creation tool on a persisted user message", async () => {
+  renderChat([
+    {
+      id: "user:teaching-document",
+      metadata: {
+        spectraSurfaceContext: {
+          kind: "teaching_document",
+          type: "artifact_start",
+        },
+      },
+      parts: [{ text: "进行", type: "text" }],
+      role: "user",
+    },
+  ]);
+
+  expect(await screen.findByText("教学文档")).toBeInTheDocument();
+  expect(screen.getByText("进行")).toBeInTheDocument();
+});
+
 test("restores the composer draft for the current conversation", async () => {
   const draftStorageKey = `spectra:composer-draft:${workspaceId}:${conversationId}`;
   const firstRender = renderChat();
