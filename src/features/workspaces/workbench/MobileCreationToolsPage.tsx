@@ -44,8 +44,8 @@ export function MobileCreationToolsPage({
         <div className="space-y-3">
           {STUDIO_TOOL_IDS.map((toolId) => {
             const { Icon, labelKey, tone } = STUDIO_TOOL_PRESENTATIONS[toolId];
-            const unavailable =
-              !isArtifactCreationToolAvailable(toolId) || runtimeUnavailableTools.includes(toolId);
+            const unavailable = !isArtifactCreationToolAvailable(toolId);
+            const runtimeUnavailable = runtimeUnavailableTools.includes(toolId);
             const label = t(labelKey);
 
             return (
@@ -54,7 +54,9 @@ export function MobileCreationToolsPage({
                 type="button"
                 data-studio-tone={tone}
                 disabled={unavailable}
-                title={unavailable ? t("toolUnavailable", { name: label }) : label}
+                title={
+                  unavailable || runtimeUnavailable ? t("toolUnavailable", { name: label }) : label
+                }
                 onClick={() => onSelectTool(toolId)}
                 className="group flex min-h-28 w-full items-center gap-4 rounded-3xl border border-[var(--studio-border)] bg-[var(--studio-surface)] p-4 text-left shadow-sm outline-none transition-[background-color,box-shadow,transform] hover:bg-[var(--studio-surface-subtle)] hover:shadow-md active:scale-[0.99] focus-visible:ring-2 focus-visible:ring-[var(--studio-ring)] disabled:cursor-not-allowed disabled:opacity-50"
               >
