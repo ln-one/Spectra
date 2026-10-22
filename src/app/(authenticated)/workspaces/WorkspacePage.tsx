@@ -6,6 +6,7 @@ import {
   artifactPublishedCapabilities,
 } from "@/features/artifacts/task-agent/config.server";
 import { AccountMenu } from "@/features/auth/AccountMenu";
+import { MobileAccountPage } from "@/features/auth/MobileAccountPage";
 import { authRecoveryHref } from "@/features/auth/redirect";
 import { getAuthSession } from "@/features/auth/session";
 import { getCurrentActor } from "@/features/identity/current";
@@ -53,6 +54,7 @@ export async function renderWorkspacePage({
   const rawArtifactId = resolvedSearchParams?.artifact;
   const mobileOverview = resolvedSearchParams?.view === "overview";
   const mobileCreationTools = resolvedSearchParams?.view === "tools";
+  const mobileAccount = resolvedSearchParams?.view === "account";
   const parsedConversationId = z
     .string()
     .uuid()
@@ -148,12 +150,14 @@ export async function renderWorkspacePage({
       ? "&view=overview"
       : mobileCreationTools
         ? "&view=tools"
-        : "";
+        : mobileAccount
+          ? "&view=account"
+          : "";
     redirect(
       `${workspaceHref(workspace)}?conversation=${bootstrap.conversationId}${artifactSuffix}${mobileViewSuffix}`,
     );
   }
-  if (!requestedConversationId && !mobileOverview && !mobileCreationTools) {
+  if (!requestedConversationId && !mobileOverview && !mobileCreationTools && !mobileAccount) {
     redirect(`${workspacePath}?conversation=${bootstrap.conversationId}`);
   }
   if (bootstrap.selectedArtifactMissing) redirect(conversationPath);
@@ -178,6 +182,9 @@ export async function renderWorkspacePage({
       workspace={workspace}
       mobileCreationTools={mobileCreationTools}
       mobileOverview={mobileOverview}
+      mobileAccount={mobileAccount}
+      mobileAccountData={{ handle: actor.handle, email }}
+      mobileAccountPage={<MobileAccountPage handle={actor.handle} email={email} />}
       navigationWorkspaces={navigationWorkspaces.map((item) => ({
         href: workspaceHref(item),
         id: item.id,

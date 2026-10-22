@@ -77,6 +77,9 @@ export function WorkspaceWorkbenchView({
   knowledgeNetworkTrace = null,
   mobileCreationTools = false,
   mobileOverview = false,
+  mobileAccount = false,
+  mobileAccountData = { handle: "", email: "" },
+  mobileAccountPage = null,
   navigationWorkspaces = [],
   sourceCount = 0,
 }: {
@@ -103,6 +106,9 @@ export function WorkspaceWorkbenchView({
   knowledgeNetworkTrace?: KnowledgeNetworkTrace | null;
   mobileCreationTools?: boolean;
   mobileOverview?: boolean;
+  mobileAccount?: boolean;
+  mobileAccountData?: { handle: string; email: string };
+  mobileAccountPage?: ReactNode;
   navigationWorkspaces?: readonly MobileWorkspaceNavigationItem[];
   sourceCount?: number;
 }) {
@@ -193,6 +199,9 @@ export function WorkspaceWorkbenchView({
         knowledgeNetworkTrace={knowledgeNetworkTrace}
         mobileCreationTools={mobileCreationTools}
         mobileOverview={mobileOverview}
+        mobileAccount={mobileAccount}
+        mobileAccountData={mobileAccountData}
+        mobileAccountPage={mobileAccountPage}
         navigationWorkspaces={navigationWorkspaces}
         knowledgeNetworkInitialView={knowledgeNetworkInitialView}
         returnToKnowledgeNetwork={returnNavigation ? returnToKnowledgeNetwork : undefined}

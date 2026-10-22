@@ -32,7 +32,18 @@
     "done": "完成",
     "signOut": "退出登录",
     "signingOut": "正在退出...",
-    "signOutFailed": "退出失败，请重试"
+    "signOutFailed": "退出失败，请重试",
+    "mobileAccountTitle": "账户与偏好",
+    "mobileSettings": "应用设置",
+    "mobilePreferences": "应用偏好",
+    "mobilePreferencesDescription": "语言、外观与登录安全",
+    "mobilePreferencesDescriptionFull": "管理此浏览器的语言、外观与登录安全。",
+    "mobileAbout": "关于",
+    "mobileHelp": "帮助中心",
+    "mobileTerms": "使用条款",
+    "mobilePrivacy": "隐私政策",
+    "mobileComingSoon": "即将提供",
+    "mobileBackToAccount": "返回账户"
   },
   "Auth": {
     "email": "邮箱",

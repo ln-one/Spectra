@@ -41,6 +41,9 @@ type WorkspaceHeaderViewInput = WorkspaceHeaderViewProps & {
   workspaceArtifacts?: readonly WorkspaceArtifactNavigationItem[];
   mobileCreationTools?: boolean;
   mobileOverview?: boolean;
+  mobileAccount?: boolean;
+  mobileAccountData?: { handle: string; email: string };
+  onOpenMobileAccount?: () => void;
   onOpenMobileCreationTools?: () => void;
   onOpenMobileSources?: () => void;
 };
@@ -95,6 +98,9 @@ function WorkspaceHeaderViewContent({
   workspaceArtifacts = [],
   mobileCreationTools = false,
   mobileOverview = false,
+  mobileAccount = false,
+  mobileAccountData = { handle: "", email: "" },
+  onOpenMobileAccount,
   onOpenMobileCreationTools,
   onOpenMobileSources,
   hasNextPage = false,
@@ -152,6 +158,7 @@ function WorkspaceHeaderViewContent({
         <div className="workspace-header-enter workspace-header-shell grid h-[calc(var(--workspace-header-height)+env(safe-area-inset-top))] grid-cols-[5.5rem_minmax(0,1fr)_5.5rem] items-center px-3 pt-[env(safe-area-inset-top)] lg:hidden">
           <MobileWorkspaceDrawer
             accountMenu={accountMenu}
+            account={mobileAccountData}
             conversationId={conversationId}
             conversations={conversations}
             currentWorkspaceId={workspaceId}
@@ -164,25 +171,28 @@ function WorkspaceHeaderViewContent({
             hasNextPage={hasNextPage}
             isLoadingNextPage={isLoadingNextPage}
             onLoadMore={onLoadMore}
+            onOpenAccount={onOpenMobileAccount}
             onOpenCreationTools={onOpenMobileCreationTools}
             onOpenSources={onOpenMobileSources}
           />
           <div className="min-w-0 text-center">
             <p className="truncate text-sm font-semibold text-[var(--workspace-text-primary)]">
-              {mobileCreationTools
-                ? t("creationToolsNavigation")
-                : mobileOverview
-                  ? workspaceName
-                  : currentConversationLabel}
+              {mobileAccount
+                ? t("mobileAccountTitle")
+                : mobileCreationTools
+                  ? t("creationToolsNavigation")
+                  : mobileOverview
+                    ? workspaceName
+                    : currentConversationLabel}
             </p>
-            {!mobileOverview && !mobileCreationTools ? (
+            {!mobileOverview && !mobileCreationTools && !mobileAccount ? (
               <p className="mt-0.5 truncate text-[11px] text-[var(--workspace-text-muted)]">
                 {workspaceName}
               </p>
             ) : null}
           </div>
           <div className="flex items-center justify-end">
-            {mobileCreationTools ? (
+            {mobileCreationTools || mobileAccount ? (
               <Link
                 href={`${workspaceHref}?conversation=${conversationId}`}
                 aria-label={t("backToConversation")}
@@ -199,7 +209,7 @@ function WorkspaceHeaderViewContent({
                 <Plus aria-hidden="true" className="h-5 w-5" />
               </Link>
             )}
-            {!mobileOverview && !mobileCreationTools ? (
+            {!mobileOverview && !mobileCreationTools && !mobileAccount ? (
               <DropdownMenu.Root modal={false}>
                 <DropdownMenu.Trigger asChild>
                   <button

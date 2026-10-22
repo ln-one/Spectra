@@ -1,6 +1,6 @@
 "use client";
 
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { ArrowLeft, X } from "lucide-react";
 import { animate } from "motion";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -282,6 +282,9 @@ export function WorkbenchView({
   workspaceOwnerHandle = "",
   mobileCreationTools = false,
   mobileOverview = false,
+  mobileAccount = false,
+  mobileAccountData = { handle: "", email: "" },
+  mobileAccountPage = null,
   navigationWorkspaces = [],
   sourceCount = 0,
 }: {
@@ -313,6 +316,9 @@ export function WorkbenchView({
   workspaceOwnerHandle?: string;
   mobileCreationTools?: boolean;
   mobileOverview?: boolean;
+  mobileAccount?: boolean;
+  mobileAccountData?: { handle: string; email: string };
+  mobileAccountPage?: ReactNode;
   navigationWorkspaces?: readonly MobileWorkspaceNavigationItem[];
   sourceCount?: number;
 }) {
@@ -1115,6 +1121,11 @@ export function WorkbenchView({
             workspaceArtifacts={workspaceArtifactHistoryQuery.data ?? []}
             mobileCreationTools={mobileCreationTools}
             mobileOverview={mobileOverview}
+            mobileAccount={mobileAccount}
+            mobileAccountData={mobileAccountData}
+            onOpenMobileAccount={() => {
+              router.push(`${conversationHref}&view=account`, { scroll: false });
+            }}
             onOpenMobileCreationTools={() => {
               router.push(`${conversationHref}&view=tools`, { scroll: false });
             }}
@@ -1135,13 +1146,21 @@ export function WorkbenchView({
               setMobileSourcesFocusRequest((current) => current + 1);
             }}
           />
-          <main id="main-content" tabIndex={-1} className="relative min-h-0 flex-1">
+          <main
+            id="main-content"
+            tabIndex={-1}
+            className={
+              "relative min-h-0 flex-1 " +
+              (mobileAccount ? "overflow-y-auto overscroll-contain lg:overflow-visible" : "")
+            }
+          >
             {mobileCreationTools ? (
               <MobileCreationToolsPage
                 onSelectTool={handleOpenCreationTool}
                 runtimeUnavailableTools={fixture.studio.runtimeUnavailableTools}
               />
             ) : null}
+            {mobileAccount ? mobileAccountPage : null}
             {mobileOverview ? (
               <MobileWorkspaceOverview
                 conversations={conversations}
@@ -1154,7 +1173,9 @@ export function WorkbenchView({
             ) : null}
             <div
               className={
-                mobileOverview || mobileCreationTools ? "hidden h-full lg:block" : "h-full"
+                mobileOverview || mobileCreationTools || mobileAccount
+                  ? "hidden h-full lg:block"
+                  : "h-full"
               }
             >
               {isArtifactWorkspaceOpen ? (

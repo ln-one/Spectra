@@ -32,7 +32,18 @@
     "done": "Done",
     "signOut": "Sign out",
     "signingOut": "Signing out...",
-    "signOutFailed": "Could not sign out. Try again."
+    "signOutFailed": "Could not sign out. Try again.",
+    "mobileAccountTitle": "Account & preferences",
+    "mobileSettings": "App settings",
+    "mobilePreferences": "App preferences",
+    "mobilePreferencesDescription": "Language, appearance, and sign-in security",
+    "mobilePreferencesDescriptionFull": "Manage language, appearance, and sign-in security for this browser.",
+    "mobileAbout": "About",
+    "mobileHelp": "Help center",
+    "mobileTerms": "Terms of use",
+    "mobilePrivacy": "Privacy policy",
+    "mobileComingSoon": "Coming soon",
+    "mobileBackToAccount": "Back to account"
   },
   "Auth": {
     "email": "Email",
