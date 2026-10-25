@@ -62,6 +62,12 @@ export function ArtifactResultCard({
     quiz: t("quizArtifactReady"),
     teaching_document: t("teachingDocumentArtifactReady"),
   };
+  const previewLabels: Partial<Record<ArtifactKind, string>> = {
+    animation: t("artifactPreviewPlaceholderAnimation"),
+    mind_map: t("artifactPreviewPlaceholderMindMap"),
+    presentation: t("artifactPreviewPlaceholderPresentation"),
+    teaching_document: t("artifactPreviewPlaceholderTeachingDocument"),
+  };
   const unavailableLabels: Record<ArtifactKind, string> = {
     animation: t("animationArtifactUnavailable"),
     game: t("gameArtifactUnavailable"),
@@ -113,18 +119,31 @@ export function ArtifactResultCard({
   };
   const content = (
     <>
-      <span className="workspace-tool-icon-container flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border">
-        {isUnavailable || generationState === "failed" || generationState === "cancelled" ? (
-          <FileX2 className="h-5 w-5" strokeWidth={2.1} />
-        ) : generationState === "ready" ? (
-          <CheckCircle2 className="h-5 w-5" strokeWidth={2.1} />
-        ) : (
-          <ArtifactIcon
-            className="h-5 w-5 animate-pulse motion-reduce:animate-none"
-            strokeWidth={2.1}
-          />
-        )}
-      </span>
+      {generationState === "ready" && previewLabels[artifactKind] ? (
+        <span
+          aria-hidden="true"
+          data-testid="artifact-preview-placeholder"
+          className="flex h-11 w-16 shrink-0 flex-col items-center justify-center rounded-xl border border-[var(--studio-border)] bg-[var(--studio-surface)] px-1 text-[var(--studio-accent-text)]"
+        >
+          <ArtifactIcon className="h-4 w-4" strokeWidth={2.1} />
+          <span className="mt-0.5 max-w-full truncate text-[9px] font-semibold leading-none">
+            {previewLabels[artifactKind]}
+          </span>
+        </span>
+      ) : (
+        <span className="workspace-tool-icon-container flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border">
+          {isUnavailable || generationState === "failed" || generationState === "cancelled" ? (
+            <FileX2 className="h-5 w-5" strokeWidth={2.1} />
+          ) : generationState === "ready" ? (
+            <CheckCircle2 className="h-5 w-5" strokeWidth={2.1} />
+          ) : (
+            <ArtifactIcon
+              className="h-5 w-5 animate-pulse motion-reduce:animate-none"
+              strokeWidth={2.1}
+            />
+          )}
+        </span>
+      )}
       <span className="min-w-0 flex-1">
         <span
           aria-live="polite"

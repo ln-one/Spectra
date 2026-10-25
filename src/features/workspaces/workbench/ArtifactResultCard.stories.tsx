@@ -44,6 +44,27 @@ export const Finalizing: Story = {
   args: { artifactHistory: [{ ...base, generationState: "finalizing" }] },
 };
 export const Ready: Story = { args: { artifactHistory: [{ ...base, generationState: "ready" }] } };
+export const ReadyTeachingDocument: Story = {
+  args: {
+    artifactHistory: [
+      { ...base, generationState: "ready", kind: "teaching_document", title: "分布式系统教学文档" },
+    ],
+  },
+};
+export const ReadyAnimation: Story = {
+  args: {
+    artifactHistory: [
+      { ...base, generationState: "ready", kind: "animation", title: "二分查找演示动画" },
+    ],
+  },
+};
+export const ReadyMindMap: Story = {
+  args: {
+    artifactHistory: [
+      { ...base, generationState: "ready", kind: "mind_map", title: "课程知识导图" },
+    ],
+  },
+};
 export const RetryableFailure: Story = {
   args: {
     artifactHistory: [

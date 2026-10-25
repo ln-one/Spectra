@@ -20,6 +20,31 @@ test("labels ready Artifact cards by their actual kind", () => {
   expect(screen.getByText("随堂小测已生成")).toBeInTheDocument();
 });
 
+test("shows a type placeholder only for phase three previewable Artifact kinds", () => {
+  const common = {
+    artifactId: "00000000-0000-4000-8000-000000000099",
+    conversationId: "00000000-0000-4000-8000-000000000008",
+    fallbackState: "ready" as const,
+    fallbackTitle: "成果",
+  };
+  const { rerender } = renderWithIntl(
+    <ArtifactResultCard {...common} fallbackKind="presentation" />,
+  );
+  expect(screen.getByTestId("artifact-preview-placeholder")).toHaveTextContent("课件");
+
+  rerender(<ArtifactResultCard {...common} fallbackKind="teaching_document" />);
+  expect(screen.getByTestId("artifact-preview-placeholder")).toHaveTextContent("文档");
+
+  rerender(<ArtifactResultCard {...common} fallbackKind="animation" />);
+  expect(screen.getByTestId("artifact-preview-placeholder")).toHaveTextContent("动画");
+
+  rerender(<ArtifactResultCard {...common} fallbackKind="mind_map" />);
+  expect(screen.getByTestId("artifact-preview-placeholder")).toHaveTextContent("导图");
+
+  rerender(<ArtifactResultCard {...common} fallbackKind="quiz" />);
+  expect(screen.queryByTestId("artifact-preview-placeholder")).not.toBeInTheDocument();
+});
+
 test("uses each Artifact kind icon while it is generating", () => {
   const common = {
     artifactId: "00000000-0000-4000-8000-000000000099",
