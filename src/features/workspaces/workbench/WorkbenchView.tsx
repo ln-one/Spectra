@@ -82,6 +82,7 @@ import { beginKnowledgeNetworkNavigation } from "./knowledge-network-navigation"
 import { MobileCreationToolsPage } from "./MobileCreationToolsPage";
 import { MobileWorkspaceOverview } from "./MobileWorkspaceOverview";
 import { PanelShell } from "./PanelShell";
+import { workspaceConversationNavigationQueryKey } from "./read-client";
 import { StudioPanelView } from "./StudioPanelView";
 import { studioToolTone } from "./studioTools";
 import type {
@@ -511,6 +512,14 @@ export function WorkbenchView({
     unavailableArtifactIds,
     workspaceId,
   });
+  const refreshWorkspaceNavigation = useCallback(() => {
+    void Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["workspace", workspaceId, "conversations"] }),
+      queryClient.invalidateQueries({
+        queryKey: workspaceConversationNavigationQueryKey(workspaceId),
+      }),
+    ]);
+  }, [queryClient, workspaceId]);
   const messageArtifactHistory = useMemo(() => {
     const details = messageDetails.scope === messageScope ? messageDetails.items : [];
     return [
@@ -1014,7 +1023,10 @@ export function WorkbenchView({
       artifactHistoryError={historyQuery.isError}
       conversationId={conversationId}
       initialMessagesNextCursor={initialMessagesNextCursor}
-      onThreadTitle={onThreadTitle}
+      onThreadTitle={(update) => {
+        onThreadTitle(update);
+        refreshWorkspaceNavigation();
+      }}
       workspaceId={workspaceId}
       surfaceContext={surfaceContext}
       onUserMessageCreated={(snapshot: UserMessageSurfaceSnapshot) => {

@@ -1,7 +1,11 @@
-import { fireEvent, screen } from "@testing-library/react";
-import { expect, test, vi } from "vitest";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { afterEach, expect, test, vi } from "vitest";
 import { renderWithIntl } from "../../../../tests/render";
 import { MobileWorkspaceDrawer } from "./MobileWorkspaceDrawer";
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 test("opens the mobile drawer and exposes workspace and conversation navigation", () => {
   renderWithIntl(
@@ -91,6 +95,58 @@ test("loads older conversations from the mobile drawer", () => {
   fireEvent.click(screen.getByRole("button", { name: "打开工作空间导航" }));
   fireEvent.click(screen.getByRole("button", { name: "加载更多对话" }));
   expect(onLoadMore).toHaveBeenCalledOnce();
+});
+
+test("refreshes an expanded non-current workspace from the shared server endpoints", async () => {
+  const fetchMock = vi.fn((input: RequestInfo | URL) => {
+    const url = String(input);
+    return Promise.resolve(
+      Response.json(
+        url.includes("/conversations") ? { items: [], nextCursor: null } : { artifacts: [] },
+      ),
+    );
+  });
+  vi.stubGlobal("fetch", fetchMock);
+
+  renderWithIntl(
+    <MobileWorkspaceDrawer
+      accountMenu={null}
+      conversationId="conversation-1"
+      conversations={[]}
+      currentWorkspaceId="workspace-1"
+      newConversationHref="/teacher/optics?conversation=new"
+      settingsControl={null}
+      workspaceHref="/teacher/optics"
+      workspaces={[
+        {
+          href: "/teacher/optics",
+          id: "workspace-1",
+          name: "光学课程",
+          ownerHandle: "teacher",
+          updatedAt: "2026-10-13T09:00:00.000Z",
+        },
+        {
+          href: "/teacher/math",
+          id: "workspace-2",
+          name: "高等数学",
+          ownerHandle: "teacher",
+          updatedAt: "2026-10-12T09:00:00.000Z",
+        },
+      ]}
+    />,
+  );
+
+  fireEvent.click(screen.getByRole("button", { name: "打开工作空间导航" }));
+  fireEvent.click(screen.getByRole("button", { name: "展开高等数学的内容" }));
+
+  await waitFor(() =>
+    expect(fetchMock).toHaveBeenCalledWith("/api/workspaces/workspace-2/conversations", {
+      cache: "no-store",
+    }),
+  );
+  expect(fetchMock).toHaveBeenCalledWith("/api/artifacts?scope=workspace&workspaceId=workspace-2", {
+    cache: "no-store",
+  });
 });
 
 test("filters workspace navigation without losing current conversation matches", () => {

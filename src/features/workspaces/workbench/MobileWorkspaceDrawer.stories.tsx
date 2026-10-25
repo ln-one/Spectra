@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { MobileWorkspaceDrawer } from "./MobileWorkspaceDrawer";
+import { WorkbenchQueryProvider } from "./WorkbenchQueryProvider";
 
 const meta = {
   component: MobileWorkspaceDrawer,
@@ -9,7 +10,9 @@ const meta = {
       className="workspace-theme-root min-h-screen bg-[var(--workspace-bg-base)] p-4"
       data-workspace-theme="mist-zinc"
     >
-      <MobileWorkspaceDrawer {...args} />
+      <WorkbenchQueryProvider>
+        <MobileWorkspaceDrawer {...args} />
+      </WorkbenchQueryProvider>
     </div>
   ),
 } satisfies Meta<typeof MobileWorkspaceDrawer>;

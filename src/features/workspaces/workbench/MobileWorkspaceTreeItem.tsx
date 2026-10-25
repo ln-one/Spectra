@@ -1,6 +1,7 @@
 "use client";
 
 import * as Dialog from "@radix-ui/react-dialog";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, Folder, LoaderCircle } from "lucide-react";
 import Link from "next/link";
 import { useFormatter, useTranslations } from "next-intl";
@@ -9,17 +10,17 @@ import {
   artifactEffectiveGenerationState,
   type WorkspaceArtifactNavigationItem,
 } from "@/features/artifacts/types";
-import { fetchWorkspaceArtifactHistory } from "@/features/artifacts/workbench-client";
+import {
+  artifactWorkbenchQueryKeys,
+  fetchWorkspaceArtifactHistory,
+} from "@/features/artifacts/workbench-client";
 import { studioToolForArtifactKind } from "./artifactWorkbench";
-import { fetchWorkspaceConversationPage } from "./read-client";
+import {
+  fetchWorkspaceConversationPage,
+  workspaceConversationNavigationQueryKey,
+} from "./read-client";
 import { STUDIO_TOOL_PRESENTATIONS } from "./studioTools";
 import type { MobileWorkspaceNavigationItem, WorkspaceConversationNavigationItem } from "./types";
-
-type OtherWorkspaceData = {
-  conversations: WorkspaceConversationNavigationItem[];
-  artifacts: WorkspaceArtifactNavigationItem[];
-  nextCursor: string | null;
-};
 
 function sectionKey(workspaceId: string, section: string) {
   return `spectra.mobileDrawer.${workspaceId}.${section}`;
@@ -54,15 +55,12 @@ export function MobileWorkspaceTreeItem({
 }) {
   const t = useTranslations("Workbench");
   const format = useFormatter();
+  const queryClient = useQueryClient();
   const [sections, setSections] = useState({
     conversations: true,
     artifacts: true,
   });
-  const [otherData, setOtherData] = useState<OtherWorkspaceData | null>(null);
-  const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [failed, setFailed] = useState(false);
-  const [_retry, setRetry] = useState(0);
 
   useEffect(() => {
     try {
@@ -77,36 +75,27 @@ export function MobileWorkspaceTreeItem({
     }
   }, [workspace.id]);
 
-  useEffect(() => {
-    if (!expanded || current || otherData) return;
-    let active = true;
-    setLoading(true);
-    setFailed(false);
-    void Promise.all([
-      fetchWorkspaceConversationPage(workspace.id, null),
-      fetchWorkspaceArtifactHistory(workspace.id),
-    ])
-      .then(([page, workspaceArtifacts]) => {
-        if (!active) return;
-        setOtherData({
-          conversations: page.items,
-          artifacts: workspaceArtifacts,
-          nextCursor: page.nextCursor,
-        });
-      })
-      .catch(() => {
-        if (active) setFailed(true);
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, [current, expanded, otherData, workspace.id]);
+  const otherConversationsQuery = useQuery({
+    enabled: expanded && !current,
+    queryFn: () => fetchWorkspaceConversationPage(workspace.id, null),
+    queryKey: workspaceConversationNavigationQueryKey(workspace.id),
+    refetchOnMount: "always",
+    refetchOnWindowFocus: "always",
+    staleTime: 0,
+  });
+  const otherArtifactsQuery = useQuery({
+    enabled: expanded && !current,
+    queryFn: () => fetchWorkspaceArtifactHistory(workspace.id),
+    queryKey: artifactWorkbenchQueryKeys.workspaceHistory(workspace.id),
+    refetchOnMount: "always",
+    refetchOnWindowFocus: "always",
+    staleTime: 0,
+  });
+  const loading = !current && (otherConversationsQuery.isLoading || otherArtifactsQuery.isLoading);
+  const failed = !current && (otherConversationsQuery.isError || otherArtifactsQuery.isError);
 
-  const shownConversations = current ? conversations : (otherData?.conversations ?? []);
-  const shownArtifacts = current ? artifacts : (otherData?.artifacts ?? []);
+  const shownConversations = current ? conversations : (otherConversationsQuery.data?.items ?? []);
+  const shownArtifacts = current ? artifacts : (otherArtifactsQuery.data ?? []);
   const conversationLabel = useCallback(
     (item: WorkspaceConversationNavigationItem) =>
       item.title ??
@@ -130,7 +119,7 @@ export function MobileWorkspaceTreeItem({
     () => shownArtifacts.filter((item) => item.title.toLocaleLowerCase().includes(query)),
     [shownArtifacts, query],
   );
-  const nextCursor = current ? null : (otherData?.nextCursor ?? null);
+  const nextCursor = current ? null : (otherConversationsQuery.data?.nextCursor ?? null);
 
   function setSection(section: "conversations" | "artifacts") {
     const next = !sections[section];
@@ -146,21 +135,22 @@ export function MobileWorkspaceTreeItem({
   }
 
   async function loadMore() {
-    if (!nextCursor || loadingMore || !otherData) return;
+    if (!nextCursor || loadingMore || !otherConversationsQuery.data) return;
     setLoadingMore(true);
     try {
       const page = await fetchWorkspaceConversationPage(workspace.id, nextCursor);
-      setOtherData((value) =>
-        value
-          ? {
-              ...value,
-              conversations: [...value.conversations, ...page.items],
-              nextCursor: page.nextCursor,
-            }
-          : value,
+      queryClient.setQueryData<Awaited<ReturnType<typeof fetchWorkspaceConversationPage>>>(
+        workspaceConversationNavigationQueryKey(workspace.id),
+        (value) =>
+          value
+            ? {
+                items: [...value.items, ...page.items],
+                nextCursor: page.nextCursor,
+              }
+            : value,
       );
     } catch {
-      setFailed(true);
+      // The shared query retains its last successful page and exposes retry below.
     } finally {
       setLoadingMore(false);
     }
@@ -210,15 +200,17 @@ export function MobileWorkspaceTreeItem({
             <button
               type="button"
               onClick={() => {
-                setFailed(false);
-                setRetry((value) => value + 1);
+                void Promise.all([
+                  otherConversationsQuery.refetch(),
+                  otherArtifactsQuery.refetch(),
+                ]);
               }}
               className="min-h-10 px-3 text-xs text-[var(--app-danger)]"
             >
               {t("workspaceNavigationRetry")}
             </button>
           ) : null}
-          {current || otherData ? (
+          {current || otherConversationsQuery.data ? (
             <>
               <button
                 type="button"

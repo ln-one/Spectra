@@ -6,6 +6,10 @@ import {
   workspaceMessagePageEnvelopeSchema,
 } from "./read-contract";
 
+export function workspaceConversationNavigationQueryKey(workspaceId: string) {
+  return ["workspace", workspaceId, "navigation", "conversations"] as const;
+}
+
 async function readJson(response: Response) {
   if (!response.ok) throw new Error("workspace_read_unavailable");
   return response.json() as Promise<unknown>;
