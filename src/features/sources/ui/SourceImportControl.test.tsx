@@ -1,7 +1,8 @@
-import { fireEvent, screen } from "@testing-library/react";
+import { act, fireEvent, screen } from "@testing-library/react";
 import { Uppy } from "@uppy/core";
 import { UppyContextProvider } from "@uppy/react";
 import { expect, test, vi } from "vitest";
+import { openSourceImportMenu } from "@/features/workspaces/workbench/source-import-request";
 import { renderWithIntl } from "../../../../tests/render";
 import { SourceImportControl } from "./SourceImportControl";
 
@@ -71,5 +72,22 @@ test("opens the workspace reference selector from the import menu", () => {
   fireEvent.click(screen.getByRole("menuitem", { name: "引用工作空间" }));
 
   expect(onReferenceWorkspace).toHaveBeenCalledOnce();
+  uppy.destroy();
+});
+
+test("opens the existing source import menu when requested from another workspace view", () => {
+  const uppy = new Uppy({ restrictions: { allowedFileTypes: [".pdf"] } });
+  renderWithIntl(
+    <UppyContextProvider uppy={uppy}>
+      <SourceImportControl onReferenceWorkspace={vi.fn()} />
+    </UppyContextProvider>,
+  );
+
+  expect(screen.queryByRole("menuitem", { name: "上传资料" })).toBeNull();
+
+  act(() => openSourceImportMenu());
+
+  expect(screen.getByRole("menuitem", { name: "上传资料" })).toBeInTheDocument();
+  expect(screen.getByRole("menuitem", { name: "引用工作空间" })).toBeInTheDocument();
   uppy.destroy();
 });

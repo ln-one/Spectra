@@ -4,6 +4,8 @@ import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { useFileInput } from "@uppy/react";
 import { ChevronDown, FolderInput, Link2, Upload } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { useLayoutEffect, useState } from "react";
+import { sourceImportRequestEvent } from "@/features/workspaces/workbench/source-import-request";
 
 export function SourceImportControl({
   onReferenceWorkspace,
@@ -12,11 +14,18 @@ export function SourceImportControl({
 }) {
   const t = useTranslations("Sources");
   const { getButtonProps, getInputProps } = useFileInput();
+  const [open, setOpen] = useState(false);
+
+  useLayoutEffect(() => {
+    const openImportMenu = () => setOpen(true);
+    window.addEventListener(sourceImportRequestEvent, openImportMenu);
+    return () => window.removeEventListener(sourceImportRequestEvent, openImportMenu);
+  }, []);
 
   return (
     <>
       <input {...getInputProps()} hidden />
-      <DropdownMenu.Root>
+      <DropdownMenu.Root open={open} onOpenChange={setOpen}>
         <DropdownMenu.Trigger asChild>
           <button
             type="button"

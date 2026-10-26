@@ -10,6 +10,7 @@ vi.mock("./KnowledgeNetworkGraphView", () => ({
 }));
 
 test("renders the expanded source view toggle as a lightweight import-peer action", () => {
+  const onRequestImport = vi.fn();
   const onSourceModeChange = vi.fn();
   renderWithIntl(
     <KnowledgeNetworkSourcesPanel
@@ -35,6 +36,7 @@ test("renders the expanded source view toggle as a lightweight import-peer actio
         workspaceSourceType: "Workspace",
       }}
       onGraphSelect={vi.fn()}
+      onRequestImport={onRequestImport}
       onSelect={vi.fn()}
       onSourceModeChange={onSourceModeChange}
       selectedId={null}
@@ -65,4 +67,7 @@ test("renders the expanded source view toggle as a lightweight import-peer actio
 
   fireEvent.click(toggle);
   expect(onSourceModeChange).toHaveBeenCalledWith("list");
+
+  fireEvent.click(importControl);
+  expect(onRequestImport).toHaveBeenCalledOnce();
 });

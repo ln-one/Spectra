@@ -87,6 +87,7 @@ import { MobileWorkspaceOverview } from "./MobileWorkspaceOverview";
 import { PanelShell } from "./PanelShell";
 import { workspaceConversationNavigationQueryKey } from "./read-client";
 import { StudioPanelView } from "./StudioPanelView";
+import { openSourceImportMenu } from "./source-import-request";
 import { studioToolTone } from "./studioTools";
 import type {
   MobileWorkspaceNavigationItem,
@@ -338,6 +339,7 @@ export function WorkbenchView({
   const [knowledgeNetworkMode, setKnowledgeNetworkMode] = useState(
     knowledgeNetworkInitialView?.sourceMode === "network",
   );
+  const [sourceImportRequest, setSourceImportRequest] = useState(0);
   const [knowledgeNetworkSelectedId, setKnowledgeNetworkSelectedId] = useState<string | null>(
     knowledgeNetworkInitialView?.selectedNodeId ?? null,
   );
@@ -915,6 +917,14 @@ export function WorkbenchView({
       setKnowledgeNetworkCitationFocus(null);
     }, shouldReduceMotion);
   }, [shouldReduceMotion]);
+  const requestSourceImport = useCallback(() => {
+    setSourceImportRequest((current) => current + 1);
+    closeKnowledgeNetwork();
+  }, [closeKnowledgeNetwork]);
+  useEffect(() => {
+    if (!sourceImportRequest || knowledgeNetworkMode) return;
+    openSourceImportMenu();
+  }, [knowledgeNetworkMode, sourceImportRequest]);
   const focusKnowledgeNetworkCitation = useCallback(
     (evidence: KnowledgeCitationEvidence) => {
       if (!networkTrace?.sources.some((source) => source.id === evidence.sourceId)) return;
@@ -1306,6 +1316,7 @@ export function WorkbenchView({
                         citationFocus={knowledgeNetworkCitationFocus}
                         onSelect={handleKnowledgeNetworkSourceSelect}
                         onGraphSelect={handleKnowledgeNetworkSelect}
+                        onRequestImport={requestSourceImport}
                         selectionLabels={knowledgeNetworkNodeSelectionLabels}
                         onSourceModeChange={(mode) => {
                           if (mode === "list") closeKnowledgeNetwork();

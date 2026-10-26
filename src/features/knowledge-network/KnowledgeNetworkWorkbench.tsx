@@ -40,6 +40,7 @@ export function KnowledgeNetworkSourcesPanel({
   citationFocus,
   onSelect,
   onGraphSelect,
+  onRequestImport,
   selectionLabels,
   onSourceModeChange,
 }: {
@@ -55,6 +56,7 @@ export function KnowledgeNetworkSourcesPanel({
   citationFocus: KnowledgeNetworkGraphCitationFocus | null;
   onSelect: (id: string) => void;
   onGraphSelect: (id: string | null) => void;
+  onRequestImport: () => void;
   selectionLabels: KnowledgeNetworkNodeSelectionLabels;
   onSourceModeChange: (mode: KnowledgeNetworkSourceMode) => void;
 }) {
@@ -85,6 +87,7 @@ export function KnowledgeNetworkSourcesPanel({
           <KnowledgeNetworkSourcePanelActions
             collapsed={Boolean(panelLayout?.collapsed)}
             labels={labels}
+            onRequestImport={onRequestImport}
             onSwitchToNetwork={() => onSourceModeChange("network")}
           />
         }
@@ -150,6 +153,7 @@ export function KnowledgeNetworkSourcesPanel({
               type="button"
               aria-label={labels.importLabel}
               title={labels.importLabel}
+              onClick={onRequestImport}
               className="workspace-sources-import-action flex h-8 items-center gap-1.5 rounded-full px-3 text-[13px] font-medium text-[var(--workspace-text-muted)] transition-[color,background-color,box-shadow,transform] hover:bg-[var(--workspace-surface-muted)] hover:text-[var(--workspace-text-primary)] active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--studio-ring)]"
             >
               <Upload className="h-3.5 w-3.5 shrink-0" />
@@ -246,10 +250,12 @@ function knowledgeNetworkSourceItem(
 function KnowledgeNetworkSourcePanelActions({
   collapsed,
   labels,
+  onRequestImport,
   onSwitchToNetwork,
 }: {
   collapsed: boolean;
   labels: KnowledgeNetworkLabels;
+  onRequestImport: () => void;
   onSwitchToNetwork: () => void;
 }) {
   const importButton = (
@@ -257,6 +263,7 @@ function KnowledgeNetworkSourcePanelActions({
       type="button"
       aria-label={labels.importLabel}
       title={labels.importLabel}
+      onClick={onRequestImport}
       className="workspace-sources-import-action flex h-8 items-center gap-1.5 rounded-full px-3 text-[13px] font-medium text-[var(--workspace-text-muted)] transition-[color,background-color,box-shadow,transform] hover:bg-[var(--workspace-surface-muted)] hover:text-[var(--workspace-text-primary)] active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--studio-ring)]"
     >
       <Upload className="h-3.5 w-3.5 shrink-0" />
