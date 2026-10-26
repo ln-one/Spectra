@@ -10,6 +10,7 @@ type ArtifactWorkspaceProps = {
   onDetailUpdated: (detail: ArtifactDetail) => void;
   onSuggestion: (prompt: string) => void;
   phase: ArtifactWorkspacePhase;
+  mobilePreview?: boolean;
   readOnly?: boolean;
   workspaceId: string;
   selection?: ArtifactSelection | null;

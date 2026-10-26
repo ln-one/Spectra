@@ -340,6 +340,7 @@ export function MindMapWorkspaceView({
   onFocusChange,
   onProposalDismiss,
   readOnly = false,
+  mobilePreview = false,
 }: {
   artifact: MindMapArtifact | null;
   conversationId: string;
@@ -353,6 +354,7 @@ export function MindMapWorkspaceView({
   workspaceId: string;
   proposal?: MindMapEditProposal | null;
   readOnly?: boolean;
+  mobilePreview?: boolean;
   onFocusChange?: (focus: MindMapFocus | null) => void;
   onProposalDismiss?: () => void;
 }) {
@@ -510,7 +512,7 @@ export function MindMapWorkspaceView({
                 </button>
               </>
             ) : null}
-            {artifact && !readOnly ? (
+            {artifact && !readOnly && !mobilePreview ? (
               editing ? (
                 <>
                   <button
@@ -551,7 +553,7 @@ export function MindMapWorkspaceView({
           </div>
         ) : null
       }
-      backLabel={t("backToStudio")}
+      backLabel={mobilePreview ? t("backToConversation") : t("backToStudio")}
       backDisabled={saveState === "saving"}
       liveScrollTestId="mind-map-live-scroll"
       onBack={onBack}

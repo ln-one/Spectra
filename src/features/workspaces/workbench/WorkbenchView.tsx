@@ -62,7 +62,10 @@ import {
   type ArtifactSourceTransitionContextValue,
   ArtifactSourceTransitionProvider,
 } from "./ArtifactSourceTransitionContext";
-import { ArtifactWorkbenchPanelLayout } from "./ArtifactWorkbenchPanelLayout";
+import {
+  ArtifactWorkbenchPanelLayout,
+  useIsMobileArtifactLayout,
+} from "./ArtifactWorkbenchPanelLayout";
 import { ArtifactWorkspaceView } from "./ArtifactWorkspaceView";
 import { moveArtifactIntoSources } from "./artifactSourceMembership";
 import {
@@ -324,6 +327,7 @@ export function WorkbenchView({
   sourceCount?: number;
 }) {
   const t = useTranslations("Workbench");
+  const isMobileArtifactPreview = useIsMobileArtifactLayout();
   const router = useRouter();
   const searchParams = useSearchParams();
   const shouldReduceMotion = usePrefersReducedMotion();
@@ -1210,6 +1214,7 @@ export function WorkbenchView({
                         setComposerSuggestion((current) => ({ id: (current?.id ?? 0) + 1, text }))
                       }
                       phase={artifactWorkspacePhase(artifactDetail?.generationState)}
+                      mobilePreview={isMobileArtifactPreview}
                       proposal={artifactProposal}
                       readOnly={!initialArtifactCanManage}
                       selection={artifactInteractionSelection}

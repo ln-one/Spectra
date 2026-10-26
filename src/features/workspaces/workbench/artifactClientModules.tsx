@@ -57,6 +57,7 @@ type ArtifactWorkspaceProps<Kind extends ArtifactKind = ArtifactKind> = {
   onSelectionChange?: (selection: ArtifactSelectionFor<Kind> | null) => void;
   onSuggestion: (prompt: string) => void;
   phase: ArtifactWorkspacePhase;
+  mobilePreview?: boolean;
   readOnly?: boolean;
   proposal: ArtifactProposalFor<Kind> | null;
   selection: ArtifactSelectionFor<Kind> | null;
@@ -88,13 +89,14 @@ function TeachingDocumentWorkspace(props: ArtifactWorkspaceProps<"teaching_docum
       onArtifactUpdated={(artifact) => props.onDetailUpdated(readyTeachingDocumentDetail(artifact))}
       onBack={props.onBack}
       onSuggestion={props.onSuggestion}
-      focus={props.selection}
-      proposal={props.proposal}
-      onFocusChange={props.onSelectionChange}
+      focus={props.mobilePreview ? null : props.selection}
+      proposal={props.mobilePreview ? null : props.proposal}
+      onFocusChange={props.mobilePreview ? undefined : props.onSelectionChange}
       {...(props.onProposalDismiss ? { onProposalDismiss: props.onProposalDismiss } : {})}
       onProposalRetry={props.onProposalRetry}
       onRequestAssistant={props.onRequestAssistant}
       phase={props.phase}
+      mobilePreview={props.mobilePreview ?? false}
       readOnly={props.readOnly ?? false}
       workspaceId={props.workspaceId}
     />
@@ -130,10 +132,13 @@ function MindMapWorkspace(props: ArtifactWorkspaceProps<"mind_map">) {
       onSuggestion={props.onSuggestion}
       pendingTitle={props.detail?.title ?? null}
       phase={props.phase}
+      mobilePreview={props.mobilePreview ?? false}
       readOnly={props.readOnly ?? false}
       workspaceId={props.workspaceId}
-      proposal={props.proposal}
-      {...(props.onSelectionChange ? { onFocusChange: props.onSelectionChange } : {})}
+      proposal={props.mobilePreview ? null : props.proposal}
+      {...(props.mobilePreview || !props.onSelectionChange
+        ? {}
+        : { onFocusChange: props.onSelectionChange })}
       {...(props.onProposalDismiss ? { onProposalDismiss: props.onProposalDismiss } : {})}
     />
   );
@@ -200,10 +205,13 @@ function PresentationWorkspace(props: ArtifactWorkspaceProps<"presentation">) {
       onDetailUpdated={props.onDetailUpdated}
       onSuggestion={props.onSuggestion}
       {...(props.onProposalDismiss ? { onProposalDismiss: props.onProposalDismiss } : {})}
-      proposal={props.proposal}
+      proposal={props.mobilePreview ? null : props.proposal}
       phase={props.phase}
+      mobilePreview={props.mobilePreview ?? false}
       readOnly={props.readOnly ?? false}
-      {...(props.onSelectionChange ? { onSelectionChange: props.onSelectionChange } : {})}
+      {...(props.mobilePreview || !props.onSelectionChange
+        ? {}
+        : { onSelectionChange: props.onSelectionChange })}
       workspaceId={props.workspaceId}
     />
   );
@@ -218,6 +226,7 @@ function AnimationWorkspace(props: ArtifactWorkspaceProps<"animation">) {
       onDetailUpdated={props.onDetailUpdated}
       onSuggestion={props.onSuggestion}
       phase={props.phase}
+      mobilePreview={props.mobilePreview ?? false}
       readOnly={props.readOnly ?? false}
       workspaceId={props.workspaceId}
     />

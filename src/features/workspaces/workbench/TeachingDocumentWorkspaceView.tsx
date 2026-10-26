@@ -178,6 +178,7 @@ export function TeachingDocumentWorkspaceView({
   phase,
   queued = false,
   proposal,
+  mobilePreview = false,
   readOnly = false,
   workspaceId,
 }: {
@@ -197,6 +198,7 @@ export function TeachingDocumentWorkspaceView({
   phase: ArtifactWorkspacePhase;
   queued?: boolean;
   proposal?: TeachingDocumentEditProposal | null;
+  mobilePreview?: boolean;
   readOnly?: boolean;
   workspaceId: string;
 }) {
@@ -531,37 +533,39 @@ export function TeachingDocumentWorkspaceView({
           <div className="flex shrink-0 items-center gap-1.5">
             {!readOnly ? (
               <>
-                <button
-                  type="button"
-                  disabled={saveState === "saving"}
-                  onClick={() => {
-                    if (isEditing) {
-                      void save();
-                      return;
-                    }
-                    onProposalDismiss?.();
-                    onFocusChange?.(null);
-                    editor?.setEditable(true);
-                    setIsEditing(true);
-                    requestAnimationFrame(() => titleInputRef.current?.focus());
-                  }}
-                  className={`flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-xs font-medium shadow-sm transition-colors disabled:opacity-50 ${
-                    isEditing
-                      ? "border-[var(--studio-emphasis)] bg-[var(--studio-emphasis)] text-[var(--studio-on-emphasis)]"
-                      : "border-[var(--studio-border)] bg-[var(--studio-surface-subtle)] text-[var(--studio-accent-text)] hover:border-[var(--studio-border-strong)] hover:bg-[var(--studio-surface)]"
-                  }`}
-                >
-                  {isEditing ? (
-                    <Save className="h-3.5 w-3.5" />
-                  ) : (
-                    <Pencil className="h-3.5 w-3.5" />
-                  )}
-                  {isEditing
-                    ? saveState === "saving"
-                      ? t("savingDocument")
-                      : t("saveDocument")
-                    : t("editDocument")}
-                </button>
+                {!mobilePreview ? (
+                  <button
+                    type="button"
+                    disabled={saveState === "saving"}
+                    onClick={() => {
+                      if (isEditing) {
+                        void save();
+                        return;
+                      }
+                      onProposalDismiss?.();
+                      onFocusChange?.(null);
+                      editor?.setEditable(true);
+                      setIsEditing(true);
+                      requestAnimationFrame(() => titleInputRef.current?.focus());
+                    }}
+                    className={`flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-xs font-medium shadow-sm transition-colors disabled:opacity-50 ${
+                      isEditing
+                        ? "border-[var(--studio-emphasis)] bg-[var(--studio-emphasis)] text-[var(--studio-on-emphasis)]"
+                        : "border-[var(--studio-border)] bg-[var(--studio-surface-subtle)] text-[var(--studio-accent-text)] hover:border-[var(--studio-border-strong)] hover:bg-[var(--studio-surface)]"
+                    }`}
+                  >
+                    {isEditing ? (
+                      <Save className="h-3.5 w-3.5" />
+                    ) : (
+                      <Pencil className="h-3.5 w-3.5" />
+                    )}
+                    {isEditing
+                      ? saveState === "saving"
+                        ? t("savingDocument")
+                        : t("saveDocument")
+                      : t("editDocument")}
+                  </button>
+                ) : null}
                 <button
                   type="button"
                   disabled={exportState === "preparing"}
@@ -584,7 +588,7 @@ export function TeachingDocumentWorkspaceView({
           </div>
         ) : null
       }
-      backLabel={t("backToStudio")}
+      backLabel={mobilePreview ? t("backToConversation") : t("backToStudio")}
       liveScrollTestId="document-live-scroll"
       onBack={onBack}
       phase={phase}
@@ -710,7 +714,7 @@ export function TeachingDocumentWorkspaceView({
                   {title}
                 </h1>
               )}
-              {editor && !isEditing && !activeProposal ? (
+              {editor && !isEditing && !activeProposal && !mobilePreview ? (
                 <BubbleMenu
                   editor={editor}
                   shouldShow={({ editor: currentEditor }) => !currentEditor.state.selection.empty}

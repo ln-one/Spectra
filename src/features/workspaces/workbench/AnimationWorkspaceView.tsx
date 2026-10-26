@@ -80,6 +80,7 @@ export function AnimationWorkspaceView({
   onDetailUpdated,
   onSuggestion,
   phase,
+  mobilePreview = false,
   readOnly = false,
   workspaceId,
 }: {
@@ -89,6 +90,7 @@ export function AnimationWorkspaceView({
   onDetailUpdated: (detail: AnimationDetail) => void;
   onSuggestion: (prompt: string) => void;
   phase: ArtifactWorkspacePhase;
+  mobilePreview?: boolean;
   readOnly?: boolean;
   workspaceId: string;
 }) {
@@ -152,7 +154,7 @@ export function AnimationWorkspaceView({
           </a>
         ) : undefined
       }
-      backLabel={t("animationBack")}
+      backLabel={mobilePreview ? t("backToConversation") : t("animationBack")}
       groundingSources={artifact?.groundingSources ?? []}
       liveScrollTestId="animation-live-scroll"
       onBack={onBack}

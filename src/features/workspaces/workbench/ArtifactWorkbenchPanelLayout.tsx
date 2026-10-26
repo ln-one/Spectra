@@ -29,6 +29,10 @@ function isMobileArtifactLayout() {
   return typeof window.matchMedia === "function" && window.matchMedia(mobileArtifactQuery).matches;
 }
 
+export function useIsMobileArtifactLayout() {
+  return useSyncExternalStore(subscribeToMobileLayout, isMobileArtifactLayout, () => false);
+}
+
 // Panel border + header + body padding, followed by 55px cards with an 8px gap.
 const SOURCE_PANEL_CHROME_HEIGHT = 61;
 const SOURCE_CARD_ROW_HEIGHT = 63;
@@ -64,11 +68,7 @@ export function ArtifactWorkbenchPanelLayout({
   sources: ReactNode;
 }) {
   const t = useTranslations("Workbench");
-  const isMobile = useSyncExternalStore(
-    subscribeToMobileLayout,
-    isMobileArtifactLayout,
-    () => false,
-  );
+  const isMobile = useIsMobileArtifactLayout();
   const outerGroupRef = useRef<GroupImperativeHandle | null>(null);
   const sourcesPanelRef = useRef<PanelImperativeHandle | null>(null);
   const initialLayoutModeRef = useRef(layoutMode);

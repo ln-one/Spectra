@@ -239,6 +239,7 @@ export function PresentationWorkspaceView({
   onSuggestion,
   phase,
   proposal,
+  mobilePreview = false,
   readOnly = false,
   onSelectionChange,
   workspaceId,
@@ -251,6 +252,7 @@ export function PresentationWorkspaceView({
   onSuggestion: (prompt: string) => void;
   phase: ArtifactWorkspacePhase;
   proposal?: PresentationEditProposal | null;
+  mobilePreview?: boolean;
   readOnly?: boolean;
   onSelectionChange?: (selection: PresentationFocus | null) => void;
   workspaceId: string;
@@ -267,6 +269,7 @@ export function PresentationWorkspaceView({
   const content = artifact?.currentRevision.content ?? null;
   const activeProposal =
     !readOnly &&
+    !mobilePreview &&
     proposal &&
     artifact &&
     proposal.artifactId === artifact.id &&
@@ -394,7 +397,7 @@ export function PresentationWorkspaceView({
   return (
     <ArtifactWorkspaceShell
       actions={
-        artifact && content ? (
+        artifact && content && !mobilePreview ? (
           <Link
             className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg bg-[var(--studio-emphasis)] px-3 text-xs font-semibold text-white transition-opacity hover:opacity-85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--studio-ring)]"
             href={presentationEditorHref({ artifactId: artifact.id, conversationId, workspaceId })}
@@ -404,7 +407,7 @@ export function PresentationWorkspaceView({
           </Link>
         ) : null
       }
-      backLabel={t("presentationBack")}
+      backLabel={mobilePreview ? t("backToConversation") : t("presentationBack")}
       {...(hasEmbeddedPreview ? { contentClassName: "h-full p-0" } : {})}
       groundingSources={artifact?.groundingSources ?? []}
       liveScrollTestId="presentation-live-scroll"
@@ -446,7 +449,7 @@ export function PresentationWorkspaceView({
                 : null,
             );
           }}
-          readOnly
+          readOnly={readOnly || mobilePreview}
           revisionId={artifact.currentRevision.id}
           surface="stream-preview"
           workspaceId={workspaceId}
