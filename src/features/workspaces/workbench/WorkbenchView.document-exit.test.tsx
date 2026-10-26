@@ -22,6 +22,7 @@ const testState = vi.hoisted(() => ({
       }) => Promise<ArtifactDetail>)
     | null,
   openArtifact: null as ((artifactId: string) => void) | null,
+  isMobileArtifactPreview: false,
   push: vi.fn(),
   replace: vi.fn(),
   searchParams: "",
@@ -108,12 +109,16 @@ vi.mock("./TeachingDocumentWorkspaceView", () => ({
     focus?: TeachingDocumentFocus | null;
     onBack: () => void;
     onFocusChange?: (focus: TeachingDocumentFocus | null) => void;
+    mobilePreview?: boolean;
     phase: string;
     proposal?: TeachingDocumentEditProposal | null;
   }) => (
     <div>
       <span>{props.phase}</span>
       <span data-testid="document-focus">{props.focus ? "selected" : "clear"}</span>
+      <span data-testid="document-mobile-preview">
+        {props.mobilePreview ? "mobile" : "desktop"}
+      </span>
       <span data-testid="document-proposal">{props.proposal ? "proposal" : "none"}</span>
       <button
         type="button"
@@ -161,11 +166,13 @@ vi.mock("./ArtifactWorkbenchPanelLayout", () => ({
       {props.sources}
     </div>
   ),
+  useIsMobileArtifactLayout: () => testState.isMobileArtifactPreview,
 }));
 
 vi.mock("./WorkbenchPanelLayout", () => ({
   WorkbenchPanelLayout: (props: {
     chat: ReactNode;
+    mobileChatFocusRequest?: number;
     sources: ReactNode;
     studio: (controls: {
       collapse: () => void;
@@ -176,6 +183,7 @@ vi.mock("./WorkbenchPanelLayout", () => ({
     }) => ReactNode;
   }) => (
     <div>
+      <span data-testid="mobile-chat-focus-request">{props.mobileChatFocusRequest ?? 0}</span>
       {props.studio({
         collapse: vi.fn(),
         collapsed: false,
@@ -196,6 +204,7 @@ beforeEach(() => {
   testState.emitProposal = null;
   testState.createUserMessage = null;
   testState.fetchArtifactDetail = null;
+  testState.isMobileArtifactPreview = false;
   testState.openArtifact = null;
   testState.push.mockReset();
   testState.replace.mockReset();
@@ -501,6 +510,7 @@ test("promotes selected ready detail into stale History immediately", async () =
   const revisionId = "00000000-0000-4000-8000-000000000020";
   const workspaceId = "00000000-0000-4000-8000-000000000003";
   testState.searchParams = `artifact=${artifactId}`;
+  testState.isMobileArtifactPreview = true;
   const artifact = {
     createdAt: "2026-07-19T10:00:00.000Z",
     currentRevision: {
@@ -567,8 +577,10 @@ test("promotes selected ready detail into stale History immediately", async () =
     />,
   );
 
+  expect(screen.getByTestId("document-mobile-preview")).toHaveTextContent("mobile");
   fireEvent.click(screen.getByRole("button", { name: "Back to studio" }));
   expect(await screen.findByTestId(`history-${artifactId}`)).not.toHaveClass("animate-spin");
+  expect(screen.getByTestId("mobile-chat-focus-request")).toHaveTextContent("1");
 });
 
 test("adds an agent-created document to spinning History without opening it", async () => {

@@ -1205,6 +1205,7 @@ export function WorkbenchView({
                       onDetailUpdated={updateArtifactDetail}
                       onBack={() => {
                         pendingCreationSourceUserMessageId.current = null;
+                        setMobileChatFocusRequest((current) => current + 1);
                         startWorkbenchViewTransition(() => {
                           dispatchArtifactSelection({ type: "openStudio" });
                         });
