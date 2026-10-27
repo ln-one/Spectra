@@ -988,6 +988,45 @@ test("keeps a mobile creation tool in chat and sends it with the existing artifa
   expect(testState.replace).not.toHaveBeenCalled();
 });
 
+test("opens a mobile creation card in the chat-first creation flow", () => {
+  Object.defineProperty(window, "matchMedia", {
+    configurable: true,
+    value: vi.fn((query: string) => ({ matches: query === "(max-width: 1023px)" })),
+  });
+  renderWithIntl(
+    <WorkbenchView
+      fixture={workbenchVisualFixture}
+      initialArtifact={null}
+      initialArtifactHistory={[]}
+      accountMenu={null}
+      conversationId="00000000-0000-4000-8000-000000000001"
+      conversations={[]}
+      deleteThreadAction={async () => null}
+      mobileCreationTools
+      newConversationId="00000000-0000-4000-8000-000000000002"
+      onThreadTitle={vi.fn()}
+      renameThreadAction={async () => null}
+      settingsAction={async () => null}
+      settingsControl={null}
+      sourcesPanel={<div data-testid="sources-panel" />}
+      workspaceHref="/developer/course-notes"
+      workspaceId="00000000-0000-4000-8000-000000000003"
+      workspaceSlug="course-notes"
+    />,
+  );
+
+  fireEvent.click(screen.getByRole("button", { name: /智能课件/ }));
+
+  expect(testState.replace).toHaveBeenCalledWith(
+    "/developer/course-notes?conversation=00000000-0000-4000-8000-000000000001",
+    { scroll: false },
+  );
+  expect(screen.getByTestId("mobile-chat-focus-request")).toHaveTextContent("1");
+  expect(screen.getByTestId("chat-panel")).toHaveAttribute("data-mobile-tool", "smart-slides");
+  expect(screen.getByTestId("chat-panel")).toHaveAttribute("data-surface-type", "artifact_start");
+  expect(screen.getByTestId("chat-panel")).toHaveAttribute("data-surface-kind", "presentation");
+});
+
 test("does not mistake a remounted historical map card for the newly requested map", async () => {
   const oldArtifactId = "00000000-0000-4000-8000-000000000801";
   const newArtifactId = "00000000-0000-4000-8000-000000000802";

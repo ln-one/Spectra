@@ -1021,14 +1021,8 @@ export function WorkbenchView({
     );
   };
   const handleOpenCreationTool = (toolId: Parameters<typeof artifactSelectionForTool>[0]) => {
-    const selection = artifactSelectionForTool(toolId);
-    if (!selection) return;
-    pendingCreationSourceUserMessageId.current = null;
-    setMobileCreationTool(null);
-    startWorkbenchViewTransition(() =>
-      dispatchArtifactSelection({ toolId: selection.toolId, type: "start" }),
-    );
     router.replace(conversationHref, { scroll: false });
+    handleSelectTool(toolId);
   };
   const chat = (
     <ChatPanelView
