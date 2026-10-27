@@ -709,6 +709,28 @@ test("downloads a ready export without navigating away from the workspace", asyn
   await waitFor(() => expect(navigateToDocumentExport).toHaveBeenCalledWith(downloadUrl));
 });
 
+test("keeps export available but hides desktop editing controls in the phone preview", () => {
+  renderWithIntl(
+    <TeachingDocumentWorkspaceView
+      artifact={readyArtifact}
+      conversationId="00000000-0000-4000-8000-000000000001"
+      draft={null}
+      failureCode={null}
+      mobilePreview
+      onArtifactUpdated={vi.fn()}
+      onBack={vi.fn()}
+      onSuggestion={vi.fn()}
+      pendingTitle={null}
+      phase="ready"
+      workspaceId="00000000-0000-4000-8000-000000000002"
+    />,
+  );
+
+  expect(screen.getByRole("button", { name: "返回对话" })).toBeVisible();
+  expect(screen.getByRole("button", { name: "导出" })).toBeVisible();
+  expect(screen.queryByRole("button", { name: "编辑" })).not.toBeInTheDocument();
+});
+
 test("aborts export polling when the document workspace unmounts", async () => {
   vi.useFakeTimers();
   const fetchMock = vi

@@ -143,6 +143,28 @@ function blankView(onSuggestion = vi.fn()) {
   );
 }
 
+test("keeps a Mind Map read-only while using the phone preview", () => {
+  renderWithIntl(
+    <MindMapWorkspaceView
+      artifact={artifact(firstRevisionId, 1)}
+      conversationId="00000000-0000-4000-8000-000000000005"
+      draft={null}
+      failureCode={null}
+      mobilePreview
+      onArtifactUpdated={vi.fn()}
+      onBack={vi.fn()}
+      onSuggestion={vi.fn()}
+      pendingTitle={null}
+      phase="idle"
+      workspaceId={workspaceId}
+    />,
+  );
+
+  expect(screen.getByTestId("mind-map-workspace")).toBeVisible();
+  expect(screen.getByRole("button", { name: "返回对话" })).toBeVisible();
+  expect(screen.queryByRole("button", { name: "编辑" })).not.toBeInTheDocument();
+});
+
 test("loads Mind Map suggestions dynamically through the shared Artifact endpoint", async () => {
   const suggestions = Array.from({ length: 4 }, (_, index) => ({
     prompt: `Mind map prompt ${index}`,
