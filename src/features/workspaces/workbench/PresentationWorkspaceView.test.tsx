@@ -218,6 +218,25 @@ test("keeps a ready Presentation in the Workbench with a full-screen edit action
   );
 });
 
+test("uses a read-only phone preview for a ready Presentation", () => {
+  renderWithIntl(
+    <PresentationWorkspaceView
+      conversationId={conversationId}
+      detail={readyDetail}
+      mobilePreview
+      onBack={vi.fn()}
+      onDetailUpdated={vi.fn()}
+      onSuggestion={vi.fn()}
+      phase="ready"
+      workspaceId={workspaceId}
+    />,
+  );
+
+  expect(screen.getByTestId("presentation-editor-frame")).toBeVisible();
+  expect(screen.getByRole("button", { name: "返回对话" })).toBeVisible();
+  expect(screen.queryByRole("link", { name: /全屏/ })).not.toBeInTheDocument();
+});
+
 test("previews a presentation candidate and exposes original/candidate toggles", async () => {
   const proposal: PresentationEditProposal = {
     artifactId,

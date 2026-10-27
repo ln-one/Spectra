@@ -111,6 +111,25 @@ test("plays the authorized MP4 without exposing authoring or composition details
   expect(screen.queryByText(/Main · 1920×1080 · 30 fps/)).not.toBeInTheDocument();
 });
 
+test("keeps playback and download available in the phone preview", () => {
+  renderWithIntl(
+    <AnimationWorkspaceView
+      conversationId={conversationId}
+      detail={readyDetail}
+      mobilePreview
+      onBack={vi.fn()}
+      onDetailUpdated={vi.fn()}
+      onSuggestion={vi.fn()}
+      phase="ready"
+      workspaceId={workspaceId}
+    />,
+  );
+
+  expect(document.querySelector("mux-player")).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "下载 MP4" })).toBeVisible();
+  expect(screen.getByRole("button", { name: "返回对话" })).toBeVisible();
+});
+
 test("shows the monotonic public stage while authoring runs", () => {
   renderWithIntl(
     view(
