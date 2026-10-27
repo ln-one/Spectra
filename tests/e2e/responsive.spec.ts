@@ -316,6 +316,38 @@ test("uses drawer and contextual Workbench actions on a phone", async ({ page })
   await expectMinimumTargetSize(page);
 });
 
+test("opens completed document and mind-map cards in phone previews and returns to chat", async ({
+  page,
+}) => {
+  const fixture = JSON.parse(await readFile(e2eWorkspacePath, "utf8")) as {
+    artifactId: string;
+    conversationId: string;
+    mindMapArtifactId: string;
+    url: string;
+  };
+  await page.setViewportSize({ width: 375, height: 812 });
+
+  await gotoWithRetry(page, `${fixture.url}&artifact=${fixture.artifactId}`);
+  await expect(page.getByTestId("teaching-document-workspace")).toBeVisible();
+  await expect(
+    page
+      .getByTestId("teaching-document-workspace")
+      .getByRole("heading", { level: 1, name: "Persistent teaching document" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "返回对话" }).click();
+  await expect(page).toHaveURL(new RegExp(`conversation=${fixture.conversationId}$`));
+  await expect(page.getByTestId("chat-panel")).toBeVisible();
+  await expectNoHorizontalOverflow(page);
+
+  await gotoWithRetry(page, `${fixture.url}&artifact=${fixture.mindMapArtifactId}`);
+  await expect(page.getByTestId("mind-map-workspace")).toBeVisible();
+  await expect(page.getByText("Persistent mind map", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "返回对话" }).click();
+  await expect(page).toHaveURL(new RegExp(`conversation=${fixture.conversationId}$`));
+  await expect(page.getByTestId("chat-panel")).toBeVisible();
+  await expectNoHorizontalOverflow(page);
+});
+
 test("keeps the focused Workbench flow usable on a tablet", async ({ page }) => {
   const fixture = JSON.parse(await readFile(e2eWorkspacePath, "utf8")) as { url: string };
   await page.setViewportSize({ width: 768, height: 1024 });
